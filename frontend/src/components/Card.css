@@ -1,0 +1,71 @@
+.card {
+  background: var(--gradient-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-gold);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-light);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(15, 122, 78, 0.05);
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+/* Card variants */
+.card-premium {
+  border: 1px solid var(--gold-dark);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, var(--card-bg) 100%);
+}
+
+.card-premium::before {
+  opacity: 1;
+}
+
+.card-success {
+  border-color: var(--success-color);
+}
+
+.card-danger {
+  border-color: var(--danger-color);
+}
+
+.card-warning {
+  border-color: var(--warning-color);
+}
+
+.card-info {
+  border-color: var(--info-color);
+}

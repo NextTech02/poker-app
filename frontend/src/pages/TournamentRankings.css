@@ -1,0 +1,117 @@
+.rankings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #1a2332;
+}
+
+.rankings-table thead {
+  background-color: #2a3f5f;
+}
+
+.rankings-table th {
+  padding: 15px;
+  text-align: left;
+  font-weight: 600;
+  color: #e1e8ed;
+  border-bottom: 2px solid #3d5a80;
+}
+
+.rankings-table tbody tr {
+  border-bottom: 1px solid #2a3f5f;
+  transition: background-color 0.2s;
+}
+
+.rankings-table tbody tr:hover {
+  background-color: #243447;
+}
+
+.rankings-table tbody tr.position-1 {
+  background-color: #2d3a1f;
+}
+
+.rankings-table tbody tr.position-2 {
+  background-color: #2a2f3a;
+}
+
+.rankings-table tbody tr.position-3 {
+  background-color: #3a2a1f;
+}
+
+.rankings-table td {
+  padding: 15px;
+  color: #c9d1d9;
+}
+
+.position-cell {
+  font-size: 1.5rem;
+  text-align: center;
+  font-weight: bold;
+}
+
+.position-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.player-name {
+  font-weight: 600;
+  color: #e1e8ed;
+}
+
+.player-nickname {
+  font-size: 0.85rem;
+  color: #8b949e;
+  margin-top: 2px;
+}
+
+.prize-cell {
+  font-weight: 600;
+  color: #4ade80;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.badge-winner {
+  background-color: #ffd700;
+  color: #1a2332;
+}
+
+.badge-eliminated {
+  background-color: #dc3545;
+  color: white;
+}
+
+.badge-active {
+  background-color: #28a745;
+  color: white;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #8b949e;
+}
+
+.empty-state p {
+  margin: 10px 0;
+  font-size: 1rem;
+}
+
+.empty-state p:first-child {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #c9d1d9;
+}

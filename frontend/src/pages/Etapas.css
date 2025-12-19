@@ -1,0 +1,159 @@
+.stages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.stage-card {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stage-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.stage-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--text-primary);
+}
+
+.stage-info {
+  flex: 1;
+  margin-bottom: 1rem;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.info-icon {
+  font-size: 1.2rem;
+}
+
+.stage-description {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: rgba(46, 204, 113, 0.05);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.stage-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.action-btn {
+  flex: 1;
+}
+
+.btn-icon {
+  padding: 0.625rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  transition: all 0.2s ease;
+  text-align: center;
+  min-width: 80px;
+}
+
+.btn-icon:hover {
+  background-color: var(--card-bg-hover);
+  border-color: var(--poker-green);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-icon.btn-delete {
+  color: #ffffff;
+}
+
+.btn-icon.btn-delete:hover {
+  background-color: rgba(169, 7, 7, 0.2);
+  border-color: var(--danger-color);
+  color: #ffffff;
+}
+
+/* Badge styles */
+.badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-info {
+  background-color: rgba(52, 152, 219, 0.2);
+  color: #3498db;
+}
+
+.badge-success {
+  background-color: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+}
+
+.badge-secondary {
+  background-color: rgba(149, 165, 166, 0.2);
+  color: #95a5a6;
+}
+
+.badge-danger {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+/* Form row for side-by-side inputs */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stages-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stage-actions {
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    width: 100%;
+    flex: none;
+  }
+}

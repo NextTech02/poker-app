@@ -1,0 +1,27 @@
+.player-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.player-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+}
+
+.player-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.player-select option {
+  background-color: var(--secondary-bg);
+  color: var(--text-primary);
+}

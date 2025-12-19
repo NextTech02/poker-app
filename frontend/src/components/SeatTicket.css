@@ -1,0 +1,118 @@
+.seat-ticket {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+.ticket-preview {
+  background: linear-gradient(135deg, rgba(26, 35, 50, 0.6) 0%, rgba(20, 25, 34, 0.4) 100%);
+  border: 2px dashed var(--border-light);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.ticket-preview-header {
+  background: linear-gradient(135deg, rgba(15, 122, 78, 0.2) 0%, rgba(15, 122, 78, 0.05) 100%);
+  padding: 1rem;
+  border-bottom: 2px solid var(--poker-green);
+  text-align: center;
+}
+
+.ticket-preview-header h4 {
+  margin: 0;
+  color: var(--text-gold);
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ticket-preview-body {
+  padding: 1.5rem;
+}
+
+.ticket-preview-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(42, 52, 65, 0.3);
+}
+
+.ticket-preview-row:last-child {
+  border-bottom: none;
+}
+
+.ticket-preview-row .label {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ticket-preview-row .value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.ticket-preview-highlight {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+  border: 2px solid var(--gold-accent);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.table-seat-display {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-gold);
+  text-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+  letter-spacing: 1px;
+}
+
+.btn-print-ticket {
+  width: 100%;
+  padding: 0.875rem;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-print-ticket:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, #139b5f 0%, #0f7a4e 100%);
+}
+
+.btn-print-ticket:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 768px) {
+  .seat-ticket {
+    padding: 1rem;
+  }
+
+  .ticket-preview-body {
+    padding: 1rem;
+  }
+
+  .table-seat-display {
+    font-size: 1.5rem;
+  }
+}

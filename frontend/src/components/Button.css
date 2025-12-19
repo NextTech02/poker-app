@@ -1,0 +1,160 @@
+.btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  letter-spacing: 0.25px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease, height 0.6s ease;
+}
+
+.btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn:disabled::before {
+  display: none;
+}
+
+/* Primary Button - Poker Green */
+.btn-primary {
+  background: var(--gradient-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--poker-green-light);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--poker-green-light);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Secondary Button */
+.btn-secondary {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--card-bg-hover);
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-md);
+}
+
+/* Danger Button */
+.btn-danger {
+  background-color: var(--danger-color);
+  color: var(--text-primary);
+  border: 1px solid rgba(169, 7, 7, 0.5);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #c90808;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Warning Button */
+.btn-warning {
+  background-color: var(--warning-color);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 105, 0, 0.5);
+}
+
+.btn-warning:hover:not(:disabled) {
+  background-color: #ff7a1a;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Info Button */
+.btn-info {
+  background-color: var(--info-color);
+  color: var(--text-primary);
+  border: 1px solid rgba(6, 147, 227, 0.5);
+}
+
+.btn-info:hover:not(:disabled) {
+  background-color: #07a1f7;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Success Button */
+.btn-success {
+  background: var(--gradient-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--poker-green);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--poker-green-light);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Gold/Premium Button */
+.btn-gold {
+  background: var(--gradient-gold);
+  color: var(--gray-900);
+  border: 1px solid var(--gold-dark);
+  font-weight: 700;
+}
+
+.btn-gold:hover:not(:disabled) {
+  background: var(--gold-light);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Small button variant */
+.btn-sm,
+.action-btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* Large button variant */
+.btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.0625rem;
+}
+
+/* Full width button */
+.btn-block {
+  width: 100%;
+}

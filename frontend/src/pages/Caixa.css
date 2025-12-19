@@ -1,0 +1,77 @@
+.table-container {
+  overflow-x: auto;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.transactions-table thead {
+  background-color: var(--secondary-bg);
+}
+
+.transactions-table th {
+  padding: 1rem;
+  text-align: left;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.transactions-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.transactions-table tbody tr:hover {
+  background-color: var(--secondary-bg);
+}
+
+.transactions-table .amount {
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+.form-group select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+}
+
+.form-group select option {
+  background-color: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
+.player-nickname {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .transactions-table {
+    font-size: 0.85rem;
+  }
+
+  .transactions-table th,
+  .transactions-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}

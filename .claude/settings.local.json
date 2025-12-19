@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__postgres-torneio__query",
+      "Bash(curl:*)",
+      "Bash(uvicorn:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(python -c:*)",
+      "Bash(python -m uvicorn:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

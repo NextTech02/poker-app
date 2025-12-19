@@ -1,0 +1,422 @@
+/* Caixa Geral Page Styles */
+
+.stage-selector-card {
+  margin-bottom: 2rem;
+}
+
+.stage-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stage-selector label {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.stage-select-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #f8f9fa;
+  color: #2c3e50;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232c3e50' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 12px;
+  padding-right: 3rem;
+}
+
+.stage-select-input:hover {
+  border-color: #007bff;
+  background: white;
+}
+
+.stage-select-input:focus {
+  outline: none;
+  border-color: #007bff;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.stage-select-input option {
+  padding: 0.75rem;
+  background: white;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.stage-select-input option:first-child {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Stat Cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  background: transparent;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  min-height: 140px;
+}
+
+.stat-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.stat-header {
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.stat-header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-subtitle {
+  display: none;
+}
+
+.stat-amount {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.stat-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.stat-detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.stat-detail-item span:first-child {
+  color: var(--text-secondary);
+}
+
+.stat-detail-item span:last-child {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stat-info-text {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.stat-info-text p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Card-specific styling */
+.stage-cash-card .stat-amount {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.general-cash-card .stat-amount {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.rake-card .stat-amount {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.rake-amount {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.net-amount {
+  color: #28a745 !important;
+}
+
+/* Sangria Button */
+.sangria-button {
+  width: 100%;
+  margin-top: 0.5rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sangria-button:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.sangria-button:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Sangria Table */
+.table-container {
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.sangria-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0;
+  background: white;
+}
+
+.sangria-table thead th {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem 1.25rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+}
+
+.sangria-table tbody td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e9ecef;
+  color: #495057;
+  font-size: 0.95rem;
+}
+
+.sangria-table tbody tr {
+  transition: background 0.2s;
+}
+
+.sangria-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.sangria-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sangria-table .amount {
+  font-weight: 700;
+  text-align: right;
+  font-family: 'Courier New', monospace;
+}
+
+/* Sangria Modal */
+.sangria-modal {
+  min-width: 500px;
+  max-width: 600px;
+}
+
+.sangria-info {
+  background: var(--background-color);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+.info-item span {
+  color: var(--text-secondary);
+}
+
+.info-item strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.sangria-calculation {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-top: 1.5rem;
+  border: 2px dashed var(--border-color);
+}
+
+.sangria-calculation h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.calculation-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  font-size: 1rem;
+}
+
+.calculation-item span {
+  color: var(--text-secondary);
+}
+
+.calculation-item strong {
+  font-weight: 700;
+}
+
+.calculation-item.rake strong {
+  color: #ffc107;
+}
+
+.calculation-item.total {
+  border-top: 2px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.calculation-item.total strong {
+  color: #28a745;
+  font-size: 1.25rem;
+}
+
+/* Form Styling */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #95a5a6;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #dee2e6;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.empty-state::before {
+  content: '📭';
+  display: block;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-state-simple {
+  text-align: center;
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin: auto 0;
+}
+
+.empty-state-simple p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Loading */
+.loading {
+  text-align: center;
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+  margin: auto 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stage-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sangria-modal {
+    min-width: auto;
+    width: 90vw;
+  }
+
+  .sangria-table {
+    font-size: 0.875rem;
+  }
+
+  .sangria-table thead th,
+  .sangria-table tbody td {
+    padding: 0.5rem;
+  }
+}
