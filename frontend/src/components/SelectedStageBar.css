@@ -1,0 +1,115 @@
+.selected-stage-bar {
+  position: fixed;
+  top: 0;
+  left: 250px;
+  right: 0;
+  background: linear-gradient(135deg, rgba(218, 165, 32, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%);
+  border-bottom: 2px solid var(--gold-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 99;
+  padding: 0.75rem 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.selected-stage-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.stage-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stage-icon {
+  font-size: 1.25rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.stage-details {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stage-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stage-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #000;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+.stage-location,
+.stage-dates {
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.7);
+  font-weight: 500;
+}
+
+.clear-stage-btn {
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.clear-stage-btn:hover {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.clear-stage-btn:active {
+  transform: translateY(0);
+}
+
+/* Note: Main content padding will be handled by adding a wrapper class when stage is selected */
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .selected-stage-bar {
+    left: 0;
+    padding: 0.625rem 1rem;
+  }
+
+  .selected-stage-content {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .stage-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .stage-name {
+    font-size: 1rem;
+  }
+
+  .clear-stage-btn {
+    width: 100%;
+    text-align: center;
+  }
+}

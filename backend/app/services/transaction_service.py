@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from app.database import supabase
 from app.models.transaction import TransactionCreate, Transaction, TransactionDetail
 
@@ -33,14 +33,24 @@ class TransactionService:
         )
 
     @staticmethod
-    def get_transactions() -> List[TransactionDetail]:
-        """Get all transactions with details"""
-        response = (
-            supabase.table("transactions")
-            .select("*, tournaments(name), players(name, nickname)")
-            .order("created_at", desc=True)
-            .execute()
-        )
+    def get_transactions(stage_id: Optional[str] = None) -> List[TransactionDetail]:
+        """Get all transactions with details, optionally filtered by stage_id"""
+        if stage_id:
+            # Filter transactions by tournaments that belong to the stage
+            response = (
+                supabase.table("transactions")
+                .select("*, tournaments!inner(name, stage_id), players(name, nickname)")
+                .eq("tournaments.stage_id", stage_id)
+                .order("created_at", desc=True)
+                .execute()
+            )
+        else:
+            response = (
+                supabase.table("transactions")
+                .select("*, tournaments(name), players(name, nickname)")
+                .order("created_at", desc=True)
+                .execute()
+            )
 
         transactions = []
         for item in response.data:

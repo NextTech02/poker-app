@@ -7,26 +7,19 @@ from app.models.tournament import TournamentCreate, TournamentUpdate, Tournament
 class TournamentService:
     @staticmethod
     def create_tournament(tournament_data: TournamentCreate, user_id: str) -> Tournament:
-        """Create a new tournament"""
+        """Create a new tournament - simplified to just name and stage"""
         data = {
             **tournament_data.model_dump(),
-            "status": "pending",
             "created_by": user_id,
-            "registered_players": 0,
-            "prize_pool": 0,
         }
 
         response = supabase.table("tournaments").insert(data).execute()
         return Tournament(**response.data[0])
 
     @staticmethod
-    def get_tournaments(status: Optional[str] = None, stage_id: Optional[str] = None) -> List[Tournament]:
-        """Get all tournaments, optionally filtered by status or stage_id"""
+    def get_tournaments(stage_id: Optional[str] = None) -> List[Tournament]:
+        """Get all tournaments, optionally filtered by stage_id"""
         query = supabase.table("tournaments").select("*")
-
-        if status:
-            statuses = status.split(',')
-            query = query.in_("status", statuses)
 
         if stage_id:
             query = query.eq("stage_id", stage_id)
@@ -44,24 +37,54 @@ class TournamentService:
         return None
 
     @staticmethod
-    def get_tournament_summary(tournament_id: Optional[str] = None) -> List[TournamentSummary]:
-        """Get tournament summaries from view"""
-        query = supabase.table("tournament_summary").select("*")
+    def get_tournament_summary(tournament_id: Optional[str] = None, stage_id: Optional[str] = None) -> List[TournamentSummary]:
+        """Get tournament summaries with aggregated data from all tournament days"""
+        query = supabase.table("tournaments").select("*")
 
         if tournament_id:
             query = query.eq("id", tournament_id)
 
+        if stage_id:
+            query = query.eq("stage_id", stage_id)
+
         response = query.order("created_at", desc=True).execute()
-        return [TournamentSummary(**item) for item in response.data]
+
+        summaries = []
+        for item in response.data:
+            # Get all days for this tournament
+            days_response = supabase.table("tournament_days")\
+                .select("id, total_entries")\
+                .eq("tournament_id", item["id"])\
+                .execute()
+
+            # Calculate aggregated total_entries from all days
+            total_entries = 0
+            total_days = 0
+            if days_response.data:
+                total_days = len(days_response.data)
+                for day in days_response.data:
+                    # Get total entries from players for this day
+                    players_response = supabase.table("tournament_players")\
+                        .select("buy_in_count, rebuy_count")\
+                        .eq("tournament_day_id", day["id"])\
+                        .execute()
+
+                    if players_response.data:
+                        for player in players_response.data:
+                            buy_ins = player.get("buy_in_count", 0) or 0
+                            rebuys = player.get("rebuy_count", 0) or 0
+                            total_entries += buy_ins + rebuys
+
+            item["total_entries"] = total_entries
+            item["total_days"] = total_days
+            summaries.append(TournamentSummary(**item))
+
+        return summaries
 
     @staticmethod
     def update_tournament(tournament_id: str, tournament_data: TournamentUpdate) -> Optional[Tournament]:
-        """Update a tournament"""
+        """Update a tournament (name and/or stage_id)"""
         data = tournament_data.model_dump(exclude_unset=True)
-
-        # If status is being changed to 'active', set start_time
-        if 'status' in data and data['status'] == 'active':
-            data['start_time'] = datetime.utcnow().isoformat()
 
         response = (
             supabase.table("tournaments")

@@ -1,19 +1,21 @@
 .btn {
   padding: 0.75rem 1.5rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-base);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  letter-spacing: 0.25px;
+  gap: var(--spacing-sm);
+  letter-spacing: 0.025em;
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .btn::before {
@@ -24,9 +26,10 @@
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--gradient-shine);
   transform: translate(-50%, -50%);
-  transition: width 0.6s ease, height 0.6s ease;
+  transition: width 0.5s ease, height 0.5s ease;
+  pointer-events: none;
 }
 
 .btn:hover::before {
@@ -34,122 +37,145 @@
   height: 300px;
 }
 
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-xs);
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+  pointer-events: none;
 }
 
 .btn:disabled::before {
   display: none;
 }
 
-/* Primary Button - Poker Green */
+/* Primary Button - Professional Poker Green */
 .btn-primary {
   background: var(--gradient-primary);
   color: var(--text-primary);
-  border: 1px solid var(--poker-green-light);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--poker-green-600);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--poker-green-light);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  background: var(--gradient-primary-hover);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--poker-green-500);
+  transform: translateY(-2px);
 }
 
 .btn-primary:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs), 0 0 0 1px var(--poker-green-700);
 }
 
-/* Secondary Button */
+/* Secondary Button - Subtle & Professional */
 .btn-secondary {
-  background-color: var(--card-bg);
+  background-color: var(--surface-elevated);
   color: var(--text-primary);
   border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-xs);
 }
 
 .btn-secondary:hover:not(:disabled) {
   background-color: var(--card-bg-hover);
-  border-color: var(--border-light);
-  box-shadow: var(--shadow-md);
+  border-color: var(--border-lighter);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
-/* Danger Button */
+/* Danger Button - Refined Error State */
 .btn-danger {
-  background-color: var(--danger-color);
+  background: linear-gradient(135deg, var(--danger-500) 0%, var(--danger-700) 100%);
   color: var(--text-primary);
-  border: 1px solid rgba(169, 7, 7, 0.5);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--danger-600);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #c90808;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, var(--danger-400) 0%, var(--danger-600) 100%);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--danger-500);
+  transform: translateY(-2px);
 }
 
-/* Warning Button */
+/* Warning Button - Attention-Grabbing */
 .btn-warning {
-  background-color: var(--warning-color);
+  background: linear-gradient(135deg, var(--warning-500) 0%, var(--warning-700) 100%);
   color: var(--text-primary);
-  border: 1px solid rgba(255, 105, 0, 0.5);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--warning-600);
 }
 
 .btn-warning:hover:not(:disabled) {
-  background-color: #ff7a1a;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, var(--warning-400) 0%, var(--warning-600) 100%);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--warning-500);
+  transform: translateY(-2px);
 }
 
-/* Info Button */
+/* Info Button - Clear Communication */
 .btn-info {
-  background-color: var(--info-color);
+  background: linear-gradient(135deg, var(--info-500) 0%, var(--info-700) 100%);
   color: var(--text-primary);
-  border: 1px solid rgba(6, 147, 227, 0.5);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--info-600);
 }
 
 .btn-info:hover:not(:disabled) {
-  background-color: #07a1f7;
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, var(--info-400) 0%, var(--info-600) 100%);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--info-500);
+  transform: translateY(-2px);
 }
 
-/* Success Button */
+/* Success Button - Positive Action */
 .btn-success {
   background: var(--gradient-primary);
   color: var(--text-primary);
-  border: 1px solid var(--poker-green);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-sm), 0 0 0 1px var(--success-700);
 }
 
 .btn-success:hover:not(:disabled) {
-  background: var(--poker-green-light);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  background: var(--gradient-primary-hover);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--success-500);
+  transform: translateY(-2px);
 }
 
-/* Gold/Premium Button */
+/* Gold/Premium Button - VIP Treatment */
 .btn-gold {
   background: var(--gradient-gold);
   color: var(--gray-900);
-  border: 1px solid var(--gold-dark);
-  font-weight: 700;
+  border: 1px solid transparent;
+  font-weight: var(--font-weight-bold);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--gold-600);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .btn-gold:hover:not(:disabled) {
-  background: var(--gold-light);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
-  transform: translateY(-1px);
+  background: var(--gradient-gold-hover);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--gold-500), 0 0 20px rgba(220, 176, 72, 0.4);
+  transform: translateY(-2px);
 }
 
 /* Small button variant */
 .btn-sm,
+.btn-small,
 .action-btn-small {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
 }
 
+/* Medium button variant (default) */
+.btn-medium {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+}
+
 /* Large button variant */
-.btn-lg {
+.btn-lg,
+.btn-large {
   padding: 1rem 2rem;
   font-size: 1.0625rem;
 }

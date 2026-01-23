@@ -240,6 +240,198 @@
   font-size: 1.1rem;
 }
 
+/* Days List Section */
+.days-list-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.section-title {
+  font-size: var(--font-size-xl);
+  color: var(--text-gold);
+  margin: 0 0 1.5rem 0;
+  font-weight: var(--font-weight-semibold);
+  border-bottom: 2px solid var(--border-primary);
+  padding-bottom: 0.75rem;
+}
+
+/* Days List */
+.days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.day-card {
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.day-card:hover {
+  background: var(--card-bg-hover);
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.day-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.day-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.day-card-title h3 {
+  color: var(--text-gold);
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.day-number-badge {
+  background: var(--success-bg);
+  color: var(--success-color);
+  border: 1px solid var(--success-500);
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.day-card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.day-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+}
+
+.day-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.day-info-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.day-info-value {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.day-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all var(--transition-base);
+}
+
+.day-status-badge.pending {
+  background: var(--warning-bg);
+  color: var(--warning-color);
+  border: 1px solid var(--warning-500);
+}
+
+.day-status-badge.active {
+  background: var(--success-bg);
+  color: var(--success-color);
+  border: 1px solid var(--success-500);
+}
+
+.day-status-badge.completed {
+  background: var(--info-bg);
+  color: var(--info-color);
+  border: 1px solid var(--info-500);
+}
+
+.day-status-badge.cancelled {
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border: 1px solid var(--danger-500);
+}
+
+/* Empty Days State */
+.empty-days {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.empty-days-icon {
+  font-size: 3.5rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+  opacity: 0.5;
+}
+
+.empty-days h3 {
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+}
+
+.empty-days p {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 0.9375rem;
+}
+
+/* Form Sections */
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.form-section-title {
+  color: var(--text-gold);
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.75px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .header-actions {

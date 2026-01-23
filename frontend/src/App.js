@@ -1,15 +1,19 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { StageProvider } from './contexts/StageContext';
+import SelectedStageBar from './components/SelectedStageBar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
 import Torneios from './pages/Torneios';
 import TournamentBroadcast from './pages/TournamentBroadcast';
+import TournamentDetail from './pages/TournamentDetail';
 import EliminacaoJogadores from './pages/EliminacaoJogadores';
 import ManualAllocation from './pages/ManualAllocation';
 import TournamentRankings from './pages/TournamentRankings';
 import BlindManagement from './pages/BlindManagement';
+import Premiacao from './pages/Premiacao';
 import Players from './pages/Players';
 import Caixa from './pages/Caixa';
 import CaixaGeral from './pages/CaixaGeral';
@@ -27,9 +31,12 @@ const PrivateRoute = ({ children }) => {
 };
 
 function AppRoutes() {
+  const { user } = useAuth();
+
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <>
+      <Routes>
+        <Route path="/login" element={<Login />} />
       <Route
         path="/"
         element={
@@ -51,6 +58,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Torneios />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/torneios/:id"
+        element={
+          <PrivateRoute>
+            <TournamentDetail />
           </PrivateRoute>
         }
       />
@@ -111,7 +126,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/blinds/:tournamentId"
+        path="/blinds/:dayId"
         element={
           <PrivateRoute>
             <BlindManagement />
@@ -122,7 +137,80 @@ function AppRoutes() {
         path="/broadcast/:id"
         element={<TournamentBroadcast />}
       />
+      <Route
+        path="/periodos"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/premiacao/:tournamentId"
+        element={
+          <PrivateRoute>
+            <Premiacao />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/sit-and-go"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/vagas"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/rankings"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/financeiro"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/imprensa"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/templates"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/funcionarios"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
     </Routes>
+    </>
   );
 }
 
@@ -130,7 +218,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <StageProvider>
+          <AppRoutes />
+        </StageProvider>
       </AuthProvider>
     </Router>
   );

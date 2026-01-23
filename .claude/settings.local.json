@@ -6,7 +6,15 @@
       "Bash(uvicorn:*)",
       "Bash(python -m json.tool:*)",
       "Bash(python -c:*)",
-      "Bash(python -m uvicorn:*)"
+      "Bash(python -m uvicorn:*)",
+      "Bash(npm start)",
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npm exec:*)",
+      "mcp__filesystem__directory_tree",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_multiple_files",
+      "mcp__filesystem__write_file"
     ],
     "deny": [],
     "ask": []

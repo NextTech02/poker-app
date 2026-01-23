@@ -282,6 +282,300 @@
   flex: 1;
 }
 
+/* Large Modal for Broadcast Settings */
+.modal-large {
+  max-width: 800px;
+}
+
+/* Form Section */
+.form-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--border-color);
+}
+
+.section-title {
+  font-size: 1.125rem;
+  color: var(--text-gold);
+  margin: 0 0 1.25rem 0;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title::before {
+  content: '';
+  width: 4px;
+  height: 1.125rem;
+  background: var(--poker-green);
+  border-radius: 2px;
+}
+
+.section-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+/* Color Input */
+.color-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.color-input {
+  width: 50px;
+  height: 40px;
+  padding: 0;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.color-text-input {
+  flex: 1;
+  max-width: 120px;
+}
+
+/* Image Upload Styles */
+.image-upload-container {
+  margin-bottom: 0.75rem;
+}
+
+.image-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  border: 2px dashed var(--border-light);
+  border-radius: 12px;
+  background: var(--secondary-bg);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.image-upload-area:hover {
+  border-color: var(--poker-green);
+  background: rgba(15, 122, 78, 0.05);
+}
+
+.hidden-input {
+  display: none;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upload-icon {
+  font-size: 2.5rem;
+  font-weight: 300;
+  color: var(--text-tertiary);
+  line-height: 1;
+}
+
+.upload-text {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.upload-hint {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.image-preview-wrapper {
+  position: relative;
+  display: inline-block;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--poker-green);
+}
+
+.image-preview {
+  max-width: 100%;
+  max-height: 150px;
+  display: block;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--danger-color);
+  color: white;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.remove-image-btn:hover {
+  background: #d00000;
+  transform: scale(1.1);
+}
+
+.image-url-alternative {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.or-divider {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+/* Visibility Grid - Clean Professional Style */
+.visibility-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.625rem;
+}
+
+.visibility-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.875rem 0.5rem;
+  background: var(--secondary-bg);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.visibility-card input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.visibility-card:hover {
+  border-color: var(--border-light);
+  background: var(--card-bg);
+}
+
+.visibility-card.active {
+  border-color: var(--poker-green);
+  background: rgba(15, 122, 78, 0.12);
+}
+
+.visibility-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+}
+
+.visibility-card.active .visibility-label {
+  color: var(--poker-green-light);
+}
+
+.visibility-toggle {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.visibility-card.active .visibility-toggle {
+  background: var(--poker-green);
+  box-shadow: 0 0 4px var(--poker-green);
+}
+
+/* Font Size Slider */
+.font-size-slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.font-size-slider-wrapper .slider-label {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 32px;
+}
+
+.font-size-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  outline: none;
+  cursor: pointer;
+}
+
+.font-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--poker-green);
+  cursor: pointer;
+  border: 2px solid var(--poker-green-light);
+  box-shadow: 0 2px 6px rgba(15, 122, 78, 0.4);
+  transition: all 0.2s ease;
+}
+
+.font-size-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 10px rgba(15, 122, 78, 0.6);
+}
+
+.font-size-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--poker-green);
+  cursor: pointer;
+  border: 2px solid var(--poker-green-light);
+  box-shadow: 0 2px 6px rgba(15, 122, 78, 0.4);
+}
+
 /* Table Management Styles */
 .tables-management {
   background: rgba(26, 35, 50, 0.4);
@@ -431,6 +725,88 @@
   font-style: italic;
 }
 
+/* Tournaments Table Styles */
+.tournaments-table-container {
+  margin-top: 1.5rem;
+  background: var(--card-bg);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.tournaments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tournaments-table thead {
+  background: linear-gradient(135deg, var(--poker-green-dark) 0%, var(--secondary-bg) 100%);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tournaments-table th {
+  padding: 1.25rem 1.5rem;
+  text-align: left;
+  font-weight: 700;
+  color: var(--text-gold);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.tournaments-table th.text-center {
+  text-align: center;
+}
+
+.tournaments-table th.text-right {
+  text-align: right;
+}
+
+.tournaments-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.tournaments-table tbody tr:hover {
+  background-color: rgba(46, 204, 113, 0.08);
+  cursor: pointer;
+}
+
+.tournaments-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.tournaments-table td {
+  padding: 1.25rem 1.5rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.tournaments-table td.text-center {
+  text-align: center;
+}
+
+.tournaments-table td.text-right {
+  text-align: right;
+}
+
+.tournaments-table td strong {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text-gold);
+}
+
+/* Action Buttons in Table */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
@@ -478,5 +854,44 @@
 
   .table-number {
     min-width: auto;
+  }
+
+  .tournaments-table-container {
+    overflow-x: auto;
+  }
+
+  .tournaments-table {
+    min-width: 600px;
+  }
+
+  .tournaments-table th,
+  .tournaments-table td {
+    padding: 1rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .action-buttons button {
+    width: 100%;
+    min-width: auto;
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .visibility-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .visibility-card {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .visibility-label {
+    font-size: 0.7rem;
   }
 }

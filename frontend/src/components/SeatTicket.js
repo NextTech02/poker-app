@@ -98,7 +98,7 @@ const SeatTicket = ({ allocation, onPrint }) => {
         <body>
           <div class="ticket">
             <div class="ticket-header">
-              🎰 BILHETE DE ENTRADA 🎰
+              BILHETE DE ENTRADA
             </div>
 
             <div class="ticket-section">
@@ -129,7 +129,7 @@ const SeatTicket = ({ allocation, onPrint }) => {
             </div>
 
             <div class="ticket-footer">
-              Boa sorte! 🍀<br>
+              Boa sorte!<br>
               Mantenha este bilhete para identificação
             </div>
           </div>

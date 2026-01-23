@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { useStage } from '../contexts/StageContext';
 import api from '../config/api';
 import './Etapas.css';
 
 const Etapas = () => {
   const navigate = useNavigate();
+  const { selectedStage, selectStage } = useStage();
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -123,6 +125,14 @@ const Etapas = () => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
+  const handleSelectStage = (stage) => {
+    selectStage(stage);
+  };
+
+  const isStageSelected = (stageId) => {
+    return selectedStage?.id === stageId;
+  };
+
   return (
     <div className="app-container">
       <Sidebar />
@@ -147,60 +157,75 @@ const Etapas = () => {
             </div>
           </Card>
         ) : (
-          <div className="stages-grid">
-            {stages.map((stage) => (
-              <Card key={stage.id} className="stage-card">
-                <div className="stage-header">
-                  <h3>{stage.name}</h3>
-                  {getStatusBadge(stage.status)}
-                </div>
-                <div className="stage-info">
-                  <div className="info-row">
-                    <span className="info-icon"></span>
-                    <span>{stage.location}</span>
-                  </div>
-                  {stage.start_date && (
-                    <div className="info-row">
-                      <span className="info-icon"></span>
-                      <span>
-                        {formatDate(stage.start_date)}
-                        {stage.end_date && ` - ${formatDate(stage.end_date)}`}
-                      </span>
-                    </div>
-                  )}
-                  <div className="info-row">
-                    <span className="info-icon"></span>
-                    <span>{stage.tournament_count} torneio(s)</span>
-                  </div>
-                  {stage.description && (
-                    <p className="stage-description">{stage.description}</p>
-                  )}
-                </div>
-                <div className="stage-actions">
-                  <Button
-                    variant="secondary"
-                    className="action-btn"
-                    onClick={() => navigate(`/torneios?stage=${stage.id}`)}
+          <div className="stages-table-container">
+            <table className="stages-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Nome da Etapa</th>
+                  <th>Local</th>
+                  <th>Data Início</th>
+                  <th>Data Fim</th>
+                  <th>Torneios</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stages.map((stage) => (
+                  <tr
+                    key={stage.id}
+                    className={isStageSelected(stage.id) ? 'selected-row' : ''}
                   >
-                    Ver Torneios
-                  </Button>
-                  <button
-                    className="btn-icon"
-                    onClick={() => handleEdit(stage)}
-                    title="Editar"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    className="btn-icon btn-delete"
-                    onClick={() => handleDelete(stage.id)}
-                    title="Excluir"
-                  >
-                    Excluir
-                  </button>
-                </div>
-              </Card>
-            ))}
+                    <td>
+                      <div className="status-badges">
+                        {getStatusBadge(stage.status)}
+                        {isStageSelected(stage.id) && (
+                          <span className="badge badge-selected">Ativa</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <strong>{stage.name}</strong>
+                      {stage.description && (
+                        <div className="stage-description-inline">{stage.description}</div>
+                      )}
+                    </td>
+                    <td>{stage.location}</td>
+                    <td>{formatDate(stage.start_date)}</td>
+                    <td>{formatDate(stage.end_date)}</td>
+                    <td className="text-center">{stage.tournament_count || 0}</td>
+                    <td>
+                      <div className="table-actions">
+                        {!isStageSelected(stage.id) ? (
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() => handleSelectStage(stage)}
+                          >
+                            Selecionar
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="success"
+                            size="small"
+                            disabled
+                          >
+                            Ativa
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          size="small"
+                          onClick={() => handleEdit(stage)}
+                        >
+                          Editar
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -209,8 +234,8 @@ const Etapas = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{editingStage ? 'Editar Etapa' : 'Nova Etapa'}</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)}>
-                  ✕
+                <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
+                  <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleSubmit}>
@@ -293,12 +318,28 @@ const Etapas = () => {
                 </div>
 
                 <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingStage ? 'Atualizar' : 'Cadastrar'}
-                  </Button>
+                  <div className="modal-actions-left">
+                    {editingStage && (
+                      <Button
+                        type="button"
+                        variant="danger"
+                        onClick={() => {
+                          setShowModal(false);
+                          handleDelete(editingStage.id);
+                        }}
+                      >
+                        Excluir Etapa
+                      </Button>
+                    )}
+                  </div>
+                  <div className="modal-actions-right">
+                    <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">
+                      {editingStage ? 'Atualizar' : 'Cadastrar'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </div>

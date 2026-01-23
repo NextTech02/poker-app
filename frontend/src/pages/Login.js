@@ -31,7 +31,7 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>🎰 Torneios Poker</h1>
+          <h1>Torneios Poker</h1>
           <p>Sistema de Gerenciamento</p>
         </div>
 

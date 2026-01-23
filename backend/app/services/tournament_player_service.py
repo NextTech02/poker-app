@@ -11,42 +11,58 @@ from app.models.tournament_player import (
 class TournamentPlayerService:
     @staticmethod
     def register_player(registration_data: TournamentPlayerCreate, user_id: str) -> TournamentPlayerDetail:
-        """Register a player for a tournament"""
-        # Get tournament details
-        tournament = supabase.table("tournaments").select("name, buy_in, starting_chips, max_players, registered_players").eq("id", registration_data.tournament_id).execute()
+        """Register a player for a tournament day"""
+        # Get tournament details (only name, as other fields are in tournament_days)
+        tournament = supabase.table("tournaments").select("name").eq("id", registration_data.tournament_id).execute()
         if not tournament.data:
             raise ValueError("Tournament not found")
 
         tournament_info = tournament.data[0]
 
-        # VALIDATION: Check if tournament is full
-        current_players = tournament_info.get("registered_players", 0)
-        max_players = tournament_info.get("max_players")
+        # tournament_day_id is required for registration
+        if not registration_data.tournament_day_id:
+            raise ValueError("É necessário selecionar um dia do torneio para inscrição")
 
-        if current_players >= max_players:
-            raise ValueError(f"Tournament is full ({current_players}/{max_players} players)")
+        # Get day-specific settings
+        day = supabase.table("tournament_days").select("*").eq("id", registration_data.tournament_day_id).execute()
+        if not day.data:
+            raise ValueError("Tournament day not found")
+        day_info = day.data[0]
 
-        # VALIDATION: Check for duplicate registration
-        existing = supabase.table("tournament_players").select("id").eq("tournament_id", registration_data.tournament_id).eq("player_id", registration_data.player_id).execute()
+        # Use day-specific values
+        buy_in = float(day_info["buy_in"])
+        starting_chips = day_info["starting_chips"]
+        max_players = day_info["max_players"]
+        registered_players = day_info.get("registered_players", 0)
+
+        # Check if day is full
+        if max_players and registered_players >= max_players:
+            raise ValueError(f"Este dia do torneio está cheio ({registered_players}/{max_players} jogadores)")
+
+        # Check for duplicate registration in this day
+        existing = supabase.table("tournament_players").select("id").eq("tournament_day_id", registration_data.tournament_day_id).eq("player_id", registration_data.player_id).execute()
         if existing.data:
-            raise ValueError("Player is already registered for this tournament")
+            raise ValueError("Jogador já está registrado neste dia do torneio")
 
         # Calculate initial amounts
-        buy_in_amount = float(tournament_info["buy_in"]) * registration_data.buy_in_count
-        starting_chips = tournament_info["starting_chips"] * registration_data.buy_in_count
+        buy_in_amount = buy_in * registration_data.buy_in_count
+        total_chips = starting_chips * registration_data.buy_in_count
 
         # Create tournament player entry
         data = {
             "tournament_id": registration_data.tournament_id,
+            "tournament_day_id": registration_data.tournament_day_id,
             "player_id": registration_data.player_id,
             "buy_in_count": registration_data.buy_in_count,
             "total_buy_in_amount": buy_in_amount,
-            "total_chips": starting_chips,
+            "total_chips": total_chips,
             "notes": registration_data.notes,
         }
 
         response = supabase.table("tournament_players").insert(data).execute()
         tp = response.data[0]
+
+        # Note: registered_players count is updated automatically by database trigger
 
         # Create transaction record
         transaction_data = {
@@ -74,22 +90,22 @@ class TournamentPlayerService:
     @staticmethod
     def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None) -> TournamentPlayer:
         """Add a rebuy for a tournament player"""
-        # Get tournament player info
-        tp_response = supabase.table("tournament_players").select("*, tournaments(rebuy_amount, rebuy_chips, rebuy_level_limit, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
+        # Get tournament player info with tournament_day data
+        tp_response = supabase.table("tournament_players").select("*, tournament_days(rebuy_amount, rebuy_chips, rebuy_level_limit, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 
         tp = tp_response.data[0]
-        tournament = tp.get("tournaments", {})
-        rebuy_amount = float(tournament.get("rebuy_amount", 0))
-        rebuy_chips = tournament.get("rebuy_chips", 10000)
-        rebuy_level_limit = tournament.get("rebuy_level_limit")
+        day_info = tp.get("tournament_days", {}) or {}
+        rebuy_amount = float(day_info.get("rebuy_amount") or 0)
+        rebuy_chips = day_info.get("rebuy_chips") or 10000
+        rebuy_level_limit = day_info.get("rebuy_level_limit")
 
         # Calculate current blind level if not provided
         if current_blind_level is None and rebuy_level_limit is not None:
             from datetime import datetime
-            blind_duration = tournament.get("blind_duration", 15)
-            start_time_str = tournament.get("start_time") or tournament.get("updated_at") or tournament.get("created_at")
+            blind_duration = day_info.get("blind_duration") or 15
+            start_time_str = day_info.get("start_time") or day_info.get("updated_at") or day_info.get("created_at")
             if start_time_str:
                 start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
                 now = datetime.now(start_time.tzinfo)
@@ -128,15 +144,15 @@ class TournamentPlayerService:
     @staticmethod
     def add_addon(tournament_player_id: str, user_id: str) -> TournamentPlayer:
         """Add an add-on for a tournament player"""
-        # Get tournament player info
-        tp_response = supabase.table("tournament_players").select("*, tournaments(addon_amount, addon_chips)").eq("id", tournament_player_id).execute()
+        # Get tournament player info with tournament_day data
+        tp_response = supabase.table("tournament_players").select("*, tournament_days(addon_amount, addon_chips)").eq("id", tournament_player_id).execute()
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 
         tp = tp_response.data[0]
-        tournament = tp.get("tournaments", {})
-        addon_amount = float(tournament.get("addon_amount", 0))
-        addon_chips = tournament.get("addon_chips", 10000)
+        day_info = tp.get("tournament_days", {}) or {}
+        addon_amount = float(day_info.get("addon_amount") or 0)
+        addon_chips = day_info.get("addon_chips") or 10000
 
         # Update tournament player
         updated_data = {
@@ -167,6 +183,34 @@ class TournamentPlayerService:
             supabase.table("tournament_players")
             .select("*, players(name, nickname), tournaments(name)")
             .eq("tournament_id", tournament_id)
+            .order("registered_at")
+            .execute()
+        )
+
+        result = []
+        for item in response.data:
+            player = item.get("players", {})
+            tournament = item.get("tournaments", {})
+
+            # Remove nested objects
+            clean_item = {k: v for k, v in item.items() if k not in ["players", "tournaments"]}
+
+            result.append(TournamentPlayerDetail(
+                **clean_item,
+                player_name=player.get("name", ""),
+                player_nickname=player.get("nickname"),
+                tournament_name=tournament.get("name", "")
+            ))
+
+        return result
+
+    @staticmethod
+    def get_tournament_day_players(tournament_day_id: str) -> List[TournamentPlayerDetail]:
+        """Get all players in a tournament day with details"""
+        response = (
+            supabase.table("tournament_players")
+            .select("*, players(name, nickname), tournaments(name)")
+            .eq("tournament_day_id", tournament_day_id)
             .order("registered_at")
             .execute()
         )

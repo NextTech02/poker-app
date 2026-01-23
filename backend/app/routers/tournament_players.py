@@ -69,6 +69,12 @@ def get_tournament_players(
     return TournamentPlayerService.get_tournament_players(tournament_id)
 
 
+@router.get("/day/{day_id}", response_model=List[TournamentPlayerDetail])
+def get_tournament_day_players(day_id: str):
+    """Get all players in a specific tournament day (no auth required for broadcast)"""
+    return TournamentPlayerService.get_tournament_day_players(day_id)
+
+
 @router.patch("/{tournament_player_id}", response_model=TournamentPlayer)
 def update_tournament_player(
     tournament_player_id: str,

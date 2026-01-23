@@ -25,8 +25,9 @@ class TournamentPlayerBase(BaseModel):
 
 
 class TournamentPlayerCreate(BaseModel):
-    """Create a player entry in a tournament"""
+    """Create a player entry in a tournament day"""
     tournament_id: str
+    tournament_day_id: Optional[str] = None  # Required for day-based tournaments
     player_id: str
     buy_in_count: int = Field(default=1, ge=1)
     notes: Optional[str] = None
@@ -44,6 +45,7 @@ class TournamentPlayerUpdate(BaseModel):
 
 class TournamentPlayer(TournamentPlayerBase):
     id: str
+    tournament_day_id: Optional[str] = None
     total_spent: float
     final_position: Optional[int] = None
     prize_won: float = 0.0

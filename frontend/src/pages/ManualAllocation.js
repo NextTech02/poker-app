@@ -241,8 +241,9 @@ const ManualAllocation = () => {
               className="btn-remove-allocation"
               onClick={() => handleEliminatePlayer(allocation)}
               title="Eliminar jogador"
+              aria-label="Eliminar jogador"
             >
-              ✕
+              <span className="close-icon"></span>
             </button>
           </div>
         ) : (

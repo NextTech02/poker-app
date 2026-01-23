@@ -209,8 +209,8 @@ const Players = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{editingPlayer ? 'Editar Jogador' : 'Novo Jogador'}</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)}>
-                  ✕
+                <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
+                  <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleSubmit}>

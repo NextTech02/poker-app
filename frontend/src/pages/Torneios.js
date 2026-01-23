@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -8,39 +8,34 @@ import './Torneios.css';
 
 const Torneios = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const stageId = searchParams.get('stage');
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [stageName, setStageName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
-    buy_in: '',
-    rebuy_amount: '',
-    addon_amount: '',
-    max_players: '',
-    blind_duration: 15,
-    starting_chips: 10000,
-    rebuy_chips: 10000,
-    addon_chips: 10000,
-    rebuy_level_limit: '',
-    allocation_type: 'automatic',
-    rake_percentage: 0,
   });
-  const [tables, setTables] = useState([]);
-  const [newTableSeats, setNewTableSeats] = useState(9);
-  const [tableCount, setTableCount] = useState(1);
+  const [broadcastSettings, setBroadcastSettings] = useState({
+    broadcast_bg_color: '#0a0e13',
+    broadcast_bg_image_url: '',
+    broadcast_display_name: '',
+    broadcast_font_size: 100,
+    broadcast_show_logo: true,
+    broadcast_show_title: true,
+    broadcast_show_prizepool: true,
+    broadcast_show_level: true,
+    broadcast_show_players: true,
+    broadcast_show_interval: true,
+    broadcast_show_timer: true,
+    broadcast_show_blinds: true,
+    broadcast_show_ante: true,
+    broadcast_show_next_blind: true,
+    broadcast_show_prizes: true,
+  });
 
   useEffect(() => {
     loadTournaments();
-    if (stageId) {
-      loadStageName();
-    } else {
-      setStageName('');
-    }
 
     // Setup polling (every 5 seconds)
     const pollingInterval = setInterval(() => {
@@ -51,12 +46,12 @@ const Torneios = () => {
       clearInterval(pollingInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageId]);
+  }, []);
 
   const loadTournaments = async () => {
     try {
-      const url = stageId ? `/tournaments?stage_id=${stageId}` : '/tournaments';
-      const response = await api.get(url);
+      // Get tournament summaries with aggregated data from all days
+      const response = await api.get('/tournaments');
       setTournaments(response.data);
     } catch (error) {
       console.error('Erro ao carregar torneios:', error);
@@ -65,73 +60,18 @@ const Torneios = () => {
     }
   };
 
-  const loadStageName = async () => {
-    try {
-      const response = await api.get(`/stages/${stageId}`);
-      setStageName(response.data.name);
-    } catch (error) {
-      console.error('Erro ao carregar nome da etapa:', error);
-      setStageName('Etapa Desconhecida');
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Calculate max_players from tables
-      const totalSeats = tables.reduce((sum, table) => sum + table.seats, 0);
-
-      // Ensure max_players is a valid positive integer
-      const maxPlayers = totalSeats > 0 ? totalSeats : parseInt(formData.max_players) || 10;
-
-      console.log('Creating tournament with stageId:', stageId);
-
       const tournamentData = {
-        ...formData,
-        max_players: maxPlayers,
-        // Include stage_id if filtering by stage
-        stage_id: stageId || null,
-        // Ensure numeric fields are numbers, not strings
-        buy_in: parseFloat(formData.buy_in),
-        rebuy_amount: formData.rebuy_amount ? parseFloat(formData.rebuy_amount) : null,
-        addon_amount: formData.addon_amount ? parseFloat(formData.addon_amount) : null,
-        blind_duration: parseInt(formData.blind_duration),
-        starting_chips: parseInt(formData.starting_chips),
-        rebuy_chips: parseInt(formData.rebuy_chips),
-        addon_chips: parseInt(formData.addon_chips),
-        rebuy_level_limit: formData.rebuy_level_limit ? parseInt(formData.rebuy_level_limit) : null,
-        rake_percentage: parseFloat(formData.rake_percentage)
+        name: formData.name,
+        // stage_id will be automatically set from X-Stage-ID header if a stage is selected
       };
 
-      const response = await api.post('/tournaments', tournamentData);
-      const tournamentId = response.data.id;
-
-      // Create tables for the tournament
-      if (tables.length > 0) {
-        for (const table of tables) {
-          await api.post(`/tables/tournament/${tournamentId}`, {
-            table_number: table.number,
-            seats: table.seats
-          });
-        }
-      }
+      await api.post('/tournaments', tournamentData);
 
       setShowModal(false);
-      setFormData({
-        name: '',
-        buy_in: '',
-        rebuy_amount: '',
-        addon_amount: '',
-        max_players: '',
-        blind_duration: 15,
-        starting_chips: 10000,
-        rebuy_chips: 10000,
-        addon_chips: 10000,
-        rebuy_level_limit: '',
-        allocation_type: 'automatic',
-        rake_percentage: 0,
-      });
-      setTables([]);
+      setFormData({ name: '' });
       loadTournaments();
     } catch (error) {
       console.error('Erro ao criar torneio:', error);
@@ -144,6 +84,43 @@ const Torneios = () => {
     }
   };
 
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.patch(`/tournaments/${editingTournament.id}`, {
+        name: formData.name,
+        ...broadcastSettings,
+        broadcast_bg_image_url: broadcastSettings.broadcast_bg_image_url || null,
+        broadcast_display_name: broadcastSettings.broadcast_display_name || null,
+      });
+
+      setShowEditModal(false);
+      setEditingTournament(null);
+      setFormData({ name: '' });
+      setBroadcastSettings({
+        broadcast_bg_color: '#0a0e13',
+        broadcast_bg_image_url: '',
+        broadcast_display_name: '',
+        broadcast_font_size: 100,
+        broadcast_show_logo: true,
+        broadcast_show_title: true,
+        broadcast_show_prizepool: true,
+        broadcast_show_level: true,
+        broadcast_show_players: true,
+        broadcast_show_interval: true,
+        broadcast_show_timer: true,
+        broadcast_show_blinds: true,
+        broadcast_show_ante: true,
+        broadcast_show_next_blind: true,
+        broadcast_show_prizes: true,
+      });
+      loadTournaments();
+    } catch (error) {
+      console.error('Erro ao atualizar torneio:', error);
+      alert('Erro ao atualizar torneio');
+    }
+  };
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -151,122 +128,96 @@ const Torneios = () => {
     });
   };
 
-  const addTable = () => {
-    const startNumber = tables.length + 1;
-    const newTables = [];
-
-    for (let i = 0; i < tableCount; i++) {
-      newTables.push({
-        number: startNumber + i,
-        seats: newTableSeats
-      });
-    }
-
-    setTables([...tables, ...newTables]);
-    setTableCount(1); // Reset counter after adding
+  const handleBroadcastChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setBroadcastSettings({
+      ...broadcastSettings,
+      [name]: type === 'checkbox' ? checked : value,
+    });
   };
 
-  const removeTable = (tableNumber) => {
-    const updatedTables = tables
-      .filter(t => t.number !== tableNumber)
-      .map((t, index) => ({ ...t, number: index + 1 }));
-    setTables(updatedTables);
-  };
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (max 2MB for base64 storage)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Imagem muito grande. Máximo: 2MB');
+        return;
+      }
 
-  const updateTableSeats = (tableNumber, newSeats) => {
-    setTables(tables.map(t =>
-      t.number === tableNumber ? { ...t, seats: parseInt(newSeats) } : t
-    ));
-  };
-
-  const handleStartTournament = async (tournamentId) => {
-    if (window.confirm('Tem certeza que deseja iniciar este torneio?')) {
-      try {
-        await api.patch(`/tournaments/${tournamentId}`, {
-          status: 'active'
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBroadcastSettings({
+          ...broadcastSettings,
+          broadcast_bg_image_url: reader.result,
         });
-        loadTournaments();
-      } catch (error) {
-        console.error('Erro ao iniciar torneio:', error);
-        alert('Erro ao iniciar torneio. Verifique se há jogadores registrados.');
-      }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleEndTournament = async (tournamentId) => {
-    if (window.confirm('Tem certeza que deseja finalizar este torneio?')) {
-      try {
-        await api.patch(`/tournaments/${tournamentId}`, {
-          status: 'completed'
-        });
-        loadTournaments();
-      } catch (error) {
-        console.error('Erro ao finalizar torneio:', error);
-        alert('Erro ao finalizar torneio.');
-      }
-    }
+  const removeBackgroundImage = () => {
+    setBroadcastSettings({
+      ...broadcastSettings,
+      broadcast_bg_image_url: '',
+    });
   };
 
-  const handleDeleteTournament = async (tournamentId) => {
-    if (window.confirm('Tem certeza que deseja excluir este torneio? Esta ação não pode ser desfeita e removerá todos os dados relacionados (jogadores, transações, etc).')) {
-      try {
-        await api.delete(`/tournaments/${tournamentId}`);
-        loadTournaments();
-        alert('Torneio excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir torneio:', error);
-        alert('Erro ao excluir torneio. Verifique se o torneio pode ser removido.');
-      }
-    }
-  };
-
-  const handleOpenEditModal = (tournament) => {
+  const openEditModal = (tournament) => {
     setEditingTournament(tournament);
     setFormData({
-      name: tournament.name || '',
-      rebuy_level_limit: tournament.rebuy_level_limit || '',
-      rebuy_amount: tournament.rebuy_amount || '',
-      addon_amount: tournament.addon_amount || '',
-      max_players: tournament.max_players || '',
-      rake_percentage: tournament.rake_percentage || 0,
+      name: tournament.name,
+    });
+    setBroadcastSettings({
+      broadcast_bg_color: tournament.broadcast_bg_color || '#0a0e13',
+      broadcast_bg_image_url: tournament.broadcast_bg_image_url || '',
+      broadcast_display_name: tournament.broadcast_display_name || '',
+      broadcast_font_size: tournament.broadcast_font_size || 100,
+      broadcast_show_logo: tournament.broadcast_show_logo !== false,
+      broadcast_show_title: tournament.broadcast_show_title !== false,
+      broadcast_show_prizepool: tournament.broadcast_show_prizepool !== false,
+      broadcast_show_level: tournament.broadcast_show_level !== false,
+      broadcast_show_players: tournament.broadcast_show_players !== false,
+      broadcast_show_interval: tournament.broadcast_show_interval !== false,
+      broadcast_show_timer: tournament.broadcast_show_timer !== false,
+      broadcast_show_blinds: tournament.broadcast_show_blinds !== false,
+      broadcast_show_ante: tournament.broadcast_show_ante !== false,
+      broadcast_show_next_blind: tournament.broadcast_show_next_blind !== false,
+      broadcast_show_prizes: tournament.broadcast_show_prizes !== false,
     });
     setShowEditModal(true);
   };
 
-  const handleUpdateTournament = async (e) => {
-    e.preventDefault();
-    try {
-      const updateData = {
-        name: formData.name,
-        rebuy_level_limit: formData.rebuy_level_limit ? parseInt(formData.rebuy_level_limit) : null,
-        rebuy_amount: formData.rebuy_amount ? parseFloat(formData.rebuy_amount) : null,
-        addon_amount: formData.addon_amount ? parseFloat(formData.addon_amount) : null,
-        max_players: formData.max_players ? parseInt(formData.max_players) : null,
-        rake_percentage: parseFloat(formData.rake_percentage),
-      };
+  const handleDeleteTournament = async (tournamentId) => {
+    if (!window.confirm('Tem certeza que deseja excluir este torneio?')) {
+      return;
+    }
 
-      await api.patch(`/tournaments/${editingTournament.id}`, updateData);
-      setShowEditModal(false);
-      setEditingTournament(null);
+    try {
+      await api.delete(`/tournaments/${tournamentId}`);
       loadTournaments();
-      alert('Torneio atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar torneio:', error);
-      const errorMessage = error.response?.data?.detail || 'Erro ao atualizar torneio';
-      alert(errorMessage);
+      console.error('Erro ao excluir torneio:', error);
+      alert('Erro ao excluir torneio');
     }
   };
 
-  const getStatusBadge = (status) => {
-    const badges = {
-      pending: { label: 'Pendente', className: 'badge-warning' },
-      active: { label: 'Em Andamento', className: 'badge-success' },
-      completed: { label: 'Concluído', className: 'badge-info' },
-      cancelled: { label: 'Cancelado', className: 'badge-danger' },
-    };
-    const badge = badges[status] || badges.pending;
-    return <span className={`badge ${badge.className}`}>{badge.label}</span>;
+  const getTournamentEntries = (tournament) => {
+    // For now, return 0 as we need to aggregate from tournament_days
+    // This will be properly calculated by the backend
+    return tournament.total_entries || 0;
   };
+
+  if (loading) {
+    return (
+      <div className="app-container">
+        <Sidebar />
+        <main className="main-content">
+          <div className="loading">Carregando...</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -275,422 +226,125 @@ const Torneios = () => {
         <div className="page-header">
           <div>
             <h1>Torneios</h1>
-            <p className="subtitle">
-              {stageId && stageName ? (
-                <>
-                  Filtrando por: <strong>{stageName}</strong>
-                  {' '}
-                  <Button
-                    variant="secondary"
-                    onClick={() => navigate('/torneios')}
-                    style={{ marginLeft: '10px', padding: '5px 10px', fontSize: '0.85rem' }}
-                  >
-                    Ver Todos
-                  </Button>
-                </>
-              ) : (
-                'Gerenciar torneios de poker'
-              )}
-            </p>
+            <p className="subtitle">Gerencie os torneios da etapa</p>
           </div>
           <Button onClick={() => setShowModal(true)}>
-            Novo Torneio
+            Criar Novo Torneio
           </Button>
         </div>
 
-        {loading ? (
-          <div className="loading">Carregando torneios...</div>
-        ) : tournaments.length === 0 ? (
+        {tournaments.length === 0 ? (
           <Card>
             <div className="empty-state">
-              <p>Nenhum torneio encontrado</p>
-              <Button onClick={() => setShowModal(true)}>Criar Primeiro Torneio</Button>
+              <p>Nenhum torneio criado ainda</p>
+              <Button onClick={() => setShowModal(true)}>
+                Criar Primeiro Torneio
+              </Button>
             </div>
           </Card>
         ) : (
-          <div className="tournaments-grid">
-            {tournaments.map((tournament) => (
-              <Card key={tournament.id} className="tournament-card">
-                <div className="tournament-header">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <h3>{tournament.name}</h3>
-                    <button
-                      onClick={() => handleOpenEditModal(tournament)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '1.2rem',
-                        padding: '5px',
-                        color: '#666',
-                        transition: 'color 0.2s'
-                      }}
-                      onMouseOver={(e) => e.target.style.color = '#007bff'}
-                      onMouseOut={(e) => e.target.style.color = '#666'}
-                      title="Editar configurações do torneio"
+          <Card>
+            <div className="tournaments-table-container">
+              <table className="tournaments-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th className="text-center">Entradas</th>
+                    <th className="text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tournaments.map((tournament) => (
+                    <tr
+                      key={tournament.id}
+                      onClick={() => navigate(`/torneios/${tournament.id}`)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      ⚙️
-                    </button>
-                  </div>
-                  {getStatusBadge(tournament.status)}
-                </div>
-                <div className="tournament-details">
-                  <div className="detail-row">
-                    <span className="detail-label">Buy-in:</span>
-                    <span className="detail-value">R$ {tournament.buy_in}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Jogadores:</span>
-                    <span className="detail-value">
-                      {tournament.registered_players || 0} / {tournament.max_players}
-                    </span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Fichas Iniciais:</span>
-                    <span className="detail-value">{tournament.starting_chips}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Duração dos Níveis:</span>
-                    <span className="detail-value">{tournament.blind_duration} min</span>
-                  </div>
-                </div>
-                <div className="tournament-actions">
-                  {(tournament.status === 'active' || tournament.status === 'pending') && (
-                    <>
-                      <Button
-                        variant="info"
-                        className="action-btn-small"
-                        onClick={() => navigate(`/blinds/${tournament.id}`)}
-                      >
-                        Estrutura de Blinds
-                      </Button>
-                      <Button
-                        variant="warning"
-                        className="action-btn-small"
-                        onClick={() => navigate(`/alocacao/${tournament.id}`)}
-                      >
-                        Alocar Jogadores
-                      </Button>
-                    </>
-                  )}
-                  {tournament.status === 'active' && (
-                    <>
-                      <Button
-                        variant="info"
-                        className="action-btn-small"
-                        onClick={() => navigate(`/ranking/${tournament.id}`)}
-                      >
-                        Ver Ranking
-                      </Button>
-                      <Button
-                        variant="info"
-                        className="action-btn-small"
-                        onClick={() => navigate(`/broadcast/${tournament.id}`)}
-                      >
-                        Transmitir
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="action-btn-small"
-                        onClick={() => navigate(`/eliminacao?tournament=${tournament.id}`)}
-                      >
-                        Eliminar Jogadores
-                      </Button>
-                    </>
-                  )}
-                  {tournament.status === 'pending' && (
-                    <Button
-                      variant="primary"
-                      className="action-btn-small"
-                      onClick={() => handleStartTournament(tournament.id)}
-                    >
-                      Iniciar
-                    </Button>
-                  )}
-                  {tournament.status === 'active' && (
-                    <Button
-                      variant="warning"
-                      className="action-btn-small"
-                      onClick={() => handleEndTournament(tournament.id)}
-                    >
-                      Finalizar
-                    </Button>
-                  )}
-                  {(tournament.status === 'pending' || tournament.status === 'completed' || tournament.status === 'cancelled') && (
-                    <Button
-                      variant="danger"
-                      className="action-btn-small"
-                      onClick={() => handleDeleteTournament(tournament.id)}
-                    >
-                      Excluir
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
+                      <td>
+                        <strong>{tournament.name}</strong>
+                      </td>
+                      <td className="text-center">
+                        {getTournamentEntries(tournament)}
+                      </td>
+                      <td className="text-center">
+                        <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="small"
+                            variant="secondary"
+                            onClick={() => openEditModal(tournament)}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="danger"
+                            onClick={() => handleDeleteTournament(tournament.id)}
+                          >
+                            Excluir
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
 
+        {/* Create Modal */}
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Novo Torneio</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)}>
-                  ✕
+                <h2>Criar Novo Torneio</h2>
+                <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
+                  <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                  <label htmlFor="name">Nome do Torneio</label>
+                  <label htmlFor="name">Nome do Torneio *</label>
                   <input
                     id="name"
                     name="name"
                     type="text"
                     value={formData.name}
                     onChange={handleChange}
-                    required
-                    placeholder="Ex: Torneio Sexta-feira"
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="buy_in">Buy-in (R$) *</label>
-                    <input
-                      id="buy_in"
-                      name="buy_in"
-                      type="number"
-                      step="0.01"
-                      value={formData.buy_in}
-                      onChange={handleChange}
-                      required
-                      placeholder="100.00"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="rebuy_amount">Rebuy (R$)</label>
-                    <input
-                      id="rebuy_amount"
-                      name="rebuy_amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.rebuy_amount}
-                      onChange={handleChange}
-                      placeholder="100.00"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="addon_amount">Add-on (R$)</label>
-                    <input
-                      id="addon_amount"
-                      name="addon_amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.addon_amount}
-                      onChange={handleChange}
-                      placeholder="50.00"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="rebuy_level_limit">Limite de Nível para Rebuy</label>
-                  <input
-                    id="rebuy_level_limit"
-                    name="rebuy_level_limit"
-                    type="number"
-                    min="1"
-                    value={formData.rebuy_level_limit}
-                    onChange={handleChange}
-                    placeholder="Ex: 6 (Rebuys até nível 6) - Deixe em branco para ilimitado"
-                  />
-                  <small>Deixe em branco para permitir rebuys ilimitados</small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="rake_percentage">Taxa da Casa - Rake (%) *</label>
-                  <input
-                    id="rake_percentage"
-                    name="rake_percentage"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={formData.rake_percentage}
-                    onChange={handleChange}
-                    required
-                    placeholder="0"
-                  />
-                  <small>Percentual de buy-ins/rebuys/addons que fica com a casa. O restante vai para o prize pool. (0% = todo valor vai para prêmios)</small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="allocation_type">Tipo de Alocação *</label>
-                  <select
-                    id="allocation_type"
-                    name="allocation_type"
-                    value={formData.allocation_type}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="automatic">Automática (Sistema aloca jogadores)</option>
-                    <option value="manual">Manual (Administrador aloca jogadores)</option>
-                  </select>
-                  <small>
-                    {formData.allocation_type === 'automatic'
-                      ? 'Jogadores serão automaticamente alocados em mesas ao se registrarem'
-                      : 'Administradores poderão alocar jogadores manualmente via drag-and-drop'}
-                  </small>
-                </div>
-
-                <div className="form-section-title">
-                  <h3>Gerenciamento de Mesas</h3>
-                </div>
-
-                <div className="tables-management">
-                  <div className="add-table-section">
-                    <div className="form-group-inline">
-                      <label htmlFor="newTableSeats">Lugares por Mesa:</label>
-                      <input
-                        id="newTableSeats"
-                        type="number"
-                        min="2"
-                        max="10"
-                        value={newTableSeats}
-                        onChange={(e) => setNewTableSeats(parseInt(e.target.value))}
-                        className="seats-input"
-                      />
-                      <label htmlFor="tableCount">Quantidade:</label>
-                      <input
-                        id="tableCount"
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={tableCount}
-                        onChange={(e) => setTableCount(parseInt(e.target.value))}
-                        className="seats-input"
-                      />
-                      <Button type="button" onClick={addTable} variant="secondary">
-                        Adicionar {tableCount > 1 ? `${tableCount} Mesas` : 'Mesa'}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {tables.length > 0 && (
-                    <div className="tables-list">
-                      <div className="tables-summary">
-                        Total: {tables.length} mesa{tables.length !== 1 ? 's' : ''} - {tables.reduce((sum, t) => sum + t.seats, 0)} lugares
-                      </div>
-                      {tables.map((table) => (
-                        <div key={table.number} className="table-item">
-                          <span className="table-number">Mesa {table.number}</span>
-                          <div className="table-seats-control">
-                            <label>Lugares:</label>
-                            <input
-                              type="number"
-                              min="2"
-                              max="10"
-                              value={table.seats}
-                              onChange={(e) => updateTableSeats(table.number, e.target.value)}
-                              className="seats-input-small"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className="remove-table-btn"
-                            onClick={() => removeTable(table.number)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {tables.length === 0 && (
-                    <div className="no-tables-message">
-                      Nenhuma mesa adicionada. Clique em "Adicionar Mesa" para começar.
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="blind_duration">Duração Níveis (min) *</label>
-                  <input
-                    id="blind_duration"
-                    name="blind_duration"
-                    type="number"
-                    value={formData.blind_duration}
-                    onChange={handleChange}
+                    placeholder="Ex: Torneio de Sexta, Torneio de Sábado"
                     required
                   />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="starting_chips">Fichas Iniciais *</label>
-                    <input
-                      id="starting_chips"
-                      name="starting_chips"
-                      type="number"
-                      value={formData.starting_chips}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="rebuy_chips">Fichas Rebuy</label>
-                    <input
-                      id="rebuy_chips"
-                      name="rebuy_chips"
-                      type="number"
-                      value={formData.rebuy_chips}
-                      onChange={handleChange}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="addon_chips">Fichas Add-on</label>
-                    <input
-                      id="addon_chips"
-                      name="addon_chips"
-                      type="number"
-                      value={formData.addon_chips}
-                      onChange={handleChange}
-                    />
-                  </div>
+                  <small>Depois de criar o torneio, você poderá adicionar os dias e configurações.</small>
                 </div>
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit">Criar Torneio</Button>
+                  <Button type="submit">
+                    Criar Torneio
+                  </Button>
                 </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* Edit Tournament Modal */}
+        {/* Edit Modal */}
         {showEditModal && (
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>⚙️ Editar Torneio</h2>
-                <button className="close-btn" onClick={() => setShowEditModal(false)}>
-                  ✕
+                <h2>Editar Torneio</h2>
+                <button className="close-btn" onClick={() => setShowEditModal(false)} aria-label="Fechar">
+                  <span className="close-icon"></span>
                 </button>
               </div>
-              <form onSubmit={handleUpdateTournament}>
+              <form onSubmit={handleEditSubmit}>
                 <div className="form-group">
-                  <label htmlFor="edit_name">Nome do Torneio *</label>
+                  <label htmlFor="edit-name">Nome do Torneio *</label>
                   <input
-                    id="edit_name"
+                    id="edit-name"
                     name="name"
                     type="text"
                     value={formData.name}
@@ -699,80 +353,236 @@ const Torneios = () => {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="edit_rebuy_level_limit">Limite de Nível para Rebuy</label>
-                  <input
-                    id="edit_rebuy_level_limit"
-                    name="rebuy_level_limit"
-                    type="number"
-                    min="1"
-                    value={formData.rebuy_level_limit}
-                    onChange={handleChange}
-                    placeholder="Ex: 6 (Rebuys até nível 6) - Deixe em branco para ilimitado"
-                  />
-                  <small>Deixe em branco para permitir rebuys ilimitados</small>
-                </div>
+                <div className="form-section">
+                  <h3 className="section-title">Configurações de Visualização (Broadcast)</h3>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="edit_rebuy_amount">Valor Rebuy (R$)</label>
-                    <input
-                      id="edit_rebuy_amount"
-                      name="rebuy_amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.rebuy_amount}
-                      onChange={handleChange}
-                      placeholder="50.00"
-                    />
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="broadcast_bg_color">Cor de Fundo</label>
+                      <div className="color-input-wrapper">
+                        <input
+                          id="broadcast_bg_color"
+                          name="broadcast_bg_color"
+                          type="color"
+                          value={broadcastSettings.broadcast_bg_color}
+                          onChange={handleBroadcastChange}
+                          className="color-input"
+                        />
+                        <input
+                          type="text"
+                          value={broadcastSettings.broadcast_bg_color}
+                          onChange={handleBroadcastChange}
+                          name="broadcast_bg_color"
+                          className="color-text-input"
+                          placeholder="#0a0e13"
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="broadcast_display_name">Nome de Exibição</label>
+                      <input
+                        id="broadcast_display_name"
+                        name="broadcast_display_name"
+                        type="text"
+                        value={broadcastSettings.broadcast_display_name}
+                        onChange={handleBroadcastChange}
+                        placeholder="Nome customizado (opcional)"
+                      />
+                    </div>
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="edit_addon_amount">Valor Add-on (R$)</label>
-                    <input
-                      id="edit_addon_amount"
-                      name="addon_amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.addon_amount}
-                      onChange={handleChange}
-                      placeholder="50.00"
-                    />
+                    <label htmlFor="broadcast_font_size">Tamanho da Fonte: {broadcastSettings.broadcast_font_size}%</label>
+                    <div className="font-size-slider-wrapper">
+                      <span className="slider-label">50%</span>
+                      <input
+                        id="broadcast_font_size"
+                        name="broadcast_font_size"
+                        type="range"
+                        min="50"
+                        max="200"
+                        step="10"
+                        value={broadcastSettings.broadcast_font_size}
+                        onChange={handleBroadcastChange}
+                        className="font-size-slider"
+                      />
+                      <span className="slider-label">200%</span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="form-group">
-                  <label htmlFor="edit_max_players">Máximo de Jogadores</label>
-                  <input
-                    id="edit_max_players"
-                    name="max_players"
-                    type="number"
-                    min="2"
-                    value={formData.max_players}
-                    onChange={handleChange}
-                  />
-                </div>
+                  <div className="form-group">
+                    <label>Imagem de Fundo</label>
+                    <div className="image-upload-container">
+                      {broadcastSettings.broadcast_bg_image_url ? (
+                        <div className="image-preview-wrapper">
+                          <img
+                            src={broadcastSettings.broadcast_bg_image_url}
+                            alt="Preview"
+                            className="image-preview"
+                          />
+                          <button
+                            type="button"
+                            className="remove-image-btn"
+                            onClick={removeBackgroundImage}
+                            title="Remover imagem"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="image-upload-area">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden-input"
+                          />
+                          <div className="upload-placeholder">
+                            <span className="upload-icon">+</span>
+                            <span className="upload-text">Clique para anexar imagem</span>
+                            <span className="upload-hint">PNG, JPG até 2MB</span>
+                          </div>
+                        </label>
+                      )}
+                    </div>
+                    <div className="image-url-alternative">
+                      <span className="or-divider">ou cole uma URL</span>
+                      <input
+                        id="broadcast_bg_image_url"
+                        name="broadcast_bg_image_url"
+                        type="text"
+                        value={broadcastSettings.broadcast_bg_image_url?.startsWith('data:') ? '' : broadcastSettings.broadcast_bg_image_url}
+                        onChange={handleBroadcastChange}
+                        placeholder="https://exemplo.com/imagem.jpg"
+                        disabled={broadcastSettings.broadcast_bg_image_url?.startsWith('data:')}
+                      />
+                    </div>
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="edit_rake_percentage">Taxa da Casa - Rake (%)</label>
-                  <input
-                    id="edit_rake_percentage"
-                    name="rake_percentage"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={formData.rake_percentage}
-                    onChange={handleChange}
-                  />
-                  <small>Percentual de buy-ins/rebuys/addons que fica com a casa</small>
+                  <div className="form-group">
+                    <label className="section-label">Elementos Visíveis no Broadcast</label>
+                    <div className="visibility-grid">
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_logo ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_logo"
+                          checked={broadcastSettings.broadcast_show_logo}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Logo</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_title ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_title"
+                          checked={broadcastSettings.broadcast_show_title}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Título</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_prizepool ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_prizepool"
+                          checked={broadcastSettings.broadcast_show_prizepool}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Prizepool</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_level ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_level"
+                          checked={broadcastSettings.broadcast_show_level}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Nível</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_players ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_players"
+                          checked={broadcastSettings.broadcast_show_players}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Jogadores</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_interval ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_interval"
+                          checked={broadcastSettings.broadcast_show_interval}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Intervalo</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_timer ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_timer"
+                          checked={broadcastSettings.broadcast_show_timer}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Timer</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_blinds ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_blinds"
+                          checked={broadcastSettings.broadcast_show_blinds}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Blinds</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_ante ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_ante"
+                          checked={broadcastSettings.broadcast_show_ante}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Ante</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_next_blind ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_next_blind"
+                          checked={broadcastSettings.broadcast_show_next_blind}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Próx. Blind</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                      <label className={`visibility-card ${broadcastSettings.broadcast_show_prizes ? 'active' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="broadcast_show_prizes"
+                          checked={broadcastSettings.broadcast_show_prizes}
+                          onChange={handleBroadcastChange}
+                        />
+                        <span className="visibility-label">Premiações</span>
+                        <span className="visibility-toggle"></span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit">Salvar Alterações</Button>
+                  <Button type="submit">
+                    Salvar Alterações
+                  </Button>
                 </div>
               </form>
             </div>

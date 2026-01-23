@@ -24,28 +24,28 @@ class AllocationType(str, Enum):
     manual = "manual"
 
 
+class BroadcastSettings(BaseModel):
+    """Broadcast display settings for tournament"""
+    bg_color: Optional[str] = Field(default="#0a0e13", description="Background color (hex)")
+    bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
+    display_name: Optional[str] = Field(default=None, description="Custom display name")
+    show_logo: bool = Field(default=True, description="Show logo")
+    show_title: bool = Field(default=True, description="Show tournament title")
+    show_prizepool: bool = Field(default=True, description="Show prizepool")
+    show_level: bool = Field(default=True, description="Show blind level")
+    show_players: bool = Field(default=True, description="Show player count")
+    show_interval: bool = Field(default=True, description="Show interval until break")
+    show_timer: bool = Field(default=True, description="Show countdown timer")
+    show_blinds: bool = Field(default=True, description="Show current blinds")
+    show_ante: bool = Field(default=True, description="Show ante value")
+    show_next_blind: bool = Field(default=True, description="Show next blind")
+    font_size: int = Field(default=100, ge=50, le=200, description="Font size percentage (50-200)")
+
+
 class TournamentBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
+    """Simplified tournament model - just a container for tournament days"""
+    name: str = Field(..., min_length=1, max_length=255, description="Tournament name (e.g., 'Torneio de Sexta')")
     stage_id: Optional[str] = Field(None, description="Stage/Etapa ID")
-    buy_in: float = Field(..., gt=0)
-    rebuy_amount: Optional[float] = Field(None, gt=0)
-    addon_amount: Optional[float] = Field(None, gt=0)
-    max_players: int = Field(..., gt=0)
-    blind_duration: int = Field(default=15, gt=0)
-    starting_chips: int = Field(default=10000, gt=0)
-    rebuy_chips: int = Field(default=10000, gt=0)
-    addon_chips: int = Field(default=10000, gt=0)
-    tournament_date: Optional[datetime] = None
-    rebuy_level_limit: Optional[int] = Field(None, description="Maximum blind level where rebuys are allowed (NULL = unlimited)")
-    rake_percentage: float = Field(default=0, ge=0, le=100, description="Percentage of entries that goes to the house (0-100). Rest goes to prize pool.")
-    # Blind structure configuration
-    initial_small_blind: int = Field(default=50, gt=0)
-    initial_big_blind: int = Field(default=100, gt=0)
-    blind_increase_type: BlindIncreaseType = Field(default=BlindIncreaseType.double)
-    bb_ante_start_level: int = Field(default=3, gt=0)
-    break_interval: int = Field(default=60, gt=0)  # Minutes between breaks
-    break_duration: int = Field(default=10, gt=0)  # Duration of breaks in minutes
-    allocation_type: AllocationType = Field(default=AllocationType.automatic, description="Player allocation type: automatic or manual")
 
 
 class TournamentCreate(TournamentBase):
@@ -53,46 +53,76 @@ class TournamentCreate(TournamentBase):
 
 
 class TournamentUpdate(BaseModel):
-    name: Optional[str] = None
+    """Update model for simplified tournament"""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
     stage_id: Optional[str] = None
-    status: Optional[TournamentStatus] = None
-    buy_in: Optional[float] = None
-    rebuy_amount: Optional[float] = None
-    addon_amount: Optional[float] = None
-    max_players: Optional[int] = None
-    tournament_date: Optional[datetime] = None
-    rebuy_level_limit: Optional[int] = Field(None, description="Maximum blind level where rebuys are allowed (NULL = unlimited)")
+    # Broadcast settings
+    broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
+    broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
+    broadcast_display_name: Optional[str] = Field(default=None, description="Custom display name")
+    broadcast_show_logo: Optional[bool] = Field(default=None, description="Show logo")
+    broadcast_show_title: Optional[bool] = Field(default=None, description="Show tournament title")
+    broadcast_show_prizepool: Optional[bool] = Field(default=None, description="Show prizepool")
+    broadcast_show_level: Optional[bool] = Field(default=None, description="Show blind level")
+    broadcast_show_players: Optional[bool] = Field(default=None, description="Show player count")
+    broadcast_show_interval: Optional[bool] = Field(default=None, description="Show interval until break")
+    broadcast_show_timer: Optional[bool] = Field(default=None, description="Show countdown timer")
+    broadcast_show_blinds: Optional[bool] = Field(default=None, description="Show current blinds")
+    broadcast_show_ante: Optional[bool] = Field(default=None, description="Show ante value")
+    broadcast_show_next_blind: Optional[bool] = Field(default=None, description="Show next blind")
+    broadcast_font_size: Optional[int] = Field(default=None, ge=50, le=200, description="Font size percentage (50-200)")
 
 
 class Tournament(TournamentBase):
+    """Complete tournament model - simplified to be just a container"""
     id: str
-    status: TournamentStatus
-    registered_players: int = 0
-    prize_pool: float = 0.0
-    start_time: Optional[datetime] = None
     created_by: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    # Broadcast settings
+    broadcast_bg_color: Optional[str] = "#0a0e13"
+    broadcast_bg_image_url: Optional[str] = None
+    broadcast_display_name: Optional[str] = None
+    broadcast_show_logo: bool = True
+    broadcast_show_title: bool = True
+    broadcast_show_prizepool: bool = True
+    broadcast_show_level: bool = True
+    broadcast_show_players: bool = True
+    broadcast_show_interval: bool = True
+    broadcast_show_timer: bool = True
+    broadcast_show_blinds: bool = True
+    broadcast_show_ante: bool = True
+    broadcast_show_next_blind: bool = True
+    broadcast_font_size: int = 100
 
     class Config:
         from_attributes = True
 
 
 class TournamentSummary(BaseModel):
-    """Tournament with player statistics"""
+    """Tournament summary with aggregated statistics from all days"""
     id: str
     name: str
-    status: TournamentStatus
-    buy_in: float
-    registered_players: int
-    max_players: int
-    prize_pool: float
-    tournament_date: Optional[datetime]
-    total_entries: int = 0
-    total_buy_ins: int = 0
-    total_rebuys: int = 0
-    total_addons: int = 0
+    stage_id: Optional[str] = None
+    total_entries: int = 0  # Aggregated from all days (buy-ins + rebuys)
+    total_days: int = 0  # Number of tournament days
+    created_by: str
     created_at: datetime
+    # Broadcast settings
+    broadcast_bg_color: Optional[str] = "#0a0e13"
+    broadcast_bg_image_url: Optional[str] = None
+    broadcast_display_name: Optional[str] = None
+    broadcast_show_logo: bool = True
+    broadcast_show_title: bool = True
+    broadcast_show_prizepool: bool = True
+    broadcast_show_level: bool = True
+    broadcast_show_players: bool = True
+    broadcast_show_interval: bool = True
+    broadcast_show_timer: bool = True
+    broadcast_show_blinds: bool = True
+    broadcast_show_ante: bool = True
+    broadcast_show_next_blind: bool = True
+    broadcast_font_size: int = 100
 
     class Config:
         from_attributes = True

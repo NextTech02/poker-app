@@ -294,8 +294,8 @@ const CaixaGeral = () => {
             <div className="modal sangria-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>Realizar Sangria</h2>
-                <button className="close-btn" onClick={() => setShowSangriaModal(false)}>
-                  ✕
+                <button className="close-btn" onClick={() => setShowSangriaModal(false)} aria-label="Fechar">
+                  <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleSangriaSubmit}>

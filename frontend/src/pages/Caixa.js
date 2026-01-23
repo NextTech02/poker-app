@@ -10,12 +10,14 @@ import './Caixa.css';
 const Caixa = () => {
   const [transactions, setTransactions] = useState([]);
   const [tournaments, setTournaments] = useState([]);
+  const [tournamentDays, setTournamentDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [allocationData, setAllocationData] = useState(null);
   const [formData, setFormData] = useState({
     tournament_id: '',
+    tournament_day_id: '',
     player_id: '',
     type: 'buy_in',
     amount: '',
@@ -50,13 +52,37 @@ const Caixa = () => {
     }
   };
 
+  const loadTournamentDays = async (tournamentId) => {
+    if (!tournamentId) {
+      setTournamentDays([]);
+      return;
+    }
+    try {
+      const response = await api.get(`/tournament-days/tournament/${tournamentId}`);
+      // Filter only active and pending days
+      const activeDays = response.data.filter(day => day.status === 'active' || day.status === 'pending');
+      setTournamentDays(activeDays);
+    } catch (error) {
+      console.error('Erro ao carregar dias do torneio:', error);
+      setTournamentDays([]);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate that a day is selected if days exist
+    if (tournamentDays.length > 0 && !formData.tournament_day_id) {
+      alert('Por favor, selecione um dia do torneio');
+      return;
+    }
+
     try {
-      // If it's a buy_in, register the player in the tournament
+      // If it's a buy_in, register the player in the tournament day
       if (formData.type === 'buy_in') {
         await api.post('/tournament-players', {
           tournament_id: formData.tournament_id,
+          tournament_day_id: formData.tournament_day_id || null,
           player_id: formData.player_id,
           buy_in_count: 1,
           notes: `Registrado via Caixa - ${formData.payment_method}`,
@@ -133,11 +159,13 @@ const Caixa = () => {
       setShowModal(false);
       setFormData({
         tournament_id: '',
+        tournament_day_id: '',
         player_id: '',
         type: 'buy_in',
         amount: '',
         payment_method: 'cash',
       });
+      setTournamentDays([]);
       loadData();
     } catch (error) {
       console.error('Erro ao registrar transação:', error);
@@ -146,7 +174,7 @@ const Caixa = () => {
     }
   };
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const { name, value } = e.target;
 
     let newFormData = {
@@ -154,33 +182,56 @@ const Caixa = () => {
       [name]: value,
     };
 
-    // Auto-fill amount based on tournament and transaction type
-    if (name === 'tournament_id' || name === 'type') {
+    // When tournament changes, load days and reset day selection
+    if (name === 'tournament_id') {
+      newFormData.tournament_day_id = '';
+      loadTournamentDays(value);
+    }
+
+    // Auto-fill amount based on tournament day or tournament and transaction type
+    if (name === 'tournament_id' || name === 'tournament_day_id' || name === 'type') {
       const tournamentId = name === 'tournament_id' ? value : formData.tournament_id;
+      const dayId = name === 'tournament_day_id' ? value : newFormData.tournament_day_id;
       const transactionType = name === 'type' ? value : formData.type;
 
-      if (tournamentId) {
-        const tournament = tournaments.find(t => t.id === tournamentId);
-        if (tournament) {
-          let amount = 0;
+      // Try to get values from day first, then fallback to tournament
+      let amount = 0;
+      const selectedDay = tournamentDays.find(d => d.id === dayId);
+      const tournament = tournaments.find(t => t.id === tournamentId);
 
-          switch (transactionType) {
-            case 'buy_in':
-              amount = tournament.buy_in;
-              break;
-            case 'rebuy':
-              amount = tournament.rebuy || tournament.buy_in;
-              break;
-            case 'addon':
-              amount = tournament.addon || tournament.buy_in;
-              break;
-            default:
-              amount = tournament.buy_in;
-          }
-
-          newFormData.amount = amount;
+      if (selectedDay) {
+        // Use day-specific values
+        switch (transactionType) {
+          case 'buy_in':
+            amount = selectedDay.buy_in;
+            break;
+          case 'rebuy':
+            amount = selectedDay.rebuy_amount || selectedDay.buy_in;
+            break;
+          case 'addon':
+            amount = selectedDay.addon_amount || selectedDay.buy_in;
+            break;
+          default:
+            amount = selectedDay.buy_in;
+        }
+      } else if (tournament) {
+        // Fallback to tournament values
+        switch (transactionType) {
+          case 'buy_in':
+            amount = tournament.buy_in;
+            break;
+          case 'rebuy':
+            amount = tournament.rebuy || tournament.buy_in;
+            break;
+          case 'addon':
+            amount = tournament.addon || tournament.buy_in;
+            break;
+          default:
+            amount = tournament.buy_in;
         }
       }
+
+      newFormData.amount = amount;
     }
 
     setFormData(newFormData);
@@ -307,8 +358,8 @@ const Caixa = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>Nova Transação</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)}>
-                  ✕
+                <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
+                  <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleSubmit}>
@@ -329,6 +380,26 @@ const Caixa = () => {
                     ))}
                   </select>
                 </div>
+
+                {tournamentDays.length > 0 && (
+                  <div className="form-group">
+                    <label htmlFor="tournament_day_id">Dia do Torneio</label>
+                    <select
+                      id="tournament_day_id"
+                      name="tournament_day_id"
+                      value={formData.tournament_day_id}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="">Selecione um dia</option>
+                      {tournamentDays.map((day) => (
+                        <option key={day.id} value={day.id}>
+                          {day.day_name} - R$ {parseFloat(day.buy_in).toFixed(2)} ({day.registered_players}/{day.max_players} jogadores)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label htmlFor="player_id">Jogador</label>
@@ -402,8 +473,8 @@ const Caixa = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>Jogador Registrado e Alocado!</h2>
-                <button className="close-btn" onClick={() => setShowTicketModal(false)}>
-                  ✕
+                <button className="close-btn" onClick={() => setShowTicketModal(false)} aria-label="Fechar">
+                  <span className="close-icon"></span>
                 </button>
               </div>
               <div className="modal-body">
