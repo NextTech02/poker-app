@@ -1,0 +1,186 @@
+/* Enriched Timer Display - Full Version */
+.enriched-timer-full {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  border-radius: 12px;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.enriched-timer-loading {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Current Blind Section */
+.current-blind-section {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.blind-values-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+}
+
+.blind-value-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.blind-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.blind-amount {
+  font-size: 28px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Break Indicator */
+.break-indicator {
+  text-align: center;
+  padding: 20px;
+}
+
+.break-title {
+  font-size: 36px;
+  font-weight: bold;
+  margin: 0 0 8px 0;
+  color: #FFD700;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.break-subtitle {
+  font-size: 16px;
+  margin: 0;
+  opacity: 0.9;
+}
+
+/* Next Blind Section */
+.next-blind-section {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.section-title {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px 0;
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.next-blind-info {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  font-family: 'Courier New', monospace;
+}
+
+/* Break Countdown Section */
+.break-countdown-section {
+  background: rgba(255, 215, 0, 0.15);
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.break-countdown-time {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0;
+  color: #FFD700;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Compact Version */
+.enriched-timer-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(30, 60, 114, 0.95);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+}
+
+.next-blind-compact,
+.break-countdown-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.next-blind-compact .label,
+.break-countdown-compact .label {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.next-blind-compact .value,
+.break-countdown-compact .value {
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .enriched-timer-full {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .blind-values-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .blind-amount {
+    font-size: 24px;
+  }
+
+  .break-title {
+    font-size: 28px;
+  }
+
+  .next-blind-info {
+    font-size: 16px;
+  }
+
+  .break-countdown-time {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .blind-values-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .blind-amount {
+    font-size: 20px;
+  }
+}

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations
+from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates
 
 settings = get_settings()
 
@@ -25,6 +25,7 @@ app.include_router(stages.router)
 app.include_router(tournaments.router)
 app.include_router(tournament_days.router)
 app.include_router(blinds.router)
+app.include_router(blind_templates.router)
 app.include_router(tables.router)
 app.include_router(allocations.router)
 app.include_router(rankings.router)

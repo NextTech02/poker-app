@@ -46,6 +46,7 @@ class TournamentBase(BaseModel):
     """Simplified tournament model - just a container for tournament days"""
     name: str = Field(..., min_length=1, max_length=255, description="Tournament name (e.g., 'Torneio de Sexta')")
     stage_id: Optional[str] = Field(None, description="Stage/Etapa ID")
+    has_qualifying: bool = Field(default=False, description="Whether this tournament has qualifying days leading to a final")
 
 
 class TournamentCreate(TournamentBase):
@@ -56,6 +57,7 @@ class TournamentUpdate(BaseModel):
     """Update model for simplified tournament"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     stage_id: Optional[str] = None
+    has_qualifying: Optional[bool] = None
     # Broadcast settings
     broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
     broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
@@ -104,6 +106,7 @@ class TournamentSummary(BaseModel):
     id: str
     name: str
     stage_id: Optional[str] = None
+    has_qualifying: bool = False
     total_entries: int = 0  # Aggregated from all days (buy-ins + rebuys)
     total_days: int = 0  # Number of tournament days
     created_by: str

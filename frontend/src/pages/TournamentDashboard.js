@@ -30,15 +30,16 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       setTournament(tournamentRes.data);
       setDays(daysRes.data);
 
-      // Get players from all days
-      if (daysRes.data.length > 0) {
-        const playersPromises = daysRes.data.map(day =>
+      // Get players from non-final days only (final days inherit data from qualifying days)
+      const financialDays = daysRes.data.filter(day => day.day_type !== 'final');
+      if (financialDays.length > 0) {
+        const playersPromises = financialDays.map(day =>
           api.get(`/tournament-players/day/${day.id}`)
         );
         const playersResponses = await Promise.all(playersPromises);
 
-        // Flatten all players from all days and add tournament_day_id to each player
-        const allPlayersData = daysRes.data.flatMap((day, index) =>
+        // Flatten all players from non-final days and add tournament_day_id to each player
+        const allPlayersData = financialDays.flatMap((day, index) =>
           playersResponses[index].data.map(player => ({
             ...player,
             tournament_day_id: day.id
@@ -154,12 +155,11 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
 
   if (days.length === 0) {
     const content = (
-      <Card>
-        <div className="empty-state">
-          <p>Nenhum dia configurado para este torneio ainda</p>
-          <small>Vá para a aba "Dias" para criar o primeiro dia do torneio</small>
-        </div>
-      </Card>
+      <div className="empty-days-professional">
+        <div className="empty-days-line" />
+        <h3>Nenhum dia configurado</h3>
+        <p>Acesse a aba "Dias" para criar o primeiro dia do torneio</p>
+      </div>
     );
 
     if (isStandalone) {

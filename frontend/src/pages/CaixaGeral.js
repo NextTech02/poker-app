@@ -3,9 +3,11 @@ import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './CaixaGeral.css';
 
 const CaixaGeral = () => {
+  const { toast } = useToast();
   const [stages, setStages] = useState([]);
   const [selectedStage, setSelectedStage] = useState('');
   const [stageCash, setStageCash] = useState(null);
@@ -43,7 +45,7 @@ const CaixaGeral = () => {
     } catch (error) {
       console.error('Erro ao carregar etapas:', error);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        alert('Sessão expirada. Por favor, faça login novamente.');
+        toast.error('Sessao expirada. Por favor, faca login novamente.');
         window.location.href = '/login';
       }
     }
@@ -72,7 +74,7 @@ const CaixaGeral = () => {
     } catch (error) {
       console.error('Erro ao carregar dados gerais:', error);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        alert('Sessão expirada. Por favor, faça login novamente.');
+        toast.error('Sessao expirada. Por favor, faca login novamente.');
         window.location.href = '/login';
       }
     }
@@ -93,18 +95,18 @@ const CaixaGeral = () => {
     e.preventDefault();
 
     if (!stageCash || !selectedStage) {
-      alert('Selecione uma etapa primeiro');
+      toast.warning('Selecione uma etapa primeiro');
       return;
     }
 
     const amount = parseFloat(sangriaFormData.amount);
     if (amount <= 0) {
-      alert('Valor deve ser maior que zero');
+      toast.warning('Valor deve ser maior que zero');
       return;
     }
 
     if (amount > parseFloat(stageCash.current_balance)) {
-      alert(`Saldo insuficiente! Disponível: R$ ${parseFloat(stageCash.current_balance).toFixed(2)}`);
+      toast.warning(`Saldo insuficiente! Disponivel: R$ ${parseFloat(stageCash.current_balance).toFixed(2)}`);
       return;
     }
 
@@ -120,7 +122,7 @@ const CaixaGeral = () => {
 
       const response = await api.post('/cash/sangria', sangriaData);
 
-      alert(response.data.message);
+      toast.success(response.data.message);
 
       // Reset form and close modal
       setSangriaFormData({
@@ -138,7 +140,7 @@ const CaixaGeral = () => {
     } catch (error) {
       console.error('Erro ao realizar sangria:', error);
       const errorMsg = error.response?.data?.detail || 'Erro ao realizar sangria';
-      alert(errorMsg);
+      toast.error(typeof errorMsg === 'string' ? errorMsg : 'Erro ao realizar sangria');
     }
   };
 

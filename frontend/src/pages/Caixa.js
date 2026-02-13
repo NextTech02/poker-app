@@ -5,6 +5,7 @@ import Button from '../components/Button';
 import PlayerSelect from '../components/PlayerSelect';
 import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './Caixa.css';
 
 const Caixa = () => {
@@ -15,6 +16,7 @@ const Caixa = () => {
   const [showModal, setShowModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [allocationData, setAllocationData] = useState(null);
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     tournament_id: '',
     tournament_day_id: '',
@@ -59,8 +61,10 @@ const Caixa = () => {
     }
     try {
       const response = await api.get(`/tournament-days/tournament/${tournamentId}`);
-      // Filter only active and pending days
-      const activeDays = response.data.filter(day => day.status === 'active' || day.status === 'pending');
+      // Filter only active/pending days and exclude final days (no buy-ins for finals)
+      const activeDays = response.data.filter(day =>
+        (day.status === 'active' || day.status === 'pending') && day.day_type !== 'final'
+      );
       setTournamentDays(activeDays);
     } catch (error) {
       console.error('Erro ao carregar dias do torneio:', error);
@@ -73,7 +77,7 @@ const Caixa = () => {
 
     // Validate that a day is selected if days exist
     if (tournamentDays.length > 0 && !formData.tournament_day_id) {
-      alert('Por favor, selecione um dia do torneio');
+      toast.warning('Por favor, selecione um dia do torneio');
       return;
     }
 
@@ -103,7 +107,7 @@ const Caixa = () => {
           } catch (allocationError) {
             console.error('Erro ao alocar jogador:', allocationError);
             const errorMsg = allocationError.response?.data?.detail || 'Erro desconhecido';
-            alert(`Jogador registrado, mas não foi possível alocar automaticamente.\n\nMotivo: ${errorMsg}\n\nAloque manualmente na tela de Alocação.`);
+            toast.warning(`Jogador registrado, mas nao foi possivel alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente na tela de Alocacao.`);
           }
         }
       } else if (formData.type === 'rebuy') {
@@ -137,11 +141,11 @@ const Caixa = () => {
             } catch (allocationError) {
               console.error('Erro ao alocar jogador após rebuy:', allocationError);
               const errorMsg = allocationError.response?.data?.detail || 'Erro desconhecido';
-              alert(`Rebuy registrado com sucesso!\n\nMas não foi possível alocar automaticamente.\nMotivo: ${errorMsg}\n\nAloque manualmente na tela de Alocação.`);
+              toast.warning(`Rebuy registrado! Mas nao foi possivel alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente na tela de Alocacao.`);
             }
           }
         } else {
-          alert('Jogador não está registrado neste torneio');
+          toast.error('Jogador nao esta registrado neste torneio');
           return;
         }
       } else if (formData.type === 'addon') {
@@ -151,7 +155,7 @@ const Caixa = () => {
         if (tournamentPlayer) {
           await api.post(`/tournament-players/${tournamentPlayer.id}/addon`);
         } else {
-          alert('Jogador não está registrado neste torneio');
+          toast.error('Jogador nao esta registrado neste torneio');
           return;
         }
       }
@@ -169,8 +173,8 @@ const Caixa = () => {
       loadData();
     } catch (error) {
       console.error('Erro ao registrar transação:', error);
-      const errorMessage = error.response?.data?.detail || 'Erro ao registrar transação';
-      alert(errorMessage);
+      const errorMessage = error.response?.data?.detail || 'Erro ao registrar transacao';
+      toast.error(typeof errorMessage === 'string' ? errorMessage : 'Erro ao registrar transacao');
     }
   };
 
@@ -270,10 +274,6 @@ const Caixa = () => {
       <Sidebar />
       <main className="main-content">
         <div className="page-header">
-          <div>
-            <h1>Caixa</h1>
-            <p className="subtitle">Gerenciar transações de torneios</p>
-          </div>
           <Button onClick={() => setShowModal(true)}>
             Nova Transação
           </Button>

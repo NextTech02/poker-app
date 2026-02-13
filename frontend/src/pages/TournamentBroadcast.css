@@ -70,6 +70,13 @@
   transform: scale(1.02);
 }
 
+.broadcast-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
 .broadcast-title h1 {
   margin: 0;
   font-size: 42px;
@@ -81,6 +88,41 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Day Type Indicator Badge */
+.day-type-indicator {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.day-type-indicator.final {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(212, 175, 55, 0.1) 100%);
+  border: 2px solid var(--gold-accent, #d4af37);
+  color: var(--text-gold, #d4af37);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+}
+
+.day-type-indicator.qualifying {
+  background: linear-gradient(135deg, rgba(155, 89, 182, 0.3) 0%, rgba(155, 89, 182, 0.1) 100%);
+  border: 2px solid #9b59b6;
+  color: #c39bd3;
+  box-shadow: 0 0 20px rgba(155, 89, 182, 0.3);
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 .broadcast-header-spacer {
@@ -159,6 +201,17 @@
   font-weight: 800;
   color: var(--text-gold);
   font-variant-numeric: tabular-nums;
+}
+
+/* Enriched Timer Section in Sidebar */
+.sidebar-section.enriched-timer-section {
+  padding: 0;
+  margin-top: 16px;
+}
+
+.sidebar-section.enriched-timer-section .enriched-timer-compact {
+  background: rgba(30, 60, 114, 0.8);
+  border: 1px solid rgba(212, 175, 55, 0.3);
 }
 
 /* Center - Main Display */

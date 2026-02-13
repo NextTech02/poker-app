@@ -1,53 +1,74 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './EliminacaoJogadores.css';
 
 const EliminacaoJogadores = () => {
+  const { toast, confirm } = useToast();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tournamentId = searchParams.get('tournament');
+  const initialDayId = searchParams.get('day');
 
   const [tournament, setTournament] = useState(null);
   const [stage, setStage] = useState(null);
+  const [tournamentDays, setTournamentDays] = useState([]);
+  const [selectedDayId, setSelectedDayId] = useState(initialDayId || '');
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active'); // 'active', 'all', 'eliminated'
 
   const loadData = useCallback(async () => {
     try {
       // Load tournament details
       const tournamentRes = await api.get(`/tournaments/${tournamentId}`);
       setTournament(tournamentRes.data);
-      console.log('Tournament data:', tournamentRes.data);
 
       // Load stage details if tournament has a stage
       if (tournamentRes.data.stage_id) {
         try {
           const stageRes = await api.get(`/stages/${tournamentRes.data.stage_id}`);
           setStage(stageRes.data);
-          console.log('Stage data:', stageRes.data);
         } catch (stageError) {
           console.error('Erro ao carregar etapa:', stageError);
           setStage(null);
         }
-      } else {
-        console.log('Tournament has no stage_id');
-        setStage(null);
       }
 
-      // Load active players (not eliminated)
-      const playersRes = await api.get(`/tournament-players/tournament/${tournamentId}`);
-      setPlayers(playersRes.data.filter(p => p.status !== 'eliminated'));
+      // Load tournament days
+      const daysRes = await api.get(`/tournament-days/tournament/${tournamentId}`);
+      setTournamentDays(daysRes.data);
+
+      // If initial day is not set but there are days, select the first active one
+      if (!selectedDayId && daysRes.data.length > 0) {
+        const activeDay = daysRes.data.find(d => d.status === 'active') || daysRes.data[0];
+        setSelectedDayId(activeDay.id);
+      }
+
+      // Load players based on selected day or all tournament players
+      let playersData = [];
+      if (selectedDayId) {
+        const playersRes = await api.get(`/tournament-players/day/${selectedDayId}`);
+        playersData = playersRes.data;
+      } else {
+        const playersRes = await api.get(`/tournament-players/tournament/${tournamentId}`);
+        playersData = playersRes.data;
+      }
+
+      setPlayers(playersData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
-  }, [tournamentId]);
+  }, [tournamentId, selectedDayId]);
 
   useEffect(() => {
     if (!tournamentId) {
@@ -88,25 +109,58 @@ const EliminacaoJogadores = () => {
   }, [tournamentId, navigate, loadData]);
 
   const handleEliminate = async (tournamentPlayerId, playerName) => {
-    if (window.confirm(`Tem certeza que deseja eliminar ${playerName}?`)) {
-      try {
-        await api.post(`/tournament-players/${tournamentPlayerId}/eliminate`);
-        loadData(); // Reload to update the list
-      } catch (error) {
-        console.error('Erro ao eliminar jogador:', error);
-        const errorMessage = error.response?.data?.detail || 'Erro ao eliminar jogador';
-        alert(errorMessage);
-      }
+    const ok = await confirm(t('elimination.confirmEliminate', { name: playerName }), { variant: 'danger', confirmText: t('elimination.eliminate') });
+    if (!ok) return;
+
+    try {
+      await api.post(`/tournament-players/${tournamentPlayerId}/eliminate`);
+      loadData();
+    } catch (error) {
+      console.error('Error eliminating player:', error);
+      const errorMessage = error.response?.data?.detail || t('common.error');
+      toast.error(typeof errorMessage === 'string' ? errorMessage : t('common.error'));
     }
   };
 
-  const filteredPlayers = players.filter(player =>
+  const handleRestore = async (tournamentPlayerId, playerName) => {
+    const ok = await confirm(t('elimination.confirmRestore', { name: playerName }));
+    if (!ok) return;
+
+    try {
+      await api.patch(`/tournament-players/${tournamentPlayerId}`, {
+        status: 'active'
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error restoring player:', error);
+      const errorMessage = error.response?.data?.detail || t('common.error');
+      toast.error(typeof errorMessage === 'string' ? errorMessage : t('common.error'));
+    }
+  };
+
+  // Filter by status
+  const statusFilteredPlayers = players.filter(player => {
+    if (statusFilter === 'active') return player.status !== 'eliminated';
+    if (statusFilter === 'eliminated') return player.status === 'eliminated';
+    return true; // 'all'
+  });
+
+  // Filter by search term
+  const filteredPlayers = statusFilteredPlayers.filter(player =>
     player.player_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (player.player_nickname && player.player_nickname.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const activePlayers = players.length;
-  const totalPlayers = tournament?.registered_players || 0;
+  const activePlayers = players.filter(p => p.status !== 'eliminated').length;
+  const eliminatedPlayers = players.filter(p => p.status === 'eliminated').length;
+  const totalPlayers = players.length;
+
+  const selectedDay = tournamentDays.find(d => d.id === selectedDayId);
+
+  const handleDayChange = (e) => {
+    setSelectedDayId(e.target.value);
+    setLoading(true);
+  };
 
   return (
     <div className="app-container">
@@ -115,88 +169,170 @@ const EliminacaoJogadores = () => {
         <div className="page-header">
           <div>
             <h1>
-              Eliminar Jogadores
+              {t('elimination.title')}
               {stage && ` - ${stage.name}`}
               {tournament && ` - ${tournament.name}`}
             </h1>
             {tournament && stage && (
               <p className="subtitle">
-                {stage.location} • {new Date(stage.start_date).toLocaleDateString('pt-BR')}
+                {stage.location} • {new Date(stage.start_date).toLocaleDateString()}
               </p>
             )}
           </div>
-          <Button variant="secondary" onClick={() => navigate('/torneios')}>
-            Voltar
+          <Button variant="secondary" onClick={() => navigate(`/torneios/${tournamentId}`)}>
+            {t('common.back')}
           </Button>
         </div>
 
         {loading ? (
-          <div className="loading">Carregando jogadores...</div>
+          <div className="loading">{t('common.loading')}</div>
         ) : (
           <>
+            {/* Day Selector */}
+            {tournamentDays.length > 0 && (
+              <Card className="day-selector-card">
+                <div className="day-selector-section">
+                  <label htmlFor="day-select">{t('elimination.selectDay')}:</label>
+                  <select
+                    id="day-select"
+                    value={selectedDayId}
+                    onChange={handleDayChange}
+                    className="day-select"
+                  >
+                    {tournamentDays.map(day => (
+                      <option key={day.id} value={day.id}>
+                        {day.day_name} {day.status === 'active' ? `(${t('common.active')})` : day.status === 'completed' ? `(${t('common.completed')})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedDay && (
+                    <span className={`day-status-badge ${selectedDay.status}`}>
+                      {selectedDay.status === 'pending' && t('common.pending')}
+                      {selectedDay.status === 'active' && t('common.active')}
+                      {selectedDay.status === 'completed' && t('common.completed')}
+                      {selectedDay.status === 'cancelled' && t('common.cancelled')}
+                    </span>
+                  )}
+                </div>
+              </Card>
+            )}
+
             <Card className="stats-card">
               <div className="elimination-stats">
                 <div className="stat-item">
-                  <span className="stat-label">Jogadores Ativos</span>
-                  <span className="stat-value">{activePlayers} de {totalPlayers}</span>
+                  <span className="stat-label">{t('elimination.totalPlayers')}</span>
+                  <span className="stat-value">{totalPlayers}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Eliminados</span>
-                  <span className="stat-value eliminated">{totalPlayers - activePlayers}</span>
+                  <span className="stat-label">{t('elimination.activePlayers')}</span>
+                  <span className="stat-value active">{activePlayers}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">{t('elimination.eliminatedPlayers')}</span>
+                  <span className="stat-value eliminated">{eliminatedPlayers}</span>
                 </div>
               </div>
             </Card>
 
             <Card>
-              <div className="search-section">
-                <input
-                  type="text"
-                  placeholder="Buscar jogador..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
+              <div className="filters-section">
+                <div className="search-section">
+                  <input
+                    type="text"
+                    placeholder={t('players.searchPlayers')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
+                <div className="status-filter">
+                  <label>{t('elimination.filterByStatus')}:</label>
+                  <div className="filter-buttons">
+                    <button
+                      className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
+                      onClick={() => setStatusFilter('active')}
+                    >
+                      {t('elimination.activeOnly')} ({activePlayers})
+                    </button>
+                    <button
+                      className={`filter-btn ${statusFilter === 'eliminated' ? 'active' : ''}`}
+                      onClick={() => setStatusFilter('eliminated')}
+                    >
+                      {t('elimination.eliminatedOnly')} ({eliminatedPlayers})
+                    </button>
+                    <button
+                      className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setStatusFilter('all')}
+                    >
+                      {t('elimination.allPlayers')} ({totalPlayers})
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {filteredPlayers.length === 0 ? (
                 <div className="empty-state">
-                  <p>{searchTerm ? 'Nenhum jogador encontrado' : 'Todos os jogadores foram eliminados'}</p>
+                  <p>{t('players.noPlayers')}</p>
                 </div>
               ) : (
                 <div className="players-grid">
                   {filteredPlayers.map((player) => (
-                    <div key={player.id} className="player-elimination-card">
+                    <div key={player.id} className={`player-elimination-card ${player.status === 'eliminated' ? 'eliminated' : ''}`}>
                       <div className="player-info">
-                        <h3>{player.player_name}</h3>
+                        <div className="player-header">
+                          <h3>{player.player_name}</h3>
+                          <span className={`player-status-badge ${player.status}`}>
+                            {player.status === 'active' && t('common.active')}
+                            {player.status === 'registered' && t('common.pending')}
+                            {player.status === 'eliminated' && t('elimination.eliminatedPlayers')}
+                            {player.status === 'winner' && t('common.completed')}
+                          </span>
+                        </div>
                         {player.player_nickname && (
                           <span className="player-nickname">"{player.player_nickname}"</span>
                         )}
                         <div className="player-details">
                           <div className="detail-row">
-                            <span className="detail-icon"></span>
-                            <span>Buy-ins: {player.buy_in_count}</span>
+                            <span>{t('elimination.buyIns')}: {player.buy_in_count}</span>
                           </div>
                           <div className="detail-row">
-                            <span className="detail-icon"></span>
-                            <span>Rebuys: {player.rebuy_count}</span>
+                            <span>{t('elimination.rebuys')}: {player.rebuy_count}</span>
                           </div>
                           <div className="detail-row">
-                            <span className="detail-icon"></span>
-                            <span>Add-ons: {player.addon_count}</span>
+                            <span>{t('elimination.addons')}: {player.addon_count}</span>
                           </div>
                           <div className="detail-row">
-                            <span className="detail-icon"></span>
-                            <span>Fichas: {player.total_chips.toLocaleString('pt-BR')}</span>
+                            <span>{t('elimination.chips')}: {(player.total_chips || 0).toLocaleString()}</span>
                           </div>
+                          {player.is_qualified_entry && (
+                            <div className="detail-row qualified">
+                              <span>{t('elimination.qualified')}</span>
+                            </div>
+                          )}
+                          {player.final_chip_count && (
+                            <div className="detail-row chips-final">
+                              <span>{t('elimination.finalChips')}: {player.final_chip_count.toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <Button
-                        variant="danger"
-                        onClick={() => handleEliminate(player.id, player.player_name)}
-                        className="eliminate-btn"
-                      >
-                        Eliminar
-                      </Button>
+                      {player.status !== 'eliminated' ? (
+                        <Button
+                          variant="danger"
+                          onClick={() => handleEliminate(player.id, player.player_name)}
+                          className="eliminate-btn"
+                        >
+                          {t('elimination.eliminate')}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleRestore(player.id, player.player_name)}
+                          className="restore-btn"
+                        >
+                          {t('elimination.restore')}
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>

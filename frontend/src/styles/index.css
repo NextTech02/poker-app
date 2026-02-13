@@ -375,6 +375,132 @@ tbody td {
   margin-top: 0 !important;
 }
 
+/* ================================
+   GLOBAL MOBILE RESPONSIVE STYLES
+   ================================ */
+
+@media (max-width: 768px) {
+  /* Modal mobile adjustments */
+  .modal {
+    width: 95%;
+    max-height: 85vh;
+    margin: 0 auto;
+  }
+
+  .modal-header {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+
+  .modal-header h2 {
+    font-size: var(--font-size-lg);
+  }
+
+  .modal-body {
+    padding: var(--spacing-lg);
+  }
+
+  .modal-footer,
+  .modal-actions {
+    padding: var(--spacing-md) var(--spacing-lg);
+    flex-direction: column;
+  }
+
+  /* Form mobile adjustments */
+  .form-group {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 0.65rem 0.85rem;
+    font-size: var(--font-size-base);
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  /* Table mobile - hide by default, pages should implement card views */
+  table {
+    font-size: var(--font-size-sm);
+  }
+
+  thead th,
+  tbody td {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  /* Badge mobile sizes */
+  .badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  /* Empty state mobile */
+  .empty-state {
+    padding: var(--spacing-xl) var(--spacing-md);
+  }
+
+  .empty-state p {
+    font-size: var(--font-size-base);
+  }
+
+  /* Typography mobile */
+  h1 {
+    font-size: var(--font-size-2xl);
+    text-align: center;
+  }
+
+  h2 {
+    font-size: var(--font-size-xl);
+  }
+
+  h3 {
+    font-size: var(--font-size-lg);
+  }
+
+  /* Section titles centered on mobile */
+  .section-title,
+  .section-header h2 {
+    text-align: center;
+  }
+
+  /* Tabs centered on mobile */
+  .tabs-container {
+    justify-content: center;
+  }
+
+  .tab-button {
+    text-align: center;
+  }
+}
+
+/* Small mobile screens */
+@media (max-width: 480px) {
+  .modal {
+    width: 98%;
+    max-height: 90vh;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer,
+  .modal-actions {
+    padding-left: var(--spacing-md);
+    padding-right: var(--spacing-md);
+  }
+
+  h1 {
+    font-size: var(--font-size-xl);
+  }
+
+  h2 {
+    font-size: var(--font-size-lg);
+  }
+}
+
 :root {
   /* ========================================
      PROFESSIONAL POKER DESIGN SYSTEM v2.0

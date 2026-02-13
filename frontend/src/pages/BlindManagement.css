@@ -493,3 +493,131 @@
   color: #ffffff;
   padding: 0.5rem;
 }
+
+/* Template Modal Styles */
+.template-modal {
+  max-width: 700px;
+}
+
+.template-modal .modal-body {
+  padding: 1.5rem 2rem;
+  background: #1a202c;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.empty-templates {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #718096;
+}
+
+.empty-templates p {
+  margin: 0.5rem 0;
+}
+
+.empty-templates .hint {
+  font-size: 0.9rem;
+  color: #a0aec0;
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: #2d3748;
+  border-radius: 8px;
+  border: 1px solid #4a5568;
+  transition: all 0.2s ease;
+}
+
+.template-item:hover {
+  border-color: #667eea;
+  background: #374151;
+}
+
+.template-info h4 {
+  margin: 0 0 0.5rem 0;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.template-desc {
+  margin: 0 0 0.5rem 0;
+  color: #a0aec0;
+  font-size: 0.9rem;
+}
+
+.template-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.template-meta span {
+  font-size: 0.8rem;
+  color: #718096;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.template-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Save Template Modal */
+.form-group textarea {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid #4a5568;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #ffffff;
+  background: #2d3748;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+.form-group textarea::placeholder {
+  color: #a0aec0;
+}
+
+.save-template-info {
+  background: rgba(102, 126, 234, 0.15);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+
+.save-template-info p {
+  margin: 0;
+  color: #a5b4fc;
+  font-size: 0.9rem;
+}
+
+/* Empty table message */
+.empty-table-message {
+  text-align: center;
+  padding: 2rem !important;
+  color: #718096;
+  font-style: italic;
+}

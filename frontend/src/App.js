@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StageProvider } from './contexts/StageContext';
+import { ToastProvider } from './contexts/ToastContext';
 import SelectedStageBar from './components/SelectedStageBar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -9,11 +10,13 @@ import Etapas from './pages/Etapas';
 import Torneios from './pages/Torneios';
 import TournamentBroadcast from './pages/TournamentBroadcast';
 import TournamentDetail from './pages/TournamentDetail';
-import EliminacaoJogadores from './pages/EliminacaoJogadores';
 import ManualAllocation from './pages/ManualAllocation';
 import TournamentRankings from './pages/TournamentRankings';
 import BlindManagement from './pages/BlindManagement';
 import Premiacao from './pages/Premiacao';
+import TournamentDayForm from './pages/TournamentDayForm';
+import TournamentDayStats from './pages/TournamentDayStats';
+import TournamentControl from './pages/TournamentControl';
 import Players from './pages/Players';
 import Caixa from './pages/Caixa';
 import CaixaGeral from './pages/CaixaGeral';
@@ -70,6 +73,30 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/torneios/:tournamentId/dia/novo"
+        element={
+          <PrivateRoute>
+            <TournamentDayForm />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/torneios/:tournamentId/dia/editar/:dayId"
+        element={
+          <PrivateRoute>
+            <TournamentDayForm />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/torneios/dia/:dayId/estatisticas"
+        element={
+          <PrivateRoute>
+            <TournamentDayStats />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/jogadores"
         element={
           <PrivateRoute>
@@ -102,14 +129,6 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/eliminacao"
-        element={
-          <PrivateRoute>
-            <EliminacaoJogadores />
-          </PrivateRoute>
-        }
-      />
-      <Route
         path="/alocacao/:tournamentId"
         element={
           <PrivateRoute>
@@ -134,11 +153,19 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/control/:dayId"
+        element={
+          <PrivateRoute>
+            <TournamentControl />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/broadcast/:id"
         element={<TournamentBroadcast />}
       />
       <Route
-        path="/periodos"
+        path="/home"
         element={
           <PrivateRoute>
             <Dashboard />
@@ -219,7 +246,9 @@ function App() {
     <Router>
       <AuthProvider>
         <StageProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </StageProvider>
       </AuthProvider>
     </Router>

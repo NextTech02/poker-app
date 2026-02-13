@@ -3,9 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './ManualAllocation.css';
 
 const ManualAllocation = () => {
+  const { toast, confirm } = useToast();
   const { tournamentId } = useParams();
   const navigate = useNavigate();
   const [tournament, setTournament] = useState(null);
@@ -83,7 +85,7 @@ const ManualAllocation = () => {
         setDraggedPlayer(null);
       } catch (error) {
         console.error('Erro ao desalocar jogador:', error);
-        alert('Erro ao desalocar jogador');
+        toast.error('Erro ao desalocar jogador');
         setDraggedPlayer(null);
       }
     }
@@ -101,7 +103,7 @@ const ManualAllocation = () => {
       );
 
       if (isOccupied) {
-        alert('Este assento já está ocupado!');
+        toast.warning('Este assento ja esta ocupado!');
         return;
       }
 
@@ -133,7 +135,7 @@ const ManualAllocation = () => {
       setDraggedPlayer(null);
     } catch (error) {
       console.error('Erro ao alocar jogador:', error);
-      alert('Erro ao alocar jogador: ' + (error.response?.data?.detail || error.message));
+      toast.error('Erro ao alocar jogador: ' + (error.response?.data?.detail || error.message));
       setDraggedPlayer(null);
     }
   };
@@ -141,7 +143,8 @@ const ManualAllocation = () => {
   const handleEliminatePlayer = async (allocation) => {
     const playerName = allocation.players?.name || 'este jogador';
 
-    if (!window.confirm(`Tem certeza que deseja ELIMINAR ${playerName} do torneio?\n\nIsso registrará a eliminação e removerá o jogador da mesa.`)) return;
+    const ok = await confirm(`Tem certeza que deseja ELIMINAR ${playerName} do torneio?\n\nIsso registrara a eliminacao e removera o jogador da mesa.`, { variant: 'danger', confirmText: 'Eliminar' });
+    if (!ok) return;
 
     try {
       // Find the tournament player
@@ -164,10 +167,10 @@ const ManualAllocation = () => {
       await api.delete(`/allocations/${allocation.id}`);
 
       await loadData();
-      alert(`${playerName} foi eliminado do torneio!\n\nO ranking foi atualizado automaticamente.`);
+      toast.success(`${playerName} foi eliminado do torneio! O ranking foi atualizado automaticamente.`);
     } catch (error) {
       console.error('Erro ao eliminar jogador:', error);
-      alert('Erro ao eliminar jogador: ' + (error.response?.data?.detail || error.message));
+      toast.error('Erro ao eliminar jogador: ' + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -184,10 +187,10 @@ const ManualAllocation = () => {
       });
 
       await loadData();
-      alert(`Mesa ${nextTableNumber} adicionada com sucesso!`);
+      toast.success(`Mesa ${nextTableNumber} adicionada com sucesso!`);
     } catch (error) {
       console.error('Erro ao adicionar mesa:', error);
-      alert('Erro ao adicionar mesa: ' + (error.response?.data?.detail || error.message));
+      toast.error('Erro ao adicionar mesa: ' + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -196,19 +199,20 @@ const ManualAllocation = () => {
     const hasPlayers = allocations.some(alloc => alloc.table_id === tableId);
 
     if (hasPlayers) {
-      alert('Não é possível remover uma mesa com jogadores alocados. Remova as alocações primeiro.');
+      toast.warning('Nao e possivel remover uma mesa com jogadores alocados. Remova as alocacoes primeiro.');
       return;
     }
 
-    if (!window.confirm(`Tem certeza que deseja remover a Mesa ${tableNumber}?`)) return;
+    const ok = await confirm(`Tem certeza que deseja remover a Mesa ${tableNumber}?`, { variant: 'danger', confirmText: 'Remover' });
+    if (!ok) return;
 
     try {
       await api.delete(`/tables/${tableId}`);
       await loadData();
-      alert(`Mesa ${tableNumber} removida com sucesso!`);
+      toast.success(`Mesa ${tableNumber} removida com sucesso!`);
     } catch (error) {
       console.error('Erro ao remover mesa:', error);
-      alert('Erro ao remover mesa: ' + (error.response?.data?.detail || error.message));
+      toast.error('Erro ao remover mesa: ' + (error.response?.data?.detail || error.message));
     }
   };
 

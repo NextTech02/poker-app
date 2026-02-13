@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { useStage } from '../contexts/StageContext';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './Etapas.css';
 
 const Etapas = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { selectedStage, selectStage } = useStage();
+  const { toast, confirm } = useToast();
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -60,7 +64,7 @@ const Etapas = () => {
     } catch (error) {
       console.error('Erro ao salvar etapa:', error);
       const errorMessage = error.response?.data?.detail || 'Erro ao salvar etapa';
-      alert(errorMessage);
+      toast.error(typeof errorMessage === 'string' ? errorMessage : 'Erro ao salvar etapa');
     }
   };
 
@@ -78,14 +82,15 @@ const Etapas = () => {
   };
 
   const handleDelete = async (stageId) => {
-    if (window.confirm('Tem certeza que deseja excluir esta etapa? Os torneios não serão excluídos.')) {
-      try {
-        await api.delete(`/stages/${stageId}`);
-        loadStages();
-      } catch (error) {
-        console.error('Erro ao excluir etapa:', error);
-        alert('Erro ao excluir etapa.');
-      }
+    const ok = await confirm('Tem certeza que deseja excluir esta etapa? Os torneios nao serao excluidos.', { variant: 'danger', confirmText: 'Excluir' });
+    if (!ok) return;
+
+    try {
+      await api.delete(`/stages/${stageId}`);
+      loadStages();
+    } catch (error) {
+      console.error('Erro ao excluir etapa:', error);
+      toast.error('Erro ao excluir etapa.');
     }
   };
 
@@ -138,12 +143,8 @@ const Etapas = () => {
       <Sidebar />
       <main className="main-content">
         <div className="page-header">
-          <div>
-            <h1>Etapas</h1>
-            <p className="subtitle">Gerenciar etapas e eventos</p>
-          </div>
           <Button onClick={openNewModal}>
-            Nova Etapa
+            {t('stages.newStage')}
           </Button>
         </div>
 
@@ -152,88 +153,161 @@ const Etapas = () => {
         ) : stages.length === 0 ? (
           <Card>
             <div className="empty-state">
-              <p>Nenhuma etapa cadastrada</p>
-              <Button onClick={openNewModal}>Cadastrar Primeira Etapa</Button>
+              <p>{t('stages.noStages')}</p>
+              <Button onClick={openNewModal}>{t('stages.newStage')}</Button>
             </div>
           </Card>
         ) : (
-          <div className="stages-table-container">
-            <table className="stages-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Nome da Etapa</th>
-                  <th>Local</th>
-                  <th>Data Início</th>
-                  <th>Data Fim</th>
-                  <th>Torneios</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stages.map((stage) => (
-                  <tr
-                    key={stage.id}
-                    className={isStageSelected(stage.id) ? 'selected-row' : ''}
-                  >
-                    <td>
-                      <div className="status-badges">
-                        {getStatusBadge(stage.status)}
-                        {isStageSelected(stage.id) && (
-                          <span className="badge badge-selected">Ativa</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <strong>{stage.name}</strong>
-                      {stage.description && (
-                        <div className="stage-description-inline">{stage.description}</div>
-                      )}
-                    </td>
-                    <td>{stage.location}</td>
-                    <td>{formatDate(stage.start_date)}</td>
-                    <td>{formatDate(stage.end_date)}</td>
-                    <td className="text-center">{stage.tournament_count || 0}</td>
-                    <td>
-                      <div className="table-actions">
-                        {!isStageSelected(stage.id) ? (
-                          <Button
-                            variant="primary"
-                            size="small"
-                            onClick={() => handleSelectStage(stage)}
-                          >
-                            Selecionar
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="success"
-                            size="small"
-                            disabled
-                          >
-                            Ativa
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          onClick={() => handleEdit(stage)}
-                        >
-                          Editar
-                        </Button>
-                      </div>
-                    </td>
+          <>
+            {/* Desktop Table View */}
+            <div className="stages-table-container">
+              <table className="stages-table">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Nome da Etapa</th>
+                    <th>Local</th>
+                    <th>Data Início</th>
+                    <th>Data Fim</th>
+                    <th>Torneios</th>
+                    <th>Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {stages.map((stage) => (
+                    <tr
+                      key={stage.id}
+                      className={isStageSelected(stage.id) ? 'selected-row' : ''}
+                    >
+                      <td>
+                        <div className="status-badges">
+                          {getStatusBadge(stage.status)}
+                          {isStageSelected(stage.id) && (
+                            <span className="badge badge-selected">Ativa</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{stage.name}</strong>
+                        {stage.description && (
+                          <div className="stage-description-inline">{stage.description}</div>
+                        )}
+                      </td>
+                      <td>{stage.location}</td>
+                      <td>{formatDate(stage.start_date)}</td>
+                      <td>{formatDate(stage.end_date)}</td>
+                      <td className="text-center">{stage.tournament_count || 0}</td>
+                      <td>
+                        <div className="table-actions">
+                          {!isStageSelected(stage.id) ? (
+                            <Button
+                              variant="primary"
+                              size="small"
+                              onClick={() => handleSelectStage(stage)}
+                            >
+                              {t('stages.selectStage').replace('Selecione uma Etapa', 'Selecionar')}
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="success"
+                              size="small"
+                              disabled
+                            >
+                              {t('common.active')}
+                            </Button>
+                          )}
+                          <Button
+                            variant="secondary"
+                            size="small"
+                            onClick={() => handleEdit(stage)}
+                          >
+                            {t('common.edit')}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="stages-cards-mobile">
+              {stages.map((stage) => (
+                <div
+                  key={stage.id}
+                  className={`stage-card-mobile ${isStageSelected(stage.id) ? 'selected' : ''}`}
+                >
+                  <div className="stage-card-header">
+                    <h3 className="stage-card-title">{stage.name}</h3>
+                    <div className="stage-card-badges">
+                      {getStatusBadge(stage.status)}
+                      {isStageSelected(stage.id) && (
+                        <span className="badge badge-selected">Ativa</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {stage.description && (
+                    <p className="stage-card-description">{stage.description}</p>
+                  )}
+
+                  <div className="stage-card-info">
+                    <div className="stage-card-info-item">
+                      <span className="stage-card-info-label">Local</span>
+                      <span className="stage-card-info-value">{stage.location}</span>
+                    </div>
+                    <div className="stage-card-info-item">
+                      <span className="stage-card-info-label">Torneios</span>
+                      <span className="stage-card-info-value">{stage.tournament_count || 0}</span>
+                    </div>
+                    <div className="stage-card-info-item">
+                      <span className="stage-card-info-label">Início</span>
+                      <span className="stage-card-info-value">{formatDate(stage.start_date)}</span>
+                    </div>
+                    <div className="stage-card-info-item">
+                      <span className="stage-card-info-label">Término</span>
+                      <span className="stage-card-info-value">{formatDate(stage.end_date)}</span>
+                    </div>
+                  </div>
+
+                  <div className="stage-card-actions">
+                    {!isStageSelected(stage.id) ? (
+                      <Button
+                        variant="primary"
+                        size="small"
+                        onClick={() => handleSelectStage(stage)}
+                      >
+                        Selecionar
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="success"
+                        size="small"
+                        disabled
+                      >
+                        Ativa
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={() => handleEdit(stage)}
+                    >
+                      Editar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{editingStage ? 'Editar Etapa' : 'Nova Etapa'}</h2>
+                <h2>{editingStage ? t('common.edit') + ' ' + t('stages.title').slice(0, -1) : t('stages.newStage')}</h2>
                 <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
                   <span className="close-icon"></span>
                 </button>
@@ -328,16 +402,16 @@ const Etapas = () => {
                           handleDelete(editingStage.id);
                         }}
                       >
-                        Excluir Etapa
+                        {t('common.delete')}
                       </Button>
                     )}
                   </div>
                   <div className="modal-actions-right">
                     <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
-                      Cancelar
+                      {t('common.cancel')}
                     </Button>
                     <Button type="submit">
-                      {editingStage ? 'Atualizar' : 'Cadastrar'}
+                      {editingStage ? t('common.save') : t('common.add')}
                     </Button>
                   </div>
                 </div>

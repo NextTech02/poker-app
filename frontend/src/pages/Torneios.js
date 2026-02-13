@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './Torneios.css';
 
 const Torneios = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const { toast, confirm } = useToast();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -15,6 +19,7 @@ const Torneios = () => {
   const [editingTournament, setEditingTournament] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
+    has_qualifying: false,
   });
   const [broadcastSettings, setBroadcastSettings] = useState({
     broadcast_bg_color: '#0a0e13',
@@ -65,22 +70,28 @@ const Torneios = () => {
     try {
       const tournamentData = {
         name: formData.name,
-        // stage_id will be automatically set from X-Stage-ID header if a stage is selected
+        has_qualifying: formData.has_qualifying,
       };
 
       await api.post('/tournaments', tournamentData);
 
       setShowModal(false);
-      setFormData({ name: '' });
+      setFormData({ name: '', has_qualifying: false });
       loadTournaments();
     } catch (error) {
       console.error('Erro ao criar torneio:', error);
-      const errorMessage = error.response?.data?.detail
-        ? (Array.isArray(error.response.data.detail)
-            ? error.response.data.detail.map(e => `${e.loc?.join('.')}: ${e.msg}`).join('\n')
-            : error.response.data.detail)
-        : 'Erro ao criar torneio. Verifique os dados e tente novamente.';
-      alert(errorMessage);
+      const detail = error.response?.data?.detail;
+      let errorMessage = 'Erro ao criar torneio. Verifique os dados e tente novamente.';
+      if (detail) {
+        if (typeof detail === 'string') {
+          errorMessage = detail;
+        } else if (Array.isArray(detail)) {
+          errorMessage = detail.map(e => `${e.loc?.join('.') || ''}: ${e.msg || JSON.stringify(e)}`).join('\n');
+        } else {
+          errorMessage = JSON.stringify(detail);
+        }
+      }
+      toast.error(errorMessage);
     }
   };
 
@@ -89,6 +100,7 @@ const Torneios = () => {
     try {
       await api.patch(`/tournaments/${editingTournament.id}`, {
         name: formData.name,
+        has_qualifying: formData.has_qualifying,
         ...broadcastSettings,
         broadcast_bg_image_url: broadcastSettings.broadcast_bg_image_url || null,
         broadcast_display_name: broadcastSettings.broadcast_display_name || null,
@@ -96,7 +108,7 @@ const Torneios = () => {
 
       setShowEditModal(false);
       setEditingTournament(null);
-      setFormData({ name: '' });
+      setFormData({ name: '', has_qualifying: false });
       setBroadcastSettings({
         broadcast_bg_color: '#0a0e13',
         broadcast_bg_image_url: '',
@@ -117,7 +129,7 @@ const Torneios = () => {
       loadTournaments();
     } catch (error) {
       console.error('Erro ao atualizar torneio:', error);
-      alert('Erro ao atualizar torneio');
+      toast.error('Erro ao atualizar torneio');
     }
   };
 
@@ -141,7 +153,7 @@ const Torneios = () => {
     if (file) {
       // Validate file size (max 2MB for base64 storage)
       if (file.size > 2 * 1024 * 1024) {
-        alert('Imagem muito grande. Máximo: 2MB');
+        toast.warning('Imagem muito grande. Maximo: 2MB');
         return;
       }
 
@@ -167,6 +179,7 @@ const Torneios = () => {
     setEditingTournament(tournament);
     setFormData({
       name: tournament.name,
+      has_qualifying: tournament.has_qualifying || false,
     });
     setBroadcastSettings({
       broadcast_bg_color: tournament.broadcast_bg_color || '#0a0e13',
@@ -189,16 +202,15 @@ const Torneios = () => {
   };
 
   const handleDeleteTournament = async (tournamentId) => {
-    if (!window.confirm('Tem certeza que deseja excluir este torneio?')) {
-      return;
-    }
+    const ok = await confirm('Tem certeza que deseja excluir este torneio?', { variant: 'danger', confirmText: 'Excluir' });
+    if (!ok) return;
 
     try {
       await api.delete(`/tournaments/${tournamentId}`);
       loadTournaments();
     } catch (error) {
       console.error('Erro ao excluir torneio:', error);
-      alert('Erro ao excluir torneio');
+      toast.error('Erro ao excluir torneio');
     }
   };
 
@@ -224,26 +236,23 @@ const Torneios = () => {
       <Sidebar />
       <main className="main-content">
         <div className="page-header">
-          <div>
-            <h1>Torneios</h1>
-            <p className="subtitle">Gerencie os torneios da etapa</p>
-          </div>
           <Button onClick={() => setShowModal(true)}>
-            Criar Novo Torneio
+            {t('tournaments.newTournament')}
           </Button>
         </div>
 
         {tournaments.length === 0 ? (
           <Card>
             <div className="empty-state">
-              <p>Nenhum torneio criado ainda</p>
+              <p>{t('tournaments.noTournaments')}</p>
               <Button onClick={() => setShowModal(true)}>
-                Criar Primeiro Torneio
+                {t('tournaments.createFirst')}
               </Button>
             </div>
           </Card>
         ) : (
           <Card>
+            {/* Desktop Table View */}
             <div className="tournaments-table-container">
               <table className="tournaments-table">
                 <thead>
@@ -273,14 +282,14 @@ const Torneios = () => {
                             variant="secondary"
                             onClick={() => openEditModal(tournament)}
                           >
-                            Editar
+                            {t('common.edit')}
                           </Button>
                           <Button
                             size="small"
                             variant="danger"
                             onClick={() => handleDeleteTournament(tournament.id)}
                           >
-                            Excluir
+                            {t('common.delete')}
                           </Button>
                         </div>
                       </td>
@@ -288,6 +297,40 @@ const Torneios = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="tournaments-cards-mobile">
+              {tournaments.map((tournament) => (
+                <div
+                  key={tournament.id}
+                  className="tournament-card-mobile"
+                  onClick={() => navigate(`/torneios/${tournament.id}`)}
+                >
+                  <div className="tournament-card-mobile-header">
+                    <h3 className="tournament-card-mobile-name">{tournament.name}</h3>
+                    <span className="tournament-card-mobile-entries">
+                      <strong>{getTournamentEntries(tournament)}</strong> entradas
+                    </span>
+                  </div>
+                  <div className="tournament-card-mobile-actions" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      onClick={() => openEditModal(tournament)}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="danger"
+                      onClick={() => handleDeleteTournament(tournament.id)}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           </Card>
         )}
@@ -297,7 +340,7 @@ const Torneios = () => {
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Criar Novo Torneio</h2>
+                <h2>{t('tournaments.newTournament')}</h2>
                 <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
                   <span className="close-icon"></span>
                 </button>
@@ -317,12 +360,25 @@ const Torneios = () => {
                   <small>Depois de criar o torneio, você poderá adicionar os dias e configurações.</small>
                 </div>
 
+                <div className={`qualifying-toggle-card ${formData.has_qualifying ? 'active' : ''}`}
+                  onClick={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}>
+                  <div className="qualifying-toggle-content">
+                    <div className="qualifying-toggle-text">
+                      <span className="qualifying-toggle-title">{t('tournaments.hasQualifying')}</span>
+                      <span className="qualifying-toggle-hint">{t('tournaments.hasQualifyingHint')}</span>
+                    </div>
+                  </div>
+                  <div className={`toggle-switch ${formData.has_qualifying ? 'on' : ''}`}>
+                    <div className="toggle-knob" />
+                  </div>
+                </div>
+
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
                   <Button type="submit">
-                    Criar Torneio
+                    {t('tournaments.newTournament')}
                   </Button>
                 </div>
               </form>
@@ -335,7 +391,7 @@ const Torneios = () => {
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
             <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Editar Torneio</h2>
+                <h2>{t('tournaments.editTournament')}</h2>
                 <button className="close-btn" onClick={() => setShowEditModal(false)} aria-label="Fechar">
                   <span className="close-icon"></span>
                 </button>
@@ -351,6 +407,19 @@ const Torneios = () => {
                     onChange={handleChange}
                     required
                   />
+                </div>
+
+                <div className={`qualifying-toggle-card ${formData.has_qualifying ? 'active' : ''}`}
+                  onClick={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}>
+                  <div className="qualifying-toggle-content">
+                    <div className="qualifying-toggle-text">
+                      <span className="qualifying-toggle-title">{t('tournaments.hasQualifying')}</span>
+                      <span className="qualifying-toggle-hint">{t('tournaments.hasQualifyingHint')}</span>
+                    </div>
+                  </div>
+                  <div className={`toggle-switch ${formData.has_qualifying ? 'on' : ''}`}>
+                    <div className="toggle-knob" />
+                  </div>
                 </div>
 
                 <div className="form-section">
@@ -578,10 +647,10 @@ const Torneios = () => {
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
                   <Button type="submit">
-                    Salvar Alterações
+                    {t('common.save')}
                   </Button>
                 </div>
               </form>

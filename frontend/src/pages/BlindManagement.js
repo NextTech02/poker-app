@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './BlindManagement.css';
 
 const BlindManagement = () => {
+  const { toast, confirm } = useToast();
+  const { t } = useTranslation();
   const { dayId } = useParams();
   const navigate = useNavigate();
   const [tournamentDay, setTournamentDay] = useState(null);
@@ -17,6 +21,12 @@ const BlindManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBlind, setEditingBlind] = useState(null);
   const [isBreakMode, setIsBreakMode] = useState(false);
+  // Template states
+  const [templates, setTemplates] = useState([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
   const [formData, setFormData] = useState({
     level: '',
     small_blind: '',
@@ -28,14 +38,16 @@ const BlindManagement = () => {
 
   const loadData = useCallback(async () => {
     try {
-      // Load tournament day and its blinds
-      const [dayRes, blindsRes] = await Promise.all([
+      // Load tournament day, its blinds, and templates
+      const [dayRes, blindsRes, templatesRes] = await Promise.all([
         api.get(`/tournament-days/${dayId}`),
-        api.get(`/tournament-days/${dayId}/blinds`)
+        api.get(`/tournament-days/${dayId}/blinds`),
+        api.get('/blind-templates')
       ]);
 
       setTournamentDay(dayRes.data);
       setBlinds(blindsRes.data.sort((a, b) => a.level - b.level));
+      setTemplates(templatesRes.data);
 
       // Load tournament info for display
       if (dayRes.data.tournament_id) {
@@ -43,8 +55,8 @@ const BlindManagement = () => {
         setTournament(tournamentRes.data);
       }
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      alert('Erro ao carregar dados do dia do torneio');
+      console.error('Error loading data:', error);
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -96,9 +108,9 @@ const BlindManagement = () => {
       });
       loadData();
     } catch (error) {
-      console.error('Erro ao adicionar blind:', error);
-      const errorMessage = error.response?.data?.detail || 'Erro ao adicionar blind';
-      alert(errorMessage);
+      console.error('Error adding blind:', error);
+      const errorMessage = error.response?.data?.detail || t('common.error');
+      toast.error(typeof errorMessage === 'string' ? errorMessage : t('common.error'));
     }
   };
 
@@ -135,21 +147,22 @@ const BlindManagement = () => {
       });
       loadData();
     } catch (error) {
-      console.error('Erro ao atualizar blind:', error);
-      const errorMessage = error.response?.data?.detail || 'Erro ao atualizar blind';
-      alert(errorMessage);
+      console.error('Error updating blind:', error);
+      const errorMessage = error.response?.data?.detail || t('common.error');
+      toast.error(typeof errorMessage === 'string' ? errorMessage : t('common.error'));
     }
   };
 
   const handleDeleteBlind = async (blindId) => {
-    if (window.confirm('Tem certeza que deseja excluir este item?')) {
-      try {
-        await api.delete(`/tournament-days/${dayId}/blinds/${blindId}`);
-        loadData();
-      } catch (error) {
-        console.error('Erro ao excluir blind:', error);
-        alert('Erro ao excluir blind');
-      }
+    const ok = await confirm(t('common.confirm') + '?', { variant: 'danger', confirmText: t('common.delete') });
+    if (!ok) return;
+
+    try {
+      await api.delete(`/tournament-days/${dayId}/blinds/${blindId}`);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting blind:', error);
+      toast.error(t('common.error'));
     }
   };
 
@@ -184,6 +197,62 @@ const BlindManagement = () => {
     setShowAddModal(true);
   };
 
+  // Template functions
+  const handleApplyTemplate = async (templateId) => {
+    if (blinds.length > 0) {
+      const ok = await confirm(t('blinds.confirmApplyTemplate'));
+      if (!ok) return;
+    }
+
+    try {
+      await api.post('/blind-templates/apply', {
+        template_id: templateId,
+        tournament_day_id: dayId,
+        clear_existing: true
+      });
+      setShowTemplateModal(false);
+      loadData();
+    } catch (error) {
+      console.error('Error applying template:', error);
+      toast.error(t('common.error'));
+    }
+  };
+
+  const handleSaveAsTemplate = async (e) => {
+    e.preventDefault();
+    if (!templateName.trim()) {
+      toast.warning(t('blinds.templateName'));
+      return;
+    }
+
+    try {
+      await api.post(`/blind-templates/save-from-day?tournament_day_id=${dayId}&template_name=${encodeURIComponent(templateName)}${templateDescription ? `&description=${encodeURIComponent(templateDescription)}` : ''}`);
+      setShowSaveTemplateModal(false);
+      setTemplateName('');
+      setTemplateDescription('');
+      toast.success(t('blinds.templateSaved'));
+      const templatesRes = await api.get('/blind-templates');
+      setTemplates(templatesRes.data);
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast.error(t('common.error'));
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId, tplName) => {
+    const ok = await confirm(`${t('blinds.confirmDeleteTemplate')} "${tplName}"?`, { variant: 'danger', confirmText: t('common.delete') });
+    if (!ok) return;
+
+    try {
+      await api.delete(`/blind-templates/${templateId}`);
+      const templatesRes = await api.get('/blind-templates');
+      setTemplates(templatesRes.data);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast.error(t('common.error'));
+    }
+  };
+
   const getDisplayTitle = () => {
     if (tournament && tournamentDay) {
       return `${tournament.name} - ${tournamentDay.day_name}`;
@@ -191,7 +260,7 @@ const BlindManagement = () => {
     if (tournamentDay) {
       return tournamentDay.day_name;
     }
-    return 'Estrutura de Blinds';
+    return t('blinds.title');
   };
 
   // Calculate summary stats
@@ -205,7 +274,7 @@ const BlindManagement = () => {
       <div className="app-container">
         <Sidebar />
         <main className="main-content">
-          <div className="loading">Carregando...</div>
+          <div className="loading">{t('common.loading')}</div>
         </main>
       </div>
     );
@@ -217,8 +286,8 @@ const BlindManagement = () => {
         <Sidebar />
         <main className="main-content">
           <Card>
-            <p>Dia do torneio nao encontrado</p>
-            <Button onClick={() => navigate('/torneios')}>Voltar</Button>
+            <p>{t('common.noData')}</p>
+            <Button onClick={() => navigate('/torneios')}>{t('common.back')}</Button>
           </Card>
         </main>
       </div>
@@ -231,56 +300,58 @@ const BlindManagement = () => {
       <main className="main-content">
         <div className="page-header">
           <div>
-            <h1>Estrutura de Blinds</h1>
+            <h1>{t('blinds.title')}</h1>
             <p className="subtitle">{getDisplayTitle()}</p>
           </div>
           <div className="header-actions">
+            <Button variant="info" onClick={() => setShowTemplateModal(true)}>
+              {t('blinds.loadTemplate')}
+            </Button>
+            {blinds.length > 0 && (
+              <Button variant="success" onClick={() => setShowSaveTemplateModal(true)}>
+                {t('blinds.saveTemplate')}
+              </Button>
+            )}
             <Button onClick={() => openAddModal(false)}>
-              Adicionar Blind
+              {t('blinds.addBlind')}
             </Button>
             <Button variant="warning" onClick={() => openAddModal(true)}>
-              Adicionar Break
+              {t('blinds.addBreak')}
             </Button>
             <Button variant="secondary" onClick={() => navigate(-1)}>
-              Voltar
+              {t('common.back')}
             </Button>
           </div>
         </div>
 
-        {blinds.length === 0 ? (
-          <Card>
-            <div className="empty-state">
-              <p>Nenhum blind cadastrado ainda</p>
-              <p className="empty-hint">Configure a estrutura de blinds para este dia do torneio</p>
-              <div className="empty-actions">
-                <Button onClick={() => openAddModal(false)}>
-                  Adicionar Primeiro Blind
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ) : (
-          <Card>
-            <div className="blinds-table-container">
-              <table className="blinds-table">
-                <thead>
+        <Card>
+          <div className="blinds-table-container">
+            <table className="blinds-table">
+              <thead>
+                <tr>
+                  <th>{t('blinds.level')}</th>
+                  <th>{t('blinds.smallBlind')}</th>
+                  <th>{t('blinds.bigBlind')}</th>
+                  <th>{t('blinds.ante')}</th>
+                  <th>{t('blinds.duration')}</th>
+                  <th>{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blinds.length === 0 ? (
                   <tr>
-                    <th>Nivel</th>
-                    <th>Small Blind</th>
-                    <th>Big Blind</th>
-                    <th>Ante</th>
-                    <th>Duracao (min)</th>
-                    <th>Acoes</th>
+                    <td colSpan="6" className="empty-table-message">
+                      {t('blinds.noBlindRegistered')}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {blinds.map((blind) => (
+                ) : (
+                  blinds.map((blind) => (
                     <tr key={blind.id} className={`blind-row ${blind.is_break ? 'break-row' : ''}`}>
                       <td className="level-cell">
                         {blind.is_break ? (
-                          <span className="break-badge">BREAK</span>
+                          <span className="break-badge">{t('blinds.break')}</span>
                         ) : (
-                          <strong>Nivel {blind.level}</strong>
+                          <strong>{t('blinds.level')} {blind.level}</strong>
                         )}
                       </td>
                       <td>{blind.is_break ? '-' : blind.small_blind.toLocaleString()}</td>
@@ -292,48 +363,50 @@ const BlindManagement = () => {
                           <button
                             className="btn-small btn-edit"
                             onClick={() => openEditModal(blind)}
-                            title="Editar"
+                            title={t('common.edit')}
                           >
-                            Editar
+                            {t('common.edit')}
                           </button>
                           <button
                             className="btn-small btn-delete"
                             onClick={() => handleDeleteBlind(blind.id)}
-                            title="Excluir"
+                            title={t('common.delete')}
                           >
-                            Excluir
+                            {t('common.delete')}
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-            {/* Summary */}
+          {/* Summary - only show if there are blinds */}
+          {blinds.length > 0 && (
             <div className="blinds-summary">
-              <span>Niveis: {blindLevels.length}</span>
-              <span>Breaks: {breakLevels.length}</span>
-              <span>Duracao total: {totalDuration} min ({Math.floor(totalDuration / 60)}h {totalDuration % 60}min)</span>
-              <span>Tempo de break: {totalBreakTime} min</span>
+              <span>{t('blinds.levels')}: {blindLevels.length}</span>
+              <span>{t('blinds.breaks')}: {breakLevels.length}</span>
+              <span>{t('blinds.totalDuration')}: {totalDuration} min ({Math.floor(totalDuration / 60)}h {totalDuration % 60}min)</span>
+              <span>{t('blinds.breakTime')}: {totalBreakTime} min</span>
             </div>
-          </Card>
-        )}
+          )}
+        </Card>
 
         {/* Add Blind/Break Modal */}
         {showAddModal && (
           <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{formData.is_break ? 'Adicionar Break' : 'Adicionar Blind'}</h2>
-                <button className="close-btn" onClick={() => setShowAddModal(false)} aria-label="Fechar">
+                <h2>{formData.is_break ? t('blinds.addBreak') : t('blinds.addBlind')}</h2>
+                <button className="close-btn" onClick={() => setShowAddModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleAddBlind}>
                 <div className="form-group">
-                  <label htmlFor="level">Posicao na Estrutura *</label>
+                  <label htmlFor="level">{t('blinds.position')} *</label>
                   <select
                     id="level"
                     name="level"
@@ -379,7 +452,7 @@ const BlindManagement = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="duration">Duracao (minutos) *</label>
+                  <label htmlFor="duration">{t('blinds.duration')} *</label>
                   <input
                     id="duration"
                     name="duration"
@@ -396,7 +469,7 @@ const BlindManagement = () => {
                   <>
                     <div className="form-row">
                       <div className="form-group">
-                        <label htmlFor="small_blind">Small Blind *</label>
+                        <label htmlFor="small_blind">{t('blinds.smallBlind')} *</label>
                         <input
                           id="small_blind"
                           name="small_blind"
@@ -410,7 +483,7 @@ const BlindManagement = () => {
                       </div>
 
                       <div className="form-group">
-                        <label htmlFor="big_blind">Big Blind *</label>
+                        <label htmlFor="big_blind">{t('blinds.bigBlind')} *</label>
                         <input
                           id="big_blind"
                           name="big_blind"
@@ -425,7 +498,7 @@ const BlindManagement = () => {
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="ante">Ante</label>
+                      <label htmlFor="ante">{t('blinds.ante')}</label>
                       <input
                         id="ante"
                         name="ante"
@@ -447,9 +520,9 @@ const BlindManagement = () => {
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowAddModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
-                  <Button type="submit">{formData.is_break ? 'Adicionar Break' : 'Adicionar Blind'}</Button>
+                  <Button type="submit">{formData.is_break ? t('blinds.addBreak') : t('blinds.addBlind')}</Button>
                 </div>
               </form>
             </div>
@@ -461,8 +534,8 @@ const BlindManagement = () => {
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{formData.is_break ? 'Editar Break' : 'Editar Blind'}</h2>
-                <button className="close-btn" onClick={() => setShowEditModal(false)} aria-label="Fechar">
+                <h2>{formData.is_break ? t('blinds.editBreak') : t('blinds.editBlind')}</h2>
+                <button className="close-btn" onClick={() => setShowEditModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -475,13 +548,13 @@ const BlindManagement = () => {
                       checked={formData.is_break}
                       onChange={handleChange}
                     />
-                    <span className="toggle-label">Este nivel e um Break/Intervalo</span>
+                    <span className="toggle-label">{t('blinds.isBreak')}</span>
                   </label>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="edit_level">Nivel *</label>
+                    <label htmlFor="edit_level">{t('blinds.level')} *</label>
                     <input
                       id="edit_level"
                       name="level"
@@ -494,7 +567,7 @@ const BlindManagement = () => {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="edit_duration">Duracao (minutos) *</label>
+                    <label htmlFor="edit_duration">{t('blinds.duration')} *</label>
                     <input
                       id="edit_duration"
                       name="duration"
@@ -511,7 +584,7 @@ const BlindManagement = () => {
                   <>
                     <div className="form-row">
                       <div className="form-group">
-                        <label htmlFor="edit_small_blind">Small Blind *</label>
+                        <label htmlFor="edit_small_blind">{t('blinds.smallBlind')} *</label>
                         <input
                           id="edit_small_blind"
                           name="small_blind"
@@ -524,7 +597,7 @@ const BlindManagement = () => {
                       </div>
 
                       <div className="form-group">
-                        <label htmlFor="edit_big_blind">Big Blind *</label>
+                        <label htmlFor="edit_big_blind">{t('blinds.bigBlind')} *</label>
                         <input
                           id="edit_big_blind"
                           name="big_blind"
@@ -538,7 +611,7 @@ const BlindManagement = () => {
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="edit_ante">Ante</label>
+                      <label htmlFor="edit_ante">{t('blinds.ante')}</label>
                       <input
                         id="edit_ante"
                         name="ante"
@@ -559,9 +632,107 @@ const BlindManagement = () => {
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
-                  <Button type="submit">Salvar</Button>
+                  <Button type="submit">{t('common.save')}</Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Template Selection Modal */}
+        {showTemplateModal && (
+          <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
+            <div className="modal template-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{t('blinds.loadTemplate')}</h2>
+                <button className="close-btn" onClick={() => setShowTemplateModal(false)} aria-label={t('common.close')}>
+                  <span className="close-icon"></span>
+                </button>
+              </div>
+              <div className="modal-body">
+                {templates.length === 0 ? (
+                  <div className="empty-templates">
+                    <p>{t('blinds.noTemplates')}</p>
+                    <p className="hint">{t('blinds.noTemplatesHint')}</p>
+                  </div>
+                ) : (
+                  <div className="template-list">
+                    {templates.map((template) => (
+                      <div key={template.id} className="template-item">
+                        <div className="template-info">
+                          <h4>{template.name}</h4>
+                          {template.description && <p className="template-desc">{template.description}</p>}
+                          <div className="template-meta">
+                            <span>{t('blinds.initialSbBb')}: {template.initial_small_blind}/{template.initial_big_blind}</span>
+                            <span>{t('blinds.duration')}: {template.blind_duration}min</span>
+                            {template.custom_levels && (
+                              <span>{template.custom_levels.length} {t('blinds.levels').toLowerCase()}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="template-actions">
+                          <Button size="small" onClick={() => handleApplyTemplate(template.id)}>
+                            {t('blinds.applyTemplate')}
+                          </Button>
+                          <Button size="small" variant="danger" onClick={() => handleDeleteTemplate(template.id, template.name)}>
+                            {t('common.delete')}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="modal-actions">
+                <Button variant="secondary" onClick={() => setShowTemplateModal(false)}>
+                  {t('common.close')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Save Template Modal */}
+        {showSaveTemplateModal && (
+          <div className="modal-overlay" onClick={() => setShowSaveTemplateModal(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{t('blinds.saveAsTemplate')}</h2>
+                <button className="close-btn" onClick={() => setShowSaveTemplateModal(false)} aria-label={t('common.close')}>
+                  <span className="close-icon"></span>
+                </button>
+              </div>
+              <form onSubmit={handleSaveAsTemplate}>
+                <div className="form-group">
+                  <label htmlFor="template_name">{t('blinds.templateName')} *</label>
+                  <input
+                    id="template_name"
+                    type="text"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder={t('blinds.templateNamePlaceholder')}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="template_description">{t('blinds.templateDescription')}</label>
+                  <textarea
+                    id="template_description"
+                    value={templateDescription}
+                    onChange={(e) => setTemplateDescription(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div className="save-template-info">
+                  <p>{t('blinds.willSaveWith')} {blinds.length} {t('blinds.levels').toLowerCase()} ({blinds.filter(b => !b.is_break).length} blinds, {blinds.filter(b => b.is_break).length} {t('blinds.breaks').toLowerCase()})</p>
+                </div>
+                <div className="modal-actions">
+                  <Button type="button" variant="secondary" onClick={() => setShowSaveTemplateModal(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button type="submit">{t('blinds.saveTemplate')}</Button>
                 </div>
               </form>
             </div>

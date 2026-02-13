@@ -3,9 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './TournamentRankings.css';
 
 const TournamentRankings = () => {
+  const { toast } = useToast();
   const { tournamentId } = useParams();
   const navigate = useNavigate();
   const [tournament, setTournament] = useState(null);
@@ -45,10 +47,10 @@ const TournamentRankings = () => {
     try {
       await api.post(`/rankings/tournament/${tournamentId}/recalculate`);
       await loadData();
-      alert('Rankings recalculados com sucesso!');
+      toast.success('Rankings recalculados com sucesso!');
     } catch (error) {
       console.error('Erro ao recalcular rankings:', error);
-      alert('Erro ao recalcular rankings: ' + (error.response?.data?.detail || error.message));
+      toast.error('Erro ao recalcular rankings: ' + (error.response?.data?.detail || error.message));
     }
   };
 

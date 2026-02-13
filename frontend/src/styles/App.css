@@ -1,3 +1,7 @@
+/* ================================
+   GLOBAL APP STYLES
+   ================================ */
+
 .loading {
   display: flex;
   justify-content: center;
@@ -17,15 +21,133 @@
   margin-left: 250px;
   padding: 2rem;
   transition: padding-top 0.3s ease;
+  min-width: 0; /* Fix for flex child overflow */
 }
 
 .main-content.with-stage-bar {
   padding-top: 5rem;
 }
 
+/* ================================
+   PAGE HEADER STYLES
+   ================================ */
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ================================
+   MOBILE RESPONSIVE STYLES
+   ================================ */
+
 @media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+
   .main-content {
     margin-left: 0;
     padding: 1rem;
+    padding-top: 76px; /* Account for mobile header (60px) + padding */
+    min-height: calc(100vh - 60px);
+  }
+
+  .main-content.with-stage-bar {
+    padding-top: 76px;
+  }
+
+  /* Page header mobile */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .header-actions button,
+  .header-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ================================
+   TABLET RESPONSIVE STYLES
+   ================================ */
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .main-content {
+    padding: 1.5rem;
+  }
+
+}
+
+/* ================================
+   UTILITY CLASSES FOR RESPONSIVENESS
+   ================================ */
+
+/* Hide on mobile */
+.hide-mobile {
+  display: block;
+}
+
+/* Show on mobile */
+.show-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .show-mobile {
+    display: block !important;
+  }
+}
+
+/* Responsive grid helpers */
+.responsive-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.responsive-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.responsive-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.responsive-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 768px) {
+  .responsive-grid-2,
+  .responsive-grid-3,
+  .responsive-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .responsive-grid-3,
+  .responsive-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

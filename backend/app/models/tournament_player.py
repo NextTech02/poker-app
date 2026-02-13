@@ -41,6 +41,7 @@ class TournamentPlayerUpdate(BaseModel):
     prize_won: Optional[float] = None
     status: Optional[TournamentPlayerStatus] = None
     notes: Optional[str] = None
+    final_chip_count: Optional[int] = None  # Chips at end of day
 
 
 class TournamentPlayer(TournamentPlayerBase):
@@ -52,6 +53,10 @@ class TournamentPlayer(TournamentPlayerBase):
     eliminated_at: Optional[datetime] = None
     status: TournamentPlayerStatus
     registered_at: datetime
+    # Qualifying days support
+    final_chip_count: Optional[int] = None  # Chips at end of day
+    qualified_from_day_id: Optional[str] = None  # Which day player qualified from
+    is_qualified_entry: bool = False  # True if entry via qualification (no buy-in)
 
     class Config:
         from_attributes = True
@@ -62,3 +67,4 @@ class TournamentPlayerDetail(TournamentPlayer):
     player_name: str
     player_nickname: Optional[str] = None
     tournament_name: str
+    qualified_from_day_name: Optional[str] = None  # Name of qualifying day

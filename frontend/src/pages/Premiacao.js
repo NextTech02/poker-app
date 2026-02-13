@@ -3,9 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './Premiacao.css';
 
 const Premiacao = () => {
+  const { toast, confirm } = useToast();
   const { tournamentId } = useParams();
   const navigate = useNavigate();
 
@@ -83,8 +85,11 @@ const Premiacao = () => {
       await loadData();
     } catch (err) {
       console.error('Error adding allocation:', err);
-      if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
+      const detail = err.response?.data?.detail;
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError(detail.map(e => e.msg || JSON.stringify(e)).join(', '));
       } else {
         setError('Erro ao adicionar premiacao');
       }
@@ -94,9 +99,8 @@ const Premiacao = () => {
   };
 
   const handleDeleteAllocation = async (allocationId) => {
-    if (!window.confirm('Tem certeza que deseja remover esta premiacao?')) {
-      return;
-    }
+    const ok = await confirm('Tem certeza que deseja remover esta premiacao?', { variant: 'danger', confirmText: 'Remover' });
+    if (!ok) return;
 
     try {
       setSaving(true);

@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import countries from '../data/countries';
 import './Players.css';
 
 const Players = () => {
+  const { toast, confirm } = useToast();
+  const { t } = useTranslation();
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -64,7 +68,7 @@ const Players = () => {
     } catch (error) {
       console.error('Erro ao salvar jogador:', error);
       const errorMessage = error.response?.data?.detail || 'Erro ao salvar jogador';
-      alert(errorMessage);
+      toast.error(typeof errorMessage === 'string' ? errorMessage : 'Erro ao salvar jogador');
     }
   };
 
@@ -84,14 +88,15 @@ const Players = () => {
   };
 
   const handleDelete = async (playerId) => {
-    if (window.confirm('Tem certeza que deseja excluir este jogador?')) {
-      try {
-        await api.delete(`/players/${playerId}`);
-        loadPlayers();
-      } catch (error) {
-        console.error('Erro ao excluir jogador:', error);
-        alert('Erro ao excluir jogador. Ele pode estar vinculado a torneios.');
-      }
+    const ok = await confirm('Tem certeza que deseja excluir este jogador?', { variant: 'danger', confirmText: 'Excluir' });
+    if (!ok) return;
+
+    try {
+      await api.delete(`/players/${playerId}`);
+      loadPlayers();
+    } catch (error) {
+      console.error('Erro ao excluir jogador:', error);
+      toast.error('Erro ao excluir jogador. Ele pode estar vinculado a torneios.');
     }
   };
 
@@ -122,12 +127,8 @@ const Players = () => {
       <Sidebar />
       <main className="main-content">
         <div className="page-header">
-          <div>
-            <h1>Jogadores</h1>
-            <p className="subtitle">Gerenciar cadastro de jogadores</p>
-          </div>
           <Button onClick={openNewModal}>
-            Novo Jogador
+            {t('players.newPlayer')}
           </Button>
         </div>
 
@@ -135,7 +136,7 @@ const Players = () => {
           <div className="search-bar">
             <input
               type="text"
-              placeholder="Buscar por nome ou apelido..."
+              placeholder={t('players.searchPlayers')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
@@ -183,16 +184,16 @@ const Players = () => {
                           <button
                             className="btn-edit"
                             onClick={() => handleEdit(player)}
-                            title="Editar"
+                            title={t('common.edit')}
                           >
-                            Editar
+                            {t('common.edit')}
                           </button>
                           <button
                             className="btn-delete"
                             onClick={() => handleDelete(player.id)}
-                            title="Excluir"
+                            title={t('common.delete')}
                           >
-                            Excluir
+                            {t('common.delete')}
                           </button>
                         </div>
                       </td>
@@ -208,7 +209,7 @@ const Players = () => {
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{editingPlayer ? 'Editar Jogador' : 'Novo Jogador'}</h2>
+                <h2>{editingPlayer ? t('players.editPlayer') : t('players.newPlayer')}</h2>
                 <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
                   <span className="close-icon"></span>
                 </button>
