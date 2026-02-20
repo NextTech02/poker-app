@@ -5,6 +5,7 @@ from datetime import datetime
 
 class TableBase(BaseModel):
     tournament_id: str = Field(..., description="Tournament ID")
+    tournament_day_id: Optional[str] = Field(None, description="Tournament Day ID (day-scoped tables)")
     table_number: int = Field(..., gt=0, description="Table number")
     seats: int = Field(..., gt=0, le=10, description="Number of seats at this table (max 10)")
     status: str = Field(default='active', description="Table status: active, broken, closed")

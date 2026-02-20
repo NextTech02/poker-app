@@ -68,9 +68,30 @@ class TournamentDayBase(BaseModel):
 
     # Allocation
     allocation_type: AllocationType = Field(default=AllocationType.automatic)
+    allocation_mode: str = Field(default='balanced', description="Auto-allocation algorithm: balanced, sequential, or random_balanced")
+
+    # Table lock
+    tables_locked: bool = Field(default=False, description="When true, new buy-ins skip auto-allocation (players become alternates)")
 
     # Date/time
     tournament_date: Optional[datetime] = None
+
+    # Broadcast settings (per-day)
+    broadcast_bg_color: Optional[str] = Field(default="#0a0e13")
+    broadcast_bg_image_url: Optional[str] = Field(default=None)
+    broadcast_display_name: Optional[str] = Field(default=None)
+    broadcast_font_size: int = Field(default=100, ge=50, le=200)
+    broadcast_show_logo: bool = Field(default=True)
+    broadcast_show_title: bool = Field(default=True)
+    broadcast_show_prizepool: bool = Field(default=True)
+    broadcast_show_level: bool = Field(default=True)
+    broadcast_show_players: bool = Field(default=True)
+    broadcast_show_interval: bool = Field(default=True)
+    broadcast_show_timer: bool = Field(default=True)
+    broadcast_show_blinds: bool = Field(default=True)
+    broadcast_show_ante: bool = Field(default=True)
+    broadcast_show_next_blind: bool = Field(default=True)
+    broadcast_show_prizes: bool = Field(default=True)
 
 
 class TournamentDayCreate(TournamentDayBase):
@@ -100,9 +121,28 @@ class TournamentDayUpdate(BaseModel):
     break_interval: Optional[int] = Field(None, gt=0)
     break_duration: Optional[int] = Field(None, gt=0)
     allocation_type: Optional[AllocationType] = None
+    allocation_mode: Optional[str] = Field(None, description="Auto-allocation algorithm: balanced, sequential, or random_balanced")
+    tables_locked: Optional[bool] = None
     tournament_date: Optional[datetime] = None
     day_type: Optional[DayType] = None
     qualifies_to_day_id: Optional[str] = None
+
+    # Broadcast settings
+    broadcast_bg_color: Optional[str] = None
+    broadcast_bg_image_url: Optional[str] = None
+    broadcast_display_name: Optional[str] = None
+    broadcast_font_size: Optional[int] = Field(None, ge=50, le=200)
+    broadcast_show_logo: Optional[bool] = None
+    broadcast_show_title: Optional[bool] = None
+    broadcast_show_prizepool: Optional[bool] = None
+    broadcast_show_level: Optional[bool] = None
+    broadcast_show_players: Optional[bool] = None
+    broadcast_show_interval: Optional[bool] = None
+    broadcast_show_timer: Optional[bool] = None
+    broadcast_show_blinds: Optional[bool] = None
+    broadcast_show_ante: Optional[bool] = None
+    broadcast_show_next_blind: Optional[bool] = None
+    broadcast_show_prizes: Optional[bool] = None
 
 
 class TournamentDay(TournamentDayBase):

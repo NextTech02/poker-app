@@ -5,8 +5,8 @@ from app.models.table import TableCreate, TableUpdate, Table, TableWithPlayers
 
 class TableService:
     @staticmethod
-    def create_table(tournament_id: str, table_data: TableCreate) -> Table:
-        """Create a new table for a tournament"""
+    def create_table(tournament_id: str, table_data: TableCreate, tournament_day_id: str = None) -> Table:
+        """Create a new table for a tournament (optionally scoped to a day)"""
         data = {
             "tournament_id": tournament_id,
             "table_number": table_data.table_number,
@@ -14,17 +14,22 @@ class TableService:
             "status": "active",
             "occupied_seats": 0,
         }
+        if tournament_day_id:
+            data["tournament_day_id"] = tournament_day_id
 
         response = supabase.table("tournament_tables").insert(data).execute()
         return Table(**response.data[0])
 
     @staticmethod
-    def create_multiple_tables(tournament_id: str, count: int, seats: int) -> List[Table]:
+    def create_multiple_tables(tournament_id: str, count: int, seats: int, tournament_day_id: str = None) -> List[Table]:
         """Create multiple tables with the same seat count"""
         tables = []
 
-        # Get the highest table number for this tournament
-        existing = supabase.table("tournament_tables").select("table_number").eq("tournament_id", tournament_id).order("table_number", desc=True).limit(1).execute()
+        # Get the highest table number (scoped by day if provided)
+        query = supabase.table("tournament_tables").select("table_number").eq("tournament_id", tournament_id)
+        if tournament_day_id:
+            query = query.eq("tournament_day_id", tournament_day_id)
+        existing = query.order("table_number", desc=True).limit(1).execute()
 
         start_number = 1
         if existing.data:
@@ -33,13 +38,16 @@ class TableService:
         # Create tables
         tables_data = []
         for i in range(count):
-            tables_data.append({
+            row = {
                 "tournament_id": tournament_id,
                 "table_number": start_number + i,
                 "seats": seats,
                 "status": "active",
                 "occupied_seats": 0,
-            })
+            }
+            if tournament_day_id:
+                row["tournament_day_id"] = tournament_day_id
+            tables_data.append(row)
 
         response = supabase.table("tournament_tables").insert(tables_data).execute()
 
@@ -53,6 +61,12 @@ class TableService:
         """Get all tables for a tournament"""
         response = supabase.table("tournament_tables").select("*").eq("tournament_id", tournament_id).order("table_number").execute()
 
+        return [Table(**table) for table in response.data]
+
+    @staticmethod
+    def get_day_tables(day_id: str) -> List[Table]:
+        """Get all tables for a specific tournament day"""
+        response = supabase.table("tournament_tables").select("*").eq("tournament_day_id", day_id).order("table_number").execute()
         return [Table(**table) for table in response.data]
 
     @staticmethod
@@ -103,6 +117,24 @@ class TableService:
         active_tables = len([t for t in tables if t.status == "active"])
         total_seats = sum(t.seats for t in tables)
         occupied_seats = sum(t.occupied_seats for t in tables)
+
+        return {
+            "total_tables": total_tables,
+            "active_tables": active_tables,
+            "total_seats": total_seats,
+            "occupied_seats": occupied_seats,
+            "available_seats": total_seats - occupied_seats,
+        }
+
+    @staticmethod
+    def get_day_stats(day_id: str) -> dict:
+        """Get table statistics for a specific tournament day"""
+        tables = TableService.get_day_tables(day_id)
+
+        total_tables = len(tables)
+        active_tables = len([t for t in tables if t.status == "active"])
+        total_seats = sum(t.seats for t in tables if t.status == "active")
+        occupied_seats = sum(t.occupied_seats for t in tables if t.status == "active")
 
         return {
             "total_tables": total_tables,

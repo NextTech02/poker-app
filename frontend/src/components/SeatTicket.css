@@ -76,6 +76,7 @@
   letter-spacing: 1px;
 }
 
+
 .btn-print-ticket {
   width: 100%;
   padding: 0.875rem;
@@ -101,6 +102,42 @@
 .btn-print-ticket:active {
   transform: translateY(0);
   box-shadow: var(--shadow-sm);
+}
+
+/* ── Alternate styles ── */
+
+.ticket-preview.alternate-preview {
+  border-color: #ff9800;
+  background: linear-gradient(135deg, rgba(50, 25, 0, 0.6) 0%, rgba(30, 15, 0, 0.4) 100%);
+}
+
+.ticket-preview.alternate-preview .ticket-preview-header {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.2) 0%, rgba(255, 152, 0, 0.05) 100%);
+  border-bottom-color: #ff9800;
+}
+
+.ticket-preview.alternate-preview .ticket-preview-header h4 {
+  color: #ff9800;
+}
+
+.ticket-preview-highlight.alternate-highlight {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.05) 100%);
+  border-color: #ff9800;
+}
+
+.alternate-badge {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #ff9800;
+  text-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+  letter-spacing: 2px;
+}
+
+.alternate-waiting {
+  font-size: 0.85rem;
+  color: #ffa726;
+  margin-top: 6px;
+  opacity: 0.85;
 }
 
 @media (max-width: 768px) {

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
-from app.models.tournament import TournamentCreate, TournamentUpdate, Tournament
+from app.models.tournament import TournamentCreate, TournamentUpdate, Tournament, TournamentSummary
 from app.services.tournament_service import TournamentService
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
@@ -32,18 +32,17 @@ def create_tournament(
     return TournamentService.create_tournament(tournament, user_id)
 
 
-@router.get("", response_model=List[Tournament])
+@router.get("", response_model=List[TournamentSummary])
 def get_tournaments(
     stage_id: Optional[str] = None,
     header_stage_id: Optional[str] = Depends(get_stage_id_optional)
 ):
     """
-    Get all tournaments, optionally filtered by stage_id.
+    Get all tournaments with aggregated entries from non-final days.
     If X-Stage-ID header is present, it takes precedence over stage_id query parameter.
     """
-    # Header stage_id takes precedence over query parameter
     effective_stage_id = header_stage_id if header_stage_id else stage_id
-    return TournamentService.get_tournaments(effective_stage_id)
+    return TournamentService.get_tournament_summary(stage_id=effective_stage_id)
 
 
 @router.get("/{tournament_id}", response_model=Tournament)

@@ -10,6 +10,7 @@ from ..models.prize_allocation import (
     PrizeAllocationUpdate,
     PrizeAllocationResponse,
     PrizeAllocationBulkCreate,
+    PrizePayoutRequest,
     PrizeSummary
 )
 from ..services.prize_allocation_service import PrizeAllocationService
@@ -92,6 +93,22 @@ def delete_prize_allocation(
     """Delete a prize allocation"""
     PrizeAllocationService.delete_allocation(tournament_id, allocation_id)
     return None
+
+
+@router.post("/{tournament_id}/prizes/{allocation_id}/pay", response_model=PrizeAllocationResponse)
+def pay_prize(
+    tournament_id: UUID,
+    allocation_id: UUID,
+    payout: PrizePayoutRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Process prize payout with document verification.
+    - Assigns the player to the allocation position.
+    - Verifies document against player's registered document.
+    - Marks allocation as paid with timestamp and document info.
+    """
+    return PrizeAllocationService.pay_prize(tournament_id, allocation_id, payout)
 
 
 @router.patch("/{tournament_id}/guaranteed-prize", response_model=dict)

@@ -1,8 +1,10 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
+
+DocumentType = Literal['passport', 'national_id', 'driver_license']
 
 
 class PrizeAllocationBase(BaseModel):
@@ -22,6 +24,14 @@ class PrizeAllocationUpdate(BaseModel):
     paid: Optional[bool] = None
 
 
+class PrizePayoutRequest(BaseModel):
+    """Request model for processing a prize payout with document verification"""
+    player_id: UUID
+    document_type: DocumentType
+    document_number: str = Field(..., min_length=1, max_length=100)
+    paid_by: Optional[str] = Field(None, max_length=255, description="Name of staff processing payment")
+
+
 class PrizeAllocationResponse(BaseModel):
     id: UUID
     tournament_id: UUID
@@ -31,6 +41,9 @@ class PrizeAllocationResponse(BaseModel):
     player_name: Optional[str] = None  # Joined from players table
     paid: bool = False
     paid_at: Optional[datetime] = None
+    document_type: Optional[str] = None
+    document_number: Optional[str] = None
+    paid_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -48,9 +61,10 @@ class PrizeSummary(BaseModel):
     tournament_id: UUID
     guaranteed_prize: Decimal = Decimal("0")
     total_entries: Decimal = Decimal("0")  # Total buy-ins + rebuys + addons from ALL days
-    rake_percentage: Decimal = Decimal("20")  # Default 20%
-    player_pool: Decimal = Decimal("0")  # 80% of entries (after rake)
-    available_prize_pool: Decimal = Decimal("0")  # max(guaranteed, player_pool)
+    rake_percentage: Decimal = Decimal("20")  # Default 20% (average of non-final days)
+    player_pool: Decimal = Decimal("0")  # entries after rake
+    available_prize_pool: Decimal = Decimal("0")  # guaranteed + player_pool
     total_allocated: Decimal = Decimal("0")  # Sum of all prize allocations
     remaining_balance: Decimal = Decimal("0")  # available - allocated
     allocations: list[PrizeAllocationResponse] = []
+    has_qualifying_days: bool = False  # True if tournament has qualifying structure

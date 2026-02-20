@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
@@ -48,8 +48,37 @@ const TournamentBroadcast = () => {
   const [prizeAllocations, setPrizeAllocations] = useState([]);
   const [aggregatedStats, setAggregatedStats] = useState(null);
 
-  // SINGLE SOURCE OF TRUTH for day-based tournaments
-  const { timerState } = useTimerSync(isDayBased ? id : null);
+  // SINGLE SOURCE OF TRUTH for day-based tournaments (blinds passed for offline fallback)
+  const { timerState } = useTimerSync(isDayBased ? id : null, blinds);
+
+  // === Audio Alert System ===
+  const audioContextRef = useRef(null);
+  const firedAlertsRef = useRef(new Set());
+  const prevLevelRef = useRef(null);
+
+  const playBeep = useCallback((frequency, duration, volume = 0.5) => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+      gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + duration);
+    } catch (e) {
+      // AudioContext not supported or blocked
+    }
+  }, []);
 
   // Fetch tournament data (initial load)
   const fetchTournamentData = async (initializeTimer = false) => {
@@ -250,6 +279,38 @@ const TournamentBroadcast = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournament, isOnBreak, isDayBased]);
 
+  // === Audio alerts at 60s, 30s, and 1s before blind change ===
+  const currentLevelForAlert = isDayBased && timerState ? timerState.current_level : blindLevel;
+  const currentTimeForAlert = isDayBased && timerState ? timerState.time_remaining_current_level : timeRemaining;
+  const currentBlindIsBreakForAlert = isDayBased && timerState ? timerState.current_blind?.is_break === true : false;
+
+  useEffect(() => {
+    // Reset fired alerts when blind level changes
+    if (prevLevelRef.current !== null && prevLevelRef.current !== currentLevelForAlert) {
+      firedAlertsRef.current = new Set();
+    }
+    prevLevelRef.current = currentLevelForAlert;
+
+    // Don't fire alerts during breaks
+    if (currentBlindIsBreakForAlert) return;
+
+    const seconds = currentTimeForAlert;
+    if (seconds === undefined || seconds === null) return;
+
+    const alertThresholds = [
+      { time: 60, freq: 660, dur: 0.3, vol: 0.3 },  // gentle beep at 60s
+      { time: 30, freq: 880, dur: 0.4, vol: 0.5 },   // medium beep at 30s
+      { time: 1, freq: 1100, dur: 0.6, vol: 0.7 },    // urgent beep at 1s
+    ];
+
+    for (const alert of alertThresholds) {
+      if (seconds === alert.time && !firedAlertsRef.current.has(alert.time)) {
+        firedAlertsRef.current.add(alert.time);
+        playBeep(alert.freq, alert.dur, alert.vol);
+      }
+    }
+  }, [currentTimeForAlert, currentLevelForAlert, currentBlindIsBreakForAlert, playBeep]);
+
   // Format helpers
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -287,23 +348,24 @@ const TournamentBroadcast = () => {
     );
   }
 
-  // Broadcast settings
+  // Broadcast settings - read from tournament day (per-day config), fallback to tournament
+  const bSource = tournamentDay || tournament;
   const broadcastSettings = {
-    bgColor: tournament?.broadcast_bg_color || '#0a0e13',
-    bgImageUrl: tournament?.broadcast_bg_image_url || null,
-    displayName: tournament?.broadcast_display_name || null,
-    fontSize: tournament?.broadcast_font_size || 100,
-    showLogo: tournament?.broadcast_show_logo !== false,
-    showTitle: tournament?.broadcast_show_title !== false,
-    showPrizepool: tournament?.broadcast_show_prizepool !== false,
-    showLevel: tournament?.broadcast_show_level !== false,
-    showPlayers: tournament?.broadcast_show_players !== false,
-    showInterval: tournament?.broadcast_show_interval !== false,
-    showTimer: tournament?.broadcast_show_timer !== false,
-    showBlinds: tournament?.broadcast_show_blinds !== false,
-    showAnte: tournament?.broadcast_show_ante !== false,
-    showNextBlind: tournament?.broadcast_show_next_blind !== false,
-    showPrizes: tournament?.broadcast_show_prizes !== false,
+    bgColor: bSource?.broadcast_bg_color || '#0a0e13',
+    bgImageUrl: bSource?.broadcast_bg_image_url || null,
+    displayName: bSource?.broadcast_display_name || null,
+    fontSize: bSource?.broadcast_font_size || 100,
+    showLogo: bSource?.broadcast_show_logo !== false,
+    showTitle: bSource?.broadcast_show_title !== false,
+    showPrizepool: bSource?.broadcast_show_prizepool !== false,
+    showLevel: bSource?.broadcast_show_level !== false,
+    showPlayers: bSource?.broadcast_show_players !== false,
+    showInterval: bSource?.broadcast_show_interval !== false,
+    showTimer: bSource?.broadcast_show_timer !== false,
+    showBlinds: bSource?.broadcast_show_blinds !== false,
+    showAnte: bSource?.broadcast_show_ante !== false,
+    showNextBlind: bSource?.broadcast_show_next_blind !== false,
+    showPrizes: bSource?.broadcast_show_prizes !== false,
   };
 
   const fontScale = broadcastSettings.fontSize / 100;

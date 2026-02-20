@@ -18,7 +18,6 @@ const TournamentDetail = () => {
   const [tournament, setTournament] = useState(null);
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [error, setError] = useState(null);
   const { toast, confirm } = useToast();
 
@@ -82,6 +81,10 @@ const TournamentDetail = () => {
 
   const handleConfigureBlinds = (dayId) => {
     navigate(`/blinds/${dayId}`);
+  };
+
+  const handleManageTables = (dayId) => {
+    navigate(`/alocacao/dia/${dayId}`);
   };
 
   const handleFinishDay = async (dayId) => {
@@ -255,6 +258,24 @@ const TournamentDetail = () => {
           <Button
             size="small"
             variant="secondary"
+            onClick={() => handleManageTables(day.id)}
+            title="Gerenciar mesas e alocação de jogadores"
+          >
+            Mesas
+          </Button>
+          {(day.day_type === 'final' || day.day_type === 'regular' || !day.day_type) && (
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => navigate(`/premiacao/${id}`)}
+              title="Configurar e pagar premiações"
+            >
+              {t('rankings.prize')}
+            </Button>
+          )}
+          <Button
+            size="small"
+            variant="secondary"
             onClick={() => handleEditDay(day)}
           >
             {t('common.edit')}
@@ -310,10 +331,6 @@ const TournamentDetail = () => {
         <div className="day-info-item">
           <span className="day-info-label">{t('tournaments.startingChips')}</span>
           <span className="day-info-value">{day.starting_chips.toLocaleString()}</span>
-        </div>
-        <div className="day-info-item">
-          <span className="day-info-label">{t('tournaments.blindDuration')}</span>
-          <span className="day-info-value">{day.blind_duration} min</span>
         </div>
         {day.day_type !== 'final' && (
           <div className="day-info-item">
@@ -448,9 +465,11 @@ const TournamentDetail = () => {
             <p className="subtitle">{t('tournaments.subtitle')}</p>
           </div>
           <div className="header-actions">
-            <Button onClick={() => navigate(`/premiacao/${id}`)}>
-              {t('rankings.prize')}
-            </Button>
+            {!isQualifyingTournament && (
+              <Button onClick={() => navigate(`/premiacao/${id}`)}>
+                {t('rankings.prize')}
+              </Button>
+            )}
             <Button onClick={handleCreateDay}>
               {t('common.add')} {t('tournamentDays.title')}
             </Button>
@@ -463,42 +482,8 @@ const TournamentDetail = () => {
         {/* Days List - Top section */}
         {days.length > 0 && renderDaysList(false)}
 
-        {/* Tabs Navigation */}
-        <div className="tabs-container">
-          <button
-            className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            {t('dashboard.title')}
-          </button>
-          <button
-            className={`tab-button ${activeTab === 'days' ? 'active' : ''}`}
-            onClick={() => setActiveTab('days')}
-          >
-            {t('tournamentDays.title')}
-          </button>
-        </div>
-
-        {/* Dashboard Tab */}
-        {activeTab === 'dashboard' && (
-          <div className="tab-content active">
-            <TournamentDashboard tournamentId={id} />
-          </div>
-        )}
-
-        {/* Days Tab */}
-        {activeTab === 'days' && (
-          <div className="tab-content active">
-            <div className="section-header">
-              <h2>{t('tournamentDays.title')} ({days.length})</h2>
-              <Button onClick={handleCreateDay}>
-                {t('tournamentDayForm.createDay')}
-              </Button>
-            </div>
-
-            {renderDaysList(true)}
-          </div>
-        )}
+        {/* Dashboard */}
+        <TournamentDashboard tournamentId={id} />
 
       </main>
     </div>

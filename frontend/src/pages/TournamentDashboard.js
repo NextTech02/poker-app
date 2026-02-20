@@ -78,11 +78,11 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
 
     const totalRevenue = totalBuyInsRevenue + totalRebuysRevenue + totalAddonsRevenue;
 
-    // Calculate weighted average rake across all days
+    // Calculate weighted average rake across non-final days only
     let weightedRakeSum = 0;
     let totalDayRevenue = 0;
 
-    days.forEach(day => {
+    days.filter(d => d.day_type !== 'final').forEach(day => {
       // Get players for this day
       const dayPlayers = allPlayers.filter(p => p.tournament_day_id === day.id);
 
@@ -254,7 +254,7 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
 
       {/* Items Summary Section */}
       <div className="items-section">
-        <h3 className="section-title">Itens dos Torneios ({days.length} {days.length === 1 ? 'dia' : 'dias'})</h3>
+        <h3 className="section-title">Itens dos Torneios ({days.filter(d => d.day_type !== 'final').length} {days.filter(d => d.day_type !== 'final').length === 1 ? 'dia' : 'dias'})</h3>
 
         <div className="players-details-table">
           <table className="details-table">

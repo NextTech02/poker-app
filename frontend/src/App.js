@@ -11,6 +11,7 @@ import Torneios from './pages/Torneios';
 import TournamentBroadcast from './pages/TournamentBroadcast';
 import TournamentDetail from './pages/TournamentDetail';
 import ManualAllocation from './pages/ManualAllocation';
+import TableManagement from './pages/TableManagement';
 import TournamentRankings from './pages/TournamentRankings';
 import BlindManagement from './pages/BlindManagement';
 import Premiacao from './pages/Premiacao';
@@ -133,6 +134,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <ManualAllocation />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/alocacao/dia/:dayId"
+        element={
+          <PrivateRoute>
+            <TableManagement />
           </PrivateRoute>
         }
       />

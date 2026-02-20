@@ -5,6 +5,7 @@ from datetime import datetime
 
 class SeatAllocationBase(BaseModel):
     tournament_id: str = Field(..., description="Tournament ID")
+    tournament_day_id: Optional[str] = Field(None, description="Tournament Day ID (day-scoped allocations)")
     player_id: str = Field(..., description="Player ID")
     table_id: str = Field(..., description="Table ID")
     seat_number: int = Field(..., gt=0, le=10, description="Seat number at the table (1-10)")
@@ -35,3 +36,4 @@ class SeatAllocationWithDetails(SeatAllocation):
     player_name: str
     table_number: int
     tournament_name: str
+    day_name: Optional[str] = None

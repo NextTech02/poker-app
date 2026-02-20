@@ -7,6 +7,8 @@ from app.auth import get_current_user
 router = APIRouter(prefix="/tables", tags=["tables"])
 
 
+# ── Tournament-scoped (legacy) endpoints ──────────────────────────────────────
+
 @router.post("/tournament/{tournament_id}", response_model=Table, status_code=status.HTTP_201_CREATED)
 def create_table(
     tournament_id: str,
@@ -17,10 +19,7 @@ def create_table(
     try:
         return TableService.create_table(tournament_id, table_data)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/tournament/{tournament_id}/bulk", response_model=List[Table], status_code=status.HTTP_201_CREATED)
@@ -36,13 +35,9 @@ def create_multiple_tables(
             raise ValueError("Count must be between 1 and 50")
         if seats < 1 or seats > 10:
             raise ValueError("Seats must be between 1 and 10")
-
         return TableService.create_multiple_tables(tournament_id, count, seats)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/tournament/{tournament_id}", response_model=List[Table])
@@ -63,6 +58,74 @@ def get_tournament_table_stats(
     return TableService.get_tournament_stats(tournament_id)
 
 
+# ── Day-scoped endpoints ──────────────────────────────────────────────────────
+
+@router.post("/day/{day_id}", response_model=Table, status_code=status.HTTP_201_CREATED)
+def create_table_for_day(
+    day_id: str,
+    table_data: TableCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new table scoped to a tournament day"""
+    try:
+        # Look up the tournament_id from the day
+        from app.database import supabase
+        day = supabase.table("tournament_days").select("tournament_id").eq("id", day_id).single().execute()
+        if not day.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Day not found")
+        tournament_id = day.data["tournament_id"]
+        return TableService.create_table(tournament_id, table_data, tournament_day_id=day_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/day/{day_id}/bulk", response_model=List[Table], status_code=status.HTTP_201_CREATED)
+def create_multiple_tables_for_day(
+    day_id: str,
+    count: int,
+    seats: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create multiple tables scoped to a tournament day"""
+    try:
+        if count < 1 or count > 50:
+            raise ValueError("Count must be between 1 and 50")
+        if seats < 1 or seats > 10:
+            raise ValueError("Seats must be between 1 and 10")
+        from app.database import supabase
+        day = supabase.table("tournament_days").select("tournament_id").eq("id", day_id).single().execute()
+        if not day.data:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Day not found")
+        tournament_id = day.data["tournament_id"]
+        return TableService.create_multiple_tables(tournament_id, count, seats, tournament_day_id=day_id)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/day/{day_id}", response_model=List[Table])
+def get_day_tables(
+    day_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all tables for a specific tournament day"""
+    return TableService.get_day_tables(day_id)
+
+
+@router.get("/day/{day_id}/stats")
+def get_day_table_stats(
+    day_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get table statistics for a specific tournament day"""
+    return TableService.get_day_stats(day_id)
+
+
+# ── Per-table endpoints ───────────────────────────────────────────────────────
+
 @router.get("/{table_id}", response_model=Table)
 def get_table(
     table_id: str,
@@ -71,10 +134,7 @@ def get_table(
     """Get a specific table"""
     table = TableService.get_table(table_id)
     if not table:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Table not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
     return table
 
 
@@ -87,10 +147,7 @@ def update_table(
     """Update table information"""
     table = TableService.update_table(table_id, update_data)
     if not table:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Table not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
     return table
 
 
@@ -103,15 +160,9 @@ def delete_table(
     try:
         success = TableService.delete_table(table_id)
         if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Table not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/{table_id}/break", response_model=Table)
@@ -122,8 +173,5 @@ def break_table(
     """Mark table as broken"""
     table = TableService.break_table(table_id)
     if not table:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Table not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
     return table

@@ -1,0 +1,127 @@
+.prize-voucher {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+.voucher-preview {
+  background: linear-gradient(135deg, rgba(26, 35, 50, 0.6) 0%, rgba(20, 25, 34, 0.4) 100%);
+  border: 2px dashed var(--border-light);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.voucher-header {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 100%);
+  padding: 1rem;
+  border-bottom: 2px solid var(--gold-accent, #d4af37);
+  text-align: center;
+}
+
+.voucher-header h4 {
+  margin: 0;
+  color: var(--text-gold);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.voucher-body {
+  padding: 1.25rem;
+}
+
+.voucher-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(42, 52, 65, 0.3);
+}
+
+.voucher-row:last-child {
+  border-bottom: none;
+}
+
+.voucher-row .label {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.voucher-row .value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.voucher-highlight {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+  border: 2px solid var(--gold-accent, #d4af37);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.position-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.prize-amount {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-gold);
+  text-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+  letter-spacing: 1px;
+}
+
+.btn-print-voucher {
+  width: 100%;
+  padding: 0.875rem;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-print-voucher:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, #139b5f 0%, #0f7a4e 100%);
+}
+
+.btn-print-voucher:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 768px) {
+  .prize-voucher {
+    padding: 1rem;
+  }
+
+  .voucher-body {
+    padding: 1rem;
+  }
+
+  .prize-amount {
+    font-size: 1.6rem;
+  }
+}

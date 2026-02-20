@@ -498,7 +498,7 @@ class TournamentDayService:
         # Calculate current elapsed time
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            new_elapsed_time = day.elapsed_time + int(time_since_start)
+            new_elapsed_time = day.elapsed_time + round(time_since_start)
         else:
             new_elapsed_time = day.elapsed_time
 
@@ -525,7 +525,7 @@ class TournamentDayService:
         current_elapsed = day.elapsed_time or 0
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            current_elapsed += int(time_since_start)
+            current_elapsed += round(time_since_start)
 
         # Adjust: positive seconds = add remaining time = subtract elapsed
         new_elapsed_time = max(0, current_elapsed - seconds)
@@ -659,7 +659,7 @@ class TournamentDayService:
         current_elapsed = day.elapsed_time
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            current_elapsed = day.elapsed_time + int(time_since_start)
+            current_elapsed = day.elapsed_time + round(time_since_start)
 
         from app.models.tournament_day import TimerStatus
         return TimerStatus(
@@ -794,7 +794,7 @@ class TournamentDayService:
         current_elapsed = day.elapsed_time or 0
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            current_elapsed = (day.elapsed_time or 0) + int(time_since_start)
+            current_elapsed = (day.elapsed_time or 0) + round(time_since_start)
 
         # Calculate what level we SHOULD be at based on elapsed time
         level_calc = TournamentDayService._calculate_current_level(blinds, current_elapsed)

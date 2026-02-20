@@ -1,10 +1,11 @@
 /* Tournament Day Form - Compact Professional Layout */
+/* ALL selectors scoped to .tournament-day-form-page to prevent global CSS bleed */
 
-/* Remove card styles for clean look */
+/* === Page & Card Reset === */
 .tournament-day-form-page .page-header {
-  border-bottom: none !important;
+  border: none !important;
   padding-bottom: 0;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .tournament-day-form-page .card,
@@ -17,10 +18,14 @@
 
 .tournament-day-form-page .card:hover {
   transform: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
 }
 
 .tournament-day-form-page .card::before,
-.tournament-day-form-page .form-card::before {
+.tournament-day-form-page .card::after,
+.tournament-day-form-page .form-card::before,
+.tournament-day-form-page .form-card::after {
   display: none !important;
 }
 
@@ -32,62 +37,71 @@
   display: none !important;
 }
 
-/* Form container - full width */
-.form-card {
-  max-width: 100%;
-  width: 100%;
+/* === Form Sections === */
+.tournament-day-form-page .form-section {
+  margin: 0 0 1.25rem 0;
+  padding: 1.25rem 0 0 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Section styling */
-.form-section {
-  margin-bottom: 1.25rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+.tournament-day-form-page .form-section:first-of-type {
+  padding-top: 0;
+  border-top: none;
 }
 
-.form-section:last-of-type {
-  border-bottom: none;
+.tournament-day-form-page .form-section:last-of-type {
   margin-bottom: 0;
 }
 
-.form-section-title {
+.tournament-day-form-page .form-section > .form-row + .form-group,
+.tournament-day-form-page .form-section > .form-group + .form-group,
+.tournament-day-form-page .form-section > .form-group + .form-row {
+  margin-top: 1rem;
+}
+
+.tournament-day-form-page .form-section-title {
   color: var(--text-gold, #d4af37);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  margin-bottom: 0.75rem;
+  margin: 0 0 0.75rem 0;
+  padding: 0;
+  border: none;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-/* Form grid */
-.form-row {
+/* === Form Grid === */
+.tournament-day-form-page .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
-.form-row + .form-row {
+.tournament-day-form-page .form-row + .form-row {
   margin-top: 0.75rem;
 }
 
-/* Form groups */
-.form-group {
+/* === Form Groups === */
+.tournament-day-form-page .form-group {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
+  margin-bottom: 0;
 }
 
-.form-group label {
+.tournament-day-form-page .form-group label {
   color: rgba(255, 255, 255, 0.75);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  margin-bottom: 0;
 }
 
-/* Input styling */
-.form-group input,
-.form-group select {
+/* === Inputs === */
+.tournament-day-form-page .form-group input,
+.tournament-day-form-page .form-group select {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
@@ -97,24 +111,24 @@
   transition: all 0.2s ease;
 }
 
-.form-group input:hover,
-.form-group select:hover {
+.tournament-day-form-page .form-group input:hover,
+.tournament-day-form-page .form-group select:hover {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.form-group input:focus,
-.form-group select:focus {
+.tournament-day-form-page .form-group input:focus,
+.tournament-day-form-page .form-group select:focus {
   outline: none;
   border-color: var(--accent-color, #2ecc71);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.15);
 }
 
-.form-group input::placeholder {
+.tournament-day-form-page .form-group input::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
 
-.form-group select {
+.tournament-day-form-page .form-group select {
   cursor: pointer;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23ffffff' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
@@ -123,32 +137,40 @@
   padding-right: 2rem;
 }
 
-.form-group select option {
+.tournament-day-form-page .form-group select option {
   background: #1a1a2e;
   color: #fff;
 }
 
-/* Hints */
-.form-hint {
+/* === Hints === */
+.tournament-day-form-page .form-hint {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.75rem;
-  margin-top: 0.25rem;
+  margin-top: 0.125rem;
   line-height: 1.3;
   font-style: italic;
 }
 
-/* Actions */
-.form-actions {
+.tournament-day-form-page .form-group small {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  margin-top: 0.125rem;
+  line-height: 1.3;
+  font-style: italic;
+}
+
+/* === Actions === */
+.tournament-day-form-page .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 1rem;
+  border: none;
+  padding: 0;
 }
 
-/* Error message */
-.error-message {
+/* === Error message === */
+.tournament-day-form-page .error-message {
   background: rgba(231, 76, 60, 0.12);
   border: 1px solid rgba(231, 76, 60, 0.25);
   border-radius: 6px;
@@ -158,24 +180,222 @@
   font-size: 0.85rem;
 }
 
-/* Responsive */
+/* === Broadcast Section Styles === */
+.tournament-day-form-page .color-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tournament-day-form-page .color-input {
+  width: 40px;
+  height: 34px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tournament-day-form-page .color-text-input {
+  flex: 1;
+}
+
+.tournament-day-form-page .font-size-slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tournament-day-form-page .font-size-slider-wrapper .slider-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  min-width: 30px;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.tournament-day-form-page .font-size-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  border: none;
+  padding: 0;
+}
+
+.tournament-day-form-page .font-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-gold, #d4af37);
+  cursor: pointer;
+}
+
+.tournament-day-form-page .image-upload-container {
+  margin-top: 0.25rem;
+}
+
+.tournament-day-form-page .image-upload-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.tournament-day-form-page .image-upload-area:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.tournament-day-form-page .upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tournament-day-form-page .upload-icon {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.tournament-day-form-page .upload-text {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tournament-day-form-page .upload-hint {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.tournament-day-form-page .hidden-input {
+  display: none !important;
+}
+
+.tournament-day-form-page .image-preview-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.tournament-day-form-page .image-preview {
+  max-width: 200px;
+  max-height: 100px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tournament-day-form-page .remove-image-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ef5350;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.tournament-day-form-page .image-url-alternative {
+  margin-top: 0.5rem;
+}
+
+.tournament-day-form-page .or-divider {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 0.25rem;
+}
+
+.tournament-day-form-page .section-label {
+  margin-bottom: 0.375rem !important;
+}
+
+.tournament-day-form-page .visibility-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.5rem;
+}
+
+.tournament-day-form-page .visibility-card {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.75rem;
+}
+
+.tournament-day-form-page .visibility-card:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.tournament-day-form-page .visibility-card.active {
+  border-color: var(--accent-color, #0f8454);
+  background: rgba(15, 132, 84, 0.1);
+}
+
+.tournament-day-form-page .visibility-card input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent-color, #0f8454);
+}
+
+.tournament-day-form-page .visibility-label {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.75rem;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.tournament-day-form-page .visibility-toggle {
+  display: none;
+}
+
+/* === Responsive === */
 @media (max-width: 768px) {
-  .form-row {
+  .tournament-day-form-page .form-row {
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
   }
 
-  .form-actions {
+  .tournament-day-form-page .form-actions {
     flex-direction: column-reverse;
   }
 
-  .form-actions button {
+  .tournament-day-form-page .form-actions button {
     width: 100%;
+  }
+
+  .tournament-day-form-page .visibility-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (max-width: 480px) {
-  .form-row {
+  .tournament-day-form-page .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .tournament-day-form-page .visibility-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
