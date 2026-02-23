@@ -15,7 +15,9 @@ import TableManagement from './pages/TableManagement';
 import TournamentRankings from './pages/TournamentRankings';
 import BlindManagement from './pages/BlindManagement';
 import Premiacao from './pages/Premiacao';
+import PremiacaoSelector from './pages/PremiacaoSelector';
 import TournamentDayForm from './pages/TournamentDayForm';
+import BroadcastSettings from './pages/BroadcastSettings';
 import TournamentDayStats from './pages/TournamentDayStats';
 import TournamentControl from './pages/TournamentControl';
 import Players from './pages/Players';
@@ -86,6 +88,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <TournamentDayForm />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/torneios/:tournamentId/dia/:dayId/broadcast"
+        element={
+          <PrivateRoute>
+            <BroadcastSettings />
           </PrivateRoute>
         }
       />
@@ -178,6 +188,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/premiacao"
+        element={
+          <PrivateRoute>
+            <PremiacaoSelector />
           </PrivateRoute>
         }
       />

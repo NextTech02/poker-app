@@ -36,24 +36,7 @@ const TournamentDayForm = () => {
     allocation_type: 'automatic',
     day_type: 'regular',
     qualifies_to_day_id: '',
-  });
-
-  const [broadcastSettings, setBroadcastSettings] = useState({
-    broadcast_bg_color: '#0a0e13',
-    broadcast_bg_image_url: '',
-    broadcast_display_name: '',
-    broadcast_font_size: 100,
-    broadcast_show_logo: true,
-    broadcast_show_title: true,
-    broadcast_show_prizepool: true,
-    broadcast_show_level: true,
-    broadcast_show_players: true,
-    broadcast_show_interval: true,
-    broadcast_show_timer: true,
-    broadcast_show_blinds: true,
-    broadcast_show_ante: true,
-    broadcast_show_next_blind: true,
-    broadcast_show_prizes: true,
+    currency: 'BRL',
   });
 
   const isEditing = !!dayId;
@@ -93,23 +76,7 @@ const TournamentDayForm = () => {
           allocation_type: day.allocation_type,
           day_type: day.day_type || 'regular',
           qualifies_to_day_id: day.qualifies_to_day_id || '',
-        });
-        setBroadcastSettings({
-          broadcast_bg_color: day.broadcast_bg_color || '#0a0e13',
-          broadcast_bg_image_url: day.broadcast_bg_image_url || '',
-          broadcast_display_name: day.broadcast_display_name || '',
-          broadcast_font_size: day.broadcast_font_size || 100,
-          broadcast_show_logo: day.broadcast_show_logo !== false,
-          broadcast_show_title: day.broadcast_show_title !== false,
-          broadcast_show_prizepool: day.broadcast_show_prizepool !== false,
-          broadcast_show_level: day.broadcast_show_level !== false,
-          broadcast_show_players: day.broadcast_show_players !== false,
-          broadcast_show_interval: day.broadcast_show_interval !== false,
-          broadcast_show_timer: day.broadcast_show_timer !== false,
-          broadcast_show_blinds: day.broadcast_show_blinds !== false,
-          broadcast_show_ante: day.broadcast_show_ante !== false,
-          broadcast_show_next_blind: day.broadcast_show_next_blind !== false,
-          broadcast_show_prizes: day.broadcast_show_prizes !== false,
+          currency: day.currency || 'BRL',
         });
       } else {
         // For new day, set day_number to next available and default day_type based on tournament
@@ -136,9 +103,6 @@ const TournamentDayForm = () => {
     try {
       let dayData = {
         ...formData,
-        ...broadcastSettings,
-        broadcast_bg_image_url: broadcastSettings.broadcast_bg_image_url || null,
-        broadcast_display_name: broadcastSettings.broadcast_display_name || null,
         tournament_id: tournamentId,
         rebuy_amount: formData.rebuy_amount > 0 ? formData.rebuy_amount : null,
         addon_amount: formData.addon_amount > 0 ? formData.addon_amount : null,
@@ -329,6 +293,21 @@ const TournamentDayForm = () => {
                       onChange={(e) => setFormData({ ...formData, rake_percentage: parseFloat(e.target.value) })}
                     />
                   </div>
+                  <div className="form-group">
+                    <label htmlFor="currency">Moeda</label>
+                    <select
+                      id="currency"
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    >
+                      <option value="BRL">R$ — Real Brasileiro</option>
+                      <option value="USD">$ — Dólar Americano</option>
+                      <option value="EUR">€ — Euro</option>
+                      <option value="GBP">£ — Libra Esterlina</option>
+                      <option value="ARS">$ — Peso Argentino</option>
+                      <option value="COP">$ — Peso Colombiano</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
@@ -405,149 +384,6 @@ const TournamentDayForm = () => {
               </div>
             )}
 
-
-            {/* Broadcast Settings */}
-            <div className="form-section">
-              <h3 className="form-section-title">Configuracoes de Broadcast</h3>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="broadcast_bg_color">Cor de Fundo</label>
-                  <div className="color-input-wrapper">
-                    <input
-                      id="broadcast_bg_color"
-                      type="color"
-                      value={broadcastSettings.broadcast_bg_color}
-                      onChange={(e) => setBroadcastSettings({ ...broadcastSettings, broadcast_bg_color: e.target.value })}
-                      className="color-input"
-                    />
-                    <input
-                      type="text"
-                      value={broadcastSettings.broadcast_bg_color}
-                      onChange={(e) => setBroadcastSettings({ ...broadcastSettings, broadcast_bg_color: e.target.value })}
-                      className="color-text-input"
-                      placeholder="#0a0e13"
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="broadcast_display_name">Nome de Exibicao</label>
-                  <input
-                    id="broadcast_display_name"
-                    type="text"
-                    value={broadcastSettings.broadcast_display_name}
-                    onChange={(e) => setBroadcastSettings({ ...broadcastSettings, broadcast_display_name: e.target.value })}
-                    placeholder="Nome customizado (opcional)"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Tamanho da Fonte: {broadcastSettings.broadcast_font_size}%</label>
-                <div className="font-size-slider-wrapper">
-                  <span className="slider-label">50%</span>
-                  <input
-                    type="range"
-                    min="50"
-                    max="200"
-                    step="10"
-                    value={broadcastSettings.broadcast_font_size}
-                    onChange={(e) => setBroadcastSettings({ ...broadcastSettings, broadcast_font_size: parseInt(e.target.value) })}
-                    className="font-size-slider"
-                  />
-                  <span className="slider-label">200%</span>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Imagem de Fundo</label>
-                <div className="image-upload-container">
-                  {broadcastSettings.broadcast_bg_image_url ? (
-                    <div className="image-preview-wrapper">
-                      <img
-                        src={broadcastSettings.broadcast_bg_image_url}
-                        alt="Preview"
-                        className="image-preview"
-                      />
-                      <button
-                        type="button"
-                        className="remove-image-btn"
-                        onClick={() => setBroadcastSettings({ ...broadcastSettings, broadcast_bg_image_url: '' })}
-                        title="Remover imagem"
-                      >
-                        x
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="image-upload-area">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            if (file.size > 2 * 1024 * 1024) {
-                              toast.warning('Imagem muito grande. Maximo: 2MB');
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setBroadcastSettings({ ...broadcastSettings, broadcast_bg_image_url: reader.result });
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                        className="hidden-input"
-                      />
-                      <div className="upload-placeholder">
-                        <span className="upload-icon">+</span>
-                        <span className="upload-text">Clique para anexar imagem</span>
-                        <span className="upload-hint">PNG, JPG ate 2MB</span>
-                      </div>
-                    </label>
-                  )}
-                </div>
-                <div className="image-url-alternative">
-                  <span className="or-divider">ou cole uma URL</span>
-                  <input
-                    type="text"
-                    value={broadcastSettings.broadcast_bg_image_url?.startsWith('data:') ? '' : broadcastSettings.broadcast_bg_image_url}
-                    onChange={(e) => setBroadcastSettings({ ...broadcastSettings, broadcast_bg_image_url: e.target.value })}
-                    placeholder="https://exemplo.com/imagem.jpg"
-                    disabled={broadcastSettings.broadcast_bg_image_url?.startsWith('data:')}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="section-label">Elementos Visiveis no Broadcast</label>
-                <div className="visibility-grid">
-                  {[
-                    { key: 'broadcast_show_logo', label: 'Logo' },
-                    { key: 'broadcast_show_title', label: 'Titulo' },
-                    { key: 'broadcast_show_prizepool', label: 'Prizepool' },
-                    { key: 'broadcast_show_level', label: 'Nivel' },
-                    { key: 'broadcast_show_players', label: 'Jogadores' },
-                    { key: 'broadcast_show_interval', label: 'Intervalo' },
-                    { key: 'broadcast_show_timer', label: 'Timer' },
-                    { key: 'broadcast_show_blinds', label: 'Blinds' },
-                    { key: 'broadcast_show_ante', label: 'Ante' },
-                    { key: 'broadcast_show_next_blind', label: 'Prox. Blind' },
-                    { key: 'broadcast_show_prizes', label: 'Premiacoes' },
-                  ].map(({ key, label }) => (
-                    <label key={key} className={`visibility-card ${broadcastSettings[key] ? 'active' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={broadcastSettings[key]}
-                        onChange={(e) => setBroadcastSettings({ ...broadcastSettings, [key]: e.target.checked })}
-                      />
-                      <span className="visibility-label">{label}</span>
-                      <span className="visibility-toggle"></span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
 
             <div className="form-actions">
               <Button type="button" variant="secondary" onClick={handleCancel}>

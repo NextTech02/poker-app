@@ -129,13 +129,13 @@
   min-width: 250px;
 }
 
-/* Prizepool - Bottom Right Corner */
+/* Prizepool - Bottom Right Corner — always sits above the prize ticker */
 .broadcast-prizepool-corner {
   position: fixed;
-  bottom: 32px;
+  bottom: calc(var(--prize-ticker-height, 48px) + 12px);
   right: 48px;
   text-align: right;
-  padding: 16px 28px;
+  padding: 12px 24px;
   z-index: 100;
 }
 
@@ -149,7 +149,7 @@
 
 .prize-label {
   font-size: 13px;
-  color: var(--poker-green-light);
+  color: #ffffff;
   font-weight: 700;
   margin-bottom: 6px;
   text-transform: uppercase;
@@ -159,27 +159,30 @@
 .prize-amount {
   font-size: 32px;
   font-weight: 800;
-  color: var(--text-gold);
-  text-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+  color: #ffffff;
+  text-shadow: none;
 }
 
 /* Main Content */
 .broadcast-main {
   flex: 1;
   display: flex;
+  justify-content: center;
+  align-items: stretch;
   padding: 32px 48px;
-  gap: 32px;
   position: relative;
   z-index: 1;
 }
 
-/* Sidebar */
+/* Sidebar — floats on the left without displacing the center */
 .broadcast-sidebar {
-  width: 220px;
+  position: absolute;
+  left: 48px;
+  top: 32px;
+  width: 200px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 24px;
 }
 
 .sidebar-section {
@@ -454,7 +457,7 @@
   }
 
   .broadcast-prizepool-corner {
-    bottom: 16px;
+    bottom: calc(var(--prize-ticker-height, 48px) + 8px);
     right: 16px;
     left: 16px;
     padding: 12px 20px;
@@ -634,4 +637,104 @@
   .broadcast-prizes-sidebar {
     display: none;
   }
+}
+
+/* ══════════════════════════════════════════
+   Prize Ticker — scrolling bottom bar
+   ══════════════════════════════════════════ */
+
+@keyframes prize-ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.prize-ticker-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: stretch;
+  /* height is set via inline style from JS (scales with broadcast_prize_size) */
+  min-height: 36px;
+  background: rgba(5, 8, 12, 0.96);
+  border-top: 2px solid #d4af37;
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+
+/* Left label pill */
+.prize-ticker-label {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 1.25rem;
+  background: linear-gradient(135deg, #d4af37 0%, #b8960a 100%);
+  color: #0a0e14;
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+  padding-right: 2rem;
+}
+
+/* Scrolling track wrapper */
+.prize-ticker-track-wrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+/* Inner track — doubled items for seamless loop */
+.prize-ticker-track {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  will-change: transform;
+  animation: prize-ticker-scroll linear infinite;
+  /* duration set inline per number of prizes */
+}
+
+/* Individual prize item */
+.prize-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 2rem;
+}
+
+.prize-ticker-pos {
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+.prize-ticker-sep {
+  color: #3a5068;
+  font-size: 12px;
+}
+
+.prize-ticker-val {
+  font-weight: 800;
+  color: #ffffff;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+.prize-ticker-dot {
+  color: #d4af37;
+  font-size: 8px;
+  opacity: 0.6;
+  margin-left: 0.5rem;
+}
+
+/* Push main content up so ticker doesn't overlap — height driven by JS var */
+.broadcast-container {
+  padding-bottom: var(--prize-ticker-height, 48px);
 }

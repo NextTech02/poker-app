@@ -13,17 +13,9 @@ const DOC_TYPE_LABELS = {
   driver_license: 'CNH',
 };
 
-const getPositionLabel = (position) => {
-  const labels = { 1: '1° - Campeão', 2: '2° - Vice', 3: '3°' };
-  return labels[position] || `${position}°`;
-};
+const getPositionLabel = (position) => `${position}°`;
 
-const getRankClass = (position) => {
-  if (position === 1) return 'rank-1';
-  if (position === 2) return 'rank-2';
-  if (position === 3) return 'rank-3';
-  return 'rank-other';
-};
+const getRankClass = () => 'rank-other';
 
 const formatCurrency = (value) => {
   const num = parseFloat(value) || 0;

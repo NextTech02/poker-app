@@ -71,6 +71,17 @@
   letter-spacing: 0.5px;
 }
 
+.tournament-day-form-page .form-subsection-title {
+  color: #8aa0b0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.6rem;
+  padding: 0;
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* === Form Grid === */
 .tournament-day-form-page .form-row {
   display: grid;

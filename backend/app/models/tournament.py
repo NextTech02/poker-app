@@ -81,6 +81,7 @@ class Tournament(TournamentBase):
     created_by: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    guaranteed_prize: float = 0.0
     # Broadcast settings
     broadcast_bg_color: Optional[str] = "#0a0e13"
     broadcast_bg_image_url: Optional[str] = None

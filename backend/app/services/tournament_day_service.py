@@ -823,10 +823,28 @@ class TournamentDayService:
         eliminations_count = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
         active_players = max(0, total_entries - eliminations_count)
 
+        # Chipcount = sum of total_chips for all players registered in this day
+        # (includes eliminated players since their chips remain in play)
+        try:
+            chips_resp = supabase.table("tournament_players")\
+                .select("total_chips")\
+                .eq("tournament_day_id", day_id)\
+                .execute()
+            chipcount = sum(int(p.get("total_chips") or 0) for p in (chips_resp.data or []))
+            average_stack = round(chipcount / active_players) if active_players > 0 else 0
+        except Exception:
+            chipcount = 0
+            average_stack = 0
+
+        # If is_paused=False but timer_started_at is None, the timer was never actually
+        # started (inconsistent DB state). Treat it as paused to prevent the frontend
+        # ticker from counting down while the server always returns the same value.
+        effective_paused = (day.is_paused or False) or (not day.timer_started_at)
+
         return {
             "current_level": correct_level,
             "elapsed_time": current_elapsed,
-            "is_paused": day.is_paused or False,
+            "is_paused": effective_paused,
             "timer_started_at": day.timer_started_at.isoformat() if day.timer_started_at else None,
             "current_blind": current_blind,
             "next_blind": next_blind,
@@ -834,7 +852,9 @@ class TournamentDayService:
             "next_break": next_break_info,
             "active_players": active_players,
             "total_entries": total_entries,
-            "eliminations_count": eliminations_count
+            "eliminations_count": eliminations_count,
+            "chipcount": chipcount,
+            "average_stack": average_stack,
         }
 
     # ================================================

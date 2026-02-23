@@ -640,10 +640,6 @@
   letter-spacing: 0.1em;
 }
 
-.payout-position-label::before {
-  content: '🏆';
-  font-size: 1rem;
-}
 
 .payout-prize-value {
   font-size: 1.75rem;

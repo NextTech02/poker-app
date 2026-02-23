@@ -30,6 +30,68 @@ const generateBlindsFromDayConfig = (dayConfig, numLevels = 20) => {
   return blinds;
 };
 
+// ── Currency helpers ──────────────────────────────────────────────────────────
+const CURRENCY_SYMBOLS = {
+  BRL: 'R$',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  ARS: '$',
+  COP: '$',
+};
+
+const getCurrencySymbol = (code) => CURRENCY_SYMBOLS[code] || code || 'R$';
+
+const formatCurrencyValue = (v, currency) => {
+  const locale = currency === 'BRL' ? 'pt-BR' : 'en-US';
+  return `${getCurrencySymbol(currency)} ${parseFloat(v).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+// ── Prize Ticker ─────────────────────────────────────────────────────────────
+const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, currency = 'BRL' }) => {
+  if (!prizes || prizes.length === 0) return null;
+
+  const s = prizeScale;
+  // Duplicate items for seamless infinite loop
+  const items = [...prizes, ...prizes];
+  // Duration proportional to number of prizes (≈5s per item)
+  const duration = prizes.length * 5;
+  // Bar height scales with prize size
+  const barHeight = Math.round(48 * s);
+
+  return (
+    <div className="prize-ticker-bar" style={{ height: `${barHeight}px` }}>
+      <div className="prize-ticker-label" style={{ fontSize: `${12 * s}px` }}>
+        PREMIAÇÕES
+      </div>
+      <div className="prize-ticker-track-wrap">
+        <div
+          className="prize-ticker-track"
+          style={{ animationDuration: `${duration}s` }}
+        >
+          {items.map((prize, idx) => (
+            <span key={idx} className="prize-ticker-item">
+              <span className="prize-ticker-pos" style={{ fontSize: `${14 * s}px` }}>
+                {prize.position}º Lugar
+              </span>
+              <span className="prize-ticker-sep">:</span>
+              <span className="prize-ticker-val" style={{ fontSize: `${16 * s}px` }}>
+                {formatCurrencyValue(prize.prize_amount, currency)}
+              </span>
+              <span className="prize-ticker-dot">◆</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const TournamentBroadcast = () => {
   const { t } = useTranslation();
   const { id } = useParams();
@@ -43,6 +105,7 @@ const TournamentBroadcast = () => {
   const [error, setError] = useState(null);
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [breakTimeRemaining, setBreakTimeRemaining] = useState(0);
+  const [prizeSummary, setPrizeSummary] = useState(null);
   const [totalPlayTime, setTotalPlayTime] = useState(0);
   const [isDayBased, setIsDayBased] = useState(false);
   const [prizeAllocations, setPrizeAllocations] = useState([]);
@@ -127,10 +190,15 @@ const TournamentBroadcast = () => {
 
       try {
         const tournamentIdForPrizes = dayData ? dayData.tournament_id : id;
-        const prizesRes = await api.get(`/tournaments/${tournamentIdForPrizes}/prizes`);
+        const [prizesRes, summaryRes] = await Promise.all([
+          api.get(`/tournaments/${tournamentIdForPrizes}/prizes`),
+          api.get(`/tournaments/${tournamentIdForPrizes}/prizes/summary`),
+        ]);
         setPrizeAllocations(prizesRes.data || []);
+        setPrizeSummary(summaryRes.data || null);
       } catch {
         setPrizeAllocations([]);
+        setPrizeSummary(null);
       }
 
       if (dayData && dayData.day_type === 'final') {
@@ -332,6 +400,16 @@ const TournamentBroadcast = () => {
     return breakInterval - timeIntoCurrentCycle;
   };
 
+  // Compute ticker height before any early returns (Rules of Hooks)
+  const prizeScaleEarly = ((tournamentDay?.broadcast_prize_size ?? tournament?.broadcast_prize_size) || 100) / 100;
+  const tickerHeightEarly = Math.round(48 * prizeScaleEarly);
+
+  // Propagate ticker height to :root so position:fixed elements can use it via CSS var
+  useEffect(() => {
+    document.documentElement.style.setProperty('--prize-ticker-height', `${tickerHeightEarly}px`);
+    return () => document.documentElement.style.removeProperty('--prize-ticker-height');
+  }, [tickerHeightEarly]);
+
   if (loading) {
     return (
       <div className="broadcast-container">
@@ -366,9 +444,33 @@ const TournamentBroadcast = () => {
     showAnte: bSource?.broadcast_show_ante !== false,
     showNextBlind: bSource?.broadcast_show_next_blind !== false,
     showPrizes: bSource?.broadcast_show_prizes !== false,
+    showChipcount: bSource?.broadcast_show_chipcount !== false,
+    showAverage: bSource?.broadcast_show_average !== false,
   };
 
   const fontScale = broadcastSettings.fontSize / 100;
+  const prizeScale = (bSource?.broadcast_prize_size || 100) / 100;
+  const prizepoolScale = (bSource?.broadcast_prizepool_size || 100) / 100;
+  const prizepoolLabelColor = bSource?.broadcast_prizepool_label_color || '#ffffff';
+  const prizepoolValueColor = bSource?.broadcast_prizepool_value_color || '#ffffff';
+  const dayCurrency = tournamentDay?.currency || 'BRL';
+
+  // Per-element colors
+  const colors = {
+    timer:        bSource?.broadcast_timer_color         || '#d4af37',
+    title:        bSource?.broadcast_title_color         || '#d4af37',
+    blindsLabel:  bSource?.broadcast_blinds_label_color  || '#d4af37',
+    blindsValue:  bSource?.broadcast_blinds_value_color  || '#ffffff',
+    anteLabel:    bSource?.broadcast_ante_label_color    || '#d4af37',
+    anteValue:    bSource?.broadcast_ante_value_color    || '#d4af37',
+    nextLabel:    bSource?.broadcast_next_label_color    || '#d4af37',
+    nextValue:    bSource?.broadcast_next_value_color    || '#9ca3af',
+    sidebarLabel: bSource?.broadcast_sidebar_label_color || '#9ca3af',
+    sidebarValue: bSource?.broadcast_sidebar_value_color || '#d4af37',
+  };
+
+  // Prizepool = guaranteed + all-days entries net of rake (from backend summary)
+  const displayPrizePool = parseFloat(prizeSummary?.available_prize_pool || tournamentDay?.prize_pool || 0);
 
   const containerStyle = {};
   if (broadcastSettings.bgImageUrl) {
@@ -383,6 +485,8 @@ const TournamentBroadcast = () => {
   const displayName = broadcastSettings.displayName ||
     (tournamentDay ? `${tournament.name} - ${tournamentDay.day_name}` : tournament.name);
 
+  const tickerHeight = Math.round(48 * prizeScale);
+
   // Check if completed
   const currentStatus = tournamentDay?.status || tournament?.status;
   if (currentStatus === 'completed') {
@@ -395,7 +499,7 @@ const TournamentBroadcast = () => {
             </div>
           )}
           {broadcastSettings.showTitle && (
-            <div className="broadcast-title"><h1>{displayName}</h1></div>
+            <div className="broadcast-title"><h1 style={{ color: colors.title, backgroundImage: 'none', WebkitTextFillColor: colors.title }}>{displayName}</h1></div>
           )}
           <div className="broadcast-header-spacer"></div>
         </header>
@@ -414,11 +518,14 @@ const TournamentBroadcast = () => {
         </div>
         {broadcastSettings.showPrizepool && (
           <div className="broadcast-prizepool-corner">
-            <div className="prize-label" style={{ fontSize: `${13 * fontScale}px` }}>PRIZEPOOL</div>
-            <div className="prize-amount" style={{ fontSize: `${32 * fontScale}px` }}>
-              $ {tournamentDay?.prize_pool || tournament.prize_pool ? (tournamentDay?.prize_pool || tournament.prize_pool).toFixed(2) : '0,00'}
+            <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>PRIZEPOOL</div>
+            <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
+              {formatCurrencyValue(displayPrizePool, dayCurrency)}
             </div>
           </div>
+        )}
+        {broadcastSettings.showPrizes && prizeAllocations.length > 0 && (
+          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} currency={dayCurrency} />
         )}
       </div>
     );
@@ -463,6 +570,16 @@ const TournamentBroadcast = () => {
     return sum + (p.buy_in_count || 0) + (p.rebuy_count || 0);
   }, 0);
 
+  // Chipcount and average stack (day-based only, from enriched endpoint)
+  const chipcount = (isDayBased && timerState) ? (timerState.chipcount || 0) : 0;
+  const averageStack = (isDayBased && timerState) ? (timerState.average_stack || 0) : 0;
+
+  const formatChips = (n) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+    return n.toLocaleString();
+  };
+
   const isFinalDay = tournamentDay?.day_type === 'final' || players.some(p => p.is_qualified_entry);
   let displayActivePlayers = activePlayers;
   let displayTotalPlayers = totalEntries;
@@ -484,42 +601,54 @@ const TournamentBroadcast = () => {
         )}
         {broadcastSettings.showTitle && (
           <div className="broadcast-title">
-            <h1>{displayName}</h1>
-            {isFinalDay && <span className="day-type-indicator final">{t('broadcast.finalDay')}</span>}
-            {tournamentDay?.day_type === 'qualifying' && <span className="day-type-indicator qualifying">{t('broadcast.qualifyingDay')}</span>}
+            <h1 style={{ color: colors.title, backgroundImage: 'none', WebkitTextFillColor: colors.title }}>{displayName}</h1>
           </div>
         )}
         <div className="broadcast-header-spacer"></div>
       </header>
 
       <div className="broadcast-main">
-        {(broadcastSettings.showLevel || broadcastSettings.showPlayers || broadcastSettings.showInterval) && (
+        {(broadcastSettings.showLevel || broadcastSettings.showPlayers || broadcastSettings.showInterval || broadcastSettings.showChipcount || broadcastSettings.showAverage) && (
           <aside className="broadcast-sidebar">
             {broadcastSettings.showLevel && (
               <div className="sidebar-section">
-                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px` }}>{t('broadcast.level')} {displayBlindLevel}</div>
+                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{t('broadcast.level')} {displayBlindLevel}</div>
               </div>
             )}
 
             {broadcastSettings.showPlayers && (
               <div className="sidebar-section">
-                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px` }}>{t('broadcast.players').toUpperCase()}</div>
-                <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px` }}>{displayActivePlayers} / {displayTotalPlayers}</div>
+                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{t('broadcast.players').toUpperCase()}</div>
+                <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{displayActivePlayers} / {displayTotalPlayers}</div>
               </div>
             )}
 
             {broadcastSettings.showPlayers && totalEntries > 0 && (
               <div className="sidebar-section">
-                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px` }}>{t('broadcast.entries').toUpperCase()}</div>
-                <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px` }}>{totalEntries}</div>
+                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{t('broadcast.entries').toUpperCase()}</div>
+                <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{totalEntries}</div>
+              </div>
+            )}
+
+            {isDayBased && broadcastSettings.showChipcount && chipcount > 0 && (
+              <div className="sidebar-section">
+                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>CHIP COUNT</div>
+                <div className="sidebar-value" style={{ fontSize: `${28 * fontScale}px`, color: colors.sidebarValue }}>{formatChips(chipcount)}</div>
+              </div>
+            )}
+
+            {isDayBased && broadcastSettings.showAverage && averageStack > 0 && (
+              <div className="sidebar-section">
+                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>MÉDIA</div>
+                <div className="sidebar-value" style={{ fontSize: `${28 * fontScale}px`, color: colors.sidebarValue }}>{formatChips(averageStack)}</div>
               </div>
             )}
 
             {/* Break countdown from enriched endpoint for day-based */}
             {isDayBased && timerState?.next_break && (
               <div className="sidebar-section">
-                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px` }}>INTERVALO EM</div>
-                <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px` }}>
+                <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>INTERVALO EM</div>
+                <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>
                   {formatTimeHuman(timerState.next_break.time_until_break)}
                 </div>
               </div>
@@ -539,9 +668,9 @@ const TournamentBroadcast = () => {
           {/* Break overlay for day-based tournaments */}
           {isDayBased && currentBlindIsBreak ? (
             <>
-              <div className="broadcast-break-label" style={{ fontSize: `${36 * fontScale}px` }}>INTERVALO</div>
+              <div className="broadcast-break-label" style={{ fontSize: `${36 * fontScale}px`, color: colors.timer }}>INTERVALO</div>
               {broadcastSettings.showTimer && (
-                <div className="timer-display break-timer-display" style={{ fontSize: `${160 * fontScale}px` }}>
+                <div className="timer-display break-timer-display" style={{ fontSize: `${160 * fontScale}px`, color: colors.timer }}>
                   {formatTimerTime(displayTimeRemaining)}
                 </div>
               )}
@@ -549,29 +678,29 @@ const TournamentBroadcast = () => {
           ) : (
             <>
               {broadcastSettings.showTimer && (
-                <div className="timer-display" style={{ fontSize: `${160 * fontScale}px` }}>
+                <div className="timer-display" style={{ fontSize: `${160 * fontScale}px`, color: colors.timer }}>
                   {formatTimerTime(displayTimeRemaining)}
                 </div>
               )}
 
               {broadcastSettings.showBlinds && (
                 <div className="blinds-section">
-                  <div className="blinds-label" style={{ fontSize: `${16 * fontScale}px` }}>{t('broadcast.blinds')}</div>
-                  <div className="blinds-value" style={{ fontSize: `${80 * fontScale}px` }}>{displaySmallBlind}/{displayBigBlind}</div>
+                  <div className="blinds-label" style={{ fontSize: `${16 * fontScale}px`, color: colors.blindsLabel }}>{t('broadcast.blinds')}</div>
+                  <div className="blinds-value" style={{ fontSize: `${80 * fontScale}px`, color: colors.blindsValue }}>{displaySmallBlind}/{displayBigBlind}</div>
                 </div>
               )}
 
               {broadcastSettings.showAnte && (
                 <div className="ante-section">
-                  <div className="ante-label" style={{ fontSize: `${14 * fontScale}px` }}>{t('broadcast.ante')}</div>
-                  <div className="ante-value" style={{ fontSize: `${36 * fontScale}px` }}>{displayAnte}</div>
+                  <div className="ante-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.anteLabel }}>{t('broadcast.ante')}</div>
+                  <div className="ante-value" style={{ fontSize: `${36 * fontScale}px`, color: colors.anteValue }}>{displayAnte}</div>
                 </div>
               )}
 
               {broadcastSettings.showNextBlind && (
                 <div className="next-blind-section">
-                  <div className="next-blind-label" style={{ fontSize: `${14 * fontScale}px` }}>{t('broadcast.nextBlinds')}</div>
-                  <div className="next-blind-value" style={{ fontSize: `${24 * fontScale}px` }}>
+                  <div className="next-blind-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.nextLabel }}>{t('broadcast.nextBlinds')}</div>
+                  <div className="next-blind-value" style={{ fontSize: `${24 * fontScale}px`, color: colors.nextValue }}>
                     {nextBlindIsBreak
                       ? `INTERVALO`
                       : `${displayNextSmallBlind}/${displayNextBigBlind} ( ${displayNextAnte} )`
@@ -583,34 +712,21 @@ const TournamentBroadcast = () => {
           )}
         </main>
 
-        {/* Right Sidebar - Prizes */}
-        {broadcastSettings.showPrizes && prizeAllocations.length > 0 && (
-          <aside className="broadcast-prizes-sidebar">
-            <div className="prizes-header" style={{ fontSize: `${14 * fontScale}px` }}>
-              {t('broadcast.prizePool').toUpperCase()}
-            </div>
-            <div className="prizes-list">
-              {prizeAllocations.slice(0, 10).map((prize) => (
-                <div key={prize.id} className="prize-row">
-                  <span className="prize-position" style={{ fontSize: `${14 * fontScale}px` }}>{prize.position}º</span>
-                  <span className="prize-value" style={{ fontSize: `${18 * fontScale}px` }}>
-                    R$ {parseFloat(prize.prize_amount).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </aside>
-        )}
       </div>
 
       {/* Prizepool - Bottom Right */}
       {broadcastSettings.showPrizepool && (
         <div className="broadcast-prizepool-corner">
-          <div className="prize-label" style={{ fontSize: `${13 * fontScale}px` }}>PRIZEPOOL</div>
-          <div className="prize-amount" style={{ fontSize: `${32 * fontScale}px` }}>
-            $ {tournamentDay?.prize_pool || tournament.prize_pool ? (tournamentDay?.prize_pool || tournament.prize_pool).toFixed(2) : '0,00'}
+          <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>PRIZEPOOL</div>
+          <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
+            {formatCurrencyValue(displayPrizePool, dayCurrency)}
           </div>
         </div>
+      )}
+
+      {/* Prize Ticker — scrolling bottom bar */}
+      {broadcastSettings.showPrizes && prizeAllocations.length > 0 && (
+        <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} currency={dayCurrency} />
       )}
 
       {/* Legacy Break Overlay (non-day tournaments only) */}

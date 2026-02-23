@@ -87,6 +87,10 @@ const TournamentDetail = () => {
     navigate(`/alocacao/dia/${dayId}`);
   };
 
+  const handleBroadcastSettings = (dayId) => {
+    navigate(`/torneios/${id}/dia/${dayId}/broadcast`);
+  };
+
   const handleFinishDay = async (dayId) => {
     const ok = await confirm(t('common.confirm') + '?');
     if (!ok) return;
@@ -273,6 +277,14 @@ const TournamentDetail = () => {
               {t('rankings.prize')}
             </Button>
           )}
+          <Button
+            size="small"
+            variant="secondary"
+            onClick={() => handleBroadcastSettings(day.id)}
+            title="Configurar aparência do broadcast"
+          >
+            Broadcast
+          </Button>
           <Button
             size="small"
             variant="secondary"

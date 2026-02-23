@@ -73,6 +73,9 @@ class TournamentDayBase(BaseModel):
     # Table lock
     tables_locked: bool = Field(default=False, description="When true, new buy-ins skip auto-allocation (players become alternates)")
 
+    # Currency
+    currency: str = Field(default='BRL', description="Currency code used in this day (BRL, USD, EUR, etc.)")
+
     # Date/time
     tournament_date: Optional[datetime] = None
 
@@ -81,6 +84,21 @@ class TournamentDayBase(BaseModel):
     broadcast_bg_image_url: Optional[str] = Field(default=None)
     broadcast_display_name: Optional[str] = Field(default=None)
     broadcast_font_size: int = Field(default=100, ge=50, le=200)
+    broadcast_prize_size: int = Field(default=100, ge=50, le=300, description="Font size % for prize ticker bar")
+    broadcast_prizepool_label_color: str = Field(default='#ffffff')
+    broadcast_prizepool_value_color: str = Field(default='#ffffff')
+    broadcast_prizepool_size: int = Field(default=100, ge=50, le=300)
+    # Per-element colors
+    broadcast_timer_color: str = Field(default='#d4af37')
+    broadcast_title_color: str = Field(default='#d4af37')
+    broadcast_blinds_label_color: str = Field(default='#d4af37')
+    broadcast_blinds_value_color: str = Field(default='#ffffff')
+    broadcast_ante_label_color: str = Field(default='#d4af37')
+    broadcast_ante_value_color: str = Field(default='#d4af37')
+    broadcast_next_label_color: str = Field(default='#d4af37')
+    broadcast_next_value_color: str = Field(default='#9ca3af')
+    broadcast_sidebar_label_color: str = Field(default='#9ca3af')
+    broadcast_sidebar_value_color: str = Field(default='#d4af37')
     broadcast_show_logo: bool = Field(default=True)
     broadcast_show_title: bool = Field(default=True)
     broadcast_show_prizepool: bool = Field(default=True)
@@ -123,6 +141,7 @@ class TournamentDayUpdate(BaseModel):
     allocation_type: Optional[AllocationType] = None
     allocation_mode: Optional[str] = Field(None, description="Auto-allocation algorithm: balanced, sequential, or random_balanced")
     tables_locked: Optional[bool] = None
+    currency: Optional[str] = None
     tournament_date: Optional[datetime] = None
     day_type: Optional[DayType] = None
     qualifies_to_day_id: Optional[str] = None
@@ -132,6 +151,20 @@ class TournamentDayUpdate(BaseModel):
     broadcast_bg_image_url: Optional[str] = None
     broadcast_display_name: Optional[str] = None
     broadcast_font_size: Optional[int] = Field(None, ge=50, le=200)
+    broadcast_prize_size: Optional[int] = Field(None, ge=50, le=300)
+    broadcast_prizepool_label_color: Optional[str] = None
+    broadcast_prizepool_value_color: Optional[str] = None
+    broadcast_prizepool_size: Optional[int] = Field(None, ge=50, le=300)
+    broadcast_timer_color: Optional[str] = None
+    broadcast_title_color: Optional[str] = None
+    broadcast_blinds_label_color: Optional[str] = None
+    broadcast_blinds_value_color: Optional[str] = None
+    broadcast_ante_label_color: Optional[str] = None
+    broadcast_ante_value_color: Optional[str] = None
+    broadcast_next_label_color: Optional[str] = None
+    broadcast_next_value_color: Optional[str] = None
+    broadcast_sidebar_label_color: Optional[str] = None
+    broadcast_sidebar_value_color: Optional[str] = None
     broadcast_show_logo: Optional[bool] = None
     broadcast_show_title: Optional[bool] = None
     broadcast_show_prizepool: Optional[bool] = None
