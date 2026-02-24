@@ -1,6 +1,12 @@
 from typing import List, Optional
 from datetime import datetime, timezone
+import time
 from app.database import supabase
+
+# Chipcount cache: {day_id: (timestamp, chipcount)}
+# Chipcount only changes on buy-in/rebuy/addon — no need to recompute every 3s poll.
+_chipcount_cache: dict = {}
+_CHIPCOUNT_TTL = 60  # seconds
 from app.models.tournament_day import (
     TournamentDayCreate,
     TournamentDayUpdate,
@@ -823,18 +829,30 @@ class TournamentDayService:
         eliminations_count = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
         active_players = max(0, total_entries - eliminations_count)
 
-        # Chipcount = sum of total_chips for all players registered in this day
-        # (includes eliminated players since their chips remain in play)
-        try:
-            chips_resp = supabase.table("tournament_players")\
-                .select("total_chips")\
-                .eq("tournament_day_id", day_id)\
-                .execute()
-            chipcount = sum(int(p.get("total_chips") or 0) for p in (chips_resp.data or []))
-            average_stack = round(chipcount / active_players) if active_players > 0 else 0
-        except Exception:
-            chipcount = 0
-            average_stack = 0
+        # Chipcount — cached for 60s (only changes on buy-in/rebuy/addon, not every 3s poll)
+        # average_stack is derived from cached chipcount + current active_players each call
+        now = time.time()
+        cached = _chipcount_cache.get(day_id)
+        if cached and (now - cached[0]) < _CHIPCOUNT_TTL:
+            chipcount = cached[1]
+        else:
+            try:
+                chips_resp = supabase.table("tournament_players")\
+                    .select("total_chips")\
+                    .eq("tournament_day_id", day_id)\
+                    .execute()
+                players_data = chips_resp.data or []
+                if not players_data:
+                    chips_resp2 = supabase.table("tournament_players")\
+                        .select("total_chips")\
+                        .eq("tournament_id", day.tournament_id)\
+                        .execute()
+                    players_data = chips_resp2.data or []
+                chipcount = sum(int(p.get("total_chips") or 0) for p in players_data)
+                _chipcount_cache[day_id] = (now, chipcount)
+            except Exception:
+                chipcount = cached[1] if cached else 0
+        average_stack = round(chipcount / active_players) if active_players > 0 else 0
 
         # If is_paused=False but timer_started_at is None, the timer was never actually
         # started (inconsistent DB state). Treat it as paused to prevent the frontend

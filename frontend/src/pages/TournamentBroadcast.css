@@ -738,3 +738,174 @@
 .broadcast-container {
   padding-bottom: var(--prize-ticker-height, 48px);
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Break Screen — separate full-area layout shown during intervals
+   ══════════════════════════════════════════════════════════════════ */
+.break-screen {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Split layout (info panel left + video right) ── */
+.break-layout-split {
+  flex-direction: row;
+}
+
+.break-layout-split .break-info-panel {
+  width: 340px;
+  flex-shrink: 0;
+  padding: 48px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.65);
+  border-right: 2px solid #d4af37;
+  z-index: 1;
+}
+
+.break-layout-split .break-video-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Fullscreen / Overlay: video fills background — cover ── */
+.break-video-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  aspect-ratio: 16 / 9;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  border: none;
+  z-index: 0;
+}
+
+/* ── Fullscreen: compact info bar at bottom ── */
+.break-layout-fullscreen .break-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 48px;
+  z-index: 1;
+}
+
+.break-layout-fullscreen .break-info-panel {
+  display: flex;
+  flex-direction: row;
+  gap: 36px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.break-layout-fullscreen .break-title-text {
+  font-size: calc(1.2rem * var(--break-fs, 1)) !important;
+}
+
+.break-layout-fullscreen .break-timer-text {
+  font-size: calc(2.4rem * var(--break-fs, 1)) !important;
+}
+
+.break-layout-fullscreen .break-stat-label {
+  font-size: calc(0.65rem * var(--break-fs, 1)) !important;
+}
+
+.break-layout-fullscreen .break-stat-value {
+  font-size: calc(1.1rem * var(--break-fs, 1)) !important;
+}
+
+/* ── Overlay: semi-transparent panel floated left ── */
+.break-layout-overlay .break-overlay-panel {
+  position: absolute;
+  left: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 16px;
+  padding: 32px 28px;
+  min-width: 300px;
+  z-index: 1;
+}
+
+.break-layout-overlay .break-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Shared info panel elements ── */
+.break-title-text {
+  font-size: calc(2.4rem * var(--break-fs, 1));
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  line-height: 1;
+}
+
+.break-timer-text {
+  font-size: calc(5.5rem * var(--break-fs, 1));
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.break-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.break-stat-label {
+  font-size: calc(0.72rem * var(--break-fs, 1));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.break-stat-value {
+  font-size: calc(1.5rem * var(--break-fs, 1));
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+/* Divider between stats in the split panel */
+.break-layout-split .break-stat + .break-stat,
+.break-layout-split .break-timer-text + .break-stat,
+.break-layout-overlay .break-stat + .break-stat {
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255,255,255,0.1);
+}
+
+/* ── Inline iframe for split layout — cover the full right panel ── */
+.break-video-iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* Cover: scale the 16:9 iframe to always fill the container
+     (whichever dimension is larger takes precedence) */
+  min-width: 100%;
+  min-height: 100%;
+  aspect-ratio: 16 / 9;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  border: none;
+}
+
+.break-video-placeholder {
+  position: absolute;
+  inset: 0;
+}

@@ -359,6 +359,27 @@
     "visNextBlind": "Próx. Blind",
     "visPrizes": "Premiações",
     "visChipcount": "Chip Count",
-    "visAverage": "Média de Fichas"
+    "visAverage": "Média de Fichas",
+    "sectionBreak": "Tela de Intervalo",
+    "sectionBreakColors": "Cores — Intervalo",
+    "breakLayout": "Layout",
+    "breakYoutube": "Vídeo YouTube",
+    "breakYoutubeHint": "Cole a URL do YouTube. O vídeo toca em loop, mudo, durante o intervalo.",
+    "breakBgColor": "Cor de Fundo",
+    "breakFontSize": "Tamanho das Letras (%)",
+    "breakOverlayOpacity": "Opacidade do Painel",
+    "breakVisibility": "Visibilidade",
+    "breakShowVideo": "Vídeo",
+    "breakShowNextLevel": "Próximo Nível",
+    "breakShowPlayers": "Jogadores",
+    "breakShowChipcount": "Chip Count",
+    "breakShowAverage": "Média",
+    "breakColorTimer": "Timer",
+    "breakColorTitle": "Título",
+    "breakColorLabels": "Labels",
+    "breakColorValues": "Valores",
+    "previewBreak": "PREVIEW — INTERVALO",
+    "previewSwitchBlinds": "Ver tela de blinds",
+    "previewSwitchBreak": "Ver tela de intervalo"
   }
 }

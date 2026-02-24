@@ -359,6 +359,27 @@
     "visNextBlind": "Próx. Blind",
     "visPrizes": "Premios",
     "visChipcount": "Chip Count",
-    "visAverage": "Promedio de Fichas"
+    "visAverage": "Promedio de Fichas",
+    "sectionBreak": "Pantalla de Descanso",
+    "sectionBreakColors": "Colores — Descanso",
+    "breakLayout": "Diseño",
+    "breakYoutube": "Video YouTube",
+    "breakYoutubeHint": "Pegue una URL de YouTube. El video se reproduce en bucle y sin sonido durante el descanso.",
+    "breakBgColor": "Color de Fondo",
+    "breakFontSize": "Tamaño de Fuente (%)",
+    "breakOverlayOpacity": "Opacidad del Panel",
+    "breakVisibility": "Visibilidad",
+    "breakShowVideo": "Video",
+    "breakShowNextLevel": "Próximo Nivel",
+    "breakShowPlayers": "Jugadores",
+    "breakShowChipcount": "Chip Count",
+    "breakShowAverage": "Promedio",
+    "breakColorTimer": "Temporizador",
+    "breakColorTitle": "Título",
+    "breakColorLabels": "Etiquetas",
+    "breakColorValues": "Valores",
+    "previewBreak": "PREVIEW — DESCANSO",
+    "previewSwitchBlinds": "Ver pantalla de blinds",
+    "previewSwitchBreak": "Ver pantalla de descanso"
   }
 }

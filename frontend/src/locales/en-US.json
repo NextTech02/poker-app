@@ -359,6 +359,27 @@
     "visNextBlind": "Next Blind",
     "visPrizes": "Prizes",
     "visChipcount": "Chip Count",
-    "visAverage": "Average Stack"
+    "visAverage": "Average Stack",
+    "sectionBreak": "Break Screen",
+    "sectionBreakColors": "Colors — Break",
+    "breakLayout": "Layout",
+    "breakYoutube": "YouTube Video",
+    "breakYoutubeHint": "Paste a YouTube URL. Video plays looped and muted during the break.",
+    "breakBgColor": "Background Color",
+    "breakFontSize": "Font Size (%)",
+    "breakOverlayOpacity": "Panel Opacity",
+    "breakVisibility": "Visibility",
+    "breakShowVideo": "Video",
+    "breakShowNextLevel": "Next Level",
+    "breakShowPlayers": "Players",
+    "breakShowChipcount": "Chip Count",
+    "breakShowAverage": "Average",
+    "breakColorTimer": "Timer",
+    "breakColorTitle": "Title",
+    "breakColorLabels": "Labels",
+    "breakColorValues": "Values",
+    "previewBreak": "PREVIEW — BREAK",
+    "previewSwitchBlinds": "View blinds screen",
+    "previewSwitchBreak": "View break screen"
   }
 }

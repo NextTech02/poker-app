@@ -43,6 +43,22 @@ const DEFAULT_SETTINGS = {
   broadcast_show_prizes: true,
   broadcast_show_chipcount: true,
   broadcast_show_average: true,
+  // Break screen
+  broadcast_break_layout:          'split',
+  broadcast_break_bg_color:        '#0a0e13',
+  broadcast_break_bg_image_url:    '',
+  broadcast_break_youtube_url:     '',
+  broadcast_break_show_video:      true,
+  broadcast_break_show_next_level: true,
+  broadcast_break_show_players:    true,
+  broadcast_break_show_chipcount:  true,
+  broadcast_break_show_average:    true,
+  broadcast_break_overlay_opacity: 70,
+  broadcast_break_font_size:       100,
+  broadcast_break_timer_color:     '#d4af37',
+  broadcast_break_label_color:     '#9ca3af',
+  broadcast_break_value_color:     '#d4af37',
+  broadcast_break_title_color:     '#ffffff',
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -115,10 +131,20 @@ const MOCK = {
   prizePool: 'R$ 15.000,00',
   interval: '18:32',
   chipcount: '1.650.000',
-  average: '36.7K',
+  average: '36.667',
+  // Break mock
+  breakTimer: '15:00',
+  breakNextLevel: 6,
+  breakNextSb: 750, breakNextBb: 1500, breakNextAnte: 1500,
 };
 
-const BroadcastPreview = ({ settings, displayName, notice }) => {
+const extractYouTubeIdPreview = (url) => {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+};
+
+const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(0.35);
 
@@ -174,6 +200,60 @@ const BroadcastPreview = ({ settings, displayName, notice }) => {
   const S = settings;
   const title = S.broadcast_display_name || displayName || 'Main Event — Dia 1A';
 
+  // Break preview helpers
+  const breakLayout  = S.broadcast_break_layout || 'split';
+  const breakVideoId = extractYouTubeIdPreview(S.broadcast_break_youtube_url);
+  const showBreakVid = S.broadcast_break_show_video && !!breakVideoId;
+  const breakOpacity  = ((S.broadcast_break_overlay_opacity ?? 70) / 100).toFixed(2);
+  const breakFontScale = (S.broadcast_break_font_size ?? 100) / 100;
+  const breakEmbedUrl = breakVideoId
+    ? `https://www.youtube.com/embed/${breakVideoId}?autoplay=1&mute=1&loop=1&playlist=${breakVideoId}&controls=0&modestbranding=1`
+    : null;
+
+  const breakBgStyle = showBreakVid
+    ? {}
+    : S.broadcast_break_bg_image_url
+      ? { backgroundImage: `url(${S.broadcast_break_bg_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+      : { background: S.broadcast_break_bg_color || '#0a0e13' };
+
+  const bfs = fs * breakFontScale; // combined preview scale × break font scale
+  const BreakInfoPreview = () => (
+    <div style={{ display: 'flex', flexDirection: breakLayout === 'fullscreen' ? 'row' : 'column', gap: breakLayout === 'fullscreen' ? 32 * bfs : 20 * bfs, ...(breakLayout === 'fullscreen' ? { justifyContent: 'center', alignItems: 'center', width: '100%' } : {}) }}>
+      <div style={{ fontSize: breakLayout === 'fullscreen' ? 18 * bfs : 28 * bfs, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 4, color: S.broadcast_break_title_color || '#fff' }}>
+        INTERVALO
+      </div>
+      <div style={{ fontSize: breakLayout === 'fullscreen' ? 30 * bfs : 68 * bfs, fontWeight: 800, lineHeight: 1, color: S.broadcast_break_timer_color || '#d4af37', fontVariantNumeric: 'tabular-nums' }}>
+        {MOCK.breakTimer}
+      </div>
+      {S.broadcast_break_show_next_level !== false && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>PRÓXIMO</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>
+            Nível {MOCK.breakNextLevel}: {MOCK.breakNextSb.toLocaleString()}/{MOCK.breakNextBb.toLocaleString()} ( {MOCK.breakNextAnte.toLocaleString()} )
+          </span>
+        </div>
+      )}
+      {S.broadcast_break_show_players !== false && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>JOGADORES</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.active} de {MOCK.total}</span>
+        </div>
+      )}
+      {S.broadcast_break_show_chipcount !== false && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>CHIP COUNT</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.chipcount}</span>
+        </div>
+      )}
+      {S.broadcast_break_show_average !== false && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>MÉDIA</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.average}</span>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="bpv-outer">
       <div ref={wrapRef} className="bpv-wrap">
@@ -211,7 +291,55 @@ const BroadcastPreview = ({ settings, displayName, notice }) => {
               <div style={{ minWidth: 250 }} />
             </div>
 
-            {/* ── Main (mirrors .broadcast-main) ── */}
+            {/* ── Main: Break preview or normal ── */}
+            {previewBreak ? (
+              /* ── Break Screen Preview ── */
+              <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', ...breakBgStyle }}>
+                {showBreakVid && (
+                  <iframe src={breakEmbedUrl} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', zIndex: 0 }} allow="autoplay; encrypted-media" allowFullScreen title="break-preview" />
+                )}
+
+                {breakLayout === 'split' && (
+                  <>
+                    <div style={{
+                      width: 260, flexShrink: 0, padding: '40px 28px',
+                      background: 'rgba(0,0,0,0.65)', borderRight: '2px solid #d4af37',
+                      display: 'flex', flexDirection: 'column', gap: 20, zIndex: 1,
+                    }}>
+                      <BreakInfoPreview />
+                    </div>
+                    <div style={{ flex: 1, position: 'relative', background: showBreakVid ? 'transparent' : 'rgba(255,255,255,0.03)' }}>
+                      {!showBreakVid && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 13 * fs }}>
+                          {S.broadcast_break_youtube_url ? '▶ YouTube' : 'Vídeo / Imagem'}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {breakLayout === 'fullscreen' && (
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    background: `rgba(5,8,12,${breakOpacity})`, borderTop: '2px solid #d4af37',
+                    padding: '10px 40px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+                  }}>
+                    <BreakInfoPreview />
+                  </div>
+                )}
+
+                {breakLayout === 'overlay' && (
+                  <div style={{
+                    position: 'absolute', left: 40, top: '50%', transform: 'translateY(-50%)',
+                    background: `rgba(5,8,12,${breakOpacity})`, border: '1px solid rgba(212,175,55,0.4)',
+                    borderRadius: 12, padding: '24px 22px', minWidth: 240, zIndex: 1,
+                  }}>
+                    <BreakInfoPreview />
+                  </div>
+                )}
+              </div>
+            ) : (
+            /* ── Normal blinds preview ── */
             <div style={{ flex: 1, display: 'flex', position: 'relative', padding: '32px 48px', paddingBottom: barH + 32 }}>
 
               {/* Sidebar — absolute left (mirrors .broadcast-sidebar) */}
@@ -228,7 +356,7 @@ const BroadcastPreview = ({ settings, displayName, notice }) => {
                     <>
                       <div>
                         <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>JOGADORES</div>
-                        <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.active} / {MOCK.total}</div>
+                        <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.active} de {MOCK.total}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>ENTRADAS</div>
@@ -292,9 +420,10 @@ const BroadcastPreview = ({ settings, displayName, notice }) => {
                 )}
               </div>
             </div>
+            )} {/* end previewBreak ternary */}
 
             {/* ── Prizepool corner (mirrors .broadcast-prizepool-corner) ── */}
-            {S.broadcast_show_prizepool && (
+            {S.broadcast_show_prizepool && !previewBreak && (
               <div style={{ position: 'absolute', bottom: barH + 12, right: 48, textAlign: 'right', padding: '12px 24px' }}>
                 <div style={{ fontSize: 13 * pp, color: c.ppLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>PRIZEPOOL</div>
                 <div style={{ fontSize: 32 * pp, fontWeight: 800, color: c.ppVal }}>{MOCK.prizePool}</div>
@@ -302,7 +431,7 @@ const BroadcastPreview = ({ settings, displayName, notice }) => {
             )}
 
             {/* ── Prize ticker (mirrors .prize-ticker-bar) ── */}
-            {S.broadcast_show_prizes && (
+            {S.broadcast_show_prizes && !previewBreak && (
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0, height: barH,
                 background: 'rgba(5,8,12,0.96)', borderTop: '2px solid #d4af37',
@@ -367,6 +496,7 @@ const BroadcastSettings = () => {
   const [settings, setSettings]         = useState(DEFAULT_SETTINGS);
   const [loading, setLoading]           = useState(true);
   const [submitting, setSubmitting]     = useState(false);
+  const [previewBreak, setPreviewBreak] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -410,6 +540,22 @@ const BroadcastSettings = () => {
           broadcast_show_prizes:     d.broadcast_show_prizes     !== false,
           broadcast_show_chipcount:  d.broadcast_show_chipcount  !== false,
           broadcast_show_average:    d.broadcast_show_average    !== false,
+          // Break screen
+          broadcast_break_layout:          d.broadcast_break_layout          || DEFAULT_SETTINGS.broadcast_break_layout,
+          broadcast_break_bg_color:        d.broadcast_break_bg_color        || DEFAULT_SETTINGS.broadcast_break_bg_color,
+          broadcast_break_bg_image_url:    d.broadcast_break_bg_image_url    || '',
+          broadcast_break_youtube_url:     d.broadcast_break_youtube_url     || '',
+          broadcast_break_show_video:      d.broadcast_break_show_video      !== false,
+          broadcast_break_show_next_level: d.broadcast_break_show_next_level !== false,
+          broadcast_break_show_players:    d.broadcast_break_show_players    !== false,
+          broadcast_break_show_chipcount:  d.broadcast_break_show_chipcount  !== false,
+          broadcast_break_show_average:    d.broadcast_break_show_average    !== false,
+          broadcast_break_overlay_opacity: d.broadcast_break_overlay_opacity ?? DEFAULT_SETTINGS.broadcast_break_overlay_opacity,
+          broadcast_break_font_size:       d.broadcast_break_font_size       ?? DEFAULT_SETTINGS.broadcast_break_font_size,
+          broadcast_break_timer_color:     d.broadcast_break_timer_color     || DEFAULT_SETTINGS.broadcast_break_timer_color,
+          broadcast_break_label_color:     d.broadcast_break_label_color     || DEFAULT_SETTINGS.broadcast_break_label_color,
+          broadcast_break_value_color:     d.broadcast_break_value_color     || DEFAULT_SETTINGS.broadcast_break_value_color,
+          broadcast_break_title_color:     d.broadcast_break_title_color     || DEFAULT_SETTINGS.broadcast_break_title_color,
         });
       } catch (err) {
         console.error(err);
@@ -428,8 +574,10 @@ const BroadcastSettings = () => {
     try {
       await api.patch(`/tournament-days/${dayId}`, {
         ...settings,
-        broadcast_bg_image_url: settings.broadcast_bg_image_url || null,
-        broadcast_display_name: settings.broadcast_display_name || null,
+        broadcast_bg_image_url:       settings.broadcast_bg_image_url       || null,
+        broadcast_display_name:       settings.broadcast_display_name       || null,
+        broadcast_break_youtube_url:  settings.broadcast_break_youtube_url  || null,
+        broadcast_break_bg_image_url: settings.broadcast_break_bg_image_url || null,
       });
       toast.success(t('broadcastSettings.saved'));
     } catch (err) {
@@ -472,13 +620,37 @@ const BroadcastSettings = () => {
           </div>
         </div>
 
-        {/* ── Two-column layout ── */}
-        <div className="bs-layout">
+        {/* ── Full-width preview ── */}
+        <div className="bs-preview-card bs-preview-full">
+          <div className="bs-preview-topbar">
+            <span className="bs-preview-dot red" />
+            <span className="bs-preview-dot yellow" />
+            <span className="bs-preview-dot green" />
+            <span className="bs-preview-title-bar">
+              {previewBreak ? t('broadcastSettings.previewBreak') : t('broadcastSettings.previewLive')}
+            </span>
+            <button
+              className={`bs-preview-mode-btn ${previewBreak ? 'active' : ''}`}
+              onClick={() => setPreviewBreak(b => !b)}
+              title={previewBreak ? t('broadcastSettings.previewSwitchBlinds') : t('broadcastSettings.previewSwitchBreak')}
+            >
+              {previewBreak ? '▶ Blinds' : '☕ Intervalo'}
+            </button>
+          </div>
+          <BroadcastPreview
+            settings={settings}
+            displayName={`${tournamentName} — ${dayName}`}
+            notice={t('broadcastSettings.previewNotice')}
+            previewBreak={previewBreak}
+          />
+        </div>
 
-          {/* ════ LEFT — settings panel ════ */}
-          <div className="bs-left">
+        {/* ── Settings — 2 columns ── */}
+        <div className="bs-settings-grid">
 
-            {/* APARÊNCIA */}
+          {/* Column 1: Appearance + Prizepool + Ticker */}
+          <div className="bs-col">
+
             <SectionCard title={t('broadcastSettings.sectionAppearance')}>
               <div className="bs-field-full">
                 <label className="bs-label">{t('broadcastSettings.displayName')}</label>
@@ -499,7 +671,6 @@ const BroadcastSettings = () => {
 
               <SliderField label={t('broadcastSettings.fontSize')} settingsKey="broadcast_font_size" min={50} max={200} settings={settings} onChange={set} />
 
-              {/* Background image */}
               <div className="bs-field-full" style={{ marginTop: '0.25rem' }}>
                 <label className="bs-label">{t('broadcastSettings.bgImage')}</label>
                 {settings.broadcast_bg_image_url ? (
@@ -539,7 +710,6 @@ const BroadcastSettings = () => {
               </div>
             </SectionCard>
 
-            {/* PRIZEPOOL */}
             <SectionCard title={t('broadcastSettings.sectionPrizepool')}>
               <SliderField label={t('broadcastSettings.widgetSize')} settingsKey="broadcast_prizepool_size" min={50} max={300} settings={settings} onChange={set} />
               <div className="bs-row-2">
@@ -548,23 +718,90 @@ const BroadcastSettings = () => {
               </div>
             </SectionCard>
 
-            {/* TICKER */}
             <SectionCard title={t('broadcastSettings.sectionTicker')}>
               <SliderField label={t('broadcastSettings.tickerHeight')} settingsKey="broadcast_prize_size" min={50} max={300} settings={settings} onChange={set} />
             </SectionCard>
 
-            {/* CORES */}
+            {/* ── Break Screen Section ── */}
+            <SectionCard icon="☕" title={t('broadcastSettings.sectionBreak')}>
+              {/* Layout selector */}
+              <div className="bs-field-full">
+                <label className="bs-label">{t('broadcastSettings.breakLayout')}</label>
+                <div className="bs-layout-selector">
+                  {['split', 'fullscreen', 'overlay'].map(opt => (
+                    <button
+                      key={opt}
+                      className={`bs-layout-opt ${settings.broadcast_break_layout === opt ? 'active' : ''}`}
+                      onClick={() => set('broadcast_break_layout', opt)}
+                    >
+                      {opt === 'split' ? '▌▐ Split' : opt === 'fullscreen' ? '▬ Fullscreen' : '◱ Overlay'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* YouTube URL */}
+              <div className="bs-field-full">
+                <label className="bs-label">{t('broadcastSettings.breakYoutube')}</label>
+                <input
+                  type="text"
+                  value={settings.broadcast_break_youtube_url}
+                  onChange={(e) => set('broadcast_break_youtube_url', e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="bs-input"
+                />
+                <span className="bs-hint">{t('broadcastSettings.breakYoutubeHint')}</span>
+              </div>
+
+              {/* Background color */}
+              <div className="bs-row-2">
+                <ColorField label={t('broadcastSettings.breakBgColor')} settingsKey="broadcast_break_bg_color" settings={settings} onChange={set} />
+                <div className="bs-empty" />
+              </div>
+
+              {/* Font size */}
+              <SliderField label={t('broadcastSettings.breakFontSize')} settingsKey="broadcast_break_font_size" min={50} max={300} settings={settings} onChange={set} />
+
+              {/* Overlay opacity — only shown for fullscreen/overlay */}
+              {(settings.broadcast_break_layout === 'fullscreen' || settings.broadcast_break_layout === 'overlay') && (
+                <SliderField label={t('broadcastSettings.breakOverlayOpacity')} settingsKey="broadcast_break_overlay_opacity" min={0} max={100} settings={settings} onChange={set} />
+              )}
+
+              {/* Visibility toggles */}
+              <div className="bs-label" style={{ marginTop: '0.25rem' }}>{t('broadcastSettings.breakVisibility')}</div>
+              <div className="bs-toggle-grid">
+                {[
+                  { key: 'broadcast_break_show_video',      labelKey: 'breakShowVideo' },
+                  { key: 'broadcast_break_show_next_level', labelKey: 'breakShowNextLevel' },
+                  { key: 'broadcast_break_show_players',    labelKey: 'breakShowPlayers' },
+                  { key: 'broadcast_break_show_chipcount',  labelKey: 'breakShowChipcount' },
+                  { key: 'broadcast_break_show_average',    labelKey: 'breakShowAverage' },
+                ].map(({ key, labelKey }) => (
+                  <label key={key} className={`bs-toggle ${settings[key] ? 'on' : 'off'}`}>
+                    <input type="checkbox" checked={settings[key]} onChange={(e) => set(key, e.target.checked)} />
+                    <span className="bs-toggle-track"><span className="bs-toggle-thumb" /></span>
+                    <span className="bs-toggle-label">{t(`broadcastSettings.${labelKey}`)}</span>
+                  </label>
+                ))}
+              </div>
+            </SectionCard>
+
+          </div>
+
+          {/* Column 2: Colors + Visibility + Actions */}
+          <div className="bs-col">
+
             <SectionCard title={t('broadcastSettings.sectionColors')}>
               <div className="bs-color-grid">
                 {[
-                  { labelKey: 'colorTimer',        key: 'broadcast_timer_color' },
-                  { labelKey: 'colorTitle',        key: 'broadcast_title_color' },
-                  { labelKey: 'colorBlindsLabel',  key: 'broadcast_blinds_label_color' },
-                  { labelKey: 'colorBlindsValue',  key: 'broadcast_blinds_value_color' },
-                  { labelKey: 'colorAnteLabel',    key: 'broadcast_ante_label_color' },
-                  { labelKey: 'colorAnteValue',    key: 'broadcast_ante_value_color' },
-                  { labelKey: 'colorNextLabel',    key: 'broadcast_next_label_color' },
-                  { labelKey: 'colorNextValue',    key: 'broadcast_next_value_color' },
+                  { labelKey: 'colorTimer',         key: 'broadcast_timer_color' },
+                  { labelKey: 'colorTitle',         key: 'broadcast_title_color' },
+                  { labelKey: 'colorBlindsLabel',   key: 'broadcast_blinds_label_color' },
+                  { labelKey: 'colorBlindsValue',   key: 'broadcast_blinds_value_color' },
+                  { labelKey: 'colorAnteLabel',     key: 'broadcast_ante_label_color' },
+                  { labelKey: 'colorAnteValue',     key: 'broadcast_ante_value_color' },
+                  { labelKey: 'colorNextLabel',     key: 'broadcast_next_label_color' },
+                  { labelKey: 'colorNextValue',     key: 'broadcast_next_value_color' },
                   { labelKey: 'colorSidebarLabels', key: 'broadcast_sidebar_label_color' },
                   { labelKey: 'colorSidebarValues', key: 'broadcast_sidebar_value_color' },
                 ].map(({ labelKey, key }) => (
@@ -573,7 +810,6 @@ const BroadcastSettings = () => {
               </div>
             </SectionCard>
 
-            {/* VISIBILIDADE */}
             <SectionCard title={t('broadcastSettings.sectionVisibility')}>
               <div className="bs-toggle-grid">
                 {[
@@ -602,7 +838,20 @@ const BroadcastSettings = () => {
               </div>
             </SectionCard>
 
-            {/* Actions */}
+            {/* ── Break Screen Colors ── */}
+            <SectionCard icon="🎨" title={t('broadcastSettings.sectionBreakColors')}>
+              <div className="bs-color-grid">
+                {[
+                  { labelKey: 'breakColorTimer',  key: 'broadcast_break_timer_color' },
+                  { labelKey: 'breakColorTitle',  key: 'broadcast_break_title_color' },
+                  { labelKey: 'breakColorLabels', key: 'broadcast_break_label_color' },
+                  { labelKey: 'breakColorValues', key: 'broadcast_break_value_color' },
+                ].map(({ labelKey, key }) => (
+                  <ColorField key={key} label={t(`broadcastSettings.${labelKey}`)} settingsKey={key} settings={settings} onChange={set} />
+                ))}
+              </div>
+            </SectionCard>
+
             <div className="bs-actions">
               <button className="bs-btn-cancel" onClick={() => navigate(`/torneios/${tournamentId}`)}>
                 {t('common.cancel')}
@@ -615,23 +864,7 @@ const BroadcastSettings = () => {
                 )}
               </button>
             </div>
-          </div>
 
-          {/* ════ RIGHT — sticky preview ════ */}
-          <div className="bs-right">
-            <div className="bs-preview-card">
-              <div className="bs-preview-topbar">
-                <span className="bs-preview-dot red" />
-                <span className="bs-preview-dot yellow" />
-                <span className="bs-preview-dot green" />
-                <span className="bs-preview-title-bar">{t('broadcastSettings.previewLive')}</span>
-              </div>
-              <BroadcastPreview
-                settings={settings}
-                displayName={`${tournamentName} — ${dayName}`}
-                notice={t('broadcastSettings.previewNotice')}
-              />
-            </div>
           </div>
 
         </div>

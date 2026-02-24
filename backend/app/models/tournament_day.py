@@ -80,6 +80,7 @@ class TournamentDayBase(BaseModel):
     tournament_date: Optional[datetime] = None
 
     # Broadcast settings (per-day)
+    broadcast_language: str = Field(default='pt-BR', description="Display language for broadcast screen (pt-BR, en, es)")
     broadcast_bg_color: Optional[str] = Field(default="#0a0e13")
     broadcast_bg_image_url: Optional[str] = Field(default=None)
     broadcast_display_name: Optional[str] = Field(default=None)
@@ -110,6 +111,25 @@ class TournamentDayBase(BaseModel):
     broadcast_show_ante: bool = Field(default=True)
     broadcast_show_next_blind: bool = Field(default=True)
     broadcast_show_prizes: bool = Field(default=True)
+    broadcast_show_chipcount: bool = Field(default=True)
+    broadcast_show_average: bool = Field(default=True)
+
+    # Break screen settings (separate configurable layout shown during breaks)
+    broadcast_break_layout: Optional[str] = Field(default='split')
+    broadcast_break_bg_color: Optional[str] = Field(default='#0a0e13')
+    broadcast_break_bg_image_url: Optional[str] = Field(default=None)
+    broadcast_break_youtube_url: Optional[str] = Field(default=None)
+    broadcast_break_show_video: bool = Field(default=True)
+    broadcast_break_show_next_level: bool = Field(default=True)
+    broadcast_break_show_players: bool = Field(default=True)
+    broadcast_break_show_chipcount: bool = Field(default=True)
+    broadcast_break_show_average: bool = Field(default=True)
+    broadcast_break_overlay_opacity: int = Field(default=70, ge=0, le=100)
+    broadcast_break_font_size: int = Field(default=100, ge=50, le=300, description="Font size % for break screen info panel")
+    broadcast_break_timer_color: Optional[str] = Field(default='#d4af37')
+    broadcast_break_label_color: Optional[str] = Field(default='#9ca3af')
+    broadcast_break_value_color: Optional[str] = Field(default='#d4af37')
+    broadcast_break_title_color: Optional[str] = Field(default='#ffffff')
 
 
 class TournamentDayCreate(TournamentDayBase):
@@ -147,6 +167,7 @@ class TournamentDayUpdate(BaseModel):
     qualifies_to_day_id: Optional[str] = None
 
     # Broadcast settings
+    broadcast_language: Optional[str] = None
     broadcast_bg_color: Optional[str] = None
     broadcast_bg_image_url: Optional[str] = None
     broadcast_display_name: Optional[str] = None
@@ -176,6 +197,25 @@ class TournamentDayUpdate(BaseModel):
     broadcast_show_ante: Optional[bool] = None
     broadcast_show_next_blind: Optional[bool] = None
     broadcast_show_prizes: Optional[bool] = None
+    broadcast_show_chipcount: Optional[bool] = None
+    broadcast_show_average: Optional[bool] = None
+
+    # Break screen settings
+    broadcast_break_layout: Optional[str] = None
+    broadcast_break_bg_color: Optional[str] = None
+    broadcast_break_bg_image_url: Optional[str] = None
+    broadcast_break_youtube_url: Optional[str] = None
+    broadcast_break_show_video: Optional[bool] = None
+    broadcast_break_show_next_level: Optional[bool] = None
+    broadcast_break_show_players: Optional[bool] = None
+    broadcast_break_show_chipcount: Optional[bool] = None
+    broadcast_break_show_average: Optional[bool] = None
+    broadcast_break_overlay_opacity: Optional[int] = Field(None, ge=0, le=100)
+    broadcast_break_font_size: Optional[int] = Field(None, ge=50, le=300)
+    broadcast_break_timer_color: Optional[str] = None
+    broadcast_break_label_color: Optional[str] = None
+    broadcast_break_value_color: Optional[str] = None
+    broadcast_break_title_color: Optional[str] = None
 
 
 class TournamentDay(TournamentDayBase):
