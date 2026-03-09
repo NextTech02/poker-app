@@ -14,6 +14,7 @@ const Sidebar = () => {
   const { selectedStage } = useStage();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [openGroups, setOpenGroups] = useState(new Set(['caixa']));
 
   // Handle window resize
   useEffect(() => {
@@ -51,7 +52,16 @@ const Sidebar = () => {
   const menuItems = [
     { path: '/home', labelKey: 'sidebar.periods', icon: 'clock' },
     { path: '/etapas', labelKey: 'sidebar.stages', icon: 'calendar' },
-    { path: '/caixa', labelKey: 'sidebar.cashRegister', icon: 'dollar' },
+    {
+      type: 'group',
+      groupKey: 'caixa',
+      labelKey: 'sidebar.cashRegister',
+      icon: 'dollar',
+      children: [
+        { path: '/caixa', labelKey: 'sidebar.registerPlayers', icon: 'users' },
+        { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award' },
+      ],
+    },
     { path: '/torneios', labelKey: 'sidebar.tournaments', icon: 'trophy' },
     { path: '/sit-and-go', labelKey: 'sidebar.sitAndGo', icon: 'rocket' },
     { path: '/vagas', labelKey: 'sidebar.seats', icon: 'briefcase' },
@@ -63,6 +73,21 @@ const Sidebar = () => {
     { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'badge' },
     { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document' },
   ];
+
+  const toggleGroup = (groupKey) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return next;
+    });
+  };
+
+  const isGroupOpen = (item) => {
+    // Auto-open if any child path is active
+    const childActive = item.children.some(c => isPathActive(c.path));
+    return openGroups.has(item.groupKey) || childActive;
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -116,17 +141,51 @@ const Sidebar = () => {
         </div>
 
         <nav className="sidebar-nav">
-          {menuItems.map((item, index) => (
-            <Link
-              key={index}
-              to={item.path}
-              className={`nav-item ${isPathActive(item.path) ? 'active' : ''}`}
-              onClick={() => isMobile && setIsOpen(false)}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{t(item.labelKey)}</span>
-            </Link>
-          ))}
+          {menuItems.map((item, index) => {
+            if (item.type === 'group') {
+              const open = isGroupOpen(item);
+              const groupActive = item.children.some(c => isPathActive(c.path));
+              return (
+                <div className="nav-item-group" key={index}>
+                  <div
+                    className={`nav-item ${groupActive ? 'active' : ''}`}
+                    onClick={() => toggleGroup(item.groupKey)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className={`nav-icon ${item.icon}`}></span>
+                    <span className="nav-label">{t(item.labelKey)}</span>
+                    <span className={`nav-arrow ${open ? 'expanded' : ''}`}>▼</span>
+                  </div>
+                  {open && (
+                    <div className="sub-menu">
+                      {item.children.map((child, ci) => (
+                        <Link
+                          key={ci}
+                          to={child.path}
+                          className={`sub-menu-item ${isPathActive(child.path) ? 'active' : ''}`}
+                          onClick={() => isMobile && setIsOpen(false)}
+                        >
+                          <span className={`nav-icon ${child.icon}`}></span>
+                          <span className="nav-label">{t(child.labelKey)}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <Link
+                key={index}
+                to={item.path}
+                className={`nav-item ${isPathActive(item.path) ? 'active' : ''}`}
+                onClick={() => isMobile && setIsOpen(false)}
+              >
+                <span className={`nav-icon ${item.icon}`}></span>
+                <span className="nav-label">{t(item.labelKey)}</span>
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">

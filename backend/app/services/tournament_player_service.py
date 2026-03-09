@@ -1,5 +1,6 @@
 from typing import List, Optional
 from app.database import supabase
+from app.services.tournament_day_service import _chipcount_cache
 from app.models.tournament_player import (
     TournamentPlayerCreate,
     TournamentPlayerUpdate,
@@ -61,6 +62,9 @@ class TournamentPlayerService:
 
         response = supabase.table("tournament_players").insert(data).execute()
         tp = response.data[0]
+
+        # Invalidate chipcount cache for this day
+        _chipcount_cache.pop(registration_data.tournament_day_id, None)
 
         # Note: registered_players count is updated automatically by database trigger
 
@@ -128,6 +132,9 @@ class TournamentPlayerService:
 
         response = supabase.table("tournament_players").update(updated_data).eq("id", tournament_player_id).execute()
 
+        # Invalidate chipcount cache for this day
+        _chipcount_cache.pop(tp.get("tournament_day_id"), None)
+
         # Create transaction
         transaction_data = {
             "tournament_id": tp["tournament_id"],
@@ -162,6 +169,9 @@ class TournamentPlayerService:
         }
 
         response = supabase.table("tournament_players").update(updated_data).eq("id", tournament_player_id).execute()
+
+        # Invalidate chipcount cache for this day
+        _chipcount_cache.pop(tp.get("tournament_day_id"), None)
 
         # Create transaction
         transaction_data = {

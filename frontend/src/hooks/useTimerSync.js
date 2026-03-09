@@ -8,14 +8,92 @@ import api from '../config/api';
  * Both screens poll the same enriched endpoint and display the same values.
  * The backend auto-advances levels when elapsed time exceeds level duration.
  *
+ * Uses a monotonic guard to prevent timer from jumping backward due to
+ * server/client timing differences (int truncation, network latency).
+ *
+ * Supports OFFLINE MODE: when the server is unreachable and `blinds` array
+ * is provided, the hook auto-advances levels locally using the cached blind
+ * structure. When the server becomes reachable again, it resyncs seamlessly.
+ *
  * @param {string} dayId - Tournament day ID
+ * @param {Array} blinds - Optional sorted blind structure for offline fallback
  * @returns {Object} { timerState, refetch, error, isLoading }
  */
-export const useTimerSync = (dayId) => {
+export const useTimerSync = (dayId, blinds = null) => {
   const [timerState, setTimerState] = useState(null);
   const [localTick, setLocalTick] = useState(0);
   const [error, setError] = useState(null);
   const lastLevelRef = useRef(null);
+  const localTickRef = useRef(0);
+  const timerStateRef = useRef(null);
+  const consecutiveFailsRef = useRef(0);
+  const isOfflineRef = useRef(false);
+  const blindsRef = useRef(blinds);
+
+  // Keep refs in sync with state
+  useEffect(() => { localTickRef.current = localTick; }, [localTick]);
+  useEffect(() => { timerStateRef.current = timerState; }, [timerState]);
+  useEffect(() => { blindsRef.current = blinds; }, [blinds]);
+
+  // Offline fallback: advance to next level using cached blinds
+  const advanceLocally = useCallback(() => {
+    const currentBlinds = blindsRef.current;
+    const currentState = timerStateRef.current;
+    if (!currentBlinds || currentBlinds.length === 0 || !currentState) return;
+
+    const currentLevel = currentState.current_level;
+    const currentIndex = currentBlinds.findIndex(b => b.level === currentLevel);
+
+    // Last level or not found — stay at 00:00
+    if (currentIndex === -1 || currentIndex >= currentBlinds.length - 1) return;
+
+    const nextBlind = currentBlinds[currentIndex + 1];
+    const afterNextBlind = currentIndex + 2 < currentBlinds.length
+      ? currentBlinds[currentIndex + 2]
+      : null;
+
+    // Find next break by scanning forward from new level
+    let nextBreakInfo = null;
+    let timeUntilBreak = nextBlind.duration * 60;
+    for (let i = currentIndex + 2; i < currentBlinds.length; i++) {
+      if (currentBlinds[i].is_break) {
+        nextBreakInfo = {
+          level: currentBlinds[i].level,
+          duration: currentBlinds[i].duration * 60,
+          time_until_break: timeUntilBreak
+        };
+        break;
+      }
+      timeUntilBreak += currentBlinds[i].duration * 60;
+    }
+
+    // Synthesize new timerState matching the server response shape
+    const newState = {
+      ...currentState,
+      current_level: nextBlind.level,
+      time_remaining_current_level: nextBlind.duration * 60,
+      current_blind: {
+        level: nextBlind.level,
+        small_blind: nextBlind.small_blind,
+        big_blind: nextBlind.big_blind,
+        ante: nextBlind.ante || 0,
+        duration: nextBlind.duration,
+        is_break: nextBlind.is_break || false,
+      },
+      next_blind: afterNextBlind ? {
+        level: afterNextBlind.level,
+        small_blind: afterNextBlind.small_blind,
+        big_blind: afterNextBlind.big_blind,
+        ante: afterNextBlind.ante || 0,
+        duration: afterNextBlind.duration,
+        is_break: afterNextBlind.is_break || false,
+      } : null,
+      next_break: nextBreakInfo,
+    };
+
+    setTimerState(newState);
+    setLocalTick(0);
+  }, []);
 
   // Fetch enriched status from server
   const fetchStatus = useCallback(async () => {
@@ -24,22 +102,54 @@ export const useTimerSync = (dayId) => {
     try {
       const res = await api.get(`/tournament-days/${dayId}/timer/status-enriched`);
       const data = res.data;
+
+      // Successful fetch — reset offline tracking
+      consecutiveFailsRef.current = 0;
+      isOfflineRef.current = false;
+
+      const prev = timerStateRef.current;
+      const prevTick = localTickRef.current;
+
+      // Monotonic guard: prevent small backward jumps from server rounding (1-3s).
+      // Large jumps (>5s) indicate a reset or manual time adjustment — accept them.
+      // Also skip guard on pause state transitions (prev paused, now running or vice-versa).
+      if (prev && prev.current_level === data.current_level && !data.is_paused && !prev.is_paused) {
+        const currentDisplay = Math.max(0, prev.time_remaining_current_level - prevTick);
+        const drift = data.time_remaining_current_level - currentDisplay;
+        if (drift > 1 && drift <= 5) {
+          // Small rounding drift — absorb via localTick offset to avoid visual stutter
+          setTimerState(data);
+          setLocalTick(drift);
+          setError(null);
+          lastLevelRef.current = data.current_level;
+          return data;
+        }
+      }
+
+      // Normal update: level changed, paused, or server agrees/is ahead
       setTimerState(data);
       setLocalTick(0);
       setError(null);
 
-      // Track level changes for UI effects
       if (lastLevelRef.current !== null && data.current_level !== lastLevelRef.current) {
-        // Level changed - could trigger sound/animation
+        // Level changed
       }
       lastLevelRef.current = data.current_level;
 
       return data;
     } catch (err) {
-      console.error('Error fetching enriched timer status:', err);
-      setError(err.message);
+      consecutiveFailsRef.current += 1;
+      if (consecutiveFailsRef.current >= 2) {
+        isOfflineRef.current = true;
+      }
+
+      // Only set error if we have no existing state and no blinds for fallback
+      if (!timerStateRef.current && !blindsRef.current) {
+        setError(err.message);
+      }
       return null;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayId]);
 
   // Poll server every 3 seconds for tighter sync
@@ -59,10 +169,16 @@ export const useTimerSync = (dayId) => {
     const ticker = setInterval(() => {
       setLocalTick(prev => {
         const next = prev + 1;
-        // When local countdown hits 0, force a server sync to get new level
         const remaining = timerState.time_remaining_current_level - next;
         if (remaining <= 0) {
-          fetchStatus();
+          if (isOfflineRef.current && blindsRef.current?.length > 0) {
+            // OFFLINE: advance locally using cached blind structure
+            advanceLocally();
+            return 0;
+          } else {
+            // ONLINE: fetch from server to get authoritative next level
+            fetchStatus();
+          }
         }
         return next;
       });

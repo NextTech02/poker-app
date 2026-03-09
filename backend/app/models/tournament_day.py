@@ -68,9 +68,68 @@ class TournamentDayBase(BaseModel):
 
     # Allocation
     allocation_type: AllocationType = Field(default=AllocationType.automatic)
+    allocation_mode: str = Field(default='balanced', description="Auto-allocation algorithm: balanced, sequential, or random_balanced")
+
+    # Table lock
+    tables_locked: bool = Field(default=False, description="When true, new buy-ins skip auto-allocation (players become alternates)")
+
+    # Currency
+    currency: str = Field(default='BRL', description="Currency code used in this day (BRL, USD, EUR, etc.)")
 
     # Date/time
     tournament_date: Optional[datetime] = None
+
+    # Broadcast settings (per-day)
+    broadcast_language: str = Field(default='pt-BR', description="Display language for broadcast screen (pt-BR, en, es)")
+    broadcast_bg_color: Optional[str] = Field(default="#0a0e13")
+    broadcast_bg_image_url: Optional[str] = Field(default=None)
+    broadcast_display_name: Optional[str] = Field(default=None)
+    broadcast_font_size: int = Field(default=100, ge=50, le=200)
+    broadcast_prize_size: int = Field(default=100, ge=50, le=300, description="Font size % for prize ticker bar")
+    broadcast_prizepool_label_color: str = Field(default='#ffffff')
+    broadcast_prizepool_value_color: str = Field(default='#ffffff')
+    broadcast_prizepool_size: int = Field(default=100, ge=50, le=300)
+    # Per-element colors
+    broadcast_timer_color: str = Field(default='#d4af37')
+    broadcast_title_color: str = Field(default='#d4af37')
+    broadcast_blinds_label_color: str = Field(default='#d4af37')
+    broadcast_blinds_value_color: str = Field(default='#ffffff')
+    broadcast_ante_label_color: str = Field(default='#d4af37')
+    broadcast_ante_value_color: str = Field(default='#d4af37')
+    broadcast_next_label_color: str = Field(default='#d4af37')
+    broadcast_next_value_color: str = Field(default='#9ca3af')
+    broadcast_sidebar_label_color: str = Field(default='#9ca3af')
+    broadcast_sidebar_value_color: str = Field(default='#d4af37')
+    broadcast_show_logo: bool = Field(default=True)
+    broadcast_show_title: bool = Field(default=True)
+    broadcast_show_prizepool: bool = Field(default=True)
+    broadcast_show_level: bool = Field(default=True)
+    broadcast_show_players: bool = Field(default=True)
+    broadcast_show_interval: bool = Field(default=True)
+    broadcast_show_timer: bool = Field(default=True)
+    broadcast_show_blinds: bool = Field(default=True)
+    broadcast_show_ante: bool = Field(default=True)
+    broadcast_show_next_blind: bool = Field(default=True)
+    broadcast_show_prizes: bool = Field(default=True)
+    broadcast_show_chipcount: bool = Field(default=True)
+    broadcast_show_average: bool = Field(default=True)
+
+    # Break screen settings (separate configurable layout shown during breaks)
+    broadcast_break_layout: Optional[str] = Field(default='split')
+    broadcast_break_bg_color: Optional[str] = Field(default='#0a0e13')
+    broadcast_break_bg_image_url: Optional[str] = Field(default=None)
+    broadcast_break_youtube_url: Optional[str] = Field(default=None)
+    broadcast_break_show_video: bool = Field(default=True)
+    broadcast_break_show_next_level: bool = Field(default=True)
+    broadcast_break_show_players: bool = Field(default=True)
+    broadcast_break_show_chipcount: bool = Field(default=True)
+    broadcast_break_show_average: bool = Field(default=True)
+    broadcast_break_overlay_opacity: int = Field(default=70, ge=0, le=100)
+    broadcast_break_font_size: int = Field(default=100, ge=50, le=300, description="Font size % for break screen info panel")
+    broadcast_break_timer_color: Optional[str] = Field(default='#d4af37')
+    broadcast_break_label_color: Optional[str] = Field(default='#9ca3af')
+    broadcast_break_value_color: Optional[str] = Field(default='#d4af37')
+    broadcast_break_title_color: Optional[str] = Field(default='#ffffff')
 
 
 class TournamentDayCreate(TournamentDayBase):
@@ -100,9 +159,63 @@ class TournamentDayUpdate(BaseModel):
     break_interval: Optional[int] = Field(None, gt=0)
     break_duration: Optional[int] = Field(None, gt=0)
     allocation_type: Optional[AllocationType] = None
+    allocation_mode: Optional[str] = Field(None, description="Auto-allocation algorithm: balanced, sequential, or random_balanced")
+    tables_locked: Optional[bool] = None
+    currency: Optional[str] = None
     tournament_date: Optional[datetime] = None
     day_type: Optional[DayType] = None
     qualifies_to_day_id: Optional[str] = None
+
+    # Broadcast settings
+    broadcast_language: Optional[str] = None
+    broadcast_bg_color: Optional[str] = None
+    broadcast_bg_image_url: Optional[str] = None
+    broadcast_display_name: Optional[str] = None
+    broadcast_font_size: Optional[int] = Field(None, ge=50, le=200)
+    broadcast_prize_size: Optional[int] = Field(None, ge=50, le=300)
+    broadcast_prizepool_label_color: Optional[str] = None
+    broadcast_prizepool_value_color: Optional[str] = None
+    broadcast_prizepool_size: Optional[int] = Field(None, ge=50, le=300)
+    broadcast_timer_color: Optional[str] = None
+    broadcast_title_color: Optional[str] = None
+    broadcast_blinds_label_color: Optional[str] = None
+    broadcast_blinds_value_color: Optional[str] = None
+    broadcast_ante_label_color: Optional[str] = None
+    broadcast_ante_value_color: Optional[str] = None
+    broadcast_next_label_color: Optional[str] = None
+    broadcast_next_value_color: Optional[str] = None
+    broadcast_sidebar_label_color: Optional[str] = None
+    broadcast_sidebar_value_color: Optional[str] = None
+    broadcast_show_logo: Optional[bool] = None
+    broadcast_show_title: Optional[bool] = None
+    broadcast_show_prizepool: Optional[bool] = None
+    broadcast_show_level: Optional[bool] = None
+    broadcast_show_players: Optional[bool] = None
+    broadcast_show_interval: Optional[bool] = None
+    broadcast_show_timer: Optional[bool] = None
+    broadcast_show_blinds: Optional[bool] = None
+    broadcast_show_ante: Optional[bool] = None
+    broadcast_show_next_blind: Optional[bool] = None
+    broadcast_show_prizes: Optional[bool] = None
+    broadcast_show_chipcount: Optional[bool] = None
+    broadcast_show_average: Optional[bool] = None
+
+    # Break screen settings
+    broadcast_break_layout: Optional[str] = None
+    broadcast_break_bg_color: Optional[str] = None
+    broadcast_break_bg_image_url: Optional[str] = None
+    broadcast_break_youtube_url: Optional[str] = None
+    broadcast_break_show_video: Optional[bool] = None
+    broadcast_break_show_next_level: Optional[bool] = None
+    broadcast_break_show_players: Optional[bool] = None
+    broadcast_break_show_chipcount: Optional[bool] = None
+    broadcast_break_show_average: Optional[bool] = None
+    broadcast_break_overlay_opacity: Optional[int] = Field(None, ge=0, le=100)
+    broadcast_break_font_size: Optional[int] = Field(None, ge=50, le=300)
+    broadcast_break_timer_color: Optional[str] = None
+    broadcast_break_label_color: Optional[str] = None
+    broadcast_break_value_color: Optional[str] = None
+    broadcast_break_title_color: Optional[str] = None
 
 
 class TournamentDay(TournamentDayBase):

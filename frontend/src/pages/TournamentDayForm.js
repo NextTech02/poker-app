@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
 import './TournamentDayForm.css';
 
 const TournamentDayForm = () => {
@@ -17,6 +18,8 @@ const TournamentDayForm = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     day_name: '',
@@ -33,6 +36,7 @@ const TournamentDayForm = () => {
     allocation_type: 'automatic',
     day_type: 'regular',
     qualifies_to_day_id: '',
+    currency: 'BRL',
   });
 
   const isEditing = !!dayId;
@@ -72,6 +76,7 @@ const TournamentDayForm = () => {
           allocation_type: day.allocation_type,
           day_type: day.day_type || 'regular',
           qualifies_to_day_id: day.qualifies_to_day_id || '',
+          currency: day.currency || 'BRL',
         });
       } else {
         // For new day, set day_number to next available and default day_type based on tournament
@@ -165,8 +170,7 @@ const TournamentDayForm = () => {
       <main className="main-content tournament-day-form-page">
         <div className="page-header">
           <div>
-            <h1>{isEditing ? t('tournamentDayForm.editDay') : t('tournamentDayForm.newDay')}</h1>
-            <p className="subtitle">{tournament?.name}</p>
+            <h1>{isEditing ? t('tournamentDayForm.editDay') : t('tournamentDayForm.newDay')} - {tournament?.name}</h1>
           </div>
           <Button variant="secondary" onClick={handleCancel}>
             {t('common.back')}
@@ -289,6 +293,21 @@ const TournamentDayForm = () => {
                       onChange={(e) => setFormData({ ...formData, rake_percentage: parseFloat(e.target.value) })}
                     />
                   </div>
+                  <div className="form-group">
+                    <label htmlFor="currency">Moeda</label>
+                    <select
+                      id="currency"
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    >
+                      <option value="BRL">R$ — Real Brasileiro</option>
+                      <option value="USD">$ — Dólar Americano</option>
+                      <option value="EUR">€ — Euro</option>
+                      <option value="GBP">£ — Libra Esterlina</option>
+                      <option value="ARS">$ — Peso Argentino</option>
+                      <option value="COP">$ — Peso Colombiano</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
@@ -365,23 +384,6 @@ const TournamentDayForm = () => {
               </div>
             )}
 
-            {/* Allocation */}
-            <div className="form-section">
-              <h3 className="form-section-title">{t('tournamentDayForm.tableAllocation')}</h3>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="allocation_type">{t('tournamentDayForm.allocationType')}</label>
-                  <select
-                    id="allocation_type"
-                    value={formData.allocation_type}
-                    onChange={(e) => setFormData({ ...formData, allocation_type: e.target.value })}
-                  >
-                    <option value="automatic">{t('tournamentDayForm.automatic')}</option>
-                    <option value="manual">{t('tournamentDayForm.manual')}</option>
-                  </select>
-                </div>
-              </div>
-            </div>
 
             <div className="form-actions">
               <Button type="button" variant="secondary" onClick={handleCancel}>

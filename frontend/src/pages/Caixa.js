@@ -92,22 +92,79 @@ const Caixa = () => {
           notes: `Registrado via Caixa - ${formData.payment_method}`,
         });
 
-        // Check if tournament has automatic allocation
+        // Check allocation: prefer day-scoped if a day is selected
         const tournament = tournaments.find(t => t.id === formData.tournament_id);
-        if (tournament && tournament.allocation_type === 'automatic') {
-          try {
-            // Auto-allocate player to a seat
-            const allocationResponse = await api.post(
-              `/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`
-            );
+        const selectedDay = tournamentDays.find(d => d.id === formData.tournament_day_id);
 
-            // Show ticket modal with allocation data
-            setAllocationData(allocationResponse.data);
+        const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
+        const tablesLocked = selectedDay?.tables_locked ?? false;
+
+        if (allocationTypeToUse === 'automatic') {
+          if (tablesLocked) {
+            // Tables are locked — player becomes alternate, show alternate ticket
+            setAllocationData({
+              player_name: null, // filled below
+              tournament_name: tournament?.name || '',
+              day_name: selectedDay?.day_name || '',
+              is_alternate: true,
+              created_at: new Date().toISOString(),
+              id: formData.player_id,
+            });
+            // Fetch player name for ticket
+            try {
+              const pRes = await api.get(`/players/${formData.player_id}`);
+              setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
+            } catch (_) {
+              setAllocationData(prev => ({ ...prev, player_name: '—' }));
+            }
             setShowTicketModal(true);
-          } catch (allocationError) {
-            console.error('Erro ao alocar jogador:', allocationError);
-            const errorMsg = allocationError.response?.data?.detail || 'Erro desconhecido';
-            toast.warning(`Jogador registrado, mas nao foi possivel alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente na tela de Alocacao.`);
+          } else {
+            try {
+              let allocationResponse;
+              if (formData.tournament_day_id) {
+                // Day-scoped auto-allocation
+                allocationResponse = await api.post(
+                  `/allocations/day/${formData.tournament_day_id}/auto?player_id=${formData.player_id}`
+                );
+              } else {
+                // Tournament-scoped fallback
+                allocationResponse = await api.post(
+                  `/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`
+                );
+              }
+              setAllocationData({
+                ...allocationResponse.data,
+                day_name: selectedDay?.day_name || allocationResponse.data.day_name || '',
+              });
+              setShowTicketModal(true);
+            } catch (allocationError) {
+              console.error('Erro ao alocar jogador:', allocationError);
+              const errDetail = allocationError.response?.data?.detail || '';
+              const noSeats = errDetail.toLowerCase().includes('tables are full')
+                || errDetail.toLowerCase().includes('no active tables');
+              if (noSeats) {
+                // No seats available — player becomes alternate
+                const baseData = {
+                  player_name: null,
+                  tournament_name: tournament?.name || '',
+                  day_name: selectedDay?.day_name || '',
+                  is_alternate: true,
+                  created_at: new Date().toISOString(),
+                  id: formData.player_id,
+                };
+                setAllocationData(baseData);
+                try {
+                  const pRes = await api.get(`/players/${formData.player_id}`);
+                  setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
+                } catch (_) {
+                  setAllocationData(prev => ({ ...prev, player_name: '—' }));
+                }
+                setShowTicketModal(true);
+              } else {
+                const errorMsg = errDetail || 'Erro desconhecido';
+                toast.warning(`Jogador registrado, mas não foi possível alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente.`);
+              }
+            }
           }
         }
       } else if (formData.type === 'rebuy') {
@@ -129,19 +186,73 @@ const Caixa = () => {
           // Process the rebuy
           await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy`);
 
-          // Try to auto-allocate if tournament uses automatic allocation
+          // Try to auto-allocate after rebuy
           const tournament = tournaments.find(t => t.id === formData.tournament_id);
-          if (tournament && tournament.allocation_type === 'automatic') {
-            try {
-              const allocationResponse = await api.post(
-                `/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`
-              );
-              setAllocationData(allocationResponse.data);
+          const selectedDay = tournamentDays.find(d => d.id === formData.tournament_day_id);
+          const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
+          const tablesLocked = selectedDay?.tables_locked ?? false;
+
+          if (allocationTypeToUse === 'automatic') {
+            if (tablesLocked) {
+              setAllocationData({
+                player_name: null,
+                tournament_name: tournament?.name || '',
+                day_name: selectedDay?.day_name || '',
+                is_alternate: true,
+                created_at: new Date().toISOString(),
+                id: formData.player_id,
+              });
+              try {
+                const pRes = await api.get(`/players/${formData.player_id}`);
+                setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
+              } catch (_) {
+                setAllocationData(prev => ({ ...prev, player_name: '—' }));
+              }
               setShowTicketModal(true);
-            } catch (allocationError) {
-              console.error('Erro ao alocar jogador após rebuy:', allocationError);
-              const errorMsg = allocationError.response?.data?.detail || 'Erro desconhecido';
-              toast.warning(`Rebuy registrado! Mas nao foi possivel alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente na tela de Alocacao.`);
+            } else {
+              try {
+                let allocationResponse;
+                if (formData.tournament_day_id) {
+                  allocationResponse = await api.post(
+                    `/allocations/day/${formData.tournament_day_id}/auto?player_id=${formData.player_id}`
+                  );
+                } else {
+                  allocationResponse = await api.post(
+                    `/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`
+                  );
+                }
+                setAllocationData({
+                  ...allocationResponse.data,
+                  day_name: selectedDay?.day_name || allocationResponse.data.day_name || '',
+                });
+                setShowTicketModal(true);
+              } catch (allocationError) {
+                console.error('Erro ao alocar jogador após rebuy:', allocationError);
+                const errDetail = allocationError.response?.data?.detail || '';
+                const noSeats = errDetail.toLowerCase().includes('tables are full')
+                  || errDetail.toLowerCase().includes('no active tables');
+                if (noSeats) {
+                  const baseData = {
+                    player_name: null,
+                    tournament_name: tournament?.name || '',
+                    day_name: selectedDay?.day_name || '',
+                    is_alternate: true,
+                    created_at: new Date().toISOString(),
+                    id: formData.player_id,
+                  };
+                  setAllocationData(baseData);
+                  try {
+                    const pRes = await api.get(`/players/${formData.player_id}`);
+                    setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
+                  } catch (_) {
+                    setAllocationData(prev => ({ ...prev, player_name: '—' }));
+                  }
+                  setShowTicketModal(true);
+                } else {
+                  const errorMsg = errDetail || 'Erro desconhecido';
+                  toast.warning(`Rebuy registrado! Mas não foi possível alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente.`);
+                }
+              }
             }
           }
         } else {
@@ -469,11 +580,15 @@ const Caixa = () => {
         )}
 
         {showTicketModal && allocationData && (
-          <div className="modal-overlay" onClick={() => setShowTicketModal(false)}>
+          <div className="modal-overlay" onClick={() => { setShowTicketModal(false); loadData(); }}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Jogador Registrado e Alocado!</h2>
-                <button className="close-btn" onClick={() => setShowTicketModal(false)} aria-label="Fechar">
+                <h2>
+                  {allocationData.is_alternate
+                    ? 'Jogador Registrado como Alternate!'
+                    : 'Jogador Registrado e Alocado!'}
+                </h2>
+                <button className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label="Fechar">
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -483,9 +598,11 @@ const Caixa = () => {
                     id: allocationData.id,
                     player_name: allocationData.player_name,
                     tournament_name: allocationData.tournament_name,
+                    day_name: allocationData.day_name,
                     table_number: allocationData.table_number,
                     seat_number: allocationData.seat_number,
-                    created_at: allocationData.created_at
+                    created_at: allocationData.created_at,
+                    is_alternate: allocationData.is_alternate,
                   }}
                   onPrint={() => {
                     setShowTicketModal(false);
@@ -494,10 +611,7 @@ const Caixa = () => {
                 />
               </div>
               <div className="modal-actions">
-                <Button onClick={() => {
-                  setShowTicketModal(false);
-                  loadData();
-                }}>
+                <Button onClick={() => { setShowTicketModal(false); loadData(); }}>
                   Fechar
                 </Button>
               </div>

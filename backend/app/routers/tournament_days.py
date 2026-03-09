@@ -734,28 +734,34 @@ def get_tournament_timer_status_enriched(
 
     Public endpoint - no authentication required for broadcast display.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
+    try:
+        existing_day = TournamentDayService.get_tournament_day(day_id)
+        if not existing_day:
             raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tournament day not found"
             )
 
-    try:
+        if stage_id:
+            tournament = TournamentService.get_tournament(existing_day.tournament_id)
+            if tournament and tournament.stage_id != stage_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Tournament day does not belong to the selected stage"
+                )
+
         return TournamentDayService.get_enriched_timer_status(day_id)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Timer service temporarily unavailable. Please retry."
         )
 
 
@@ -794,3 +800,34 @@ def adjust_eliminations(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.post("/{day_id}/tables-lock")
+def toggle_tables_lock(
+    day_id: str,
+    current_user: dict = Depends(get_current_user),
+    stage_id: Optional[str] = Depends(get_stage_id_optional)
+):
+    """
+    Toggle the tables_locked flag for a tournament day.
+    When locked, new buy-ins skip auto-allocation and players become alternates.
+    """
+    existing_day = TournamentDayService.get_tournament_day(day_id)
+    if not existing_day:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament day not found"
+        )
+
+    if stage_id:
+        tournament = TournamentService.get_tournament(existing_day.tournament_id)
+        if tournament and tournament.stage_id != stage_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Tournament day does not belong to the selected stage"
+            )
+
+    from app.database import supabase
+    new_locked = not getattr(existing_day, 'tables_locked', False)
+    supabase.table("tournament_days").update({"tables_locked": new_locked}).eq("id", day_id).execute()
+    return {"success": True, "tables_locked": new_locked}

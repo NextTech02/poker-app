@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import httpx
 from app.config import get_settings
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates
 
@@ -36,6 +38,16 @@ app.include_router(reports.router)
 app.include_router(dashboard.router)
 app.include_router(cash_register.router)
 app.include_router(prize_allocations.router)
+
+
+@app.exception_handler(httpx.RemoteProtocolError)
+@app.exception_handler(httpx.ConnectError)
+@app.exception_handler(httpx.TimeoutException)
+async def supabase_connection_error_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database connection error. Please retry in a moment."},
+    )
 
 
 @app.get("/")

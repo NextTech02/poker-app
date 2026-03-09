@@ -105,6 +105,86 @@ class AllocationService:
         return AllocationService.get_allocation_with_details(response.data[0]["id"])
 
     @staticmethod
+    def auto_allocate_player_for_day(tournament_id: str, day_id: str, player_id: str, mode: str = "balanced") -> SeatAllocationWithDetails:
+        """
+        Automatically allocate a player for a specific day.
+        mode:
+          - 'balanced'       : least-occupied table, lowest available seat
+          - 'sequential'     : lowest-numbered table with space, lowest available seat
+          - 'random_balanced': least-occupied table, random available seat
+        """
+        # Remove existing allocation for this day (re-allocate)
+        existing = supabase.table("seat_allocations")\
+            .select("id, table_id")\
+            .eq("tournament_day_id", day_id)\
+            .eq("player_id", player_id)\
+            .execute()
+
+        if existing.data:
+            old = existing.data[0]
+            supabase.table("seat_allocations").delete().eq("id", old["id"]).execute()
+            old_table = supabase.table("tournament_tables").select("occupied_seats").eq("id", old["table_id"]).single().execute()
+            if old_table.data:
+                supabase.table("tournament_tables").update({"occupied_seats": max(0, old_table.data["occupied_seats"] - 1)}).eq("id", old["table_id"]).execute()
+
+        # Get active tables for this day (ordered by table_number for sequential)
+        tables_response = supabase.table("tournament_tables").select("*")\
+            .eq("tournament_day_id", day_id)\
+            .eq("status", "active")\
+            .order("table_number").execute()
+
+        if not tables_response.data:
+            raise ValueError("No active tables available for this day")
+
+        tables = tables_response.data
+
+        # Build counts and occupied seat sets
+        allocs = supabase.table("seat_allocations").select("table_id, seat_number").eq("tournament_day_id", day_id).execute().data
+        table_counts = {t["id"]: 0 for t in tables}
+        occupied_seats_map = {t["id"]: set() for t in tables}
+        for a in allocs:
+            if a["table_id"] in table_counts:
+                table_counts[a["table_id"]] += 1
+                occupied_seats_map[a["table_id"]].add(a["seat_number"])
+
+        # Select table and seat based on mode
+        tables_with_space = [t for t in tables if table_counts[t["id"]] < t["seats"]]
+        if not tables_with_space:
+            raise ValueError("All tables are full")
+
+        if mode == "sequential":
+            # Pick the table with the lowest table_number that still has space
+            best_table = tables_with_space[0]  # already sorted by table_number
+        else:
+            # balanced / random_balanced: pick least-occupied table
+            best_table = min(tables_with_space, key=lambda t: table_counts[t["id"]])
+
+        table_id = best_table["id"]
+        taken = occupied_seats_map[table_id]
+        available = [i for i in range(1, best_table["seats"] + 1) if i not in taken]
+
+        if mode == "random_balanced":
+            seat_number = random.choice(available)
+        else:
+            seat_number = available[0]  # lowest available seat
+
+        allocation_data = {
+            "tournament_id": tournament_id,
+            "tournament_day_id": day_id,
+            "player_id": player_id,
+            "table_id": table_id,
+            "seat_number": seat_number,
+        }
+
+        response = supabase.table("seat_allocations").insert(allocation_data).execute()
+        if not response.data:
+            raise ValueError("Failed to create seat allocation")
+
+        supabase.table("tournament_tables").update({"occupied_seats": table_counts[table_id] + 1}).eq("id", table_id).execute()
+
+        return AllocationService.get_allocation_with_details(response.data[0]["id"])
+
+    @staticmethod
     def manual_allocate_player(tournament_id: str, player_id: str, table_id: str, seat_number: int) -> SeatAllocationWithDetails:
         """Manually allocate a player to a specific table and seat"""
         # Check if seat is available
@@ -149,32 +229,217 @@ class AllocationService:
         return AllocationService.get_allocation_with_details(response.data[0]["id"])
 
     @staticmethod
+    def manual_allocate_player_for_day(tournament_id: str, day_id: str, player_id: str, table_id: str, seat_number: int) -> SeatAllocationWithDetails:
+        """Manually allocate a player to a specific table and seat for a specific day"""
+        # Check if seat is available
+        existing = supabase.table("seat_allocations").select("*")\
+            .eq("table_id", table_id).eq("seat_number", seat_number).execute()
+        if existing.data:
+            raise ValueError(f"Seat {seat_number} at this table is already occupied")
+
+        # Check table
+        table_response = supabase.table("tournament_tables").select("*").eq("id", table_id).execute()
+        if not table_response.data:
+            raise ValueError("Table not found")
+
+        table = table_response.data[0]
+        if table["occupied_seats"] >= table["seats"]:
+            raise ValueError("Table is full")
+        if seat_number > table["seats"]:
+            raise ValueError(f"Invalid seat number. Table only has {table['seats']} seats")
+
+        # Check if player already allocated for this day
+        existing_alloc = supabase.table("seat_allocations").select("*")\
+            .eq("tournament_day_id", day_id).eq("player_id", player_id).execute()
+        if existing_alloc.data:
+            AllocationService.remove_allocation(existing_alloc.data[0]["id"])
+
+        allocation_data = {
+            "tournament_id": tournament_id,
+            "tournament_day_id": day_id,
+            "player_id": player_id,
+            "table_id": table_id,
+            "seat_number": seat_number,
+        }
+
+        response = supabase.table("seat_allocations").insert(allocation_data).execute()
+        supabase.table("tournament_tables").update({"occupied_seats": table["occupied_seats"] + 1}).eq("id", table_id).execute()
+
+        return AllocationService.get_allocation_with_details(response.data[0]["id"])
+
+    @staticmethod
+    def bulk_allocate_players(tournament_id: str, day_id: str, mode: str, player_ids: List[str] = None) -> List[SeatAllocationWithDetails]:
+        """
+        Bulk allocate multiple players at once.
+        Modes:
+          - sequential: Fill table 1 completely, then table 2, etc.
+          - balanced: Round-robin distribution (1 player per table, repeat)
+          - random_balanced: Like balanced but seat chosen randomly
+        """
+        # Get unallocated players for this day
+        if player_ids:
+            players_to_allocate = player_ids
+        else:
+            unallocated = AllocationService.get_unallocated_players_for_day(tournament_id, day_id)
+            players_to_allocate = [p["player_id"] for p in unallocated]
+
+        if not players_to_allocate:
+            return []
+
+        # Get active tables for this day
+        tables_response = supabase.table("tournament_tables").select("*")\
+            .eq("tournament_day_id", day_id).eq("status", "active")\
+            .order("table_number").execute()
+
+        if not tables_response.data:
+            raise ValueError("No active tables available")
+
+        tables = tables_response.data
+
+        # Get current allocations
+        allocs = supabase.table("seat_allocations").select("table_id, seat_number")\
+            .eq("tournament_day_id", day_id).execute().data
+
+        table_counts = {}
+        occupied_seats_map = {}
+        for t in tables:
+            table_counts[t["id"]] = 0
+            occupied_seats_map[t["id"]] = set()
+        for a in allocs:
+            if a["table_id"] in table_counts:
+                table_counts[a["table_id"]] += 1
+                occupied_seats_map[a["table_id"]].add(a["seat_number"])
+
+        results = []
+
+        if mode == "sequential":
+            results = AllocationService._bulk_sequential(
+                tournament_id, day_id, players_to_allocate, tables, table_counts, occupied_seats_map
+            )
+        elif mode == "balanced":
+            results = AllocationService._bulk_balanced(
+                tournament_id, day_id, players_to_allocate, tables, table_counts, occupied_seats_map, randomize_seat=False
+            )
+        elif mode == "random_balanced":
+            results = AllocationService._bulk_balanced(
+                tournament_id, day_id, players_to_allocate, tables, table_counts, occupied_seats_map, randomize_seat=True
+            )
+        else:
+            raise ValueError(f"Unknown allocation mode: {mode}")
+
+        return results
+
+    @staticmethod
+    def _bulk_sequential(tournament_id, day_id, player_ids, tables, table_counts, occupied_seats_map):
+        """Fill tables sequentially: table 1 fully, then table 2, etc."""
+        results = []
+        table_idx = 0
+
+        for player_id in player_ids:
+            placed = False
+            attempts = 0
+            while not placed and attempts < len(tables):
+                t = tables[table_idx % len(tables)]
+                tid = t["id"]
+                if table_counts[tid] < t["seats"]:
+                    available = [s for s in range(1, t["seats"] + 1) if s not in occupied_seats_map[tid]]
+                    if available:
+                        seat = available[0]  # Sequential: first available seat
+                        alloc_data = {
+                            "tournament_id": tournament_id,
+                            "tournament_day_id": day_id,
+                            "player_id": player_id,
+                            "table_id": tid,
+                            "seat_number": seat,
+                        }
+                        resp = supabase.table("seat_allocations").insert(alloc_data).execute()
+                        if resp.data:
+                            table_counts[tid] += 1
+                            occupied_seats_map[tid].add(seat)
+                            results.append(resp.data[0])
+                            # Move to next table only when current is full
+                            if table_counts[tid] >= t["seats"]:
+                                table_idx += 1
+                            placed = True
+                            continue
+                table_idx += 1
+                attempts += 1
+
+        # Update occupied_seats counts on all tables
+        AllocationService._sync_table_counts(tables, table_counts)
+        return results
+
+    @staticmethod
+    def _bulk_balanced(tournament_id, day_id, player_ids, tables, table_counts, occupied_seats_map, randomize_seat=False):
+        """Distribute players round-robin across tables (least occupied first)."""
+        results = []
+
+        for player_id in player_ids:
+            # Sort tables by occupancy (least first), then by table_number
+            sorted_tables = sorted(tables, key=lambda t: (table_counts[t["id"]], t["table_number"]))
+
+            placed = False
+            for t in sorted_tables:
+                tid = t["id"]
+                if table_counts[tid] < t["seats"]:
+                    available = [s for s in range(1, t["seats"] + 1) if s not in occupied_seats_map[tid]]
+                    if available:
+                        seat = random.choice(available) if randomize_seat else available[0]
+                        alloc_data = {
+                            "tournament_id": tournament_id,
+                            "tournament_day_id": day_id,
+                            "player_id": player_id,
+                            "table_id": tid,
+                            "seat_number": seat,
+                        }
+                        resp = supabase.table("seat_allocations").insert(alloc_data).execute()
+                        if resp.data:
+                            table_counts[tid] += 1
+                            occupied_seats_map[tid].add(seat)
+                            results.append(resp.data[0])
+                            placed = True
+                            break
+
+            if not placed:
+                break  # No more available seats
+
+        AllocationService._sync_table_counts(tables, table_counts)
+        return results
+
+    @staticmethod
+    def _sync_table_counts(tables, table_counts):
+        """Update occupied_seats on all tables to match actual counts."""
+        for t in tables:
+            tid = t["id"]
+            if table_counts.get(tid, 0) != t.get("occupied_seats", 0):
+                supabase.table("tournament_tables").update(
+                    {"occupied_seats": table_counts[tid]}
+                ).eq("id", tid).execute()
+
+    @staticmethod
     def get_allocation_with_details(allocation_id: str) -> SeatAllocationWithDetails:
         """Get seat allocation with player, table, and tournament details"""
-        query = """
-            seat_allocations!inner(
-                id,
-                tournament_id,
-                player_id,
-                table_id,
-                seat_number,
-                created_at,
-                updated_at,
-                players!inner(name),
-                tables!inner(table_number),
-                tournaments!inner(name)
-            )
-        """
-
-        response = supabase.table("seat_allocations").select("*, players(name), tournament_tables(table_number), tournaments(name)").eq("id", allocation_id).single().execute()
+        response = supabase.table("seat_allocations").select(
+            "*, players(name), tournament_tables(table_number), tournaments(name)"
+        ).eq("id", allocation_id).single().execute()
 
         if not response.data:
             raise ValueError("Allocation not found")
 
         data = response.data
+
+        # Fetch day name separately to avoid nullable FK join issues
+        day_name = None
+        if data.get("tournament_day_id"):
+            day_resp = supabase.table("tournament_days").select("day_name")\
+                .eq("id", data["tournament_day_id"]).single().execute()
+            if day_resp.data:
+                day_name = day_resp.data.get("day_name")
+
         return SeatAllocationWithDetails(
             id=data["id"],
             tournament_id=data["tournament_id"],
+            tournament_day_id=data.get("tournament_day_id"),
             player_id=data["player_id"],
             table_id=data["table_id"],
             seat_number=data["seat_number"],
@@ -182,7 +447,8 @@ class AllocationService:
             updated_at=data.get("updated_at"),
             player_name=data["players"]["name"],
             table_number=data["tournament_tables"]["table_number"],
-            tournament_name=data["tournaments"]["name"]
+            tournament_name=data["tournaments"]["name"],
+            day_name=day_name
         )
 
     @staticmethod
@@ -190,6 +456,15 @@ class AllocationService:
         """Get all seat allocations for a tournament with details"""
         response = supabase.table("seat_allocations").select("*, players(name), tournament_tables(table_number, seats)").eq("tournament_id", tournament_id).order("tournament_tables(table_number)").order("seat_number").execute()
 
+        return response.data
+
+    @staticmethod
+    def get_day_allocations(day_id: str) -> List[Dict]:
+        """Get all seat allocations for a specific tournament day with details"""
+        response = supabase.table("seat_allocations")\
+            .select("*, players(name), tournament_tables(table_number, seats)")\
+            .eq("tournament_day_id", day_id)\
+            .order("seat_number").execute()
         return response.data
 
     @staticmethod
@@ -287,6 +562,34 @@ class AllocationService:
             }
             for tp in players_response.data
             if tp["player_id"] not in allocated_player_ids
+        ]
+
+        return unallocated
+
+    @staticmethod
+    def get_unallocated_players_for_day(tournament_id: str, day_id: str) -> List[Dict]:
+        """Get players registered in this specific day but not yet allocated to a seat"""
+        players_response = supabase.table("tournament_players")\
+            .select("*, players(*)")\
+            .eq("tournament_day_id", day_id)\
+            .in_("status", ["active", "registered"])\
+            .execute()
+
+        allocations_response = supabase.table("seat_allocations")\
+            .select("player_id")\
+            .eq("tournament_day_id", day_id)\
+            .execute()
+
+        allocated_ids = {a["player_id"] for a in allocations_response.data}
+
+        unallocated = [
+            {
+                "player_id": tp["player_id"],
+                "player_name": tp["players"]["name"],
+                "entries": tp.get("entries", 1),
+            }
+            for tp in players_response.data
+            if tp["player_id"] not in allocated_ids
         ]
 
         return unallocated

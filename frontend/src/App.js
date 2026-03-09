@@ -11,10 +11,13 @@ import Torneios from './pages/Torneios';
 import TournamentBroadcast from './pages/TournamentBroadcast';
 import TournamentDetail from './pages/TournamentDetail';
 import ManualAllocation from './pages/ManualAllocation';
+import TableManagement from './pages/TableManagement';
 import TournamentRankings from './pages/TournamentRankings';
 import BlindManagement from './pages/BlindManagement';
 import Premiacao from './pages/Premiacao';
+import PremiacaoSelector from './pages/PremiacaoSelector';
 import TournamentDayForm from './pages/TournamentDayForm';
+import BroadcastSettings from './pages/BroadcastSettings';
 import TournamentDayStats from './pages/TournamentDayStats';
 import TournamentControl from './pages/TournamentControl';
 import Players from './pages/Players';
@@ -89,6 +92,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/torneios/:tournamentId/dia/:dayId/broadcast"
+        element={
+          <PrivateRoute>
+            <BroadcastSettings />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/torneios/dia/:dayId/estatisticas"
         element={
           <PrivateRoute>
@@ -137,6 +148,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/alocacao/dia/:dayId"
+        element={
+          <PrivateRoute>
+            <TableManagement />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/ranking/:tournamentId"
         element={
           <PrivateRoute>
@@ -169,6 +188,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/premiacao"
+        element={
+          <PrivateRoute>
+            <PremiacaoSelector />
           </PrivateRoute>
         }
       />

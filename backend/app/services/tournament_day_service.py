@@ -1,6 +1,12 @@
 from typing import List, Optional
 from datetime import datetime, timezone
+import time
 from app.database import supabase
+
+# Chipcount cache: {day_id: (timestamp, chipcount)}
+# Chipcount only changes on buy-in/rebuy/addon — no need to recompute every 3s poll.
+_chipcount_cache: dict = {}
+_CHIPCOUNT_TTL = 60  # seconds
 from app.models.tournament_day import (
     TournamentDayCreate,
     TournamentDayUpdate,
@@ -498,7 +504,7 @@ class TournamentDayService:
         # Calculate current elapsed time
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            new_elapsed_time = day.elapsed_time + int(time_since_start)
+            new_elapsed_time = day.elapsed_time + round(time_since_start)
         else:
             new_elapsed_time = day.elapsed_time
 
@@ -525,7 +531,7 @@ class TournamentDayService:
         current_elapsed = day.elapsed_time or 0
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            current_elapsed += int(time_since_start)
+            current_elapsed += round(time_since_start)
 
         # Adjust: positive seconds = add remaining time = subtract elapsed
         new_elapsed_time = max(0, current_elapsed - seconds)
@@ -659,7 +665,7 @@ class TournamentDayService:
         current_elapsed = day.elapsed_time
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            current_elapsed = day.elapsed_time + int(time_since_start)
+            current_elapsed = day.elapsed_time + round(time_since_start)
 
         from app.models.tournament_day import TimerStatus
         return TimerStatus(
@@ -794,7 +800,7 @@ class TournamentDayService:
         current_elapsed = day.elapsed_time or 0
         if day.timer_started_at and not day.is_paused:
             time_since_start = (datetime.now(timezone.utc) - day.timer_started_at).total_seconds()
-            current_elapsed = (day.elapsed_time or 0) + int(time_since_start)
+            current_elapsed = (day.elapsed_time or 0) + round(time_since_start)
 
         # Calculate what level we SHOULD be at based on elapsed time
         level_calc = TournamentDayService._calculate_current_level(blinds, current_elapsed)
@@ -823,10 +829,40 @@ class TournamentDayService:
         eliminations_count = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
         active_players = max(0, total_entries - eliminations_count)
 
+        # Chipcount — cached for 60s (only changes on buy-in/rebuy/addon, not every 3s poll)
+        # average_stack is derived from cached chipcount + current active_players each call
+        now = time.time()
+        cached = _chipcount_cache.get(day_id)
+        if cached and (now - cached[0]) < _CHIPCOUNT_TTL:
+            chipcount = cached[1]
+        else:
+            try:
+                chips_resp = supabase.table("tournament_players")\
+                    .select("total_chips")\
+                    .eq("tournament_day_id", day_id)\
+                    .execute()
+                players_data = chips_resp.data or []
+                if not players_data:
+                    chips_resp2 = supabase.table("tournament_players")\
+                        .select("total_chips")\
+                        .eq("tournament_id", day.tournament_id)\
+                        .execute()
+                    players_data = chips_resp2.data or []
+                chipcount = sum(int(p.get("total_chips") or 0) for p in players_data)
+                _chipcount_cache[day_id] = (now, chipcount)
+            except Exception:
+                chipcount = cached[1] if cached else 0
+        average_stack = round(chipcount / active_players) if active_players > 0 else 0
+
+        # If is_paused=False but timer_started_at is None, the timer was never actually
+        # started (inconsistent DB state). Treat it as paused to prevent the frontend
+        # ticker from counting down while the server always returns the same value.
+        effective_paused = (day.is_paused or False) or (not day.timer_started_at)
+
         return {
             "current_level": correct_level,
             "elapsed_time": current_elapsed,
-            "is_paused": day.is_paused or False,
+            "is_paused": effective_paused,
             "timer_started_at": day.timer_started_at.isoformat() if day.timer_started_at else None,
             "current_blind": current_blind,
             "next_blind": next_blind,
@@ -834,7 +870,9 @@ class TournamentDayService:
             "next_break": next_break_info,
             "active_players": active_players,
             "total_entries": total_entries,
-            "eliminations_count": eliminations_count
+            "eliminations_count": eliminations_count,
+            "chipcount": chipcount,
+            "average_stack": average_stack,
         }
 
     # ================================================

@@ -1,0 +1,219 @@
+/* ══════════════════════════════════════════
+   PrizeVoucher — Thermal Receipt Style
+   ══════════════════════════════════════════ */
+
+.pv-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 0;
+}
+
+/* Receipt paper */
+.pv-receipt {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: #111;
+  background: #f8f6f0;
+  width: 100%;
+  max-width: 320px;
+  padding: 20px 18px;
+  border-radius: 4px;
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.15),
+    0 6px 20px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.8);
+  /* torn top/bottom edges */
+  position: relative;
+}
+
+/* Serrated top edge */
+.pv-receipt::before,
+.pv-receipt::after {
+  content: '';
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background-image: radial-gradient(circle at 50% 0, #1a2433 4px, transparent 4px);
+  background-size: 14px 8px;
+  background-repeat: repeat-x;
+}
+.pv-receipt::before {
+  top: -4px;
+}
+.pv-receipt::after {
+  bottom: -4px;
+  background-image: radial-gradient(circle at 50% 100%, #1a2433 4px, transparent 4px);
+}
+
+/* ── Utilities ── */
+.pv-center { text-align: center; }
+
+.pv-stars {
+  letter-spacing: 4px;
+  color: #555;
+  font-size: 11px;
+  margin: 2px 0;
+}
+
+.pv-shop {
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  margin: 4px 0;
+  color: #000;
+}
+
+.pv-title {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  color: #222;
+  margin: 4px 0;
+}
+
+/* ── Dividers ── */
+.pv-divider-heavy {
+  border: none;
+  border-top: 2px solid #333;
+  margin: 8px 0;
+}
+
+.pv-divider-light {
+  border: none;
+  border-top: 1px dashed #888;
+  margin: 6px 0;
+}
+
+/* ── Rows ── */
+.pv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin: 3px 0;
+  line-height: 1.4;
+}
+
+.pv-lbl {
+  color: #555;
+  flex-shrink: 0;
+}
+
+.pv-val {
+  font-weight: bold;
+  color: #111;
+  text-align: right;
+  word-break: break-word;
+  max-width: 55%;
+}
+
+.pv-item-lbl {
+  color: #333;
+}
+
+.pv-item-val {
+  color: #111;
+}
+
+/* ── Section titles ── */
+.pv-section-title {
+  font-weight: bold;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #555;
+  margin: 5px 0 2px;
+}
+
+.pv-player-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: #000;
+  letter-spacing: 0.5px;
+  margin: 2px 0 4px;
+}
+
+.pv-doc {
+  color: #444;
+  margin: 2px 0 4px;
+}
+
+/* ── Prize ── */
+.pv-prize-box {
+  text-align: center;
+  margin: 10px 0;
+}
+
+.pv-prize-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.pv-prize-amount {
+  font-size: 26px;
+  font-weight: bold;
+  color: #000;
+  letter-spacing: 1px;
+}
+
+/* ── Signature ── */
+.pv-sig-line {
+  border-bottom: 1px solid #333;
+  margin: 20px 12px 5px;
+}
+
+.pv-sig-label {
+  font-size: 10px;
+  color: #666;
+  letter-spacing: 0.5px;
+}
+
+/* ── Footer ── */
+.pv-footer {
+  font-size: 11px;
+  color: #555;
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* ── Print button ── */
+.pv-btn-print {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.875rem;
+  background: linear-gradient(135deg, #1aa870 0%, #138a57 100%);
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  box-shadow: 0 4px 14px rgba(20, 160, 100, 0.35);
+  font-family: inherit;
+}
+
+.pv-btn-print:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(20, 160, 100, 0.45);
+}
+
+.pv-btn-print:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  .pv-receipt {
+    max-width: 100%;
+    font-size: 12px;
+  }
+  .pv-btn-print {
+    max-width: 100%;
+  }
+}

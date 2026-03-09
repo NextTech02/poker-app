@@ -53,16 +53,20 @@ class TournamentService:
         for item in response.data:
             # Get all days for this tournament
             days_response = supabase.table("tournament_days")\
-                .select("id, total_entries")\
+                .select("id, total_entries, day_type")\
                 .eq("tournament_id", item["id"])\
                 .execute()
 
-            # Calculate aggregated total_entries from all days
+            # Calculate aggregated total_entries from non-final days only
+            # Final days inherit data from qualifying days and should not be counted
             total_entries = 0
             total_days = 0
             if days_response.data:
                 total_days = len(days_response.data)
                 for day in days_response.data:
+                    if day.get("day_type") == "final":
+                        continue
+
                     # Get total entries from players for this day
                     players_response = supabase.table("tournament_players")\
                         .select("buy_in_count, rebuy_count")\

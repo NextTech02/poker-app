@@ -243,13 +243,32 @@
 }
 
 .sub-menu-item {
-  display: block;
-  padding: 0.75rem 1.5rem;
-  color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  padding: 0.7rem 1.5rem;
+  color: rgba(255, 255, 255, 0.7);
   text-decoration: none;
   font-size: 0.875rem;
+  font-weight: 500;
   transition: all 0.2s ease;
   border-left: 2px solid transparent;
+  position: relative;
+}
+
+.sub-menu-item .nav-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.sub-menu-item .nav-icon::before {
+  width: 16px;
+  height: 16px;
+}
+
+.sub-menu-item .nav-label {
+  font-size: 0.875rem;
 }
 
 .sub-menu-item:hover {
@@ -262,6 +281,10 @@
   background-color: var(--card-bg);
   color: var(--text-gold);
   border-left-color: var(--gold-accent);
+}
+
+.sub-menu-item.active .nav-icon::before {
+  filter: brightness(0) saturate(100%) invert(82%) sepia(28%) saturate(663%) hue-rotate(8deg) brightness(95%) contrast(89%);
 }
 
 .sidebar-footer {

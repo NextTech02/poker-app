@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
-import Card from '../components/Card';
-import Button from '../components/Button';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './Torneios.css';
@@ -12,54 +10,27 @@ const Torneios = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast, confirm } = useToast();
+
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    has_qualifying: false,
-  });
-  const [broadcastSettings, setBroadcastSettings] = useState({
-    broadcast_bg_color: '#0a0e13',
-    broadcast_bg_image_url: '',
-    broadcast_display_name: '',
-    broadcast_font_size: 100,
-    broadcast_show_logo: true,
-    broadcast_show_title: true,
-    broadcast_show_prizepool: true,
-    broadcast_show_level: true,
-    broadcast_show_players: true,
-    broadcast_show_interval: true,
-    broadcast_show_timer: true,
-    broadcast_show_blinds: true,
-    broadcast_show_ante: true,
-    broadcast_show_next_blind: true,
-    broadcast_show_prizes: true,
-  });
+  const [formData, setFormData] = useState({ name: '', has_qualifying: false });
 
   useEffect(() => {
     loadTournaments();
-
-    // Setup polling (every 5 seconds)
-    const pollingInterval = setInterval(() => {
-      loadTournaments();
-    }, 5000);
-
-    return () => {
-      clearInterval(pollingInterval);
-    };
+    const interval = setInterval(loadTournaments, 5000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadTournaments = async () => {
     try {
-      // Get tournament summaries with aggregated data from all days
-      const response = await api.get('/tournaments');
-      setTournaments(response.data);
-    } catch (error) {
-      console.error('Erro ao carregar torneios:', error);
+      const res = await api.get('/tournaments');
+      setTournaments(res.data);
+    } catch (err) {
+      console.error('Erro ao carregar torneios:', err);
     } finally {
       setLoading(false);
     }
@@ -68,30 +39,16 @@ const Torneios = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const tournamentData = {
-        name: formData.name,
-        has_qualifying: formData.has_qualifying,
-      };
-
-      await api.post('/tournaments', tournamentData);
-
+      await api.post('/tournaments', { name: formData.name, has_qualifying: formData.has_qualifying });
       setShowModal(false);
       setFormData({ name: '', has_qualifying: false });
       loadTournaments();
-    } catch (error) {
-      console.error('Erro ao criar torneio:', error);
-      const detail = error.response?.data?.detail;
-      let errorMessage = 'Erro ao criar torneio. Verifique os dados e tente novamente.';
-      if (detail) {
-        if (typeof detail === 'string') {
-          errorMessage = detail;
-        } else if (Array.isArray(detail)) {
-          errorMessage = detail.map(e => `${e.loc?.join('.') || ''}: ${e.msg || JSON.stringify(e)}`).join('\n');
-        } else {
-          errorMessage = JSON.stringify(detail);
-        }
-      }
-      toast.error(errorMessage);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      let msg = 'Erro ao criar torneio.';
+      if (typeof detail === 'string') msg = detail;
+      else if (Array.isArray(detail)) msg = detail.map(e => e.msg).join('\n');
+      toast.error(msg);
     }
   };
 
@@ -101,565 +58,252 @@ const Torneios = () => {
       await api.patch(`/tournaments/${editingTournament.id}`, {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
-        ...broadcastSettings,
-        broadcast_bg_image_url: broadcastSettings.broadcast_bg_image_url || null,
-        broadcast_display_name: broadcastSettings.broadcast_display_name || null,
       });
-
       setShowEditModal(false);
       setEditingTournament(null);
       setFormData({ name: '', has_qualifying: false });
-      setBroadcastSettings({
-        broadcast_bg_color: '#0a0e13',
-        broadcast_bg_image_url: '',
-        broadcast_display_name: '',
-        broadcast_font_size: 100,
-        broadcast_show_logo: true,
-        broadcast_show_title: true,
-        broadcast_show_prizepool: true,
-        broadcast_show_level: true,
-        broadcast_show_players: true,
-        broadcast_show_interval: true,
-        broadcast_show_timer: true,
-        broadcast_show_blinds: true,
-        broadcast_show_ante: true,
-        broadcast_show_next_blind: true,
-        broadcast_show_prizes: true,
-      });
       loadTournaments();
-    } catch (error) {
-      console.error('Erro ao atualizar torneio:', error);
+    } catch {
       toast.error('Erro ao atualizar torneio');
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleBroadcastChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setBroadcastSettings({
-      ...broadcastSettings,
-      [name]: type === 'checkbox' ? checked : value,
-    });
-  };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file size (max 2MB for base64 storage)
-      if (file.size > 2 * 1024 * 1024) {
-        toast.warning('Imagem muito grande. Maximo: 2MB');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setBroadcastSettings({
-          ...broadcastSettings,
-          broadcast_bg_image_url: reader.result,
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeBackgroundImage = () => {
-    setBroadcastSettings({
-      ...broadcastSettings,
-      broadcast_bg_image_url: '',
-    });
-  };
+  const handleChange = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const openEditModal = (tournament) => {
     setEditingTournament(tournament);
-    setFormData({
-      name: tournament.name,
-      has_qualifying: tournament.has_qualifying || false,
-    });
-    setBroadcastSettings({
-      broadcast_bg_color: tournament.broadcast_bg_color || '#0a0e13',
-      broadcast_bg_image_url: tournament.broadcast_bg_image_url || '',
-      broadcast_display_name: tournament.broadcast_display_name || '',
-      broadcast_font_size: tournament.broadcast_font_size || 100,
-      broadcast_show_logo: tournament.broadcast_show_logo !== false,
-      broadcast_show_title: tournament.broadcast_show_title !== false,
-      broadcast_show_prizepool: tournament.broadcast_show_prizepool !== false,
-      broadcast_show_level: tournament.broadcast_show_level !== false,
-      broadcast_show_players: tournament.broadcast_show_players !== false,
-      broadcast_show_interval: tournament.broadcast_show_interval !== false,
-      broadcast_show_timer: tournament.broadcast_show_timer !== false,
-      broadcast_show_blinds: tournament.broadcast_show_blinds !== false,
-      broadcast_show_ante: tournament.broadcast_show_ante !== false,
-      broadcast_show_next_blind: tournament.broadcast_show_next_blind !== false,
-      broadcast_show_prizes: tournament.broadcast_show_prizes !== false,
-    });
+    setFormData({ name: tournament.name, has_qualifying: tournament.has_qualifying || false });
     setShowEditModal(true);
   };
 
-  const handleDeleteTournament = async (tournamentId) => {
-    const ok = await confirm('Tem certeza que deseja excluir este torneio?', { variant: 'danger', confirmText: 'Excluir' });
+  const handleDelete = async (id) => {
+    const ok = await confirm('Tem certeza que deseja excluir este torneio?', {
+      variant: 'danger', confirmText: 'Excluir',
+    });
     if (!ok) return;
-
     try {
-      await api.delete(`/tournaments/${tournamentId}`);
+      await api.delete(`/tournaments/${id}`);
       loadTournaments();
-    } catch (error) {
-      console.error('Erro ao excluir torneio:', error);
+    } catch {
       toast.error('Erro ao excluir torneio');
     }
   };
 
-  const getTournamentEntries = (tournament) => {
-    // For now, return 0 as we need to aggregate from tournament_days
-    // This will be properly calculated by the backend
-    return tournament.total_entries || 0;
+  const openNewModal = () => {
+    setFormData({ name: '', has_qualifying: false });
+    setShowModal(true);
   };
 
-  if (loading) {
-    return (
-      <div className="app-container">
-        <Sidebar />
-        <main className="main-content">
-          <div className="loading">Carregando...</div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="app-container">
+    <div className="app-layout">
       <Sidebar />
       <main className="main-content">
-        <div className="page-header">
-          <Button onClick={() => setShowModal(true)}>
-            {t('tournaments.newTournament')}
-          </Button>
+
+        {/* ── Header ── */}
+        <div className="tr-header">
+          <div className="tr-header-left">
+            <div className="tr-header-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V17H7v2h10v-2h-4v-1.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+              </svg>
+            </div>
+            <div>
+              <h1 className="tr-title">Torneios</h1>
+              <p className="tr-subtitle">Gerencie e acompanhe seus torneios</p>
+            </div>
+          </div>
+          <button className="tr-btn-new" onClick={openNewModal}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            Novo Torneio
+          </button>
         </div>
 
-        {tournaments.length === 0 ? (
-          <Card>
-            <div className="empty-state">
-              <p>{t('tournaments.noTournaments')}</p>
-              <Button onClick={() => setShowModal(true)}>
-                {t('tournaments.createFirst')}
-              </Button>
+        {/* ── Body ── */}
+        {loading ? (
+          <div className="tr-loading">Carregando torneios...</div>
+        ) : tournaments.length === 0 ? (
+          <div className="tr-empty">
+            <div className="tr-empty-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V17H7v2h10v-2h-4v-1.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+              </svg>
             </div>
-          </Card>
-        ) : (
-          <Card>
-            {/* Desktop Table View */}
-            <div className="tournaments-table-container">
-              <table className="tournaments-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th className="text-center">Entradas</th>
-                    <th className="text-center">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tournaments.map((tournament) => (
-                    <tr
-                      key={tournament.id}
-                      onClick={() => navigate(`/torneios/${tournament.id}`)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>
-                        <strong>{tournament.name}</strong>
-                      </td>
-                      <td className="text-center">
-                        {getTournamentEntries(tournament)}
-                      </td>
-                      <td className="text-center">
-                        <div className="action-buttons" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            size="small"
-                            variant="secondary"
-                            onClick={() => openEditModal(tournament)}
-                          >
-                            {t('common.edit')}
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="danger"
-                            onClick={() => handleDeleteTournament(tournament.id)}
-                          >
-                            {t('common.delete')}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="tournaments-cards-mobile">
-              {tournaments.map((tournament) => (
-                <div
-                  key={tournament.id}
-                  className="tournament-card-mobile"
-                  onClick={() => navigate(`/torneios/${tournament.id}`)}
-                >
-                  <div className="tournament-card-mobile-header">
-                    <h3 className="tournament-card-mobile-name">{tournament.name}</h3>
-                    <span className="tournament-card-mobile-entries">
-                      <strong>{getTournamentEntries(tournament)}</strong> entradas
-                    </span>
-                  </div>
-                  <div className="tournament-card-mobile-actions" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      size="small"
-                      variant="secondary"
-                      onClick={() => openEditModal(tournament)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="danger"
-                      onClick={() => handleDeleteTournament(tournament.id)}
-                    >
-                      Excluir
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Create Modal */}
-        {showModal && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>{t('tournaments.newTournament')}</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
-                  <span className="close-icon"></span>
-                </button>
-              </div>
-              <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                  <label htmlFor="name">Nome do Torneio *</label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="Ex: Torneio de Sexta, Torneio de Sábado"
-                    required
-                  />
-                  <small>Depois de criar o torneio, você poderá adicionar os dias e configurações.</small>
-                </div>
-
-                <div className={`qualifying-toggle-card ${formData.has_qualifying ? 'active' : ''}`}
-                  onClick={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}>
-                  <div className="qualifying-toggle-content">
-                    <div className="qualifying-toggle-text">
-                      <span className="qualifying-toggle-title">{t('tournaments.hasQualifying')}</span>
-                      <span className="qualifying-toggle-hint">{t('tournaments.hasQualifyingHint')}</span>
-                    </div>
-                  </div>
-                  <div className={`toggle-switch ${formData.has_qualifying ? 'on' : ''}`}>
-                    <div className="toggle-knob" />
-                  </div>
-                </div>
-
-                <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button type="submit">
-                    {t('tournaments.newTournament')}
-                  </Button>
-                </div>
-              </form>
-            </div>
+            <h3>Nenhum torneio criado</h3>
+            <p>Comece criando o seu primeiro torneio</p>
+            <button className="tr-btn-new" onClick={openNewModal}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Criar Torneio
+            </button>
           </div>
-        )}
+        ) : (
+          <>
+            <div className="tr-count-bar">
+              <span><strong>{tournaments.length}</strong> torneio{tournaments.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="tr-grid">
+              {tournaments.map((t) => {
+                const entries = t.total_entries || 0;
+                return (
+                  <div key={t.id} className="tr-card" onClick={() => navigate(`/torneios/${t.id}`)}>
+                    <div className="tr-card-accent" />
 
-        {/* Edit Modal */}
-        {showEditModal && (
-          <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-            <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>{t('tournaments.editTournament')}</h2>
-                <button className="close-btn" onClick={() => setShowEditModal(false)} aria-label="Fechar">
-                  <span className="close-icon"></span>
-                </button>
-              </div>
-              <form onSubmit={handleEditSubmit}>
-                <div className="form-group">
-                  <label htmlFor="edit-name">Nome do Torneio *</label>
-                  <input
-                    id="edit-name"
-                    name="name"
-                    type="text"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className={`qualifying-toggle-card ${formData.has_qualifying ? 'active' : ''}`}
-                  onClick={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}>
-                  <div className="qualifying-toggle-content">
-                    <div className="qualifying-toggle-text">
-                      <span className="qualifying-toggle-title">{t('tournaments.hasQualifying')}</span>
-                      <span className="qualifying-toggle-hint">{t('tournaments.hasQualifyingHint')}</span>
-                    </div>
-                  </div>
-                  <div className={`toggle-switch ${formData.has_qualifying ? 'on' : ''}`}>
-                    <div className="toggle-knob" />
-                  </div>
-                </div>
-
-                <div className="form-section">
-                  <h3 className="section-title">Configurações de Visualização (Broadcast)</h3>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="broadcast_bg_color">Cor de Fundo</label>
-                      <div className="color-input-wrapper">
-                        <input
-                          id="broadcast_bg_color"
-                          name="broadcast_bg_color"
-                          type="color"
-                          value={broadcastSettings.broadcast_bg_color}
-                          onChange={handleBroadcastChange}
-                          className="color-input"
-                        />
-                        <input
-                          type="text"
-                          value={broadcastSettings.broadcast_bg_color}
-                          onChange={handleBroadcastChange}
-                          name="broadcast_bg_color"
-                          className="color-text-input"
-                          placeholder="#0a0e13"
-                        />
+                    <div className="tr-card-body">
+                      <div className="tr-card-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V17H7v2h10v-2h-4v-1.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+                        </svg>
+                      </div>
+                      <div className="tr-card-info">
+                        <div className="tr-card-name">{t.name}</div>
+                        {t.has_qualifying && (
+                          <span className="tr-badge-qualifying">Com Classificatórias</span>
+                        )}
                       </div>
                     </div>
-                    <div className="form-group">
-                      <label htmlFor="broadcast_display_name">Nome de Exibição</label>
-                      <input
-                        id="broadcast_display_name"
-                        name="broadcast_display_name"
-                        type="text"
-                        value={broadcastSettings.broadcast_display_name}
-                        onChange={handleBroadcastChange}
-                        placeholder="Nome customizado (opcional)"
-                      />
+
+                    <div className="tr-card-stats">
+                      <div className="tr-stat">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                        </svg>
+                        <span><strong>{entries}</strong> entrada{entries !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+
+                    <div className="tr-card-footer" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="tr-btn-edit"
+                        onClick={(e) => { e.stopPropagation(); openEditModal(t); }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
+                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                        Editar
+                      </button>
+                      <button
+                        className="tr-btn-delete"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
+                          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                        Excluir
+                      </button>
+                      <span className="tr-card-cta">
+                        Ver detalhes
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+                        </svg>
+                      </span>
                     </div>
                   </div>
-
-                  <div className="form-group">
-                    <label htmlFor="broadcast_font_size">Tamanho da Fonte: {broadcastSettings.broadcast_font_size}%</label>
-                    <div className="font-size-slider-wrapper">
-                      <span className="slider-label">50%</span>
-                      <input
-                        id="broadcast_font_size"
-                        name="broadcast_font_size"
-                        type="range"
-                        min="50"
-                        max="200"
-                        step="10"
-                        value={broadcastSettings.broadcast_font_size}
-                        onChange={handleBroadcastChange}
-                        className="font-size-slider"
-                      />
-                      <span className="slider-label">200%</span>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Imagem de Fundo</label>
-                    <div className="image-upload-container">
-                      {broadcastSettings.broadcast_bg_image_url ? (
-                        <div className="image-preview-wrapper">
-                          <img
-                            src={broadcastSettings.broadcast_bg_image_url}
-                            alt="Preview"
-                            className="image-preview"
-                          />
-                          <button
-                            type="button"
-                            className="remove-image-btn"
-                            onClick={removeBackgroundImage}
-                            title="Remover imagem"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="image-upload-area">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="hidden-input"
-                          />
-                          <div className="upload-placeholder">
-                            <span className="upload-icon">+</span>
-                            <span className="upload-text">Clique para anexar imagem</span>
-                            <span className="upload-hint">PNG, JPG até 2MB</span>
-                          </div>
-                        </label>
-                      )}
-                    </div>
-                    <div className="image-url-alternative">
-                      <span className="or-divider">ou cole uma URL</span>
-                      <input
-                        id="broadcast_bg_image_url"
-                        name="broadcast_bg_image_url"
-                        type="text"
-                        value={broadcastSettings.broadcast_bg_image_url?.startsWith('data:') ? '' : broadcastSettings.broadcast_bg_image_url}
-                        onChange={handleBroadcastChange}
-                        placeholder="https://exemplo.com/imagem.jpg"
-                        disabled={broadcastSettings.broadcast_bg_image_url?.startsWith('data:')}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="section-label">Elementos Visíveis no Broadcast</label>
-                    <div className="visibility-grid">
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_logo ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_logo"
-                          checked={broadcastSettings.broadcast_show_logo}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Logo</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_title ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_title"
-                          checked={broadcastSettings.broadcast_show_title}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Título</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_prizepool ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_prizepool"
-                          checked={broadcastSettings.broadcast_show_prizepool}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Prizepool</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_level ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_level"
-                          checked={broadcastSettings.broadcast_show_level}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Nível</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_players ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_players"
-                          checked={broadcastSettings.broadcast_show_players}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Jogadores</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_interval ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_interval"
-                          checked={broadcastSettings.broadcast_show_interval}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Intervalo</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_timer ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_timer"
-                          checked={broadcastSettings.broadcast_show_timer}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Timer</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_blinds ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_blinds"
-                          checked={broadcastSettings.broadcast_show_blinds}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Blinds</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_ante ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_ante"
-                          checked={broadcastSettings.broadcast_show_ante}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Ante</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_next_blind ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_next_blind"
-                          checked={broadcastSettings.broadcast_show_next_blind}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Próx. Blind</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                      <label className={`visibility-card ${broadcastSettings.broadcast_show_prizes ? 'active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          name="broadcast_show_prizes"
-                          checked={broadcastSettings.broadcast_show_prizes}
-                          onChange={handleBroadcastChange}
-                        />
-                        <span className="visibility-label">Premiações</span>
-                        <span className="visibility-toggle"></span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button type="submit">
-                    {t('common.save')}
-                  </Button>
-                </div>
-              </form>
+                );
+              })}
             </div>
-          </div>
+          </>
         )}
+
+        {/* ── Create Modal ── */}
+        {showModal && (
+          <TournamentModal
+            title="Novo Torneio"
+            formData={formData}
+            onChange={handleChange}
+            onToggleQualifying={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}
+            onSubmit={handleSubmit}
+            onClose={() => setShowModal(false)}
+            submitLabel="Criar Torneio"
+          />
+        )}
+
+        {/* ── Edit Modal ── */}
+        {showEditModal && (
+          <TournamentModal
+            title="Editar Torneio"
+            formData={formData}
+            onChange={handleChange}
+            onToggleQualifying={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}
+            onSubmit={handleEditSubmit}
+            onClose={() => setShowEditModal(false)}
+            submitLabel="Salvar Alterações"
+          />
+        )}
+
       </main>
     </div>
   );
 };
+
+/* ── Shared Modal ── */
+const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel }) => (
+  <div className="tr-modal-overlay" onClick={onClose}>
+    <div className="tr-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="tr-modal-header">
+        <div className="tr-modal-title-group">
+          <div className="tr-modal-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V17H7v2h10v-2h-4v-1.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+            </svg>
+          </div>
+          <h2>{title}</h2>
+        </div>
+        <button className="tr-modal-close" onClick={onClose}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+
+      <form onSubmit={onSubmit} className="tr-modal-form">
+        <div className="tr-field">
+          <label htmlFor="tr-name">
+            Nome do Torneio <span className="tr-required">*</span>
+          </label>
+          <input
+            id="tr-name"
+            name="name"
+            type="text"
+            value={formData.name}
+            onChange={onChange}
+            required
+            placeholder="Ex: Main Event, Torneio de Sexta..."
+            autoFocus
+          />
+          <small>Após criar o torneio, você poderá adicionar dias e configurações.</small>
+        </div>
+
+        <div
+          className={`tr-toggle-card ${formData.has_qualifying ? 'active' : ''}`}
+          onClick={onToggleQualifying}
+        >
+          <div className="tr-toggle-text">
+            <span className="tr-toggle-title">Com Dias Classificatórios</span>
+            <span className="tr-toggle-hint">Torneio multi-day com classificatória + final</span>
+          </div>
+          <div className={`tr-toggle-switch ${formData.has_qualifying ? 'on' : ''}`}>
+            <div className="tr-toggle-knob" />
+          </div>
+        </div>
+
+        <div className="tr-modal-footer">
+          <button type="button" className="tr-btn-cancel" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="tr-btn-submit">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            {submitLabel}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+);
 
 export default Torneios;
