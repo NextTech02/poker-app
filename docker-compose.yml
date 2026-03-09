@@ -33,6 +33,20 @@ services:
     networks:
       - torneios-net
 
+  # ── Cloudflare Tunnel ─────────────────────────────────────────────────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: torneios-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - torneios-net
+
 networks:
   torneios-net:
     driver: bridge
