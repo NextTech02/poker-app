@@ -5,6 +5,7 @@ import Button from '../components/Button';
 import PrizeVoucher from '../components/PrizeVoucher';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { calculatePayoutAllocations } from '../utils/payoutStructure';
 import './Premiacao.css';
 
 const DOC_TYPE_LABELS = {
@@ -65,6 +66,11 @@ const Premiacao = () => {
   // Voucher after payout
   const [showVoucherModal, setShowVoucherModal] = useState(false);
   const [voucherData, setVoucherData] = useState(null);
+
+  // Auto-calculate modal
+  const [showAutoModal, setShowAutoModal] = useState(false);
+  const [autoPreview, setAutoPreview] = useState([]);
+  const [autoEntryCount, setAutoEntryCount] = useState(0);
 
   const loadData = useCallback(async () => {
     try {
@@ -178,6 +184,54 @@ const Premiacao = () => {
       await loadData();
     } catch (err) {
       setError('Erro ao atualizar premiação');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Auto-Calculate Handlers ──────────────────────────────────────────────
+
+  const handleOpenAutoCalculate = () => {
+    // entry count = buy-ins + rebuys per player
+    const entryCount = tournamentPlayers.reduce(
+      (sum, p) => sum + (p.buy_in_count || 1) + (p.rebuy_count || 0), 0
+    ) || tournamentPlayers.length;
+
+    if (entryCount === 0) {
+      toast.error('Nenhuma entrada registrada no torneio.');
+      return;
+    }
+    if (availablePrizePool <= 0) {
+      toast.error('Prizepool disponível é zero. Registre entradas primeiro.');
+      return;
+    }
+
+    const preview = calculatePayoutAllocations(entryCount, availablePrizePool);
+    if (preview.length === 0) {
+      toast.error('Nenhuma estrutura encontrada para ' + entryCount + ' entradas.');
+      return;
+    }
+
+    setAutoEntryCount(entryCount);
+    setAutoPreview(preview);
+    setShowAutoModal(true);
+  };
+
+  const handleConfirmAutoCalculate = async () => {
+    try {
+      setSaving(true);
+      await api.post(`/tournaments/${tournamentId}/prizes/bulk`, {
+        allocations: autoPreview.map(a => ({
+          position: a.position,
+          prize_amount: a.prize_amount,
+        })),
+      });
+      setShowAutoModal(false);
+      toast.success(`Premiação aplicada! ${autoPreview.length} posições configuradas.`);
+      await loadData();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : 'Erro ao aplicar premiação automática');
     } finally {
       setSaving(false);
     }
@@ -446,13 +500,18 @@ const Premiacao = () => {
                     )}
                   </div>
                 </div>
-                <Button onClick={() => {
-                  setNewPosition(getNextPosition().toString());
-                  setNewAmount('');
-                  setShowAddModal(true);
-                }}>
-                  Adicionar Posição
-                </Button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Button variant="secondary" onClick={handleOpenAutoCalculate}>
+                    ✦ Calcular Automaticamente
+                  </Button>
+                  <Button onClick={() => {
+                    setNewPosition(getNextPosition().toString());
+                    setNewAmount('');
+                    setShowAddModal(true);
+                  }}>
+                    Adicionar Posição
+                  </Button>
+                </div>
               </div>
 
               <div className="allocations-table-container">
@@ -750,6 +809,71 @@ const Premiacao = () => {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── Modal: Auto Calculate ──────────────────────────────────────── */}
+        {showAutoModal && (
+          <div className="modal-overlay" onClick={() => setShowAutoModal(false)}>
+            <div className="modal auto-calc-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Calcular Premiação Automaticamente</h2>
+                <button className="close-btn" onClick={() => setShowAutoModal(false)}>✕</button>
+              </div>
+
+              <div className="auto-calc-summary">
+                <div className="auto-calc-stat">
+                  <span className="auto-calc-label">Entradas detectadas</span>
+                  <span className="auto-calc-value">{autoEntryCount}</span>
+                </div>
+                <div className="auto-calc-stat">
+                  <span className="auto-calc-label">Prizepool disponível</span>
+                  <span className="auto-calc-value">R$ {formatCurrency(availablePrizePool)}</span>
+                </div>
+                <div className="auto-calc-stat">
+                  <span className="auto-calc-label">Posições premiadas</span>
+                  <span className="auto-calc-value">{autoPreview.length}</span>
+                </div>
+              </div>
+
+              {allocations.length > 0 && (
+                <div className="auto-calc-warning">
+                  ⚠ As {allocations.length} posição(ões) existentes serão substituídas.
+                </div>
+              )}
+
+              <div className="auto-calc-table-wrap">
+                <table className="allocations-table">
+                  <thead>
+                    <tr>
+                      <th>Posição</th>
+                      <th>% do Pool</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {autoPreview.map((a) => (
+                      <tr key={a.position}>
+                        <td className="position-cell">
+                          <span className="position-badge rank-other">{getPositionLabel(a.position)}</span>
+                        </td>
+                        <td className="percentage-cell">{a.percentage}%</td>
+                        <td className="amount-cell">R$ {formatCurrency(a.prize_amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="modal-actions">
+                <Button type="button" variant="ghost" onClick={() => setShowAutoModal(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleConfirmAutoCalculate} disabled={saving}>
+                  {saving ? 'Aplicando...' : 'Confirmar e Aplicar'}
+                </Button>
+              </div>
             </div>
           </div>
         )}

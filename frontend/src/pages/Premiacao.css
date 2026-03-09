@@ -968,3 +968,62 @@
   .modal form { padding: 1.25rem; }
   .modal-actions { padding: 0.75rem 1.25rem 1.25rem; }
 }
+
+/* ── Auto Calculate Modal ── */
+.auto-calc-modal {
+  max-width: 560px;
+  width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.auto-calc-summary {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: rgba(212, 175, 55, 0.06);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  flex-shrink: 0;
+}
+
+.auto-calc-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auto-calc-label {
+  font-size: 0.7rem;
+  color: #6b7a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.auto-calc-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #d4af37;
+}
+
+.auto-calc-warning {
+  margin: 0.75rem 1.5rem 0;
+  padding: 0.6rem 0.9rem;
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 6px;
+  color: #fbbf24;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+.auto-calc-table-wrap {
+  overflow-y: auto;
+  flex: 1;
+  margin: 0.75rem 0 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.auto-calc-table-wrap .allocations-table {
+  margin: 0;
+}
