@@ -4,7 +4,7 @@ FROM node:18-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --silent
+RUN npm install --legacy-peer-deps
 
 # Build arguments — injected by docker-compose at build time
 ARG REACT_APP_API_URL
