@@ -14,6 +14,9 @@ const Sidebar = () => {
   const { selectedStage } = useStage();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
   const [openGroups, setOpenGroups] = useState(new Set(['caixa']));
 
   // Handle window resize
@@ -36,6 +39,15 @@ const Sidebar = () => {
       setIsOpen(false);
     }
   }, [location.pathname, isMobile]);
+
+  // Sync collapsed state to document for main-content margin
+  useEffect(() => {
+    if (!isMobile) {
+      document.documentElement.setAttribute('data-sidebar-collapsed', isCollapsed);
+    } else {
+      document.documentElement.removeAttribute('data-sidebar-collapsed');
+    }
+  }, [isCollapsed, isMobile]);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -103,6 +115,12 @@ const Sidebar = () => {
     setIsOpen(!isOpen);
   };
 
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    localStorage.setItem('sidebar-collapsed', String(next));
+  };
+
   return (
     <>
       {/* Mobile Header Bar */}
@@ -132,15 +150,26 @@ const Sidebar = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`sidebar ${isMobile ? 'mobile' : ''} ${isOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${isMobile ? 'mobile' : ''} ${isOpen ? 'open' : ''} ${!isMobile && isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <img src={nextHubLogo} alt="Next Hub" className="sidebar-logo" />
-          {selectedStage && (
+          {selectedStage && !isCollapsed && (
             <div className="selected-stage-sidebar">
               {selectedStage.name}
             </div>
           )}
         </div>
+
+        {/* Collapse toggle button (desktop only) */}
+        {!isMobile && (
+          <button
+            className="sidebar-collapse-btn"
+            onClick={toggleCollapse}
+            title={isCollapsed ? t('sidebar.expand', 'Expandir') : t('sidebar.collapse', 'Recolher')}
+          >
+            <span className={`collapse-arrow ${isCollapsed ? 'rotated' : ''}`}>«</span>
+          </button>
+        )}
 
         <nav className="sidebar-nav">
           {menuItems.map((item, index) => {

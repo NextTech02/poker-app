@@ -334,6 +334,114 @@
 }
 
 /* ================================
+   COLLAPSE TOGGLE BUTTON
+   ================================ */
+
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.4rem 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.sidebar-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.collapse-arrow {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.collapse-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+/* ================================
+   COLLAPSED SIDEBAR (DESKTOP)
+   ================================ */
+
+.sidebar.collapsed {
+  width: 60px;
+}
+
+.sidebar.collapsed .sidebar-header {
+  padding: 0.75rem 0.5rem;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  max-width: 40px;
+}
+
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-arrow,
+.sidebar.collapsed .selected-stage-sidebar {
+  display: none;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 0.6rem 0;
+  border-left: none;
+}
+
+.sidebar.collapsed .nav-item::before {
+  display: none;
+}
+
+.sidebar.collapsed .nav-icon {
+  margin-right: 0;
+}
+
+.sidebar.collapsed .sub-menu {
+  margin-left: 0;
+  border-left: none;
+}
+
+.sidebar.collapsed .sub-menu-item {
+  justify-content: center;
+  padding: 0.5rem 0;
+  border-left: none;
+}
+
+.sidebar.collapsed .sub-menu-item .nav-icon {
+  margin-right: 0;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  align-items: center;
+}
+
+.sidebar.collapsed .logout-btn {
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.sidebar.collapsed .logout-btn .nav-label {
+  display: none;
+}
+
+.sidebar.collapsed .logout-btn .nav-icon {
+  margin-right: 0;
+}
+
+/* Hide language selector when collapsed */
+.sidebar.collapsed .language-selector {
+  display: none;
+}
+
+/* ================================
    MOBILE STYLES
    ================================ */
 
