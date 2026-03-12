@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../config/supabase';
+import { clearCache } from '../utils/apiCache';
 
 const AuthContext = createContext({});
 
@@ -51,6 +52,7 @@ export const AuthProvider = ({ children }) => {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     localStorage.removeItem('supabase_token');
+    clearCache(); // B3: limpa cache ao sair
     return { error };
   };
 

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import '../components/Toast.css';
+import { registerToast } from '../utils/toastEmitter';
 
 const ToastContext = createContext(null);
 
@@ -100,6 +101,11 @@ export const ToastProvider = ({ children }) => {
       });
     });
   }, []);
+
+  // Register toast emitter so api.js interceptor can use it outside React
+  useEffect(() => {
+    registerToast(toastApi);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <ToastContext.Provider value={{ toast: toastApi, confirm }}>

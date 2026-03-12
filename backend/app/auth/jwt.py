@@ -26,20 +26,21 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Verify Supabase JWT token — supports both HS256 (legacy) and ES256/RS256 (new)."""
     token = credentials.credentials
 
-    # Try legacy HS256 first
-    try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            options={"verify_aud": False}
-        )
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
-        return payload
-    except JWTError:
-        pass
+    # Try legacy HS256 first (only when secret is configured)
+    if settings.supabase_jwt_secret:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False}
+            )
+            user_id: str = payload.get("sub")
+            if user_id is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+            return payload
+        except JWTError:
+            pass
 
     # Fall back to asymmetric JWKS verification (ES256 / RS256)
     try:

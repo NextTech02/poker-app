@@ -21,19 +21,19 @@
 .tr-header-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #d4af37 0%, #b8960a 100%);
+  min-width: 48px;
+  background: rgba(34, 197, 94, 0.12);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.35);
 }
 
 .tr-header-icon svg {
   width: 26px;
   height: 26px;
-  color: #fff;
+  color: var(--poker-green, #22c55e);
 }
 
 .tr-title {
@@ -49,27 +49,27 @@
   color: #5a7080;
 }
 
-/* ── New Button ── */
+/* ── New Button — A3: primary = verde, nunca dourado ── */
 .tr-btn-new {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.65rem 1.25rem;
-  background: linear-gradient(135deg, #d4af37 0%, #b8960a 100%);
-  color: #0a0e14;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
   border: none;
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
   white-space: nowrap;
 }
 
 .tr-btn-new:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.45);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.45);
 }
 
 .tr-btn-new:active { transform: translateY(0); }
@@ -163,10 +163,10 @@
     0 0 0 1px rgba(212, 175, 55, 0.15);
 }
 
-/* Accent bar */
+/* Accent bar — dourado suave para elemento decorativo de torneio */
 .tr-card-accent {
-  height: 3px;
-  background: linear-gradient(90deg, #d4af37, #b8960a);
+  height: 2px;
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.7), rgba(184, 150, 10, 0.3));
   width: 100%;
   flex-shrink: 0;
 }
@@ -213,6 +213,30 @@
   text-overflow: ellipsis;
   margin-bottom: 0.35rem;
 }
+
+.tr-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+/* A5: Status badges com cores semânticas */
+.tr-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.tr-status--active  { background: rgba(34,197,94,0.12);  color: #22c55e; }
+.tr-status--pending { background: rgba(234,179,8,0.12);   color: #eab308; }
+.tr-status--done    { background: rgba(100,116,139,0.12); color: #94a3b8; }
+.tr-status--cancelled { background: rgba(239,68,68,0.12); color: #ef4444; }
 
 .tr-badge-qualifying {
   display: inline-flex;
@@ -283,21 +307,28 @@
 
 .tr-btn-delete:hover { background: rgba(239, 68, 68, 0.18); }
 
+/* ISSUE-007 fix: was pointer-events:none and wrong color */
 .tr-card-cta {
   display: flex;
   align-items: center;
   gap: 0.25rem;
   margin-left: auto;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: #2a3d50;
+  color: var(--poker-green, #22c55e);
   white-space: nowrap;
-  transition: color 0.2s;
-  pointer-events: none;
+  text-decoration: none;
+  transition: color 0.2s, text-decoration 0.2s;
+  cursor: pointer;
+}
+
+.tr-card-cta:hover {
+  color: #86efac;
+  text-decoration: underline;
 }
 
 .tr-card:hover .tr-card-cta {
-  color: #d4af37;
+  color: #22c55e;
 }
 
 /* ── Modal ── */
@@ -526,25 +557,55 @@
   color: #e0eaf4;
 }
 
+/* A3: submit = verde, não dourado */
 .tr-btn-submit {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   padding: 0.65rem 1.4rem;
-  background: linear-gradient(135deg, #d4af37 0%, #b8960a 100%);
-  color: #0a0e14;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
   border: none;
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.25);
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.25);
 }
 
 .tr-btn-submit:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(212, 175, 55, 0.4);
+  box-shadow: 0 6px 18px rgba(34, 197, 94, 0.4);
+}
+
+.tr-btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── A7: Inline form error ── */
+.tr-form-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #fca5a5;
+  padding: 0.65rem 0.875rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+/* A7: Spinner animation */
+@keyframes tr-spin {
+  to { transform: rotate(360deg); }
+}
+
+.tr-spinner {
+  animation: tr-spin 0.8s linear infinite;
 }
 
 /* ── Responsive ── */

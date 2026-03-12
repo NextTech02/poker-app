@@ -72,18 +72,18 @@
   box-shadow: var(--shadow-xs), 0 0 0 1px var(--poker-green-700);
 }
 
-/* Secondary Button - Subtle & Professional */
+/* Secondary Button — outline/ghost, claramente distinto do primary */
 .btn-secondary {
-  background-color: var(--surface-elevated);
-  color: var(--text-primary);
-  border: 1px solid var(--border-light);
-  box-shadow: var(--shadow-xs);
+  background-color: transparent;
+  color: var(--text-secondary, #8899aa);
+  border: 1px solid var(--border-light, #3a4452);
+  box-shadow: none;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--card-bg-hover);
-  border-color: var(--border-lighter);
-  box-shadow: var(--shadow-sm);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #ffffff);
+  border-color: var(--border-lighter, #4a5568);
   transform: translateY(-1px);
 }
 

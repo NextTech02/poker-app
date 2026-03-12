@@ -11,7 +11,9 @@
   color: #ffffff;
 }
 
-.app-container {
+/* app-container and app-layout are aliases — same flex layout */
+.app-container,
+.app-layout {
   display: flex;
   min-height: 100vh;
 }
@@ -44,6 +46,37 @@
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+/* ================================
+   GLOBAL STAT CARD — usado em Caixa, Relatorios
+   ================================ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card .card-body {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.stat-card .stat-info h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary, #fff);
+  margin: 0 0 0.2rem;
+}
+
+.stat-card .stat-info p {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #8899aa);
+  margin: 0;
+  font-weight: 500;
 }
 
 /* ================================

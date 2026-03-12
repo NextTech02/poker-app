@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import Breadcrumb from '../components/Breadcrumb';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './BlindManagement.css';
@@ -298,6 +299,12 @@ const BlindManagement = () => {
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
+        {/* A6.4: Breadcrumb */}
+        <Breadcrumb items={[
+          { label: 'Início', to: '/' },
+          { label: 'Torneios', to: '/torneios' },
+          { label: t('blinds.title') },
+        ]} />
         <div className="page-header">
           <div>
             <h1>{t('blinds.title')}</h1>

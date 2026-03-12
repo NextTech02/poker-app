@@ -1,0 +1,34 @@
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
+}
+
+.breadcrumb-link {
+  color: var(--text-secondary, #8899aa);
+  text-decoration: none;
+  transition: color 0.15s;
+  font-weight: 500;
+}
+
+.breadcrumb-link:hover {
+  color: var(--poker-green, #22c55e);
+}
+
+.breadcrumb-sep {
+  color: var(--text-tertiary, #4a5568);
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+.breadcrumb-current {
+  color: var(--text-primary, #ffffff);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}

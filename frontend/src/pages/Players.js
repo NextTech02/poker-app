@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
+import { SkeletonPlayersTable } from '../components/SkeletonLoader';
 import api from '../config/api';
+import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { useToast } from '../contexts/ToastContext';
 import countries from '../data/countries';
 import './Players.css';
@@ -31,6 +33,8 @@ const Players = () => {
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     loadPlayers();
@@ -39,9 +43,15 @@ const Players = () => {
 
   const loadPlayers = async () => {
     try {
-      const params = searchTerm ? { search: searchTerm } : {};
-      const response = await api.get('/players', { params });
-      setPlayers(response.data);
+      // B3: cache 60s para lista sem filtro; busca não usa cache (query dinâmica)
+      let data;
+      if (searchTerm) {
+        const res = await api.get('/players', { params: { search: searchTerm } });
+        data = res.data;
+      } else {
+        data = await cachedGet(api, '/players', 60000);
+      }
+      setPlayers(data);
     } catch (error) {
       console.error('Erro ao carregar jogadores:', error);
     } finally {
@@ -51,6 +61,8 @@ const Players = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
+    setSubmitting(true);
     try {
       if (editingPlayer) {
         await api.patch(`/players/${editingPlayer.id}`, formData);
@@ -59,14 +71,16 @@ const Players = () => {
         await api.post('/players', formData);
         toast.success('Jogador cadastrado com sucesso!');
       }
+      invalidateCache('/players'); // B3: invalida cache após mutação
       setShowModal(false);
       setEditingPlayer(null);
       setFormData(EMPTY_FORM);
       loadPlayers();
     } catch (error) {
-      console.error('Erro ao salvar jogador:', error);
-      const msg = error.response?.data?.detail || 'Erro ao salvar jogador';
-      toast.error(typeof msg === 'string' ? msg : 'Erro ao salvar jogador');
+      const msg = error.userMessage || error.response?.data?.detail || 'Erro ao salvar jogador';
+      setFormError(typeof msg === 'string' ? msg : 'Erro ao salvar jogador');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -82,8 +96,15 @@ const Players = () => {
       nickname: player.nickname || '',
       notes: player.notes || '',
     });
+    setFormError('');
     setShowModal(true);
   };
+
+  // B5: useMemo evita re-computar a lista inteira em cada render
+  const sortedPlayers = useMemo(
+    () => [...players].sort((a, b) => a.name.localeCompare(b.name)),
+    [players]
+  );
 
   const handleDelete = async (playerId) => {
     const ok = await confirm('Tem certeza que deseja excluir este jogador?', {
@@ -104,6 +125,7 @@ const Players = () => {
   const openNewModal = () => {
     setEditingPlayer(null);
     setFormData(EMPTY_FORM);
+    setFormError('');
     setShowModal(true);
   };
 
@@ -121,15 +143,15 @@ const Players = () => {
               </svg>
             </div>
             <div>
-              <h1 className="pl-title">Jogadores</h1>
-              <p className="pl-subtitle">Gerencie o cadastro de jogadores</p>
+              <h1 className="pl-title">{t('players.title')}</h1>
+              <p className="pl-subtitle">{t('players.subtitle')}</p>
             </div>
           </div>
           <button className="pl-btn-new" onClick={openNewModal}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
-            Novo Jogador
+            {t('players.newPlayer')}
           </button>
         </div>
 
@@ -141,7 +163,7 @@ const Players = () => {
           <input
             type="text"
             className="pl-search-input"
-            placeholder="Buscar por nome, apelido ou email..."
+            placeholder={t('players.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -156,7 +178,7 @@ const Players = () => {
 
         {/* ── Content ── */}
         {loading ? (
-          <div className="pl-loading">Carregando jogadores...</div>
+          <SkeletonPlayersTable rows={6} />
         ) : players.length === 0 ? (
           <div className="pl-empty">
             <div className="pl-empty-icon">
@@ -164,14 +186,14 @@ const Players = () => {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
               </svg>
             </div>
-            <h3>{searchTerm ? 'Nenhum jogador encontrado' : 'Nenhum jogador cadastrado'}</h3>
-            <p>{searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Comece cadastrando o primeiro jogador'}</p>
+            <h3>{searchTerm ? t('players.noResults') : t('players.noPlayers')}</h3>
+            <p>{searchTerm ? `${t('players.noResultsHint')} "${searchTerm}"` : t('players.noPlayersHint')}</p>
             {!searchTerm && (
               <button className="pl-btn-new" onClick={openNewModal}>
                 <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
                   <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                 </svg>
-                Cadastrar Jogador
+                {t('players.register')}
               </button>
             )}
           </div>
@@ -179,23 +201,28 @@ const Players = () => {
           <div className="pl-table-card">
             <div className="pl-table-header">
               <span className="pl-table-count">
-                <strong>{players.length}</strong> jogador{players.length !== 1 ? 'es' : ''}
-                {searchTerm && <span className="pl-count-filter"> encontrados</span>}
+                <strong>{players.length}</strong>{' '}
+                {players.length === 1 ? t('players.countSingular', 'jogador') : t('players.countPlural', 'jogadores')}
+                {searchTerm && (
+                  <span className="pl-count-filter">
+                    {' '}{players.length !== 1 ? t('common.found_plural', 'encontrados') : t('common.found_singular', 'encontrado')}
+                  </span>
+                )}
               </span>
             </div>
             <div className="pl-table-wrap">
               <table className="pl-table">
                 <thead>
                   <tr>
-                    <th>Jogador</th>
-                    <th>Contato</th>
-                    <th>Nacionalidade</th>
-                    <th>Documento</th>
-                    <th className="pl-th-actions">Ações</th>
+                    <th>{t('players.columnPlayer')}</th>
+                    <th>{t('players.columnContact')}</th>
+                    <th>{t('players.columnNationality')}</th>
+                    <th>{t('players.columnDocument')}</th>
+                    <th className="pl-th-actions">{t('players.columnActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {players.map((player) => {
+                  {sortedPlayers.map((player) => {
                     const initials = getInitials(player.name);
                     const docLabel = DOC_TYPE_LABELS[player.document_type] || player.document_type || '';
                     return (
@@ -251,22 +278,22 @@ const Players = () => {
                             <button
                               className="pl-btn-icon pl-btn-edit"
                               onClick={() => handleEdit(player)}
-                              title="Editar jogador"
+                              title={t('players.editPlayer')}
                             >
                               <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
                                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                               </svg>
-                              Editar
+                              {t('common.edit', 'Editar')}
                             </button>
                             <button
                               className="pl-btn-icon pl-btn-delete"
                               onClick={() => handleDelete(player.id)}
-                              title="Excluir jogador"
+                              title={t('players.deletePlayer')}
                             >
                               <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
                                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                               </svg>
-                              Excluir
+                              {t('common.delete', 'Excluir')}
                             </button>
                           </div>
                         </td>
@@ -390,19 +417,42 @@ const Players = () => {
                   />
                 </div>
 
+                {/* A7: Erro inline acima dos botões */}
+                {formError && (
+                  <div className="pl-form-error">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    {formError}
+                  </div>
+                )}
+
                 <div className="pl-modal-footer">
                   <button
                     type="button"
                     className="pl-btn-cancel"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => { setShowModal(false); setFormError(''); }}
+                    disabled={submitting}
                   >
                     Cancelar
                   </button>
-                  <button type="submit" className="pl-btn-submit">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                    {editingPlayer ? 'Atualizar' : 'Cadastrar'}
+                  {/* A7: Spinner durante submit */}
+                  <button type="submit" className="pl-btn-submit" disabled={submitting}>
+                    {submitting ? (
+                      <>
+                        <svg className="pl-spinner" viewBox="0 0 24 24" fill="none" width="16" height="16">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
+                        </svg>
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                        {editingPlayer ? 'Atualizar' : 'Cadastrar'}
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

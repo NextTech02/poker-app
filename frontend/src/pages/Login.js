@@ -37,8 +37,7 @@ const Login = () => {
       </div>
       <div className="login-card">
         <div className="login-header">
-          <h1>{t('login.title')}</h1>
-          <p>{t('login.subtitle')}</p>
+          <h1>Royal Management</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

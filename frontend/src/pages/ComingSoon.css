@@ -1,0 +1,63 @@
+.cs-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+}
+
+.cs-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--color-card, #1e2430);
+  border: 1px solid var(--color-border, #2d3748);
+  border-radius: 16px;
+  padding: 3rem 4rem;
+  max-width: 480px;
+  width: 100%;
+}
+
+.cs-icon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  filter: grayscale(0.2);
+}
+
+.cs-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text, #ffffff);
+  margin: 0 0 0.75rem;
+}
+
+.cs-subtitle {
+  font-size: 1rem;
+  color: var(--color-text-muted, #8899aa);
+  line-height: 1.6;
+  margin: 0 0 2rem;
+}
+
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-primary, #22c55e);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.cs-btn:hover {
+  background: var(--color-primary-hover, #16a34a);
+  transform: translateY(-1px);
+}
+
+.cs-btn:active {
+  transform: translateY(0);
+}

@@ -8,7 +8,7 @@ const languages = [
   { code: 'es-ES', name: 'Español', flag: '🇪🇸' }
 ];
 
-const LanguageSelector = () => {
+const LanguageSelector = ({ dropDirection = 'down' }) => {
   const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -48,7 +48,7 @@ const LanguageSelector = () => {
       </button>
 
       {isOpen && (
-        <ul className="language-dropdown" role="listbox">
+        <ul className={`language-dropdown ${dropDirection === 'up' ? 'language-dropdown--up' : ''}`} role="listbox">
           {languages.map((lang) => (
             <li
               key={lang.code}

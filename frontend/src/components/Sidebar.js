@@ -70,7 +70,7 @@ const Sidebar = () => {
     { path: '/jogadores', labelKey: 'sidebar.players', icon: 'users' },
     { path: '/imprensa', labelKey: 'sidebar.press', icon: 'newspaper' },
     { path: '/templates', labelKey: 'sidebar.templates', icon: 'file-text' },
-    { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'badge' },
+    { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge' },
     { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document' },
   ];
 
@@ -94,6 +94,8 @@ const Sidebar = () => {
   };
 
   const isPathActive = (path) => {
+    // A6.3: home item (/home) também ativa quando estamos em /
+    if (path === '/home' && location.pathname === '/') return true;
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
@@ -189,7 +191,7 @@ const Sidebar = () => {
         </nav>
 
         <div className="sidebar-footer">
-          <LanguageSelector />
+          <LanguageSelector dropDirection="up" />
           <button onClick={handleLogout} className="logout-btn">
             <span className="nav-icon">logout</span>
             <span className="nav-label">{t('sidebar.logout')}</span>

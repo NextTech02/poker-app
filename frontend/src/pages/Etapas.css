@@ -1,3 +1,70 @@
+/* ── Etapas page header ── */
+.et-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.et-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.et-header-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.et-header-icon svg {
+  width: 26px;
+  height: 26px;
+  color: var(--poker-green, #22c55e);
+}
+
+.et-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary, #fff);
+  margin: 0 0 0.15rem;
+}
+
+.et-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8899aa);
+  margin: 0;
+}
+
+.et-btn-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--poker-green, #22c55e);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.et-btn-new:hover {
+  background: var(--poker-green-light, #16a34a);
+  transform: translateY(-1px);
+}
+
 /* Table Container */
 .stages-table-container {
   margin-top: 1.5rem;

@@ -1,0 +1,66 @@
+.empty-state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--color-card, #1e2430);
+  border: 1px solid var(--color-border, #2d3748);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  width: 100%;
+}
+
+.es-icon {
+  font-size: 3rem;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.es-icon svg {
+  width: 48px;
+  height: 48px;
+  color: var(--color-text-muted, #8899aa);
+}
+
+.es-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text, #ffffff);
+  margin: 0 0 0.5rem;
+}
+
+.es-subtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted, #8899aa);
+  margin: 0 0 1.5rem;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.es-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-primary, #22c55e);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.es-cta:hover {
+  background: var(--color-primary-hover, #16a34a);
+  transform: translateY(-1px);
+}
+
+.es-cta:active {
+  transform: translateY(0);
+}

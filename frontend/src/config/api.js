@@ -1,5 +1,7 @@
 import axios from 'axios';
+import i18n from 'i18next';
 import { getSelectedStageId } from '../utils/stageUtils';
+import { emitToastError } from '../utils/toastEmitter';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -17,7 +19,6 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // Add selected stage ID to headers if one is selected
   const stageId = getSelectedStageId();
   if (stageId) {
     config.headers['X-Stage-ID'] = stageId;
@@ -25,5 +26,30 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+// Global response error interceptor (B2.1)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const detail = error?.response?.data?.detail;
+    const msg =
+      (typeof detail === 'string' ? detail : null) ||
+      error?.message ||
+      'Erro desconhecido';
+
+    console.error('[API Error]', {
+      status: error?.response?.status,
+      url: error?.config?.url,
+      message: msg,
+    });
+
+    // Auto-toast for 5xx server errors
+    if (error?.response?.status >= 500) {
+      emitToastError(i18n.t('errors.serverError', 'Erro interno do servidor. Tente novamente em instantes.'));
+    }
+
+    return Promise.reject({ ...error, userMessage: msg });
+  }
+);
 
 export default api;

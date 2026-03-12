@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import Breadcrumb from '../components/Breadcrumb';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './TournamentDetail.css';
@@ -471,6 +472,13 @@ const TournamentDetail = () => {
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
+        {/* A6.4: Breadcrumb */}
+        <Breadcrumb items={[
+          { label: 'Início', to: '/' },
+          { label: 'Torneios', to: '/torneios' },
+          { label: tournament.name },
+        ]} />
+
         <div className="page-header">
           <div>
             <h1>{tournament.name}</h1>

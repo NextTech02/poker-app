@@ -108,6 +108,7 @@ class TournamentSummary(BaseModel):
     name: str
     stage_id: Optional[str] = None
     has_qualifying: bool = False
+    status: Optional[str] = "pending"  # A2: campo incluído para exibição de badges no frontend
     total_entries: int = 0  # Aggregated from all days (buy-ins + rebuys)
     total_days: int = 0  # Number of tournament days
     created_by: str

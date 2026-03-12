@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
+import Breadcrumb from '../components/Breadcrumb';
 import PrizeVoucher from '../components/PrizeVoucher';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
@@ -367,6 +368,12 @@ const Premiacao = () => {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
+        {/* A6.4: Breadcrumb */}
+        <Breadcrumb items={[
+          { label: 'Início', to: '/' },
+          { label: 'Torneios', to: '/torneios' },
+          { label: 'Premiação' },
+        ]} />
         <div className="premiacao-header">
           <Button variant="ghost" onClick={() => navigate(-1)}>
             <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 16, height: 16, flexShrink: 0 }}>

@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
-import Card from '../components/Card';
 import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
+import { SkeletonTableRow } from '../components/SkeletonLoader';
 import { useStage } from '../contexts/StageContext';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
@@ -44,11 +45,21 @@ const Etapas = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // ISSUE-001 fix: backend expects null for empty optional date fields,
+    // not empty strings — otherwise FastAPI returns 422.
+    const payload = {
+      ...formData,
+      start_date: formData.start_date || null,
+      end_date: formData.end_date || null,
+      description: formData.description || null,
+    };
     try {
       if (editingStage) {
-        await api.patch(`/stages/${editingStage.id}`, formData);
+        await api.patch(`/stages/${editingStage.id}`, payload);
+        toast.success('Etapa atualizada com sucesso!');
       } else {
-        await api.post('/stages', formData);
+        await api.post('/stages', payload);
+        toast.success('Etapa criada com sucesso!');
       }
       setShowModal(false);
       setEditingStage(null);
@@ -62,9 +73,11 @@ const Etapas = () => {
       });
       loadStages();
     } catch (error) {
-      console.error('Erro ao salvar etapa:', error);
-      const errorMessage = error.response?.data?.detail || 'Erro ao salvar etapa';
-      toast.error(typeof errorMessage === 'string' ? errorMessage : 'Erro ao salvar etapa');
+      const msg =
+        error.userMessage ||
+        error.response?.data?.detail ||
+        'Erro ao salvar etapa';
+      toast.error(typeof msg === 'string' ? msg : 'Erro ao salvar etapa');
     }
   };
 
@@ -116,10 +129,10 @@ const Etapas = () => {
 
   const getStatusBadge = (status) => {
     const badges = {
-      upcoming: { label: 'Próxima', className: 'badge-info' },
-      active: { label: 'Em Andamento', className: 'badge-success' },
-      completed: { label: 'Concluída', className: 'badge-secondary' },
-      cancelled: { label: 'Cancelada', className: 'badge-danger' },
+      upcoming: { label: t('stages.statusUpcoming', 'Próxima'), className: 'badge-info' },
+      active: { label: t('stages.statusActive', 'Em Andamento'), className: 'badge-success' },
+      completed: { label: t('stages.statusCompleted', 'Concluída'), className: 'badge-secondary' },
+      cancelled: { label: t('stages.statusCancelled', 'Cancelada'), className: 'badge-danger' },
     };
     const badge = badges[status] || badges.upcoming;
     return <span className={`badge ${badge.className}`}>{badge.label}</span>;
@@ -142,21 +155,57 @@ const Etapas = () => {
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
-        <div className="page-header">
-          <Button onClick={openNewModal}>
-            {t('stages.newStage')}
-          </Button>
+
+        {/* ── Page Header ── */}
+        <div className="et-header">
+          <div className="et-header-left">
+            <div className="et-header-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+              </svg>
+            </div>
+            <div>
+              <h1 className="et-title">{t('stages.title', 'Etapas')}</h1>
+              <p className="et-subtitle">{t('stages.subtitle', 'Gerenciar etapas do circuito')}</p>
+            </div>
+          </div>
+          <button className="et-btn-new" onClick={openNewModal}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            {t('stages.newStage', 'Nova Etapa')}
+          </button>
         </div>
 
         {loading ? (
-          <div className="loading">Carregando etapas...</div>
+          /* B1: Skeleton table em vez de texto */
+          <div className="stages-table-container">
+            <table className="stages-table">
+              <thead>
+                <tr>
+                  <th>Status</th><th>Nome da Etapa</th><th>Local</th>
+                  <th>Data Início</th><th>Data Fim</th><th>Torneios</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <SkeletonTableRow cols={7} />
+                <SkeletonTableRow cols={7} />
+                <SkeletonTableRow cols={7} />
+              </tbody>
+            </table>
+          </div>
         ) : stages.length === 0 ? (
-          <Card>
-            <div className="empty-state">
-              <p>{t('stages.noStages')}</p>
-              <Button onClick={openNewModal}>{t('stages.newStage')}</Button>
-            </div>
-          </Card>
+          <EmptyState
+            icon={
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+              </svg>
+            }
+            title={t('stages.noStages', 'Nenhuma etapa encontrada')}
+            subtitle="Crie a primeira etapa do circuito para começar a organizar seus torneios."
+            ctaLabel={t('stages.newStage', 'Nova Etapa')}
+            onCta={openNewModal}
+          />
         ) : (
           <>
             {/* Desktop Table View */}
@@ -164,13 +213,13 @@ const Etapas = () => {
               <table className="stages-table">
                 <thead>
                   <tr>
-                    <th>Status</th>
-                    <th>Nome da Etapa</th>
-                    <th>Local</th>
-                    <th>Data Início</th>
-                    <th>Data Fim</th>
-                    <th>Torneios</th>
-                    <th>Ações</th>
+                    <th>{t('stages.columnStatus')}</th>
+                    <th>{t('stages.columnName')}</th>
+                    <th>{t('stages.columnLocation')}</th>
+                    <th>{t('stages.columnStart')}</th>
+                    <th>{t('stages.columnEnd')}</th>
+                    <th>{t('stages.columnTournaments')}</th>
+                    <th>{t('stages.columnActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -314,7 +363,7 @@ const Etapas = () => {
               </div>
               <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                  <label htmlFor="name">Nome da Etapa *</label>
+                  <label htmlFor="name">{t('stages.stageName')} *</label>
                   <input
                     id="name"
                     name="name"
@@ -322,12 +371,12 @@ const Etapas = () => {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    placeholder="Ex: Etapa Bogotá"
+                    placeholder={t('stages.namePlaceholder')}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="location">Local *</label>
+                  <label htmlFor="location">{t('stages.location')} *</label>
                   <input
                     id="location"
                     name="location"
@@ -335,7 +384,7 @@ const Etapas = () => {
                     value={formData.location}
                     onChange={handleChange}
                     required
-                    placeholder="Ex: Bogotá, Colômbia"
+                    placeholder={t('stages.locationPlaceholder')}
                   />
                 </div>
 
@@ -372,22 +421,22 @@ const Etapas = () => {
                     onChange={handleChange}
                     required
                   >
-                    <option value="upcoming">Próxima</option>
-                    <option value="active">Em Andamento</option>
-                    <option value="completed">Concluída</option>
-                    <option value="cancelled">Cancelada</option>
+                    <option value="upcoming">{t('stages.statusUpcoming')}</option>
+                    <option value="active">{t('stages.statusActive')}</option>
+                    <option value="completed">{t('stages.statusCompleted')}</option>
+                    <option value="cancelled">{t('stages.statusCancelled')}</option>
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="description">Descrição</label>
+                  <label htmlFor="description">{t('stages.descriptionLabel')}</label>
                   <textarea
                     id="description"
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
                     rows="3"
-                    placeholder="Descrição da etapa (opcional)..."
+                    placeholder={t('stages.descriptionPlaceholder')}
                   />
                 </div>
 

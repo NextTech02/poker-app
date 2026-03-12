@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
+import Breadcrumb from '../components/Breadcrumb';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './TournamentRankings.css';
@@ -95,6 +96,13 @@ const TournamentRankings = () => {
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
+        {/* A6.4: Breadcrumb */}
+        <Breadcrumb items={[
+          { label: 'Início', to: '/' },
+          { label: 'Torneios', to: '/torneios' },
+          { label: tournament?.name || 'Torneio', to: `/torneios/${tournament?.id}` },
+          { label: 'Ranking' },
+        ]} />
         <div className="page-header">
           <div>
             <h1>Ranking do Torneio</h1>

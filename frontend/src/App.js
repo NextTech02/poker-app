@@ -1,30 +1,42 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StageProvider } from './contexts/StageContext';
 import { ToastProvider } from './contexts/ToastContext';
-import SelectedStageBar from './components/SelectedStageBar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
 import Torneios from './pages/Torneios';
-import TournamentBroadcast from './pages/TournamentBroadcast';
-import TournamentDetail from './pages/TournamentDetail';
-import ManualAllocation from './pages/ManualAllocation';
-import TableManagement from './pages/TableManagement';
-import TournamentRankings from './pages/TournamentRankings';
-import BlindManagement from './pages/BlindManagement';
-import Premiacao from './pages/Premiacao';
-import PremiacaoSelector from './pages/PremiacaoSelector';
-import TournamentDayForm from './pages/TournamentDayForm';
-import BroadcastSettings from './pages/BroadcastSettings';
-import TournamentDayStats from './pages/TournamentDayStats';
-import TournamentControl from './pages/TournamentControl';
 import Players from './pages/Players';
 import Caixa from './pages/Caixa';
-import CaixaGeral from './pages/CaixaGeral';
-import Relatorios from './pages/Relatorios';
+import ComingSoon from './pages/ComingSoon';
+import ErrorBoundary from './components/ErrorBoundary';
 import './styles/App.css';
+import './components/SkeletonLoader.css';
+
+// Lazy-load less-frequented pages (B4)
+const TournamentBroadcast = lazy(() => import('./pages/TournamentBroadcast'));
+const TournamentDetail = lazy(() => import('./pages/TournamentDetail'));
+const ManualAllocation = lazy(() => import('./pages/ManualAllocation'));
+const TableManagement = lazy(() => import('./pages/TableManagement'));
+const TournamentRankings = lazy(() => import('./pages/TournamentRankings'));
+const BlindManagement = lazy(() => import('./pages/BlindManagement'));
+const Premiacao = lazy(() => import('./pages/Premiacao'));
+const PremiacaoSelector = lazy(() => import('./pages/PremiacaoSelector'));
+const TournamentDayForm = lazy(() => import('./pages/TournamentDayForm'));
+const BroadcastSettings = lazy(() => import('./pages/BroadcastSettings'));
+const TournamentDayStats = lazy(() => import('./pages/TournamentDayStats'));
+const TournamentControl = lazy(() => import('./pages/TournamentControl'));
+const CaixaGeral = lazy(() => import('./pages/CaixaGeral'));
+const Relatorios = lazy(() => import('./pages/Relatorios'));
+
+const PageFallback = () => (
+  <div className="page-loading-skeleton">
+    <div className="skeleton-bar skeleton-bar--wide" />
+    <div className="skeleton-bar skeleton-bar--medium" />
+    <div className="skeleton-bar skeleton-bar--narrow" />
+  </div>
+);
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -37,10 +49,8 @@ const PrivateRoute = ({ children }) => {
 };
 
 function AppRoutes() {
-  const { user } = useAuth();
-
   return (
-    <>
+    <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
       <Route
@@ -207,64 +217,22 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      <Route
-        path="/sit-and-go"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/vagas"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/rankings"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/financeiro"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/imprensa"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/templates"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/funcionarios"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
+      {/* Placeholder routes — show ComingSoon instead of silent redirect (ISSUE-003) */}
+      {['/sit-and-go', '/vagas', '/rankings', '/financeiro', '/imprensa', '/templates', '/funcionarios', '/eliminacao'].map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <PrivateRoute>
+              <ComingSoon />
+            </PrivateRoute>
+          }
+        />
+      ))}
+      {/* Catch-all 404 — redirect unknown routes to dashboard */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-    </>
+    </Suspense>
   );
 }
 
@@ -274,7 +242,10 @@ function App() {
       <AuthProvider>
         <StageProvider>
           <ToastProvider>
-            <AppRoutes />
+            {/* B2.2: ErrorBoundary global envolve toda a aplicação */}
+            <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
+              <AppRoutes />
+            </ErrorBoundary>
           </ToastProvider>
         </StageProvider>
       </AuthProvider>
