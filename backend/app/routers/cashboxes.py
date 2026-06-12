@@ -1,0 +1,167 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List, Optional
+from app.models.cashbox import (
+    CashboxResponse,
+    CashboxCreate,
+    CashboxOpen,
+    CashboxClose,
+    CashboxSupply,
+    CashboxSangria,
+    CashboxSessionResponse,
+    CashboxTransactionResponse,
+    CashboxSummary,
+    CashboxAggregatedSummary,
+    CashboxDemonstrativo,
+)
+from app.services.cashbox_service import CashboxService
+from app.auth.jwt import get_current_user
+from app.dependencies import get_stage_id_optional
+
+router = APIRouter(prefix="/cashboxes", tags=["cashboxes"])
+
+
+def _auth_user_id(user: dict) -> str:
+    return user.get("sub") or user.get("id")
+
+
+# ── Read ──
+
+@router.get("", response_model=List[CashboxResponse])
+def list_cashboxes(
+    status: Optional[str] = Query(None),
+    stage_id: str = Depends(get_stage_id_optional),
+    user=Depends(get_current_user),
+):
+    return CashboxService.list_cashboxes(_auth_user_id(user), stage_id=stage_id, status=status)
+
+
+@router.post("", response_model=CashboxResponse)
+def create_cashbox(
+    data: CashboxCreate,
+    stage_id: str = Depends(get_stage_id_optional),
+    user=Depends(get_current_user),
+):
+    if not CashboxService.can_admin(_auth_user_id(user)):
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    try:
+        return CashboxService.create_for_staff(data.staff_id, stage_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/me/current", response_model=Optional[CashboxResponse])
+def get_my_current(
+    stage_id: str = Depends(get_stage_id_optional),
+    user=Depends(get_current_user),
+):
+    if not stage_id:
+        raise HTTPException(status_code=400, detail="Selecione uma etapa")
+    return CashboxService.get_my_current(_auth_user_id(user), stage_id)
+
+
+@router.get("/aggregated", response_model=CashboxAggregatedSummary)
+def get_aggregated_summary(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    stage_id: str = Depends(get_stage_id_optional),
+    user=Depends(get_current_user),
+):
+    if not CashboxService.can_admin(_auth_user_id(user)):
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    return CashboxService.get_aggregated_summary(stage_id=stage_id, date_from=date_from, date_to=date_to)
+
+
+@router.get("/demonstrativo", response_model=CashboxDemonstrativo)
+def get_demonstrativo(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    staff_id: Optional[str] = Query(None),
+    stage_id: str = Depends(get_stage_id_optional),
+    user=Depends(get_current_user),
+):
+    if not CashboxService.can_admin(_auth_user_id(user)):
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    return CashboxService.get_demonstrativo(
+        stage_id=stage_id, date_from=date_from, date_to=date_to, staff_id=staff_id
+    )
+
+
+@router.get("/{cashbox_id}", response_model=CashboxResponse)
+def get_cashbox(cashbox_id: str, user=Depends(get_current_user)):
+    cb = CashboxService.get_cashbox(cashbox_id)
+    if not cb:
+        raise HTTPException(status_code=404, detail="Caixa não encontrado")
+    return cb
+
+
+@router.get("/{cashbox_id}/sessions", response_model=List[CashboxSessionResponse])
+def list_sessions(cashbox_id: str, user=Depends(get_current_user)):
+    return CashboxService.list_sessions(cashbox_id)
+
+
+@router.get("/{cashbox_id}/transactions", response_model=List[CashboxTransactionResponse])
+def list_transactions(
+    cashbox_id: str,
+    session_id: Optional[str] = Query(None),
+    user=Depends(get_current_user),
+):
+    return CashboxService.list_transactions(cashbox_id, session_id=session_id)
+
+
+@router.get("/{cashbox_id}/summary", response_model=CashboxSummary)
+def get_summary(
+    cashbox_id: str,
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    user=Depends(get_current_user),
+):
+    try:
+        return CashboxService.get_summary(cashbox_id, date_from=date_from, date_to=date_to)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+# ── Sessions ──
+
+@router.post("/{cashbox_id}/open", response_model=CashboxSessionResponse)
+def open_cashbox(cashbox_id: str, data: CashboxOpen, user=Depends(get_current_user)):
+    try:
+        return CashboxService.open_session(
+            cashbox_id,
+            _auth_user_id(user),
+            data.initial_balance,
+            data.notes,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{cashbox_id}/close", response_model=CashboxSessionResponse)
+def close_cashbox(cashbox_id: str, data: CashboxClose, user=Depends(get_current_user)):
+    try:
+        return CashboxService.close_session(
+            cashbox_id,
+            _auth_user_id(user),
+            data.actual_final_balance,
+            data.notes,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── Admin movements ──
+
+@router.post("/{cashbox_id}/supply", response_model=CashboxTransactionResponse)
+def register_supply(cashbox_id: str, data: CashboxSupply, user=Depends(get_current_user)):
+    try:
+        return CashboxService.register_supply(cashbox_id, _auth_user_id(user), data.amount, data.notes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{cashbox_id}/sangria", response_model=CashboxTransactionResponse)
+def register_sangria(cashbox_id: str, data: CashboxSangria, user=Depends(get_current_user)):
+    try:
+        return CashboxService.register_sangria(cashbox_id, _auth_user_id(user), data.amount, data.notes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

@@ -30,6 +30,8 @@ class TournamentPlayerCreate(BaseModel):
     tournament_day_id: Optional[str] = None  # Required for day-based tournaments
     player_id: str
     buy_in_count: int = Field(default=1, ge=1)
+    payment_source: Optional[str] = Field(default="cash", description="cash, credit, mixed, or ticket")
+    ticket_id: Optional[str] = Field(default=None, description="Satellite ticket ID for ticket payment")
     notes: Optional[str] = None
 
 

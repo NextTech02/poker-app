@@ -35,7 +35,10 @@ def create_transaction(
                 detail="Cannot create transaction: tournament does not belong to the selected stage"
             )
 
-    return TransactionService.create_transaction(transaction, user_id)
+    try:
+        return TransactionService.create_transaction(transaction, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("", response_model=List[TransactionDetail])

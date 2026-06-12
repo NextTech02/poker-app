@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from decimal import Decimal
 from pydantic import BaseModel
@@ -20,6 +20,15 @@ router = APIRouter(prefix="/tournaments", tags=["Prize Allocations"])
 
 class GuaranteedPrizeUpdate(BaseModel):
     guaranteed_prize: Decimal
+
+
+class ReleaseUpdate(BaseModel):
+    released: bool = True
+
+
+class ReservedPrizeUpdate(BaseModel):
+    reserved_prize_percentage: Decimal
+    reserved_purpose: Optional[str] = None  # 'ranking' | 'staff' | None
 
 
 @router.get("/{tournament_id}/prizes/summary", response_model=PrizeSummary)
@@ -95,6 +104,15 @@ def delete_prize_allocation(
     return None
 
 
+@router.get("/{tournament_id}/prizes/pool")
+def get_prize_pool(
+    tournament_id: UUID,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get prize pool breakdown for a tournament"""
+    return PrizeAllocationService.get_tournament_prize_pool(tournament_id)
+
+
 @router.post("/{tournament_id}/prizes/{allocation_id}/pay", response_model=PrizeAllocationResponse)
 def pay_prize(
     tournament_id: UUID,
@@ -103,12 +121,15 @@ def pay_prize(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Process prize payout with document verification.
-    - Assigns the player to the allocation position.
-    - Verifies document against player's registered document.
-    - Marks allocation as paid with timestamp and document info.
+    Process prize payout with financial integration.
+    - Validates prize pool limit and general cash balance.
+    - Deducts from general cash register.
+    - Creates transaction record.
+    - Marks allocation as paid with document info.
     """
-    return PrizeAllocationService.pay_prize(tournament_id, allocation_id, payout)
+    return PrizeAllocationService.pay_prize(
+        tournament_id, allocation_id, payout, user_id=current_user.get("sub")
+    )
 
 
 @router.patch("/{tournament_id}/guaranteed-prize", response_model=dict)
@@ -119,3 +140,28 @@ def update_guaranteed_prize(
 ):
     """Update the guaranteed prize for a tournament"""
     return PrizeAllocationService.update_guaranteed_prize(tournament_id, data.guaranteed_prize)
+
+
+@router.patch("/{tournament_id}/prizes/{allocation_id}/release", response_model=PrizeAllocationResponse)
+def release_prize_allocation(
+    tournament_id: UUID,
+    allocation_id: UUID,
+    data: ReleaseUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Release (or revoke release of) a prize for payment (feature 4.3: aba de liberação)."""
+    return PrizeAllocationService.set_released(
+        tournament_id, allocation_id, data.released, user_id=current_user.get("sub")
+    )
+
+
+@router.patch("/{tournament_id}/reserved-prize", response_model=dict)
+def update_reserved_prize(
+    tournament_id: UUID,
+    data: ReservedPrizeUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update reserved prize % and purpose for a tournament (feature 4.1)."""
+    return PrizeAllocationService.update_reserved_config(
+        tournament_id, data.reserved_prize_percentage, data.reserved_purpose
+    )

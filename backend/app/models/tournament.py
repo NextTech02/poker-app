@@ -46,7 +46,9 @@ class TournamentBase(BaseModel):
     """Simplified tournament model - just a container for tournament days"""
     name: str = Field(..., min_length=1, max_length=255, description="Tournament name (e.g., 'Torneio de Sexta')")
     stage_id: Optional[str] = Field(None, description="Stage/Etapa ID")
+    sponsor_id: Optional[str] = Field(None, description="Sponsor/Patrocinador ID")
     has_qualifying: bool = Field(default=False, description="Whether this tournament has qualifying days leading to a final")
+    is_satellite: bool = Field(default=False, description="Whether this is a satellite tournament that awards tickets")
 
 
 class TournamentCreate(TournamentBase):
@@ -57,7 +59,9 @@ class TournamentUpdate(BaseModel):
     """Update model for simplified tournament"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     stage_id: Optional[str] = None
+    sponsor_id: Optional[str] = Field(None, description="Sponsor/Patrocinador ID (null clears it)")
     has_qualifying: Optional[bool] = None
+    is_satellite: Optional[bool] = None
     # Broadcast settings
     broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
     broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
@@ -81,7 +85,10 @@ class Tournament(TournamentBase):
     created_by: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    status: str = "pending"
     guaranteed_prize: float = 0.0
+    sponsor_id: Optional[str] = None
+    sponsor_name: Optional[str] = None  # joined from sponsors table
     # Broadcast settings
     broadcast_bg_color: Optional[str] = "#0a0e13"
     broadcast_bg_image_url: Optional[str] = None
@@ -107,7 +114,10 @@ class TournamentSummary(BaseModel):
     id: str
     name: str
     stage_id: Optional[str] = None
+    sponsor_id: Optional[str] = None
+    sponsor_name: Optional[str] = None  # joined from sponsors table
     has_qualifying: bool = False
+    is_satellite: bool = False
     status: Optional[str] = "pending"  # A2: campo incluído para exibição de badges no frontend
     total_entries: int = 0  # Aggregated from all days (buy-ins + rebuys)
     total_days: int = 0  # Number of tournament days

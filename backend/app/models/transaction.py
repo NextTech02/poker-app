@@ -15,7 +15,7 @@ class TransactionBase(BaseModel):
     tournament_id: str
     player_id: str
     type: TransactionType
-    amount: float = Field(..., gt=0)
+    amount: float = Field(..., ge=0)
     payment_method: Optional[str] = Field(None, max_length=50)
     reference_number: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None

@@ -1,6 +1,7 @@
 from typing import List, Optional
 from app.database import supabase
 from app.services.tournament_day_service import _chipcount_cache
+from app.services.cashbox_service import CashboxService
 from app.models.tournament_player import (
     TournamentPlayerCreate,
     TournamentPlayerUpdate,
@@ -13,6 +14,9 @@ class TournamentPlayerService:
     @staticmethod
     def register_player(registration_data: TournamentPlayerCreate, user_id: str) -> TournamentPlayerDetail:
         """Register a player for a tournament day"""
+        # Block when the operator has no open cashbox (super-admins bypass)
+        CashboxService.require_open_cashbox_for_tournament(user_id, registration_data.tournament_id)
+
         # Get tournament details (only name, as other fields are in tournament_days)
         tournament = supabase.table("tournaments").select("name").eq("id", registration_data.tournament_id).execute()
         if not tournament.data:
@@ -68,6 +72,38 @@ class TournamentPlayerService:
 
         # Note: registered_players count is updated automatically by database trigger
 
+        # Handle payment source
+        payment_source = registration_data.payment_source or "cash"
+        ticket_id = None
+
+        # Ticket payment: free buy-in via satellite ticket
+        if payment_source == "ticket":
+            ticket_id = registration_data.ticket_id
+            # Ticket validation/consumption is handled by SatelliteTicketService.redeem_ticket
+            # which calls this method. We just record amount as 0 for cash register.
+            buy_in_amount = 0
+
+        elif payment_source in ("credit", "mixed"):
+            from app.services.player_credit_service import PlayerCreditService
+
+            available = PlayerCreditService.get_player_available_credit(registration_data.player_id)
+            if available <= 0:
+                raise ValueError("Jogador não possui crédito disponível")
+
+            credit_result = PlayerCreditService.use_credit(
+                player_id=registration_data.player_id,
+                amount=buy_in_amount,
+                tournament_id=registration_data.tournament_id,
+                tournament_day_id=registration_data.tournament_day_id,
+                entry_type="buy_in",
+                user_id=user_id,
+            )
+
+            if credit_result["cash_remaining"] <= 0:
+                payment_source = "credit"
+            else:
+                payment_source = "mixed"
+
         # Create transaction record
         transaction_data = {
             "tournament_id": registration_data.tournament_id,
@@ -75,8 +111,11 @@ class TournamentPlayerService:
             "tournament_player_id": tp["id"],
             "type": "buy_in",
             "amount": buy_in_amount,
+            "payment_source": payment_source,
             "created_by": user_id,
         }
+        if ticket_id:
+            transaction_data["ticket_id"] = ticket_id
         supabase.table("transactions").insert(transaction_data).execute()
 
         # Get player info
@@ -92,7 +131,7 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash") -> TournamentPlayer:
         """Add a rebuy for a tournament player"""
         # Get tournament player info with tournament_day data
         tp_response = supabase.table("tournament_players").select("*, tournament_days(rebuy_amount, rebuy_chips, rebuy_level_limit, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
@@ -100,6 +139,9 @@ class TournamentPlayerService:
             raise ValueError("Tournament player not found")
 
         tp = tp_response.data[0]
+
+        # Block when the operator has no open cashbox (super-admins bypass)
+        CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
         day_info = tp.get("tournament_days", {}) or {}
         rebuy_amount = float(day_info.get("rebuy_amount") or 0)
         rebuy_chips = day_info.get("rebuy_chips") or 10000
@@ -135,6 +177,25 @@ class TournamentPlayerService:
         # Invalidate chipcount cache for this day
         _chipcount_cache.pop(tp.get("tournament_day_id"), None)
 
+        # Handle credit payment for rebuy
+        actual_payment_source = payment_source
+        if payment_source in ("credit", "mixed") and rebuy_amount > 0:
+            from app.services.player_credit_service import PlayerCreditService
+
+            available = PlayerCreditService.get_player_available_credit(tp["player_id"])
+            if available <= 0:
+                raise ValueError("Jogador não possui crédito disponível")
+
+            credit_result = PlayerCreditService.use_credit(
+                player_id=tp["player_id"],
+                amount=rebuy_amount,
+                tournament_id=tp["tournament_id"],
+                tournament_day_id=tp.get("tournament_day_id"),
+                entry_type="rebuy",
+                user_id=user_id,
+            )
+            actual_payment_source = "credit" if credit_result["cash_remaining"] <= 0 else "mixed"
+
         # Create transaction
         transaction_data = {
             "tournament_id": tp["tournament_id"],
@@ -142,6 +203,7 @@ class TournamentPlayerService:
             "tournament_player_id": tournament_player_id,
             "type": "rebuy",
             "amount": rebuy_amount,
+            "payment_source": actual_payment_source,
             "created_by": user_id,
         }
         supabase.table("transactions").insert(transaction_data).execute()
@@ -149,7 +211,7 @@ class TournamentPlayerService:
         return TournamentPlayer(**response.data[0])
 
     @staticmethod
-    def add_addon(tournament_player_id: str, user_id: str) -> TournamentPlayer:
+    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash") -> TournamentPlayer:
         """Add an add-on for a tournament player"""
         # Get tournament player info with tournament_day data
         tp_response = supabase.table("tournament_players").select("*, tournament_days(addon_amount, addon_chips)").eq("id", tournament_player_id).execute()
@@ -157,6 +219,9 @@ class TournamentPlayerService:
             raise ValueError("Tournament player not found")
 
         tp = tp_response.data[0]
+
+        # Block when the operator has no open cashbox (super-admins bypass)
+        CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
         day_info = tp.get("tournament_days", {}) or {}
         addon_amount = float(day_info.get("addon_amount") or 0)
         addon_chips = day_info.get("addon_chips") or 10000
@@ -173,6 +238,25 @@ class TournamentPlayerService:
         # Invalidate chipcount cache for this day
         _chipcount_cache.pop(tp.get("tournament_day_id"), None)
 
+        # Handle credit payment for addon
+        actual_payment_source = payment_source
+        if payment_source in ("credit", "mixed") and addon_amount > 0:
+            from app.services.player_credit_service import PlayerCreditService
+
+            available = PlayerCreditService.get_player_available_credit(tp["player_id"])
+            if available <= 0:
+                raise ValueError("Jogador não possui crédito disponível")
+
+            credit_result = PlayerCreditService.use_credit(
+                player_id=tp["player_id"],
+                amount=addon_amount,
+                tournament_id=tp["tournament_id"],
+                tournament_day_id=tp.get("tournament_day_id"),
+                entry_type="addon",
+                user_id=user_id,
+            )
+            actual_payment_source = "credit" if credit_result["cash_remaining"] <= 0 else "mixed"
+
         # Create transaction
         transaction_data = {
             "tournament_id": tp["tournament_id"],
@@ -180,6 +264,7 @@ class TournamentPlayerService:
             "tournament_player_id": tournament_player_id,
             "type": "addon",
             "amount": addon_amount,
+            "payment_source": actual_payment_source,
             "created_by": user_id,
         }
         supabase.table("transactions").insert(transaction_data).execute()

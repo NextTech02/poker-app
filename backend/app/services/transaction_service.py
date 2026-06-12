@@ -1,6 +1,7 @@
 from typing import List, Optional
 from app.database import supabase
 from app.models.transaction import TransactionCreate, Transaction, TransactionDetail
+from app.services.cashbox_service import CashboxService
 
 
 class TransactionService:
@@ -9,6 +10,9 @@ class TransactionService:
         """Create a new transaction"""
         data = transaction_data.model_dump()
         data["created_by"] = user_id
+
+        # Block when the operator has no open cashbox (super-admins bypass)
+        CashboxService.require_open_cashbox_for_tournament(user_id, data["tournament_id"])
 
         # Get tournament player ID if exists
         tp_response = supabase.table("tournament_players").select("id").eq("tournament_id", data["tournament_id"]).eq("player_id", data["player_id"]).execute()

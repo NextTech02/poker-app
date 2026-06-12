@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
 from app.models.tournament_player import (
     TournamentPlayerCreate,
     TournamentPlayerUpdate,
@@ -31,12 +31,13 @@ def register_player(
 @router.post("/{tournament_player_id}/rebuy", response_model=TournamentPlayer)
 def add_rebuy(
     tournament_player_id: str,
-    current_user: dict = Depends(get_current_user)
+    payment_source: Optional[str] = Query("cash"),
+    current_user: dict = Depends(get_current_user),
 ):
     """Add a rebuy for a tournament player"""
     user_id = current_user.get("sub")
     try:
-        return TournamentPlayerService.add_rebuy(tournament_player_id, user_id)
+        return TournamentPlayerService.add_rebuy(tournament_player_id, user_id, payment_source=payment_source)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -47,12 +48,13 @@ def add_rebuy(
 @router.post("/{tournament_player_id}/addon", response_model=TournamentPlayer)
 def add_addon(
     tournament_player_id: str,
-    current_user: dict = Depends(get_current_user)
+    payment_source: Optional[str] = Query("cash"),
+    current_user: dict = Depends(get_current_user),
 ):
     """Add an add-on for a tournament player"""
     user_id = current_user.get("sub")
     try:
-        return TournamentPlayerService.add_addon(tournament_player_id, user_id)
+        return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -30,16 +30,19 @@ class TournamentService:
     @staticmethod
     def get_tournament(tournament_id: str) -> Optional[Tournament]:
         """Get a tournament by ID"""
-        response = supabase.table("tournaments").select("*").eq("id", tournament_id).execute()
+        response = supabase.table("tournaments").select("*, sponsors(name)").eq("id", tournament_id).execute()
 
         if response.data:
-            return Tournament(**response.data[0])
+            item = response.data[0]
+            sponsor = item.pop("sponsors", None) or {}
+            item["sponsor_name"] = sponsor.get("name")
+            return Tournament(**item)
         return None
 
     @staticmethod
     def get_tournament_summary(tournament_id: Optional[str] = None, stage_id: Optional[str] = None) -> List[TournamentSummary]:
         """Get tournament summaries with aggregated data from all tournament days"""
-        query = supabase.table("tournaments").select("*")
+        query = supabase.table("tournaments").select("*, sponsors(name)")
 
         if tournament_id:
             query = query.eq("id", tournament_id)
@@ -53,7 +56,7 @@ class TournamentService:
         for item in response.data:
             # Get all days for this tournament
             days_response = supabase.table("tournament_days")\
-                .select("id, total_entries, day_type")\
+                .select("id, total_entries, day_type, status")\
                 .eq("tournament_id", item["id"])\
                 .execute()
 
@@ -61,9 +64,11 @@ class TournamentService:
             # Final days inherit data from qualifying days and should not be counted
             total_entries = 0
             total_days = 0
+            day_statuses = []
             if days_response.data:
                 total_days = len(days_response.data)
                 for day in days_response.data:
+                    day_statuses.append(day.get("status", "pending"))
                     if day.get("day_type") == "final":
                         continue
 
@@ -79,8 +84,27 @@ class TournamentService:
                             rebuys = player.get("rebuy_count", 0) or 0
                             total_entries += buy_ins + rebuys
 
+            # Derive tournament status from days
+            if day_statuses:
+                if "active" in day_statuses:
+                    derived_status = "active"
+                elif all(s in ("completed", "cancelled") for s in day_statuses) and "completed" in day_statuses:
+                    derived_status = "completed"
+                else:
+                    derived_status = "pending"
+
+                # Update DB if out of sync
+                if item.get("status") != derived_status:
+                    supabase.table("tournaments")\
+                        .update({"status": derived_status})\
+                        .eq("id", item["id"])\
+                        .execute()
+                    item["status"] = derived_status
+
             item["total_entries"] = total_entries
             item["total_days"] = total_days
+            sponsor = item.pop("sponsors", None) or {}
+            item["sponsor_name"] = sponsor.get("name")
             summaries.append(TournamentSummary(**item))
 
         return summaries

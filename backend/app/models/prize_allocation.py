@@ -7,14 +7,19 @@ from decimal import Decimal
 DocumentType = Literal['passport', 'national_id', 'driver_license']
 
 
+PrizeType = Literal['cash', 'vaga']
+
+
 class PrizeAllocationBase(BaseModel):
     position: int = Field(..., gt=0, description="Finishing position (1 = winner)")
-    prize_amount: Decimal = Field(..., ge=0, description="Prize amount for this position")
+    prize_amount: Decimal = Field(default=Decimal("0"), ge=0, description="Prize amount (derived from target day buy-in when prize_type='vaga')")
 
 
 class PrizeAllocationCreate(PrizeAllocationBase):
     """Request model for creating a prize allocation"""
-    pass
+    prize_type: PrizeType = 'cash'
+    vaga_target_tournament_id: Optional[UUID] = None
+    vaga_target_day_id: Optional[UUID] = None
 
 
 class PrizeAllocationUpdate(BaseModel):
@@ -22,6 +27,11 @@ class PrizeAllocationUpdate(BaseModel):
     prize_amount: Optional[Decimal] = Field(None, ge=0)
     player_id: Optional[UUID] = None
     paid: Optional[bool] = None
+    released: Optional[bool] = None
+    visible: Optional[bool] = None
+    prize_type: Optional[PrizeType] = None
+    vaga_target_tournament_id: Optional[UUID] = None
+    vaga_target_day_id: Optional[UUID] = None
 
 
 class PrizePayoutRequest(BaseModel):
@@ -44,6 +54,13 @@ class PrizeAllocationResponse(BaseModel):
     document_type: Optional[str] = None
     document_number: Optional[str] = None
     paid_by: Optional[str] = None
+    released: bool = False
+    released_at: Optional[datetime] = None
+    visible: bool = True
+    prize_type: str = 'cash'
+    vaga_target_tournament_id: Optional[UUID] = None
+    vaga_target_day_id: Optional[UUID] = None
+    generated_ticket_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 
@@ -63,8 +80,12 @@ class PrizeSummary(BaseModel):
     total_entries: Decimal = Decimal("0")  # Total buy-ins + rebuys + addons from ALL days
     rake_percentage: Decimal = Decimal("20")  # Default 20% (average of non-final days)
     player_pool: Decimal = Decimal("0")  # entries after rake
-    available_prize_pool: Decimal = Decimal("0")  # guaranteed + player_pool
+    available_prize_pool: Decimal = Decimal("0")  # guaranteed + player_pool (gross)
+    reserved_prize_percentage: Decimal = Decimal("0")  # % blocked for ranking/staff
+    reserved_purpose: Optional[str] = None  # 'ranking' | 'staff'
+    reserved_amount: Decimal = Decimal("0")  # available_prize_pool * reserved% (blocked)
+    payable_pool: Decimal = Decimal("0")  # available_prize_pool - reserved_amount (what players can receive)
     total_allocated: Decimal = Decimal("0")  # Sum of all prize allocations
-    remaining_balance: Decimal = Decimal("0")  # available - allocated
+    remaining_balance: Decimal = Decimal("0")  # payable_pool - allocated
     allocations: list[PrizeAllocationResponse] = []
     has_qualifying_days: bool = False  # True if tournament has qualifying structure

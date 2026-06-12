@@ -20,6 +20,36 @@ from app.models.tournament_day import (
 
 class TournamentDayService:
     @staticmethod
+    def _sync_tournament_status(tournament_id: str):
+        """Sync tournament status based on its days' statuses.
+        - Any day active → tournament active
+        - All days completed/cancelled (at least one completed) → tournament completed
+        - Otherwise → pending
+        """
+        days_response = supabase.table("tournament_days")\
+            .select("status")\
+            .eq("tournament_id", tournament_id)\
+            .execute()
+
+        days = days_response.data or []
+        if not days:
+            return
+
+        statuses = [d["status"] for d in days]
+
+        if "active" in statuses:
+            new_status = "active"
+        elif all(s in ("completed", "cancelled") for s in statuses) and "completed" in statuses:
+            new_status = "completed"
+        else:
+            new_status = "pending"
+
+        supabase.table("tournaments")\
+            .update({"status": new_status})\
+            .eq("id", tournament_id)\
+            .execute()
+
+    @staticmethod
     def create_tournament_day(day_data: TournamentDayCreate) -> TournamentDay:
         """Create a new tournament day"""
         data = {
@@ -154,15 +184,46 @@ class TournamentDayService:
         if 'status' in data and data['status'] == 'active':
             data['start_time'] = datetime.now(timezone.utc).isoformat()
 
-        response = (
-            supabase.table("tournament_days")
-            .update(data)
-            .eq("id", day_id)
-            .execute()
-        )
+        try:
+            response = (
+                supabase.table("tournament_days")
+                .update(data)
+                .eq("id", day_id)
+                .execute()
+            )
+        except Exception as exc:
+            # Tolerate columns that don't exist yet (pre-migration). Strip the
+            # unknown column from the payload and retry once.
+            msg = str(exc)
+            stripped = False
+            for col in list(data.keys()):
+                if col in msg and "column" in msg.lower():
+                    data.pop(col, None)
+                    stripped = True
+            if not stripped:
+                raise
+            if data:
+                response = (
+                    supabase.table("tournament_days")
+                    .update(data)
+                    .eq("id", day_id)
+                    .execute()
+                )
+            else:
+                # Nothing left to update — read the row back so we can return it.
+                response = (
+                    supabase.table("tournament_days")
+                    .select("*")
+                    .eq("id", day_id)
+                    .execute()
+                )
 
         if response.data:
-            return TournamentDay(**response.data[0])
+            day = TournamentDay(**response.data[0])
+            # Sync tournament status when day status changes
+            if 'status' in data:
+                TournamentDayService._sync_tournament_status(day.tournament_id)
+            return day
         return None
 
     @staticmethod
@@ -491,6 +552,10 @@ class TournamentDayService:
             })\
             .eq("id", day_id)\
             .execute()
+
+        # Sync tournament status (day became active → tournament becomes active)
+        if response.data:
+            TournamentDayService._sync_tournament_status(day.tournament_id)
 
         return response.data[0] if response.data else None
 

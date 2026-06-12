@@ -1,0 +1,776 @@
+from typing import List, Optional, Tuple
+from datetime import datetime, timezone
+from app.database import supabase
+from app.models.cashbox import (
+    CashboxResponse,
+    CashboxSessionResponse,
+    CashboxTransactionResponse,
+    CashboxSummary,
+    CashboxAggregatedSummary,
+    CashboxSessionReport,
+    CashboxDemonstrativo,
+    CashboxStatus,
+    CashboxTransactionType,
+)
+
+# Permission keys
+PERMISSION_OPERATE = "cashbox.operate"
+PERMISSION_ADMIN = "cashbox.admin"
+LEGACY_OPERATE_PERMISSIONS = ("cashier", "cashier_players")
+LEGACY_ADMIN_PERMISSIONS = ("financial", "general_cash", "employees")
+
+
+# Signed-amount sign by movement type
+_INFLOW_TYPES = {"buy_in", "rebuy", "addon", "supply"}
+_OUTFLOW_TYPES = {"prize", "sangria"}
+
+
+def _signed(amount: float, tx_type: str) -> float:
+    if tx_type in _INFLOW_TYPES:
+        return abs(amount)
+    if tx_type in _OUTFLOW_TYPES:
+        return -abs(amount)
+    return amount  # adjustment: caller decides the sign via `amount` itself
+
+
+class CashboxService:
+
+    # ============================================================
+    # Permission helpers
+    # ============================================================
+
+    @staticmethod
+    def _staff_permissions(auth_user_id: str) -> Tuple[Optional[str], List[str], bool]:
+        """Return (staff_id, permissions, is_admin_no_staff_record).
+        Users without a staff row are treated as super-admin (existing pattern)."""
+        resp = supabase.table("staff").select(
+            "id, active, permission_groups(permissions)"
+        ).eq("auth_user_id", auth_user_id).execute()
+
+        if not resp.data:
+            return None, [], True  # no staff row = legacy admin user
+
+        row = resp.data[0]
+        if not row.get("active"):
+            return row["id"], [], False
+
+        group = row.get("permission_groups") or {}
+        perms = group.get("permissions") or []
+        return row["id"], perms, False
+
+    @staticmethod
+    def _has(perms: List[str], key: str, legacy_keys: Tuple[str, ...] = ()) -> bool:
+        if key in perms:
+            return True
+        return any(k in perms for k in legacy_keys)
+
+    @staticmethod
+    def can_admin(auth_user_id: str) -> bool:
+        _, perms, is_super = CashboxService._staff_permissions(auth_user_id)
+        if is_super:
+            return True
+        return CashboxService._has(perms, PERMISSION_ADMIN, LEGACY_ADMIN_PERMISSIONS)
+
+    @staticmethod
+    def can_operate(auth_user_id: str) -> bool:
+        _, perms, is_super = CashboxService._staff_permissions(auth_user_id)
+        if is_super:
+            return True
+        return (
+            CashboxService._has(perms, PERMISSION_OPERATE, LEGACY_OPERATE_PERMISSIONS)
+            or CashboxService._has(perms, PERMISSION_ADMIN, LEGACY_ADMIN_PERMISSIONS)
+        )
+
+    # ============================================================
+    # Lookup helpers
+    # ============================================================
+
+    @staticmethod
+    def get_staff_id_for_user(auth_user_id: str) -> Optional[str]:
+        resp = supabase.table("staff").select("id").eq("auth_user_id", auth_user_id).execute()
+        return resp.data[0]["id"] if resp.data else None
+
+    @staticmethod
+    def _get_or_create(staff_id: str, stage_id: str) -> dict:
+        existing = supabase.table("cashboxes").select("*") \
+            .eq("staff_id", staff_id).eq("stage_id", stage_id).execute()
+        if existing.data:
+            return existing.data[0]
+
+        inserted = supabase.table("cashboxes").insert({
+            "staff_id": staff_id,
+            "stage_id": stage_id,
+            "status": "closed",
+            "current_balance": 0.0,
+        }).execute()
+        return inserted.data[0]
+
+    @staticmethod
+    def auto_create_for_staff(staff_id: str, stage_ids: Optional[List[str]] = None) -> List[CashboxResponse]:
+        """Ensure the staff has a cashbox in every active stage (or in the
+        supplied list). Idempotent. Called from staff_service after create or
+        permission change."""
+        if stage_ids is None:
+            stages = supabase.table("stages").select("id").execute()
+            stage_ids = [s["id"] for s in (stages.data or [])]
+
+        results: List[dict] = []
+        for sid in stage_ids:
+            results.append(CashboxService._get_or_create(staff_id, sid))
+        return [CashboxService._enrich(c) for c in results]
+
+    @staticmethod
+    def create_for_staff(staff_id: str, stage_id: Optional[str]) -> CashboxResponse:
+        """Manually ensure a cashbox exists for a staff member in a stage
+        (idempotent). Used by the admin 'Novo Caixa' action."""
+        if not stage_id:
+            raise ValueError("Selecione uma etapa")
+        staff = supabase.table("staff").select("id").eq("id", staff_id).execute()
+        if not staff.data:
+            raise ValueError("Funcionário não encontrado")
+        row = CashboxService._get_or_create(staff_id, stage_id)
+        return CashboxService._enrich(row)
+
+    @staticmethod
+    def find_active_for_operator(auth_user_id: str, stage_id: str) -> Optional[dict]:
+        """Return the operator's currently-open cashbox in this stage, or None."""
+        staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
+        if not staff_id:
+            return None
+        resp = supabase.table("cashboxes").select("*") \
+            .eq("staff_id", staff_id).eq("stage_id", stage_id) \
+            .eq("status", "open").execute()
+        return resp.data[0] if resp.data else None
+
+    @staticmethod
+    def require_open_cashbox_for_tournament(auth_user_id: str, tournament_id: str) -> Optional[dict]:
+        """Same as `require_open_cashbox`, but derives the stage from the
+        tournament. Used by transaction-creating services that don't see the
+        X-Stage-ID header directly."""
+        # Super-admin bypass first to avoid hitting the DB for stage lookup
+        _, _, is_super = CashboxService._staff_permissions(auth_user_id)
+        if is_super:
+            return None
+        t = supabase.table("tournaments").select("stage_id").eq("id", tournament_id).execute()
+        if not t.data:
+            raise ValueError("Torneio não encontrado")
+        return CashboxService.require_open_cashbox(auth_user_id, t.data[0].get("stage_id"))
+
+    @staticmethod
+    def require_open_cashbox(auth_user_id: str, stage_id: Optional[str]) -> Optional[dict]:
+        """Validation hook used by transaction-producing services. Returns the
+        open cashbox dict on success; raises ValueError otherwise. If the user
+        is a legacy super-admin (no staff row), returns None and skips the
+        requirement (so admin testing flows still work)."""
+        staff_id, _, is_super = CashboxService._staff_permissions(auth_user_id)
+        if is_super:
+            return None
+        if not staff_id:
+            raise ValueError("Usuário não tem cadastro de funcionário")
+        if not stage_id:
+            raise ValueError("Selecione uma etapa antes de registrar operações no caixa")
+        cb = supabase.table("cashboxes").select("*") \
+            .eq("staff_id", staff_id).eq("stage_id", stage_id) \
+            .eq("status", "open").execute()
+        if not cb.data:
+            raise ValueError("Abra seu caixa antes de registrar operações")
+        return cb.data[0]
+
+    # ============================================================
+    # Read
+    # ============================================================
+
+    @staticmethod
+    def _enrich_many(items: List[dict]) -> List[CashboxResponse]:
+        """Batch-enrich a list of cashboxes with O(1) extra queries.
+
+        Per-item _enrich issues 2 lookups (staff + stage) per cashbox; for a
+        list that is 1 + 2N round-trips to a remote Postgres. Here we resolve
+        all staff/stage names in 2 `in_` queries and feed them as maps.
+        """
+        if not items:
+            return []
+
+        staff_ids = {i["staff_id"] for i in items if i.get("staff_id")}
+        stage_ids = {i["stage_id"] for i in items if i.get("stage_id")}
+
+        staff_map: dict = {}
+        if staff_ids:
+            r = supabase.table("staff").select("id, name, email").in_("id", list(staff_ids)).execute()
+            staff_map = {s["id"]: s for s in (r.data or [])}
+
+        stage_map: dict = {}
+        if stage_ids:
+            r = supabase.table("stages").select("id, name").in_("id", list(stage_ids)).execute()
+            stage_map = {s["id"]: s.get("name") for s in (r.data or [])}
+
+        return [CashboxService._enrich(i, staff_map, stage_map) for i in items]
+
+    @staticmethod
+    def _enrich(
+        item: dict,
+        staff_map: Optional[dict] = None,
+        stage_map: Optional[dict] = None,
+    ) -> CashboxResponse:
+        staff_name = None
+        staff_email = None
+        stage_name = None
+
+        staff_id = item.get("staff_id")
+        stage_id = item.get("stage_id")
+
+        if staff_id:
+            if staff_map is not None:
+                s = staff_map.get(staff_id)
+                if s:
+                    staff_name = s.get("name")
+                    staff_email = s.get("email")
+            else:
+                s = supabase.table("staff").select("name, email").eq("id", staff_id).execute()
+                if s.data:
+                    staff_name = s.data[0].get("name")
+                    staff_email = s.data[0].get("email")
+
+        if stage_id:
+            if stage_map is not None:
+                stage_name = stage_map.get(stage_id)
+            else:
+                st = supabase.table("stages").select("name").eq("id", stage_id).execute()
+                if st.data:
+                    stage_name = st.data[0].get("name")
+
+        return CashboxResponse(
+            **item,
+            staff_name=staff_name,
+            staff_email=staff_email,
+            stage_name=stage_name,
+        )
+
+    @staticmethod
+    def list_cashboxes(
+        auth_user_id: str,
+        stage_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[CashboxResponse]:
+        is_admin = CashboxService.can_admin(auth_user_id)
+
+        query = supabase.table("cashboxes").select("*")
+        if stage_id:
+            query = query.eq("stage_id", stage_id)
+        if status:
+            query = query.eq("status", status)
+        if not is_admin:
+            staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
+            if not staff_id:
+                return []
+            query = query.eq("staff_id", staff_id)
+
+        resp = query.order("created_at", desc=True).execute()
+        return CashboxService._enrich_many(resp.data or [])
+
+    @staticmethod
+    def get_my_current(auth_user_id: str, stage_id: str) -> Optional[CashboxResponse]:
+        """Caixa do operador requisitante na etapa atual (qualquer status)."""
+        staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
+        if not staff_id:
+            return None
+        resp = supabase.table("cashboxes").select("*") \
+            .eq("staff_id", staff_id).eq("stage_id", stage_id).execute()
+        if not resp.data:
+            # Auto-create on-demand for staff that gained permission after migration
+            row = CashboxService._get_or_create(staff_id, stage_id)
+            return CashboxService._enrich(row)
+        return CashboxService._enrich(resp.data[0])
+
+    @staticmethod
+    def get_cashbox(cashbox_id: str) -> Optional[CashboxResponse]:
+        resp = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
+        if not resp.data:
+            return None
+        return CashboxService._enrich(resp.data[0])
+
+    # ============================================================
+    # Sessions: open & close
+    # ============================================================
+
+    @staticmethod
+    def open_session(
+        cashbox_id: str,
+        auth_user_id: str,
+        initial_balance: float,
+        notes: Optional[str],
+    ) -> CashboxSessionResponse:
+        cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
+        if not cb.data:
+            raise ValueError("Caixa não encontrado")
+        cb_row = cb.data[0]
+
+        if cb_row["status"] == "open":
+            raise ValueError("Caixa já está aberto")
+        if cb_row["status"] == "archived":
+            raise ValueError("Caixa arquivado não pode ser aberto")
+
+        # Permission: operate own cashbox OR admin to open another's
+        is_admin = CashboxService.can_admin(auth_user_id)
+        own_staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
+        if not is_admin and own_staff_id != cb_row["staff_id"]:
+            raise ValueError("Sem permissão para abrir este caixa")
+
+        now = datetime.now(timezone.utc).isoformat()
+        session_insert = supabase.table("cashbox_sessions").insert({
+            "cashbox_id": cashbox_id,
+            "opened_at": now,
+            "opened_by": auth_user_id,
+            "initial_balance": initial_balance,
+            "notes": notes,
+        }).execute()
+        session_row = session_insert.data[0]
+
+        supabase.table("cashboxes").update({
+            "status": "open",
+            "current_session_id": session_row["id"],
+            "current_balance": initial_balance,
+            "last_opened_at": now,
+            "updated_at": now,
+        }).eq("id", cashbox_id).execute()
+
+        # Record the initial balance as a `supply` movement so the ledger
+        # explains the opening balance.
+        if initial_balance > 0:
+            supabase.table("cashbox_transactions").insert({
+                "cashbox_id": cashbox_id,
+                "session_id": session_row["id"],
+                "type": "supply",
+                "amount": initial_balance,
+                "signed_amount": initial_balance,
+                "performed_by": auth_user_id,
+                "notes": "Saldo inicial da abertura",
+            }).execute()
+            # The balance trigger will double-count if we let it: balance was
+            # already set to initial_balance above. Re-sync.
+            supabase.table("cashboxes").update({
+                "current_balance": initial_balance,
+            }).eq("id", cashbox_id).execute()
+
+        return CashboxSessionResponse(**session_row)
+
+    @staticmethod
+    def close_session(
+        cashbox_id: str,
+        auth_user_id: str,
+        actual_final_balance: float,
+        notes: Optional[str],
+    ) -> CashboxSessionResponse:
+        cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
+        if not cb.data:
+            raise ValueError("Caixa não encontrado")
+        cb_row = cb.data[0]
+
+        if cb_row["status"] != "open":
+            raise ValueError("Caixa não está aberto")
+
+        is_admin = CashboxService.can_admin(auth_user_id)
+        own_staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
+        if not is_admin and own_staff_id != cb_row["staff_id"]:
+            raise ValueError("Sem permissão para fechar este caixa")
+
+        session_id = cb_row.get("current_session_id")
+        if not session_id:
+            raise ValueError("Caixa aberto sem sessão registrada — contate o admin")
+
+        expected = float(cb_row["current_balance"])
+        diff = round(actual_final_balance - expected, 2)
+        now = datetime.now(timezone.utc).isoformat()
+
+        # If there is a diff, append an adjustment movement BEFORE closing so
+        # the cashbox balance ends up equal to the counted amount.
+        if diff != 0:
+            supabase.table("cashbox_transactions").insert({
+                "cashbox_id": cashbox_id,
+                "session_id": session_id,
+                "type": "adjustment",
+                "amount": abs(diff),
+                "signed_amount": diff,
+                "performed_by": auth_user_id,
+                "notes": f"Ajuste de fechamento: esperado R$ {expected:.2f}, contado R$ {actual_final_balance:.2f}",
+            }).execute()
+
+        # Close the session
+        supabase.table("cashbox_sessions").update({
+            "closed_at": now,
+            "closed_by": auth_user_id,
+            "expected_final_balance": expected,
+            "actual_final_balance": actual_final_balance,
+            "difference": diff,
+            "notes": notes,
+        }).eq("id", session_id).execute()
+
+        # Close the cashbox
+        supabase.table("cashboxes").update({
+            "status": "closed",
+            "current_session_id": None,
+            "last_closed_at": now,
+            "updated_at": now,
+        }).eq("id", cashbox_id).execute()
+
+        refreshed = supabase.table("cashbox_sessions").select("*").eq("id", session_id).execute()
+        return CashboxSessionResponse(**refreshed.data[0])
+
+    # ============================================================
+    # Movements (admin only): supply & sangria
+    # ============================================================
+
+    @staticmethod
+    def _record_admin_movement(
+        cashbox_id: str,
+        auth_user_id: str,
+        tx_type: str,
+        amount: float,
+        notes: Optional[str],
+    ) -> CashboxTransactionResponse:
+        if not CashboxService.can_admin(auth_user_id):
+            raise ValueError("Sem permissão para esta operação")
+
+        cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
+        if not cb.data:
+            raise ValueError("Caixa não encontrado")
+        cb_row = cb.data[0]
+
+        if cb_row["status"] != "open":
+            raise ValueError("Caixa precisa estar aberto para receber movimentações")
+
+        if tx_type == "sangria" and amount > float(cb_row["current_balance"]):
+            raise ValueError(
+                f"Saldo insuficiente — disponível R$ {float(cb_row['current_balance']):.2f}"
+            )
+
+        signed = _signed(amount, tx_type)
+        insert = supabase.table("cashbox_transactions").insert({
+            "cashbox_id": cashbox_id,
+            "session_id": cb_row.get("current_session_id"),
+            "type": tx_type,
+            "amount": amount,
+            "signed_amount": signed,
+            "performed_by": auth_user_id,
+            "notes": notes,
+        }).execute()
+        return CashboxTransactionResponse(**insert.data[0])
+
+    @staticmethod
+    def register_supply(
+        cashbox_id: str, auth_user_id: str, amount: float, notes: Optional[str]
+    ) -> CashboxTransactionResponse:
+        return CashboxService._record_admin_movement(
+            cashbox_id, auth_user_id, "supply", amount, notes
+        )
+
+    @staticmethod
+    def register_sangria(
+        cashbox_id: str, auth_user_id: str, amount: float, notes: Optional[str]
+    ) -> CashboxTransactionResponse:
+        return CashboxService._record_admin_movement(
+            cashbox_id, auth_user_id, "sangria", amount, notes
+        )
+
+    # ============================================================
+    # History queries
+    # ============================================================
+
+    @staticmethod
+    def list_sessions(cashbox_id: str) -> List[CashboxSessionResponse]:
+        resp = supabase.table("cashbox_sessions").select("*") \
+            .eq("cashbox_id", cashbox_id).order("opened_at", desc=True).execute()
+        return [CashboxSessionResponse(**s) for s in (resp.data or [])]
+
+    @staticmethod
+    def list_transactions(
+        cashbox_id: str,
+        session_id: Optional[str] = None,
+    ) -> List[CashboxTransactionResponse]:
+        query = supabase.table("cashbox_transactions").select("*") \
+            .eq("cashbox_id", cashbox_id)
+        if session_id:
+            query = query.eq("session_id", session_id)
+        resp = query.order("created_at", desc=True).execute()
+        return [CashboxTransactionResponse(**t) for t in (resp.data or [])]
+
+    # ============================================================
+    # Summaries / demonstrativo
+    # ============================================================
+
+    @staticmethod
+    def get_summary(
+        cashbox_id: str,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> CashboxSummary:
+        cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
+        if not cb.data:
+            raise ValueError("Caixa não encontrado")
+        cb_row = cb.data[0]
+
+        tx_query = supabase.table("cashbox_transactions").select("*").eq("cashbox_id", cashbox_id)
+        if date_from:
+            tx_query = tx_query.gte("created_at", date_from)
+        if date_to:
+            tx_query = tx_query.lte("created_at", date_to)
+        txs = tx_query.execute().data or []
+
+        # Initial balance: last opening's initial_balance for "current" period;
+        # for filtered ranges, fall back to 0 (period-only view).
+        initial = 0.0
+        if not date_from and not date_to and cb_row.get("current_session_id"):
+            s = supabase.table("cashbox_sessions").select("initial_balance") \
+                .eq("id", cb_row["current_session_id"]).execute()
+            if s.data:
+                initial = float(s.data[0].get("initial_balance") or 0)
+
+        agg = CashboxSummary(
+            cashbox_id=cashbox_id,
+            status=cb_row["status"],
+            initial_balance=initial,
+            current_balance=float(cb_row["current_balance"]),
+        )
+
+        for t in txs:
+            t_type = t["type"]
+            amt = float(t["amount"])
+            if t_type == "supply":
+                agg.total_supply += amt
+            elif t_type == "sangria":
+                agg.total_sangria += amt
+            elif t_type == "buy_in":
+                agg.total_buy_ins += amt
+                agg.buy_in_count += 1
+            elif t_type == "rebuy":
+                agg.total_rebuys += amt
+                agg.rebuy_count += 1
+            elif t_type == "addon":
+                agg.total_addons += amt
+                agg.addon_count += 1
+            elif t_type == "prize":
+                agg.total_prizes_paid += amt
+                agg.prize_count += 1
+            elif t_type == "adjustment":
+                agg.total_adjustments += float(t["signed_amount"])
+
+        agg.expected_balance = round(
+            agg.initial_balance
+            + agg.total_supply
+            - agg.total_sangria
+            + agg.total_buy_ins
+            + agg.total_rebuys
+            + agg.total_addons
+            - agg.total_prizes_paid
+            + agg.total_adjustments,
+            2,
+        )
+
+        # Enrich names
+        if cb_row.get("staff_id"):
+            s = supabase.table("staff").select("name").eq("id", cb_row["staff_id"]).execute()
+            if s.data:
+                agg.staff_name = s.data[0].get("name")
+        if cb_row.get("stage_id"):
+            st = supabase.table("stages").select("name").eq("id", cb_row["stage_id"]).execute()
+            if st.data:
+                agg.stage_name = st.data[0].get("name")
+
+        return agg
+
+    @staticmethod
+    def get_aggregated_summary(
+        stage_id: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> CashboxAggregatedSummary:
+        query = supabase.table("cashboxes").select("id")
+        if stage_id:
+            query = query.eq("stage_id", stage_id)
+        ids = [c["id"] for c in (query.execute().data or [])]
+
+        out = CashboxAggregatedSummary()
+        for cid in ids:
+            s = CashboxService.get_summary(cid, date_from, date_to)
+            out.cashboxes.append(s)
+            out.grand_total_balance += s.current_balance
+            out.grand_total_buy_ins += s.total_buy_ins + s.total_rebuys + s.total_addons
+            out.grand_total_prizes += s.total_prizes_paid
+            out.grand_total_supply += s.total_supply
+            out.grand_total_sangria += s.total_sangria
+        return out
+
+    @staticmethod
+    def get_demonstrativo(
+        stage_id: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        staff_id: Optional[str] = None,
+    ) -> CashboxDemonstrativo:
+        """Session-based reconciliation report. Each cashbox_session is one
+        open→close cycle that reconciles on its own. Filterable by stage,
+        period (session opened_at) and employee."""
+        # 1. Cashboxes in scope
+        cbq = supabase.table("cashboxes").select("id, staff_id, stage_id, status, current_balance")
+        if stage_id:
+            cbq = cbq.eq("stage_id", stage_id)
+        if staff_id:
+            cbq = cbq.eq("staff_id", staff_id)
+        cashboxes = cbq.execute().data or []
+        cb_by_id = {c["id"]: c for c in cashboxes}
+        cb_ids = list(cb_by_id.keys())
+
+        out = CashboxDemonstrativo()
+        if not cb_ids:
+            return out
+
+        # 2. Sessions for these cashboxes within the period (by opened_at)
+        sq = supabase.table("cashbox_sessions").select("*").in_("cashbox_id", cb_ids)
+        if date_from:
+            sq = sq.gte("opened_at", date_from)
+        if date_to:
+            sq = sq.lte("opened_at", date_to)
+        sessions = sq.order("opened_at", desc=True).execute().data or []
+        if not sessions:
+            return out
+
+        # 3. Transactions grouped by session (single query)
+        session_ids = [s["id"] for s in sessions]
+        tx_by_session: dict = {}
+        txs = supabase.table("cashbox_transactions").select(
+            "session_id, type, amount, signed_amount"
+        ).in_("session_id", session_ids).execute().data or []
+        for tx in txs:
+            tx_by_session.setdefault(tx["session_id"], []).append(tx)
+
+        # 4. Name lookups (batch)
+        staff_ids = list({c["staff_id"] for c in cashboxes if c.get("staff_id")})
+        staff_names: dict = {}
+        if staff_ids:
+            srows = supabase.table("staff").select("id, name").in_("id", staff_ids).execute().data or []
+            staff_names = {r["id"]: r.get("name") for r in srows}
+        stage_ids = list({c["stage_id"] for c in cashboxes if c.get("stage_id")})
+        stage_names: dict = {}
+        if stage_ids:
+            strows = supabase.table("stages").select("id, name").in_("id", stage_ids).execute().data or []
+            stage_names = {r["id"]: r.get("name") for r in strows}
+
+        # 5. Build per-session rows
+        for s in sessions:
+            cb = cb_by_id.get(s["cashbox_id"], {})
+            report = CashboxService._compute_session_report(
+                s,
+                cb,
+                tx_by_session.get(s["id"], []),
+                staff_name=staff_names.get(cb.get("staff_id")),
+                stage_name=stage_names.get(cb.get("stage_id")),
+            )
+            out.sessions.append(report)
+
+            out.grand_initial += report.initial_balance
+            out.grand_supply += report.total_supply
+            out.grand_sangria += report.total_sangria
+            out.grand_buy_ins += report.total_buy_ins + report.total_rebuys + report.total_addons
+            out.grand_prizes += report.total_prizes_paid
+            out.grand_adjustments += report.total_adjustments
+            out.grand_expected += report.expected_balance
+            if report.actual_balance is not None:
+                out.grand_actual += report.actual_balance
+            if report.difference is not None:
+                out.grand_difference += report.difference
+            if report.is_open:
+                out.open_session_count += 1
+
+        for field in ("grand_initial", "grand_supply", "grand_sangria", "grand_buy_ins",
+                      "grand_prizes", "grand_adjustments", "grand_expected",
+                      "grand_actual", "grand_difference"):
+            setattr(out, field, round(getattr(out, field), 2))
+
+        return out
+
+    @staticmethod
+    def _compute_session_report(
+        session: dict,
+        cashbox: Optional[dict],
+        transactions: List[dict],
+        staff_name: Optional[str] = None,
+        stage_name: Optional[str] = None,
+    ) -> CashboxSessionReport:
+        """Pure reconciliation of one session from its transactions. No DB access.
+
+        Within a session the running balance equals SUM(signed_amount); the
+        opening balance is recorded both as `initial_balance` and as a `supply`
+        movement, and closing differences are booked as an `adjustment`
+        movement. So:
+          - additional supplies = total supply - opening balance
+          - expected = SUM(signed) EXCLUDING adjustments  (== expected_final_balance)
+          - difference = actual counted - expected         (== session.difference)
+        """
+        cashbox = cashbox or {}
+        initial = float(session.get("initial_balance") or 0)
+        is_open = session.get("closed_at") is None
+
+        supply = sangria = buy_ins = rebuys = addons = prizes = adjustments = 0.0
+        buy_in_count = rebuy_count = addon_count = prize_count = 0
+        signed_total = 0.0
+        for tx in transactions:
+            amt = float(tx["amount"])
+            signed_total += float(tx["signed_amount"])
+            ttype = tx["type"]
+            if ttype == "supply":
+                supply += amt
+            elif ttype == "sangria":
+                sangria += amt
+            elif ttype == "buy_in":
+                buy_ins += amt; buy_in_count += 1
+            elif ttype == "rebuy":
+                rebuys += amt; rebuy_count += 1
+            elif ttype == "addon":
+                addons += amt; addon_count += 1
+            elif ttype == "prize":
+                prizes += amt; prize_count += 1
+            elif ttype == "adjustment":
+                adjustments += float(tx["signed_amount"])
+
+        extra_supply = round(supply - initial, 2)
+        if extra_supply < 0:
+            extra_supply = 0.0
+
+        expected = round(signed_total - adjustments, 2)
+        if is_open:
+            actual = float(cashbox.get("current_balance") or 0)
+            difference = round(actual - expected, 2)
+        else:
+            actual = (
+                float(session["actual_final_balance"])
+                if session.get("actual_final_balance") is not None
+                else None
+            )
+            difference = (
+                float(session["difference"]) if session.get("difference") is not None else None
+            )
+
+        return CashboxSessionReport(
+            session_id=session["id"],
+            cashbox_id=session["cashbox_id"],
+            staff_name=staff_name,
+            stage_name=stage_name,
+            opened_at=session["opened_at"],
+            closed_at=session.get("closed_at"),
+            is_open=is_open,
+            initial_balance=initial,
+            total_supply=extra_supply,
+            total_sangria=sangria,
+            total_buy_ins=buy_ins,
+            buy_in_count=buy_in_count,
+            total_rebuys=rebuys,
+            rebuy_count=rebuy_count,
+            total_addons=addons,
+            addon_count=addon_count,
+            total_prizes_paid=prizes,
+            prize_count=prize_count,
+            total_adjustments=adjustments,
+            expected_balance=expected,
+            actual_balance=actual,
+            difference=difference,
+        )

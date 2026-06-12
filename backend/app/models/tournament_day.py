@@ -113,6 +113,8 @@ class TournamentDayBase(BaseModel):
     broadcast_show_prizes: bool = Field(default=True)
     broadcast_show_chipcount: bool = Field(default=True)
     broadcast_show_average: bool = Field(default=True)
+    broadcast_blind_alerts_enabled: bool = Field(default=True, description="Whether audio beeps fire 60s/30s/1s before a blind change")
+    broadcast_prizes_layout: str = Field(default='bottom', description="Where the prize list renders: 'bottom' (scrolling ticker) or 'sidebar' (right column)")
 
     # Break screen settings (separate configurable layout shown during breaks)
     broadcast_break_layout: Optional[str] = Field(default='split')
@@ -120,6 +122,7 @@ class TournamentDayBase(BaseModel):
     broadcast_break_bg_image_url: Optional[str] = Field(default=None)
     broadcast_break_youtube_url: Optional[str] = Field(default=None)
     broadcast_break_show_video: bool = Field(default=True)
+    broadcast_break_video_muted: bool = Field(default=True, description="Whether the break-screen video plays muted")
     broadcast_break_show_next_level: bool = Field(default=True)
     broadcast_break_show_players: bool = Field(default=True)
     broadcast_break_show_chipcount: bool = Field(default=True)
@@ -199,6 +202,8 @@ class TournamentDayUpdate(BaseModel):
     broadcast_show_prizes: Optional[bool] = None
     broadcast_show_chipcount: Optional[bool] = None
     broadcast_show_average: Optional[bool] = None
+    broadcast_blind_alerts_enabled: Optional[bool] = None
+    broadcast_prizes_layout: Optional[str] = None
 
     # Break screen settings
     broadcast_break_layout: Optional[str] = None
@@ -206,6 +211,7 @@ class TournamentDayUpdate(BaseModel):
     broadcast_break_bg_image_url: Optional[str] = None
     broadcast_break_youtube_url: Optional[str] = None
     broadcast_break_show_video: Optional[bool] = None
+    broadcast_break_video_muted: Optional[bool] = None
     broadcast_break_show_next_level: Optional[bool] = None
     broadcast_break_show_players: Optional[bool] = None
     broadcast_break_show_chipcount: Optional[bool] = None

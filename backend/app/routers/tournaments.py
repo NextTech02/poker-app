@@ -35,11 +35,16 @@ def create_tournament(
 @router.get("", response_model=List[TournamentSummary])
 def get_tournaments(
     stage_id: Optional[str] = None,
-    header_stage_id: Optional[str] = Depends(get_stage_id_optional)
+    header_stage_id: Optional[str] = Depends(get_stage_id_optional),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Get all tournaments with aggregated entries from non-final days.
     If X-Stage-ID header is present, it takes precedence over stage_id query parameter.
+
+    Requires authentication: this lists every tournament across stages and is
+    only used by the authenticated operator UI. The public broadcast view reads
+    a single tournament via GET /tournaments/{id}, which stays open by design.
     """
     effective_stage_id = header_stage_id if header_stage_id else stage_id
     return TournamentService.get_tournament_summary(stage_id=effective_stage_id)
