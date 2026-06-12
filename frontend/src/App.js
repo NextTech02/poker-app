@@ -1,8 +1,9 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StageProvider } from './contexts/StageContext';
-import { ToastProvider } from './contexts/ToastContext';
+import { ToastProvider, useToast } from './contexts/ToastContext';
+import { PermissionProvider, usePermissions } from './contexts/PermissionContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
@@ -27,8 +28,14 @@ const TournamentDayForm = lazy(() => import('./pages/TournamentDayForm'));
 const BroadcastSettings = lazy(() => import('./pages/BroadcastSettings'));
 const TournamentDayStats = lazy(() => import('./pages/TournamentDayStats'));
 const TournamentControl = lazy(() => import('./pages/TournamentControl'));
+const CaixaJogadores = lazy(() => import('./pages/CaixaJogadores'));
+const SatelliteTickets = lazy(() => import('./pages/SatelliteTickets'));
 const CaixaGeral = lazy(() => import('./pages/CaixaGeral'));
 const Relatorios = lazy(() => import('./pages/Relatorios'));
+const RelatorioTorneio = lazy(() => import('./pages/RelatorioTorneio'));
+const Sangi = lazy(() => import('./pages/Sangi'));
+const Financeiro = lazy(() => import('./pages/Financeiro'));
+const Funcionarios = lazy(() => import('./pages/Funcionarios'));
 
 const PageFallback = () => (
   <div className="page-loading-skeleton">
@@ -38,14 +45,41 @@ const PageFallback = () => (
   </div>
 );
 
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, permission, anyPermission }) => {
   const { user, loading } = useAuth();
+  const { hasPermission, loading: permLoading } = usePermissions();
+  const { toast } = useToast();
+  const toastedRef = useRef(false);
 
-  if (loading) {
+  // Check if there's a token in localStorage — Supabase may be refreshing the session
+  const hasToken = !!localStorage.getItem('supabase_token');
+
+  // `anyPermission` (array) passes if the user holds at least one of the keys.
+  const failsAny = Array.isArray(anyPermission) && anyPermission.length > 0
+    && !anyPermission.some((p) => hasPermission(p));
+  const denied = !loading && !permLoading && user
+    && ((permission && !hasPermission(permission)) || failsAny);
+
+  useEffect(() => {
+    if (denied && !toastedRef.current) {
+      toastedRef.current = true;
+      toast.warning('Você não tem permissão para acessar esta página.');
+    }
+  }, [denied, toast]);
+
+  // Show loading while auth or permissions are resolving,
+  // or while we have a token but user hasn't loaded yet (token refresh in progress)
+  if (loading || permLoading || (!user && hasToken)) {
     return <div className="loading">Carregando...</div>;
   }
 
-  return user ? children : <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
+
+  if (denied) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 };
 
 function AppRoutes() {
@@ -64,7 +98,7 @@ function AppRoutes() {
       <Route
         path="/etapas"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="stages">
             <Etapas />
           </PrivateRoute>
         }
@@ -72,7 +106,7 @@ function AppRoutes() {
       <Route
         path="/torneios"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tournaments">
             <Torneios />
           </PrivateRoute>
         }
@@ -80,7 +114,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:id"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tournaments">
             <TournamentDetail />
           </PrivateRoute>
         }
@@ -88,7 +122,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:tournamentId/dia/novo"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tournaments">
             <TournamentDayForm />
           </PrivateRoute>
         }
@@ -96,7 +130,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:tournamentId/dia/editar/:dayId"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tournaments">
             <TournamentDayForm />
           </PrivateRoute>
         }
@@ -104,7 +138,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:tournamentId/dia/:dayId/broadcast"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="broadcast">
             <BroadcastSettings />
           </PrivateRoute>
         }
@@ -112,7 +146,7 @@ function AppRoutes() {
       <Route
         path="/torneios/dia/:dayId/estatisticas"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tournaments">
             <TournamentDayStats />
           </PrivateRoute>
         }
@@ -120,7 +154,7 @@ function AppRoutes() {
       <Route
         path="/jogadores"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="players">
             <Players />
           </PrivateRoute>
         }
@@ -128,15 +162,31 @@ function AppRoutes() {
       <Route
         path="/caixa"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="cashier">
             <Caixa />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/caixa/jogadores"
+        element={
+          <PrivateRoute permission="cashier_players">
+            <CaixaJogadores />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/caixa/tickets"
+        element={
+          <PrivateRoute permission="cashier_tickets">
+            <SatelliteTickets />
           </PrivateRoute>
         }
       />
       <Route
         path="/caixa-geral"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="general_cash">
             <CaixaGeral />
           </PrivateRoute>
         }
@@ -144,15 +194,31 @@ function AppRoutes() {
       <Route
         path="/relatorios"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="reports">
             <Relatorios />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/relatorios/torneio/:tournamentId"
+        element={
+          <PrivateRoute permission="reports">
+            <RelatorioTorneio />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/sangi"
+        element={
+          <PrivateRoute anyPermission={["sangi", "cashier", "general_cash"]}>
+            <Sangi />
           </PrivateRoute>
         }
       />
       <Route
         path="/alocacao/:tournamentId"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tables">
             <ManualAllocation />
           </PrivateRoute>
         }
@@ -160,7 +226,7 @@ function AppRoutes() {
       <Route
         path="/alocacao/dia/:dayId"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tables">
             <TableManagement />
           </PrivateRoute>
         }
@@ -168,7 +234,7 @@ function AppRoutes() {
       <Route
         path="/ranking/:tournamentId"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="rankings">
             <TournamentRankings />
           </PrivateRoute>
         }
@@ -176,7 +242,7 @@ function AppRoutes() {
       <Route
         path="/blinds/:dayId"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="blinds">
             <BlindManagement />
           </PrivateRoute>
         }
@@ -184,7 +250,7 @@ function AppRoutes() {
       <Route
         path="/control/:dayId"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="tournaments">
             <TournamentControl />
           </PrivateRoute>
         }
@@ -204,7 +270,7 @@ function AppRoutes() {
       <Route
         path="/premiacao"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="prizes">
             <PremiacaoSelector />
           </PrivateRoute>
         }
@@ -212,13 +278,29 @@ function AppRoutes() {
       <Route
         path="/premiacao/:tournamentId"
         element={
-          <PrivateRoute>
+          <PrivateRoute permission="prizes">
             <Premiacao />
           </PrivateRoute>
         }
       />
       {/* Placeholder routes — show ComingSoon instead of silent redirect (ISSUE-003) */}
-      {['/sit-and-go', '/vagas', '/rankings', '/financeiro', '/imprensa', '/templates', '/funcionarios', '/eliminacao'].map((path) => (
+      <Route
+        path="/financeiro"
+        element={
+          <PrivateRoute permission="financial">
+            <Financeiro />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/funcionarios"
+        element={
+          <PrivateRoute permission="employees">
+            <Funcionarios />
+          </PrivateRoute>
+        }
+      />
+      {['/sit-and-go', '/vagas', '/rankings', '/imprensa', '/templates', '/eliminacao'].map((path) => (
         <Route
           key={path}
           path={path}
@@ -229,8 +311,15 @@ function AppRoutes() {
           }
         />
       ))}
-      {/* Catch-all 404 — redirect unknown routes to dashboard */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Catch-all 404 — show NotFound page instead of silent redirect (ISSUE-009) */}
+      <Route
+        path="*"
+        element={
+          <PrivateRoute>
+            <ComingSoon variant="notFound" />
+          </PrivateRoute>
+        }
+      />
     </Routes>
     </Suspense>
   );
@@ -238,16 +327,17 @@ function AppRoutes() {
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
-        <StageProvider>
-          <ToastProvider>
-            {/* B2.2: ErrorBoundary global envolve toda a aplicação */}
-            <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
-              <AppRoutes />
-            </ErrorBoundary>
-          </ToastProvider>
-        </StageProvider>
+        <PermissionProvider>
+          <StageProvider>
+            <ToastProvider>
+              <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
+                <AppRoutes />
+              </ErrorBoundary>
+            </ToastProvider>
+          </StageProvider>
+        </PermissionProvider>
       </AuthProvider>
     </Router>
   );

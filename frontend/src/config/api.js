@@ -37,14 +37,18 @@ api.interceptors.response.use(
       error?.message ||
       'Erro desconhecido';
 
-    console.error('[API Error]', {
-      status: error?.response?.status,
-      url: error?.config?.url,
-      message: msg,
-    });
+    // Skip logging for requests marked as silent (e.g. permissions check)
+    const silent = error?.config?._silentError;
+    if (!silent) {
+      console.error('[API Error]', {
+        status: error?.response?.status,
+        url: error?.config?.url,
+        message: msg,
+      });
+    }
 
-    // Auto-toast for 5xx server errors
-    if (error?.response?.status >= 500) {
+    // Auto-toast for 5xx server errors (unless silent)
+    if (!silent && error?.response?.status >= 500) {
       emitToastError(i18n.t('errors.serverError', 'Erro interno do servidor. Tente novamente em instantes.'));
     }
 

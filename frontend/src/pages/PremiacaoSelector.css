@@ -52,12 +52,32 @@
 }
 
 .psel-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1rem 1.5rem;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 10px;
   color: #f87171;
   font-size: 0.9rem;
+}
+
+.psel-retry-btn {
+  padding: 0.4rem 0.9rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 6px;
+  color: #fecaca;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.psel-retry-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
 }
 
 .psel-empty {

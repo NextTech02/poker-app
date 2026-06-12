@@ -127,7 +127,25 @@ const Etapas = () => {
     setShowModal(true);
   };
 
-  const getStatusBadge = (status) => {
+  // Compute effective status from dates. Stored 'cancelled' / 'completed'
+  // are terminal and should not be auto-overridden. For 'upcoming' / 'active',
+  // the dates are the source of truth — this fixes stages showing "Próxima"
+  // when their end_date is already in the past (ISSUE-002).
+  const getEffectiveStatus = (stage) => {
+    if (stage.status === 'cancelled' || stage.status === 'completed') {
+      return stage.status;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = stage.start_date ? new Date(stage.start_date) : null;
+    const end = stage.end_date ? new Date(stage.end_date) : null;
+    if (end && end < today) return 'completed';
+    if (start && start <= today && (!end || end >= today)) return 'active';
+    return 'upcoming';
+  };
+
+  const getStatusBadge = (stage) => {
+    const status = getEffectiveStatus(stage);
     const badges = {
       upcoming: { label: t('stages.statusUpcoming', 'Próxima'), className: 'badge-info' },
       active: { label: t('stages.statusActive', 'Em Andamento'), className: 'badge-success' },
@@ -230,10 +248,7 @@ const Etapas = () => {
                     >
                       <td>
                         <div className="status-badges">
-                          {getStatusBadge(stage.status)}
-                          {isStageSelected(stage.id) && (
-                            <span className="badge badge-selected">Ativa</span>
-                          )}
+                          {getStatusBadge(stage)}
                         </div>
                       </td>
                       <td>
@@ -290,10 +305,7 @@ const Etapas = () => {
                   <div className="stage-card-header">
                     <h3 className="stage-card-title">{stage.name}</h3>
                     <div className="stage-card-badges">
-                      {getStatusBadge(stage.status)}
-                      {isStageSelected(stage.id) && (
-                        <span className="badge badge-selected">Ativa</span>
-                      )}
+                      {getStatusBadge(stage)}
                     </div>
                   </div>
 

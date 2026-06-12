@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import './LanguageSelector.css';
 
 const languages = [
-  { code: 'pt-BR', name: 'Português', flag: '🇧🇷' },
-  { code: 'en-US', name: 'English', flag: '🇺🇸' },
-  { code: 'es-ES', name: 'Español', flag: '🇪🇸' }
+  { code: 'pt-BR', name: 'Português', flag: 'BR' },
+  { code: 'en-US', name: 'English', flag: 'US' },
+  { code: 'es-ES', name: 'Español', flag: 'ES' }
 ];
 
 const LanguageSelector = ({ dropDirection = 'down' }) => {

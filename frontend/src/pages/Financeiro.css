@@ -1,0 +1,216 @@
+/* ── Financeiro Page ── */
+
+/* Filters */
+.fn-filters-card {
+  margin-bottom: 1.5rem;
+}
+
+.fn-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.fn-filters .form-group {
+  flex: 1;
+  min-width: 140px;
+}
+
+.fn-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-bottom: 0.25rem;
+}
+
+/* Stat colors */
+.fn-stat-revenue {
+  color: #22c55e !important;
+}
+
+.fn-stat-prize {
+  color: #f59e0b !important;
+}
+
+.fn-stat-result {
+  color: #3b82f6 !important;
+}
+
+.fn-stat-rake {
+  color: #a855f7 !important;
+}
+
+.fn-stat-credits {
+  color: #f97316 !important;
+}
+
+/* DRE Card */
+.fn-dre-card {
+  margin-bottom: 1.5rem;
+}
+
+.fn-dre {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.fn-dre-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fn-dre-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9ca3af;
+  margin-bottom: 0.25rem;
+}
+
+.fn-dre-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: #e5e7eb;
+}
+
+.fn-dre-row--muted {
+  color: #6b7280;
+}
+
+.fn-dre-row--total {
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.fn-dre-row--highlight {
+  font-weight: 700;
+  font-size: 1.05rem;
+  border-top: 2px solid rgba(255, 255, 255, 0.15);
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.fn-dre-positive {
+  color: #22c55e;
+}
+
+.fn-dre-negative {
+  color: #ef4444;
+}
+
+/* Table value colors */
+.fn-positive {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.fn-negative {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* Transaction type badges */
+.fn-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.fn-badge--buyin {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.fn-badge--rebuy {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.fn-badge--addon {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+.fn-badge--prize {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+/* Inline transaction filters */
+.fn-tx-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.fn-tx-filters .form-group {
+  min-width: 140px;
+  flex: 0 1 200px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fn-filters {
+    flex-direction: column;
+  }
+
+  .fn-filters .form-group {
+    min-width: 100%;
+  }
+
+  .fn-filter-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .fn-tx-filters {
+    flex-direction: column;
+  }
+
+  .fn-tx-filters .form-group {
+    min-width: 100%;
+  }
+}
+
+/* Sub-abas (DRE / Caixas) */
+.fn-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fn-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary, #9ca3af);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.fn-tab:hover {
+  color: var(--text-primary, #f9fafb);
+}
+
+.fn-tab--active {
+  color: #22c55e;
+  border-bottom-color: #22c55e;
+}

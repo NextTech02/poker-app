@@ -1,0 +1,295 @@
+/* ── Funcionarios Page ── */
+
+/* Tabs */
+.func-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.func-tab {
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.func-tab:hover {
+  color: #e5e7eb;
+}
+
+.func-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+/* Staff row inactive */
+.func-row-inactive {
+  opacity: 0.5;
+}
+
+/* Inline group select */
+.func-group-select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e5e7eb;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.func-group-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* Status badge */
+.func-status {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.func-status--active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.func-status--inactive {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Action buttons */
+.func-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.func-action-btn {
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e5e7eb;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.func-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.func-action-btn--danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.func-action-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.func-action-btn--success {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.func-action-btn--success:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+/* Permission tags in groups table */
+.func-perm-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.func-perm-tag {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.func-perm-tag--all {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.func-perm-tag--none {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+}
+
+.func-perm-tag--more {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+/* Modal overrides */
+.func-modal {
+  max-width: 480px;
+}
+
+.func-modal--wide {
+  max-width: 640px;
+}
+
+/* Permission grid in modal */
+/* Permission grid in modal */
+.func-perm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.func-perm-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 1.1rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #9ca3af;
+  transition: all 0.2s ease;
+  user-select: none;
+  min-height: 52px;
+}
+
+.func-perm-check:hover {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #e5e7eb;
+}
+
+/* Checked state — style the whole card */
+.func-perm-check:has(input:checked) {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #fff;
+}
+
+/* Custom checkbox — inline before the text */
+.func-perm-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  margin: 0 0.6rem 0 0;
+  flex-shrink: 0;
+}
+
+.func-perm-check input[type="checkbox"]:checked {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.func-perm-check input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.func-perm-check span {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+/* Select all button */
+.func-select-all-btn {
+  margin-left: 0.75rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  transition: all 0.15s ease;
+}
+
+.func-select-all-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Scrollbar styling for perm grid */
+.func-perm-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.func-perm-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.func-perm-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.func-perm-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .func-perm-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .func-tabs {
+    overflow-x: auto;
+  }
+
+  .func-modal--wide {
+    max-width: 95vw;
+  }
+}

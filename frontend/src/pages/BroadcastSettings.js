@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
-import Button from '../components/Button';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import nextHubLogo from '../assets/next-hub-logo.png';
@@ -43,12 +42,15 @@ const DEFAULT_SETTINGS = {
   broadcast_show_prizes: true,
   broadcast_show_chipcount: true,
   broadcast_show_average: true,
+  broadcast_blind_alerts_enabled: true,
+  broadcast_prizes_layout: 'bottom',
   // Break screen
   broadcast_break_layout:          'split',
   broadcast_break_bg_color:        '#0a0e13',
   broadcast_break_bg_image_url:    '',
   broadcast_break_youtube_url:     '',
   broadcast_break_show_video:      true,
+  broadcast_break_video_muted:     true,
   broadcast_break_show_next_level: true,
   broadcast_break_show_players:    true,
   broadcast_break_show_chipcount:  true,
@@ -206,8 +208,9 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
   const showBreakVid = S.broadcast_break_show_video && !!breakVideoId;
   const breakOpacity  = ((S.broadcast_break_overlay_opacity ?? 70) / 100).toFixed(2);
   const breakFontScale = (S.broadcast_break_font_size ?? 100) / 100;
+  const breakMuteFlag = S.broadcast_break_video_muted !== false ? 1 : 0;
   const breakEmbedUrl = breakVideoId
-    ? `https://www.youtube.com/embed/${breakVideoId}?autoplay=1&mute=1&loop=1&playlist=${breakVideoId}&controls=0&modestbranding=1`
+    ? `https://www.youtube.com/embed/${breakVideoId}?autoplay=1&mute=${breakMuteFlag}&loop=1&playlist=${breakVideoId}&controls=0&modestbranding=1`
     : null;
 
   const breakBgStyle = showBreakVid
@@ -424,14 +427,19 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
 
             {/* ── Prizepool corner (mirrors .broadcast-prizepool-corner) ── */}
             {S.broadcast_show_prizepool && !previewBreak && (
-              <div style={{ position: 'absolute', bottom: barH + 12, right: 48, textAlign: 'right', padding: '12px 24px' }}>
+              <div style={{
+                position: 'absolute',
+                bottom: (S.broadcast_prizes_layout === 'sidebar' || !S.broadcast_show_prizes) ? 12 : barH + 12,
+                right: S.broadcast_prizes_layout === 'sidebar' && S.broadcast_show_prizes ? 280 : 48,
+                textAlign: 'right', padding: '12px 24px',
+              }}>
                 <div style={{ fontSize: 13 * pp, color: c.ppLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>PRIZEPOOL</div>
                 <div style={{ fontSize: 32 * pp, fontWeight: 800, color: c.ppVal }}>{MOCK.prizePool}</div>
               </div>
             )}
 
-            {/* ── Prize ticker (mirrors .prize-ticker-bar) ── */}
-            {S.broadcast_show_prizes && !previewBreak && (
+            {/* ── Prize ticker (bottom) ── */}
+            {S.broadcast_show_prizes && S.broadcast_prizes_layout !== 'sidebar' && !previewBreak && (
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0, height: barH,
                 background: 'rgba(5,8,12,0.96)', borderTop: '2px solid #d4af37',
@@ -456,6 +464,38 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                       </span>
                       <span style={{ color: '#d4af37', fontSize: 8 * ts, marginLeft: 8 }}>◆</span>
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Prize sidebar (right column) ── */}
+            {S.broadcast_show_prizes && S.broadcast_prizes_layout === 'sidebar' && !previewBreak && (
+              <div style={{
+                position: 'absolute', top: 100, right: 24, bottom: 24, width: 240,
+                background: 'rgba(5,8,12,0.96)', border: '2px solid #d4af37', borderRadius: 8,
+                display: 'flex', flexDirection: 'column', overflow: 'hidden', zIndex: 50,
+              }}>
+                <div style={{
+                  flexShrink: 0,
+                  padding: '10px 16px',
+                  background: 'linear-gradient(135deg, #d4af37 0%, #b8960a 100%)',
+                  color: '#0a0e14', fontWeight: 900, fontSize: 13 * ts,
+                  letterSpacing: 2, textTransform: 'uppercase', textAlign: 'center',
+                }}>
+                  PREMIAÇÕES
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden', padding: '8px 12px' }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pos) => (
+                    <div key={pos} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                      padding: '6px 0', borderBottom: '1px solid rgba(212,175,55,0.15)',
+                    }}>
+                      <span style={{ fontSize: 13 * ts, color: '#9ca3af', fontWeight: 700 }}>{pos}º</span>
+                      <span style={{ fontSize: 14 * ts, color: '#fff', fontWeight: 800 }}>
+                        R$ {(Math.round(15000 / pos / 100) * 100).toLocaleString('pt-BR')}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -540,12 +580,15 @@ const BroadcastSettings = () => {
           broadcast_show_prizes:     d.broadcast_show_prizes     !== false,
           broadcast_show_chipcount:  d.broadcast_show_chipcount  !== false,
           broadcast_show_average:    d.broadcast_show_average    !== false,
+          broadcast_blind_alerts_enabled: d.broadcast_blind_alerts_enabled !== false,
+          broadcast_prizes_layout:   d.broadcast_prizes_layout   || DEFAULT_SETTINGS.broadcast_prizes_layout,
           // Break screen
           broadcast_break_layout:          d.broadcast_break_layout          || DEFAULT_SETTINGS.broadcast_break_layout,
           broadcast_break_bg_color:        d.broadcast_break_bg_color        || DEFAULT_SETTINGS.broadcast_break_bg_color,
           broadcast_break_bg_image_url:    d.broadcast_break_bg_image_url    || '',
           broadcast_break_youtube_url:     d.broadcast_break_youtube_url     || '',
           broadcast_break_show_video:      d.broadcast_break_show_video      !== false,
+          broadcast_break_video_muted:     d.broadcast_break_video_muted     !== false,
           broadcast_break_show_next_level: d.broadcast_break_show_next_level !== false,
           broadcast_break_show_players:    d.broadcast_break_show_players    !== false,
           broadcast_break_show_chipcount:  d.broadcast_break_show_chipcount  !== false,
@@ -565,7 +608,7 @@ const BroadcastSettings = () => {
       }
     };
     load();
-  }, [dayId, tournamentId]);
+  }, [dayId, tournamentId, t, toast]);
 
   const set = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
 
@@ -634,7 +677,7 @@ const BroadcastSettings = () => {
               onClick={() => setPreviewBreak(b => !b)}
               title={previewBreak ? t('broadcastSettings.previewSwitchBlinds') : t('broadcastSettings.previewSwitchBreak')}
             >
-              {previewBreak ? '▶ Blinds' : '☕ Intervalo'}
+              {previewBreak ? 'Blinds' : 'Intervalo'}
             </button>
           </div>
           <BroadcastPreview
@@ -719,11 +762,28 @@ const BroadcastSettings = () => {
             </SectionCard>
 
             <SectionCard title={t('broadcastSettings.sectionTicker')}>
-              <SliderField label={t('broadcastSettings.tickerHeight')} settingsKey="broadcast_prize_size" min={50} max={300} settings={settings} onChange={set} />
+              <div className="bs-field-full">
+                <label className="bs-label">{t('broadcastSettings.prizesLayout')}</label>
+                <div className="bs-layout-selector">
+                  {['bottom', 'sidebar'].map(opt => (
+                    <button
+                      key={opt}
+                      className={`bs-layout-opt ${settings.broadcast_prizes_layout === opt ? 'active' : ''}`}
+                      onClick={() => set('broadcast_prizes_layout', opt)}
+                    >
+                      {opt === 'bottom' ? `▬ ${t('broadcastSettings.prizesLayoutBottom')}` : `▐ ${t('broadcastSettings.prizesLayoutSidebar')}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <SliderField
+                label={settings.broadcast_prizes_layout === 'sidebar' ? t('broadcastSettings.prizesSize') : t('broadcastSettings.tickerHeight')}
+                settingsKey="broadcast_prize_size" min={50} max={300} settings={settings} onChange={set}
+              />
             </SectionCard>
 
             {/* ── Break Screen Section ── */}
-            <SectionCard icon="☕" title={t('broadcastSettings.sectionBreak')}>
+            <SectionCard icon={null} title={t('broadcastSettings.sectionBreak')}>
               {/* Layout selector */}
               <div className="bs-field-full">
                 <label className="bs-label">{t('broadcastSettings.breakLayout')}</label>
@@ -772,6 +832,7 @@ const BroadcastSettings = () => {
               <div className="bs-toggle-grid">
                 {[
                   { key: 'broadcast_break_show_video',      labelKey: 'breakShowVideo' },
+                  { key: 'broadcast_break_video_muted',     labelKey: 'breakVideoMuted' },
                   { key: 'broadcast_break_show_next_level', labelKey: 'breakShowNextLevel' },
                   { key: 'broadcast_break_show_players',    labelKey: 'breakShowPlayers' },
                   { key: 'broadcast_break_show_chipcount',  labelKey: 'breakShowChipcount' },
@@ -826,6 +887,7 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_show_prizes',     labelKey: 'visPrizes' },
                   { key: 'broadcast_show_chipcount',  labelKey: 'visChipcount' },
                   { key: 'broadcast_show_average',    labelKey: 'visAverage' },
+                  { key: 'broadcast_blind_alerts_enabled', labelKey: 'blindAlertsEnabled' },
                 ].map(({ key, labelKey }) => (
                   <label key={key} className={`bs-toggle ${settings[key] ? 'on' : 'off'}`}>
                     <input type="checkbox" checked={settings[key]} onChange={(e) => set(key, e.target.checked)} />
@@ -839,7 +901,7 @@ const BroadcastSettings = () => {
             </SectionCard>
 
             {/* ── Break Screen Colors ── */}
-            <SectionCard icon="🎨" title={t('broadcastSettings.sectionBreakColors')}>
+            <SectionCard icon={null} title={t('broadcastSettings.sectionBreakColors')}>
               <div className="bs-color-grid">
                 {[
                   { labelKey: 'breakColorTimer',  key: 'broadcast_break_timer_color' },

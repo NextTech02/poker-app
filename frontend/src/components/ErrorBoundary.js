@@ -27,7 +27,7 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="eb-container">
-          <div className="eb-icon">⚠️</div>
+          <div className="eb-icon">!</div>
           <h3 className="eb-title">
             {this.props.title || 'Não foi possível carregar esta seção'}
           </h3>

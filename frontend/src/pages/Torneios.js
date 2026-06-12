@@ -19,16 +19,27 @@ const Torneios = () => {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [formData, setFormData] = useState({ name: '', has_qualifying: false });
+  const [formData, setFormData] = useState({ name: '', has_qualifying: false, sponsor_id: '' });
+  const [sponsors, setSponsors] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     loadTournaments();
+    loadSponsors();
     const interval = setInterval(loadTournaments, 5000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadSponsors = async () => {
+    try {
+      const data = await cachedGet(api, '/sponsors?status=active', 60000);
+      setSponsors(data || []);
+    } catch (err) {
+      console.error('Erro ao carregar patrocinadores:', err);
+    }
+  };
 
   const loadTournaments = async () => {
     try {
@@ -47,11 +58,15 @@ const Torneios = () => {
     setFormError('');
     setSubmitting(true);
     try {
-      await api.post('/tournaments', { name: formData.name, has_qualifying: formData.has_qualifying });
+      await api.post('/tournaments', {
+        name: formData.name,
+        has_qualifying: formData.has_qualifying,
+        sponsor_id: formData.sponsor_id || null,
+      });
       toast.success('Torneio criado com sucesso!');
       invalidateCache('/tournaments'); // B3: invalida após mutação
       setShowModal(false);
-      setFormData({ name: '', has_qualifying: false });
+      setFormData({ name: '', has_qualifying: false, sponsor_id: '' });
       loadTournaments();
     } catch (err) {
       const detail = err.userMessage || err.response?.data?.detail;
@@ -74,12 +89,13 @@ const Torneios = () => {
       await api.patch(`/tournaments/${editingTournament.id}`, {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
+        sponsor_id: formData.sponsor_id || null,
       });
       toast.success('Torneio atualizado com sucesso!');
       invalidateCache('/tournaments'); // B3
       setShowEditModal(false);
       setEditingTournament(null);
-      setFormData({ name: '', has_qualifying: false });
+      setFormData({ name: '', has_qualifying: false, sponsor_id: '' });
       loadTournaments();
     } catch (err) {
       const msg = err.userMessage || 'Erro ao atualizar torneio';
@@ -94,7 +110,7 @@ const Torneios = () => {
 
   const openEditModal = (tournament) => {
     setEditingTournament(tournament);
-    setFormData({ name: tournament.name, has_qualifying: tournament.has_qualifying || false });
+    setFormData({ name: tournament.name, has_qualifying: tournament.has_qualifying || false, sponsor_id: tournament.sponsor_id || '' });
     setFormError('');
     setShowEditModal(true);
   };
@@ -127,7 +143,7 @@ const Torneios = () => {
   };
 
   const openNewModal = () => {
-    setFormData({ name: '', has_qualifying: false });
+    setFormData({ name: '', has_qualifying: false, sponsor_id: '' });
     setFormError('');
     setShowModal(true);
   };
@@ -243,6 +259,16 @@ const Torneios = () => {
                         {t('common.delete', 'Excluir')}
                       </button>
                       <Link
+                        to={`/relatorios/torneio/${tournament.id}`}
+                        className="tr-btn-edit"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
+                          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                        </svg>
+                        Relatório
+                      </Link>
+                      <Link
                         to={`/torneios/${tournament.id}`}
                         className="tr-card-cta"
                         onClick={(e) => e.stopPropagation()}
@@ -272,6 +298,7 @@ const Torneios = () => {
             submitLabel={t('tournaments.createFirst')}
             submitting={submitting}
             formError={formError}
+            sponsors={sponsors}
             t={t}
           />
         )}
@@ -288,6 +315,7 @@ const Torneios = () => {
             submitLabel={t('tournaments.saveChanges')}
             submitting={submitting}
             formError={formError}
+            sponsors={sponsors}
             t={t}
             isEditing
           />
@@ -299,7 +327,7 @@ const Torneios = () => {
 };
 
 /* ── Shared Modal — A7: inline error + loading state ── */
-const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, t, isEditing }) => (
+const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], t, isEditing }) => (
   <div className="tr-modal-overlay" onClick={onClose}>
     <div className="tr-modal" onClick={(e) => e.stopPropagation()}>
       <div className="tr-modal-header">
@@ -335,6 +363,22 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
             disabled={submitting}
           />
           {!isEditing && <small>Após criar o torneio, você poderá adicionar dias e configurações.</small>}
+        </div>
+
+        <div className="tr-field">
+          <label htmlFor="tr-sponsor">Patrocinador</label>
+          <select
+            id="tr-sponsor"
+            name="sponsor_id"
+            value={formData.sponsor_id || ''}
+            onChange={onChange}
+            disabled={submitting}
+          >
+            <option value="">Sem patrocinador</option>
+            {sponsors.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         </div>
 
         <div

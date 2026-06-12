@@ -37,10 +37,16 @@ const CaixaGeral = () => {
 
   const loadStages = async () => {
     try {
-      const response = await api.get('/stages?status=active,upcoming');
-      setStages(response.data);
-      if (response.data.length > 0 && !selectedStage) {
-        setSelectedStage(response.data[0].id);
+      // ISSUE-008 fix: backend doesn't parse comma-separated status values,
+      // so the previous `?status=active,upcoming` silently filtered out most
+      // stages. Fetch all stages and filter out terminal ones client-side.
+      const response = await api.get('/stages');
+      const openStages = response.data.filter(
+        (s) => s.status !== 'completed' && s.status !== 'cancelled'
+      );
+      setStages(openStages);
+      if (openStages.length > 0 && !selectedStage) {
+        setSelectedStage(openStages[0].id);
       }
     } catch (error) {
       console.error('Erro ao carregar etapas:', error);

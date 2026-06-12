@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Breadcrumb from '../components/Breadcrumb';
+import EmptyState from '../components/EmptyState';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './BlindManagement.css';
@@ -37,27 +38,39 @@ const BlindManagement = () => {
     is_break: false,
   });
 
-  const loadData = useCallback(async () => {
-    try {
-      // Load tournament day, its blinds, and templates
-      const [dayRes, blindsRes, templatesRes] = await Promise.all([
-        api.get(`/tournament-days/${dayId}`),
-        api.get(`/tournament-days/${dayId}/blinds`),
-        api.get('/blind-templates')
-      ]);
+  const [loadError, setLoadError] = useState(null);
 
+  const loadData = useCallback(async () => {
+    setLoadError(null);
+    try {
+      // Load tournament day first so we can distinguish "day not found"
+      // from transient errors on secondary requests (ISSUE-006).
+      const dayRes = await api.get(`/tournament-days/${dayId}`);
       setTournamentDay(dayRes.data);
+
+      const [blindsRes, templatesRes] = await Promise.all([
+        api.get(`/tournament-days/${dayId}/blinds`),
+        api.get('/blind-templates'),
+      ]);
       setBlinds(blindsRes.data.sort((a, b) => a.level - b.level));
       setTemplates(templatesRes.data);
 
-      // Load tournament info for display
       if (dayRes.data.tournament_id) {
         const tournamentRes = await api.get(`/tournaments/${dayRes.data.tournament_id}`);
         setTournament(tournamentRes.data);
       }
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error(t('common.error'));
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail;
+      const message =
+        status === 404
+          ? t('blinds.dayNotFound', 'Dia do torneio não encontrado. Verifique o link e tente novamente.')
+          : typeof detail === 'string'
+            ? detail
+            : t('blinds.loadErrorMessage', 'Não foi possível carregar a estrutura de blinds.');
+      setLoadError({ status, message });
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -155,7 +168,16 @@ const BlindManagement = () => {
   };
 
   const handleDeleteBlind = async (blindId) => {
-    const ok = await confirm(t('common.confirm') + '?', { variant: 'danger', confirmText: t('common.delete') });
+    const blind = blinds.find((b) => b.id === blindId);
+    const levelLabel = blind ? `Nível ${blind.level}` : '';
+    const ok = await confirm(
+      t('blinds.confirmDeleteMessage', 'O nível de blind {{level}} será removido permanentemente da estrutura.', { level: levelLabel }),
+      {
+        title: t('blinds.confirmDeleteTitle', 'Excluir nível de blind?'),
+        variant: 'danger',
+        confirmText: t('common.delete'),
+      }
+    );
     if (!ok) return;
 
     try {
@@ -286,10 +308,29 @@ const BlindManagement = () => {
       <div className="app-container">
         <Sidebar />
         <main className="main-content">
-          <Card>
-            <p>{t('common.noData')}</p>
-            <Button onClick={() => navigate('/torneios')}>{t('common.back')}</Button>
-          </Card>
+          <Breadcrumb items={[
+            { label: t('common.home', 'Início'), to: '/' },
+            { label: t('tournaments.title', 'Torneios'), to: '/torneios' },
+            { label: t('blinds.title', 'Estrutura de Blinds') },
+          ]} />
+          <div className="page-header">
+            <div>
+              <h1>{t('blinds.title', 'Estrutura de Blinds')}</h1>
+            </div>
+          </div>
+          <EmptyState
+            icon={
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+              </svg>
+            }
+            title={loadError?.status === 404
+              ? t('blinds.dayNotFoundTitle', 'Dia do torneio não encontrado')
+              : t('blinds.loadErrorTitle', 'Não foi possível carregar a estrutura de blinds')}
+            subtitle={loadError?.message || t('common.noData')}
+            ctaLabel={t('common.back')}
+            onCta={() => navigate('/torneios')}
+          />
         </main>
       </div>
     );

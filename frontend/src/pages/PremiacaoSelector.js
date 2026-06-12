@@ -26,23 +26,33 @@ const PremiacaoSelector = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await api.get('/tournaments');
-        const data = res.data || [];
-        setTournaments(data);
-        if (data.length === 1) {
-          navigate(`/premiacao/${data[0].id}`, { replace: true });
-        }
-      } catch {
-        setError('Erro ao carregar torneios');
-      } finally {
-        setLoading(false);
+  const load = React.useCallback(async ({ isRetry = false } = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get('/tournaments');
+      const data = res.data || [];
+      setTournaments(data);
+      if (data.length === 1) {
+        navigate(`/premiacao/${data[0].id}`, { replace: true });
       }
-    };
-    load();
+    } catch (err) {
+      // Auto-retry once for transient failures (503 / network) before showing error.
+      const status = err?.response?.status;
+      const transient = !status || status >= 500;
+      if (transient && !isRetry) {
+        setTimeout(() => load({ isRetry: true }), 1500);
+        return;
+      }
+      setError('Erro ao carregar torneios');
+    } finally {
+      setLoading(false);
+    }
   }, [navigate]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <div className="app-layout">
@@ -66,7 +76,14 @@ const PremiacaoSelector = () => {
 
         {/* States */}
         {loading && <div className="psel-loading">Carregando torneios...</div>}
-        {error   && <div className="psel-error">{error}</div>}
+        {error && (
+          <div className="psel-error">
+            <span>{error}</span>
+            <button type="button" className="psel-retry-btn" onClick={() => load()}>
+              Tentar novamente
+            </button>
+          </div>
+        )}
 
         {!loading && !error && tournaments.length === 0 && (
           <div className="psel-empty">

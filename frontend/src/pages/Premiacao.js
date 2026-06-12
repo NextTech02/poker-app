@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
@@ -43,26 +43,34 @@ const Premiacao = () => {
   const [finalDayName, setFinalDayName] = useState('');
 
   const [guaranteedPrize, setGuaranteedPrize] = useState('');
+  const [reservedPct, setReservedPct] = useState('0');
+  const [reservedPurpose, setReservedPurpose] = useState('');
   const [allocations, setAllocations] = useState([]);
 
   // Add allocation modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPosition, setNewPosition] = useState('');
   const [newAmount, setNewAmount] = useState('');
+  const [newPrizeType, setNewPrizeType] = useState('cash');
+  const [newVagaDayId, setNewVagaDayId] = useState('');
+  const [days, setDays] = useState([]);
 
-  // Payout modal
+  // Payout modal — document-first flow: operator types the doc, the matching
+  // tournament player is auto-resolved.
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutAllocation, setPayoutAllocation] = useState(null);
   const [payoutPlayerId, setPayoutPlayerId] = useState('');
-  const [payoutPlayerSearch, setPayoutPlayerSearch] = useState('');
-  const [payoutPlayerDropdown, setPayoutPlayerDropdown] = useState(false);
-  const [payoutRegisteredDoc, setPayoutRegisteredDoc] = useState(null); // { type, number } if player has doc
   const [payoutDocType, setPayoutDocType] = useState('national_id');
   const [payoutDocNumber, setPayoutDocNumber] = useState('');
   const [payoutDocError, setPayoutDocError] = useState('');
   const [payoutPaidBy, setPayoutPaidBy] = useState('');
   const [payoutSaving, setPayoutSaving] = useState(false);
-  const playerSearchRef = useRef(null);
+  const [payoutPlayersDocs, setPayoutPlayersDocs] = useState({}); // playerId -> {document_type, document_number, name, nickname}
+  const [payoutResolvedPlayer, setPayoutResolvedPlayer] = useState(null); // { player_id, name, nickname, document_type, document_number }
+
+  // Prize pool & cash info for payout validation
+  const [prizePoolInfo, setPrizePoolInfo] = useState(null);
+  const [generalCashBalance, setGeneralCashBalance] = useState(null);
 
   // Voucher after payout
   const [showVoucherModal, setShowVoucherModal] = useState(false);
@@ -88,10 +96,13 @@ const Premiacao = () => {
       setTournament(tournamentRes.data);
       setPrizeSummary(summaryRes.data);
       setGuaranteedPrize(summaryRes.data.guaranteed_prize || '0');
+      setReservedPct(String(summaryRes.data.reserved_prize_percentage ?? '0'));
+      setReservedPurpose(summaryRes.data.reserved_purpose || '');
       setAllocations(summaryRes.data.allocations || []);
 
       // Detect qualifying structure
       const days = daysRes.data || [];
+      setDays(days);
       const qualifying = days.some(d => d.day_type === 'qualifying');
       setHasQualifyingDays(qualifying);
       const finalDay = days.find(d => d.day_type === 'final');
@@ -112,16 +123,6 @@ const Premiacao = () => {
     loadData();
   }, [loadData]);
 
-  // Close player dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (playerSearchRef.current && !playerSearchRef.current.contains(e.target)) {
-        setPayoutPlayerDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // ── Config Tab Handlers ──────────────────────────────────────────────────
 
@@ -140,18 +141,81 @@ const Premiacao = () => {
     }
   };
 
-  const handleAddAllocation = async (e) => {
-    e.preventDefault();
-    if (!newPosition || !newAmount) return;
+  const handleSaveReserved = async () => {
     try {
       setSaving(true);
-      await api.post(`/tournaments/${tournamentId}/prizes`, {
-        position: parseInt(newPosition),
-        prize_amount: parseFloat(newAmount)
+      await api.patch(`/tournaments/${tournamentId}/reserved-prize`, {
+        reserved_prize_percentage: parseFloat(reservedPct) || 0,
+        reserved_purpose: reservedPurpose || null,
       });
+      toast.success('Premiação reservada salva!');
+      await loadData();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : 'Erro ao salvar premiação reservada');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleRelease = async (allocation) => {
+    try {
+      setSaving(true);
+      await api.patch(`/tournaments/${tournamentId}/prizes/${allocation.id}/release`, {
+        released: !allocation.released,
+      });
+      toast.success(!allocation.released ? 'Premiação liberada!' : 'Liberação revogada');
+      await loadData();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : 'Erro ao alterar liberação');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleVisible = async (allocation) => {
+    try {
+      setSaving(true);
+      await api.patch(`/tournaments/${tournamentId}/prizes/${allocation.id}`, {
+        visible: !allocation.visible,
+      });
+      await loadData();
+    } catch (err) {
+      setError('Erro ao alterar visibilidade da faixa');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddAllocation = async (e) => {
+    e.preventDefault();
+    if (!newPosition) return;
+    const isVaga = newPrizeType === 'vaga';
+    if (isVaga && !newVagaDayId) {
+      setError('Selecione o dia alvo da vaga');
+      return;
+    }
+    if (!isVaga && !newAmount) return;
+    try {
+      setSaving(true);
+      const payload = isVaga
+        ? {
+            position: parseInt(newPosition),
+            prize_type: 'vaga',
+            vaga_target_tournament_id: tournamentId,
+            vaga_target_day_id: newVagaDayId,
+          }
+        : {
+            position: parseInt(newPosition),
+            prize_amount: parseFloat(newAmount),
+          };
+      await api.post(`/tournaments/${tournamentId}/prizes`, payload);
       setShowAddModal(false);
       setNewPosition('');
       setNewAmount('');
+      setNewPrizeType('cash');
+      setNewVagaDayId('');
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
@@ -243,55 +307,52 @@ const Premiacao = () => {
   const normalizeDoc = (s) =>
     (s || '').replace(/[\s.\-/]/g, '').toUpperCase();
 
-  const handleSelectPayoutPlayer = async (player) => {
-    setPayoutPlayerId(player.player_id);
-    setPayoutPlayerSearch(
-      player.player_name + (player.player_nickname ? ` (${player.player_nickname})` : '')
-    );
-    setPayoutPlayerDropdown(false);
-    setPayoutDocError('');
-    setPayoutRegisteredDoc(null);
-
-    try {
-      const res = await api.get(`/players/${player.player_id}`);
-      const { document_type, document_number } = res.data;
-      if (document_number) {
-        setPayoutRegisteredDoc({ type: document_type, number: document_number });
-        setPayoutDocType(document_type || 'national_id');
-        setPayoutDocNumber(document_number);
-      } else {
-        setPayoutDocType('national_id');
-        setPayoutDocNumber('');
-      }
-    } catch {
-      setPayoutDocType('national_id');
-      setPayoutDocNumber('');
-    }
-  };
-
-  const handleOpenPayout = (allocation) => {
+  const handleOpenPayout = async (allocation) => {
     setPayoutAllocation(allocation);
     setPayoutPlayerId('');
-    setPayoutPlayerSearch('');
-    setPayoutPlayerDropdown(false);
-    setPayoutRegisteredDoc(null);
     setPayoutDocType('national_id');
     setPayoutDocNumber('');
     setPayoutDocError('');
     setPayoutPaidBy('');
+    setPayoutResolvedPlayer(null);
+    setPayoutPlayersDocs({});
     setShowPayoutModal(true);
+
+    // Load prize pool, general cash, and the docs for every eligible player so
+    // the operator can type the document and we resolve the player locally.
+    try {
+      const [poolRes, cashRes, playersRes] = await Promise.all([
+        api.get(`/tournaments/${tournamentId}/prizes/pool`),
+        api.get('/cash/general'),
+        api.get('/players'),
+      ]);
+      setPrizePoolInfo(poolRes.data);
+      setGeneralCashBalance(cashRes.data?.current_balance ?? null);
+
+      const docMap = {};
+      for (const p of (playersRes.data || [])) {
+        if (p.document_number) {
+          docMap[p.id] = {
+            player_id: p.id,
+            name: p.name,
+            nickname: p.nickname,
+            document_type: p.document_type,
+            document_number: p.document_number,
+          };
+        }
+      }
+      setPayoutPlayersDocs(docMap);
+    } catch (err) {
+      console.error('Error loading pool/cash/players info:', err);
+    }
   };
 
   const handleConfirmPayout = async (e) => {
     e.preventDefault();
     if (!payoutPlayerId || !payoutDocNumber) return;
-
-    // Client-side doc validation
-    if (payoutRegisteredDoc) {
-      if (normalizeDoc(payoutDocNumber) !== normalizeDoc(payoutRegisteredDoc.number)) {
-        setPayoutDocError('Documento não confere com o cadastro do jogador.');
-        return;
-      }
+    if (!payoutResolvedPlayer) {
+      setPayoutDocError('Nenhum jogador deste torneio possui este documento.');
+      return;
     }
     setPayoutDocError('');
 
@@ -338,7 +399,11 @@ const Premiacao = () => {
 
   const totalAllocated = allocations.reduce((sum, a) => sum + parseFloat(a.prize_amount || 0), 0);
   const availablePrizePool = prizeSummary ? parseFloat(prizeSummary.available_prize_pool) : 0;
-  const remainingBalance = availablePrizePool - totalAllocated;
+  // payable_pool already discounts the reserved portion (feature 4.1)
+  const payablePool = prizeSummary && prizeSummary.payable_pool != null
+    ? parseFloat(prizeSummary.payable_pool)
+    : availablePrizePool;
+  const remainingBalance = payablePool - totalAllocated;
 
   const getNextPosition = () => {
     if (allocations.length === 0) return 1;
@@ -428,6 +493,15 @@ const Premiacao = () => {
               <span className="tab-badge">{allocations.filter(a => a.paid).length}</span>
             )}
           </button>
+          <button
+            className={`prem-tab ${activeTab === 'liberacao' ? 'active' : ''}`}
+            onClick={() => setActiveTab('liberacao')}
+          >
+            Liberação
+            {allocations.filter(a => a.released && !a.paid).length > 0 && (
+              <span className="tab-badge">{allocations.filter(a => a.released && !a.paid).length}</span>
+            )}
+          </button>
         </div>
 
         {/* ── TAB: CONFIG ───────────────────────────────────────────────── */}
@@ -483,6 +557,44 @@ const Premiacao = () => {
                   <span className="card-subtitle">{100 - parseFloat(prizeSummary?.rake_percentage || 20)}% das entradas</span>
                 </div>
                 <div className="card-value">R$ {formatCurrency(prizeSummary?.player_pool)}</div>
+              </div>
+
+              <div className="summary-card reserved-card">
+                <div className="card-header">
+                  <h3>Premiação Reservada</h3>
+                  <span className="card-subtitle">Bloqueada do pagamento</span>
+                </div>
+                <div className="card-content">
+                  <div className="input-with-prefix">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={reservedPct}
+                      onChange={(e) => setReservedPct(e.target.value)}
+                      className="guaranteed-input"
+                    />
+                    <span className="prefix">%</span>
+                  </div>
+                  <select
+                    value={reservedPurpose}
+                    onChange={(e) => setReservedPurpose(e.target.value)}
+                    className="reserved-purpose-select"
+                  >
+                    <option value="">Destino…</option>
+                    <option value="ranking">Ranking</option>
+                    <option value="staff">Staff</option>
+                  </select>
+                  <Button size="small" onClick={handleSaveReserved} disabled={saving}>
+                    Salvar
+                  </Button>
+                  {prizeSummary?.reserved_amount > 0 && (
+                    <span className="card-subtitle">
+                      = R$ {formatCurrency(prizeSummary?.reserved_amount)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -573,6 +685,80 @@ const Premiacao = () => {
           </>
         )}
 
+        {/* ── TAB: LIBERAÇÃO ────────────────────────────────────────────── */}
+        {activeTab === 'liberacao' && (
+          <div className="prize-pool-section">
+            <div className="pool-header">
+              <div className="pool-info">
+                <div className="pool-item available">
+                  <span className="pool-label">Liberadas</span>
+                  <span className="pool-value">{allocations.filter(a => a.released).length}/{allocations.length}</span>
+                  <span className="pool-note">Só prêmios liberados podem ser pagos</span>
+                </div>
+              </div>
+            </div>
+            <div className="allocations-table-container">
+              {allocations.length === 0 ? (
+                <div className="prem-empty">
+                  <h3>Nenhuma premiação configurada</h3>
+                  <p>Configure as posições antes de liberar pagamentos</p>
+                </div>
+              ) : (
+                <table className="allocations-table">
+                  <thead>
+                    <tr>
+                      <th>Posição</th>
+                      <th>Jogador</th>
+                      <th>Prêmio</th>
+                      <th>Visível (público)</th>
+                      <th>Liberação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allocations.map((allocation) => (
+                      <tr key={allocation.id} className={allocation.paid ? 'row-paid' : ''}>
+                        <td>{getPositionLabel(allocation.position)}</td>
+                        <td>{allocation.player_name || '—'}</td>
+                        <td>
+                          R$ {formatCurrency(allocation.prize_amount)}
+                          {allocation.prize_type === 'vaga' && (
+                            <span className="status-badge" style={{ marginLeft: 6, background: 'rgba(155,89,182,.18)', color: '#9b59b6' }}>Vaga</span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className={`prem-toggle ${allocation.visible ? 'on' : 'off'}`}
+                            onClick={() => handleToggleVisible(allocation)}
+                            disabled={saving}
+                            title={allocation.visible ? 'Visível na exibição pública' : 'Oculta da exibição pública'}
+                          >
+                            {allocation.visible ? '👁 Visível' : '🚫 Oculta'}
+                          </button>
+                        </td>
+                        <td>
+                          {allocation.paid ? (
+                            <span className="status-badge paid">Pago</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={`prem-toggle ${allocation.released ? 'on' : 'off'}`}
+                              onClick={() => handleToggleRelease(allocation)}
+                              disabled={saving}
+                            >
+                              {allocation.released ? '✓ Liberada (revogar)' : 'Liberar'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── TAB: PAGAMENTOS ───────────────────────────────────────────── */}
         {activeTab === 'pagamentos' && (
           <div className="prize-pool-section">
@@ -649,18 +835,43 @@ const Premiacao = () => {
                   <small>1 = Campeão, 2 = Vice, etc.</small>
                 </div>
                 <div className="form-group">
-                  <label>Valor do Prêmio (R$) *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newAmount}
-                    onChange={(e) => setNewAmount(e.target.value)}
-                    required
-                    placeholder="0.00"
-                  />
-                  <small>Saldo disponível: R$ {formatCurrency(remainingBalance)}</small>
+                  <label>Tipo de Premiação</label>
+                  <select value={newPrizeType} onChange={(e) => setNewPrizeType(e.target.value)}>
+                    <option value="cash">Dinheiro</option>
+                    <option value="vaga">Vaga (ticket de entrada)</option>
+                  </select>
                 </div>
+                {newPrizeType === 'vaga' ? (
+                  <div className="form-group">
+                    <label>Dia alvo da vaga *</label>
+                    <select
+                      value={newVagaDayId}
+                      onChange={(e) => setNewVagaDayId(e.target.value)}
+                      required
+                    >
+                      <option value="">Selecione o dia…</option>
+                      {days.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.day_name} — buy-in R$ {formatCurrency(d.buy_in)}
+                        </option>
+                      ))}
+                    </select>
+                    <small>O valor da vaga é igual ao buy-in do dia alvo e não pode ser pago em dinheiro.</small>
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label>Valor do Prêmio (R$) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newAmount}
+                      onChange={(e) => setNewAmount(e.target.value)}
+                      placeholder="0.00"
+                    />
+                    <small>Saldo disponível: R$ {formatCurrency(remainingBalance)}</small>
+                  </div>
+                )}
                 <div className="modal-actions">
                   <Button type="button" variant="ghost" onClick={() => setShowAddModal(false)}>
                     Cancelar
@@ -690,107 +901,101 @@ const Premiacao = () => {
                 <span className="payout-prize-value">R$ {formatCurrency(payoutAllocation.prize_amount)}</span>
               </div>
 
-              <form onSubmit={handleConfirmPayout}>
-                <div className="form-group" style={{ position: 'relative' }} ref={playerSearchRef}>
-                  <label>Jogador *</label>
-                  <input
-                    type="text"
-                    value={payoutPlayerSearch}
-                    onChange={(e) => {
-                      setPayoutPlayerSearch(e.target.value);
-                      setPayoutPlayerId('');
-                      setPayoutPlayerDropdown(true);
-                    }}
-                    onFocus={() => setPayoutPlayerDropdown(true)}
-                    placeholder="Digite o nome do jogador..."
-                    autoComplete="off"
-                    style={{ borderColor: payoutPlayerId ? '#d4af37' : undefined }}
-                  />
-                  {/* Hidden required sentinel */}
-                  <input type="hidden" value={payoutPlayerId} required />
-                  {payoutPlayerDropdown && (
-                    <div className="player-search-dropdown">
-                      {eligiblePlayers
-                        .filter(p => {
-                          const q = payoutPlayerSearch.toLowerCase();
-                          return !q ||
-                            (p.player_name || '').toLowerCase().includes(q) ||
-                            (p.player_nickname || '').toLowerCase().includes(q);
-                        })
-                        .slice(0, 8)
-                        .map(p => (
-                          <div
-                            key={p.player_id}
-                            className="player-search-option"
-                            onMouseDown={() => handleSelectPayoutPlayer(p)}
-                          >
-                            <span className="pso-name">{p.player_name}</span>
-                            {p.player_nickname && (
-                              <span className="pso-nick">{p.player_nickname}</span>
-                            )}
-                          </div>
-                        ))
-                      }
-                      {eligiblePlayers.filter(p => {
-                        const q = payoutPlayerSearch.toLowerCase();
-                        return !q ||
-                          (p.player_name || '').toLowerCase().includes(q) ||
-                          (p.player_nickname || '').toLowerCase().includes(q);
-                      }).length === 0 && (
-                        <div className="player-search-empty">Nenhum jogador encontrado</div>
-                      )}
+              {prizePoolInfo && (
+                <div className="payout-balance-info">
+                  <div className="payout-balance-row">
+                    <span>Prize Pool do Torneio:</span>
+                    <span>R$ {formatCurrency(prizePoolInfo.prize_pool)}</span>
+                  </div>
+                  <div className="payout-balance-row">
+                    <span>Ja pago neste torneio:</span>
+                    <span>R$ {formatCurrency(prizePoolInfo.total_paid)}</span>
+                  </div>
+                  <div className="payout-balance-row payout-balance-row--highlight">
+                    <span>Disponivel no prize pool:</span>
+                    <span className={prizePoolInfo.available >= parseFloat(payoutAllocation.prize_amount) ? 'payout-ok' : 'payout-warn'}>
+                      R$ {formatCurrency(prizePoolInfo.available)}
+                    </span>
+                  </div>
+                  {generalCashBalance !== null && (
+                    <div className="payout-balance-row">
+                      <span>Saldo caixa geral:</span>
+                      <span className={generalCashBalance >= parseFloat(payoutAllocation.prize_amount) ? 'payout-ok' : 'payout-warn'}>
+                        R$ {formatCurrency(generalCashBalance)}
+                      </span>
                     </div>
                   )}
                 </div>
+              )}
 
-                {payoutRegisteredDoc && (
-                  <div className="doc-registered-banner">
-                    <span className="doc-registered-icon">✓</span>
-                    <span>
-                      Documento cadastrado: <strong>{DOC_TYPE_LABELS[payoutRegisteredDoc.type] || payoutRegisteredDoc.type}</strong> — {payoutRegisteredDoc.number}
-                    </span>
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label>Tipo de Documento *</label>
-                  <div className="doc-type-options">
-                    {Object.entries(DOC_TYPE_LABELS).map(([value, label]) => (
-                      <label key={value} className="radio-option">
-                        <input
-                          type="radio"
-                          name="doc_type"
-                          value={value}
-                          checked={payoutDocType === value}
-                          onChange={() => {
-                            setPayoutDocType(value);
-                            setPayoutDocError('');
-                          }}
-                          disabled={!!payoutRegisteredDoc}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
+              <form onSubmit={handleConfirmPayout}>
                 <div className="form-group">
                   <label>Número do Documento *</label>
                   <input
                     type="text"
                     value={payoutDocNumber}
                     onChange={(e) => {
-                      setPayoutDocNumber(e.target.value);
+                      const value = e.target.value;
+                      setPayoutDocNumber(value);
                       setPayoutDocError('');
+
+                      const normalized = normalizeDoc(value);
+                      if (!normalized) {
+                        setPayoutResolvedPlayer(null);
+                        setPayoutPlayerId('');
+                        return;
+                      }
+
+                      // Resolve player by document among eligible tournament players.
+                      const eligibleIds = new Set(eligiblePlayers.map(p => p.player_id));
+                      const match = Object.values(payoutPlayersDocs).find(
+                        p => eligibleIds.has(p.player_id) &&
+                             normalizeDoc(p.document_number) === normalized
+                      );
+                      if (match) {
+                        setPayoutResolvedPlayer(match);
+                        setPayoutPlayerId(match.player_id);
+                        setPayoutDocType(match.document_type || 'national_id');
+                      } else {
+                        setPayoutResolvedPlayer(null);
+                        setPayoutPlayerId('');
+                      }
                     }}
                     required
-                    placeholder={payoutDocType === 'national_id' ? '000.000.000-00' : 'Ex: AB123456'}
-                    style={payoutDocError ? { borderColor: '#ef4444' } : undefined}
+                    autoFocus
+                    placeholder="000.000.000-00"
+                    style={
+                      payoutDocError
+                        ? { borderColor: '#ef4444' }
+                        : payoutResolvedPlayer
+                          ? { borderColor: '#22c55e' }
+                          : undefined
+                    }
                   />
+                  {/* Hidden required sentinel for player resolution */}
+                  <input type="hidden" value={payoutPlayerId} required />
                   {payoutDocError && (
                     <div className="doc-error-msg">{payoutDocError}</div>
                   )}
                 </div>
+
+                {payoutResolvedPlayer ? (
+                  <div className="doc-registered-banner">
+                    <span className="doc-registered-icon">✓</span>
+                    <span>
+                      Jogador: <strong>{payoutResolvedPlayer.name}</strong>
+                      {payoutResolvedPlayer.nickname && (
+                        <span className="player-nickname"> ({payoutResolvedPlayer.nickname})</span>
+                      )}
+                      {' — '}
+                      {DOC_TYPE_LABELS[payoutResolvedPlayer.document_type] || payoutResolvedPlayer.document_type}
+                    </span>
+                  </div>
+                ) : payoutDocNumber.trim() ? (
+                  <div className="doc-error-msg" style={{ marginBottom: '1rem' }}>
+                    Nenhum jogador deste torneio possui este documento.
+                  </div>
+                ) : null}
 
                 <div className="form-group">
                   <label>Atendente (opcional)</label>
@@ -803,8 +1008,8 @@ const Premiacao = () => {
                 </div>
 
                 <div className="payout-doc-note">
-                  O documento será verificado contra o cadastro do jogador.
-                  Se não houver cadastro, será salvo automaticamente.
+                  Digite o documento de identificação. O jogador correspondente
+                  no torneio será exibido automaticamente.
                 </div>
 
                 <div className="modal-actions">

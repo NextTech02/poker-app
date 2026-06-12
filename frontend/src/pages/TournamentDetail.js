@@ -50,8 +50,21 @@ const TournamentDetail = () => {
     navigate(`/torneios/${id}/dia/editar/${day.id}`);
   };
 
+  const dayNameOf = (dayId) => {
+    const d = days.find((x) => x.id === dayId);
+    return d?.day_name || '';
+  };
+
   const handleDeleteDay = async (dayId) => {
-    const ok = await confirm(t('common.confirm') + '?', { variant: 'danger', confirmText: t('common.delete') });
+    const name = dayNameOf(dayId);
+    const ok = await confirm(
+      t('tournamentDays.confirmDeleteMessage', 'O dia "{{name}}" e todos os seus dados serão removidos. Esta ação não pode ser desfeita.', { name }),
+      {
+        title: t('tournamentDays.confirmDeleteTitle', 'Excluir dia do torneio?'),
+        variant: 'danger',
+        confirmText: t('common.delete'),
+      }
+    );
     if (!ok) return;
 
     try {
@@ -64,7 +77,14 @@ const TournamentDetail = () => {
   };
 
   const handleStartDay = async (dayId) => {
-    const ok = await confirm(t('common.confirm') + '?');
+    const name = dayNameOf(dayId);
+    const ok = await confirm(
+      t('tournamentDays.confirmStartMessage', { name }),
+      {
+        title: t('tournamentDays.confirmStartTitle'),
+        confirmText: t('tournamentDays.startDay'),
+      }
+    );
     if (!ok) return;
 
     try {
@@ -93,7 +113,14 @@ const TournamentDetail = () => {
   };
 
   const handleFinishDay = async (dayId) => {
-    const ok = await confirm(t('common.confirm') + '?');
+    const name = dayNameOf(dayId);
+    const ok = await confirm(
+      t('tournamentDays.confirmFinishMessage', { name }),
+      {
+        title: t('tournamentDays.confirmFinishTitle'),
+        confirmText: t('tournamentDays.finishDay'),
+      }
+    );
     if (!ok) return;
 
     try {
@@ -106,7 +133,14 @@ const TournamentDetail = () => {
   };
 
   const handleRestartDay = async (dayId) => {
-    const ok = await confirm(t('common.confirm') + '?');
+    const name = dayNameOf(dayId);
+    const ok = await confirm(
+      t('tournamentDays.confirmRestartMessage', { name }),
+      {
+        title: t('tournamentDays.confirmRestartTitle'),
+        confirmText: t('tournamentDays.restartDay'),
+      }
+    );
     if (!ok) return;
 
     try {
@@ -215,7 +249,7 @@ const TournamentDetail = () => {
                 variant="secondary"
                 onClick={() => handleRestartDay(day.id)}
               >
-                {t('common.actions')}
+                {t('tournamentDays.restartDay')}
               </Button>
               <Button
                 size="small"

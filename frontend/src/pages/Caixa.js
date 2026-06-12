@@ -6,6 +6,7 @@ import Button from '../components/Button';
 import PlayerSelect from '../components/PlayerSelect';
 import SeatTicket from '../components/SeatTicket';
 import EmptyState from '../components/EmptyState';
+import CashboxBanner from '../components/CashboxBanner';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
@@ -25,6 +26,13 @@ const Caixa = () => {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [allocationData, setAllocationData] = useState(null);
   const { toast } = useToast();
+  const [playerCredit, setPlayerCredit] = useState(0);
+  // Caixa modular do operador: undefined=carregando, null=super-admin/sem caixa, obj=caixa
+  const [myCashbox, setMyCashbox] = useState(undefined);
+
+  // Bloqueia novas transações se o operador tem um caixa que não está aberto.
+  // myCashbox null (super-admin/sem caixa) ou undefined (carregando) → não bloqueia.
+  const cashboxBlocked = !!myCashbox && myCashbox.status !== 'open';
   const [formData, setFormData] = useState({
     tournament_id: '',
     tournament_day_id: '',
@@ -32,6 +40,7 @@ const Caixa = () => {
     type: 'buy_in',
     amount: '',
     payment_method: 'cash',
+    payment_source: 'cash',
   });
 
   useEffect(() => {
@@ -84,6 +93,12 @@ const Caixa = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Caixa modular: bloqueia se o operador não abriu o caixa
+    if (cashboxBlocked) {
+      toast.warning(t('cashbox.blockedHint'));
+      return;
+    }
+
     // Validate that a day is selected if days exist
     if (tournamentDays.length > 0 && !formData.tournament_day_id) {
       toast.warning('Por favor, selecione um dia do torneio');
@@ -98,6 +113,7 @@ const Caixa = () => {
           tournament_day_id: formData.tournament_day_id || null,
           player_id: formData.player_id,
           buy_in_count: 1,
+          payment_source: formData.payment_source || 'cash',
           notes: `Registrado via Caixa - ${formData.payment_method}`,
         });
 
@@ -193,7 +209,7 @@ const Caixa = () => {
           }
 
           // Process the rebuy
-          await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy`);
+          await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy?payment_source=${formData.payment_source || 'cash'}`);
 
           // Try to auto-allocate after rebuy
           const tournament = tournaments.find(t => t.id === formData.tournament_id);
@@ -273,7 +289,7 @@ const Caixa = () => {
         const playersRes = await api.get(`/tournament-players/tournament/${formData.tournament_id}`);
         const tournamentPlayer = playersRes.data.find(p => p.player_id === formData.player_id);
         if (tournamentPlayer) {
-          await api.post(`/tournament-players/${tournamentPlayer.id}/addon`);
+          await api.post(`/tournament-players/${tournamentPlayer.id}/addon?payment_source=${formData.payment_source || 'cash'}`);
         } else {
           toast.error('Jogador nao esta registrado neste torneio');
           return;
@@ -288,7 +304,9 @@ const Caixa = () => {
         type: 'buy_in',
         amount: '',
         payment_method: 'cash',
+        payment_source: 'cash',
       });
+      setPlayerCredit(0);
       setTournamentDays([]);
       loadData();
     } catch (error) {
@@ -301,6 +319,19 @@ const Caixa = () => {
     }
   };
 
+  const loadPlayerCredit = async (playerId) => {
+    if (!playerId) {
+      setPlayerCredit(0);
+      return;
+    }
+    try {
+      const res = await api.get(`/player-credits/player/${playerId}/balance`);
+      setPlayerCredit(res.data.available_credit || 0);
+    } catch (err) {
+      setPlayerCredit(0);
+    }
+  };
+
   const handleChange = async (e) => {
     const { name, value } = e.target;
 
@@ -308,6 +339,12 @@ const Caixa = () => {
       ...formData,
       [name]: value,
     };
+
+    // When player changes, load their available credit
+    if (name === 'player_id') {
+      loadPlayerCredit(value);
+      newFormData.payment_source = 'cash'; // Reset to cash when changing player
+    }
 
     // When tournament changes, load days and reset day selection
     if (name === 'tournament_id') {
@@ -392,6 +429,14 @@ const Caixa = () => {
 
   const totals = getTotalByType();
 
+  const handleNewTransaction = () => {
+    if (cashboxBlocked) {
+      toast.warning(t('cashbox.blockedHint'));
+      return;
+    }
+    setShowModal(true);
+  };
+
   return (
     <div className="app-container">
       <Sidebar />
@@ -409,10 +454,13 @@ const Caixa = () => {
               <p className="cx-subtitle">{t('cashRegister.subtitle')}</p>
             </div>
           </div>
-          <Button onClick={() => setShowModal(true)}>
+          <Button onClick={handleNewTransaction} disabled={cashboxBlocked}>
             {t('cashRegister.newTransaction')}
           </Button>
         </div>
+
+        {/* Caixa modular do operador (banner + abrir/fechar) */}
+        <CashboxBanner onStateChange={setMyCashbox} />
 
         {/* B1: Skeleton nos KPI cards enquanto carrega */}
         <div className="stats-grid">
@@ -484,7 +532,7 @@ const Caixa = () => {
           ) : transactions.length === 0 ? (
             /* A2: EmptyState unificado */
             <EmptyState
-              icon="💰"
+              icon={null}
               title={t('cashRegister.noTransactions')}
               subtitle={t('cashRegister.noTransactionsHint')}
             />
@@ -624,6 +672,34 @@ const Caixa = () => {
                     <option value="transfer">{t('cashRegister.transfer')}</option>
                   </select>
                 </div>
+
+                {/* Credit payment option - only visible when player has credit */}
+                {playerCredit > 0 && formData.player_id && (
+                  <div className="form-group cx-credit-option">
+                    <label>Fonte de Pagamento</label>
+                    <div className="cx-credit-info">
+                      <span className="cx-credit-available">
+                        Crédito disponível: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(playerCredit)}
+                      </span>
+                    </div>
+                    <select
+                      name="payment_source"
+                      value={formData.payment_source}
+                      onChange={handleChange}
+                    >
+                      <option value="cash">Dinheiro / Outros</option>
+                      <option value="credit">Crédito (Patrocinador)</option>
+                      {formData.amount > playerCredit && (
+                        <option value="mixed">Misto (Crédito + Dinheiro)</option>
+                      )}
+                    </select>
+                    {formData.payment_source === 'credit' && formData.amount > playerCredit && (
+                      <p className="cx-credit-warning">
+                        Crédito insuficiente para o valor total. Será utilizado pagamento misto.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
