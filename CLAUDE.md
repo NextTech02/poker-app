@@ -12,7 +12,7 @@ Poker tournament management web application for live tournament operations with 
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth (JWT)
 
-**Key Feature**: Stage-based encapsulation system that automatically scopes all operations to a selected tournament stage via HTTP headers (see STAGE_ENCAPSULATION.md for details).
+**Key Feature**: Stage-based encapsulation system that automatically scopes all operations to a selected tournament stage via HTTP headers (see docs/STAGE_ENCAPSULATION.md for details).
 
 ## Architecture
 
@@ -51,9 +51,9 @@ Poker tournament management web application for live tournament operations with 
 - Cash management: `stage_cash_register`, `general_cash_register`, `rake_register`, `sangria_transactions`
 - Row Level Security (RLS) policies control data access
 - Real-time subscriptions available for live tournament updates
-- Migration files in root directory with naming: `database_migration_*.sql`
+- Migration files in `db/migrations/` with naming: `database_migration_*.sql`
 - Postgres MCP server available for direct database queries via `mcp__postgres-torneio__query` tool
-- Schema documentation: `database_schema.sql` (v1), `database_schema_v2.sql` (v2)
+- Schema documentation: `db/schema/database_schema.sql` (v1), `db/schema/database_schema_v2.sql` (v2)
 
 ### Key Data Flow Patterns
 
@@ -70,7 +70,7 @@ The system implements automatic stage scoping for all operations:
 - All GET requests automatically filter by stage
 - All POST requests validate that resources belong to selected stage
 - Prevents accidental cross-stage data mixing
-- See `STAGE_ENCAPSULATION.md` for complete documentation
+- See `docs/STAGE_ENCAPSULATION.md` for complete documentation
 
 ## Development Commands
 
@@ -135,10 +135,10 @@ pytest -v tests/ --asyncio-mode=auto
 ### Quick Start (Both Servers)
 ```bash
 # Windows:
-start_dev.bat
+scripts/start_dev.bat
 
 # Linux/Mac:
-./start_dev.sh
+./scripts/start_dev.sh
 ```
 
 ## Domain Model
@@ -287,7 +287,7 @@ Each command loads specialized context and best practices for that domain.
 ## Development Workflow
 
 ### Database Changes
-1. Write migration SQL in root directory: `database_migration_<description>.sql`
+1. Write migration SQL in `db/migrations/`: `database_migration_<description>.sql`
 2. Test migration locally first if possible
 3. Execute in Supabase SQL Editor
 4. Update RLS policies if needed
@@ -359,16 +359,16 @@ Each command loads specialized context and best practices for that domain.
 
 Reference these files for specific features:
 
-- **STAGE_ENCAPSULATION.md** - Complete guide to stage-based scoping system
-- **SISTEMA_ALOCACAO_README.md** - Table allocation and seating algorithms
-- **IMPLEMENTACAO_CAIXA_SANGRIA.md** - Cash register and sangria operations
-- **CORRECAO_CAIXA_GERAL.md** - General cash register corrections
-- **PLAYER_REGISTRATION_GUIDE.md** - Player registration workflow
-- **INTERVAL_FEATURE_GUIDE.md** - Tournament interval/break management
-- **BROADCAST_SETUP_INSTRUCTIONS.md** - Public broadcast display setup
-- **QUICKSTART.md** - Quick setup guide for new developers
-- **TROUBLESHOOTING.md** - Common issues and solutions
-- **MIGRATION_GUIDE_V2.md** - Database v1 to v2 migration
+- **docs/STAGE_ENCAPSULATION.md** - Complete guide to stage-based scoping system
+- **docs/SISTEMA_ALOCACAO_README.md** - Table allocation and seating algorithms
+- **docs/IMPLEMENTACAO_CAIXA_SANGRIA.md** - Cash register and sangria operations
+- **docs/CORRECAO_CAIXA_GERAL.md** - General cash register corrections
+- **docs/PLAYER_REGISTRATION_GUIDE.md** - Player registration workflow
+- **docs/INTERVAL_FEATURE_GUIDE.md** - Tournament interval/break management
+- **docs/BROADCAST_SETUP_INSTRUCTIONS.md** - Public broadcast display setup
+- **docs/QUICKSTART.md** - Quick setup guide for new developers
+- **docs/TROUBLESHOOTING.md** - Common issues and solutions
+- **docs/MIGRATION_GUIDE_V2.md** - Database v1 to v2 migration
 
 ## MCP Server Permissions
 

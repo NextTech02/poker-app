@@ -21,11 +21,17 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# ── Documentação (não necessária no VPS) ──────────────────────────────────────
+# ── Documentação: ignora .md solto, mas versiona docs/ e os da raiz ───────────
 *.md
+!README.md
+!CLAUDE.md
+!docs/*.md
 
-# ── Migrations e schemas SQL (já aplicados no Supabase) ───────────────────────
+# ── SQL: ignora .sql solto, mas versiona as migrations/schemas em db/ ──────────
 *.sql
+!db/migrations/*.sql
+!db/schema/*.sql
+!db/test_data/*.sql
 
 # ── Planilhas e arquivos locais ────────────────────────────────────────────────
 *.xlsx
@@ -33,7 +39,3 @@ yarn-error.log*
 *.png
 *.jpg
 *.jpeg
-
-# ── Scripts de dev local (não necessários no VPS) ─────────────────────────────
-start_dev.bat
-start_dev.sh
