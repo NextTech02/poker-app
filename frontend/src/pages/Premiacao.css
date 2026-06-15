@@ -2,19 +2,70 @@
    Premiacao Page — Professional Dark Theme
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Reserved prize + Release/Visibility toggles (M2) ── */
+/* ── Reserved prize card layout (M2) ── */
+.reserved-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.reserved-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.reserved-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7f90;
+}
+
 .reserved-purpose-select {
-  margin-top: 6px;
   width: 100%;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.625rem 0.875rem;
+  border-radius: 8px;
+  background: #141c26;
+  color: #e0eaf4;
+  border: 1.5px solid #1e2d3d;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.reserved-purpose-select:focus {
+  outline: none;
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
 }
 /* Native option lists render on white — force dark text so they're legible */
 .reserved-purpose-select option,
 .modal .form-group select option { color: #111; background: #fff; }
+
+/* Reserved card: teal accent on the % input (overrides the gold default) */
+.reserved-card .input-with-prefix:focus-within {
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+.reserved-card .input-with-prefix .prefix {
+  background: rgba(20, 184, 166, 0.10);
+  color: #14b8a6;
+}
+
+.reserved-save-btn {
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
+.reserved-result {
+  font-size: 0.82rem;
+  color: #93a4b4;
+  text-align: center;
+  padding-top: 0.15rem;
+}
+.reserved-result strong { color: #14b8a6; font-weight: 800; }
 .prem-toggle {
   padding: 6px 10px;
   border-radius: 6px;
@@ -178,8 +229,9 @@
 .prize-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1.25rem;
+  gap: 1.5rem;
   margin-bottom: 1.75rem;
+  align-items: stretch;
 }
 
 @media (max-width: 1200px) {
@@ -193,10 +245,13 @@
   background: #0e1620;
   border: 1px solid #1e2d3d;
   border-radius: 12px;
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem;
   transition: border-color 0.2s, transform 0.2s;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 170px;
 }
 
 .summary-card::before {
@@ -217,11 +272,13 @@
 .entries-card::before    { background: linear-gradient(90deg, #3b82f6, #1d4ed8); }
 .rake-card::before       { background: linear-gradient(90deg, #ef4444, #b91c1c); }
 .player-pool-card::before{ background: linear-gradient(90deg, #8b5cf6, #6d28d9); }
+.reserved-card::before   { background: linear-gradient(90deg, #14b8a6, #0d9488); }
 
 .summary-card .card-header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
@@ -231,6 +288,7 @@
   color: #6b7f90;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  line-height: 1.35;
   margin: 0;
 }
 
@@ -238,13 +296,18 @@
   font-size: 0.72rem;
   color: #4a6070;
   font-weight: 600;
+  line-height: 1.35;
+  text-align: right;
+  flex-shrink: 0;
+  max-width: 48%;
 }
 
 .summary-card .card-value {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
   font-weight: 800;
   color: #e0eaf4;
   letter-spacing: -0.02em;
+  margin-top: auto;
 }
 
 /* Guaranteed card input */
@@ -252,6 +315,7 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  margin-top: auto;
 }
 
 .input-with-prefix {

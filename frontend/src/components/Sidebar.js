@@ -79,8 +79,10 @@ const Sidebar = () => {
         { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'cashier' },
       ],
     },
-    // Restricted entry for the sangi role (only screen they can see)
-    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi' },
+    // Restricted entry for the pure sangi role: their only screen. Hidden for
+    // anyone who already sees Sangi nested under the Caixa group (has `cashier`),
+    // so admins/cashiers don't get a duplicate top-level item.
+    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
     {
       type: 'group',
       groupKey: 'torneios',
@@ -92,13 +94,8 @@ const Sidebar = () => {
         { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
       ],
     },
-    { path: '/sit-and-go', labelKey: 'sidebar.sitAndGo', icon: 'rocket', permission: 'tournaments' },
-    { path: '/vagas', labelKey: 'sidebar.seats', icon: 'briefcase', permission: 'tournaments' },
-    { path: '/rankings', labelKey: 'sidebar.rankings', icon: 'chart', permission: 'rankings' },
     { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
     { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
-    { path: '/imprensa', labelKey: 'sidebar.press', icon: 'newspaper' },
-    { path: '/templates', labelKey: 'sidebar.templates', icon: 'file-text' },
     { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
     { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document', permission: 'reports' },
   ];
@@ -110,6 +107,9 @@ const Sidebar = () => {
       const visibleChildren = item.children.filter((c) => hasPermission(c.permission));
       return visibleChildren.length > 0;
     }
+    // Suppress an item that would otherwise duplicate one already reachable
+    // through a group (e.g. the standalone Sangi entry for cashier/admin users).
+    if (item.hideIfPermission && hasPermission(item.hideIfPermission)) return false;
     return hasPermission(item.permission);
   }).map((item) => {
     if (item.type === 'group') {

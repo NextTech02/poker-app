@@ -564,34 +564,45 @@ const Premiacao = () => {
                   <h3>Premiação Reservada</h3>
                   <span className="card-subtitle">Bloqueada do pagamento</span>
                 </div>
-                <div className="card-content">
-                  <div className="input-with-prefix">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={reservedPct}
-                      onChange={(e) => setReservedPct(e.target.value)}
-                      className="guaranteed-input"
-                    />
-                    <span className="prefix">%</span>
+                <div className="card-content reserved-content">
+                  <div className="reserved-field">
+                    <label className="reserved-label">Percentual</label>
+                    <div className="input-with-prefix">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={reservedPct}
+                        onChange={(e) => setReservedPct(e.target.value)}
+                        className="guaranteed-input"
+                      />
+                      <span className="prefix">%</span>
+                    </div>
                   </div>
-                  <select
-                    value={reservedPurpose}
-                    onChange={(e) => setReservedPurpose(e.target.value)}
-                    className="reserved-purpose-select"
+                  <div className="reserved-field">
+                    <label className="reserved-label">Destino</label>
+                    <select
+                      value={reservedPurpose}
+                      onChange={(e) => setReservedPurpose(e.target.value)}
+                      className="reserved-purpose-select"
+                    >
+                      <option value="">Selecione…</option>
+                      <option value="ranking">Ranking</option>
+                      <option value="staff">Staff</option>
+                    </select>
+                  </div>
+                  <Button
+                    size="small"
+                    onClick={handleSaveReserved}
+                    disabled={saving}
+                    className="reserved-save-btn"
                   >
-                    <option value="">Destino…</option>
-                    <option value="ranking">Ranking</option>
-                    <option value="staff">Staff</option>
-                  </select>
-                  <Button size="small" onClick={handleSaveReserved} disabled={saving}>
-                    Salvar
+                    {saving ? 'Salvando…' : 'Salvar'}
                   </Button>
                   {prizeSummary?.reserved_amount > 0 && (
-                    <span className="card-subtitle">
-                      = R$ {formatCurrency(prizeSummary?.reserved_amount)}
+                    <span className="reserved-result">
+                      Reservado: <strong>R$ {formatCurrency(prizeSummary?.reserved_amount)}</strong>
                     </span>
                   )}
                 </div>

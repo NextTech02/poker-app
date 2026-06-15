@@ -300,7 +300,7 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
-      {['/sit-and-go', '/vagas', '/rankings', '/imprensa', '/templates', '/eliminacao'].map((path) => (
+      {['/eliminacao'].map((path) => (
         <Route
           key={path}
           path={path}

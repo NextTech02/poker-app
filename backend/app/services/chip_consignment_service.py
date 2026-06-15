@@ -62,13 +62,23 @@ class ChipConsignmentService:
         if not effective_stage:
             raise HTTPException(status_code=400, detail="stage_id é obrigatório (selecione uma etapa).")
 
-        # Validate sangi staff exists and is active
-        staff = supabase.table("staff").select("id, active") \
+        # Validate sangi staff exists, is active, and is classified as a sangi.
+        # A sangi (chip seller on consignment) is distinct from a cashbox/caixa:
+        # only staff whose permission group grants the `sangi` key can receive
+        # a consignment. Enforced here so the rule holds even on direct API calls.
+        staff = supabase.table("staff").select("id, active, permission_groups(permissions)") \
             .eq("id", data.sangi_staff_id).execute()
         if not staff.data:
             raise HTTPException(status_code=404, detail="Sangi (funcionário) não encontrada.")
-        if not staff.data[0].get("active", True):
+        staff_row = staff.data[0]
+        if not staff_row.get("active", True):
             raise HTTPException(status_code=400, detail="Funcionário inativo.")
+        group = staff_row.get("permission_groups") or {}
+        if "sangi" not in (group.get("permissions") or []):
+            raise HTTPException(
+                status_code=400,
+                detail="Este funcionário não está classificado como Sangi.",
+            )
 
         # One open consignment per (sangi, stage)
         open_existing = supabase.table("chip_consignments").select("id") \

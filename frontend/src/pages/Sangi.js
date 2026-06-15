@@ -131,7 +131,9 @@ const ManagerView = ({ toast, confirm }) => {
         api.get('/staff'),
         api.get('/sangi/consignments'),
       ]);
-      setStaff((staffRes.data || []).filter((s) => s.active));
+      // Only staff classified as "sangi" (sellers) can receive chip consignments.
+      // Excludes Caixa / other roles — a sangi is distinct from the cashbox.
+      setStaff((staffRes.data || []).filter((s) => s.active && (s.permissions || []).includes('sangi')));
       setList(listRes.data || []);
     } catch (err) {
       toast.error('Erro ao carregar consignações');
