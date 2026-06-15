@@ -1,0 +1,216 @@
+/* ── Player Credits Page ── */
+
+.cj-header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.cj-player-selector {
+  margin-bottom: 1.5rem;
+}
+
+.cj-player-selector .form-group {
+  max-width: 500px;
+}
+
+/* Stats colors */
+.cj-stat-positive {
+  color: #22c55e !important;
+}
+
+.cj-stat-highlight {
+  color: #3b82f6 !important;
+}
+
+.cj-stat-warning {
+  color: #f59e0b !important;
+}
+
+/* Credits card */
+.cj-credits-card {
+  margin-bottom: 1.5rem;
+}
+
+.cj-amount-positive {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.cj-amount-negative {
+  color: #ef4444;
+}
+
+.cj-amount-warning {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Status badges */
+.cj-status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.cj-status--active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.cj-status--used {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.cj-status--settled {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+}
+
+.cj-status--cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Action buttons */
+.cj-action-btn {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cj-action-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cj-action-btn--danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.cj-action-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Filters */
+.cj-filters-card {
+  margin-bottom: 1.5rem;
+}
+
+.cj-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.cj-filters .form-group {
+  flex: 1;
+  min-width: 140px;
+}
+
+.cj-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-bottom: 0.25rem;
+}
+
+/* Sponsor select row */
+.cj-sponsor-select-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cj-sponsor-select-row select {
+  flex: 1;
+}
+
+.cj-add-sponsor-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #3b82f6;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.cj-add-sponsor-btn:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+/* Transaction type badges */
+.badge-credit {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.badge-credit-used {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+.badge-deduction {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.badge-sponsor {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.badge-cancelled {
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
+}
+
+.badge-refund {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.badge-prize {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+}
+
+.badge-default {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cj-header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .cj-filters {
+    flex-direction: column;
+  }
+
+  .cj-filters .form-group {
+    min-width: 100%;
+  }
+
+  .cj-filter-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

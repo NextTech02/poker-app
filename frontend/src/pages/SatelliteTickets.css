@@ -1,0 +1,164 @@
+/* ── Satellite Tickets Page ── */
+
+.st-header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Stats colors */
+.st-stat-available {
+  color: #22c55e !important;
+}
+
+.st-stat-redeemed {
+  color: #3b82f6 !important;
+}
+
+/* Section spacing */
+.st-section {
+  margin-bottom: 1.5rem;
+}
+
+/* Status badges */
+.st-status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.st-status--available {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.st-status--redeemed {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.st-status--cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Unassigned player */
+.st-unassigned {
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Action buttons */
+.st-action-btn {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.st-action-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.st-action-btn--danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.st-action-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Filters */
+.st-filters-card {
+  margin-bottom: 1.5rem;
+}
+
+.st-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.st-filters .form-group {
+  flex: 1;
+  min-width: 140px;
+}
+
+.st-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding-bottom: 0.25rem;
+}
+
+/* No tickets message */
+.st-no-tickets-msg {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  padding: 0.75rem 0;
+  text-align: center;
+}
+
+/* Read-only info box used inside the ticket modals */
+.st-info-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.st-info-box span {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.st-info-box strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.st-info-box--detail {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.st-info-box--detail > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .st-header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .st-filters {
+    flex-direction: column;
+  }
+
+  .st-filters .form-group {
+    min-width: 100%;
+  }
+
+  .st-filter-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

@@ -57,6 +57,42 @@ const formatCurrencyValue = (v, currency) => {
   })}`;
 };
 
+// ── Prize Sidebar (right column) ─────────────────────────────────────────────
+const PrizeSidebar = ({ prizes, prizeScale = 1, currency = 'BRL', labels }) => {
+  if (!prizes || prizes.length === 0) return null;
+  const L = labels || BROADCAST_LABELS['pt-BR'];
+  const s = prizeScale;
+  // Auto-scroll when there are too many entries to fit comfortably
+  const shouldScroll = prizes.length > 8;
+  const items = shouldScroll ? [...prizes, ...prizes] : prizes;
+  const animDuration = prizes.length * 4; // seconds
+
+  return (
+    <aside className="prize-sidebar" style={{ '--prize-scale': s }}>
+      <div className="prize-sidebar-header" style={{ fontSize: `${13 * s}px` }}>
+        {L.awards}
+      </div>
+      <div className="prize-sidebar-list-wrap">
+        <div
+          className={`prize-sidebar-list ${shouldScroll ? 'scrolling' : ''}`}
+          style={shouldScroll ? { animationDuration: `${animDuration}s` } : undefined}
+        >
+          {items.map((prize, idx) => (
+            <div key={idx} className="prize-sidebar-row">
+              <span className="prize-sidebar-pos" style={{ fontSize: `${14 * s}px` }}>
+                {L.placeLabel(prize.position)}
+              </span>
+              <span className="prize-sidebar-val" style={{ fontSize: `${16 * s}px` }}>
+                {formatCurrencyValue(prize.prize_amount, currency)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+};
+
 // ── Prize Ticker ─────────────────────────────────────────────────────────────
 const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, currency = 'BRL', labels }) => {
   if (!prizes || prizes.length === 0) return null;
@@ -113,8 +149,9 @@ const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlay
       ? { backgroundImage: `url(${settings.breakBgImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
       : { background: settings.breakBgColor || '#0a0e13' };
 
+  const muteFlag = settings.breakVideoMuted !== false ? 1 : 0;
   const embedUrl = videoId
-    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1`
+    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${muteFlag}&loop=1&playlist=${videoId}&controls=0&modestbranding=1`
     : null;
 
   const InfoPanel = () => (
@@ -260,8 +297,12 @@ const TournamentBroadcast = () => {
       let playersData = null;
       let blindsData = null;
 
+      // ISSUE-010 fix: the `/broadcast/:id` route accepts either a tournament
+      // day id or a tournament id. The initial probe against /tournament-days/:id
+      // is expected to 404 when `id` is actually a tournament, so mark the
+      // request as silent to avoid polluting the console with false positives.
       try {
-        const dayRes = await api.get(`/tournament-days/${id}`);
+        const dayRes = await api.get(`/tournament-days/${id}`, { _silentError: true });
         dayData = dayRes.data;
         setIsDayBased(true);
         setTournamentDay(dayData);
@@ -273,10 +314,10 @@ const TournamentBroadcast = () => {
         playersData = playersRes.data;
 
         try {
-          const dayBlindsRes = await api.get(`/tournament-days/${id}/blinds`);
+          const dayBlindsRes = await api.get(`/tournament-days/${id}/blinds`, { _silentError: true });
           blindsData = dayBlindsRes.data;
           if (!blindsData || blindsData.length === 0) {
-            const tournamentBlindsRes = await api.get(`/tournaments/${dayData.tournament_id}/blinds`);
+            const tournamentBlindsRes = await api.get(`/tournaments/${dayData.tournament_id}/blinds`, { _silentError: true });
             blindsData = tournamentBlindsRes.data;
           }
           if (!blindsData || blindsData.length === 0) {
@@ -290,7 +331,7 @@ const TournamentBroadcast = () => {
         const [tournamentRes, playersRes, blindsRes] = await Promise.all([
           api.get(`/tournaments/${id}`),
           api.get(`/tournament-players/tournament/${id}`),
-          api.get(`/tournaments/${id}/blinds`)
+          api.get(`/tournaments/${id}/blinds`, { _silentError: true }),
         ]);
         tournamentData = tournamentRes.data;
         playersData = playersRes.data;
@@ -303,7 +344,8 @@ const TournamentBroadcast = () => {
           api.get(`/tournaments/${tournamentIdForPrizes}/prizes`),
           api.get(`/tournaments/${tournamentIdForPrizes}/prizes/summary`),
         ]);
-        setPrizeAllocations(prizesRes.data || []);
+        // Feature 4.4: faixas com visible=false somem da exibição pública (sem apagar o dado)
+        setPrizeAllocations((prizesRes.data || []).filter((p) => p.visible !== false));
         setPrizeSummary(summaryRes.data || null);
       } catch {
         setPrizeAllocations([]);
@@ -474,12 +516,18 @@ const TournamentBroadcast = () => {
   const currentTimeForAlert = isDayBased && timerState ? timerState.time_remaining_current_level : timeRemaining;
   const currentBlindIsBreakForAlert = isDayBased && timerState ? timerState.current_blind?.is_break === true : false;
 
+  const blindAlertsEnabled =
+    (tournamentDay?.broadcast_blind_alerts_enabled ?? tournament?.broadcast_blind_alerts_enabled) !== false;
+
   useEffect(() => {
     // Reset fired alerts when blind level changes
     if (prevLevelRef.current !== null && prevLevelRef.current !== currentLevelForAlert) {
       firedAlertsRef.current = new Set();
     }
     prevLevelRef.current = currentLevelForAlert;
+
+    // User disabled blind audio alerts for this day/tournament
+    if (!blindAlertsEnabled) return;
 
     // Don't fire alerts during breaks
     if (currentBlindIsBreakForAlert) return;
@@ -499,7 +547,7 @@ const TournamentBroadcast = () => {
         playBeep(alert.freq, alert.dur, alert.vol);
       }
     }
-  }, [currentTimeForAlert, currentLevelForAlert, currentBlindIsBreakForAlert, playBeep]);
+  }, [currentTimeForAlert, currentLevelForAlert, currentBlindIsBreakForAlert, blindAlertsEnabled, playBeep]);
 
   // Format helpers
   const formatTime = (seconds) => {
@@ -524,13 +572,38 @@ const TournamentBroadcast = () => {
 
   // Compute ticker height before any early returns (Rules of Hooks)
   const prizeScaleEarly = ((tournamentDay?.broadcast_prize_size ?? tournament?.broadcast_prize_size) || 100) / 100;
-  const tickerHeightEarly = Math.round(48 * prizeScaleEarly);
+  const prizesLayoutEarly = (tournamentDay?.broadcast_prizes_layout ?? tournament?.broadcast_prizes_layout) === 'sidebar' ? 'sidebar' : 'bottom';
+  const tickerHeightEarly = prizesLayoutEarly === 'sidebar' ? 0 : Math.round(48 * prizeScaleEarly);
+  const prizeSidebarWidthEarly = prizesLayoutEarly === 'sidebar' ? Math.round(240 * prizeScaleEarly) : 0;
 
-  // Propagate ticker height to :root so position:fixed elements can use it via CSS var
+  // Propagate ticker height + sidebar width to :root so position:fixed elements adapt
   useEffect(() => {
     document.documentElement.style.setProperty('--prize-ticker-height', `${tickerHeightEarly}px`);
-    return () => document.documentElement.style.removeProperty('--prize-ticker-height');
-  }, [tickerHeightEarly]);
+    document.documentElement.style.setProperty('--prize-sidebar-width', `${prizeSidebarWidthEarly}px`);
+    return () => {
+      document.documentElement.style.removeProperty('--prize-ticker-height');
+      document.documentElement.style.removeProperty('--prize-sidebar-width');
+    };
+  }, [tickerHeightEarly, prizeSidebarWidthEarly]);
+
+  // Measure header height so the right-side prize sidebar can flush against it
+  useEffect(() => {
+    const setHeaderH = () => {
+      const el = document.querySelector('.broadcast-header');
+      const h = el ? Math.round(el.getBoundingClientRect().height) : 99;
+      document.documentElement.style.setProperty('--broadcast-header-height', `${h}px`);
+    };
+    setHeaderH();
+    const ro = new ResizeObserver(setHeaderH);
+    const el = document.querySelector('.broadcast-header');
+    if (el) ro.observe(el);
+    window.addEventListener('resize', setHeaderH);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', setHeaderH);
+      document.documentElement.style.removeProperty('--broadcast-header-height');
+    };
+  }, [tournament, tournamentDay]);
 
   if (loading) {
     return (
@@ -568,12 +641,14 @@ const TournamentBroadcast = () => {
     showPrizes: bSource?.broadcast_show_prizes !== false,
     showChipcount: bSource?.broadcast_show_chipcount !== false,
     showAverage: bSource?.broadcast_show_average !== false,
+    prizesLayout: bSource?.broadcast_prizes_layout === 'sidebar' ? 'sidebar' : 'bottom',
     // Break screen settings
     breakLayout:          bSource?.broadcast_break_layout          || 'split',
     breakBgColor:         bSource?.broadcast_break_bg_color        || '#0a0e13',
     breakBgImageUrl:      bSource?.broadcast_break_bg_image_url    || null,
     breakYoutubeUrl:      bSource?.broadcast_break_youtube_url     || null,
     breakShowVideo:       bSource?.broadcast_break_show_video      !== false,
+    breakVideoMuted:      bSource?.broadcast_break_video_muted     !== false,
     breakShowNextLevel:   bSource?.broadcast_break_show_next_level !== false,
     breakShowPlayers:     bSource?.broadcast_break_show_players    !== false,
     breakShowChipcount:   bSource?.broadcast_break_show_chipcount  !== false,
@@ -624,8 +699,6 @@ const TournamentBroadcast = () => {
 
   const displayName = broadcastSettings.displayName ||
     (tournamentDay ? `${tournament.name} - ${tournamentDay.day_name}` : tournament.name);
-
-  const tickerHeight = Math.round(48 * prizeScale);
 
   // Check if completed
   const currentStatus = tournamentDay?.status || tournament?.status;
@@ -857,9 +930,13 @@ const TournamentBroadcast = () => {
         </div>
       )}
 
-      {/* Prize Ticker — scrolling bottom bar */}
+      {/* Prize display — bottom ticker or right sidebar */}
       {broadcastSettings.showPrizes && prizeAllocations.length > 0 && !(isDayBased && currentBlindIsBreak) && (
-        <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} currency={dayCurrency} />
+        broadcastSettings.prizesLayout === 'sidebar' ? (
+          <PrizeSidebar prizes={prizeAllocations} prizeScale={prizeScale} currency={dayCurrency} labels={L} />
+        ) : (
+          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} currency={dayCurrency} labels={L} />
+        )
       )}
 
       {/* Legacy Break Overlay (non-day tournaments only) */}

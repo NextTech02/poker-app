@@ -447,6 +447,19 @@
 
 .tr-field input::placeholder { color: #2a3d50; }
 
+.tr-field select {
+  background: #071018;
+  border: 1px solid #1e2d3d;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  color: #e0eaf4;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+/* Native option list renders on white — force dark text so it's legible */
+.tr-field select option { color: #111; background: #fff; }
+
 .tr-field input:focus {
   outline: none;
   border-color: #d4af37;

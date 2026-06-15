@@ -129,11 +129,11 @@
   min-width: 250px;
 }
 
-/* Prizepool - Bottom Right Corner — always sits above the prize ticker */
+/* Prizepool - Bottom Right Corner — sits above ticker, shifts left if right sidebar is on */
 .broadcast-prizepool-corner {
   position: fixed;
   bottom: calc(var(--prize-ticker-height, 48px) + 12px);
-  right: 48px;
+  right: calc(var(--prize-sidebar-width, 0px) + 48px);
   text-align: right;
   padding: 12px 24px;
   z-index: 100;
@@ -458,7 +458,7 @@
 
   .broadcast-prizepool-corner {
     bottom: calc(var(--prize-ticker-height, 48px) + 8px);
-    right: 16px;
+    right: calc(var(--prize-sidebar-width, 0px) + 16px);
     left: 16px;
     padding: 12px 20px;
   }
@@ -737,6 +737,94 @@
 /* Push main content up so ticker doesn't overlap — height driven by JS var */
 .broadcast-container {
   padding-bottom: var(--prize-ticker-height, 48px);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Prize Sidebar — vertical right column (alternative to bottom ticker)
+   Flush against the right edge so it visually continues the header's
+   gold underline into a left-edge gold accent of this column.
+   ══════════════════════════════════════════════════════════════════ */
+.prize-sidebar {
+  position: fixed;
+  right: 0;
+  top: var(--broadcast-header-height, 99px);
+  bottom: 0;
+  width: 240px;
+  z-index: 50;
+  background: linear-gradient(180deg, rgba(20, 25, 34, 0.95) 0%, rgba(10, 14, 19, 0.92) 100%);
+  border-left: 2px solid var(--gold-accent, #d4af37);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
+}
+
+.prize-sidebar-header {
+  flex-shrink: 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #d4af37 0%, #b8960a 100%);
+  color: #0a0e14;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.prize-sidebar-list-wrap {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.prize-sidebar-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px;
+}
+
+.prize-sidebar-list.scrolling {
+  animation: prize-sidebar-scroll linear infinite;
+  will-change: transform;
+}
+
+@keyframes prize-sidebar-scroll {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+.prize-sidebar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  white-space: nowrap;
+}
+
+.prize-sidebar-row:last-child {
+  border-bottom: none;
+}
+
+.prize-sidebar-pos {
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.prize-sidebar-val {
+  font-weight: 800;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
+/* Reserve right space when sidebar layout is active so the center column
+   doesn't slide under the prize sidebar. Header is intentionally NOT padded
+   so its gold underline runs edge-to-edge and meets the sidebar's left border. */
+.broadcast-main {
+  padding-right: calc(48px + var(--prize-sidebar-width, 0px));
 }
 
 /* ══════════════════════════════════════════════════════════════════

@@ -2,6 +2,42 @@
    Premiacao Page — Professional Dark Theme
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Reserved prize + Release/Visibility toggles (M2) ── */
+.reserved-purpose-select {
+  margin-top: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+/* Native option lists render on white — force dark text so they're legible */
+.reserved-purpose-select option,
+.modal .form-group select option { color: #111; background: #fff; }
+.prem-toggle {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.prem-toggle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.prem-toggle:disabled { opacity: 0.5; cursor: default; }
+.prem-toggle.on { border-color: #2ecc71; color: #2ecc71; }
+.prem-toggle.off { border-color: #e67e22; color: #e67e22; }
+.allocations-table tr.row-paid { opacity: 0.7; }
+.status-badge.paid {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  font-size: 12px;
+}
+
 /* Page Header */
 .premiacao-header {
   display: flex;
@@ -647,6 +683,40 @@
   color: #d4af37;
   letter-spacing: -0.02em;
   text-shadow: 0 2px 12px rgba(212, 175, 55, 0.3);
+}
+
+/* ── Payout balance info ── */
+.payout-balance-info {
+  padding: 0.75rem 1.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.payout-balance-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: #8899a6;
+}
+
+.payout-balance-row--highlight {
+  font-weight: 700;
+  color: #e5e7eb;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 0.15rem;
+}
+
+.payout-ok {
+  color: #22c55e;
+}
+
+.payout-warn {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 /* ── Player search autocomplete ── */

@@ -48,9 +48,36 @@ export const ToastProvider = ({ children }) => {
   }, []);
 
   const addToast = useCallback((type, message, options = {}) => {
-    const id = ++toastIdCounter;
     const duration = options.duration || (type === 'error' ? 6000 : 4000);
 
+    // Dedupe: if a non-exiting toast with same (type, title, message) already exists,
+    // extend its timer instead of stacking duplicates (ISSUE-004).
+    let existingId = null;
+    setToasts(prev => {
+      const existing = prev.find(t =>
+        !t.exiting &&
+        t.type === type &&
+        t.message === message &&
+        (t.title || null) === (options.title || null)
+      );
+      if (existing) {
+        existingId = existing.id;
+        return prev;
+      }
+      return prev;
+    });
+
+    if (existingId !== null) {
+      if (timersRef.current[existingId]) {
+        clearTimeout(timersRef.current[existingId]);
+      }
+      timersRef.current[existingId] = setTimeout(() => {
+        removeToast(existingId);
+      }, duration);
+      return existingId;
+    }
+
+    const id = ++toastIdCounter;
     setToasts(prev => [...prev, {
       id,
       type,

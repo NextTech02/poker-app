@@ -1,0 +1,58 @@
+.rt-loading { padding: 40px; text-align: center; opacity: 0.7; }
+
+.rt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 12px 0 8px;
+}
+.rt-header h1 { margin: 0; font-size: 24px; }
+.rt-subtitle { opacity: 0.7; font-size: 13px; margin-top: 4px; }
+.rt-print-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+.rt-print-btn:hover { background: rgba(255, 255, 255, 0.12); }
+
+.rt-section-title { margin: 24px 0 10px; font-size: 15px; opacity: 0.85; }
+
+.rt-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.rt-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.rt-stat-label { font-size: 12px; opacity: 0.65; }
+.rt-stat-value { font-size: 20px; font-weight: 600; }
+.rt-stat-hint { font-size: 11px; opacity: 0.55; }
+
+.rt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.rt-table th, .rt-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.rt-table th { opacity: 0.65; font-weight: 500; }
+
+@media print {
+  .app-layout > :first-child { display: none; }
+  .main-content { margin-left: 0 !important; }
+  .rt-print-btn { display: none; }
+}

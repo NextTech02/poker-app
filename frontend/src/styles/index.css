@@ -4,6 +4,15 @@
   box-sizing: border-box;
 }
 
+/* Global fix: native <select> dropdown lists render on a white system
+   background. Across the dark theme the option text inherited a light color
+   and became invisible. Force dark text on white for every option list. */
+select option,
+select optgroup {
+  color: #111;
+  background-color: #fff;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -12,6 +21,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--primary-bg);
   color: #ffffff;
+  overflow-x: hidden; /* guard contra overflow horizontal (corte da lateral direita) */
 }
 
 /* Global text styles */

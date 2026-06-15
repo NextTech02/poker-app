@@ -1,0 +1,70 @@
+.sangi-title { font-size: 22px; margin: 0 0 16px; }
+.sangi-loading { padding: 40px; text-align: center; opacity: 0.7; }
+.sangi-section { margin: 24px 0 10px; font-size: 15px; opacity: 0.85; }
+.sangi-muted { opacity: 0.6; font-size: 13px; padding: 8px 0; }
+
+.sangi-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.sangi-stat {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sangi-stat span { font-size: 12px; opacity: 0.65; }
+.sangi-stat strong { font-size: 20px; }
+
+.sangi-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 18px;
+}
+.sangi-card h3 { margin: 0 0 12px; font-size: 15px; }
+.sangi-form-row {
+  display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+}
+.sangi-field { display: flex; flex-direction: column; gap: 6px; min-width: 200px; flex: 1; }
+.sangi-field label { font-size: 12px; opacity: 0.7; }
+.sangi-field input, .sangi-field select {
+  padding: 9px 10px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06); color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+/* Native option list renders on a white background — force dark text so it's legible */
+.sangi-field select option { color: #111; background: #fff; }
+.sangi-btn {
+  padding: 10px 18px; border-radius: 8px; border: none;
+  background: #2ecc71; color: #06281a; font-weight: 600; cursor: pointer;
+}
+.sangi-btn:disabled { opacity: 0.5; cursor: default; }
+
+.sangi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sangi-table th, .sangi-table td {
+  padding: 9px 10px; text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.sangi-table th { opacity: 0.65; font-weight: 500; }
+.sangi-table.compact { background: rgba(0, 0, 0, 0.15); border-radius: 8px; }
+.sangi-detail-row > td { padding: 0 10px 10px; }
+
+.sangi-badge { padding: 3px 8px; border-radius: 6px; font-size: 12px; }
+.sangi-badge.open { background: rgba(52, 152, 219, 0.18); color: #3498db; }
+.sangi-badge.reconciled { background: rgba(46, 204, 113, 0.16); color: #2ecc71; }
+
+.sangi-actions { display: flex; gap: 10px; }
+.sangi-link {
+  background: none; border: none; color: #3498db; cursor: pointer; font-size: 13px; padding: 0;
+}
+.sangi-link.danger { color: #e67e22; }
+
+.sangi-empty {
+  padding: 32px; text-align: center; opacity: 0.75;
+  border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 12px;
+}
+.sangi-empty h3 { margin: 0 0 6px; }

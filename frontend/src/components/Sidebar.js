@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
+import { usePermissions } from '../contexts/PermissionContext';
 import LanguageSelector from './LanguageSelector';
 import nextHubLogo from '../assets/next-hub-logo.png';
 import './Sidebar.css';
@@ -12,12 +13,13 @@ const Sidebar = () => {
   const { t } = useTranslation();
   const { signOut } = useAuth();
   const { selectedStage } = useStage();
+  const { hasPermission } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
-  const [openGroups, setOpenGroups] = useState(new Set(['caixa']));
+  const [openGroups, setOpenGroups] = useState(new Set(['caixa', 'torneios']));
 
   // Handle window resize
   useEffect(() => {
@@ -61,30 +63,63 @@ const Sidebar = () => {
     };
   }, [isOpen, isMobile]);
 
-  const menuItems = [
-    { path: '/home', labelKey: 'sidebar.periods', icon: 'clock' },
-    { path: '/etapas', labelKey: 'sidebar.stages', icon: 'calendar' },
+  const allMenuItems = [
+    { path: '/home', labelKey: 'sidebar.periods', icon: 'clock', permission: 'dashboard' },
+    { path: '/etapas', labelKey: 'sidebar.stages', icon: 'calendar', permission: 'stages' },
     {
       type: 'group',
       groupKey: 'caixa',
       labelKey: 'sidebar.cashRegister',
       icon: 'dollar',
+      permission: 'cashier',
       children: [
-        { path: '/caixa', labelKey: 'sidebar.registerPlayers', icon: 'users' },
-        { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award' },
+        { path: '/caixa', labelKey: 'sidebar.sales', icon: 'dollar', permission: 'cashier' },
+        { path: '/caixa/jogadores', labelKey: 'sidebar.playerLimit', icon: 'users', permission: 'cashier_players' },
+        { path: '/caixa/tickets', labelKey: 'sidebar.tournamentTickets', icon: 'ticket', permission: 'cashier_tickets' },
+        { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'cashier' },
       ],
     },
-    { path: '/torneios', labelKey: 'sidebar.tournaments', icon: 'trophy' },
-    { path: '/sit-and-go', labelKey: 'sidebar.sitAndGo', icon: 'rocket' },
-    { path: '/vagas', labelKey: 'sidebar.seats', icon: 'briefcase' },
-    { path: '/rankings', labelKey: 'sidebar.rankings', icon: 'chart' },
-    { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet' },
-    { path: '/jogadores', labelKey: 'sidebar.players', icon: 'users' },
+    // Restricted entry for the sangi role (only screen they can see)
+    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi' },
+    {
+      type: 'group',
+      groupKey: 'torneios',
+      labelKey: 'sidebar.tournaments',
+      icon: 'trophy',
+      permission: 'tournaments',
+      children: [
+        { path: '/torneios', labelKey: 'sidebar.tournamentsList', icon: 'trophy', permission: 'tournaments' },
+        { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
+      ],
+    },
+    { path: '/sit-and-go', labelKey: 'sidebar.sitAndGo', icon: 'rocket', permission: 'tournaments' },
+    { path: '/vagas', labelKey: 'sidebar.seats', icon: 'briefcase', permission: 'tournaments' },
+    { path: '/rankings', labelKey: 'sidebar.rankings', icon: 'chart', permission: 'rankings' },
+    { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
+    { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
     { path: '/imprensa', labelKey: 'sidebar.press', icon: 'newspaper' },
     { path: '/templates', labelKey: 'sidebar.templates', icon: 'file-text' },
-    { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge' },
-    { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document' },
+    { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
+    { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document', permission: 'reports' },
   ];
+
+  // Filter menu items based on permissions
+  const menuItems = allMenuItems.filter((item) => {
+    if (item.type === 'group') {
+      // Show group if user has permission for at least one child
+      const visibleChildren = item.children.filter((c) => hasPermission(c.permission));
+      return visibleChildren.length > 0;
+    }
+    return hasPermission(item.permission);
+  }).map((item) => {
+    if (item.type === 'group') {
+      return {
+        ...item,
+        children: item.children.filter((c) => hasPermission(c.permission)),
+      };
+    }
+    return item;
+  });
 
   const toggleGroup = (groupKey) => {
     setOpenGroups(prev => {
@@ -105,10 +140,36 @@ const Sidebar = () => {
     await signOut();
   };
 
+  // Collect every menu path so we can detect when one path is a prefix of
+  // another (e.g. "/caixa" vs "/caixa/jogadores"). The shorter, less-specific
+  // path must NOT match when the user is actually inside the longer one.
+  const allMenuPaths = (() => {
+    const paths = [];
+    for (const item of allMenuItems) {
+      if (item.type === 'group') {
+        for (const c of item.children) paths.push(c.path);
+      } else {
+        paths.push(item.path);
+      }
+    }
+    return paths;
+  })();
+
   const isPathActive = (path) => {
     // A6.3: home item (/home) também ativa quando estamos em /
     if (path === '/home' && location.pathname === '/') return true;
-    return location.pathname === path || location.pathname.startsWith(path + '/');
+    if (location.pathname === path) return true;
+    // Only treat the current location as a sub-route of `path` when no other
+    // menu item is a more specific prefix match. Without this check, "/caixa"
+    // would light up while we're on "/caixa/jogadores" or "/caixa/tickets".
+    if (location.pathname.startsWith(path + '/')) {
+      const moreSpecific = allMenuPaths.some(
+        (p) => p !== path && p.startsWith(path + '/') &&
+               (location.pathname === p || location.pathname.startsWith(p + '/'))
+      );
+      return !moreSpecific;
+    }
+    return false;
   };
 
   const toggleSidebar = () => {
@@ -172,12 +233,12 @@ const Sidebar = () => {
         )}
 
         <nav className="sidebar-nav">
-          {menuItems.map((item, index) => {
+          {menuItems.map((item) => {
             if (item.type === 'group') {
               const open = isGroupOpen(item);
               const groupActive = item.children.some(c => isPathActive(c.path));
               return (
-                <div className="nav-item-group" key={index}>
+                <div className="nav-item-group" key={item.groupKey}>
                   <div
                     className={`nav-item ${groupActive ? 'active' : ''}`}
                     onClick={() => toggleGroup(item.groupKey)}
@@ -189,9 +250,9 @@ const Sidebar = () => {
                   </div>
                   {open && (
                     <div className="sub-menu">
-                      {item.children.map((child, ci) => (
+                      {item.children.map((child) => (
                         <Link
-                          key={ci}
+                          key={child.path}
                           to={child.path}
                           className={`sub-menu-item ${isPathActive(child.path) ? 'active' : ''}`}
                           onClick={() => isMobile && setIsOpen(false)}
@@ -207,7 +268,7 @@ const Sidebar = () => {
             }
             return (
               <Link
-                key={index}
+                key={item.path}
                 to={item.path}
                 className={`nav-item ${isPathActive(item.path) ? 'active' : ''}`}
                 onClick={() => isMobile && setIsOpen(false)}

@@ -240,7 +240,7 @@ const Relatorios = () => {
                 </div>
               ) : (
                 <EmptyState
-                  icon="📊"
+                  icon={null}
                   title={t('reports.noPlayerData', 'Nenhum dado de jogador disponível')}
                   subtitle={t('reports.noPlayerDataHint', 'Tente selecionar um período diferente.')}
                 />

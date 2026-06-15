@@ -39,6 +39,10 @@ const Dashboard = () => {
   const [recentTournaments, setRecentTournaments] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  // ISSUE-001 fix: track per-section error state so we don't show "Nenhum torneio
+  // criado ainda" when the request actually failed with 503.
+  const [tournamentsError, setTournamentsError] = useState(false);
+  const [transactionsError, setTransactionsError] = useState(false);
   const retryRef = React.useRef(null);
 
   useEffect(() => {
@@ -52,27 +56,45 @@ const Dashboard = () => {
   }, []);
 
   const loadAll = async (isRetry = false) => {
-    try {
-      const [statsRes, tourneysRes, txRes] = await Promise.all([
-        api.get('/dashboard/stats'),
-        api.get('/tournaments').catch(() => ({ data: [] })),
-        api.get('/transactions').catch(() => ({ data: [] })),
-      ]);
-      // A1.2: atualiza stats apenas se sucesso — não zera em falha parcial
-      setStats(statsRes.data);
-      setRecentTournaments((tourneysRes.data || []).slice(0, 3));
-      setRecentTransactions((txRes.data || []).slice(0, 5));
-    } catch (err) {
-      console.error('Error loading dashboard:', err);
-      // A1.2: retry automático único após 5s se for a primeira tentativa
-      if (!isRetry) {
-        retryRef.current = setTimeout(() => loadAll(true), 5000);
-      }
-      // mantém stats anteriores — não zera em caso de erro
-    } finally {
-      setLoading(false);
+    // Track which sections succeeded / failed independently.
+    const [statsResult, tourneysResult, txResult] = await Promise.allSettled([
+      api.get('/dashboard/stats'),
+      api.get('/tournaments'),
+      api.get('/transactions'),
+    ]);
+
+    if (statsResult.status === 'fulfilled') {
+      setStats(statsResult.value.data);
     }
+    if (tourneysResult.status === 'fulfilled') {
+      setRecentTournaments((tourneysResult.value.data || []).slice(0, 3));
+      setTournamentsError(false);
+    } else {
+      setTournamentsError(true);
+    }
+    if (txResult.status === 'fulfilled') {
+      setRecentTransactions((txResult.value.data || []).slice(0, 5));
+      setTransactionsError(false);
+    } else {
+      setTransactionsError(true);
+    }
+
+    const anyFailed = [statsResult, tourneysResult, txResult].some(r => r.status === 'rejected');
+    if (anyFailed && !isRetry) {
+      retryRef.current = setTimeout(() => loadAll(true), 5000);
+    }
+
+    setLoading(false);
   };
+
+  const renderActivityError = (onRetry) => (
+    <div className="db-activity-empty">
+      <p>{t('dashboard.loadError', 'Não foi possível carregar os dados. Tentando novamente...')}</p>
+      <button type="button" className="db-activity-link" onClick={onRetry}>
+        {t('dashboard.retry', 'Tentar novamente')}
+      </button>
+    </div>
+  );
 
   const getTournamentStatusBadge = (status) => {
     const map = {
@@ -166,6 +188,8 @@ const Dashboard = () => {
             </div>
             {loading ? (
               <SkeletonActivityList rows={3} />
+            ) : tournamentsError ? (
+              renderActivityError(() => loadAll())
             ) : recentTournaments.length === 0 ? (
               <p className="db-activity-empty">{t('dashboard.noTournamentsYet', 'Nenhum torneio criado ainda.')}</p>
             ) : (
@@ -190,6 +214,8 @@ const Dashboard = () => {
             </div>
             {loading ? (
               <SkeletonActivityList rows={4} />
+            ) : transactionsError ? (
+              renderActivityError(() => loadAll())
             ) : recentTransactions.length === 0 ? (
               <p className="db-activity-empty">{t('dashboard.noTransactionsYet', 'Nenhuma transação registrada.')}</p>
             ) : (
