@@ -247,7 +247,7 @@
 
 .sangria-table .amount {
   font-weight: 700;
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
 }
 
