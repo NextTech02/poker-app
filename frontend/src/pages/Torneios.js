@@ -5,21 +5,25 @@ import Sidebar from '../components/Sidebar';
 import EmptyState from '../components/EmptyState';
 import { SkeletonTournamentCard } from '../components/SkeletonLoader';
 import api from '../config/api';
+import { getSelectedStage } from '../utils/stageUtils';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { useToast } from '../contexts/ToastContext';
+import { useStage } from '../contexts/StageContext';
 import './Torneios.css';
 
 const Torneios = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast, confirm } = useToast();
+  const { selectedStage } = useStage();
+  const hasStage = !!selectedStage?.id;
 
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [formData, setFormData] = useState({ name: '', has_qualifying: false, sponsor_id: '' });
+  const [formData, setFormData] = useState({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '' });
   const [sponsors, setSponsors] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -56,17 +60,64 @@ const Torneios = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+
+    // Bloqueio: um torneio precisa estar vinculado a uma etapa. O vínculo é
+    // enviado via header X-Stage-ID (a partir da etapa selecionada). Sem etapa
+    // selecionada, nem chega a chamar a API.
+    const selectedStage = getSelectedStage();
+    if (!selectedStage?.id) {
+      setFormError(t('tournaments.selectStageFirst'));
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await api.post('/tournaments', {
+      const res = await api.post('/tournaments', {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
         sponsor_id: formData.sponsor_id || null,
       });
-      toast.success('Torneio criado com sucesso!');
+      const newTournamentId = res?.data?.id;
+
+      // Qualifying tournaments: auto-generate the whole structure — one final day
+      // plus N qualifying days, each already linked to the final via
+      // qualifies_to_day_id — so the operator doesn't create them day by day.
+      if (formData.has_qualifying && newTournamentId) {
+        const qCount = Math.max(1, parseInt(formData.qualifying_days, 10) || 1);
+        const qBuyIn = parseFloat(formData.qualifying_buy_in) || 0;
+        try {
+          const finalRes = await api.post('/tournament-days', {
+            tournament_id: newTournamentId,
+            day_name: 'Dia Final',
+            day_number: qCount + 1,
+            day_type: 'final',
+            buy_in: 0,
+            max_players: 1000,
+            starting_chips: 0,
+            rake_percentage: 0,
+          });
+          const finalDayId = finalRes?.data?.id || null;
+          for (let i = 1; i <= qCount; i++) {
+            await api.post('/tournament-days', {
+              tournament_id: newTournamentId,
+              day_name: `Dia ${i}`,
+              day_number: i,
+              day_type: 'qualifying',
+              qualifies_to_day_id: finalDayId,
+              buy_in: qBuyIn,
+              max_players: 1000,
+            });
+          }
+        } catch (genErr) {
+          // Tournament created OK; only the day generation failed.
+          toast.warning(t('tournaments.qualifyingDaysPartial', 'Torneio criado, mas houve erro ao gerar os dias classificatórios. Adicione-os manualmente.'));
+        }
+      }
+
+      toast.success(t('tournaments.createdSuccess'));
       invalidateCache('/tournaments'); // B3: invalida após mutação
       setShowModal(false);
-      setFormData({ name: '', has_qualifying: false, sponsor_id: '' });
+      setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '' });
       loadTournaments();
     } catch (err) {
       const detail = err.userMessage || err.response?.data?.detail;
@@ -74,7 +125,7 @@ const Torneios = () => {
         ? detail
         : Array.isArray(detail)
           ? detail.map(d => d.msg).join(' | ')
-          : 'Erro ao criar torneio.';
+          : t('tournaments.createError');
       setFormError(msg); // A7: erro inline dentro do modal
     } finally {
       setSubmitting(false);
@@ -91,14 +142,14 @@ const Torneios = () => {
         has_qualifying: formData.has_qualifying,
         sponsor_id: formData.sponsor_id || null,
       });
-      toast.success('Torneio atualizado com sucesso!');
+      toast.success(t('tournaments.updatedSuccess'));
       invalidateCache('/tournaments'); // B3
       setShowEditModal(false);
       setEditingTournament(null);
       setFormData({ name: '', has_qualifying: false, sponsor_id: '' });
       loadTournaments();
     } catch (err) {
-      const msg = err.userMessage || 'Erro ao atualizar torneio';
+      const msg = err.userMessage || t('tournaments.updateError');
       setFormError(msg);
     } finally {
       setSubmitting(false);
@@ -116,8 +167,8 @@ const Torneios = () => {
   };
 
   const handleDelete = async (id) => {
-    const ok = await confirm('Tem certeza que deseja excluir este torneio?', {
-      variant: 'danger', confirmText: 'Excluir',
+    const ok = await confirm(t('tournaments.confirmDelete'), {
+      variant: 'danger', confirmText: t('common.delete'),
     });
     if (!ok) return;
     try {
@@ -125,7 +176,7 @@ const Torneios = () => {
       invalidateCache('/tournaments'); // B3
       loadTournaments();
     } catch {
-      toast.error('Erro ao excluir torneio');
+      toast.error(t('tournaments.deleteError'));
     }
   };
 
@@ -143,7 +194,7 @@ const Torneios = () => {
   };
 
   const openNewModal = () => {
-    setFormData({ name: '', has_qualifying: false, sponsor_id: '' });
+    setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '' });
     setFormError('');
     setShowModal(true);
   };
@@ -166,7 +217,12 @@ const Torneios = () => {
               <p className="tr-subtitle">{t('tournaments.subtitle')}</p>
             </div>
           </div>
-          <button className="tr-btn-new" onClick={openNewModal}>
+          <button
+            className="tr-btn-new"
+            onClick={openNewModal}
+            disabled={!hasStage}
+            title={!hasStage ? t('tournaments.selectStageFirst', 'Selecione uma etapa antes de criar um torneio.') : undefined}
+          >
             <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
@@ -266,7 +322,7 @@ const Torneios = () => {
                         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
                           <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
                         </svg>
-                        Relatório
+                        {t('tournaments.report')}
                       </Link>
                       <Link
                         to={`/torneios/${tournament.id}`}
@@ -349,7 +405,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
       <form onSubmit={onSubmit} className="tr-modal-form">
         <div className="tr-field">
           <label htmlFor="tr-name">
-            Nome do Torneio <span className="tr-required">*</span>
+            {t('tournaments.tournamentName')} <span className="tr-required">*</span>
           </label>
           <input
             id="tr-name"
@@ -358,15 +414,15 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
             value={formData.name}
             onChange={onChange}
             required
-            placeholder="Ex: Main Event, Torneio de Sexta..."
+            placeholder={t('tournaments.namePlaceholder')}
             autoFocus
             disabled={submitting}
           />
-          {!isEditing && <small>Após criar o torneio, você poderá adicionar dias e configurações.</small>}
+          {!isEditing && <small>{t('tournaments.nameHint')}</small>}
         </div>
 
         <div className="tr-field">
-          <label htmlFor="tr-sponsor">Patrocinador</label>
+          <label htmlFor="tr-sponsor">{t('tournaments.sponsor')}</label>
           <select
             id="tr-sponsor"
             name="sponsor_id"
@@ -374,7 +430,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
             onChange={onChange}
             disabled={submitting}
           >
-            <option value="">Sem patrocinador</option>
+            <option value="">{t('tournaments.noSponsor')}</option>
             {sponsors.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
@@ -394,6 +450,40 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
           </div>
         </div>
 
+        {!isEditing && formData.has_qualifying && (
+          <>
+            <div className="tr-field">
+              <label htmlFor="tr-qdays">{t('tournaments.qualifyingDaysCount', 'Dias classificatórios')}</label>
+              <input
+                id="tr-qdays"
+                name="qualifying_days"
+                type="number"
+                min="1"
+                max="20"
+                step="1"
+                value={formData.qualifying_days}
+                onChange={onChange}
+                disabled={submitting}
+              />
+              <small>{t('tournaments.qualifyingDaysHint', 'Criaremos esses dias classificatórios + 1 dia final, já vinculados. Edite a configuração de cada um depois.')}</small>
+            </div>
+            <div className="tr-field">
+              <label htmlFor="tr-qbuyin">{t('tournaments.qualifyingBuyIn', 'Buy-in por dia classificatório (R$)')}</label>
+              <input
+                id="tr-qbuyin"
+                name="qualifying_buy_in"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.qualifying_buy_in}
+                onChange={onChange}
+                disabled={submitting}
+                placeholder="0,00"
+              />
+            </div>
+          </>
+        )}
+
         {/* A7: Erro de API inline, acima dos botões */}
         {formError && (
           <div className="tr-form-error">
@@ -406,7 +496,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
 
         <div className="tr-modal-footer">
           <button type="button" className="tr-btn-cancel" onClick={onClose} disabled={submitting}>
-            Cancelar
+            {t('common.cancel')}
           </button>
           {/* A7: Botão com spinner durante submit */}
           <button type="submit" className="tr-btn-submit" disabled={submitting}>
@@ -415,7 +505,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
                 <svg className="tr-spinner" viewBox="0 0 24 24" fill="none" width="16" height="16">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
                 </svg>
-                Salvando...
+                {t('common.saving')}
               </>
             ) : (
               <>

@@ -9,14 +9,14 @@ import CashboxDemonstrativo from '../components/CashboxDemonstrativo';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './Financeiro.css';
-
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 const Financeiro = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { currency, setCurrency, currencies, formatCurrency } = useCurrency();
+  const fmt = formatCurrency;
 
   const [tab, setTab] = useState('dre'); // 'dre' | 'caixas'
   const [data, setData] = useState(null);
@@ -60,7 +60,7 @@ const Financeiro = () => {
       const res = await api.get('/reports/financial', { params });
       setData(res.data);
     } catch (err) {
-      toast.error('Erro ao carregar dados financeiros');
+      toast.error(t('financial.loadDataError'));
     } finally {
       setLoading(false);
     }
@@ -71,12 +71,12 @@ const Financeiro = () => {
   };
 
   const getTypeLabel = (type) => {
-    const map = { buy_in: 'Buy-in', rebuy: 'Rebuy', addon: 'Add-on', prize: 'Premiacao' };
+    const map = { buy_in: t('financial.typeBuyIn'), rebuy: t('financial.typeRebuy'), addon: t('financial.typeAddon'), prize: t('financial.typePrize') };
     return map[type] || type;
   };
 
   const getPaymentLabel = (src) => {
-    const map = { cash: 'Dinheiro', credit: 'Credito', mixed: 'Misto', ticket: 'Ticket' };
+    const map = { cash: t('financial.paymentCash'), credit: t('financial.paymentCredit'), mixed: t('financial.paymentMixed'), ticket: t('financial.paymentTicket') };
     return map[src] || src || '--';
   };
 
@@ -105,9 +105,22 @@ const Financeiro = () => {
               </svg>
             </div>
             <div>
-              <h1 className="cx-title">Financeiro</h1>
-              <p className="cx-subtitle">DRE e fechamento financeiro</p>
+              <h1 className="cx-title">{t('financial.title')}</h1>
+              <p className="cx-subtitle">{t('financial.subtitle')}</p>
             </div>
+          </div>
+          <div className="fn-currency-setting">
+            <label htmlFor="fn-currency">{t('financial.currency', 'Moeda do sistema')}</label>
+            <select
+              id="fn-currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="fn-currency-select"
+            >
+              {Object.values(currencies).map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -143,24 +156,24 @@ const Financeiro = () => {
         <Card className="fn-filters-card">
           <div className="fn-filters">
             <div className="form-group">
-              <label>Etapa</label>
+              <label>{t('financial.filterStage')}</label>
               <select value={filters.stage_id} onChange={(e) => setFilters(p => ({ ...p, stage_id: e.target.value }))}>
-                <option value="">Todas</option>
+                <option value="">{t('financial.filterAllStages')}</option>
                 {stages.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
             <div className="form-group">
-              <label>Inicio</label>
+              <label>{t('financial.filterStart')}</label>
               <input type="date" value={filters.start} onChange={(e) => setFilters(p => ({ ...p, start: e.target.value }))} />
             </div>
             <div className="form-group">
-              <label>Fim</label>
+              <label>{t('financial.filterEnd')}</label>
               <input type="date" value={filters.end} onChange={(e) => setFilters(p => ({ ...p, end: e.target.value }))} />
             </div>
             <div className="fn-filter-actions">
-              <Button onClick={handleFilter}>Gerar</Button>
+              <Button onClick={handleFilter}>{t('common.generate')}</Button>
             </div>
           </div>
         </Card>
@@ -174,37 +187,37 @@ const Financeiro = () => {
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3 className="fn-stat-revenue">{fmt(data.gross_revenue)}</h3>
-                  <p>Receita Bruta</p>
+                  <p>{t('financial.grossRevenue')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3 className="fn-stat-prize">{fmt(data.prizes)}</h3>
-                  <p>Premiacao Paga</p>
+                  <p>{t('financial.prizesPaid')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3 className="fn-stat-result">{fmt(data.operational_result)}</h3>
-                  <p>Resultado Operacional</p>
+                  <p>{t('financial.operationalResult')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3 className="fn-stat-rake">{fmt(data.rake)}</h3>
-                  <p>Rake Acumulado</p>
+                  <p>{t('financial.accumulatedRake')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3 className="fn-stat-credits">{fmt(data.pending_credits)}</h3>
-                  <p>Creditos Pendentes</p>
+                  <p>{t('financial.pendingCredits')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3>{data.available_tickets}</h3>
-                  <p>Tickets Disponiveis</p>
+                  <p>{t('financial.availableTickets')}</p>
                 </div>
               </Card>
             </>
@@ -213,42 +226,42 @@ const Financeiro = () => {
 
         {/* DRE */}
         {!loading && data && (
-          <Card title="Demonstrativo de Resultados" className="fn-dre-card">
+          <Card title={t('financial.incomeStatementTitle')} className="fn-dre-card">
             <div className="fn-dre">
               <div className="fn-dre-section">
-                <div className="fn-dre-title">RECEITAS</div>
+                <div className="fn-dre-title">{t('financial.dreRevenues')}</div>
                 <div className="fn-dre-row">
-                  <span>Buy-ins</span>
+                  <span>{t('financial.dreBuyIns')}</span>
                   <span>{fmt(data.revenue.buy_ins)}</span>
                 </div>
                 <div className="fn-dre-row">
-                  <span>Rebuys</span>
+                  <span>{t('financial.dreRebuys')}</span>
                   <span>{fmt(data.revenue.rebuys)}</span>
                 </div>
                 <div className="fn-dre-row">
-                  <span>Add-ons</span>
+                  <span>{t('financial.dreAddons')}</span>
                   <span>{fmt(data.revenue.addons)}</span>
                 </div>
                 {data.tickets_redeemed_value > 0 && (
                   <div className="fn-dre-row fn-dre-row--muted">
-                    <span>(-) Tickets resgatados</span>
+                    <span>{t('financial.dreTicketsRedeemed')}</span>
                     <span>{fmt(data.tickets_redeemed_value)}</span>
                   </div>
                 )}
                 <div className="fn-dre-row fn-dre-row--total">
-                  <span>= RECEITA BRUTA</span>
+                  <span>{t('financial.dreGrossRevenue')}</span>
                   <span>{fmt(data.gross_revenue)}</span>
                 </div>
               </div>
 
               <div className="fn-dre-section">
-                <div className="fn-dre-title">DEDUCOES</div>
+                <div className="fn-dre-title">{t('financial.dreDeductions')}</div>
                 <div className="fn-dre-row">
-                  <span>Premiacao</span>
+                  <span>{t('financial.drePrize')}</span>
                   <span className="fn-dre-negative">{fmt(data.prizes)}</span>
                 </div>
                 <div className="fn-dre-row fn-dre-row--total">
-                  <span>= RESULTADO OPERACIONAL</span>
+                  <span>{t('financial.dreOperationalResult')}</span>
                   <span className={data.operational_result >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
                     {fmt(data.operational_result)}
                   </span>
@@ -256,13 +269,13 @@ const Financeiro = () => {
               </div>
 
               <div className="fn-dre-section">
-                <div className="fn-dre-title">RAKE</div>
+                <div className="fn-dre-title">{t('financial.dreRake')}</div>
                 <div className="fn-dre-row">
-                  <span>Rake acumulado</span>
+                  <span>{t('financial.dreRakeAccumulated')}</span>
                   <span>{fmt(data.rake)}</span>
                 </div>
                 <div className="fn-dre-row fn-dre-row--highlight">
-                  <span>= RESULTADO LIQUIDO</span>
+                  <span>{t('financial.dreNetResult')}</span>
                   <span className={data.net_result >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
                     {fmt(data.net_result)}
                   </span>
@@ -274,19 +287,19 @@ const Financeiro = () => {
 
         {/* Per-Tournament Breakdown */}
         {!loading && data && data.by_tournament.length > 0 && (
-          <Card title="Resumo por Torneio">
+          <Card title={t('financial.byTournamentTitle')}>
             <div className="table-container">
               <table className="transactions-table">
                 <thead>
                   <tr>
-                    <th>Torneio</th>
-                    <th>Jogadores</th>
-                    <th>Buy-ins</th>
-                    <th>Rebuys</th>
-                    <th>Add-ons</th>
-                    <th>Receita</th>
-                    <th>Premiacao</th>
-                    <th>Liquido</th>
+                    <th>{t('financial.colTournament')}</th>
+                    <th>{t('financial.colPlayers')}</th>
+                    <th>{t('financial.colBuyIns')}</th>
+                    <th>{t('financial.colRebuys')}</th>
+                    <th>{t('financial.colAddons')}</th>
+                    <th>{t('financial.colRevenue')}</th>
+                    <th>{t('financial.colPrize')}</th>
+                    <th>{t('financial.colNet')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -310,44 +323,44 @@ const Financeiro = () => {
 
         {/* Extrato Geral */}
         {!loading && data && (
-          <Card title="Extrato Geral">
+          <Card title={t('financial.generalStatementTitle')}>
             {/* Inline filters */}
             <div className="fn-tx-filters">
               <div className="form-group">
-                <label>Tipo</label>
+                <label>{t('financial.filterTypeLabel')}</label>
                 <select value={txFilter.type} onChange={(e) => setTxFilter(p => ({ ...p, type: e.target.value }))}>
-                  <option value="">Todos</option>
-                  <option value="buy_in">Buy-in</option>
-                  <option value="rebuy">Rebuy</option>
-                  <option value="addon">Add-on</option>
-                  <option value="prize">Premiacao</option>
+                  <option value="">{t('financial.filterAllTypes')}</option>
+                  <option value="buy_in">{t('financial.optBuyIn')}</option>
+                  <option value="rebuy">{t('financial.optRebuy')}</option>
+                  <option value="addon">{t('financial.optAddon')}</option>
+                  <option value="prize">{t('financial.optPrize')}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>Forma Pgto</label>
+                <label>{t('financial.filterPaymentLabel')}</label>
                 <select value={txFilter.payment_source} onChange={(e) => setTxFilter(p => ({ ...p, payment_source: e.target.value }))}>
-                  <option value="">Todas</option>
-                  <option value="cash">Dinheiro</option>
-                  <option value="credit">Credito</option>
-                  <option value="mixed">Misto</option>
-                  <option value="ticket">Ticket</option>
+                  <option value="">{t('financial.filterAllPayments')}</option>
+                  <option value="cash">{t('financial.payCash')}</option>
+                  <option value="credit">{t('financial.payCredit')}</option>
+                  <option value="mixed">{t('financial.payMixed')}</option>
+                  <option value="ticket">{t('financial.payTicket')}</option>
                 </select>
               </div>
             </div>
 
             {filteredTransactions.length === 0 ? (
-              <EmptyState icon={null} title="Nenhuma transacao" subtitle="Nenhuma transacao encontrada com os filtros selecionados" />
+              <EmptyState icon={null} title={t('financial.noTransactions')} subtitle={t('financial.noTransactionsHint')} />
             ) : (
               <div className="table-container">
                 <table className="transactions-table">
                   <thead>
                     <tr>
-                      <th>Data</th>
-                      <th>Torneio</th>
-                      <th>Jogador</th>
-                      <th>Tipo</th>
-                      <th>Forma Pgto</th>
-                      <th>Valor</th>
+                      <th>{t('financial.colDate')}</th>
+                      <th>{t('financial.colTournament')}</th>
+                      <th>{t('financial.colPlayer')}</th>
+                      <th>{t('financial.colType')}</th>
+                      <th>{t('financial.colPaymentMethod')}</th>
+                      <th>{t('financial.colAmount')}</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -83,6 +83,7 @@ const Sidebar = () => {
     // anyone who already sees Sangi nested under the Caixa group (has `cashier`),
     // so admins/cashiers don't get a duplicate top-level item.
     { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
+    { path: '/caixa-geral', labelKey: 'sidebar.generalCash', icon: 'wallet', permission: 'general_cash' },
     {
       type: 'group',
       groupKey: 'torneios',

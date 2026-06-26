@@ -28,7 +28,7 @@
 .et-header-icon svg {
   width: 26px;
   height: 26px;
-  color: var(--poker-green, #22c55e);
+  color: var(--poker-green, var(--brand-green));
 }
 
 .et-title {
@@ -40,7 +40,7 @@
 
 .et-subtitle {
   font-size: 0.85rem;
-  color: var(--text-secondary, #8899aa);
+  color: var(--text-secondary, var(--text-secondary));
   margin: 0;
 }
 
@@ -48,7 +48,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--poker-green, #22c55e);
+  background: var(--poker-green, var(--brand-green));
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -61,7 +61,7 @@
 }
 
 .et-btn-new:hover {
-  background: var(--poker-green-light, #16a34a);
+  background: var(--poker-green-light, var(--brand-green-600));
   transform: translateY(-1px);
 }
 
@@ -186,7 +186,7 @@
 
 .badge-success {
   background-color: rgba(46, 204, 113, 0.2);
-  color: #2ecc71;
+  color: var(--brand-green);
 }
 
 .badge-secondary {

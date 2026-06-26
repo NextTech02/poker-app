@@ -12,7 +12,7 @@
   padding: 0.75rem 1.5rem;
   background: none;
   border: none;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -26,8 +26,8 @@
 }
 
 .func-tab.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: var(--info);
+  border-bottom-color: var(--info);
 }
 
 /* Staff row inactive */
@@ -49,7 +49,7 @@
 
 .func-group-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--info);
 }
 
 /* Status badge */
@@ -65,12 +65,12 @@
 
 .func-status--active {
   background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 .func-status--inactive {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 /* Action buttons */
@@ -97,7 +97,7 @@
 }
 
 .func-action-btn--danger {
-  color: #ef4444;
+  color: var(--danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
@@ -107,7 +107,7 @@
 }
 
 .func-action-btn--success {
-  color: #22c55e;
+  color: var(--brand-green);
   border-color: rgba(34, 197, 94, 0.3);
 }
 
@@ -130,17 +130,17 @@
   font-size: 0.7rem;
   font-weight: 600;
   background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  color: var(--info-light);
 }
 
 .func-perm-tag--all {
   background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 .func-perm-tag--none {
   background: rgba(107, 114, 128, 0.15);
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .func-perm-tag--more {
@@ -183,7 +183,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
   font-size: 0.875rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   transition: all 0.2s ease;
   user-select: none;
   min-height: 52px;
@@ -220,8 +220,8 @@
 }
 
 .func-perm-check input[type="checkbox"]:checked {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: var(--info);
+  border-color: var(--info);
 }
 
 .func-perm-check input[type="checkbox"]:checked::after {
@@ -252,7 +252,7 @@
   cursor: pointer;
   border: 1px solid rgba(59, 130, 246, 0.3);
   background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
+  color: var(--info-light);
   transition: all 0.15s ease;
 }
 
@@ -292,4 +292,61 @@
   .func-modal--wide {
     max-width: 95vw;
   }
+}
+
+/* ── Pagamentos (staff payments) tab ── */
+.func-pay-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.func-pay-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  background: var(--surface-2, #1e2d3d);
+  border: 1px solid var(--border-color, #2a3b4d);
+  border-radius: 10px;
+}
+.func-pay-stat-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #9fb3c8);
+}
+.func-pay-stat-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--brand-green, #22c55e);
+}
+.func-pay-stat-hint {
+  font-size: 0.7rem;
+  color: var(--text-tertiary, #6b8299);
+}
+.func-pay-input {
+  width: 130px;
+  padding: 0.5rem 0.7rem;
+  background: var(--bg, #0e1620);
+  border: 1px solid var(--border-color, #2a3b4d);
+  border-radius: 8px;
+  color: var(--text, #e6edf3);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.func-pay-input:focus {
+  outline: none;
+  border-color: var(--brand-green, #22c55e);
+}
+.func-pay-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.func-pay-date {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--text-tertiary, #6b8299);
 }

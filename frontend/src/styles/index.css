@@ -518,14 +518,14 @@ tbody td {
      ======================================== */
 
   /* Background Layers - Sophisticated depth hierarchy */
-  --primary-bg: #0b0f16;
-  --secondary-bg: #131820;
-  --tertiary-bg: #1a212d;
-  --card-bg: #1e2530;
-  --card-bg-hover: #252d3b;
-  --card-bg-active: #2d3847;
-  --surface-elevated: #232b38;
-  --surface-overlay: #1e2530;
+  --primary-bg: #0a0f17;
+  --secondary-bg: #0e1620;
+  --tertiary-bg: #16202e;
+  --card-bg: #1e2d3d;
+  --card-bg-hover: #243648;
+  --card-bg-active: #2a3f5f;
+  --surface-elevated: #233143;
+  --surface-overlay: #1e2d3d;
 
   /* Premium Poker Green - Professional casino aesthetic */
   --poker-green-50: #e6f5ef;
@@ -538,9 +538,9 @@ tbody td {
   --poker-green-700: #0a5c3c;
   --poker-green-800: #084830;
   --poker-green-900: #053424;
-  --poker-green: #0f8454;
-  --poker-green-light: #2aa56f;
-  --poker-green-dark: #0a5c3c;
+  --poker-green: #22c55e;
+  --poker-green-light: #4ade80;
+  --poker-green-dark: #16a34a;
 
   /* Luxurious Gold Accents - Championship tier */
   --gold-50: #fdfbf3;
@@ -553,7 +553,7 @@ tbody td {
   --gold-700: #9f7717;
   --gold-800: #896612;
   --gold-900: #73550e;
-  --gold-accent: #dcb048;
+  --gold-accent: #d4af37;
   --gold-light: #e8c573;
   --gold-dark: #b5881b;
 
@@ -568,29 +568,29 @@ tbody td {
   --primary-700: #0a5c3c;
   --primary-800: #084830;
   --primary-900: #053424;
-  --accent-color: #0f8454;
-  --accent-hover: #2aa56f;
-  --accent-active: #0a5c3c;
+  --accent-color: #22c55e;
+  --accent-hover: #4ade80;
+  --accent-active: #16a34a;
 
   /* Text Hierarchy - Enhanced readability */
-  --text-primary: #f8f9fb;
-  --text-secondary: #9ca3af;
-  --text-tertiary: #6b7280;
+  --text-primary: #e0eaf4;
+  --text-secondary: #8aa0b0;
+  --text-tertiary: #5a7080;
   --text-quaternary: #4b5563;
   --text-disabled: #374151;
-  --text-gold: #dcb048;
+  --text-gold: #d4af37;
   --text-success: #4db689;
   --text-danger: #ef4444;
   --text-warning: #f59e0b;
   --text-info: #3b82f6;
 
   /* Border & Dividers - Subtle definition */
-  --border-primary: #2d3847;
-  --border-secondary: #232b38;
+  --border-primary: #2a3a4d;
+  --border-secondary: #1e2d3d;
   --border-light: #3a4452;
   --border-lighter: #4a5568;
   --border-dark: #1e2530;
-  --border-color: #2d3847;
+  --border-color: #2a3a4d;
   --divider-color: #232b38;
 
   /* Status Colors - Professional feedback system */
@@ -708,4 +708,46 @@ tbody td {
   --z-modal: 500;
   --z-popover: 600;
   --z-tooltip: 700;
+}
+
+
+/* ============================================================
+   Canonical brand tokens — single source of truth for screens.
+   Migrate hardcoded hex to these so screens can't drift apart.
+   ============================================================ */
+:root {
+  --brand-green: #22c55e;
+  --brand-green-600: #16a34a;
+  --brand-gold: #d4af37;
+  --danger: #ef4444;
+  --bg: #0e1620;
+  --surface: #1e2d3d;
+  --text: #e0eaf4;
+  --text-muted: #3a5068;
+}
+
+/* Accent tokens (missing-from-canonical-block fix) */
+:root {
+  --info: #3b82f6;
+  --warning: #f59e0b;
+  --warning-yellow: #eab308;
+  --brand-gold-dark: #b8960a;
+}
+
+/* ============================================================
+   Global responsive helpers (mobile).
+   Make wide data tables scroll horizontally instead of clipping
+   their content/actions off-screen. Tables that switch to a card
+   layout on mobile set `display:none` on the <table> (class
+   selector = higher specificity), so they're unaffected.
+   ============================================================ */
+@media (max-width: 640px) {
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Prevent accidental horizontal page scroll from stray wide elements */
+  html, body { overflow-x: hidden; }
 }

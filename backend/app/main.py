@@ -1,9 +1,13 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+import logging
 import httpx
 from app.config import get_settings
 from app.auth.permissions import forbid_permission
+
+logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
@@ -20,7 +24,44 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Configure CORS
+
+class CatchAllExceptionMiddleware(BaseHTTPMiddleware):
+    """Last-resort handler for exceptions that aren't caught by a router or a
+    registered @app.exception_handler.
+
+    Without this, an unhandled exception is caught by Starlette's
+    ServerErrorMiddleware, which sits OUTSIDE the CORS middleware — so the 500
+    response carries no `Access-Control-Allow-Origin` header and the browser
+    reports it as a generic "Network Error" instead of the real failure.
+
+    By catching here (inside CORS, which must remain the outermost middleware),
+    the JSON 500 response travels back out through CORSMiddleware and gets the
+    proper CORS headers, so the frontend sees the actual error message.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as exc:  # noqa: BLE001 - intentional catch-all
+            logger.exception(
+                "Unhandled exception on %s %s", request.method, request.url.path
+            )
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "detail": f"Internal server error: {type(exc).__name__}: {exc}"
+                },
+            )
+
+
+# IMPORTANT: middleware ordering. Starlette applies middleware outermost-first
+# in the order they are added LAST-added-is-outermost. CORS must stay the
+# OUTERMOST middleware so that responses produced by the catch-all below still
+# pass back through it and receive CORS headers. Therefore the catch-all is
+# added BEFORE CORS here.
+app.add_middleware(CatchAllExceptionMiddleware)
+
+# Configure CORS (added last → outermost)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url, "http://localhost:3000"],

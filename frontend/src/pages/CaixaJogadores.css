@@ -15,15 +15,15 @@
 
 /* Stats colors */
 .cj-stat-positive {
-  color: #22c55e !important;
+  color: var(--brand-green) !important;
 }
 
 .cj-stat-highlight {
-  color: #3b82f6 !important;
+  color: var(--info) !important;
 }
 
 .cj-stat-warning {
-  color: #f59e0b !important;
+  color: var(--warning) !important;
 }
 
 /* Credits card */
@@ -32,16 +32,16 @@
 }
 
 .cj-amount-positive {
-  color: #22c55e;
+  color: var(--brand-green);
   font-weight: 600;
 }
 
 .cj-amount-negative {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .cj-amount-warning {
-  color: #f59e0b;
+  color: var(--warning);
   font-weight: 600;
 }
 
@@ -58,22 +58,22 @@
 
 .cj-status--active {
   background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 .cj-status--used {
   background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  color: var(--info);
 }
 
 .cj-status--settled {
   background: rgba(107, 114, 128, 0.15);
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .cj-status--cancelled {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 /* Action buttons */
@@ -82,7 +82,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   background: transparent;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.15s;
@@ -93,7 +93,7 @@
 }
 
 .cj-action-btn--danger {
-  color: #ef4444;
+  color: var(--danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
@@ -140,7 +140,7 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
-  color: #3b82f6;
+  color: var(--info);
   font-size: 1.25rem;
   cursor: pointer;
   display: flex;
@@ -156,7 +156,7 @@
 /* Transaction type badges */
 .badge-credit {
   background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  color: var(--info);
 }
 
 .badge-credit-used {
@@ -166,32 +166,32 @@
 
 .badge-deduction {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .badge-sponsor {
   background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 .badge-cancelled {
   background: rgba(107, 114, 128, 0.15);
-  color: #6b7280;
+  color: var(--text-tertiary);
 }
 
 .badge-refund {
   background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .badge-prize {
   background: rgba(234, 179, 8, 0.15);
-  color: #eab308;
+  color: var(--warning-yellow);
 }
 
 .badge-default {
   background: rgba(107, 114, 128, 0.15);
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 /* Responsive */

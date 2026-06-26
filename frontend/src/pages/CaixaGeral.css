@@ -22,7 +22,7 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   font-size: 1rem;
-  background: var(--secondary-bg, #0e1620);
+  background: var(--secondary-bg, var(--bg));
   color: var(--text-primary, #e0e0e0);
   font-weight: 500;
   cursor: pointer;
@@ -41,13 +41,13 @@
 
 .stage-select-input:focus {
   outline: none;
-  border-color: var(--accent-color, #22c55e);
+  border-color: var(--accent-color, var(--brand-green));
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
 }
 
 .stage-select-input option {
   padding: 0.75rem;
-  background: var(--secondary-bg, #0e1620);
+  background: var(--secondary-bg, var(--bg));
   color: var(--text-primary, #e0e0e0);
   font-size: 1rem;
 }
@@ -172,7 +172,7 @@
 }
 
 .net-amount {
-  color: #28a745 !important;
+  color: var(--brand-green) !important;
 }
 
 /* Sangria Button */
@@ -320,7 +320,7 @@
 }
 
 .calculation-item.total strong {
-  color: #28a745;
+  color: var(--brand-green);
   font-size: 1.25rem;
 }
 
@@ -429,4 +429,15 @@
   .sangria-table tbody td {
     padding: 0.5rem;
   }
+}
+
+/* Keep the Cancelar/Confirmar buttons pinned at the bottom of the sangria
+   modal so they stay visible instead of being pushed below the fold when the
+   calculation box expands. */
+.sangria-modal .modal-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--card-bg);
+  z-index: 2;
+  box-shadow: 0 -8px 16px -8px rgba(0, 0, 0, 0.45);
 }

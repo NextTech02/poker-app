@@ -48,7 +48,7 @@
 
 .day-status-badge.active {
   background: rgba(40, 167, 69, 0.2);
-  color: #28a745;
+  color: var(--brand-green);
 }
 
 .day-status-badge.completed {
@@ -96,7 +96,7 @@
 }
 
 .stat-value.active {
-  color: var(--success-color, #28a745);
+  color: var(--success-color, var(--brand-green));
 }
 
 .stat-value.eliminated {
@@ -234,7 +234,7 @@
 .player-status-badge.active,
 .player-status-badge.registered {
   background: rgba(40, 167, 69, 0.2);
-  color: #28a745;
+  color: var(--brand-green);
 }
 
 .player-status-badge.eliminated {
@@ -244,7 +244,7 @@
 
 .player-status-badge.winner {
   background: rgba(212, 175, 55, 0.2);
-  color: #d4af37;
+  color: var(--brand-gold);
 }
 
 .player-nickname {
@@ -276,7 +276,7 @@
 }
 
 .detail-row.chips-final {
-  color: #28a745;
+  color: var(--brand-green);
   font-weight: 500;
 }
 

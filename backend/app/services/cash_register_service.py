@@ -5,6 +5,7 @@ Business logic for cash management: stage cash, general cash, rake, and sangria 
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime
+from collections import Counter
 from app.database import supabase
 from app.models.cash_register import (
     StageCashRegister,
@@ -45,20 +46,29 @@ class CashRegisterService:
             .execute()
         )
 
-        summaries = []
-        for item in response.data:
-            stage = item.get("stages", {})
+        registers = response.data or []
+        if not registers:
+            return []
 
-            # Remove nested object
-            stage_data = {k: v for k, v in item.items() if k != "stages"}
-
-            # Count tournaments in this stage
-            tournaments = (
+        # Tournament counts per stage in ONE round-trip (was one COUNT per
+        # register = N+1), tallied in memory with a Counter (hash map).
+        stage_ids = [r["stage_id"] for r in registers if r.get("stage_id")]
+        tournament_rows = []
+        if stage_ids:
+            tournament_rows = (
                 supabase.table("tournaments")
-                .select("id", count="exact")
-                .eq("stage_id", item["stage_id"])
+                .select("stage_id")
+                .in_("stage_id", stage_ids)
                 .execute()
+                .data
+                or []
             )
+        counts = Counter(r["stage_id"] for r in tournament_rows if r.get("stage_id"))
+
+        summaries = []
+        for item in registers:
+            stage = item.get("stages", {})
+            stage_data = {k: v for k, v in item.items() if k != "stages"}
 
             summaries.append(StageCashSummary(
                 stage_id=stage.get("id", ""),
@@ -66,7 +76,7 @@ class CashRegisterService:
                 stage_location=stage.get("location", ""),
                 stage_status=stage.get("status", ""),
                 cash_register=StageCashRegister(**stage_data),
-                total_tournaments=tournaments.count or 0
+                total_tournaments=counts.get(item["stage_id"], 0)
             ))
 
         return summaries

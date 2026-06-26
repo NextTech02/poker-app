@@ -7,13 +7,16 @@ import EmptyState from '../components/EmptyState';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { useTranslation } from 'react-i18next';
 import './SatelliteTickets.css';
-
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 const SatelliteTickets = () => {
   const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
+  const { t } = useTranslation();
+
+  const fmt = (n) => formatCurrency(n ?? 0);
 
   const [tickets, setTickets] = useState([]);
   const [tournaments, setTournaments] = useState([]);
@@ -90,13 +93,13 @@ const SatelliteTickets = () => {
     e.preventDefault();
     try {
       await api.post('/satellite-tickets', createForm);
-      toast.success('Ticket cadastrado!');
+      toast.success(t('satelliteTickets.toastCreated'));
       setShowCreateModal(false);
       setCreateForm({ player_id: '', target_tournament_id: '', target_tournament_day_id: '', won_at: '', funded_by: '' });
       setCreateDays([]);
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erro ao cadastrar ticket');
+      toast.error(err.response?.data?.detail || t('satelliteTickets.toastCreateError'));
     }
   };
 
@@ -126,34 +129,34 @@ const SatelliteTickets = () => {
         payload.funded_by = redeemForm.funded_by.trim();
       }
       const result = await api.post(`/satellite-tickets/${redeemForm.ticket_id}/redeem`, payload);
-      toast.success(result.data.message || 'Ticket resgatado!');
+      toast.success(result.data.message || t('satelliteTickets.toastRedeemed'));
       setShowRedeemModal(false);
       setRedeemForm({ ticket_id: '', funded_by: '' });
       setAvailableTickets([]);
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erro ao resgatar ticket');
+      toast.error(err.response?.data?.detail || t('satelliteTickets.toastRedeemError'));
     }
   };
 
   // ── Cancel ──
   const handleCancelTicket = async (ticketId) => {
-    if (!window.confirm('Cancelar este ticket?')) return;
+    if (!window.confirm(t('satelliteTickets.confirmCancel'))) return;
     try {
       await api.post(`/satellite-tickets/${ticketId}/cancel`);
-      toast.success('Ticket cancelado');
+      toast.success(t('satelliteTickets.toastCancelled'));
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Erro ao cancelar');
+      toast.error(err.response?.data?.detail || t('satelliteTickets.toastCancelError'));
     }
   };
 
   const getStatusBadge = (status) => {
     const map = {
-      awarded: { label: 'Disponivel', cls: 'st-status--available' },
-      available: { label: 'Disponivel', cls: 'st-status--available' },
-      redeemed: { label: 'Resgatado', cls: 'st-status--redeemed' },
-      cancelled: { label: 'Cancelado', cls: 'st-status--cancelled' },
+      awarded: { label: t('satelliteTickets.badgeAvailable'), cls: 'st-status--available' },
+      available: { label: t('satelliteTickets.badgeAvailable'), cls: 'st-status--available' },
+      redeemed: { label: t('satelliteTickets.badgeRedeemed'), cls: 'st-status--redeemed' },
+      cancelled: { label: t('satelliteTickets.badgeCancelled'), cls: 'st-status--cancelled' },
     };
     const s = map[status] || { label: status, cls: '' };
     return <span className={`st-status-badge ${s.cls}`}>{s.label}</span>;
@@ -184,13 +187,13 @@ const SatelliteTickets = () => {
               </svg>
             </div>
             <div>
-              <h1 className="cx-title">Tickets Torneio</h1>
-              <p className="cx-subtitle">Cadastre e resgate tickets de torneios</p>
+              <h1 className="cx-title">{t('satelliteTickets.title')}</h1>
+              <p className="cx-subtitle">{t('satelliteTickets.subtitle')}</p>
             </div>
           </div>
           <div className="st-header-actions">
-            <Button variant="secondary" onClick={() => setShowCreateModal(true)}>+ Cadastrar Ticket</Button>
-            <Button onClick={openRedeemModal}>Resgatar Ticket</Button>
+            <Button variant="secondary" onClick={() => setShowCreateModal(true)}>{t('satelliteTickets.registerTicket')}</Button>
+            <Button onClick={openRedeemModal}>{t('satelliteTickets.redeemTicket')}</Button>
           </div>
         </div>
 
@@ -203,19 +206,19 @@ const SatelliteTickets = () => {
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3 className="st-stat-available">{summary.total_available}</h3>
-                  <p>Disponiveis</p>
+                  <p>{t('satelliteTickets.statsAvailable')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3 className="st-stat-redeemed">{summary.total_redeemed}</h3>
-                  <p>Resgatados</p>
+                  <p>{t('satelliteTickets.statsRedeemed')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
                   <h3>{summary.total_cancelled}</h3>
-                  <p>Cancelados</p>
+                  <p>{t('satelliteTickets.statsCancelled')}</p>
                 </div>
               </Card>
             </>
@@ -226,53 +229,53 @@ const SatelliteTickets = () => {
         <Card className="st-filters-card">
           <div className="st-filters">
             <div className="form-group">
-              <label>Status</label>
+              <label>{t('common.status')}</label>
               <select value={filters.status} onChange={(e) => setFilters(p => ({ ...p, status: e.target.value }))}>
-                <option value="">Todos</option>
-                <option value="awarded">Disponivel</option>
-                <option value="redeemed">Resgatado</option>
-                <option value="cancelled">Cancelado</option>
+                <option value="">{t('satelliteTickets.allFilter')}</option>
+                <option value="awarded">{t('satelliteTickets.statusAvailable')}</option>
+                <option value="redeemed">{t('satelliteTickets.statusRedeemed')}</option>
+                <option value="cancelled">{t('satelliteTickets.statusCancelled')}</option>
               </select>
             </div>
             <div className="form-group">
-              <label>Torneio Alvo</label>
+              <label>{t('satelliteTickets.targetTournament')}</label>
               <select value={filters.target_tournament_id} onChange={(e) => setFilters(p => ({ ...p, target_tournament_id: e.target.value }))}>
-                <option value="">Todos</option>
+                <option value="">{t('satelliteTickets.allFilter')}</option>
                 {tournaments.map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
             </div>
             <div className="st-filter-actions">
-              <Button variant="secondary" onClick={() => setFilters({ status: '', target_tournament_id: '' })}>Limpar</Button>
-              <Button onClick={loadFilteredTickets}>Filtrar</Button>
+              <Button variant="secondary" onClick={() => setFilters({ status: '', target_tournament_id: '' })}>{t('satelliteTickets.clear')}</Button>
+              <Button onClick={loadFilteredTickets}>{t('common.filter')}</Button>
             </div>
           </div>
         </Card>
 
         {/* Tickets Table */}
-        <Card title="Tickets">
+        <Card title={t('satelliteTickets.ticketsCardTitle')}>
           {loading ? (
             <table className="transactions-table">
-              <thead><tr><th>Jogador</th><th>Torneio Alvo</th><th>Dia</th><th>Valor</th><th>Status</th><th>Origem</th><th>Financiado por</th><th>Data</th><th>Acoes</th></tr></thead>
+              <thead><tr><th>{t('satelliteTickets.colPlayer')}</th><th>{t('satelliteTickets.colTargetTournament')}</th><th>{t('satelliteTickets.colDay')}</th><th>{t('satelliteTickets.colValue')}</th><th>{t('satelliteTickets.colStatus')}</th><th>{t('satelliteTickets.colOrigin')}</th><th>{t('satelliteTickets.colFundedBy')}</th><th>{t('satelliteTickets.colDate')}</th><th>{t('satelliteTickets.colActions')}</th></tr></thead>
               <tbody><SkeletonTableRow cols={9} /><SkeletonTableRow cols={9} /><SkeletonTableRow cols={9} /></tbody>
             </table>
           ) : tickets.length === 0 ? (
-            <EmptyState icon={null} title="Nenhum ticket" subtitle="Nenhum ticket foi cadastrado ainda" />
+            <EmptyState icon={null} title={t('satelliteTickets.emptyTitle')} subtitle={t('satelliteTickets.emptySubtitle')} />
           ) : (
             <div className="table-container">
               <table className="transactions-table">
                 <thead>
                   <tr>
-                    <th>Jogador</th>
-                    <th>Torneio Alvo</th>
-                    <th>Dia</th>
-                    <th>Valor</th>
-                    <th>Status</th>
-                    <th>Origem</th>
-                    <th>Financiado por</th>
-                    <th>Data</th>
-                    <th>Acoes</th>
+                    <th>{t('satelliteTickets.colPlayer')}</th>
+                    <th>{t('satelliteTickets.colTargetTournament')}</th>
+                    <th>{t('satelliteTickets.colDay')}</th>
+                    <th>{t('satelliteTickets.colValue')}</th>
+                    <th>{t('satelliteTickets.colStatus')}</th>
+                    <th>{t('satelliteTickets.colOrigin')}</th>
+                    <th>{t('satelliteTickets.colFundedBy')}</th>
+                    <th>{t('satelliteTickets.colDate')}</th>
+                    <th>{t('satelliteTickets.colActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -293,7 +296,7 @@ const SatelliteTickets = () => {
                       <td>
                         {isAwarded(ticket.status) && (
                           <button className="st-action-btn st-action-btn--danger" onClick={() => handleCancelTicket(ticket.id)}>
-                            Cancelar
+                            {t('satelliteTickets.cancelAction')}
                           </button>
                         )}
                       </td>
@@ -310,12 +313,12 @@ const SatelliteTickets = () => {
           <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Cadastrar Ticket</h2>
-                <button className="close-btn" onClick={() => setShowCreateModal(false)} aria-label="Fechar"><span className="close-icon"></span></button>
+                <h2>{t('satelliteTickets.createModalTitle')}</h2>
+                <button className="close-btn" onClick={() => setShowCreateModal(false)} aria-label={t('common.close')}><span className="close-icon"></span></button>
               </div>
               <form onSubmit={handleCreateTicket}>
                 <div className="form-group">
-                  <label>Jogador *</label>
+                  <label>{t('satelliteTickets.playerLabel')}</label>
                   <PlayerSelect
                     value={createForm.player_id}
                     onChange={(e) => setCreateForm(p => ({ ...p, player_id: e.target.value }))}
@@ -324,7 +327,7 @@ const SatelliteTickets = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Torneio Alvo *</label>
+                  <label>{t('satelliteTickets.targetTournamentLabel')}</label>
                   <select
                     value={createForm.target_tournament_id}
                     onChange={(e) => {
@@ -333,12 +336,12 @@ const SatelliteTickets = () => {
                     }}
                     required
                   >
-                    <option value="">Selecione o torneio destino</option>
+                    <option value="">{t('satelliteTickets.selectTargetTournament')}</option>
                     {tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Dia Alvo *</label>
+                  <label>{t('satelliteTickets.targetDayLabel')}</label>
                   <select
                     value={createForm.target_tournament_day_id}
                     onChange={(e) => setCreateForm(p => ({ ...p, target_tournament_day_id: e.target.value }))}
@@ -347,10 +350,10 @@ const SatelliteTickets = () => {
                   >
                     <option value="">
                       {!createForm.target_tournament_id
-                        ? 'Selecione um torneio primeiro'
+                        ? t('satelliteTickets.selectTournamentFirst')
                         : createDays.length === 0
-                          ? 'Nenhum dia disponivel'
-                          : 'Selecione o dia'}
+                          ? t('satelliteTickets.noDayAvailable')
+                          : t('satelliteTickets.selectDay')}
                     </option>
                     {createDays.map(d => (
                       <option key={d.id} value={d.id}>
@@ -361,36 +364,36 @@ const SatelliteTickets = () => {
                 </div>
                 {selectedCreateDay && (
                   <div className="st-info-box">
-                    <span>Valor do ticket (buy-in do dia):</span>
+                    <span>{t('satelliteTickets.ticketValueLabel')}</span>
                     <strong>{fmt(selectedCreateDay.buy_in)}</strong>
                   </div>
                 )}
                 <div className="form-group">
-                  <label>Onde foi ganho *</label>
+                  <label>{t('satelliteTickets.wonAtLabel')}</label>
                   <input
                     type="text"
                     value={createForm.won_at}
                     onChange={(e) => setCreateForm(p => ({ ...p, won_at: e.target.value }))}
                     required
-                    placeholder="Ex: Satélite Main Event NextHub, GGPoker Sunday Million, PokerStars HighRoller..."
+                    placeholder={t('satelliteTickets.wonAtPlaceholder')}
                     maxLength={200}
                   />
-                  <small className="form-hint">Texto livre — pode ser torneio interno ou plataforma externa.</small>
+                  <small className="form-hint">{t('satelliteTickets.wonAtHint')}</small>
                 </div>
                 <div className="form-group">
-                  <label>Financiado por *</label>
+                  <label>{t('satelliteTickets.fundedByLabel')}</label>
                   <input
                     type="text"
                     value={createForm.funded_by}
                     onChange={(e) => setCreateForm(p => ({ ...p, funded_by: e.target.value }))}
                     required
-                    placeholder="Ex: NextHub, Patrocinador X, Empresa Y..."
+                    placeholder={t('satelliteTickets.fundedByPlaceholder')}
                     maxLength={120}
                   />
-                  <small className="form-hint">Quem é o responsável financeiro pelo valor do ticket.</small>
+                  <small className="form-hint">{t('satelliteTickets.fundedByHint')}</small>
                 </div>
                 <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
+                  <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)}>{t('satelliteTickets.cancelAction')}</Button>
                   <Button
                     type="submit"
                     disabled={
@@ -401,7 +404,7 @@ const SatelliteTickets = () => {
                       !createForm.funded_by.trim()
                     }
                   >
-                    Cadastrar Ticket
+                    {t('satelliteTickets.submitCreate')}
                   </Button>
                 </div>
               </form>
@@ -414,26 +417,26 @@ const SatelliteTickets = () => {
           <div className="modal-overlay" onClick={() => setShowRedeemModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Resgatar Ticket</h2>
-                <button className="close-btn" onClick={() => setShowRedeemModal(false)} aria-label="Fechar"><span className="close-icon"></span></button>
+                <h2>{t('satelliteTickets.redeemModalTitle')}</h2>
+                <button className="close-btn" onClick={() => setShowRedeemModal(false)} aria-label={t('common.close')}><span className="close-icon"></span></button>
               </div>
               <form onSubmit={handleRedeemTicket}>
                 {availableTickets.length === 0 ? (
-                  <p className="st-no-tickets-msg">Nenhum ticket disponivel para resgate.</p>
+                  <p className="st-no-tickets-msg">{t('satelliteTickets.noTicketsToRedeem')}</p>
                 ) : (
                   <>
                     <div className="form-group">
-                      <label>Ticket *</label>
+                      <label>{t('satelliteTickets.ticketLabel')}</label>
                       <select
                         value={redeemForm.ticket_id}
                         onChange={(e) => setRedeemForm(p => ({ ...p, ticket_id: e.target.value }))}
                         required
                       >
-                        <option value="">Selecione um ticket</option>
-                        {availableTickets.map(t => (
-                          <option key={t.id} value={t.id}>
-                            {t.player_name || 'Sem jogador'} → {t.target_tournament_name}
-                            {t.target_day_name ? ` (${t.target_day_name})` : ''} — {fmt(t.ticket_value)}
+                        <option value="">{t('satelliteTickets.selectTicket')}</option>
+                        {availableTickets.map(at => (
+                          <option key={at.id} value={at.id}>
+                            {at.player_name || t('satelliteTickets.noPlayer')} → {at.target_tournament_name}
+                            {at.target_day_name ? ` (${at.target_day_name})` : ''} — {fmt(at.ticket_value)}
                           </option>
                         ))}
                       </select>
@@ -441,12 +444,12 @@ const SatelliteTickets = () => {
 
                     {selectedRedeemTicket && (
                       <div className="st-info-box st-info-box--detail">
-                        <div><span>Jogador:</span><strong>{selectedRedeemTicket.player_name || '--'}</strong></div>
-                        <div><span>Torneio:</span><strong>{selectedRedeemTicket.target_tournament_name}</strong></div>
-                        <div><span>Dia:</span><strong>{selectedRedeemTicket.target_day_name || '--'}</strong></div>
-                        <div><span>Valor:</span><strong>{fmt(selectedRedeemTicket.ticket_value)}</strong></div>
-                        <div><span>Origem:</span><strong>{selectedRedeemTicket.won_at || '--'}</strong></div>
-                        <div><span>Financiado por:</span><strong>{selectedRedeemTicket.funded_by || '--'}</strong></div>
+                        <div><span>{t('satelliteTickets.detailPlayer')}</span><strong>{selectedRedeemTicket.player_name || '--'}</strong></div>
+                        <div><span>{t('satelliteTickets.detailTournament')}</span><strong>{selectedRedeemTicket.target_tournament_name}</strong></div>
+                        <div><span>{t('satelliteTickets.detailDay')}</span><strong>{selectedRedeemTicket.target_day_name || '--'}</strong></div>
+                        <div><span>{t('satelliteTickets.detailValue')}</span><strong>{fmt(selectedRedeemTicket.ticket_value)}</strong></div>
+                        <div><span>{t('satelliteTickets.detailOrigin')}</span><strong>{selectedRedeemTicket.won_at || '--'}</strong></div>
+                        <div><span>{t('satelliteTickets.detailFundedBy')}</span><strong>{selectedRedeemTicket.funded_by || '--'}</strong></div>
                       </div>
                     )}
 
@@ -454,23 +457,23 @@ const SatelliteTickets = () => {
                         wasn't created with one (pre-redesign tickets). */}
                     {selectedRedeemTicket && !selectedRedeemTicket.funded_by && (
                       <div className="form-group">
-                        <label>Financiado por *</label>
+                        <label>{t('satelliteTickets.legacyFundedByLabel')}</label>
                         <input
                           type="text"
                           value={redeemForm.funded_by}
                           onChange={(e) => setRedeemForm(p => ({ ...p, funded_by: e.target.value }))}
                           required
-                          placeholder="Ex: Suprema, GGPoker, Empresa, etc."
+                          placeholder={t('satelliteTickets.legacyFundedByPlaceholder')}
                           maxLength={120}
                         />
-                        <small className="form-hint">Este ticket antigo não tem o financiador cadastrado. Informe agora para auditoria.</small>
+                        <small className="form-hint">{t('satelliteTickets.legacyFundedByHint')}</small>
                       </div>
                     )}
                   </>
                 )}
 
                 <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowRedeemModal(false)}>Cancelar</Button>
+                  <Button type="button" variant="secondary" onClick={() => setShowRedeemModal(false)}>{t('satelliteTickets.cancelAction')}</Button>
                   <Button
                     type="submit"
                     disabled={
@@ -479,7 +482,7 @@ const SatelliteTickets = () => {
                       (selectedRedeemTicket && !selectedRedeemTicket.funded_by && !redeemForm.funded_by.trim())
                     }
                   >
-                    Resgatar
+                    {t('satelliteTickets.submitRedeem')}
                   </Button>
                 </div>
               </form>

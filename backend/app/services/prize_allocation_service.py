@@ -143,10 +143,12 @@ class PrizeAllocationService:
 
         allocations = PrizeAllocationService.get_allocations(tournament_id)
         total_allocated = sum(Decimal(str(a.prize_amount)) for a in allocations)
-        # ── Reserved prize (feature 4.1): a % of the pool blocked from payout ──
+        # ── Reserved prize: a % of the GROSS entries, taken OUT OF the players'
+        # prize pool (NOT the rake). E.g. 20% rake + 3% reserved → players get 77%
+        # of entries (100 - 20 rake - 3 reserved = 77).
         reserved_pct = Decimal(str(tournament_info.get("reserved_prize_percentage") or 0))
         reserved_purpose = tournament_info.get("reserved_purpose")
-        reserved_amount = available_prize_pool * reserved_pct / Decimal("100")
+        reserved_amount = total_entries * reserved_pct / Decimal("100")
         payable_pool = available_prize_pool - reserved_amount
 
         remaining_balance = payable_pool - total_allocated
@@ -473,9 +475,10 @@ class PrizeAllocationService:
 
         total_paid = sum(Decimal(str(p["prize_amount"])) for p in (paid_resp.data or []))
 
-        # Reserved prize is blocked from payout — exclude it from what's payable.
+        # Reserved prize: % of GROSS entries, taken from the players' pool (NOT the
+        # rake), then blocked from payout. E.g. 20% rake + 3% reserved → 77% payable.
         reserved_pct = Decimal(str(tournament_info.get("reserved_prize_percentage") or 0))
-        reserved_amount = prize_pool * reserved_pct / Decimal("100")
+        reserved_amount = total_entries * reserved_pct / Decimal("100")
         payable_pool = prize_pool - reserved_amount
         available = payable_pool - total_paid
 

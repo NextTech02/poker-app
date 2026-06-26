@@ -104,8 +104,8 @@
 
 .day-type-indicator.final {
   background: linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(212, 175, 55, 0.1) 100%);
-  border: 2px solid var(--gold-accent, #d4af37);
-  color: var(--text-gold, #d4af37);
+  border: 2px solid var(--gold-accent, var(--brand-gold));
+  color: var(--text-gold, var(--brand-gold));
   box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
 }
 
@@ -489,7 +489,7 @@
 .broadcast-completed h2 {
   font-size: 72px;
   font-weight: 700;
-  color: var(--gold-accent, #d4af37);
+  color: var(--gold-accent, var(--brand-gold));
   text-transform: uppercase;
   letter-spacing: 8px;
   margin-bottom: 16px;
@@ -511,7 +511,7 @@
 
 .completed-stats .stat-item {
   background: rgba(20, 25, 34, 0.8);
-  border: 2px solid var(--gold-accent, #d4af37);
+  border: 2px solid var(--gold-accent, var(--brand-gold));
   border-radius: 12px;
   padding: 24px 48px;
   min-width: 200px;
@@ -530,7 +530,7 @@
   display: block;
   font-size: 48px;
   font-weight: 700;
-  color: var(--gold-accent, #d4af37);
+  color: var(--gold-accent, var(--brand-gold));
 }
 
 /* Prizes Sidebar - Right Side */
@@ -540,13 +540,13 @@
   flex-direction: column;
   padding: 24px 16px;
   background: linear-gradient(180deg, rgba(20, 25, 34, 0.8) 0%, rgba(10, 14, 19, 0.6) 100%);
-  border-left: 2px solid var(--gold-accent, #d4af37);
+  border-left: 2px solid var(--gold-accent, var(--brand-gold));
   border-radius: 8px 0 0 8px;
 }
 
 .prizes-header {
   font-size: 14px;
-  color: var(--gold-accent, #d4af37);
+  color: var(--gold-accent, var(--brand-gold));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -595,7 +595,7 @@
 }
 
 .prize-row:nth-child(1) .prize-position {
-  color: var(--gold-accent, #d4af37);
+  color: var(--gold-accent, var(--brand-gold));
 }
 
 .prize-row:nth-child(2) .prize-position {
@@ -614,7 +614,7 @@
 }
 
 .prize-row:nth-child(1) .prize-value {
-  color: var(--gold-accent, #d4af37);
+  color: var(--gold-accent, var(--brand-gold));
   text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
 }
 
@@ -629,7 +629,7 @@
     max-height: 60vh;
     overflow-y: auto;
     border-radius: 8px;
-    border: 2px solid var(--gold-accent, #d4af37);
+    border: 2px solid var(--gold-accent, var(--brand-gold));
   }
 }
 
@@ -659,7 +659,7 @@
   /* height is set via inline style from JS (scales with broadcast_prize_size) */
   min-height: 36px;
   background: rgba(5, 8, 12, 0.96);
-  border-top: 2px solid #d4af37;
+  border-top: 2px solid var(--brand-gold);
   backdrop-filter: blur(6px);
   overflow: hidden;
 }
@@ -670,7 +670,7 @@
   display: flex;
   align-items: center;
   padding: 0 1.25rem;
-  background: linear-gradient(135deg, #d4af37 0%, #b8960a 100%);
+  background: linear-gradient(135deg, var(--brand-gold) 0%, var(--brand-gold-dark) 100%);
   color: #0a0e14;
   font-weight: 900;
   font-size: 11px;
@@ -715,7 +715,7 @@
 }
 
 .prize-ticker-sep {
-  color: #3a5068;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -728,7 +728,7 @@
 }
 
 .prize-ticker-dot {
-  color: #d4af37;
+  color: var(--brand-gold);
   font-size: 8px;
   opacity: 0.6;
   margin-left: 0.5rem;
@@ -752,7 +752,7 @@
   width: 240px;
   z-index: 50;
   background: linear-gradient(180deg, rgba(20, 25, 34, 0.95) 0%, rgba(10, 14, 19, 0.92) 100%);
-  border-left: 2px solid var(--gold-accent, #d4af37);
+  border-left: 2px solid var(--gold-accent, var(--brand-gold));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -762,7 +762,7 @@
 .prize-sidebar-header {
   flex-shrink: 0;
   padding: 14px 16px;
-  background: linear-gradient(135deg, #d4af37 0%, #b8960a 100%);
+  background: linear-gradient(135deg, var(--brand-gold) 0%, var(--brand-gold-dark) 100%);
   color: #0a0e14;
   font-weight: 900;
   letter-spacing: 2px;
@@ -808,7 +808,7 @@
 
 .prize-sidebar-pos {
   font-weight: 700;
-  color: #9ca3af;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -851,7 +851,7 @@
   flex-direction: column;
   gap: 24px;
   background: rgba(0, 0, 0, 0.65);
-  border-right: 2px solid #d4af37;
+  border-right: 2px solid var(--brand-gold);
   z-index: 1;
 }
 

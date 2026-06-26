@@ -6,6 +6,9 @@ import EmptyState from '../components/EmptyState';
 import { SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useStage } from '../contexts/StageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { supabase } from '../config/supabase';
 import './Funcionarios.css';
 
 const ALL_PERMISSIONS = [
@@ -34,6 +37,8 @@ const ALL_PERMISSIONS = [
 const Funcionarios = () => {
   const { toast } = useToast();
   const notify = (msg, type = 'error') => toast[type](msg);
+  const { selectedStage } = useStage();
+  const { formatCurrency } = useCurrency();
 
   const [activeTab, setActiveTab] = useState('staff');
   const [staffList, setStaffList] = useState([]);
@@ -51,9 +56,163 @@ const Funcionarios = () => {
   const [groupForm, setGroupForm] = useState({ name: '', description: '', permissions: [] });
   const [groupSaving, setGroupSaving] = useState(false);
 
+  // Pagamentos (staff payments) tab — scoped to the selected stage
+  const [payments, setPayments] = useState({}); // staff_id -> { id, amount, status, paid_at }
+  const [amountInputs, setAmountInputs] = useState({}); // staff_id -> string (editable)
+  const [reservedBudget, setReservedBudget] = useState(0);
+  const [generalCash, setGeneralCash] = useState(null); // { id, current_balance }
+  const [payLoading, setPayLoading] = useState(false);
+  const [payBusy, setPayBusy] = useState(null); // staff_id currently being paid/reversed
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load staff payments + budget when entering the Pagamentos tab (or switching stage)
+  useEffect(() => {
+    if (activeTab === 'pagamentos' && selectedStage?.id) {
+      loadPayments();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedStage?.id]);
+
+  const loadPayments = async () => {
+    const stageId = selectedStage?.id;
+    if (!stageId) return;
+    setPayLoading(true);
+    try {
+      // General cash + existing payments (read directly via Supabase)
+      const [gcRes, payRes] = await Promise.all([
+        supabase.from('general_cash_register').select('id, current_balance').limit(1).single(),
+        supabase.from('staff_payments').select('*').eq('stage_id', stageId),
+      ]);
+      setGeneralCash(gcRes.data || null);
+      const map = {};
+      const inputs = {};
+      (payRes.data || []).forEach((p) => {
+        map[p.staff_id] = p;
+        inputs[p.staff_id] = String(p.amount ?? '');
+      });
+      setPayments(map);
+      setAmountInputs(inputs);
+
+      // Reference budget: sum of the staff-reserved prize across the stage's tournaments
+      try {
+        const tRes = await api.get('/tournaments');
+        const tours = tRes.data || [];
+        const summaries = await Promise.all(
+          tours.map((t) =>
+            api.get(`/tournaments/${t.id}/prizes/summary`).then((r) => r.data).catch(() => null)
+          )
+        );
+        const budget = summaries.reduce(
+          (acc, s) =>
+            s && s.reserved_purpose === 'staff' ? acc + (parseFloat(s.reserved_amount) || 0) : acc,
+          0
+        );
+        setReservedBudget(budget);
+      } catch (_) {
+        setReservedBudget(0);
+      }
+    } catch (err) {
+      notify('Erro ao carregar pagamentos do staff');
+    } finally {
+      setPayLoading(false);
+    }
+  };
+
+  const handleAmountChange = (staffId, val) => {
+    setAmountInputs((prev) => ({ ...prev, [staffId]: val }));
+  };
+
+  const handleSaveAmount = async (staffId) => {
+    const stageId = selectedStage?.id;
+    if (!stageId) return;
+    const amount = Math.max(0, parseFloat(amountInputs[staffId]) || 0);
+    const existing = payments[staffId];
+    // Avoid a pointless write if nothing changed
+    if (existing && (parseFloat(existing.amount) || 0) === amount) return;
+    if (!existing && amount === 0) return;
+    try {
+      if (existing) {
+        await supabase
+          .from('staff_payments')
+          .update({ amount, updated_at: new Date().toISOString() })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('staff_payments')
+          .insert({ stage_id: stageId, staff_id: staffId, amount, status: 'pending' });
+      }
+      loadPayments();
+    } catch (err) {
+      notify('Erro ao salvar o valor');
+    }
+  };
+
+  const handlePay = async (staffId) => {
+    const stageId = selectedStage?.id;
+    if (!stageId || !generalCash) return;
+    const amount = Math.max(0, parseFloat(amountInputs[staffId]) || parseFloat(payments[staffId]?.amount) || 0);
+    if (amount <= 0) {
+      notify('Defina um valor maior que zero antes de pagar.');
+      return;
+    }
+    const balance = parseFloat(generalCash.current_balance) || 0;
+    if (amount > balance) {
+      notify(`Saldo insuficiente no Caixa Geral. Disponível: ${formatCurrency(balance)}`);
+      return;
+    }
+    setPayBusy(staffId);
+    try {
+      const existing = payments[staffId];
+      if (existing) {
+        await supabase
+          .from('staff_payments')
+          .update({ amount, status: 'paid', paid_at: new Date().toISOString() })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('staff_payments')
+          .insert({ stage_id: stageId, staff_id: staffId, amount, status: 'paid', paid_at: new Date().toISOString() });
+      }
+      // Debit the general cash register (mirrors prize payout)
+      await supabase
+        .from('general_cash_register')
+        .update({ current_balance: String(balance - amount) })
+        .eq('id', generalCash.id);
+      notify('Pagamento registrado e debitado do Caixa Geral.', 'success');
+      loadPayments();
+    } catch (err) {
+      notify('Erro ao registrar o pagamento');
+    } finally {
+      setPayBusy(null);
+    }
+  };
+
+  const handleReverse = async (staffId) => {
+    const p = payments[staffId];
+    if (!p || p.status !== 'paid' || !generalCash) return;
+    const amount = parseFloat(p.amount) || 0;
+    setPayBusy(staffId);
+    try {
+      await supabase
+        .from('staff_payments')
+        .update({ status: 'pending', paid_at: null })
+        .eq('id', p.id);
+      // Refund the general cash
+      await supabase
+        .from('general_cash_register')
+        .update({ current_balance: String((parseFloat(generalCash.current_balance) || 0) + amount) })
+        .eq('id', generalCash.id);
+      notify('Pagamento estornado — valor devolvido ao Caixa Geral.', 'success');
+      loadPayments();
+    } catch (err) {
+      notify('Erro ao estornar o pagamento');
+    } finally {
+      setPayBusy(null);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -191,6 +350,17 @@ const Funcionarios = () => {
     }
   };
 
+  // Derived values for the Pagamentos tab
+  const activeStaff = staffList.filter((s) => s.active);
+  const totalPaid = Object.values(payments).reduce(
+    (a, p) => a + (p.status === 'paid' ? parseFloat(p.amount) || 0 : 0),
+    0
+  );
+  const totalAssigned = activeStaff.reduce((a, s) => {
+    const v = amountInputs[s.id] ?? payments[s.id]?.amount ?? 0;
+    return a + (parseFloat(v) || 0);
+  }, 0);
+
   return (
     <div className="layout">
       <Sidebar />
@@ -219,6 +389,12 @@ const Funcionarios = () => {
             onClick={() => setActiveTab('groups')}
           >
             Grupos de Permissão
+          </button>
+          <button
+            className={`func-tab ${activeTab === 'pagamentos' ? 'active' : ''}`}
+            onClick={() => setActiveTab('pagamentos')}
+          >
+            Pagamentos
           </button>
         </div>
 
@@ -276,6 +452,100 @@ const Funcionarios = () => {
                   </tbody>
                 </table>
               </div>
+            )}
+          </Card>
+        )}
+
+        {/* ── Pagamentos Tab ── */}
+        {activeTab === 'pagamentos' && (
+          <Card>
+            {!selectedStage?.id ? (
+              <EmptyState message="Selecione uma etapa para gerenciar os pagamentos do staff." />
+            ) : (
+              <>
+                <div className="func-pay-summary">
+                  <div className="func-pay-stat">
+                    <span className="func-pay-stat-label">Reservado p/ staff (etapa)</span>
+                    <strong className="func-pay-stat-value">{formatCurrency(reservedBudget)}</strong>
+                    <span className="func-pay-stat-hint">Soma da % reservada (staff) dos torneios</span>
+                  </div>
+                  <div className="func-pay-stat">
+                    <span className="func-pay-stat-label">Total atribuído</span>
+                    <strong className="func-pay-stat-value">{formatCurrency(totalAssigned)}</strong>
+                  </div>
+                  <div className="func-pay-stat">
+                    <span className="func-pay-stat-label">Total pago</span>
+                    <strong className="func-pay-stat-value">{formatCurrency(totalPaid)}</strong>
+                  </div>
+                  <div className="func-pay-stat">
+                    <span className="func-pay-stat-label">Caixa Geral disponível</span>
+                    <strong className="func-pay-stat-value">{formatCurrency(generalCash?.current_balance || 0)}</strong>
+                  </div>
+                </div>
+
+                {payLoading ? (
+                  <table className="table"><tbody>{Array.from({ length: 4 }).map((_, i) => <SkeletonTableRow key={i} cols={4} />)}</tbody></table>
+                ) : activeStaff.length === 0 ? (
+                  <EmptyState message="Nenhum funcionário ativo cadastrado." />
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Funcionário</th>
+                          <th>Valor</th>
+                          <th>Status</th>
+                          <th>Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeStaff.map((s) => {
+                          const p = payments[s.id];
+                          const isPaid = p?.status === 'paid';
+                          const busy = payBusy === s.id;
+                          return (
+                            <tr key={s.id}>
+                              <td>{s.name}</td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="func-pay-input"
+                                  value={amountInputs[s.id] ?? ''}
+                                  disabled={isPaid}
+                                  placeholder="0,00"
+                                  onChange={(e) => handleAmountChange(s.id, e.target.value)}
+                                  onBlur={() => !isPaid && handleSaveAmount(s.id)}
+                                />
+                              </td>
+                              <td>
+                                <span className={`func-status ${isPaid ? 'func-status--active' : 'func-status--inactive'}`}>
+                                  {isPaid ? 'Pago' : 'Pendente'}
+                                </span>
+                                {isPaid && p?.paid_at && (
+                                  <span className="func-pay-date">{new Date(p.paid_at).toLocaleDateString('pt-BR')}</span>
+                                )}
+                              </td>
+                              <td>
+                                {isPaid ? (
+                                  <button className="func-action-btn func-action-btn--danger" disabled={busy} onClick={() => handleReverse(s.id)}>
+                                    {busy ? '...' : 'Estornar'}
+                                  </button>
+                                ) : (
+                                  <button className="func-action-btn func-action-btn--success" disabled={busy} onClick={() => handlePay(s.id)}>
+                                    {busy ? '...' : 'Pagar'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </Card>
         )}

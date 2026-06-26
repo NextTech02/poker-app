@@ -10,9 +10,9 @@ import countries from '../data/countries';
 import './Players.css';
 
 const DOC_TYPE_LABELS = {
-  national_id: 'Identidade',
-  passport: 'Passaporte',
-  driver_license: 'CNH',
+  national_id: 'players.docIdentity',
+  passport: 'players.docPassport',
+  driver_license: 'players.docCnh',
 };
 
 const getInitials = (name = '') =>
@@ -66,10 +66,10 @@ const Players = () => {
     try {
       if (editingPlayer) {
         await api.patch(`/players/${editingPlayer.id}`, formData);
-        toast.success('Jogador atualizado com sucesso!');
+        toast.success(t('players.updatedSuccess'));
       } else {
         await api.post('/players', formData);
-        toast.success('Jogador cadastrado com sucesso!');
+        toast.success(t('players.createdSuccess'));
       }
       invalidateCache('/players'); // B3: invalida cache após mutação
       setShowModal(false);
@@ -77,8 +77,8 @@ const Players = () => {
       setFormData(EMPTY_FORM);
       loadPlayers();
     } catch (error) {
-      const msg = error.userMessage || error.response?.data?.detail || 'Erro ao salvar jogador';
-      setFormError(typeof msg === 'string' ? msg : 'Erro ao salvar jogador');
+      const msg = error.userMessage || error.response?.data?.detail || t('players.saveError');
+      setFormError(typeof msg === 'string' ? msg : t('players.saveError'));
     } finally {
       setSubmitting(false);
     }
@@ -107,15 +107,15 @@ const Players = () => {
   );
 
   const handleDelete = async (playerId) => {
-    const ok = await confirm('Tem certeza que deseja excluir este jogador?', {
-      variant: 'danger', confirmText: 'Excluir',
+    const ok = await confirm(t('players.confirmDelete'), {
+      variant: 'danger', confirmText: t('common.delete', 'Excluir'),
     });
     if (!ok) return;
     try {
       await api.delete(`/players/${playerId}`);
       loadPlayers();
     } catch {
-      toast.error('Erro ao excluir jogador. Ele pode estar vinculado a torneios.');
+      toast.error(t('players.deleteError'));
     }
   };
 
@@ -224,10 +224,10 @@ const Players = () => {
                 <tbody>
                   {sortedPlayers.map((player) => {
                     const initials = getInitials(player.name);
-                    const docLabel = DOC_TYPE_LABELS[player.document_type] || player.document_type || '';
+                    const docLabel = DOC_TYPE_LABELS[player.document_type] ? t(DOC_TYPE_LABELS[player.document_type]) : (player.document_type || '');
                     return (
                       <tr key={player.id} className="pl-row">
-                        <td>
+                        <td className="pl-cell-player">
                           <div className="pl-player-cell">
                             <div className="pl-avatar">
                               {initials}
@@ -240,7 +240,7 @@ const Players = () => {
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td data-label={t('players.columnContact')}>
                           <div className="pl-contact-cell">
                             {player.email && (
                               <div className="pl-contact-line">
@@ -260,10 +260,10 @@ const Players = () => {
                             )}
                           </div>
                         </td>
-                        <td>
+                        <td data-label={t('players.columnNationality')}>
                           <span className="pl-nationality">{player.nationality || '—'}</span>
                         </td>
-                        <td>
+                        <td data-label={t('players.columnDocument')}>
                           {player.document_number ? (
                             <div className="pl-doc-cell">
                               <span className="pl-doc-type">{docLabel}</span>
@@ -273,7 +273,7 @@ const Players = () => {
                             <span className="pl-empty-val">—</span>
                           )}
                         </td>
-                        <td>
+                        <td className="pl-cell-actions">
                           <div className="pl-actions">
                             <button
                               className="pl-btn-icon pl-btn-edit"
@@ -317,7 +317,7 @@ const Players = () => {
                       <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                     </svg>
                   </div>
-                  <h2>{editingPlayer ? 'Editar Jogador' : 'Novo Jogador'}</h2>
+                  <h2>{editingPlayer ? t('players.editPlayer') : t('players.newPlayer')}</h2>
                 </div>
                 <button className="pl-modal-close" onClick={() => setShowModal(false)}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -329,53 +329,53 @@ const Players = () => {
               <form onSubmit={handleSubmit} className="pl-modal-form">
                 {/* Nome */}
                 <div className="pl-field pl-field-full">
-                  <label htmlFor="name">Nome Completo <span className="pl-required">*</span></label>
+                  <label htmlFor="name">{t('players.fullName')} <span className="pl-required">*</span></label>
                   <input
                     id="name" name="name" type="text"
                     value={formData.name} onChange={handleChange}
-                    required placeholder="Nome completo do jogador"
+                    required placeholder={t('players.fullNamePlaceholder')}
                   />
                 </div>
 
                 {/* Apelido */}
                 <div className="pl-field pl-field-full">
-                  <label htmlFor="nickname">Apelido / Nick</label>
+                  <label htmlFor="nickname">{t('players.nicknameLabel')}</label>
                   <input
                     id="nickname" name="nickname" type="text"
                     value={formData.nickname} onChange={handleChange}
-                    placeholder="Apelido ou nick (opcional)"
+                    placeholder={t('players.nicknamePlaceholder')}
                   />
                 </div>
 
                 {/* Email + Telefone */}
                 <div className="pl-field-row">
                   <div className="pl-field">
-                    <label htmlFor="email">Email <span className="pl-required">*</span></label>
+                    <label htmlFor="email">{t('players.email')} <span className="pl-required">*</span></label>
                     <input
                       id="email" name="email" type="email"
                       value={formData.email} onChange={handleChange}
-                      required placeholder="email@exemplo.com"
+                      required placeholder={t('players.emailPlaceholder')}
                     />
                   </div>
                   <div className="pl-field">
-                    <label htmlFor="phone">Telefone <span className="pl-required">*</span></label>
+                    <label htmlFor="phone">{t('players.phone')} <span className="pl-required">*</span></label>
                     <input
                       id="phone" name="phone" type="tel"
                       value={formData.phone} onChange={handleChange}
-                      required placeholder="+55 (11) 99999-9999"
+                      required placeholder={t('players.phonePlaceholder')}
                     />
                   </div>
                 </div>
 
                 {/* Nacionalidade */}
                 <div className="pl-field pl-field-full">
-                  <label htmlFor="nationality">Nacionalidade <span className="pl-required">*</span></label>
+                  <label htmlFor="nationality">{t('players.nationality')} <span className="pl-required">*</span></label>
                   <select
                     id="nationality" name="nationality"
                     value={formData.nationality} onChange={handleChange}
                     required
                   >
-                    <option value="">Selecione o país</option>
+                    <option value="">{t('players.selectCountry')}</option>
                     {countries.map((country) => (
                       <option key={country} value={country}>{country}</option>
                     ))}
@@ -385,34 +385,34 @@ const Players = () => {
                 {/* Documento */}
                 <div className="pl-field-row">
                   <div className="pl-field">
-                    <label htmlFor="document_type">Tipo de Documento <span className="pl-required">*</span></label>
+                    <label htmlFor="document_type">{t('players.documentType')} <span className="pl-required">*</span></label>
                     <select
                       id="document_type" name="document_type"
                       value={formData.document_type} onChange={handleChange}
                       required
                     >
-                      <option value="national_id">Identidade Nacional</option>
-                      <option value="passport">Passaporte</option>
-                      <option value="driver_license">Carteira de Motorista</option>
+                      <option value="national_id">{t('players.nationalId')}</option>
+                      <option value="passport">{t('players.passport')}</option>
+                      <option value="driver_license">{t('players.driverLicense')}</option>
                     </select>
                   </div>
                   <div className="pl-field">
-                    <label htmlFor="document_number">Número do Documento <span className="pl-required">*</span></label>
+                    <label htmlFor="document_number">{t('players.documentNumber')} <span className="pl-required">*</span></label>
                     <input
                       id="document_number" name="document_number" type="text"
                       value={formData.document_number} onChange={handleChange}
-                      required placeholder="Número do documento"
+                      required placeholder={t('players.documentNumberPlaceholder')}
                     />
                   </div>
                 </div>
 
                 {/* Observações */}
                 <div className="pl-field pl-field-full">
-                  <label htmlFor="notes">Observações</label>
+                  <label htmlFor="notes">{t('players.notes')}</label>
                   <textarea
                     id="notes" name="notes"
                     value={formData.notes} onChange={handleChange}
-                    rows="3" placeholder="Observações sobre o jogador (opcional)..."
+                    rows="3" placeholder={t('players.notesPlaceholder')}
                     className="pl-textarea"
                   />
                 </div>
@@ -434,7 +434,7 @@ const Players = () => {
                     onClick={() => { setShowModal(false); setFormError(''); }}
                     disabled={submitting}
                   >
-                    Cancelar
+                    {t('common.cancel')}
                   </button>
                   {/* A7: Spinner durante submit */}
                   <button type="submit" className="pl-btn-submit" disabled={submitting}>
@@ -443,14 +443,14 @@ const Players = () => {
                         <svg className="pl-spinner" viewBox="0 0 24 24" fill="none" width="16" height="16">
                           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" />
                         </svg>
-                        Salvando...
+                        {t('common.saving')}
                       </>
                     ) : (
                       <>
                         <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
                           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                         </svg>
-                        {editingPlayer ? 'Atualizar' : 'Cadastrar'}
+                        {editingPlayer ? t('players.update') : t('players.register')}
                       </>
                     )}
                   </button>

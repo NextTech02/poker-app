@@ -87,12 +87,12 @@
 
 .tm-btn-lock.unlocked {
   background: #1e3a1e;
-  color: #4caf50;
-  border: 1.5px solid #4caf50;
+  color: var(--brand-green);
+  border: 1.5px solid var(--brand-green);
 }
 
 .tm-btn-lock.unlocked:hover {
-  background: #4caf50;
+  background: var(--brand-green);
   color: #fff;
 }
 
@@ -390,8 +390,8 @@
 }
 
 .tm-btn-icon:hover { background: #1e2d45; border-color: #2a3f5f; }
-.tm-btn-icon.btn-green { color: #4caf50; }
-.tm-btn-icon.btn-green:hover { background: #0d1f0d; border-color: #4caf50; }
+.tm-btn-icon.btn-green { color: var(--brand-green); }
+.tm-btn-icon.btn-green:hover { background: #0d1f0d; border-color: var(--brand-green); }
 .tm-btn-icon.btn-orange { color: #ff9800; }
 .tm-btn-icon.btn-orange:hover { background: #1a0e00; border-color: #ff9800; }
 .tm-btn-icon.btn-red { color: #f44336; }
@@ -425,7 +425,7 @@
 
 .tm-seat.empty.droppable:hover,
 .tm-seat.empty.droppable {
-  border-color: #4caf50;
+  border-color: var(--brand-green);
   background: #0a1a0a;
   cursor: copy;
   transform: scale(1.03);
@@ -433,7 +433,7 @@
 
 .tm-seat.occupied {
   background: linear-gradient(135deg, #1a2d0a, #152508);
-  border: 1.5px solid #4caf50;
+  border: 1.5px solid var(--brand-green);
 }
 
 .tm-seat.inactive {
@@ -472,7 +472,7 @@
 .tm-player-icon-svg {
   width: 28px;
   height: 28px;
-  color: #4caf50;
+  color: var(--brand-green);
   opacity: 0.9;
   flex-shrink: 0;
 }

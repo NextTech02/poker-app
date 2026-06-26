@@ -1,6 +1,10 @@
+import logging
 from typing import List, Optional
+from collections import Counter
 from app.database import supabase
 from app.models.stage import StageCreate, StageUpdate, Stage, StageSummary
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class StageService:
@@ -28,6 +32,19 @@ class StageService:
 
     @staticmethod
     def get_stages(status: Optional[str] = None) -> List[StageSummary]:
+        """All stages with tournament_count. Single round-trip via the
+        `get_stage_summaries` RPC; falls back to the batched query path if the
+        RPC isn't deployed yet."""
+        statuses = [s.strip() for s in status.split(",")] if status else None
+        try:
+            resp = supabase.rpc("get_stage_summaries", {"p_statuses": statuses}).execute()
+            return [StageSummary(**row) for row in (resp.data or [])]
+        except Exception as exc:
+            logger.warning("get_stage_summaries RPC unavailable, using batched fallback: %s", exc)
+            return StageService._get_stages_batched(status)
+
+    @staticmethod
+    def _get_stages_batched(status: Optional[str] = None) -> List[StageSummary]:
         """Get all stages with tournament count, optionally filtered by status"""
         query = supabase.table("stages").select("*")
 
@@ -39,21 +56,28 @@ class StageService:
             else:
                 query = query.in_("status", status_list)
 
-        response = query.order("created_at", desc=True).execute()
+        stages = query.order("created_at", desc=True).execute().data or []
+        if not stages:
+            return []
 
-        # Get tournament count for each stage
-        stages_with_count = []
-        for stage_data in response.data:
-            # Count tournaments in this stage
-            tournaments_response = supabase.table("tournaments").select("id", count="exact").eq("stage_id", stage_data["id"]).execute()
-            tournament_count = tournaments_response.count if tournaments_response.count else 0
+        # Tournament counts in ONE round-trip instead of one COUNT per stage
+        # (N+1). Fetch the stage_id of every tournament in these stages and tally
+        # them in memory with a Counter (hash map, O(n)).
+        stage_ids = [s["id"] for s in stages]
+        tournament_rows = (
+            supabase.table("tournaments")
+            .select("stage_id")
+            .in_("stage_id", stage_ids)
+            .execute()
+            .data
+            or []
+        )
+        counts = Counter(r["stage_id"] for r in tournament_rows if r.get("stage_id"))
 
-            stages_with_count.append(StageSummary(
-                **stage_data,
-                tournament_count=tournament_count
-            ))
-
-        return stages_with_count
+        return [
+            StageSummary(**stage_data, tournament_count=counts.get(stage_data["id"], 0))
+            for stage_data in stages
+        ]
 
     @staticmethod
     def update_stage(stage_id: str, stage_data: StageUpdate) -> Optional[Stage]:

@@ -33,7 +33,7 @@
 .tr-header-icon svg {
   width: 26px;
   height: 26px;
-  color: var(--poker-green, #22c55e);
+  color: var(--poker-green, var(--brand-green));
 }
 
 .tr-title {
@@ -46,7 +46,7 @@
 .tr-subtitle {
   margin: 0;
   font-size: 0.85rem;
-  color: #5a7080;
+  color: var(--text-tertiary);
 }
 
 /* ── New Button — A3: primary = verde, nunca dourado ── */
@@ -55,7 +55,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.65rem 1.25rem;
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-green-600) 100%);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -74,11 +74,20 @@
 
 .tr-btn-new:active { transform: translateY(0); }
 
+.tr-btn-new:disabled,
+.tr-btn-new:disabled:hover {
+  background: var(--surface);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 /* ── States ── */
 .tr-loading {
   text-align: center;
   padding: 4rem;
-  color: #4a6070;
+  color: var(--text-tertiary);
   font-size: 0.95rem;
 }
 
@@ -89,8 +98,8 @@
   justify-content: center;
   padding: 6rem 2rem;
   text-align: center;
-  background: #0e1620;
-  border: 1px solid #1e2d3d;
+  background: var(--bg);
+  border: 1px solid var(--surface);
   border-radius: 16px;
   gap: 0.5rem;
 }
@@ -117,23 +126,23 @@
   margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
-  color: #6b7f90;
+  color: var(--text-secondary);
 }
 
 .tr-empty p {
   margin: 0 0 1.25rem;
   font-size: 0.875rem;
-  color: #3a5068;
+  color: var(--text-muted);
 }
 
 /* ── Count Bar ── */
 .tr-count-bar {
   margin-bottom: 1.25rem;
   font-size: 0.85rem;
-  color: #4a6070;
+  color: var(--text-tertiary);
 }
 
-.tr-count-bar strong { color: #e0eaf4; }
+.tr-count-bar strong { color: var(--text); }
 
 /* ── Grid ── */
 .tr-grid {
@@ -145,8 +154,8 @@
 /* ── Card ── */
 .tr-card {
   position: relative;
-  background: #0e1620;
-  border: 1px solid #1e2d3d;
+  background: var(--bg);
+  border: 1px solid var(--surface);
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
@@ -156,7 +165,7 @@
 }
 
 .tr-card:hover {
-  border-color: #d4af37;
+  border-color: var(--brand-gold);
   transform: translateY(-3px);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.4),
@@ -195,7 +204,7 @@
 .tr-card-icon svg {
   width: 20px;
   height: 20px;
-  color: #d4af37;
+  color: var(--brand-gold);
 }
 
 .tr-card-info {
@@ -206,7 +215,7 @@
 .tr-card-name {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #e0eaf4;
+  color: var(--text);
   line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
@@ -233,10 +242,10 @@
   text-transform: uppercase;
 }
 
-.tr-status--active  { background: rgba(34,197,94,0.12);  color: #22c55e; }
-.tr-status--pending { background: rgba(234,179,8,0.12);   color: #eab308; }
+.tr-status--active  { background: rgba(34,197,94,0.12);  color: var(--brand-green); }
+.tr-status--pending { background: rgba(234,179,8,0.12);   color: var(--warning-yellow); }
 .tr-status--done    { background: rgba(100,116,139,0.12); color: #94a3b8; }
-.tr-status--cancelled { background: rgba(239,68,68,0.12); color: #ef4444; }
+.tr-status--cancelled { background: rgba(239,68,68,0.12); color: var(--danger); }
 
 .tr-badge-qualifying {
   display: inline-flex;
@@ -261,11 +270,11 @@
   align-items: center;
   gap: 0.4rem;
   font-size: 0.82rem;
-  color: #4a6070;
+  color: var(--text-tertiary);
 }
 
-.tr-stat svg { color: #3a5068; flex-shrink: 0; }
-.tr-stat strong { color: #8aa0b0; }
+.tr-stat svg { color: var(--text-muted); flex-shrink: 0; }
+.tr-stat strong { color: var(--text-secondary); }
 
 /* Footer */
 .tr-card-footer {
@@ -293,7 +302,7 @@
 
 .tr-btn-edit {
   background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
+  color: var(--info-light);
   border: 1px solid rgba(59, 130, 246, 0.18);
 }
 
@@ -301,7 +310,7 @@
 
 .tr-btn-delete {
   background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
+  color: var(--danger-light);
   border: 1px solid rgba(239, 68, 68, 0.16);
 }
 
@@ -315,7 +324,7 @@
   margin-left: auto;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--poker-green, #22c55e);
+  color: var(--poker-green, var(--brand-green));
   white-space: nowrap;
   text-decoration: none;
   transition: color 0.2s, text-decoration 0.2s;
@@ -328,7 +337,7 @@
 }
 
 .tr-card:hover .tr-card-cta {
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 /* ── Modal ── */
@@ -345,8 +354,8 @@
 }
 
 .tr-modal {
-  background: #0e1620;
-  border: 1px solid #1e2d3d;
+  background: var(--bg);
+  border: 1px solid var(--surface);
   border-radius: 16px;
   width: 100%;
   max-width: 480px;
@@ -382,20 +391,20 @@
 .tr-modal-icon svg {
   width: 18px;
   height: 18px;
-  color: #d4af37;
+  color: var(--brand-gold);
 }
 
 .tr-modal-header h2 {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #e0eaf4;
+  color: var(--text);
 }
 
 .tr-modal-close {
   background: none;
   border: none;
-  color: #3a5068;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
@@ -405,7 +414,7 @@
 }
 
 .tr-modal-close:hover {
-  color: #e0eaf4;
+  color: var(--text);
   background: rgba(255,255,255,0.06);
 }
 
@@ -428,17 +437,17 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #4a6070;
+  color: var(--text-tertiary);
 }
 
-.tr-required { color: #f87171; margin-left: 2px; }
+.tr-required { color: var(--danger-light); margin-left: 2px; }
 
 .tr-field input {
   background: #071018;
-  border: 1px solid #1e2d3d;
+  border: 1px solid var(--surface);
   border-radius: 8px;
   padding: 0.7rem 0.9rem;
-  color: #e0eaf4;
+  color: var(--text);
   font-size: 0.9rem;
   transition: border-color 0.2s, box-shadow 0.2s;
   width: 100%;
@@ -449,10 +458,10 @@
 
 .tr-field select {
   background: #071018;
-  border: 1px solid #1e2d3d;
+  border: 1px solid var(--surface);
   border-radius: 8px;
   padding: 0.7rem 0.9rem;
-  color: #e0eaf4;
+  color: var(--text);
   font-size: 0.9rem;
   width: 100%;
   box-sizing: border-box;
@@ -462,7 +471,7 @@
 
 .tr-field input:focus {
   outline: none;
-  border-color: #d4af37;
+  border-color: var(--brand-gold);
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
@@ -479,7 +488,7 @@
   gap: 1rem;
   padding: 0.875rem 1rem;
   background: rgba(255,255,255,0.025);
-  border: 1px solid #1e2d3d;
+  border: 1px solid var(--surface);
   border-radius: 10px;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
@@ -512,7 +521,7 @@
 
 .tr-toggle-hint {
   font-size: 0.75rem;
-  color: #3a5068;
+  color: var(--text-muted);
 }
 
 /* Toggle Switch */
@@ -520,14 +529,14 @@
   width: 42px;
   min-width: 42px;
   height: 23px;
-  background: #1e2d3d;
+  background: var(--surface);
   border-radius: 12px;
   position: relative;
   transition: background 0.25s;
   flex-shrink: 0;
 }
 
-.tr-toggle-switch.on { background: #d4af37; }
+.tr-toggle-switch.on { background: var(--brand-gold); }
 
 .tr-toggle-knob {
   position: absolute;
@@ -556,9 +565,9 @@
 .tr-btn-cancel {
   padding: 0.65rem 1.25rem;
   background: transparent;
-  border: 1px solid #1e2d3d;
+  border: 1px solid var(--surface);
   border-radius: 8px;
-  color: #5a7080;
+  color: var(--text-tertiary);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -567,7 +576,7 @@
 
 .tr-btn-cancel:hover {
   border-color: #2a3d50;
-  color: #e0eaf4;
+  color: var(--text);
 }
 
 /* A3: submit = verde, não dourado */
@@ -576,7 +585,7 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.65rem 1.4rem;
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-green-600) 100%);
   color: #fff;
   border: none;
   border-radius: 8px;

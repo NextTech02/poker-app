@@ -3,11 +3,9 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import api from '../config/api';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { SkeletonStatCard, SkeletonActivityList } from '../components/SkeletonLoader';
 import './Dashboard.css';
-
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 const DeltaBadge = ({ delta }) => {
   if (delta == null) return null;
@@ -35,6 +33,8 @@ const StatCard = ({ icon, value, label, delta, badge }) => (
 
 const Dashboard = () => {
   const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
+  const fmt = (n) => formatCurrency(n ?? 0);
   const [stats, setStats] = useState(null);
   const [recentTournaments, setRecentTournaments] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);

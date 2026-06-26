@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './PrizeVoucher.css';
 
 const LANGS = {
@@ -82,16 +83,9 @@ const DIVIDER_LIGHT = '--------------------------------';
 
 const PrizeVoucher = ({ payout }) => {
   const { i18n } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const langCode = i18n.language?.startsWith('en') ? 'en' : i18n.language?.startsWith('es') ? 'es' : 'pt';
   const t = LANGS[langCode] || LANGS.pt;
-
-  const formatCurrency = (value) => {
-    const num = parseFloat(value) || 0;
-    return num.toLocaleString(
-      langCode === 'en' ? 'en-US' : langCode === 'es' ? 'es-CO' : 'pt-BR',
-      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-    );
-  };
 
   const now = new Date(payout.paid_at || new Date().toISOString());
   const locale = langCode === 'en' ? 'en-US' : langCode === 'es' ? 'es-ES' : 'pt-BR';
@@ -106,7 +100,7 @@ const PrizeVoucher = ({ payout }) => {
     ? `${docLabel}: ${maskDocument(payout.document_number)}`
     : maskDocument(payout.document_number);
 
-  const prizeFormatted = `R$ ${formatCurrency(payout.prize_amount)}`;
+  const prizeFormatted = formatCurrency(payout.prize_amount);
 
   // ── Print ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {

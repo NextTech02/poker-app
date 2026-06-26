@@ -109,14 +109,15 @@ class TransactionService:
             .execute()
         )
 
+        # The player is fixed for this query — fetch their info ONCE instead of
+        # re-querying the same row inside the loop (was N identical queries).
+        player = supabase.table("players").select("name, nickname").eq("id", player_id).execute()
+        player_info = player.data[0] if player.data else {}
+
         transactions = []
         for item in response.data:
             tournament = item.get("tournaments", {})
             trans_data = {k: v for k, v in item.items() if k != "tournaments"}
-
-            # Get player info
-            player = supabase.table("players").select("name, nickname").eq("id", player_id).execute()
-            player_info = player.data[0] if player.data else {}
 
             transactions.append(TransactionDetail(
                 **trans_data,

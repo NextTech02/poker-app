@@ -19,11 +19,11 @@
 }
 
 .cb-demo__ok {
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 .cb-demo__bad {
-  color: #ef4444;
+  color: var(--danger);
   font-weight: 700;
 }
 
@@ -35,7 +35,7 @@
   text-transform: uppercase;
   padding: 3px 9px;
   border-radius: 999px;
-  background: #22c55e;
+  background: var(--brand-green);
   color: #052e16;
 }
 

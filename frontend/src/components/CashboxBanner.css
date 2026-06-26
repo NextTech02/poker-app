@@ -42,17 +42,17 @@
 }
 
 .cashbox-banner__pill--open {
-  background: #22c55e;
+  background: var(--brand-green);
   color: #052e16;
 }
 
 .cashbox-banner__pill--closed {
-  background: #f59e0b;
+  background: var(--warning);
   color: #422006;
 }
 
 .cashbox-banner__pill--archived {
-  background: #6b7280;
+  background: var(--text-tertiary);
   color: #f9fafb;
 }
 
@@ -65,7 +65,7 @@
 
 .cashbox-banner__label {
   font-size: 13px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary, var(--text-secondary));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -86,14 +86,14 @@
 
 .cashbox-banner__hint {
   font-size: 13px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .cashbox-banner__blocked-hint {
   margin: 0 0 16px;
   padding: 0 4px;
   font-size: 13px;
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .cashbox-banner__expected {
@@ -102,7 +102,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   font-size: 14px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .cashbox-banner__expected strong {

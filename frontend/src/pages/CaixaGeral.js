@@ -2,12 +2,17 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { useTranslation } from 'react-i18next';
 import './CaixaGeral.css';
 
 const CaixaGeral = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
   const [stages, setStages] = useState([]);
   const [selectedStage, setSelectedStage] = useState('');
   const [stageCash, setStageCash] = useState(null);
@@ -51,7 +56,7 @@ const CaixaGeral = () => {
     } catch (error) {
       console.error('Erro ao carregar etapas:', error);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error('Sessao expirada. Por favor, faca login novamente.');
+        toast.error(t('generalCash.sessionExpired'));
         window.location.href = '/login';
       }
     }
@@ -80,7 +85,7 @@ const CaixaGeral = () => {
     } catch (error) {
       console.error('Erro ao carregar dados gerais:', error);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error('Sessao expirada. Por favor, faca login novamente.');
+        toast.error(t('generalCash.sessionExpired'));
         window.location.href = '/login';
       }
     }
@@ -101,18 +106,18 @@ const CaixaGeral = () => {
     e.preventDefault();
 
     if (!stageCash || !selectedStage) {
-      toast.warning('Selecione uma etapa primeiro');
+      toast.warning(t('generalCash.selectStageFirst'));
       return;
     }
 
     const amount = parseFloat(sangriaFormData.amount);
     if (amount <= 0) {
-      toast.warning('Valor deve ser maior que zero');
+      toast.warning(t('generalCash.amountGreaterThanZero'));
       return;
     }
 
     if (amount > parseFloat(stageCash.current_balance)) {
-      toast.warning(`Saldo insuficiente! Disponivel: R$ ${parseFloat(stageCash.current_balance).toFixed(2)}`);
+      toast.warning(t('generalCash.insufficientBalance', { value: formatCurrency(stageCash.current_balance) }));
       return;
     }
 
@@ -145,13 +150,9 @@ const CaixaGeral = () => {
 
     } catch (error) {
       console.error('Erro ao realizar sangria:', error);
-      const errorMsg = error.response?.data?.detail || 'Erro ao realizar sangria';
-      toast.error(typeof errorMsg === 'string' ? errorMsg : 'Erro ao realizar sangria');
+      const errorMsg = error.response?.data?.detail || t('generalCash.sangriaError');
+      toast.error(typeof errorMsg === 'string' ? errorMsg : t('generalCash.sangriaError'));
     }
-  };
-
-  const formatCurrency = (value) => {
-    return `R$ ${parseFloat(value || 0).toFixed(2)}`;
   };
 
   const formatDate = (dateString) => {
@@ -178,22 +179,22 @@ const CaixaGeral = () => {
       <main className="main-content">
         <div className="page-header">
           <div>
-            <h1>Caixa Geral e Sangria</h1>
-            <p className="subtitle">Gestão de caixa por etapa com rake</p>
+            <h1>{t('generalCash.pageTitle')}</h1>
+            <p className="subtitle">{t('generalCash.pageSubtitle')}</p>
           </div>
         </div>
 
         {/* Stage Selector */}
         <Card className="stage-selector-card">
           <div className="stage-selector">
-            <label htmlFor="stage-select">Selecione a Etapa:</label>
+            <label htmlFor="stage-select">{t('generalCash.selectStageLabel')}</label>
             <select
               id="stage-select"
               value={selectedStage}
               onChange={(e) => setSelectedStage(e.target.value)}
               className="stage-select-input"
             >
-              <option value="">Selecione uma etapa</option>
+              <option value="">{t('generalCash.selectStageOption')}</option>
               {stages.map(stage => (
                 <option key={stage.id} value={stage.id}>
                   {stage.name} - {stage.location}
@@ -210,7 +211,7 @@ const CaixaGeral = () => {
             {stageCash ? (
               <>
                 <div className="stat-header">
-                  <h3>Caixa do Dia</h3>
+                  <h3>{t('generalCash.dailyCash')}</h3>
                 </div>
                 <div className="stat-amount">{formatCurrency(stageCash.current_balance)}</div>
                 <Button
@@ -218,16 +219,16 @@ const CaixaGeral = () => {
                   disabled={parseFloat(stageCash.current_balance) <= 0}
                   className="sangria-button"
                 >
-                  Realizar Sangria
+                  {t('generalCash.performSangria')}
                 </Button>
               </>
             ) : (
               <>
                 <div className="stat-header">
-                  <h3>Caixa do Dia</h3>
+                  <h3>{t('generalCash.dailyCash')}</h3>
                 </div>
                 <div className="empty-state-simple">
-                  <p>Selecione uma etapa</p>
+                  <p>{t('generalCash.selectStageEmpty')}</p>
                 </div>
               </>
             )}
@@ -236,46 +237,48 @@ const CaixaGeral = () => {
           {/* General Cash (Caixa Geral) */}
           <Card className="stat-card general-cash-card">
             <div className="stat-header">
-              <h3>Caixa Geral</h3>
+              <h3>{t('generalCash.generalCashTitle')}</h3>
             </div>
             {generalCash ? (
               <div className="stat-amount">{formatCurrency(generalCash.current_balance)}</div>
             ) : (
-              <div className="loading">Carregando...</div>
+              <div className="loading">{t('common.loading')}</div>
             )}
           </Card>
 
           {/* Rake */}
           <Card className="stat-card rake-card">
             <div className="stat-header">
-              <h3>Rake Acumulado</h3>
+              <h3>{t('generalCash.accumulatedRake')}</h3>
             </div>
             {rake ? (
               <div className="stat-amount rake-amount">{formatCurrency(rake.total_rake)}</div>
             ) : (
-              <div className="loading">Carregando...</div>
+              <div className="loading">{t('common.loading')}</div>
             )}
           </Card>
         </div>
 
         {/* Sangria History */}
         {selectedStage && (
-          <Card title="Histórico de Sangrias">
+          <Card title={t('generalCash.sangriaHistory')}>
             {sangriaHistory.length === 0 ? (
-              <div className="empty-state">
-                <p>Nenhuma sangria realizada nesta etapa</p>
-              </div>
+              <EmptyState
+                icon={null}
+                title={t('generalCash.noSangria')}
+                subtitle={t('generalCash.noSangriaHint')}
+              />
             ) : (
               <div className="table-container">
                 <table className="sangria-table">
                   <thead>
                     <tr>
-                      <th>Data/Hora</th>
-                      <th>Valor Bruto</th>
-                      <th>Rake (%)</th>
-                      <th>Rake (Valor)</th>
-                      <th>Valor Líquido</th>
-                      <th>Observações</th>
+                      <th>{t('generalCash.colDateTime')}</th>
+                      <th>{t('generalCash.colGrossAmount')}</th>
+                      <th>{t('generalCash.colRakePercent')}</th>
+                      <th>{t('generalCash.colRakeAmount')}</th>
+                      <th>{t('generalCash.colNetAmount')}</th>
+                      <th>{t('generalCash.colNotes')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -301,25 +304,25 @@ const CaixaGeral = () => {
           <div className="modal-overlay" onClick={() => setShowSangriaModal(false)}>
             <div className="modal sangria-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Realizar Sangria</h2>
-                <button className="close-btn" onClick={() => setShowSangriaModal(false)} aria-label="Fechar">
+                <h2>{t('generalCash.performSangria')}</h2>
+                <button className="close-btn" onClick={() => setShowSangriaModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleSangriaSubmit}>
                 <div className="sangria-info">
                   <div className="info-item">
-                    <span>Etapa:</span>
+                    <span>{t('generalCash.stageLabel')}</span>
                     <strong>{stages.find(s => s.id === selectedStage)?.name}</strong>
                   </div>
                   <div className="info-item">
-                    <span>Saldo Disponível:</span>
+                    <span>{t('generalCash.availableBalanceLabel')}</span>
                     <strong>{formatCurrency(stageCash.current_balance)}</strong>
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="amount">Valor da Sangria (R$)</label>
+                  <label htmlFor="amount">{t('generalCash.sangriaAmountLabel')}</label>
                   <input
                     id="amount"
                     name="amount"
@@ -334,7 +337,7 @@ const CaixaGeral = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="rake_percentage">Percentual de Rake (%)</label>
+                  <label htmlFor="rake_percentage">{t('generalCash.rakePercentLabel')}</label>
                   <input
                     id="rake_percentage"
                     name="rake_percentage"
@@ -349,30 +352,30 @@ const CaixaGeral = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="notes">Observações (opcional)</label>
+                  <label htmlFor="notes">{t('generalCash.notesOptionalLabel')}</label>
                   <textarea
                     id="notes"
                     name="notes"
                     rows="3"
                     value={sangriaFormData.notes}
                     onChange={(e) => setSangriaFormData({...sangriaFormData, notes: e.target.value})}
-                    placeholder="Adicione observações sobre esta sangria"
+                    placeholder={t('generalCash.notesPlaceholder')}
                   />
                 </div>
 
                 {sangriaFormData.amount && (
                   <div className="sangria-calculation">
-                    <h4>Cálculo da Sangria</h4>
+                    <h4>{t('generalCash.sangriaCalculation')}</h4>
                     <div className="calculation-item">
-                      <span>Valor Bruto:</span>
+                      <span>{t('generalCash.grossAmountLabel')}</span>
                       <strong>{formatCurrency(sangriaFormData.amount)}</strong>
                     </div>
                     <div className="calculation-item rake">
-                      <span>Rake ({sangriaFormData.rake_percentage}%):</span>
+                      <span>{t('generalCash.rakeWithPercent', { percent: sangriaFormData.rake_percentage })}</span>
                       <strong className="rake-amount">- {formatCurrency(calculateNetAmount().rakeAmount)}</strong>
                     </div>
                     <div className="calculation-item total">
-                      <span>Para Caixa Geral:</span>
+                      <span>{t('generalCash.toGeneralCash')}</span>
                       <strong className="net-amount">{formatCurrency(calculateNetAmount().netAmount)}</strong>
                     </div>
                   </div>
@@ -380,9 +383,9 @@ const CaixaGeral = () => {
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowSangriaModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
-                  <Button type="submit">Confirmar Sangria</Button>
+                  <Button type="submit">{t('generalCash.confirmSangria')}</Button>
                 </div>
               </form>
             </div>

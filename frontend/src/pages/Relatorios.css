@@ -28,7 +28,7 @@
 .rl-header-icon svg {
   width: 26px;
   height: 26px;
-  color: var(--poker-green, #22c55e);
+  color: var(--poker-green, var(--brand-green));
 }
 
 .rl-title {
@@ -40,7 +40,7 @@
 
 .rl-subtitle {
   font-size: 0.85rem;
-  color: var(--text-secondary, #8899aa);
+  color: var(--text-secondary, var(--text-secondary));
   margin: 0;
 }
 
@@ -69,12 +69,12 @@
 .rl-kpi-icon svg {
   width: 22px;
   height: 22px;
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 /* Valor em destaque dourado */
 .rl-accent {
-  color: var(--accent-color, #eab308) !important;
+  color: var(--accent-color, var(--warning-yellow)) !important;
 }
 
 .section-title {

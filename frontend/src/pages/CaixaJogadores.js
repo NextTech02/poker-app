@@ -7,13 +7,14 @@ import EmptyState from '../components/EmptyState';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { useTranslation } from 'react-i18next';
 import './CaixaJogadores.css';
-
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 const CaixaJogadores = () => {
   const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
+  const { t } = useTranslation();
 
   // Player selection
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
@@ -89,7 +90,7 @@ const CaixaJogadores = () => {
       setCredits(creditsRes.data || []);
     } catch (err) {
       console.error('Error loading player data:', err);
-      toast.error('Erro ao carregar dados do jogador');
+      toast.error(t('playerCash.loadDataError'));
     } finally {
       setLoading(false);
     }
@@ -124,7 +125,7 @@ const CaixaJogadores = () => {
   const handleGrantCredit = async (e) => {
     e.preventDefault();
     if (!selectedPlayerId) {
-      toast.warning('Selecione um jogador primeiro');
+      toast.warning(t('playerCash.selectPlayerFirst'));
       return;
     }
     try {
@@ -134,12 +135,12 @@ const CaixaJogadores = () => {
         amount: parseFloat(creditForm.amount),
         notes: creditForm.notes || null,
       });
-      toast.success('Crédito concedido com sucesso!');
+      toast.success(t('playerCash.creditGrantedSuccess'));
       setShowCreditModal(false);
       setCreditForm({ sponsor_id: '', amount: '', notes: '' });
       loadPlayerData(selectedPlayerId);
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Erro ao conceder crédito';
+      const msg = err.response?.data?.detail || t('playerCash.grantCreditError');
       toast.error(msg);
     }
   };
@@ -149,24 +150,24 @@ const CaixaJogadores = () => {
     e.preventDefault();
     try {
       await api.post('/sponsors', sponsorForm);
-      toast.success('Patrocinador cadastrado!');
+      toast.success(t('playerCash.sponsorCreatedSuccess'));
       setShowSponsorModal(false);
       setSponsorForm({ name: '', email: '', phone: '', contact_person: '' });
       loadSponsors();
     } catch (err) {
-      toast.error('Erro ao cadastrar patrocinador');
+      toast.error(t('playerCash.createSponsorError'));
     }
   };
 
   // ---- Cancel Credit ----
   const handleCancelCredit = async (creditId) => {
-    if (!window.confirm('Tem certeza que deseja cancelar este crédito?')) return;
+    if (!window.confirm(t('playerCash.confirmCancelCredit'))) return;
     try {
       await api.post(`/player-credits/${creditId}/cancel`);
-      toast.success('Crédito cancelado');
+      toast.success(t('playerCash.creditCancelledSuccess'));
       loadPlayerData(selectedPlayerId);
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Erro ao cancelar crédito';
+      const msg = err.response?.data?.detail || t('playerCash.cancelCreditError');
       toast.error(msg);
     }
   };
@@ -174,18 +175,18 @@ const CaixaJogadores = () => {
   // ---- Badge helpers ----
   const getTypeBadge = (type) => {
     const map = {
-      buy_in: { label: 'Buy-in', cls: 'badge-success' },
-      rebuy: { label: 'Rebuy', cls: 'badge-warning' },
-      addon: { label: 'Add-on', cls: 'badge-info' },
-      prize: { label: 'Prêmio', cls: 'badge-prize' },
-      credit_granted: { label: 'Crédito Recebido', cls: 'badge-credit' },
-      credit_used_buyin: { label: 'Crédito → Buy-in', cls: 'badge-credit-used' },
-      credit_used_rebuy: { label: 'Crédito → Rebuy', cls: 'badge-credit-used' },
-      credit_used_addon: { label: 'Crédito → Add-on', cls: 'badge-credit-used' },
-      prize_deduction: { label: 'Desc. Premiação', cls: 'badge-deduction' },
-      sponsor_payment: { label: 'Pgto Patrocinador', cls: 'badge-sponsor' },
-      credit_cancelled: { label: 'Cancelado', cls: 'badge-cancelled' },
-      credit_refund: { label: 'Estorno', cls: 'badge-refund' },
+      buy_in: { label: t('playerCash.typeBuyIn'), cls: 'badge-success' },
+      rebuy: { label: t('playerCash.typeRebuy'), cls: 'badge-warning' },
+      addon: { label: t('playerCash.typeAddon'), cls: 'badge-info' },
+      prize: { label: t('playerCash.typePrize'), cls: 'badge-prize' },
+      credit_granted: { label: t('playerCash.typeCreditGranted'), cls: 'badge-credit' },
+      credit_used_buyin: { label: t('playerCash.typeCreditUsedBuyin'), cls: 'badge-credit-used' },
+      credit_used_rebuy: { label: t('playerCash.typeCreditUsedRebuy'), cls: 'badge-credit-used' },
+      credit_used_addon: { label: t('playerCash.typeCreditUsedAddon'), cls: 'badge-credit-used' },
+      prize_deduction: { label: t('playerCash.typePrizeDeduction'), cls: 'badge-deduction' },
+      sponsor_payment: { label: t('playerCash.typeSponsorPayment'), cls: 'badge-sponsor' },
+      credit_cancelled: { label: t('playerCash.typeCreditCancelled'), cls: 'badge-cancelled' },
+      credit_refund: { label: t('playerCash.typeCreditRefund'), cls: 'badge-refund' },
     };
     const badge = map[type] || { label: type, cls: 'badge-default' };
     return <span className={`badge ${badge.cls}`}>{badge.label}</span>;
@@ -193,11 +194,11 @@ const CaixaJogadores = () => {
 
   const getCreditStatusBadge = (status) => {
     const map = {
-      active: { label: 'Ativo', cls: 'cj-status--active' },
-      fully_used: { label: 'Utilizado', cls: 'cj-status--used' },
-      settled_by_prize: { label: 'Quitado (Prêmio)', cls: 'cj-status--settled' },
-      settled_by_sponsor: { label: 'Quitado (Patrocinador)', cls: 'cj-status--settled' },
-      cancelled: { label: 'Cancelado', cls: 'cj-status--cancelled' },
+      active: { label: t('playerCash.statusActive'), cls: 'cj-status--active' },
+      fully_used: { label: t('playerCash.statusFullyUsed'), cls: 'cj-status--used' },
+      settled_by_prize: { label: t('playerCash.statusSettledByPrize'), cls: 'cj-status--settled' },
+      settled_by_sponsor: { label: t('playerCash.statusSettledBySponsor'), cls: 'cj-status--settled' },
+      cancelled: { label: t('playerCash.statusCancelled'), cls: 'cj-status--cancelled' },
     };
     const s = map[status] || { label: status, cls: '' };
     return <span className={`cj-status-badge ${s.cls}`}>{s.label}</span>;
@@ -218,17 +219,17 @@ const CaixaJogadores = () => {
               </svg>
             </div>
             <div>
-              <h1 className="cx-title">Jogadores</h1>
-              <p className="cx-subtitle">Extrato financeiro e créditos dos jogadores</p>
+              <h1 className="cx-title">{t('playerCash.title')}</h1>
+              <p className="cx-subtitle">{t('playerCash.subtitle')}</p>
             </div>
           </div>
           <div className="cj-header-actions">
             <Button variant="secondary" onClick={() => setShowSponsorModal(true)}>
-              + Patrocinador
+              {t('playerCash.addSponsor')}
             </Button>
             {selectedPlayerId && (
               <Button onClick={() => setShowCreditModal(true)}>
-                + Conceder Crédito
+                {t('playerCash.grantCredit')}
               </Button>
             )}
           </div>
@@ -237,7 +238,7 @@ const CaixaJogadores = () => {
         {/* Player Selector */}
         <Card className="cj-player-selector">
           <div className="form-group">
-            <label>Selecione um jogador</label>
+            <label>{t('playerCash.selectPlayerLabel')}</label>
             <PlayerSelect
               value={selectedPlayerId}
               onChange={handlePlayerChange}
@@ -261,26 +262,26 @@ const CaixaJogadores = () => {
                 <>
                   <Card className="stat-card">
                     <div className="stat-info">
-                      <h3 className="cj-stat-positive">{fmt(summary.total_credits_received)}</h3>
-                      <p>Créditos Recebidos</p>
+                      <h3 className="cj-stat-positive">{formatCurrency(summary.total_credits_received)}</h3>
+                      <p>{t('playerCash.creditsReceived')}</p>
                     </div>
                   </Card>
                   <Card className="stat-card">
                     <div className="stat-info">
-                      <h3 className="cj-stat-highlight">{fmt(summary.total_credits_remaining)}</h3>
-                      <p>Crédito Disponível</p>
+                      <h3 className="cj-stat-highlight">{formatCurrency(summary.total_credits_remaining)}</h3>
+                      <p>{t('playerCash.creditAvailable')}</p>
                     </div>
                   </Card>
                   <Card className="stat-card">
                     <div className="stat-info">
-                      <h3>{fmt(summary.total_credits_used)}</h3>
-                      <p>Crédito Utilizado</p>
+                      <h3>{formatCurrency(summary.total_credits_used)}</h3>
+                      <p>{t('playerCash.creditUsed')}</p>
                     </div>
                   </Card>
                   <Card className="stat-card">
                     <div className="stat-info">
-                      <h3 className="cj-stat-warning">{fmt(summary.total_sponsor_owes)}</h3>
-                      <p>Patrocinador Deve</p>
+                      <h3 className="cj-stat-warning">{formatCurrency(summary.total_sponsor_owes)}</h3>
+                      <p>{t('playerCash.sponsorOwes')}</p>
                     </div>
                   </Card>
                 </>
@@ -289,39 +290,39 @@ const CaixaJogadores = () => {
 
             {/* Active Credits */}
             {credits.length > 0 && (
-              <Card title="Créditos" className="cj-credits-card">
+              <Card title={t('playerCash.creditsCardTitle')} className="cj-credits-card">
                 <div className="table-container">
                   <table className="transactions-table">
                     <thead>
                       <tr>
-                        <th>Patrocinador</th>
-                        <th>Original</th>
-                        <th>Disponível</th>
-                        <th>Usado</th>
-                        <th>Desc. Prêmio</th>
-                        <th>Patrocinador Deve</th>
-                        <th>Status</th>
-                        <th>Ações</th>
+                        <th>{t('playerCash.colSponsor')}</th>
+                        <th>{t('playerCash.colOriginal')}</th>
+                        <th>{t('playerCash.colAvailable')}</th>
+                        <th>{t('playerCash.colUsed')}</th>
+                        <th>{t('playerCash.colPrizeDeduction')}</th>
+                        <th>{t('playerCash.colSponsorOwes')}</th>
+                        <th>{t('common.status')}</th>
+                        <th>{t('common.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {credits.map((c) => (
                         <tr key={c.id}>
                           <td>{c.sponsor_name}</td>
-                          <td>{fmt(c.original_amount)}</td>
-                          <td className="cj-amount-positive">{fmt(c.remaining_amount)}</td>
-                          <td>{fmt(c.used_amount)}</td>
-                          <td>{fmt(c.prize_deduction_amount)}</td>
-                          <td className={c.sponsor_owes > 0 ? 'cj-amount-warning' : ''}>{fmt(c.sponsor_owes)}</td>
+                          <td>{formatCurrency(c.original_amount)}</td>
+                          <td className="cj-amount-positive">{formatCurrency(c.remaining_amount)}</td>
+                          <td>{formatCurrency(c.used_amount)}</td>
+                          <td>{formatCurrency(c.prize_deduction_amount)}</td>
+                          <td className={c.sponsor_owes > 0 ? 'cj-amount-warning' : ''}>{formatCurrency(c.sponsor_owes)}</td>
                           <td>{getCreditStatusBadge(c.status)}</td>
                           <td>
                             {c.status === 'active' && c.used_amount === 0 && (
                               <button
                                 className="cj-action-btn cj-action-btn--danger"
                                 onClick={() => handleCancelCredit(c.id)}
-                                title="Cancelar crédito"
+                                title={t('playerCash.cancelCreditTitle')}
                               >
-                                Cancelar
+                                {t('common.cancel')}
                               </button>
                             )}
                           </td>
@@ -337,50 +338,50 @@ const CaixaJogadores = () => {
             <Card className="cj-filters-card">
               <div className="cj-filters">
                 <div className="form-group">
-                  <label>Categoria</label>
+                  <label>{t('playerCash.filterCategory')}</label>
                   <select name="category" value={filters.category} onChange={handleFilterChange}>
-                    <option value="">Todas</option>
-                    <option value="transaction">Transações</option>
-                    <option value="credit">Créditos</option>
+                    <option value="">{t('playerCash.filterAllCategories')}</option>
+                    <option value="transaction">{t('playerCash.filterTransactions')}</option>
+                    <option value="credit">{t('playerCash.filterCredits')}</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Tipo</label>
+                  <label>{t('playerCash.filterType')}</label>
                   <select name="type" value={filters.type} onChange={handleFilterChange}>
-                    <option value="">Todos</option>
-                    <option value="buy_in">Buy-in</option>
-                    <option value="rebuy">Rebuy</option>
-                    <option value="addon">Add-on</option>
-                    <option value="prize">Prêmio</option>
-                    <option value="credit_granted">Crédito Recebido</option>
-                    <option value="credit_used_buyin">Crédito → Buy-in</option>
-                    <option value="credit_used_rebuy">Crédito → Rebuy</option>
-                    <option value="credit_used_addon">Crédito → Add-on</option>
-                    <option value="prize_deduction">Desc. Premiação</option>
+                    <option value="">{t('playerCash.filterAllTypes')}</option>
+                    <option value="buy_in">{t('playerCash.optBuyIn')}</option>
+                    <option value="rebuy">{t('playerCash.optRebuy')}</option>
+                    <option value="addon">{t('playerCash.optAddon')}</option>
+                    <option value="prize">{t('playerCash.optPrize')}</option>
+                    <option value="credit_granted">{t('playerCash.optCreditGranted')}</option>
+                    <option value="credit_used_buyin">{t('playerCash.optCreditUsedBuyin')}</option>
+                    <option value="credit_used_rebuy">{t('playerCash.optCreditUsedRebuy')}</option>
+                    <option value="credit_used_addon">{t('playerCash.optCreditUsedAddon')}</option>
+                    <option value="prize_deduction">{t('playerCash.optPrizeDeduction')}</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>De</label>
+                  <label>{t('playerCash.filterFrom')}</label>
                   <input type="date" name="date_from" value={filters.date_from} onChange={handleFilterChange} />
                 </div>
                 <div className="form-group">
-                  <label>Até</label>
+                  <label>{t('playerCash.filterTo')}</label>
                   <input type="date" name="date_to" value={filters.date_to} onChange={handleFilterChange} />
                 </div>
                 <div className="cj-filter-actions">
-                  <Button variant="secondary" onClick={clearFilters}>Limpar</Button>
-                  <Button onClick={applyFilters}>Filtrar</Button>
+                  <Button variant="secondary" onClick={clearFilters}>{t('common.clear')}</Button>
+                  <Button onClick={applyFilters}>{t('common.filter')}</Button>
                 </div>
               </div>
             </Card>
 
             {/* Statement */}
-            <Card title="Extrato Financeiro">
+            <Card title={t('playerCash.statementTitle')}>
               {loading ? (
                 <table className="transactions-table">
                   <thead>
                     <tr>
-                      <th>Data</th><th>Categoria</th><th>Tipo</th><th>Torneio</th><th>Patrocinador</th><th>Valor</th>
+                      <th>{t('common.date')}</th><th>{t('playerCash.colCategory')}</th><th>{t('playerCash.colType')}</th><th>{t('playerCash.colTournament')}</th><th>{t('playerCash.colSponsor')}</th><th>{t('playerCash.colAmount')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -392,20 +393,20 @@ const CaixaJogadores = () => {
               ) : statement.length === 0 ? (
                 <EmptyState
                   icon={null}
-                  title="Nenhuma movimentação"
-                  subtitle="Este jogador ainda não possui transações ou créditos"
+                  title={t('playerCash.noMovements')}
+                  subtitle={t('playerCash.noMovementsHint')}
                 />
               ) : (
                 <div className="table-container">
                   <table className="transactions-table">
                     <thead>
                       <tr>
-                        <th>Data</th>
-                        <th>Categoria</th>
-                        <th>Tipo</th>
-                        <th>Torneio</th>
-                        <th>Patrocinador</th>
-                        <th>Valor</th>
+                        <th>{t('common.date')}</th>
+                        <th>{t('playerCash.colCategory')}</th>
+                        <th>{t('playerCash.colType')}</th>
+                        <th>{t('playerCash.colTournament')}</th>
+                        <th>{t('playerCash.colSponsor')}</th>
+                        <th>{t('playerCash.colAmount')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -414,14 +415,14 @@ const CaixaJogadores = () => {
                           <td>{new Date(entry.date).toLocaleString('pt-BR')}</td>
                           <td>
                             <span className={`badge ${entry.category === 'credit' ? 'badge-credit' : 'badge-default'}`}>
-                              {entry.category === 'credit' ? 'Crédito' : 'Transação'}
+                              {entry.category === 'credit' ? t('playerCash.categoryCredit') : t('playerCash.categoryTransaction')}
                             </span>
                           </td>
                           <td>{getTypeBadge(entry.type)}</td>
                           <td>{entry.tournament_name || '—'}</td>
                           <td>{entry.sponsor_name || '—'}</td>
                           <td className={`amount ${isIncoming(entry.type) ? 'cj-amount-positive' : 'cj-amount-negative'}`}>
-                            {isIncoming(entry.type) ? '+' : '-'} {fmt(entry.amount)}
+                            {isIncoming(entry.type) ? '+' : '-'} {formatCurrency(entry.amount)}
                           </td>
                         </tr>
                       ))}
@@ -436,8 +437,8 @@ const CaixaJogadores = () => {
         {!selectedPlayerId && !loading && (
           <EmptyState
             icon={null}
-            title="Selecione um jogador"
-            subtitle="Escolha um jogador acima para ver seu extrato financeiro e créditos"
+            title={t('playerCash.selectPlayerEmpty')}
+            subtitle={t('playerCash.selectPlayerEmptyHint')}
           />
         )}
 
@@ -446,21 +447,21 @@ const CaixaJogadores = () => {
           <div className="modal-overlay" onClick={() => setShowCreditModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Conceder Crédito</h2>
+                <h2>{t('playerCash.grantCreditTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowCreditModal(false)} aria-label="Fechar">
                   <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleGrantCredit}>
                 <div className="form-group">
-                  <label>Patrocinador</label>
+                  <label>{t('playerCash.sponsorLabel')}</label>
                   <div className="cj-sponsor-select-row">
                     <select
                       value={creditForm.sponsor_id}
                       onChange={(e) => setCreditForm(prev => ({ ...prev, sponsor_id: e.target.value }))}
                       required
                     >
-                      <option value="">Selecione um patrocinador</option>
+                      <option value="">{t('playerCash.selectSponsorOption')}</option>
                       {sponsors.map((s) => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
@@ -469,7 +470,7 @@ const CaixaJogadores = () => {
                       type="button"
                       className="cj-add-sponsor-btn"
                       onClick={() => setShowSponsorModal(true)}
-                      title="Cadastrar novo patrocinador"
+                      title={t('playerCash.newSponsorTitle')}
                     >
                       +
                     </button>
@@ -477,7 +478,7 @@ const CaixaJogadores = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Valor do Crédito</label>
+                  <label>{t('playerCash.creditAmountLabel')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -490,20 +491,20 @@ const CaixaJogadores = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Observações</label>
+                  <label>{t('playerCash.notesLabel')}</label>
                   <textarea
                     value={creditForm.notes}
                     onChange={(e) => setCreditForm(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Observações sobre o crédito..."
+                    placeholder={t('playerCash.creditNotesPlaceholder')}
                     rows={3}
                   />
                 </div>
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowCreditModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
-                  <Button type="submit">Conceder Crédito</Button>
+                  <Button type="submit">{t('playerCash.grantCreditTitle')}</Button>
                 </div>
               </form>
             </div>
@@ -515,56 +516,56 @@ const CaixaJogadores = () => {
           <div className="modal-overlay" onClick={() => setShowSponsorModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Cadastrar Patrocinador</h2>
+                <h2>{t('playerCash.registerSponsorTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowSponsorModal(false)} aria-label="Fechar">
                   <span className="close-icon"></span>
                 </button>
               </div>
               <form onSubmit={handleCreateSponsor}>
                 <div className="form-group">
-                  <label>Nome *</label>
+                  <label>{t('playerCash.sponsorNameLabel')}</label>
                   <input
                     type="text"
                     value={sponsorForm.name}
                     onChange={(e) => setSponsorForm(prev => ({ ...prev, name: e.target.value }))}
                     required
-                    placeholder="Nome do patrocinador"
+                    placeholder={t('playerCash.sponsorNamePlaceholder')}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Pessoa de Contato</label>
+                  <label>{t('playerCash.contactPersonLabel')}</label>
                   <input
                     type="text"
                     value={sponsorForm.contact_person}
                     onChange={(e) => setSponsorForm(prev => ({ ...prev, contact_person: e.target.value }))}
-                    placeholder="Nome do contato"
+                    placeholder={t('playerCash.contactPersonPlaceholder')}
                   />
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Email</label>
+                    <label>{t('playerCash.emailLabel')}</label>
                     <input
                       type="email"
                       value={sponsorForm.email}
                       onChange={(e) => setSponsorForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="email@exemplo.com"
+                      placeholder={t('playerCash.emailPlaceholder')}
                     />
                   </div>
                   <div className="form-group">
-                    <label>Telefone</label>
+                    <label>{t('playerCash.phoneLabel')}</label>
                     <input
                       type="text"
                       value={sponsorForm.phone}
                       onChange={(e) => setSponsorForm(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="(00) 00000-0000"
+                      placeholder={t('playerCash.phonePlaceholder')}
                     />
                   </div>
                 </div>
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowSponsorModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
-                  <Button type="submit">Cadastrar</Button>
+                  <Button type="submit">{t('common.register')}</Button>
                 </div>
               </form>
             </div>

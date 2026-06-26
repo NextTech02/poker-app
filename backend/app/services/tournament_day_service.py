@@ -1,7 +1,11 @@
+import logging
 from typing import List, Optional
 from datetime import datetime, timezone
+from collections import defaultdict
 import time
 from app.database import supabase
+
+logger = logging.getLogger("uvicorn.error")
 
 # Chipcount cache: {day_id: (timestamp, chipcount)}
 # Chipcount only changes on buy-in/rebuy/addon — no need to recompute every 3s poll.
@@ -78,28 +82,38 @@ class TournamentDayService:
             statuses = status.split(',')
             query = query.in_("status", statuses)
 
-        response = query.order("day_number", desc=False).execute()
+        rows = query.order("day_number", desc=False).execute().data or []
+        if not rows:
+            return []
 
-        # Calculate total_entries for each day
+        # total_entries per day in ONE round-trip (was one query per day = N+1).
+        entries_by_day = TournamentDayService._entries_by_day([r["id"] for r in rows])
+
         days = []
-        for item in response.data:
-            # Get total entries (buy_in_count + rebuy_count) from tournament_players
-            players_response = supabase.table("tournament_players")\
-                .select("buy_in_count, rebuy_count")\
-                .eq("tournament_day_id", item["id"])\
-                .execute()
-
-            total_entries = 0
-            if players_response.data:
-                for player in players_response.data:
-                    buy_ins = player.get("buy_in_count", 0) or 0
-                    rebuys = player.get("rebuy_count", 0) or 0
-                    total_entries += buy_ins + rebuys
-
-            item["total_entries"] = total_entries
+        for item in rows:
+            item["total_entries"] = entries_by_day.get(item["id"], 0)
             days.append(TournamentDay(**item))
 
         return days
+
+    @staticmethod
+    def _entries_by_day(day_ids: List[str]) -> dict:
+        """Map day_id -> total entries (buy_in_count + rebuy_count) for the given
+        days in a single batched query, aggregated in memory (hash map)."""
+        if not day_ids:
+            return {}
+        players = (
+            supabase.table("tournament_players")
+            .select("tournament_day_id, buy_in_count, rebuy_count")
+            .in_("tournament_day_id", day_ids)
+            .execute()
+            .data
+            or []
+        )
+        agg = defaultdict(int)
+        for p in players:
+            agg[p["tournament_day_id"]] += (p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0)
+        return agg
 
     @staticmethod
     def get_tournament_day(day_id: str) -> Optional[TournamentDay]:
@@ -131,6 +145,26 @@ class TournamentDayService:
         tournament_id: Optional[str] = None,
         day_id: Optional[str] = None
     ) -> List[TournamentDaySummary]:
+        """Tournament-day summaries — single round-trip via the
+        `get_tournament_day_summaries` RPC; falls back to the batched query path
+        if the RPC isn't deployed yet."""
+        try:
+            resp = supabase.rpc(
+                "get_tournament_day_summaries",
+                {"p_tournament_id": tournament_id, "p_day_id": day_id},
+            ).execute()
+            return [TournamentDaySummary(**row) for row in (resp.data or [])]
+        except Exception as exc:
+            logger.warning(
+                "get_tournament_day_summaries RPC unavailable, using batched fallback: %s", exc
+            )
+            return TournamentDayService._get_tournament_day_summary_batched(tournament_id, day_id)
+
+    @staticmethod
+    def _get_tournament_day_summary_batched(
+        tournament_id: Optional[str] = None,
+        day_id: Optional[str] = None
+    ) -> List[TournamentDaySummary]:
         """Get tournament day summaries with aggregated data"""
         query = supabase.table("tournament_days").select("*")
 
@@ -140,37 +174,40 @@ class TournamentDayService:
         if day_id:
             query = query.eq("id", day_id)
 
-        response = query.order("day_number", desc=False).execute()
+        rows = query.order("day_number", desc=False).execute().data or []
+        if not rows:
+            return []
+
+        # All player stats for all days in ONE round-trip (was N+1), tallied per
+        # day in memory with hash maps.
+        day_ids = [r["id"] for r in rows]
+        players = (
+            supabase.table("tournament_players")
+            .select("tournament_day_id, buy_in_count, rebuy_count, addon_count")
+            .in_("tournament_day_id", day_ids)
+            .execute()
+            .data
+            or []
+        )
+
+        buy_ins_by_day = defaultdict(int)
+        rebuys_by_day = defaultdict(int)
+        addons_by_day = defaultdict(int)
+        for p in players:
+            d = p["tournament_day_id"]
+            buy_ins_by_day[d] += p.get("buy_in_count") or 0
+            rebuys_by_day[d] += p.get("rebuy_count") or 0
+            addons_by_day[d] += p.get("addon_count") or 0
 
         summaries = []
-        for item in response.data:
-            # Get player statistics
-            players_response = supabase.table("tournament_players")\
-                .select("buy_in_count, rebuy_count, addon_count")\
-                .eq("tournament_day_id", item["id"])\
-                .execute()
-
-            total_entries = 0
-            total_buy_ins = 0
-            total_rebuys = 0
-            total_addons = 0
-
-            if players_response.data:
-                for player in players_response.data:
-                    buy_ins = player.get("buy_in_count", 0) or 0
-                    rebuys = player.get("rebuy_count", 0) or 0
-                    addons = player.get("addon_count", 0) or 0
-
-                    total_buy_ins += buy_ins
-                    total_rebuys += rebuys
-                    total_addons += addons
-                    total_entries += buy_ins + rebuys  # addons not counted
-
-            item["total_entries"] = total_entries
+        for item in rows:
+            did = item["id"]
+            total_buy_ins = buy_ins_by_day.get(did, 0)
+            total_rebuys = rebuys_by_day.get(did, 0)
             item["total_buy_ins"] = total_buy_ins
             item["total_rebuys"] = total_rebuys
-            item["total_addons"] = total_addons
-
+            item["total_addons"] = addons_by_day.get(did, 0)
+            item["total_entries"] = total_buy_ins + total_rebuys  # addons not counted
             summaries.append(TournamentDaySummary(**item))
 
         return summaries

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StageProvider } from './contexts/StageContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { PermissionProvider, usePermissions } from './contexts/PermissionContext';
+import { CurrencyProvider } from './contexts/CurrencyContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
@@ -331,11 +332,13 @@ function App() {
       <AuthProvider>
         <PermissionProvider>
           <StageProvider>
-            <ToastProvider>
-              <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
-                <AppRoutes />
-              </ErrorBoundary>
-            </ToastProvider>
+            <CurrencyProvider>
+              <ToastProvider>
+                <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
+                  <AppRoutes />
+                </ErrorBoundary>
+              </ToastProvider>
+            </CurrencyProvider>
           </StageProvider>
         </PermissionProvider>
       </AuthProvider>

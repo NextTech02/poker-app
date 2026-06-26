@@ -7,11 +7,11 @@
 
 /* Stats colors */
 .st-stat-available {
-  color: #22c55e !important;
+  color: var(--brand-green) !important;
 }
 
 .st-stat-redeemed {
-  color: #3b82f6 !important;
+  color: var(--info) !important;
 }
 
 /* Section spacing */
@@ -32,22 +32,22 @@
 
 .st-status--available {
   background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 .st-status--redeemed {
   background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  color: var(--info);
 }
 
 .st-status--cancelled {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--danger);
 }
 
 /* Unassigned player */
 .st-unassigned {
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
@@ -57,7 +57,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   background: transparent;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.15s;
@@ -68,7 +68,7 @@
 }
 
 .st-action-btn--danger {
-  color: #ef4444;
+  color: var(--danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
@@ -101,7 +101,7 @@
 
 /* No tickets message */
 .st-no-tickets-msg {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   padding: 0.75rem 0;
   text-align: center;

@@ -5,6 +5,7 @@ import api from '../config/api';
 import nextHubLogo from '../assets/next-hub-logo.png';
 import { useTimerSync, formatTime as formatTimerTime, formatTimeHuman } from '../hooks/useTimerSync';
 import BROADCAST_LABELS from '../utils/broadcastLabels';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentBroadcast.css';
 
 // Generate blinds structure from tournament day configuration (legacy fallback)
@@ -31,34 +32,15 @@ const generateBlindsFromDayConfig = (dayConfig, numLevels = 20) => {
   return blinds;
 };
 
-// ── Currency helpers ──────────────────────────────────────────────────────────
-const CURRENCY_SYMBOLS = {
-  BRL: 'R$',
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  ARS: '$',
-  COP: '$',
-};
-
-const getCurrencySymbol = (code) => CURRENCY_SYMBOLS[code] || code || 'R$';
-
 const extractYouTubeId = (url) => {
   if (!url) return null;
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 };
 
-const formatCurrencyValue = (v, currency) => {
-  const locale = currency === 'BRL' ? 'pt-BR' : 'en-US';
-  return `${getCurrencySymbol(currency)} ${parseFloat(v).toLocaleString(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
-
 // ── Prize Sidebar (right column) ─────────────────────────────────────────────
-const PrizeSidebar = ({ prizes, prizeScale = 1, currency = 'BRL', labels }) => {
+const PrizeSidebar = ({ prizes, prizeScale = 1, labels }) => {
+  const { formatCurrency } = useCurrency();
   if (!prizes || prizes.length === 0) return null;
   const L = labels || BROADCAST_LABELS['pt-BR'];
   const s = prizeScale;
@@ -83,7 +65,7 @@ const PrizeSidebar = ({ prizes, prizeScale = 1, currency = 'BRL', labels }) => {
                 {L.placeLabel(prize.position)}
               </span>
               <span className="prize-sidebar-val" style={{ fontSize: `${16 * s}px` }}>
-                {formatCurrencyValue(prize.prize_amount, currency)}
+                {formatCurrency(prize.prize_amount)}
               </span>
             </div>
           ))}
@@ -94,7 +76,8 @@ const PrizeSidebar = ({ prizes, prizeScale = 1, currency = 'BRL', labels }) => {
 };
 
 // ── Prize Ticker ─────────────────────────────────────────────────────────────
-const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, currency = 'BRL', labels }) => {
+const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, labels }) => {
+  const { formatCurrency } = useCurrency();
   if (!prizes || prizes.length === 0) return null;
 
   const L = labels || BROADCAST_LABELS['pt-BR'];
@@ -120,7 +103,7 @@ const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, currency = 'BRL', 
               </span>
               <span className="prize-ticker-sep">:</span>
               <span className="prize-ticker-val" style={{ fontSize: `${16 * s}px` }}>
-                {formatCurrencyValue(prize.prize_amount, currency)}
+                {formatCurrency(prize.prize_amount)}
               </span>
               <span className="prize-ticker-dot">◆</span>
             </span>
@@ -240,6 +223,7 @@ const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlay
 
 const TournamentBroadcast = () => {
   const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const { id } = useParams();
   const [tournament, setTournament] = useState(null);
   const [tournamentDay, setTournamentDay] = useState(null);
@@ -668,7 +652,6 @@ const TournamentBroadcast = () => {
   const prizepoolScale = (bSource?.broadcast_prizepool_size || 100) / 100;
   const prizepoolLabelColor = bSource?.broadcast_prizepool_label_color || '#ffffff';
   const prizepoolValueColor = bSource?.broadcast_prizepool_value_color || '#ffffff';
-  const dayCurrency = tournamentDay?.currency || 'BRL';
 
   // Per-element colors
   const colors = {
@@ -733,12 +716,12 @@ const TournamentBroadcast = () => {
           <div className="broadcast-prizepool-corner">
             <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>PRIZEPOOL</div>
             <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
-              {formatCurrencyValue(displayPrizePool, dayCurrency)}
+              {formatCurrency(displayPrizePool)}
             </div>
           </div>
         )}
         {broadcastSettings.showPrizes && prizeAllocations.length > 0 && (
-          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} currency={dayCurrency} />
+          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} />
         )}
       </div>
     );
@@ -925,7 +908,7 @@ const TournamentBroadcast = () => {
         <div className="broadcast-prizepool-corner">
           <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>PRIZEPOOL</div>
           <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
-            {formatCurrencyValue(displayPrizePool, dayCurrency)}
+            {formatCurrency(displayPrizePool)}
           </div>
         </div>
       )}
@@ -933,9 +916,9 @@ const TournamentBroadcast = () => {
       {/* Prize display — bottom ticker or right sidebar */}
       {broadcastSettings.showPrizes && prizeAllocations.length > 0 && !(isDayBased && currentBlindIsBreak) && (
         broadcastSettings.prizesLayout === 'sidebar' ? (
-          <PrizeSidebar prizes={prizeAllocations} prizeScale={prizeScale} currency={dayCurrency} labels={L} />
+          <PrizeSidebar prizes={prizeAllocations} prizeScale={prizeScale} labels={L} />
         ) : (
-          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} currency={dayCurrency} labels={L} />
+          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} labels={L} />
         )
       )}
 

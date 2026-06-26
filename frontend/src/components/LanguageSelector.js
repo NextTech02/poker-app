@@ -3,10 +3,23 @@ import { useTranslation } from 'react-i18next';
 import './LanguageSelector.css';
 
 const languages = [
-  { code: 'pt-BR', name: 'Português', flag: 'BR' },
-  { code: 'en-US', name: 'English', flag: 'US' },
-  { code: 'es-ES', name: 'Español', flag: 'ES' }
+  { code: 'pt-BR', name: 'Português', cc: 'br' },
+  { code: 'en-US', name: 'English', cc: 'us' },
+  { code: 'es-ES', name: 'Español', cc: 'es' }
 ];
+
+// Real flag images (emoji flags don't render on Windows).
+const Flag = ({ cc }) => (
+  <img
+    className="language-flag-img"
+    src={`https://flagcdn.com/h20/${cc}.png`}
+    srcSet={`https://flagcdn.com/h40/${cc}.png 2x`}
+    alt={cc.toUpperCase()}
+    width="27"
+    height="20"
+    loading="lazy"
+  />
+);
 
 const LanguageSelector = ({ dropDirection = 'down' }) => {
   const { i18n } = useTranslation();
@@ -42,7 +55,7 @@ const LanguageSelector = ({ dropDirection = 'down' }) => {
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        <span className="language-flag">{currentLanguage.flag}</span>
+        <Flag cc={currentLanguage.cc} />
         <span className="language-code">{currentLanguage.code.split('-')[0].toUpperCase()}</span>
         <span className={`language-arrow ${isOpen ? 'open' : ''}`}>▼</span>
       </button>
@@ -57,7 +70,7 @@ const LanguageSelector = ({ dropDirection = 'down' }) => {
               role="option"
               aria-selected={lang.code === i18n.language}
             >
-              <span className="language-flag">{lang.flag}</span>
+              <Flag cc={lang.cc} />
               <span className="language-name">{lang.name}</span>
             </li>
           ))}

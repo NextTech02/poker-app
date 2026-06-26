@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import SeatTicket from '../components/SeatTicket';
@@ -7,6 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 import './TableManagement.css';
 
 const TableManagement = () => {
+  const { t } = useTranslation();
   const { dayId } = useParams();
   const navigate = useNavigate();
   const { toast, confirm } = useToast();
@@ -82,18 +84,18 @@ const TableManagement = () => {
 
   // ── Lock Toggle ───────────────────────────────────────────────────────────
   const handleToggleLock = async () => {
-    const action = tablesLocked ? 'DESBLOQUEAR' : 'BLOQUEAR';
+    const action = tablesLocked ? t('tableManagement.actionUnlock') : t('tableManagement.actionLock');
     const msg = tablesLocked
-      ? 'Desbloquear mesas? Novos buy-ins voltarão a receber assento automático.'
-      : 'Bloquear mesas? Novos buy-ins entrarão como ALTERNATE até serem alocados manualmente.';
+      ? t('tableManagement.confirmUnlock')
+      : t('tableManagement.confirmLock');
     const ok = await confirm(msg, { confirmText: action });
     if (!ok) return;
     try {
       await api.post(`/tournament-days/${dayId}/tables-lock`);
       await loadData();
-      toast.success(tablesLocked ? 'Mesas desbloqueadas.' : 'Mesas bloqueadas. Novos jogadores entrarão como alternates.');
+      toast.success(tablesLocked ? t('tableManagement.tablesUnlockedSuccess') : t('tableManagement.tablesLockedSuccess'));
     } catch (err) {
-      toast.error('Erro ao alterar bloqueio: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorToggleLock', { detail: err.response?.data?.detail || err.message }));
     }
   };
 
@@ -108,9 +110,11 @@ const TableManagement = () => {
       }
       await loadData();
       setShowAddTableModal(false);
-      toast.success(`${newTableCount > 1 ? newTableCount + ' mesas adicionadas' : 'Mesa adicionada'} com sucesso!`);
+      toast.success(newTableCount > 1
+        ? t('tableManagement.tablesAddedSuccessPlural', { count: newTableCount })
+        : t('tableManagement.tablesAddedSuccessSingular'));
     } catch (err) {
-      toast.error('Erro ao adicionar mesa: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorAddTable', { detail: err.response?.data?.detail || err.message }));
     }
   };
 
@@ -118,30 +122,30 @@ const TableManagement = () => {
   const handleRemoveTable = async (table) => {
     const hasPlayers = allocations.some(a => a.table_id === table.id);
     if (hasPlayers) {
-      toast.warning('Não é possível remover uma mesa com jogadores. Mova os jogadores primeiro.');
+      toast.warning(t('tableManagement.cannotRemoveTableWithPlayers'));
       return;
     }
-    const ok = await confirm(`Remover Mesa ${table.table_number}?`, { variant: 'danger', confirmText: 'Remover' });
+    const ok = await confirm(t('tableManagement.confirmRemoveTable', { number: table.table_number }), { variant: 'danger', confirmText: t('common.remove') });
     if (!ok) return;
     try {
       await api.delete(`/tables/${table.id}`);
       await loadData();
-      toast.success(`Mesa ${table.table_number} removida.`);
+      toast.success(t('tableManagement.tableRemovedSuccess', { number: table.table_number }));
     } catch (err) {
-      toast.error('Erro ao remover mesa: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorRemoveTable', { detail: err.response?.data?.detail || err.message }));
     }
   };
 
   const handleToggleTableStatus = async (table) => {
     const newStatus = table.status === 'active' ? 'closed' : 'active';
-    const label = newStatus === 'closed' ? 'Desativar' : 'Reativar';
-    const ok = await confirm(`${label} Mesa ${table.table_number}?`, { confirmText: label });
+    const label = newStatus === 'closed' ? t('tableManagement.actionDeactivate') : t('tableManagement.actionReactivate');
+    const ok = await confirm(t('tableManagement.confirmToggleTableStatus', { label, number: table.table_number }), { confirmText: label });
     if (!ok) return;
     try {
       await api.patch(`/tables/${table.id}`, { status: newStatus });
       await loadData();
     } catch (err) {
-      toast.error('Erro ao alterar status da mesa: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorToggleTableStatus', { detail: err.response?.data?.detail || err.message }));
     }
   };
 
@@ -149,11 +153,11 @@ const TableManagement = () => {
   const handleSaveMode = async () => {
     try {
       await api.patch(`/tournament-days/${dayId}`, { allocation_mode: bulkMode });
-      const modeLabels = { sequential: 'Sequencial', balanced: 'Equilibrado', random_balanced: 'Equilibrado Aleatório' };
-      toast.success(`Modo definido: ${modeLabels[bulkMode] || bulkMode}. Novos buy-ins usarão este modo.`);
+      const modeLabels = { sequential: t('tableManagement.modeLabelSequential'), balanced: t('tableManagement.modeLabelBalanced'), random_balanced: t('tableManagement.modeLabelRandomBalanced') };
+      toast.success(t('tableManagement.modeSetSuccess', { mode: modeLabels[bulkMode] || bulkMode }));
       setShowBulkModal(false);
     } catch (err) {
-      toast.error('Erro ao salvar modo: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorSaveMode', { detail: err.response?.data?.detail || err.message }));
     }
   };
 
@@ -169,9 +173,9 @@ const TableManagement = () => {
       });
       await loadData();
       setShowBulkModal(false);
-      toast.success(`${res.data.length} jogadores alocados com sucesso!`);
+      toast.success(t('tableManagement.bulkAllocateSuccess', { count: res.data.length }));
     } catch (err) {
-      toast.error('Erro na alocação em massa: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorBulkAllocate', { detail: err.response?.data?.detail || err.message }));
     } finally {
       setBulkLoading(false);
     }
@@ -195,7 +199,7 @@ const TableManagement = () => {
       await api.delete(`/allocations/${draggedPlayer.allocationId}`);
       await loadData();
     } catch (err) {
-      toast.error('Erro ao desalocar: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorUnallocate', { detail: err.response?.data?.detail || err.message }));
     } finally {
       setDraggedPlayer(null);
     }
@@ -206,7 +210,7 @@ const TableManagement = () => {
     if (!draggedPlayer) return;
 
     const isOccupied = allocations.some(a => a.table_id === tableId && a.seat_number === seatNumber);
-    if (isOccupied) { toast.warning('Este assento já está ocupado!'); return; }
+    if (isOccupied) { toast.warning(t('tableManagement.seatOccupied')); return; }
 
     try {
       if (draggedPlayer.isAllocated && draggedPlayer.allocationId) {
@@ -228,35 +232,9 @@ const TableManagement = () => {
       }
       await loadData();
     } catch (err) {
-      toast.error('Erro ao alocar jogador: ' + (err.response?.data?.detail || err.message));
+      toast.error(t('tableManagement.errorAllocate', { detail: err.response?.data?.detail || err.message }));
     } finally {
       setDraggedPlayer(null);
-    }
-  };
-
-  // ── Eliminate Player ──────────────────────────────────────────────────────
-  const handleEliminatePlayer = async (allocation) => {
-    const name = allocation.players?.name || 'este jogador';
-    const ok = await confirm(
-      `Eliminar ${name} do torneio? Isso removerá o assento e registrará a eliminação.`,
-      { variant: 'danger', confirmText: 'Eliminar' }
-    );
-    if (!ok) return;
-    try {
-      const tpRes = await api.get(`/tournament-players/tournament/${day.tournament_id}`);
-      const tp = tpRes.data.find(p => p.player_id === allocation.player_id);
-      if (tp) {
-        await api.patch(`/tournament-players/${tp.id}`, {
-          status: 'eliminated',
-          eliminated_at: new Date().toISOString(),
-        });
-        await api.post(`/rankings/tournament/${day.tournament_id}/recalculate`);
-      }
-      await api.delete(`/allocations/${allocation.id}`);
-      await loadData();
-      toast.success(`${name} eliminado!`);
-    } catch (err) {
-      toast.error('Erro ao eliminar: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -301,14 +279,9 @@ const TableManagement = () => {
             <svg className="tm-player-icon-svg" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
             </svg>
-            <button
-              className="tm-btn-elim"
-              title="Eliminar jogador"
-              onClick={() => handleEliminatePlayer(allocation)}
-            >✕</button>
           </div>
         ) : (
-          <span className="tm-seat-empty">{inactive ? '—' : 'Vazio'}</span>
+          <span className="tm-seat-empty">{inactive ? '—' : t('tableManagement.seatEmpty')}</span>
         )}
       </div>
     );
@@ -324,22 +297,22 @@ const TableManagement = () => {
       <div key={table.id} className={`tm-table ${isInactive ? 'tm-table-inactive' : ''}`}>
         <div className="tm-table-header">
           <div className="tm-table-title">
-            <span className="tm-table-num">Mesa {table.table_number}</span>
-            {isInactive && <span className="tm-badge-closed">{table.status === 'closed' ? 'Fechada' : 'Quebrada'}</span>}
+            <span className="tm-table-num">{t('tableManagement.tableTitle', { number: table.table_number })}</span>
+            {isInactive && <span className="tm-badge-closed">{table.status === 'closed' ? t('tableManagement.badgeClosed') : t('tableManagement.badgeBroken')}</span>}
           </div>
           <div className="tm-table-meta">
             <span className="tm-occupancy">{occupied}/{table.seats}</span>
             <button
               className={`tm-btn-icon ${isInactive ? 'btn-green' : 'btn-orange'}`}
-              title={isInactive ? 'Reativar mesa' : 'Fechar mesa'}
+              title={isInactive ? t('tableManagement.reactivateTable') : t('tableManagement.closeTable')}
               onClick={() => handleToggleTableStatus(table)}
-            >{isInactive ? 'Ativar' : 'Fechar'}</button>
+            >{isInactive ? t('tableManagement.activate') : t('tableManagement.close')}</button>
             {occupied === 0 && (
               <button
                 className="tm-btn-icon btn-red"
-                title="Remover mesa"
+                title={t('tableManagement.removeTable')}
                 onClick={() => handleRemoveTable(table)}
-              >Remover</button>
+              >{t('common.remove')}</button>
             )}
           </div>
         </div>
@@ -355,7 +328,7 @@ const TableManagement = () => {
     return (
       <div className="app-container">
         <Sidebar />
-        <main className="main-content"><div className="loading">Carregando...</div></main>
+        <main className="main-content"><div className="loading">{t('common.loading')}</div></main>
       </div>
     );
   }
@@ -371,12 +344,12 @@ const TableManagement = () => {
         {/* ── Header ── */}
         <div className="tm-header">
           <div className="tm-header-left">
-            <h1 className="tm-title">Gestão de Mesas</h1>
+            <h1 className="tm-title">{t('tableManagement.title')}</h1>
             <p className="tm-subtitle">
-              {day?.day_name} &bull; {totalOccupied}/{totalSeats} assentos ocupados
+              {t('tableManagement.subtitleSeats', { dayName: day?.day_name, occupied: totalOccupied, total: totalSeats })}
               {unallocated.length > 0 && (
                 <span className={`tm-badge-alt ${tablesLocked ? 'locked' : ''}`}>
-                  {unallocated.length} {tablesLocked ? 'alternate' : 'sem mesa'}
+                  {unallocated.length} {tablesLocked ? t('tableManagement.badgeAlternate') : t('tableManagement.badgeNoTable')}
                 </span>
               )}
             </p>
@@ -385,18 +358,18 @@ const TableManagement = () => {
             <button
               className={`tm-btn-lock ${tablesLocked ? 'locked' : 'unlocked'}`}
               onClick={handleToggleLock}
-              title={tablesLocked ? 'Mesas bloqueadas — clique para desbloquear' : 'Mesas abertas — clique para bloquear'}
+              title={tablesLocked ? t('tableManagement.tablesLockedTooltip') : t('tableManagement.tablesOpenTooltip')}
             >
-              {tablesLocked ? 'Mesas Bloqueadas' : 'Mesas Abertas'}
+              {tablesLocked ? t('tableManagement.tablesLocked') : t('tableManagement.tablesOpen')}
             </button>
             <button className="tm-btn-secondary" onClick={() => setShowBulkModal(true)}>
-              Alocar em Massa
+              {t('tableManagement.bulkAllocate')}
             </button>
             <button className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
-              + Adicionar Mesa
+              {t('tableManagement.addTable')}
             </button>
             <button className="tm-btn-back" onClick={() => navigate(-1)}>
-              ← Voltar
+              {t('tableManagement.back')}
             </button>
           </div>
         </div>
@@ -408,13 +381,13 @@ const TableManagement = () => {
           <div className="tm-players-panel">
             <div className="tm-panel-header">
               <h2 className="tm-panel-title">
-                {tablesLocked ? 'Alternates' : 'Sem Mesa'}
+                {tablesLocked ? t('tableManagement.panelAlternates') : t('tableManagement.panelNoTable')}
               </h2>
               <span className="tm-count-badge">{unallocated.length}</span>
             </div>
             {tablesLocked && (
               <p className="tm-alt-hint">
-                Mesas bloqueadas. Arraste um alternate para um assento disponível.
+                {t('tableManagement.altHint')}
               </p>
             )}
             <div
@@ -425,8 +398,8 @@ const TableManagement = () => {
               {unallocated.length === 0 ? (
                 <div className="tm-empty-list">
                   {tablesLocked
-                    ? 'Nenhum alternate no momento.'
-                    : 'Todos os jogadores estão alocados!'}
+                    ? t('tableManagement.noAlternates')
+                    : t('tableManagement.allPlayersAllocated')}
                 </div>
               ) : (
                 unallocated.map((p) => (
@@ -442,12 +415,12 @@ const TableManagement = () => {
                     {tablesLocked && (
                       <button
                         className="tm-btn-print-alt"
-                        title="Imprimir ticket de alternate"
+                        title={t('tableManagement.printAlternateTicket')}
                         onClick={() => handleShowAlternateTicket(p)}
-                      >Imprimir</button>
+                      >{t('tableManagement.print')}</button>
                     )}
                     {!tablesLocked && (
-                      <span className="tm-drag-hint">arraste</span>
+                      <span className="tm-drag-hint">{t('tableManagement.dragHint')}</span>
                     )}
                   </div>
                 ))
@@ -459,9 +432,9 @@ const TableManagement = () => {
           <div className="tm-tables-panel">
             {tables.length === 0 ? (
               <div className="tm-no-tables">
-                <p>Nenhuma mesa cadastrada para este dia.</p>
+                <p>{t('tableManagement.noTablesRegistered')}</p>
                 <button className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
-                  + Adicionar Primeira Mesa
+                  {t('tableManagement.addFirstTable')}
                 </button>
               </div>
             ) : (
@@ -477,7 +450,7 @@ const TableManagement = () => {
           <div className="tm-modal-overlay" onClick={() => setShowTicket(null)}>
             <div className="tm-modal" onClick={(e) => e.stopPropagation()}>
               <div className="tm-modal-header">
-                <h3>{showTicket.is_alternate ? 'Ticket de Alternate' : 'Jogador Alocado!'}</h3>
+                <h3>{showTicket.is_alternate ? t('tableManagement.ticketAlternate') : t('tableManagement.playerAllocated')}</h3>
                 <button className="tm-close-btn" onClick={() => setShowTicket(null)}>✕</button>
               </div>
               <SeatTicket allocation={showTicket} />
@@ -490,12 +463,12 @@ const TableManagement = () => {
           <div className="tm-modal-overlay" onClick={() => setShowAddTableModal(false)}>
             <div className="tm-modal tm-modal-sm" onClick={(e) => e.stopPropagation()}>
               <div className="tm-modal-header">
-                <h3>Adicionar Mesa(s)</h3>
+                <h3>{t('tableManagement.addTablesModalTitle')}</h3>
                 <button className="tm-close-btn" onClick={() => setShowAddTableModal(false)}>✕</button>
               </div>
               <div className="tm-modal-body">
                 <div className="tm-form-row">
-                  <label>Quantidade de mesas</label>
+                  <label>{t('tableManagement.tableCountLabel')}</label>
                   <input
                     type="number" min="1" max="50"
                     value={newTableCount}
@@ -504,7 +477,7 @@ const TableManagement = () => {
                   />
                 </div>
                 <div className="tm-form-row">
-                  <label>Assentos por mesa</label>
+                  <label>{t('tableManagement.seatsPerTableLabel')}</label>
                   <input
                     type="number" min="2" max="10"
                     value={newTableSeats}
@@ -514,9 +487,9 @@ const TableManagement = () => {
                 </div>
               </div>
               <div className="tm-modal-actions">
-                <button className="tm-btn-secondary" onClick={() => setShowAddTableModal(false)}>Cancelar</button>
+                <button className="tm-btn-secondary" onClick={() => setShowAddTableModal(false)}>{t('common.cancel')}</button>
                 <button className="tm-btn-primary" onClick={handleAddTables}>
-                  Adicionar {newTableCount > 1 ? `${newTableCount} Mesas` : 'Mesa'}
+                  {newTableCount > 1 ? t('tableManagement.addTablesButtonMulti', { count: newTableCount }) : t('tableManagement.addTablesButtonSingle')}
                 </button>
               </div>
             </div>
@@ -528,20 +501,20 @@ const TableManagement = () => {
           <div className="tm-modal-overlay" onClick={() => setShowBulkModal(false)}>
             <div className="tm-modal tm-modal-sm" onClick={(e) => e.stopPropagation()}>
               <div className="tm-modal-header">
-                <h3>Alocação em Massa</h3>
+                <h3>{t('tableManagement.bulkModalTitle')}</h3>
                 <button className="tm-close-btn" onClick={() => setShowBulkModal(false)}>✕</button>
               </div>
               <div className="tm-modal-body">
                 <p className="tm-hint-text">
-                  Escolha o modo de distribuição. Use <strong>Definir Modo</strong> para salvar sem alocar (aplicado em futuros buy-ins), ou <strong>Alocar</strong> para aplicar agora nos <strong>{unallocated.length}</strong> jogadores sem mesa.
+                  {t('tableManagement.bulkModalHint', { count: unallocated.length })}
                 </p>
                 <div className="tm-mode-select">
-                  <label className="tm-mode-label">Modo de distribuição</label>
+                  <label className="tm-mode-label">{t('tableManagement.distributionMode')}</label>
                   <div className="tm-mode-options">
                     {[
-                      { value: 'sequential', label: 'Sequencial', desc: 'Preenche mesa 1 primeiro, depois mesa 2...' },
-                      { value: 'balanced', label: 'Equilibrado', desc: 'Distribui 1 por mesa em rodízio (menor mesa primeiro)' },
-                      { value: 'random_balanced', label: 'Equilibrado Aleatório', desc: 'Como equilibrado, mas com assento sorteado' },
+                      { value: 'sequential', label: t('tableManagement.modeSequentialLabel'), desc: t('tableManagement.modeSequentialDesc') },
+                      { value: 'balanced', label: t('tableManagement.modeBalancedLabel'), desc: t('tableManagement.modeBalancedDesc') },
+                      { value: 'random_balanced', label: t('tableManagement.modeRandomBalancedLabel'), desc: t('tableManagement.modeRandomBalancedDesc') },
                     ].map((opt) => (
                       <div
                         key={opt.value}
@@ -561,22 +534,22 @@ const TableManagement = () => {
                 </div>
               </div>
               <div className="tm-modal-actions">
-                <button className="tm-btn-secondary" onClick={() => setShowBulkModal(false)}>Cancelar</button>
+                <button className="tm-btn-secondary" onClick={() => setShowBulkModal(false)}>{t('common.cancel')}</button>
                 <button
                   className="tm-btn-outline"
                   onClick={handleSaveMode}
                   disabled={bulkLoading}
-                  title="Salva o modo sem alocar — novos buy-ins usarão este modo"
+                  title={t('tableManagement.setModeTooltip')}
                 >
-                  Definir Modo
+                  {t('tableManagement.setMode')}
                 </button>
                 <button
                   className="tm-btn-primary"
                   onClick={handleBulkAllocate}
                   disabled={bulkLoading || unallocated.length === 0}
-                  title={unallocated.length === 0 ? 'Nenhum jogador sem mesa' : `Alocar ${unallocated.length} jogadores sem mesa`}
+                  title={unallocated.length === 0 ? t('tableManagement.noPlayersWithoutTable') : t('tableManagement.allocatePlayersTooltip', { count: unallocated.length })}
                 >
-                  {bulkLoading ? 'Alocando...' : `Alocar ${unallocated.length} Jogadores`}
+                  {bulkLoading ? t('tableManagement.allocating') : t('tableManagement.allocatePlayersButton', { count: unallocated.length })}
                 </button>
               </div>
             </div>

@@ -61,7 +61,7 @@
 }
 
 .tournament-day-form-page .form-section-title {
-  color: var(--text-gold, #d4af37);
+  color: var(--text-gold, var(--brand-gold));
   font-size: 0.85rem;
   font-weight: 700;
   margin: 0 0 0.75rem 0;
@@ -72,7 +72,7 @@
 }
 
 .tournament-day-form-page .form-subsection-title {
-  color: #8aa0b0;
+  color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 700;
   margin: 1.25rem 0 0.6rem;
@@ -130,7 +130,7 @@
 .tournament-day-form-page .form-group input:focus,
 .tournament-day-form-page .form-group select:focus {
   outline: none;
-  border-color: var(--accent-color, #2ecc71);
+  border-color: var(--accent-color, var(--brand-green));
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.15);
 }
@@ -242,7 +242,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--text-gold, #d4af37);
+  background: var(--text-gold, var(--brand-gold));
   cursor: pointer;
 }
 

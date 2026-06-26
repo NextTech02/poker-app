@@ -7,10 +7,8 @@ import Card from './Card';
 import Button from './Button';
 import EmptyState from './EmptyState';
 import { SkeletonStatCard, SkeletonTableRow } from './SkeletonLoader';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './CashboxDemonstrativo.css';
-
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 const firstOfMonth = () => new Date(new Date().setDate(1)).toISOString().split('T')[0];
 const today = () => new Date().toISOString().split('T')[0];
@@ -19,6 +17,8 @@ const CashboxDemonstrativo = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
+  const { formatCurrency } = useCurrency();
+  const fmt = formatCurrency;
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -131,25 +131,25 @@ const CashboxDemonstrativo = () => {
           <>
             <Card className="stat-card">
               <div className="stat-info">
-                <h3>{fmt(grandEntradas)}</h3>
+                <h3>{formatCurrency(grandEntradas)}</h3>
                 <p>{t('cashbox.totalEntries')}</p>
               </div>
             </Card>
             <Card className="stat-card">
               <div className="stat-info">
-                <h3>{fmt(data.grand_prizes)}</h3>
+                <h3>{formatCurrency(data.grand_prizes)}</h3>
                 <p>{t('cashbox.totalPrizes')}</p>
               </div>
             </Card>
             <Card className="stat-card">
               <div className="stat-info">
-                <h3>{fmt(data.grand_expected)}</h3>
+                <h3>{formatCurrency(data.grand_expected)}</h3>
                 <p>{t('cashbox.expectedTotal')}</p>
               </div>
             </Card>
             <Card className="stat-card">
               <div className="stat-info">
-                <h3 className={diffClass(data.grand_difference)}>{fmt(data.grand_difference)}</h3>
+                <h3 className={diffClass(data.grand_difference)}>{formatCurrency(data.grand_difference)}</h3>
                 <p>{t('cashbox.differenceTotal')}</p>
               </div>
             </Card>
@@ -213,19 +213,19 @@ const CashboxDemonstrativo = () => {
                         new Date(s.closed_at).toLocaleString('pt-BR')
                       ) : '—'}
                     </td>
-                    <td className="amount">{fmt(s.initial_balance)}</td>
-                    <td className="amount">{fmt(s.total_supply)}</td>
-                    <td className="amount">{fmt(s.total_sangria)}</td>
-                    <td className="amount">{fmt(entradas(s))}</td>
-                    <td className="amount">{fmt(s.total_prizes_paid)}</td>
-                    <td className="amount">{fmt(s.expected_balance)}</td>
+                    <td className="amount">{formatCurrency(s.initial_balance)}</td>
+                    <td className="amount">{formatCurrency(s.total_supply)}</td>
+                    <td className="amount">{formatCurrency(s.total_sangria)}</td>
+                    <td className="amount">{formatCurrency(entradas(s))}</td>
+                    <td className="amount">{formatCurrency(s.total_prizes_paid)}</td>
+                    <td className="amount">{formatCurrency(s.expected_balance)}</td>
                     <td className="amount">
                       {s.actual_balance === null || s.actual_balance === undefined
                         ? '—'
-                        : fmt(s.actual_balance)}
+                        : formatCurrency(s.actual_balance)}
                     </td>
                     <td className={`amount ${diffClass(s.difference)}`}>
-                      {s.difference === null || s.difference === undefined ? '—' : fmt(s.difference)}
+                      {s.difference === null || s.difference === undefined ? '—' : formatCurrency(s.difference)}
                     </td>
                   </tr>
                 ))}
@@ -233,14 +233,14 @@ const CashboxDemonstrativo = () => {
               <tfoot>
                 <tr className="cb-demo__totals-row">
                   <td colSpan={3}>{t('cashbox.total')}</td>
-                  <td className="amount">{fmt(data.grand_initial)}</td>
-                  <td className="amount">{fmt(data.grand_supply)}</td>
-                  <td className="amount">{fmt(data.grand_sangria)}</td>
-                  <td className="amount">{fmt(grandEntradas)}</td>
-                  <td className="amount">{fmt(data.grand_prizes)}</td>
-                  <td className="amount">{fmt(data.grand_expected)}</td>
-                  <td className="amount">{fmt(data.grand_actual)}</td>
-                  <td className={`amount ${diffClass(data.grand_difference)}`}>{fmt(data.grand_difference)}</td>
+                  <td className="amount">{formatCurrency(data.grand_initial)}</td>
+                  <td className="amount">{formatCurrency(data.grand_supply)}</td>
+                  <td className="amount">{formatCurrency(data.grand_sangria)}</td>
+                  <td className="amount">{formatCurrency(grandEntradas)}</td>
+                  <td className="amount">{formatCurrency(data.grand_prizes)}</td>
+                  <td className="amount">{formatCurrency(data.grand_expected)}</td>
+                  <td className="amount">{formatCurrency(data.grand_actual)}</td>
+                  <td className={`amount ${diffClass(data.grand_difference)}`}>{formatCurrency(data.grand_difference)}</td>
                 </tr>
               </tfoot>
             </table>

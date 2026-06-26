@@ -1,6 +1,9 @@
+import logging
 from typing import List, Dict, Optional
 from datetime import datetime
 from app.database import supabase
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class RankingService:
@@ -10,10 +13,27 @@ class RankingService:
     def calculate_rankings(tournament_id: str) -> List[Dict]:
         """
         Calculate rankings for all eliminated players in a tournament.
-        Players are ranked in reverse order of elimination:
-        - Last player eliminated gets position 1 (or 2 if there's a winner)
-        - First player eliminated gets the highest position number
+
+        Prefers the single round-trip `recalculate_tournament_rankings` Postgres
+        RPC (assigns every position with a window function in one statement).
+        Falls back to the per-player update loop if the RPC isn't deployed yet,
+        so the endpoint keeps working before the migration is applied.
         """
+        try:
+            resp = supabase.rpc(
+                "recalculate_tournament_rankings", {"p_tournament_id": tournament_id}
+            ).execute()
+            return resp.data or []
+        except Exception as exc:
+            logger.warning(
+                "recalculate_tournament_rankings RPC unavailable, using loop fallback: %s",
+                exc,
+            )
+            return RankingService._calculate_rankings_legacy(tournament_id)
+
+    @staticmethod
+    def _calculate_rankings_legacy(tournament_id: str) -> List[Dict]:
+        """Per-player update fallback (N round-trips). See calculate_rankings."""
         try:
             # Get all eliminated players ordered by elimination time (oldest first)
             response = supabase.table("tournament_players")\

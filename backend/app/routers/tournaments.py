@@ -14,20 +14,30 @@ def create_tournament(
     current_user: dict = Depends(get_current_user),
     stage_id: Optional[str] = Depends(get_stage_id_optional)
 ):
-    """Create a new tournament. If X-Stage-ID header is provided, validates the stage exists."""
+    """Create a new tournament. A stage (etapa) is mandatory: it comes from the
+    X-Stage-ID header (preferred) or the request body, and must reference an
+    existing stage."""
     user_id = current_user.get("sub")
 
-    # If stage_id is provided in header, use it and validate
-    if stage_id:
-        tournament.stage_id = stage_id
-        # Validate stage exists
-        from app.database.supabase_client import supabase
-        stage_response = supabase.table('stages').select('id').eq('id', stage_id).execute()
-        if not stage_response.data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Stage with id {stage_id} not found"
-            )
+    # Stage is required: never allow creating a tournament without an etapa.
+    # The header takes precedence; fall back to a stage_id supplied in the body.
+    effective_stage_id = stage_id or tournament.stage_id
+    if not effective_stage_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="É necessário selecionar uma etapa antes de criar um torneio."
+        )
+
+    tournament.stage_id = effective_stage_id
+
+    # Validate stage exists
+    from app.database.supabase_client import supabase
+    stage_response = supabase.table('stages').select('id').eq('id', effective_stage_id).execute()
+    if not stage_response.data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Stage with id {effective_stage_id} not found"
+        )
 
     return TournamentService.create_tournament(tournament, user_id)
 

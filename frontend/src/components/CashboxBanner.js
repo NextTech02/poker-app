@@ -4,10 +4,8 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import Button from './Button';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './CashboxBanner.css';
-
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 /**
  * Banner do caixa modular do operador na etapa selecionada.
@@ -22,6 +20,7 @@ const CashboxBanner = ({ onStateChange }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
+  const { formatCurrency } = useCurrency();
   const [cashbox, setCashbox] = useState(undefined); // undefined = carregando
   const [needsStage, setNeedsStage] = useState(false);
   const [modal, setModal] = useState(null); // 'open' | 'close' | null
@@ -100,9 +99,9 @@ const CashboxBanner = ({ onStateChange }) => {
       if (diff === 0) {
         toast.success(t('cashbox.closedOk'));
       } else if (diff > 0) {
-        toast.warning(t('cashbox.closedSurplus', { value: fmt(diff) }));
+        toast.warning(t('cashbox.closedSurplus', { value: formatCurrency(diff) }));
       } else {
-        toast.warning(t('cashbox.closedShortage', { value: fmt(Math.abs(diff)) }));
+        toast.warning(t('cashbox.closedShortage', { value: formatCurrency(Math.abs(diff)) }));
       }
       setModal(null);
       await load();
@@ -154,7 +153,7 @@ const CashboxBanner = ({ onStateChange }) => {
               {cashbox.staff_name ? ` · ${cashbox.staff_name}` : ''}
             </span>
             <span className="cashbox-banner__balance">
-              {t('cashbox.balance')}: <strong>{fmt(cashbox.current_balance)}</strong>
+              {t('cashbox.balance')}: <strong>{formatCurrency(cashbox.current_balance)}</strong>
             </span>
           </div>
         </div>
@@ -235,7 +234,7 @@ const CashboxBanner = ({ onStateChange }) => {
             </div>
             <form onSubmit={submitClose}>
               <div className="cashbox-banner__expected">
-                {t('cashbox.expectedBalance')}: <strong>{fmt(cashbox.current_balance)}</strong>
+                {t('cashbox.expectedBalance')}: <strong>{formatCurrency(cashbox.current_balance)}</strong>
               </div>
               <div className="form-group">
                 <label htmlFor="cb-actual">{t('cashbox.countedBalance')}</label>

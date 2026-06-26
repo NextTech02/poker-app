@@ -56,10 +56,10 @@ const Etapas = () => {
     try {
       if (editingStage) {
         await api.patch(`/stages/${editingStage.id}`, payload);
-        toast.success('Etapa atualizada com sucesso!');
+        toast.success(t('stages.updatedSuccess'));
       } else {
         await api.post('/stages', payload);
-        toast.success('Etapa criada com sucesso!');
+        toast.success(t('stages.createdSuccess'));
       }
       setShowModal(false);
       setEditingStage(null);
@@ -76,8 +76,8 @@ const Etapas = () => {
       const msg =
         error.userMessage ||
         error.response?.data?.detail ||
-        'Erro ao salvar etapa';
-      toast.error(typeof msg === 'string' ? msg : 'Erro ao salvar etapa');
+        t('stages.saveError');
+      toast.error(typeof msg === 'string' ? msg : t('stages.saveError'));
     }
   };
 
@@ -95,7 +95,7 @@ const Etapas = () => {
   };
 
   const handleDelete = async (stageId) => {
-    const ok = await confirm('Tem certeza que deseja excluir esta etapa? Os torneios nao serao excluidos.', { variant: 'danger', confirmText: 'Excluir' });
+    const ok = await confirm(t('stages.confirmDelete'), { variant: 'danger', confirmText: t('common.delete') });
     if (!ok) return;
 
     try {
@@ -103,7 +103,7 @@ const Etapas = () => {
       loadStages();
     } catch (error) {
       console.error('Erro ao excluir etapa:', error);
-      toast.error('Erro ao excluir etapa.');
+      toast.error(t('stages.deleteError'));
     }
   };
 
@@ -201,8 +201,8 @@ const Etapas = () => {
             <table className="stages-table">
               <thead>
                 <tr>
-                  <th>Status</th><th>Nome da Etapa</th><th>Local</th>
-                  <th>Data Início</th><th>Data Fim</th><th>Torneios</th><th>Ações</th>
+                  <th>{t('stages.columnStatus')}</th><th>{t('stages.columnName')}</th><th>{t('stages.columnLocation')}</th>
+                  <th>{t('stages.columnStart')}</th><th>{t('stages.columnEnd')}</th><th>{t('stages.columnTournaments')}</th><th>{t('stages.columnActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -220,7 +220,7 @@ const Etapas = () => {
               </svg>
             }
             title={t('stages.noStages', 'Nenhuma etapa encontrada')}
-            subtitle="Crie a primeira etapa do circuito para começar a organizar seus torneios."
+            subtitle={t('stages.noStagesHint')}
             ctaLabel={t('stages.newStage', 'Nova Etapa')}
             onCta={openNewModal}
           />
@@ -315,19 +315,19 @@ const Etapas = () => {
 
                   <div className="stage-card-info">
                     <div className="stage-card-info-item">
-                      <span className="stage-card-info-label">Local</span>
+                      <span className="stage-card-info-label">{t('stages.columnLocation')}</span>
                       <span className="stage-card-info-value">{stage.location}</span>
                     </div>
                     <div className="stage-card-info-item">
-                      <span className="stage-card-info-label">Torneios</span>
+                      <span className="stage-card-info-label">{t('stages.columnTournaments')}</span>
                       <span className="stage-card-info-value">{stage.tournament_count || 0}</span>
                     </div>
                     <div className="stage-card-info-item">
-                      <span className="stage-card-info-label">Início</span>
+                      <span className="stage-card-info-label">{t('stages.periodStart')}</span>
                       <span className="stage-card-info-value">{formatDate(stage.start_date)}</span>
                     </div>
                     <div className="stage-card-info-item">
-                      <span className="stage-card-info-label">Término</span>
+                      <span className="stage-card-info-label">{t('stages.periodEnd')}</span>
                       <span className="stage-card-info-value">{formatDate(stage.end_date)}</span>
                     </div>
                   </div>
@@ -339,7 +339,7 @@ const Etapas = () => {
                         size="small"
                         onClick={() => handleSelectStage(stage)}
                       >
-                        Selecionar
+                        {t('stages.selectButton')}
                       </Button>
                     ) : (
                       <Button
@@ -347,7 +347,7 @@ const Etapas = () => {
                         size="small"
                         disabled
                       >
-                        Ativa
+                        {t('stages.statusActiveShort')}
                       </Button>
                     )}
                     <Button
@@ -355,7 +355,7 @@ const Etapas = () => {
                       size="small"
                       onClick={() => handleEdit(stage)}
                     >
-                      Editar
+                      {t('common.edit')}
                     </Button>
                   </div>
                 </div>
@@ -369,7 +369,7 @@ const Etapas = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{editingStage ? t('common.edit') + ' ' + t('stages.title').slice(0, -1) : t('stages.newStage')}</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
+                <button className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -402,7 +402,7 @@ const Etapas = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="start_date">Data de Início</label>
+                    <label htmlFor="start_date">{t('stages.startDate')}</label>
                     <input
                       id="start_date"
                       name="start_date"
@@ -413,7 +413,7 @@ const Etapas = () => {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="end_date">Data de Término</label>
+                    <label htmlFor="end_date">{t('stages.endDate')}</label>
                     <input
                       id="end_date"
                       name="end_date"
@@ -425,7 +425,7 @@ const Etapas = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="status">Status</label>
+                  <label htmlFor="status">{t('common.status')}</label>
                   <select
                     id="status"
                     name="status"

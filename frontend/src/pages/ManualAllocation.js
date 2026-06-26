@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
@@ -7,6 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 import './ManualAllocation.css';
 
 const ManualAllocation = () => {
+  const { t } = useTranslation();
   const { toast, confirm } = useToast();
   const { tournamentId } = useParams();
   const navigate = useNavigate();
@@ -85,7 +87,7 @@ const ManualAllocation = () => {
         setDraggedPlayer(null);
       } catch (error) {
         console.error('Erro ao desalocar jogador:', error);
-        toast.error('Erro ao desalocar jogador');
+        toast.error(t('manualAllocation.errorUnallocate'));
         setDraggedPlayer(null);
       }
     }
@@ -103,7 +105,7 @@ const ManualAllocation = () => {
       );
 
       if (isOccupied) {
-        toast.warning('Este assento ja esta ocupado!');
+        toast.warning(t('manualAllocation.seatOccupied'));
         return;
       }
 
@@ -135,15 +137,15 @@ const ManualAllocation = () => {
       setDraggedPlayer(null);
     } catch (error) {
       console.error('Erro ao alocar jogador:', error);
-      toast.error('Erro ao alocar jogador: ' + (error.response?.data?.detail || error.message));
+      toast.error(t('manualAllocation.errorAllocate', { detail: error.response?.data?.detail || error.message }));
       setDraggedPlayer(null);
     }
   };
 
   const handleEliminatePlayer = async (allocation) => {
-    const playerName = allocation.players?.name || 'este jogador';
+    const playerName = allocation.players?.name || t('manualAllocation.defaultPlayer');
 
-    const ok = await confirm(`Tem certeza que deseja ELIMINAR ${playerName} do torneio?\n\nIsso registrara a eliminacao e removera o jogador da mesa.`, { variant: 'danger', confirmText: 'Eliminar' });
+    const ok = await confirm(t('manualAllocation.confirmEliminate', { name: playerName }), { variant: 'danger', confirmText: t('common.eliminate') });
     if (!ok) return;
 
     try {
@@ -167,10 +169,10 @@ const ManualAllocation = () => {
       await api.delete(`/allocations/${allocation.id}`);
 
       await loadData();
-      toast.success(`${playerName} foi eliminado do torneio! O ranking foi atualizado automaticamente.`);
+      toast.success(t('manualAllocation.eliminatedSuccess', { name: playerName }));
     } catch (error) {
       console.error('Erro ao eliminar jogador:', error);
-      toast.error('Erro ao eliminar jogador: ' + (error.response?.data?.detail || error.message));
+      toast.error(t('manualAllocation.errorEliminate', { detail: error.response?.data?.detail || error.message }));
     }
   };
 
@@ -187,10 +189,10 @@ const ManualAllocation = () => {
       });
 
       await loadData();
-      toast.success(`Mesa ${nextTableNumber} adicionada com sucesso!`);
+      toast.success(t('manualAllocation.tableAddedSuccess', { number: nextTableNumber }));
     } catch (error) {
       console.error('Erro ao adicionar mesa:', error);
-      toast.error('Erro ao adicionar mesa: ' + (error.response?.data?.detail || error.message));
+      toast.error(t('manualAllocation.errorAddTable', { detail: error.response?.data?.detail || error.message }));
     }
   };
 
@@ -199,20 +201,20 @@ const ManualAllocation = () => {
     const hasPlayers = allocations.some(alloc => alloc.table_id === tableId);
 
     if (hasPlayers) {
-      toast.warning('Nao e possivel remover uma mesa com jogadores alocados. Remova as alocacoes primeiro.');
+      toast.warning(t('manualAllocation.cannotRemoveTableWithPlayers'));
       return;
     }
 
-    const ok = await confirm(`Tem certeza que deseja remover a Mesa ${tableNumber}?`, { variant: 'danger', confirmText: 'Remover' });
+    const ok = await confirm(t('manualAllocation.confirmRemoveTable', { number: tableNumber }), { variant: 'danger', confirmText: t('common.remove') });
     if (!ok) return;
 
     try {
       await api.delete(`/tables/${tableId}`);
       await loadData();
-      toast.success(`Mesa ${tableNumber} removida com sucesso!`);
+      toast.success(t('manualAllocation.tableRemovedSuccess', { number: tableNumber }));
     } catch (error) {
       console.error('Erro ao remover mesa:', error);
-      toast.error('Erro ao remover mesa: ' + (error.response?.data?.detail || error.message));
+      toast.error(t('manualAllocation.errorRemoveTable', { detail: error.response?.data?.detail || error.message }));
     }
   };
 
@@ -244,14 +246,14 @@ const ManualAllocation = () => {
             <button
               className="btn-remove-allocation"
               onClick={() => handleEliminatePlayer(allocation)}
-              title="Eliminar jogador"
-              aria-label="Eliminar jogador"
+              title={t('manualAllocation.eliminatePlayer')}
+              aria-label={t('manualAllocation.eliminatePlayer')}
             >
               <span className="close-icon"></span>
             </button>
           </div>
         ) : (
-          <div className="seat-empty-label">Vazio</div>
+          <div className="seat-empty-label">{t('manualAllocation.empty')}</div>
         )}
       </div>
     );
@@ -269,16 +271,16 @@ const ManualAllocation = () => {
     return (
       <div key={table.id} className="table-container">
         <div className="table-header">
-          <h3>Mesa {table.table_number}</h3>
+          <h3>{t('manualAllocation.tableTitle', { number: table.table_number })}</h3>
           <div className="table-header-actions">
             <span className="table-occupancy">
-              {occupiedSeats} / {table.seats} ocupados
+              {t('manualAllocation.occupiedCount', { occupied: occupiedSeats, total: table.seats })}
             </span>
             {canRemove && (
               <button
                 className="btn-remove-table"
                 onClick={() => handleRemoveTable(table.id, table.table_number)}
-                title="Remover mesa"
+                title={t('manualAllocation.removeTable')}
               >
                 🗑️
               </button>
@@ -301,7 +303,7 @@ const ManualAllocation = () => {
       <div className="app-container">
         <Sidebar />
         <main className="main-content">
-          <div className="loading">Carregando...</div>
+          <div className="loading">{t('common.loading')}</div>
         </main>
       </div>
     );
@@ -313,17 +315,17 @@ const ManualAllocation = () => {
       <main className="main-content">
         <div className="page-header">
           <div>
-            <h1>Alocação Manual de Jogadores</h1>
+            <h1>{t('manualAllocation.title')}</h1>
             <p className="subtitle">
-              {tournament?.name} - {allocations.length} jogadores alocados
+              {t('manualAllocation.subtitle', { name: tournament?.name, count: allocations.length })}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button className="btn-secondary" onClick={() => setShowTableModal(true)}>
-              Gerenciar Mesas
+              {t('manualAllocation.manageTables')}
             </button>
             <button className="btn-back" onClick={() => navigate('/torneios')}>
-              Voltar
+              {t('common.back')}
             </button>
           </div>
         </div>
@@ -332,7 +334,7 @@ const ManualAllocation = () => {
           <div className="ticket-modal-overlay" onClick={() => setShowTicket(null)}>
             <div className="ticket-modal" onClick={(e) => e.stopPropagation()}>
               <div className="ticket-modal-header">
-                <h3>Jogador Alocado com Sucesso!</h3>
+                <h3>{t('manualAllocation.playerAllocatedSuccess')}</h3>
                 <button className="close-btn" onClick={() => setShowTicket(null)}>
                   ✕
                 </button>
@@ -345,7 +347,7 @@ const ManualAllocation = () => {
         <div className="allocation-layout">
           <div className="players-panel">
             <div className="panel-header">
-              <h2>Jogadores Não Alocados</h2>
+              <h2>{t('manualAllocation.unallocatedPlayers')}</h2>
               <span className="player-count">{unallocatedPlayers.length}</span>
             </div>
             <div
@@ -355,7 +357,7 @@ const ManualAllocation = () => {
             >
               {unallocatedPlayers.length === 0 ? (
                 <div className="no-players">
-                  Todos os jogadores foram alocados!
+                  {t('manualAllocation.allPlayersAllocated')}
                 </div>
               ) : (
                 unallocatedPlayers.map((player) => (
@@ -367,7 +369,7 @@ const ManualAllocation = () => {
                   >
                     <div className="player-card-icon">👤</div>
                     <div className="player-card-name">{player.player_name}</div>
-                    <div className="drag-hint">Arraste para mesa</div>
+                    <div className="drag-hint">{t('manualAllocation.dragToTable')}</div>
                   </div>
                 ))
               )}
@@ -377,8 +379,8 @@ const ManualAllocation = () => {
           <div className="tables-panel">
             {tables.length === 0 ? (
               <div className="no-tables">
-                <p>Nenhuma mesa cadastrada para este torneio.</p>
-                <p>Adicione mesas para começar a alocar jogadores.</p>
+                <p>{t('manualAllocation.noTablesRegistered')}</p>
+                <p>{t('manualAllocation.addTablesToStart')}</p>
               </div>
             ) : (
               <div className="tables-grid">
@@ -392,16 +394,16 @@ const ManualAllocation = () => {
           <div className="modal-overlay" onClick={() => setShowTableModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Gerenciar Mesas</h2>
+                <h2>{t('manualAllocation.manageTables')}</h2>
                 <button className="close-btn" onClick={() => setShowTableModal(false)}>
                   ✕
                 </button>
               </div>
               <div className="modal-body">
                 <div className="add-table-section">
-                  <h3>Adicionar Nova Mesa</h3>
+                  <h3>{t('manualAllocation.addNewTable')}</h3>
                   <div className="form-group-inline" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '15px' }}>
-                    <label htmlFor="newTableSeats">Lugares:</label>
+                    <label htmlFor="newTableSeats">{t('manualAllocation.seatsLabel')}</label>
                     <input
                       id="newTableSeats"
                       type="number"
@@ -416,15 +418,15 @@ const ManualAllocation = () => {
                       onClick={handleAddTable}
                       style={{ padding: '8px 16px' }}
                     >
-                      Adicionar Mesa
+                      {t('manualAllocation.addTable')}
                     </button>
                   </div>
                 </div>
 
                 <div className="tables-list-section" style={{ marginTop: '30px' }}>
-                  <h3>Mesas Existentes ({tables.length})</h3>
+                  <h3>{t('manualAllocation.existingTables', { count: tables.length })}</h3>
                   {tables.length === 0 ? (
-                    <p style={{ color: '#999', marginTop: '15px' }}>Nenhuma mesa cadastrada</p>
+                    <p style={{ color: '#999', marginTop: '15px' }}>{t('manualAllocation.noTablesRegisteredShort')}</p>
                   ) : (
                     <div className="tables-list" style={{ marginTop: '15px' }}>
                       {tables.map((table) => {
@@ -442,9 +444,9 @@ const ManualAllocation = () => {
                             backgroundColor: '#1a2332'
                           }}>
                             <div>
-                              <strong>Mesa {table.table_number}</strong>
+                              <strong>{t('manualAllocation.tableTitle', { number: table.table_number })}</strong>
                               <span style={{ marginLeft: '15px', color: '#999' }}>
-                                {table.seats} lugares - {occupiedSeats} ocupados
+                                {t('manualAllocation.seatsOccupied', { seats: table.seats, occupied: occupiedSeats })}
                               </span>
                             </div>
                             {canRemove ? (
@@ -459,11 +461,11 @@ const ManualAllocation = () => {
                                   cursor: 'pointer'
                                 }}
                               >
-                                Remover
+                                {t('common.remove')}
                               </button>
                             ) : (
                               <span style={{ color: '#ffc107', fontSize: '0.85rem' }}>
-                                Mesa com jogadores
+                                {t('manualAllocation.tableHasPlayers')}
                               </span>
                             )}
                           </div>
@@ -475,7 +477,7 @@ const ManualAllocation = () => {
               </div>
               <div className="modal-actions">
                 <button className="btn-secondary" onClick={() => setShowTableModal(false)}>
-                  Fechar
+                  {t('common.close')}
                 </button>
               </div>
             </div>

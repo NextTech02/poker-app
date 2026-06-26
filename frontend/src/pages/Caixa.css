@@ -28,7 +28,7 @@
 .cx-header-icon svg {
   width: 26px;
   height: 26px;
-  color: var(--poker-green, #22c55e);
+  color: var(--poker-green, var(--brand-green));
 }
 
 .cx-title {
@@ -40,7 +40,7 @@
 
 .cx-subtitle {
   font-size: 0.85rem;
-  color: var(--text-secondary, #8899aa);
+  color: var(--text-secondary, var(--text-secondary));
   margin: 0;
 }
 
@@ -61,7 +61,7 @@
 .cx-stat-icon svg {
   width: 22px;
   height: 22px;
-  color: #22c55e;
+  color: var(--brand-green);
 }
 
 .cx-stat-icon--total {
@@ -70,11 +70,11 @@
 }
 
 .cx-stat-icon--total svg {
-  color: #eab308;
+  color: var(--warning-yellow);
 }
 
 .cx-stat-total {
-  color: var(--accent-color, #eab308) !important;
+  color: var(--accent-color, var(--warning-yellow)) !important;
 }
 
 /* ── Table ── */
@@ -169,13 +169,13 @@
 }
 
 .cx-credit-available {
-  color: #22c55e;
+  color: var(--brand-green);
   font-weight: 600;
   font-size: 0.9rem;
 }
 
 .cx-credit-warning {
   margin-top: 0.5rem;
-  color: #f59e0b;
+  color: var(--warning);
   font-size: 0.8rem;
 }

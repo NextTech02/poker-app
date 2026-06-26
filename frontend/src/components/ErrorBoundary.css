@@ -24,7 +24,7 @@
 
 .eb-subtitle {
   font-size: 0.875rem;
-  color: var(--text-secondary, #8899aa);
+  color: var(--text-secondary, var(--text-secondary));
   margin: 0 0 1.5rem;
   max-width: 300px;
   line-height: 1.5;

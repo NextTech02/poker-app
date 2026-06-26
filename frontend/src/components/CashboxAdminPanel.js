@@ -7,10 +7,8 @@ import Card from './Card';
 import Button from './Button';
 import EmptyState from './EmptyState';
 import { SkeletonTableRow } from './SkeletonLoader';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './CashboxAdminPanel.css';
-
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 // Ações: kind → { field de valor enviado, label da chave i18n }
 const ACTION_CONFIG = {
@@ -18,12 +16,17 @@ const ACTION_CONFIG = {
   close: { payloadKey: 'actual_final_balance', labelKey: 'cashbox.countedBalance', titleKey: 'cashbox.closeCashbox' },
   supply: { payloadKey: 'amount', labelKey: 'cashbox.supplyAmount', titleKey: 'cashbox.supply' },
   sangria: { payloadKey: 'amount', labelKey: 'cashbox.sangriaAmount', titleKey: 'cashbox.sangria' },
+  // Sangria que move o CAIXA DA ETAPA → Caixa Geral (com rake), sem tocar no
+  // saldo do caixa modular. Reusa o endpoint /cash/sangria (nível da etapa).
+  stageSangria: { payloadKey: 'amount', labelKey: 'generalCash.sangriaAmountLabel', titleKey: 'cashbox.sangriaToGeneral' },
 };
 
 const CashboxAdminPanel = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
+  const { formatCurrency } = useCurrency();
+  const fmt = formatCurrency;
 
   const [cashboxes, setCashboxes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +34,8 @@ const CashboxAdminPanel = () => {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [rakePct, setRakePct] = useState('20.00'); // só para stageSangria
+  const [stageCash, setStageCash] = useState(null); // saldo do caixa da etapa
   const [staffList, setStaffList] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [newStaffId, setNewStaffId] = useState('');
@@ -88,6 +93,16 @@ const CashboxAdminPanel = () => {
     if (kind === 'close') setAmount(String(cashbox.current_balance ?? 0));
     else if (kind === 'open') setAmount('0');
     else setAmount('');
+    if (kind === 'stageSangria') {
+      setRakePct('20.00');
+      setStageCash(null);
+      if (selectedStage?.id) {
+        api
+          .get(`/cash/stage/${selectedStage.id}`, { _silentError: true })
+          .then((r) => setStageCash(r.data))
+          .catch(() => setStageCash(null));
+      }
+    }
     setModal({ kind, cashbox });
   };
 
@@ -97,14 +112,39 @@ const CashboxAdminPanel = () => {
     const cfg = ACTION_CONFIG[kind];
     setSubmitting(true);
     try {
+      // Sangria da ETAPA → Caixa Geral (não toca no caixa modular).
+      if (kind === 'stageSangria') {
+        const amt = parseFloat(amount) || 0;
+        if (amt <= 0) {
+          toast.warning(t('generalCash.amountGreaterThanZero'));
+          return;
+        }
+        if (stageCash && amt > parseFloat(stageCash.current_balance)) {
+          toast.warning(t('generalCash.insufficientBalance', { value: formatCurrency(stageCash.current_balance) }));
+          return;
+        }
+        const tag = cashbox.staff_name ? `[Caixa: ${cashbox.staff_name}] ` : '';
+        await api.post('/cash/sangria', {
+          stage_id: selectedStage?.id,
+          stage_name: selectedStage?.name,
+          amount: amt,
+          rake_percentage: parseFloat(rakePct) || 0,
+          notes: `${tag}${notes || ''}`.trim() || null,
+        });
+        toast.success(t('cashbox.sangriaToGeneralSuccess'));
+        setModal(null);
+        await load();
+        return;
+      }
+
       const payload = { [cfg.payloadKey]: parseFloat(amount) || 0, notes: notes || null };
       const res = await api.post(`/cashboxes/${cashbox.id}/${kind}`, payload);
 
       if (kind === 'close') {
         const diff = res.data?.difference ?? 0;
         if (diff === 0) toast.success(t('cashbox.closedOk'));
-        else if (diff > 0) toast.warning(t('cashbox.closedSurplus', { value: fmt(diff) }));
-        else toast.warning(t('cashbox.closedShortage', { value: fmt(Math.abs(diff)) }));
+        else if (diff > 0) toast.warning(t('cashbox.closedSurplus', { value: formatCurrency(diff) }));
+        else toast.warning(t('cashbox.closedShortage', { value: formatCurrency(Math.abs(diff)) }));
       } else if (kind === 'open') {
         toast.success(t('cashbox.openedSuccess'));
       } else if (kind === 'supply') {
@@ -154,7 +194,7 @@ const CashboxAdminPanel = () => {
         </span>
         {!loading && cashboxes.length > 0 && (
           <span className="cb-admin__total">
-            {t('cashbox.totalOpenBalance')}: <strong>{fmt(totalOpen)}</strong>
+            {t('cashbox.totalOpenBalance')}: <strong>{formatCurrency(totalOpen)}</strong>
           </span>
         )}
       </div>
@@ -209,7 +249,7 @@ const CashboxAdminPanel = () => {
                       </div>
                     </td>
                     <td>{statusPill(cb.status)}</td>
-                    <td className="amount">{fmt(cb.current_balance)}</td>
+                    <td className="amount">{formatCurrency(cb.current_balance)}</td>
                     <td>
                       <div className="cb-admin__actions">
                         {isOpen && (
@@ -219,6 +259,9 @@ const CashboxAdminPanel = () => {
                             </Button>
                             <Button size="small" variant="secondary" onClick={() => openModal('sangria', cb)}>
                               {t('cashbox.sangria')}
+                            </Button>
+                            <Button size="small" variant="secondary" onClick={() => openModal('stageSangria', cb)}>
+                              {t('cashbox.sangriaToGeneral')}
                             </Button>
                             <Button size="small" variant="secondary" onClick={() => openModal('close', cb)}>
                               {t('cashbox.closeCashbox')}
@@ -257,12 +300,20 @@ const CashboxAdminPanel = () => {
             <form onSubmit={submit}>
               {modal.kind === 'close' && (
                 <div className="cb-admin__expected">
-                  {t('cashbox.expectedBalance')}: <strong>{fmt(modal.cashbox.current_balance)}</strong>
+                  {t('cashbox.expectedBalance')}: <strong>{formatCurrency(modal.cashbox.current_balance)}</strong>
                 </div>
               )}
               {(modal.kind === 'supply' || modal.kind === 'sangria') && (
                 <div className="cb-admin__expected">
-                  {t('cashbox.balance')}: <strong>{fmt(modal.cashbox.current_balance)}</strong>
+                  {t('cashbox.balance')}: <strong>{formatCurrency(modal.cashbox.current_balance)}</strong>
+                </div>
+              )}
+              {modal.kind === 'stageSangria' && (
+                <div className="cb-admin__expected">
+                  {t('generalCash.stageLabel')} <strong>{selectedStage?.name || '—'}</strong>
+                  <br />
+                  {t('generalCash.availableBalanceLabel')}{' '}
+                  <strong>{stageCash ? formatCurrency(stageCash.current_balance) : '…'}</strong>
                 </div>
               )}
               <div className="form-group">
@@ -271,13 +322,39 @@ const CashboxAdminPanel = () => {
                   id="cb-admin-amount"
                   type="number"
                   step="0.01"
-                  min={modal.kind === 'supply' || modal.kind === 'sangria' ? '0.01' : '0'}
+                  min={modal.kind === 'supply' || modal.kind === 'sangria' || modal.kind === 'stageSangria' ? '0.01' : '0'}
+                  max={modal.kind === 'stageSangria' && stageCash ? stageCash.current_balance : undefined}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
                   autoFocus
                 />
               </div>
+              {modal.kind === 'stageSangria' && (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="cb-admin-rake">{t('generalCash.rakePercentLabel')}</label>
+                    <input
+                      id="cb-admin-rake"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={rakePct}
+                      onChange={(e) => setRakePct(e.target.value)}
+                      required
+                    />
+                  </div>
+                  {parseFloat(amount) > 0 && (
+                    <div className="cb-admin__expected">
+                      {t('generalCash.toGeneralCash')}:{' '}
+                      <strong className="amount net-amount">
+                        {formatCurrency((parseFloat(amount) || 0) * (1 - (parseFloat(rakePct) || 0) / 100))}
+                      </strong>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="form-group">
                 <label htmlFor="cb-admin-notes">{t('cashbox.notes')}</label>
                 <input

@@ -40,7 +40,7 @@
 .sangi-field select option { color: #111; background: #fff; }
 .sangi-btn {
   padding: 10px 18px; border-radius: 8px; border: none;
-  background: #2ecc71; color: #06281a; font-weight: 600; cursor: pointer;
+  background: var(--brand-green); color: #06281a; font-weight: 600; cursor: pointer;
 }
 .sangi-btn:disabled { opacity: 0.5; cursor: default; }
 
@@ -55,7 +55,7 @@
 
 .sangi-badge { padding: 3px 8px; border-radius: 6px; font-size: 12px; }
 .sangi-badge.open { background: rgba(52, 152, 219, 0.18); color: #3498db; }
-.sangi-badge.reconciled { background: rgba(46, 204, 113, 0.16); color: #2ecc71; }
+.sangi-badge.reconciled { background: rgba(46, 204, 113, 0.16); color: var(--brand-green); }
 
 .sangi-actions { display: flex; gap: 10px; }
 .sangi-link {

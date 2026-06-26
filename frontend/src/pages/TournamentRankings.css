@@ -73,7 +73,7 @@
 
 .prize-cell {
   font-weight: 600;
-  color: #4ade80;
+  color: var(--success-light);
 }
 
 .badge {
@@ -95,7 +95,7 @@
 }
 
 .badge-active {
-  background-color: #28a745;
+  background-color: var(--brand-green);
   color: white;
 }
 

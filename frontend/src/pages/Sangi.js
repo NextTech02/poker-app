@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import PlayerSelect from '../components/PlayerSelect';
 import api from '../config/api';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './Sangi.css';
 
-const fmt = (v) =>
-  (parseFloat(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 const Sangi = () => {
+  const { t } = useTranslation();
   const { isAdmin, permissions } = usePermissions();
   const { toast, confirm } = useToast();
 
@@ -20,7 +20,7 @@ const Sangi = () => {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content sangi-page">
-        <h1 className="sangi-title">Sangi — Venda de Fichas em Consignação</h1>
+        <h1 className="sangi-title">{t('sangi.pageTitle')}</h1>
         {isManager ? <ManagerView toast={toast} confirm={confirm} /> : <SellerView toast={toast} />}
       </main>
     </div>
@@ -29,6 +29,8 @@ const Sangi = () => {
 
 // ── Seller (the sangi): sees own consignment + registers sales ───────────────
 const SellerView = ({ toast }) => {
+  const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const [cons, setCons] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
@@ -53,7 +55,7 @@ const SellerView = ({ toast }) => {
     e.preventDefault();
     if (!cons) return;
     if (!amount || !buyer) {
-      toast.error('Informe o valor e o comprador.');
+      toast.error(t('sangi.errorAmountBuyer'));
       return;
     }
     try {
@@ -62,23 +64,23 @@ const SellerView = ({ toast }) => {
         amount: parseFloat(amount),
         buyer_player_id: buyer,
       });
-      toast.success('Venda registrada!');
+      toast.success(t('sangi.saleRegistered'));
       setAmount('');
       setBuyer('');
       await load();
     } catch (err) {
-      toast.error(err.userMessage || err.response?.data?.detail || 'Erro ao registrar venda');
+      toast.error(err.userMessage || err.response?.data?.detail || t('sangi.errorRegisterSale'));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="sangi-loading">Carregando…</div>;
+  if (loading) return <div className="sangi-loading">{t('common.loading')}</div>;
   if (!cons) {
     return (
       <div className="sangi-empty">
-        <h3>Nenhuma consignação aberta</h3>
-        <p>Peça ao caixa para liberar um valor em fichas para você.</p>
+        <h3>{t('sangi.noConsignmentOpen')}</h3>
+        <p>{t('sangi.noConsignmentHint')}</p>
       </div>
     );
   }
@@ -86,25 +88,25 @@ const SellerView = ({ toast }) => {
   return (
     <>
       <div className="sangi-stats">
-        <div className="sangi-stat"><span>Liberado</span><strong>R$ {fmt(cons.released_amount)}</strong></div>
-        <div className="sangi-stat"><span>Vendido</span><strong>R$ {fmt(cons.total_sold)}</strong></div>
-        <div className="sangi-stat"><span>Em fichas (restante)</span><strong>R$ {fmt(cons.remaining)}</strong></div>
+        <div className="sangi-stat"><span>{t('sangi.released')}</span><strong>{formatCurrency(cons.released_amount)}</strong></div>
+        <div className="sangi-stat"><span>{t('sangi.sold')}</span><strong>{formatCurrency(cons.total_sold)}</strong></div>
+        <div className="sangi-stat"><span>{t('sangi.remainingInChips')}</span><strong>{formatCurrency(cons.remaining)}</strong></div>
       </div>
 
       <form className="sangi-card" onSubmit={registerSale}>
-        <h3>Registrar venda</h3>
+        <h3>{t('sangi.registerSale')}</h3>
         <div className="sangi-form-row">
           <div className="sangi-field">
-            <label>Valor (R$)</label>
+            <label>{t('sangi.amountLabel')}</label>
             <input type="number" min="0" step="0.01" value={amount}
               onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
           </div>
           <div className="sangi-field">
-            <label>Comprador (jogador)</label>
+            <label>{t('sangi.buyerLabel')}</label>
             <PlayerSelect value={buyer} onChange={(e) => setBuyer(e.target.value)} required />
           </div>
           <button type="submit" className="sangi-btn" disabled={saving}>
-            {saving ? 'Salvando…' : 'Registrar'}
+            {saving ? t('sangi.saving') : t('sangi.registerBtn')}
           </button>
         </div>
       </form>
@@ -116,6 +118,8 @@ const SellerView = ({ toast }) => {
 
 // ── Manager (cashier): release + reconcile ───────────────────────────────────
 const ManagerView = ({ toast, confirm }) => {
+  const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const [staff, setStaff] = useState([]);
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,7 +140,7 @@ const ManagerView = ({ toast, confirm }) => {
       setStaff((staffRes.data || []).filter((s) => s.active && (s.permissions || []).includes('sangi')));
       setList(listRes.data || []);
     } catch (err) {
-      toast.error('Erro ao carregar consignações');
+      toast.error(t('sangi.errorLoadConsignments'));
     } finally {
       setLoading(false);
     }
@@ -147,7 +151,7 @@ const ManagerView = ({ toast, confirm }) => {
   const release = async (e) => {
     e.preventDefault();
     if (!sangiId || !releaseAmount) {
-      toast.error('Selecione a sangi e informe o valor.');
+      toast.error(t('sangi.errorSelectSangi'));
       return;
     }
     try {
@@ -156,12 +160,12 @@ const ManagerView = ({ toast, confirm }) => {
         sangi_staff_id: sangiId,
         released_amount: parseFloat(releaseAmount),
       });
-      toast.success('Valor liberado para a sangi!');
+      toast.success(t('sangi.valueReleased'));
       setSangiId('');
       setReleaseAmount('');
       await load();
     } catch (err) {
-      toast.error(err.userMessage || err.response?.data?.detail || 'Erro ao liberar');
+      toast.error(err.userMessage || err.response?.data?.detail || t('sangi.errorRelease'));
     } finally {
       setSaving(false);
     }
@@ -173,36 +177,36 @@ const ManagerView = ({ toast, confirm }) => {
       const res = await api.get(`/sangi/consignments/${id}`);
       setExpanded(res.data);
     } catch (err) {
-      toast.error('Erro ao abrir consignação');
+      toast.error(t('sangi.errorOpenConsignment'));
     }
   };
 
   const reconcile = async (id) => {
-    const ok = await confirm('Fazer o abate desta consignação? Isso fecha o ciclo e calcula a divergência.', { confirmText: 'Abater' });
+    const ok = await confirm(t('sangi.confirmReconcile'), { confirmText: t('sangi.confirmReconcileBtn') });
     if (!ok) return;
     try {
       const res = await api.post(`/sangi/consignments/${id}/reconcile`, {});
       const div = res.data.divergence;
-      if (Math.abs(div) < 0.001) toast.success('Abate concluído — sem divergência.');
-      else toast.warning(`Abate concluído — divergência de R$ ${fmt(div)}.`);
+      if (Math.abs(div) < 0.001) toast.success(t('sangi.reconcileSuccess'));
+      else toast.warning(t('sangi.reconcileDivergence', { value: formatCurrency(div) }));
       setExpanded(res.data);
       await load();
     } catch (err) {
-      toast.error(err.userMessage || err.response?.data?.detail || 'Erro no abate');
+      toast.error(err.userMessage || err.response?.data?.detail || t('sangi.errorReconcile'));
     }
   };
 
-  if (loading) return <div className="sangi-loading">Carregando…</div>;
+  if (loading) return <div className="sangi-loading">{t('common.loading')}</div>;
 
   return (
     <>
       <form className="sangi-card" onSubmit={release}>
-        <h3>Liberar fichas para uma sangi</h3>
+        <h3>{t('sangi.releaseChipsTitle')}</h3>
         <div className="sangi-form-row">
           <div className="sangi-field">
-            <label>Sangi</label>
+            <label>{t('sangi.sangiLabel')}</label>
             <select value={sangiId} onChange={(e) => setSangiId(e.target.value)} required>
-              <option value="">Selecione…</option>
+              <option value="">{t('sangi.selectPlaceholder')}</option>
               {staff.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}{s.permission_group_name ? ` — ${s.permission_group_name}` : ''}
@@ -211,25 +215,25 @@ const ManagerView = ({ toast, confirm }) => {
             </select>
           </div>
           <div className="sangi-field">
-            <label>Valor em fichas (R$)</label>
+            <label>{t('sangi.chipsAmountLabel')}</label>
             <input type="number" min="0" step="0.01" value={releaseAmount}
-              onChange={(e) => setReleaseAmount(e.target.value)} placeholder="Ex: 10000.00" required />
+              onChange={(e) => setReleaseAmount(e.target.value)} placeholder={t('sangi.chipsAmountPlaceholder')} required />
           </div>
           <button type="submit" className="sangi-btn" disabled={saving}>
-            {saving ? 'Liberando…' : 'Liberar'}
+            {saving ? t('sangi.releasing') : t('sangi.releaseBtn')}
           </button>
         </div>
       </form>
 
-      <h3 className="sangi-section">Consignações</h3>
+      <h3 className="sangi-section">{t('sangi.consignmentsSection')}</h3>
       {list.length === 0 ? (
-        <div className="sangi-empty"><p>Nenhuma consignação registrada nesta etapa.</p></div>
+        <div className="sangi-empty"><p>{t('sangi.noConsignmentsInStage')}</p></div>
       ) : (
         <table className="sangi-table">
           <thead>
             <tr>
-              <th>Sangi</th><th>Liberado</th><th>Vendido</th><th>Restante</th>
-              <th>Status</th><th>Divergência</th><th></th>
+              <th>{t('sangi.colSangi')}</th><th>{t('sangi.colReleased')}</th><th>{t('sangi.colSold')}</th><th>{t('sangi.colRemaining')}</th>
+              <th>{t('sangi.colStatus')}</th><th>{t('sangi.colDivergence')}</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -237,21 +241,21 @@ const ManagerView = ({ toast, confirm }) => {
               <React.Fragment key={c.id}>
                 <tr>
                   <td>{c.sangi_name || '—'}</td>
-                  <td>R$ {fmt(c.released_amount)}</td>
-                  <td>R$ {fmt(c.total_sold)}</td>
-                  <td>R$ {fmt(c.remaining)}</td>
+                  <td>{formatCurrency(c.released_amount)}</td>
+                  <td>{formatCurrency(c.total_sold)}</td>
+                  <td>{formatCurrency(c.remaining)}</td>
                   <td>
                     <span className={`sangi-badge ${c.status}`}>
-                      {c.status === 'open' ? 'Aberta' : 'Reconciliada'}
+                      {c.status === 'open' ? t('sangi.statusOpen') : t('sangi.statusReconciled')}
                     </span>
                   </td>
-                  <td>{c.divergence == null ? '—' : `R$ ${fmt(c.divergence)}`}</td>
+                  <td>{c.divergence == null ? '—' : formatCurrency(c.divergence)}</td>
                   <td className="sangi-actions">
                     <button className="sangi-link" onClick={() => openDetail(c.id)}>
-                      {expanded?.id === c.id ? 'Fechar' : 'Ver vendas'}
+                      {expanded?.id === c.id ? t('sangi.closeDetail') : t('sangi.viewSales')}
                     </button>
                     {c.status === 'open' && (
-                      <button className="sangi-link danger" onClick={() => reconcile(c.id)}>Abater</button>
+                      <button className="sangi-link danger" onClick={() => reconcile(c.id)}>{t('sangi.reconcileAction')}</button>
                     )}
                   </td>
                 </tr>
@@ -272,17 +276,19 @@ const ManagerView = ({ toast, confirm }) => {
 };
 
 const SalesTable = ({ sales }) => {
-  if (!sales || sales.length === 0) return <p className="sangi-muted">Nenhuma venda registrada ainda.</p>;
+  const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
+  if (!sales || sales.length === 0) return <p className="sangi-muted">{t('sangi.noSalesYet')}</p>;
   return (
     <table className="sangi-table compact">
       <thead>
-        <tr><th>Comprador</th><th>Valor</th><th>Quando</th></tr>
+        <tr><th>{t('sangi.colBuyer')}</th><th>{t('sangi.colValue')}</th><th>{t('sangi.colWhen')}</th></tr>
       </thead>
       <tbody>
         {sales.map((s) => (
           <tr key={s.id}>
             <td>{s.buyer_player_name || s.buyer_player_id}</td>
-            <td>R$ {fmt(s.amount)}</td>
+            <td>{formatCurrency(s.amount)}</td>
             <td>{new Date(s.created_at).toLocaleString('pt-BR')}</td>
           </tr>
         ))}

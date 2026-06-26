@@ -332,7 +332,10 @@ class AllocationService:
     @staticmethod
     def _bulk_sequential(tournament_id, day_id, player_ids, tables, table_counts, occupied_seats_map):
         """Fill tables sequentially: table 1 fully, then table 2, etc."""
-        results = []
+        # Seat assignment is computed entirely in memory (table_counts /
+        # occupied_seats_map); the rows are then written in ONE bulk insert
+        # instead of one INSERT per player (was N round-trips).
+        pending = []
         table_idx = 0
 
         for player_id in player_ids:
@@ -345,25 +348,26 @@ class AllocationService:
                     available = [s for s in range(1, t["seats"] + 1) if s not in occupied_seats_map[tid]]
                     if available:
                         seat = available[0]  # Sequential: first available seat
-                        alloc_data = {
+                        pending.append({
                             "tournament_id": tournament_id,
                             "tournament_day_id": day_id,
                             "player_id": player_id,
                             "table_id": tid,
                             "seat_number": seat,
-                        }
-                        resp = supabase.table("seat_allocations").insert(alloc_data).execute()
-                        if resp.data:
-                            table_counts[tid] += 1
-                            occupied_seats_map[tid].add(seat)
-                            results.append(resp.data[0])
-                            # Move to next table only when current is full
-                            if table_counts[tid] >= t["seats"]:
-                                table_idx += 1
-                            placed = True
-                            continue
+                        })
+                        table_counts[tid] += 1
+                        occupied_seats_map[tid].add(seat)
+                        # Move to next table only when current is full
+                        if table_counts[tid] >= t["seats"]:
+                            table_idx += 1
+                        placed = True
+                        continue
                 table_idx += 1
                 attempts += 1
+
+        results = []
+        if pending:
+            results = supabase.table("seat_allocations").insert(pending).execute().data or []
 
         # Update occupied_seats counts on all tables
         AllocationService._sync_table_counts(tables, table_counts)
@@ -372,7 +376,9 @@ class AllocationService:
     @staticmethod
     def _bulk_balanced(tournament_id, day_id, player_ids, tables, table_counts, occupied_seats_map, randomize_seat=False):
         """Distribute players round-robin across tables (least occupied first)."""
-        results = []
+        # Placement is decided in memory; rows are written in ONE bulk insert
+        # instead of one INSERT per player (was N round-trips).
+        pending = []
 
         for player_id in player_ids:
             # Sort tables by occupancy (least first), then by table_number
@@ -385,23 +391,24 @@ class AllocationService:
                     available = [s for s in range(1, t["seats"] + 1) if s not in occupied_seats_map[tid]]
                     if available:
                         seat = random.choice(available) if randomize_seat else available[0]
-                        alloc_data = {
+                        pending.append({
                             "tournament_id": tournament_id,
                             "tournament_day_id": day_id,
                             "player_id": player_id,
                             "table_id": tid,
                             "seat_number": seat,
-                        }
-                        resp = supabase.table("seat_allocations").insert(alloc_data).execute()
-                        if resp.data:
-                            table_counts[tid] += 1
-                            occupied_seats_map[tid].add(seat)
-                            results.append(resp.data[0])
-                            placed = True
-                            break
+                        })
+                        table_counts[tid] += 1
+                        occupied_seats_map[tid].add(seat)
+                        placed = True
+                        break
 
             if not placed:
                 break  # No more available seats
+
+        results = []
+        if pending:
+            results = supabase.table("seat_allocations").insert(pending).execute().data or []
 
         AllocationService._sync_table_counts(tables, table_counts)
         return results

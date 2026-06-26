@@ -117,34 +117,46 @@ class PlayerCreditService:
     @staticmethod
     def get_credit_transactions(credit_id: str) -> List[CreditTransactionResponse]:
         """Get all transactions for a specific credit"""
-        response = supabase.table("credit_transactions").select("*")\
-            .eq("credit_id", credit_id)\
-            .order("created_at", desc=True)\
+        rows = (
+            supabase.table("credit_transactions").select("*")
+            .eq("credit_id", credit_id)
+            .order("created_at", desc=True)
             .execute()
+            .data
+            or []
+        )
+        if not rows:
+            return []
 
-        results = []
-        for item in response.data or []:
-            # Get tournament name if applicable
-            tournament_name = None
-            if item.get("tournament_id"):
-                t = supabase.table("tournaments").select("name").eq("id", item["tournament_id"]).execute()
-                if t.data:
-                    tournament_name = t.data[0]["name"]
+        # The sponsor is fixed for this credit — look it up ONCE instead of once
+        # per transaction row (was N identical queries).
+        sponsor_name = None
+        credit = supabase.table("player_credits").select("sponsors(name)").eq("id", credit_id).execute()
+        if credit.data:
+            s = credit.data[0].get("sponsors", {}) or {}
+            sponsor_name = s.get("name")
 
-            # Get sponsor name from credit
-            credit = supabase.table("player_credits").select("sponsors(name)")\
-                .eq("id", item["credit_id"]).execute()
-            sponsor_name = None
-            if credit.data:
-                s = credit.data[0].get("sponsors", {}) or {}
-                sponsor_name = s.get("name")
+        # Resolve all tournament names in ONE query, then map in memory.
+        tournament_ids = list({r["tournament_id"] for r in rows if r.get("tournament_id")})
+        name_by_tournament = {}
+        if tournament_ids:
+            t_rows = (
+                supabase.table("tournaments").select("id, name")
+                .in_("id", tournament_ids)
+                .execute()
+                .data
+                or []
+            )
+            name_by_tournament = {t["id"]: t["name"] for t in t_rows}
 
-            results.append(CreditTransactionResponse(
+        return [
+            CreditTransactionResponse(
                 **item,
-                tournament_name=tournament_name,
+                tournament_name=name_by_tournament.get(item.get("tournament_id")),
                 sponsor_name=sponsor_name,
-            ))
-        return results
+            )
+            for item in rows
+        ]
 
     # ================================================
     # Credit Usage (buy-in/rebuy/addon)

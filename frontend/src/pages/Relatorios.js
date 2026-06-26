@@ -6,15 +6,15 @@ import EmptyState from '../components/EmptyState';
 import { SkeletonStatCard } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './Relatorios.css';
-
-// A4 + B: formatação de moeda consistente com o restante do sistema
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 const Relatorios = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
+  // A4 + B: formatação de moeda consistente com a configuração global de moeda
+  const fmt = (n) => formatCurrency(n ?? 0);
   const [reports, setReports] = useState({
     totalRevenue: 0,
     totalTournaments: 0,

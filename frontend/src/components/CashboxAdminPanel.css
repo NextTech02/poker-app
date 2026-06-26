@@ -6,7 +6,7 @@
 
 .cb-admin__empty-note {
   margin: 0 0 16px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary, var(--text-secondary));
   font-size: 14px;
 }
 
@@ -18,11 +18,11 @@
   gap: 8px;
   margin-bottom: 16px;
   font-size: 13px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .cb-admin__total strong {
-  color: #22c55e;
+  color: var(--brand-green);
   font-size: 15px;
 }
 
@@ -37,17 +37,17 @@
 }
 
 .cb-admin__pill--open {
-  background: #22c55e;
+  background: var(--brand-green);
   color: #052e16;
 }
 
 .cb-admin__pill--closed {
-  background: #f59e0b;
+  background: var(--warning);
   color: #422006;
 }
 
 .cb-admin__pill--archived {
-  background: #6b7280;
+  background: var(--text-tertiary);
   color: #f9fafb;
 }
 
@@ -64,7 +64,7 @@
 
 .cb-admin__staff-email {
   font-size: 12px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .cb-admin__actions {
@@ -74,7 +74,7 @@
 }
 
 .cb-admin__muted {
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-secondary, var(--text-tertiary));
 }
 
 .cb-admin__expected {
@@ -83,7 +83,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   font-size: 14px;
-  color: var(--text-secondary, #9ca3af);
+  color: var(--text-secondary, var(--text-secondary));
 }
 
 .cb-admin__expected strong {

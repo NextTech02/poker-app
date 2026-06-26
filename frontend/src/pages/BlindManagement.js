@@ -23,6 +23,12 @@ const BlindManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBlind, setEditingBlind] = useState(null);
   const [isBreakMode, setIsBreakMode] = useState(false);
+  // Inline edit (click a value to edit) + drag-to-reorder
+  const [editCell, setEditCell] = useState(null); // { id, field }
+  const [editVal, setEditVal] = useState('');
+  const [dragId, setDragId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+  const [reordering, setReordering] = useState(false);
   // Template states
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -167,9 +173,93 @@ const BlindManagement = () => {
     }
   };
 
+  // ── Inline edit: click a blind value to edit it without opening the modal ──
+  const patchBlind = async (blind, changes) => {
+    const data = {
+      level: blind.level,
+      duration: blind.duration,
+      is_break: blind.is_break,
+      small_blind: blind.is_break ? 0 : (blind.small_blind || 0),
+      big_blind: blind.is_break ? 0 : (blind.big_blind || 0),
+      ante: blind.is_break ? 0 : (blind.ante || 0),
+      ...changes,
+    };
+    await api.patch(`/tournament-days/${dayId}/blinds/${blind.id}`, data);
+  };
+
+  const startEdit = (blind, field) => {
+    if (blind.is_break && field !== 'duration') return; // breaks: only duration editable
+    setEditCell({ id: blind.id, field });
+    setEditVal(String(blind[field] ?? 0));
+  };
+  const cancelEdit = () => { setEditCell(null); setEditVal(''); };
+  const commitEdit = async (blind) => {
+    if (!editCell) return;
+    const field = editCell.field;
+    const n = parseInt(editVal, 10);
+    const val = Number.isNaN(n) ? 0 : Math.max(0, n);
+    cancelEdit();
+    if ((blind[field] ?? 0) === val) return; // unchanged
+    try {
+      await patchBlind(blind, { [field]: val });
+      await loadData();
+    } catch (error) {
+      const msg = error.response?.data?.detail || t('common.error');
+      toast.error(typeof msg === 'string' ? msg : t('common.error'));
+    }
+  };
+
+  // ── Drag-to-reorder blind levels ──────────────────────────────────────────
+  const onRowDragStart = (e, blind) => {
+    setDragId(blind.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const onRowDragOver = (e, blind) => {
+    e.preventDefault();
+    if (blind.id !== dragOverId) setDragOverId(blind.id);
+  };
+  const onRowDragEnd = () => { setDragId(null); setDragOverId(null); };
+  const onRowDrop = async (e, target) => {
+    e.preventDefault();
+    const from = blinds.findIndex((b) => b.id === dragId);
+    const to = blinds.findIndex((b) => b.id === target.id);
+    setDragId(null);
+    setDragOverId(null);
+    if (from < 0 || to < 0 || from === to) return;
+
+    const reordered = [...blinds];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+
+    // Optimistic renumber, then persist only the positions that changed.
+    setBlinds(reordered.map((b, i) => ({ ...b, level: i + 1 })));
+    setReordering(true);
+    try {
+      for (let i = 0; i < reordered.length; i++) {
+        if (reordered[i].level !== i + 1) {
+          await patchBlind(reordered[i], { level: i + 1 });
+        }
+      }
+      await loadData();
+    } catch (error) {
+      const msg = error.response?.data?.detail || t('common.error');
+      toast.error(typeof msg === 'string' ? msg : t('common.error'));
+      await loadData(); // revert to server truth on failure
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const handleDeleteBlind = async (blindId) => {
     const blind = blinds.find((b) => b.id === blindId);
-    const levelLabel = blind ? `Nível ${blind.level}` : '';
+    // Sequential blind number (ignoring breaks), to match the table display.
+    let _seq = 0;
+    let displayNum = null;
+    for (const b of blinds) {
+      if (!b.is_break) _seq += 1;
+      if (b.id === blindId) { displayNum = b.is_break ? null : _seq; break; }
+    }
+    const levelLabel = blind ? (blind.is_break ? t('blinds.break') : `${t('blinds.level')} ${displayNum}`) : '';
     const ok = await confirm(
       t('blinds.confirmDeleteMessage', 'O nível de blind {{level}} será removido permanentemente da estrutura.', { level: levelLabel }),
       {
@@ -292,6 +382,19 @@ const BlindManagement = () => {
   const totalDuration = blinds.reduce((acc, b) => acc + b.duration, 0);
   const totalBreakTime = breakLevels.reduce((acc, b) => acc + b.duration, 0);
 
+  // Display level number: sequential count of actual blind levels only — a
+  // break must NOT consume a level number (it keeps `level` only for ordering).
+  const displayLevelById = {};
+  {
+    let n = 0;
+    for (const b of blinds) {
+      if (!b.is_break) {
+        n += 1;
+        displayLevelById[b.id] = n;
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="app-container">
@@ -393,39 +496,80 @@ const BlindManagement = () => {
                     </td>
                   </tr>
                 ) : (
-                  blinds.map((blind) => (
-                    <tr key={blind.id} className={`blind-row ${blind.is_break ? 'break-row' : ''}`}>
-                      <td className="level-cell">
-                        {blind.is_break ? (
-                          <span className="break-badge">{t('blinds.break')}</span>
-                        ) : (
-                          <strong>{t('blinds.level')} {blind.level}</strong>
-                        )}
-                      </td>
-                      <td>{blind.is_break ? '-' : blind.small_blind.toLocaleString()}</td>
-                      <td>{blind.is_break ? '-' : blind.big_blind.toLocaleString()}</td>
-                      <td>{blind.is_break ? '-' : (blind.ante ? blind.ante.toLocaleString() : '-')}</td>
-                      <td>{blind.duration} min</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="btn-small btn-edit"
-                            onClick={() => openEditModal(blind)}
-                            title={t('common.edit')}
-                          >
-                            {t('common.edit')}
-                          </button>
-                          <button
-                            className="btn-small btn-delete"
-                            onClick={() => handleDeleteBlind(blind.id)}
-                            title={t('common.delete')}
-                          >
-                            {t('common.delete')}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  blinds.map((blind) => {
+                    const cell = (field, display) => {
+                      const editing = editCell && editCell.id === blind.id && editCell.field === field;
+                      const canEdit = !blind.is_break || field === 'duration';
+                      if (editing) {
+                        return (
+                          <input
+                            type="number"
+                            min="0"
+                            className="inline-edit-input"
+                            value={editVal}
+                            autoFocus
+                            onChange={(e) => setEditVal(e.target.value)}
+                            onBlur={() => commitEdit(blind)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); commitEdit(blind); }
+                              else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                            }}
+                          />
+                        );
+                      }
+                      return (
+                        <span
+                          className={canEdit ? 'inline-editable' : ''}
+                          onClick={canEdit ? () => startEdit(blind, field) : undefined}
+                          title={canEdit ? t('blinds.clickToEdit', 'Clique para editar') : undefined}
+                        >
+                          {display}
+                        </span>
+                      );
+                    };
+                    return (
+                      <tr
+                        key={blind.id}
+                        className={`blind-row ${blind.is_break ? 'break-row' : ''} ${dragOverId === blind.id ? 'drag-over' : ''} ${dragId === blind.id ? 'dragging' : ''}`}
+                        draggable={!editCell && !reordering}
+                        onDragStart={(e) => onRowDragStart(e, blind)}
+                        onDragOver={(e) => onRowDragOver(e, blind)}
+                        onDrop={(e) => onRowDrop(e, blind)}
+                        onDragEnd={onRowDragEnd}
+                      >
+                        <td className="level-cell">
+                          <span className="drag-handle" title={t('blinds.dragToReorder', 'Arraste para reordenar')}>⠿</span>
+                          {blind.is_break ? (
+                            <span className="break-badge">{t('blinds.break')}</span>
+                          ) : (
+                            <strong>{t('blinds.level')} {displayLevelById[blind.id]}</strong>
+                          )}
+                        </td>
+                        <td>{blind.is_break ? '-' : cell('small_blind', blind.small_blind.toLocaleString())}</td>
+                        <td>{blind.is_break ? '-' : cell('big_blind', blind.big_blind.toLocaleString())}</td>
+                        <td>{blind.is_break ? '-' : cell('ante', (blind.ante || 0).toLocaleString())}</td>
+                        <td>{cell('duration', `${blind.duration} min`)}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              className="btn-small btn-edit"
+                              onClick={() => openEditModal(blind)}
+                              title={t('common.edit')}
+                            >
+                              {t('common.edit')}
+                            </button>
+                            <button
+                              className="btn-small btn-delete"
+                              onClick={() => handleDeleteBlind(blind.id)}
+                              title={t('common.delete')}
+                            >
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

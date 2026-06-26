@@ -10,14 +10,12 @@ import CashboxBanner from '../components/CashboxBanner';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './Caixa.css';
-
-// Fix 3: formatação pt-BR consistente com resto do sistema
-const fmt = (n) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n ?? 0);
 
 const Caixa = () => {
   const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState([]);
   const [tournaments, setTournaments] = useState([]);
   const [tournamentDays, setTournamentDays] = useState([]);
@@ -41,6 +39,7 @@ const Caixa = () => {
     amount: '',
     payment_method: 'cash',
     payment_source: 'cash',
+    rebuy_quantity: 1,
   });
 
   useEffect(() => {
@@ -101,7 +100,7 @@ const Caixa = () => {
 
     // Validate that a day is selected if days exist
     if (tournamentDays.length > 0 && !formData.tournament_day_id) {
-      toast.warning('Por favor, selecione um dia do torneio');
+      toast.warning(t('cashRegister.selectDayWarning'));
       return;
     }
 
@@ -187,7 +186,7 @@ const Caixa = () => {
                 setShowTicketModal(true);
               } else {
                 const errorMsg = errDetail || 'Erro desconhecido';
-                toast.warning(`Jogador registrado, mas não foi possível alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente.`);
+                toast.warning(t('cashRegister.allocationManualWarning', { reason: errorMsg }));
               }
             }
           }
@@ -208,8 +207,11 @@ const Caixa = () => {
             }
           }
 
-          // Process the rebuy
-          await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy?payment_source=${formData.payment_source || 'cash'}`);
+          // Process the rebuy(s) — supports multiple rebuys at once ("recompra dupla").
+          const rebuyQty = Math.max(1, parseInt(formData.rebuy_quantity, 10) || 1);
+          for (let i = 0; i < rebuyQty; i++) {
+            await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy?payment_source=${formData.payment_source || 'cash'}`);
+          }
 
           // Try to auto-allocate after rebuy
           const tournament = tournaments.find(t => t.id === formData.tournament_id);
@@ -275,13 +277,13 @@ const Caixa = () => {
                   setShowTicketModal(true);
                 } else {
                   const errorMsg = errDetail || 'Erro desconhecido';
-                  toast.warning(`Rebuy registrado! Mas não foi possível alocar automaticamente. Motivo: ${errorMsg}. Aloque manualmente.`);
+                  toast.warning(t('cashRegister.rebuyAllocationManualWarning', { reason: errorMsg }));
                 }
               }
             }
           }
         } else {
-          toast.error('Jogador nao esta registrado neste torneio');
+          toast.error(t('cashRegister.playerNotRegistered'));
           return;
         }
       } else if (formData.type === 'addon') {
@@ -291,7 +293,7 @@ const Caixa = () => {
         if (tournamentPlayer) {
           await api.post(`/tournament-players/${tournamentPlayer.id}/addon?payment_source=${formData.payment_source || 'cash'}`);
         } else {
-          toast.error('Jogador nao esta registrado neste torneio');
+          toast.error(t('cashRegister.playerNotRegistered'));
           return;
         }
       }
@@ -305,6 +307,7 @@ const Caixa = () => {
         amount: '',
         payment_method: 'cash',
         payment_source: 'cash',
+        rebuy_quantity: 1,
       });
       setPlayerCredit(0);
       setTournamentDays([]);
@@ -314,8 +317,8 @@ const Caixa = () => {
       const errorMessage =
         error.userMessage ||
         error.response?.data?.detail ||
-        'Erro ao registrar transação';
-      toast.error(typeof errorMessage === 'string' ? errorMessage : 'Erro ao registrar transação');
+        t('cashRegister.registerError');
+      toast.error(typeof errorMessage === 'string' ? errorMessage : t('cashRegister.registerError'));
     }
   };
 
@@ -478,7 +481,7 @@ const Caixa = () => {
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
                 </div>
                 <div className="stat-info">
-                  <h3>{fmt(totals.buy_in)}</h3>
+                  <h3>{formatCurrency(totals.buy_in)}</h3>
                   <p>{t('cashRegister.totalBuyIns')}</p>
                 </div>
               </Card>
@@ -487,7 +490,7 @@ const Caixa = () => {
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                 </div>
                 <div className="stat-info">
-                  <h3>{fmt(totals.rebuy)}</h3>
+                  <h3>{formatCurrency(totals.rebuy)}</h3>
                   <p>{t('cashRegister.totalRebuys')}</p>
                 </div>
               </Card>
@@ -496,7 +499,7 @@ const Caixa = () => {
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
                 </div>
                 <div className="stat-info">
-                  <h3>{fmt(totals.addon)}</h3>
+                  <h3>{formatCurrency(totals.addon)}</h3>
                   <p>{t('cashRegister.totalAddons')}</p>
                 </div>
               </Card>
@@ -505,7 +508,7 @@ const Caixa = () => {
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
                 </div>
                 <div className="stat-info">
-                  <h3 className="cx-stat-total">{fmt(totals.total)}</h3>
+                  <h3 className="cx-stat-total">{formatCurrency(totals.total)}</h3>
                   <p>{t('cashRegister.totalGeneral')}</p>
                 </div>
               </Card>
@@ -560,7 +563,7 @@ const Caixa = () => {
                       </td>
                       <td>{transaction.tournament_name}</td>
                       <td>{getTransactionTypeBadge(transaction.type)}</td>
-                      <td className="amount">{fmt(transaction.amount)}</td>
+                      <td className="amount">{formatCurrency(transaction.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -610,7 +613,7 @@ const Caixa = () => {
                       <option value="">{t('cashRegister.selectDay')}</option>
                       {tournamentDays.map((day) => (
                         <option key={day.id} value={day.id}>
-                          {day.day_name} - {fmt(day.buy_in)} ({day.registered_players}/{day.max_players} jogadores)
+                          {day.day_name} - {formatCurrency(day.buy_in)} ({day.registered_players}/{day.max_players} jogadores)
                         </option>
                       ))}
                     </select>
@@ -658,6 +661,22 @@ const Caixa = () => {
                   </div>
                 </div>
 
+                {formData.type === 'rebuy' && (
+                  <div className="form-group">
+                    <label htmlFor="rebuy_quantity">{t('cashRegister.rebuyQuantity', 'Quantidade de rebuys')}</label>
+                    <input
+                      id="rebuy_quantity"
+                      name="rebuy_quantity"
+                      type="number"
+                      min="1"
+                      max="20"
+                      step="1"
+                      value={formData.rebuy_quantity}
+                      onChange={handleChange}
+                    />
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label htmlFor="payment_method">{t('cashRegister.paymentMethod')}</label>
                   <select
@@ -676,10 +695,10 @@ const Caixa = () => {
                 {/* Credit payment option - only visible when player has credit */}
                 {playerCredit > 0 && formData.player_id && (
                   <div className="form-group cx-credit-option">
-                    <label>Fonte de Pagamento</label>
+                    <label>{t('cashRegister.paymentSource')}</label>
                     <div className="cx-credit-info">
                       <span className="cx-credit-available">
-                        Crédito disponível: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(playerCredit)}
+                        {t('cashRegister.availableCredit', { value: formatCurrency(playerCredit) })}
                       </span>
                     </div>
                     <select
@@ -687,15 +706,15 @@ const Caixa = () => {
                       value={formData.payment_source}
                       onChange={handleChange}
                     >
-                      <option value="cash">Dinheiro / Outros</option>
-                      <option value="credit">Crédito (Patrocinador)</option>
+                      <option value="cash">{t('cashRegister.paymentSourceCash')}</option>
+                      <option value="credit">{t('cashRegister.paymentSourceCredit')}</option>
                       {formData.amount > playerCredit && (
-                        <option value="mixed">Misto (Crédito + Dinheiro)</option>
+                        <option value="mixed">{t('cashRegister.paymentSourceMixed')}</option>
                       )}
                     </select>
                     {formData.payment_source === 'credit' && formData.amount > playerCredit && (
                       <p className="cx-credit-warning">
-                        Crédito insuficiente para o valor total. Será utilizado pagamento misto.
+                        {t('cashRegister.insufficientCreditWarning')}
                       </p>
                     )}
                   </div>
@@ -718,8 +737,8 @@ const Caixa = () => {
               <div className="modal-header">
                 <h2>
                   {allocationData.is_alternate
-                    ? 'Jogador Registrado como Alternate!'
-                    : 'Jogador Registrado e Alocado!'}
+                    ? t('cashRegister.registeredAsAlternate')
+                    : t('cashRegister.registeredAndAllocated')}
                 </h2>
                 <button className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label="Fechar">
                   <span className="close-icon"></span>
@@ -745,7 +764,7 @@ const Caixa = () => {
               </div>
               <div className="modal-actions">
                 <Button onClick={() => { setShowTicketModal(false); loadData(); }}>
-                  Fechar
+                  {t('common.close')}
                 </Button>
               </div>
             </div>

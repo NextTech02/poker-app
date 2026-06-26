@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
@@ -6,28 +7,25 @@ import Breadcrumb from '../components/Breadcrumb';
 import PrizeVoucher from '../components/PrizeVoucher';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { calculatePayoutAllocations } from '../utils/payoutStructure';
 import './Premiacao.css';
-
-const DOC_TYPE_LABELS = {
-  passport: 'Passaporte',
-  national_id: 'Identidade',
-  driver_license: 'CNH',
-};
 
 const getPositionLabel = (position) => `${position}°`;
 
 const getRankClass = () => 'rank-other';
 
-const formatCurrency = (value) => {
-  const num = parseFloat(value) || 0;
-  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
 // ── Main Component ──────────────────────────────────────────────────────────
 
 const Premiacao = () => {
+  const { t } = useTranslation();
   const { toast, confirm } = useToast();
+  const { formatCurrency } = useCurrency();
+  const DOC_TYPE_LABELS = {
+    passport: t('premiacao.docPassport'),
+    national_id: t('premiacao.docIdentity'),
+    driver_license: t('premiacao.docCnh'),
+  };
   const { tournamentId } = useParams();
   const navigate = useNavigate();
 
@@ -113,7 +111,7 @@ const Premiacao = () => {
 
     } catch (err) {
       console.error('Error loading data:', err);
-      setError('Erro ao carregar dados da premiação');
+      setError(t('premiacao.loadError'));
     } finally {
       setLoading(false);
     }
@@ -132,10 +130,10 @@ const Premiacao = () => {
       await api.patch(`/tournaments/${tournamentId}/guaranteed-prize`, {
         guaranteed_prize: parseFloat(guaranteedPrize) || 0
       });
-      toast.success('Premio garantido salvo!');
+      toast.success(t('premiacao.guaranteedSaved'));
       await loadData();
     } catch (err) {
-      setError('Erro ao salvar prêmio garantido');
+      setError(t('premiacao.guaranteedSaveError'));
     } finally {
       setSaving(false);
     }
@@ -148,11 +146,11 @@ const Premiacao = () => {
         reserved_prize_percentage: parseFloat(reservedPct) || 0,
         reserved_purpose: reservedPurpose || null,
       });
-      toast.success('Premiação reservada salva!');
+      toast.success(t('premiacao.reservedSaved'));
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Erro ao salvar premiação reservada');
+      setError(typeof detail === 'string' ? detail : t('premiacao.reservedSaveError'));
     } finally {
       setSaving(false);
     }
@@ -164,11 +162,11 @@ const Premiacao = () => {
       await api.patch(`/tournaments/${tournamentId}/prizes/${allocation.id}/release`, {
         released: !allocation.released,
       });
-      toast.success(!allocation.released ? 'Premiação liberada!' : 'Liberação revogada');
+      toast.success(!allocation.released ? t('premiacao.releaseGranted') : t('premiacao.releaseRevoked'));
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Erro ao alterar liberação');
+      setError(typeof detail === 'string' ? detail : t('premiacao.releaseError'));
     } finally {
       setSaving(false);
     }
@@ -182,7 +180,7 @@ const Premiacao = () => {
       });
       await loadData();
     } catch (err) {
-      setError('Erro ao alterar visibilidade da faixa');
+      setError(t('premiacao.visibilityError'));
     } finally {
       setSaving(false);
     }
@@ -193,7 +191,7 @@ const Premiacao = () => {
     if (!newPosition) return;
     const isVaga = newPrizeType === 'vaga';
     if (isVaga && !newVagaDayId) {
-      setError('Selecione o dia alvo da vaga');
+      setError(t('premiacao.selectVagaDay'));
       return;
     }
     if (!isVaga && !newAmount) return;
@@ -219,14 +217,14 @@ const Premiacao = () => {
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Erro ao adicionar premiação');
+      setError(typeof detail === 'string' ? detail : t('premiacao.addError'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteAllocation = async (allocationId) => {
-    const ok = await confirm('Remover esta posição de premiação?', { variant: 'danger', confirmText: 'Remover' });
+    const ok = await confirm(t('premiacao.confirmRemovePosition'), { variant: 'danger', confirmText: t('premiacao.removeTitle') });
     if (!ok) return;
     try {
       setSaving(true);
@@ -234,7 +232,7 @@ const Premiacao = () => {
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Erro ao remover premiação');
+      setError(typeof detail === 'string' ? detail : t('premiacao.removeError'));
     } finally {
       setSaving(false);
     }
@@ -248,7 +246,7 @@ const Premiacao = () => {
       });
       await loadData();
     } catch (err) {
-      setError('Erro ao atualizar premiação');
+      setError(t('premiacao.updateError'));
     } finally {
       setSaving(false);
     }
@@ -263,17 +261,17 @@ const Premiacao = () => {
     ) || tournamentPlayers.length;
 
     if (entryCount === 0) {
-      toast.error('Nenhuma entrada registrada no torneio.');
+      toast.error(t('premiacao.noEntries'));
       return;
     }
     if (availablePrizePool <= 0) {
-      toast.error('Prizepool disponível é zero. Registre entradas primeiro.');
+      toast.error(t('premiacao.prizepoolZero'));
       return;
     }
 
     const preview = calculatePayoutAllocations(entryCount, availablePrizePool);
     if (preview.length === 0) {
-      toast.error('Nenhuma estrutura encontrada para ' + entryCount + ' entradas.');
+      toast.error(t('premiacao.noStructureFound', { count: entryCount }));
       return;
     }
 
@@ -292,11 +290,11 @@ const Premiacao = () => {
         })),
       });
       setShowAutoModal(false);
-      toast.success(`Premiação aplicada! ${autoPreview.length} posições configuradas.`);
+      toast.success(t('premiacao.autoApplied', { count: autoPreview.length }));
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Erro ao aplicar premiação automática');
+      setError(typeof detail === 'string' ? detail : t('premiacao.autoApplyError'));
     } finally {
       setSaving(false);
     }
@@ -351,7 +349,7 @@ const Premiacao = () => {
     e.preventDefault();
     if (!payoutPlayerId || !payoutDocNumber) return;
     if (!payoutResolvedPlayer) {
-      setPayoutDocError('Nenhum jogador deste torneio possui este documento.');
+      setPayoutDocError(t('premiacao.noPlayerWithDoc'));
       return;
     }
     setPayoutDocError('');
@@ -369,7 +367,7 @@ const Premiacao = () => {
       );
 
       setShowPayoutModal(false);
-      toast.success('Pagamento registrado com sucesso!');
+      toast.success(t('premiacao.paymentSuccess'));
 
       // Prepare voucher data
       const player = tournamentPlayers.find(p => p.player_id === payoutPlayerId);
@@ -389,7 +387,7 @@ const Premiacao = () => {
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : 'Erro ao registrar pagamento');
+      setError(typeof detail === 'string' ? detail : t('premiacao.paymentError'));
     } finally {
       setPayoutSaving(false);
     }
@@ -423,7 +421,7 @@ const Premiacao = () => {
       <div className="app-layout">
         <Sidebar />
         <main className="main-content">
-          <div className="loading-state">Carregando...</div>
+          <div className="loading-state">{t('common.loading')}</div>
         </main>
       </div>
     );
@@ -435,17 +433,11 @@ const Premiacao = () => {
       <main className="main-content">
         {/* A6.4: Breadcrumb */}
         <Breadcrumb items={[
-          { label: 'Início', to: '/' },
-          { label: 'Torneios', to: '/torneios' },
-          { label: 'Premiação' },
+          { label: t('premiacao.breadcrumbHome'), to: '/' },
+          { label: t('premiacao.breadcrumbTournaments'), to: '/torneios' },
+          { label: t('premiacao.title') },
         ]} />
         <div className="premiacao-header">
-          <Button variant="ghost" onClick={() => navigate(-1)}>
-            <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 16, height: 16, flexShrink: 0 }}>
-              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-            </svg>
-            Voltar
-          </Button>
           <div className="premiacao-title-block">
             <div className="premiacao-trophy-icon">
               <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -453,18 +445,24 @@ const Premiacao = () => {
               </svg>
             </div>
             <div>
-              <h1>Premiação</h1>
+              <h1>{t('premiacao.title')}</h1>
               <p className="page-subtitle">{tournament?.name}</p>
             </div>
           </div>
+          <Button variant="ghost" onClick={() => navigate(-1)}>
+            <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 16, height: 16, flexShrink: 0 }}>
+              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+            </svg>
+            {t('common.back')}
+          </Button>
         </div>
 
         {hasQualifyingDays && (
           <div className="qualifying-banner">
             <span className="banner-icon">ℹ</span>
             <span>
-              Torneio com dias classificatórios — o prize pool inclui todos os dias
-              {finalDayName ? `. Dia Final: ${finalDayName}` : ''}.
+              {t('premiacao.qualifyingBanner')}
+              {finalDayName ? `. ${t('premiacao.finalDayLabel', { name: finalDayName })}` : ''}.
             </span>
           </div>
         )}
@@ -482,13 +480,19 @@ const Premiacao = () => {
             className={`prem-tab ${activeTab === 'config' ? 'active' : ''}`}
             onClick={() => setActiveTab('config')}
           >
-            Configuração
+            {t('premiacao.tabConfig')}
+          </button>
+          <button
+            className={`prem-tab ${activeTab === 'reservada' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reservada')}
+          >
+            {t('premiacao.reservedPrize')}
           </button>
           <button
             className={`prem-tab ${activeTab === 'pagamentos' ? 'active' : ''}`}
             onClick={() => setActiveTab('pagamentos')}
           >
-            Pagamentos
+            {t('premiacao.tabPayments')}
             {allocations.filter(a => a.paid).length > 0 && (
               <span className="tab-badge">{allocations.filter(a => a.paid).length}</span>
             )}
@@ -497,76 +501,25 @@ const Premiacao = () => {
             className={`prem-tab ${activeTab === 'liberacao' ? 'active' : ''}`}
             onClick={() => setActiveTab('liberacao')}
           >
-            Liberação
+            {t('premiacao.tabRelease')}
             {allocations.filter(a => a.released && !a.paid).length > 0 && (
               <span className="tab-badge">{allocations.filter(a => a.released && !a.paid).length}</span>
             )}
           </button>
         </div>
 
-        {/* ── TAB: CONFIG ───────────────────────────────────────────────── */}
-        {activeTab === 'config' && (
-          <>
-            {/* Summary Cards */}
-            <div className="prize-summary-grid">
-              <div className="summary-card guaranteed-card">
-                <div className="card-header">
-                  <h3>Prêmio Garantido</h3>
-                </div>
-                <div className="card-content">
-                  <div className="input-with-prefix">
-                    <span className="prefix">R$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="100"
-                      value={guaranteedPrize}
-                      onChange={(e) => setGuaranteedPrize(e.target.value)}
-                      className="guaranteed-input"
-                    />
-                  </div>
-                  <Button size="small" onClick={handleSaveGuaranteed} disabled={saving}>
-                    Salvar
-                  </Button>
-                </div>
+        {/* ── TAB: PREMIAÇÃO RESERVADA ──────────────────────────────────── */}
+        {activeTab === 'reservada' && (
+          <div className="reserved-tab">
+            <div className="summary-card reserved-card">
+              <div className="card-header">
+                <h3>{t('premiacao.reservedPrize')}</h3>
+                <span className="card-subtitle">{t('premiacao.blockedFromPayment')}</span>
               </div>
-
-              <div className="summary-card entries-card">
-                <div className="card-header">
-                  <h3>Total de Entradas</h3>
-                  <span className="card-subtitle">Soma de todos os dias</span>
-                </div>
-                <div className="card-value">R$ {formatCurrency(prizeSummary?.total_entries)}</div>
-              </div>
-
-              <div className="summary-card rake-card">
-                <div className="card-header">
-                  <h3>Rake</h3>
-                  <span className="card-subtitle">{parseFloat(prizeSummary?.rake_percentage || 20).toFixed(0)}%</span>
-                </div>
-                <div className="card-value">
-                  R$ {formatCurrency(
-                    (parseFloat(prizeSummary?.total_entries || 0) * (parseFloat(prizeSummary?.rake_percentage || 20) / 100))
-                  )}
-                </div>
-              </div>
-
-              <div className="summary-card player-pool-card">
-                <div className="card-header">
-                  <h3>Pool dos Jogadores</h3>
-                  <span className="card-subtitle">{100 - parseFloat(prizeSummary?.rake_percentage || 20)}% das entradas</span>
-                </div>
-                <div className="card-value">R$ {formatCurrency(prizeSummary?.player_pool)}</div>
-              </div>
-
-              <div className="summary-card reserved-card">
-                <div className="card-header">
-                  <h3>Premiação Reservada</h3>
-                  <span className="card-subtitle">Bloqueada do pagamento</span>
-                </div>
-                <div className="card-content reserved-content">
+              <div className="card-content reserved-content">
+                <div className="reserved-fields-row">
                   <div className="reserved-field">
-                    <label className="reserved-label">Percentual</label>
+                    <label className="reserved-label">{t('premiacao.percentage')}</label>
                     <div className="input-with-prefix">
                       <input
                         type="number"
@@ -581,29 +534,87 @@ const Premiacao = () => {
                     </div>
                   </div>
                   <div className="reserved-field">
-                    <label className="reserved-label">Destino</label>
+                    <label className="reserved-label">{t('premiacao.purpose')}</label>
                     <select
                       value={reservedPurpose}
                       onChange={(e) => setReservedPurpose(e.target.value)}
                       className="reserved-purpose-select"
                     >
-                      <option value="">Selecione…</option>
-                      <option value="ranking">Ranking</option>
-                      <option value="staff">Staff</option>
+                      <option value="">{t('premiacao.selectEllipsis')}</option>
+                      <option value="ranking">{t('premiacao.purposeRanking')}</option>
+                      <option value="staff">{t('premiacao.purposeStaff')}</option>
                     </select>
                   </div>
-                  <Button
-                    size="small"
-                    onClick={handleSaveReserved}
-                    disabled={saving}
-                    className="reserved-save-btn"
-                  >
-                    {saving ? 'Salvando…' : 'Salvar'}
+                </div>
+                <Button
+                  size="small"
+                  onClick={handleSaveReserved}
+                  disabled={saving}
+                  className="reserved-save-btn"
+                >
+                  {saving ? t('common.saving') : t('common.save')}
+                </Button>
+                {prizeSummary?.reserved_amount > 0 && (
+                  <span className="reserved-result">
+                    {t('premiacao.reservedResult', { value: formatCurrency(prizeSummary?.reserved_amount) })}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: CONFIG ───────────────────────────────────────────────── */}
+        {activeTab === 'config' && (
+          <>
+            {/* Summary Cards */}
+            <div className="prize-summary-grid">
+              <div className="summary-card guaranteed-card">
+                <div className="card-header">
+                  <h3>{t('premiacao.guaranteedPrize')}</h3>
+                </div>
+                <div className="card-content">
+                  <div className="input-with-prefix">
+                    <span className="prefix">R$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={guaranteedPrize}
+                      onChange={(e) => setGuaranteedPrize(e.target.value)}
+                      className="guaranteed-input"
+                    />
+                  </div>
+                  <Button size="small" onClick={handleSaveGuaranteed} disabled={saving}>
+                    {t('common.save')}
                   </Button>
-                  {prizeSummary?.reserved_amount > 0 && (
-                    <span className="reserved-result">
-                      Reservado: <strong>R$ {formatCurrency(prizeSummary?.reserved_amount)}</strong>
-                    </span>
+                </div>
+              </div>
+
+              <div className="summary-card entries-card">
+                <div className="card-header">
+                  <h3>{t('premiacao.totalEntries')}</h3>
+                  <span className="card-subtitle">{t('premiacao.sumOfAllDays')}</span>
+                </div>
+                <div className="card-value">{formatCurrency(prizeSummary?.total_entries)}</div>
+              </div>
+
+              <div className="summary-card player-pool-card">
+                <div className="card-header">
+                  <h3>{t('premiacao.playerPool')}</h3>
+                  <span className="card-subtitle">{t('premiacao.percentOfEntries', { percent: 100 - parseFloat(prizeSummary?.rake_percentage || 20) })}</span>
+                </div>
+                <div className="card-value">{formatCurrency(prizeSummary?.player_pool)}</div>
+              </div>
+
+              <div className="summary-card rake-card">
+                <div className="card-header">
+                  <h3>{t('premiacao.rake')}</h3>
+                  <span className="card-subtitle">{parseFloat(prizeSummary?.rake_percentage || 20).toFixed(0)}%</span>
+                </div>
+                <div className="card-value">
+                  {formatCurrency(
+                    (parseFloat(prizeSummary?.total_entries || 0) * (parseFloat(prizeSummary?.rake_percentage || 20) / 100))
                   )}
                 </div>
               </div>
@@ -614,32 +625,32 @@ const Premiacao = () => {
               <div className="pool-header">
                 <div className="pool-info">
                   <div className="pool-item available">
-                    <span className="pool-label">Prizepool Disponível</span>
-                    <span className="pool-value">R$ {formatCurrency(availablePrizePool)}</span>
-                    <span className="pool-note">Garantido + pool dos jogadores</span>
+                    <span className="pool-label">{t('premiacao.prizepoolAvailable')}</span>
+                    <span className="pool-value">{formatCurrency(availablePrizePool)}</span>
+                    <span className="pool-note">{t('premiacao.guaranteedPlusPool')}</span>
                   </div>
                   <div className="pool-item allocated">
-                    <span className="pool-label">Total Alocado</span>
-                    <span className="pool-value">R$ {formatCurrency(totalAllocated)}</span>
+                    <span className="pool-label">{t('premiacao.totalAllocated')}</span>
+                    <span className="pool-value">{formatCurrency(totalAllocated)}</span>
                   </div>
                   <div className={`pool-item remaining ${remainingBalance < 0 ? 'negative' : ''}`}>
-                    <span className="pool-label">Saldo Restante</span>
-                    <span className="pool-value">R$ {formatCurrency(remainingBalance)}</span>
+                    <span className="pool-label">{t('premiacao.remainingBalance')}</span>
+                    <span className="pool-value">{formatCurrency(remainingBalance)}</span>
                     {remainingBalance < 0 && (
-                      <span className="pool-warning">Alocação excede o disponível!</span>
+                      <span className="pool-warning">{t('premiacao.allocationExceeds')}</span>
                     )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <Button variant="secondary" onClick={handleOpenAutoCalculate}>
-                    ✦ Calcular Automaticamente
+                    {t('premiacao.calculateAuto')}
                   </Button>
                   <Button onClick={() => {
                     setNewPosition(getNextPosition().toString());
                     setNewAmount('');
                     setShowAddModal(true);
                   }}>
-                    Adicionar Posição
+                    {t('premiacao.addPosition')}
                   </Button>
                 </div>
               </div>
@@ -652,17 +663,17 @@ const Premiacao = () => {
                         <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V17H7v2h10v-2h-4v-1.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
                       </svg>
                     </div>
-                    <h3>Nenhuma premiação configurada</h3>
-                    <p>Adicione posições de premiação para distribuir o prizepool</p>
+                    <h3>{t('premiacao.noPrizesConfigured')}</h3>
+                    <p>{t('premiacao.addPositionsHint')}</p>
                   </div>
                 ) : (
                   <table className="allocations-table">
                     <thead>
                       <tr>
-                        <th>Posição</th>
-                        <th>Prêmio</th>
-                        <th>% do Pool</th>
-                        <th>Ações</th>
+                        <th>{t('premiacao.position')}</th>
+                        <th>{t('premiacao.prize')}</th>
+                        <th>{t('premiacao.percentOfPool')}</th>
+                        <th>{t('premiacao.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -679,8 +690,8 @@ const Premiacao = () => {
                     </tbody>
                     <tfoot>
                       <tr>
-                        <td><strong>Total</strong></td>
-                        <td><strong>R$ {formatCurrency(totalAllocated)}</strong></td>
+                        <td><strong>{t('premiacao.total')}</strong></td>
+                        <td><strong>{formatCurrency(totalAllocated)}</strong></td>
                         <td><strong>
                           {availablePrizePool > 0
                             ? ((totalAllocated / availablePrizePool) * 100).toFixed(1)
@@ -702,27 +713,27 @@ const Premiacao = () => {
             <div className="pool-header">
               <div className="pool-info">
                 <div className="pool-item available">
-                  <span className="pool-label">Liberadas</span>
+                  <span className="pool-label">{t('premiacao.releasedColumn')}</span>
                   <span className="pool-value">{allocations.filter(a => a.released).length}/{allocations.length}</span>
-                  <span className="pool-note">Só prêmios liberados podem ser pagos</span>
+                  <span className="pool-note">{t('premiacao.onlyReleasedPaid')}</span>
                 </div>
               </div>
             </div>
             <div className="allocations-table-container">
               {allocations.length === 0 ? (
                 <div className="prem-empty">
-                  <h3>Nenhuma premiação configurada</h3>
-                  <p>Configure as posições antes de liberar pagamentos</p>
+                  <h3>{t('premiacao.noPrizesConfigured')}</h3>
+                  <p>{t('premiacao.configBeforeRelease')}</p>
                 </div>
               ) : (
                 <table className="allocations-table">
                   <thead>
                     <tr>
-                      <th>Posição</th>
-                      <th>Jogador</th>
-                      <th>Prêmio</th>
-                      <th>Visível (público)</th>
-                      <th>Liberação</th>
+                      <th>{t('premiacao.position')}</th>
+                      <th>{t('premiacao.player')}</th>
+                      <th>{t('premiacao.prize')}</th>
+                      <th>{t('premiacao.visiblePublic')}</th>
+                      <th>{t('premiacao.release')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -731,9 +742,9 @@ const Premiacao = () => {
                         <td>{getPositionLabel(allocation.position)}</td>
                         <td>{allocation.player_name || '—'}</td>
                         <td>
-                          R$ {formatCurrency(allocation.prize_amount)}
+                          {formatCurrency(allocation.prize_amount)}
                           {allocation.prize_type === 'vaga' && (
-                            <span className="status-badge" style={{ marginLeft: 6, background: 'rgba(155,89,182,.18)', color: '#9b59b6' }}>Vaga</span>
+                            <span className="status-badge" style={{ marginLeft: 6, background: 'rgba(155,89,182,.18)', color: '#9b59b6' }}>{t('premiacao.vaga')}</span>
                           )}
                         </td>
                         <td>
@@ -742,14 +753,14 @@ const Premiacao = () => {
                             className={`prem-toggle ${allocation.visible ? 'on' : 'off'}`}
                             onClick={() => handleToggleVisible(allocation)}
                             disabled={saving}
-                            title={allocation.visible ? 'Visível na exibição pública' : 'Oculta da exibição pública'}
+                            title={allocation.visible ? t('premiacao.visibleInPublic') : t('premiacao.hiddenFromPublic')}
                           >
-                            {allocation.visible ? '👁 Visível' : '🚫 Oculta'}
+                            {allocation.visible ? t('premiacao.toggleVisible') : t('premiacao.toggleHidden')}
                           </button>
                         </td>
                         <td>
                           {allocation.paid ? (
-                            <span className="status-badge paid">Pago</span>
+                            <span className="status-badge paid">{t('premiacao.statusPaid')}</span>
                           ) : (
                             <button
                               type="button"
@@ -757,7 +768,7 @@ const Premiacao = () => {
                               onClick={() => handleToggleRelease(allocation)}
                               disabled={saving}
                             >
-                              {allocation.released ? '✓ Liberada (revogar)' : 'Liberar'}
+                              {allocation.released ? t('premiacao.releasedRevoke') : t('premiacao.releaseAction')}
                             </button>
                           )}
                         </td>
@@ -780,18 +791,18 @@ const Premiacao = () => {
                     <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V17H7v2h10v-2h-4v-1.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
                   </svg>
                 </div>
-                <h3>Nenhuma posição configurada</h3>
-                <p>Configure as premiações na aba "Configuração" primeiro</p>
+                <h3>{t('premiacao.noPositionConfigured')}</h3>
+                <p>{t('premiacao.configFirst')}</p>
               </div>
             ) : (
               <table className="allocations-table">
                 <thead>
                   <tr>
-                    <th>Posição</th>
-                    <th>Prêmio</th>
-                    <th>Jogador</th>
-                    <th>Status</th>
-                    <th>Ação</th>
+                    <th>{t('premiacao.position')}</th>
+                    <th>{t('premiacao.prize')}</th>
+                    <th>{t('premiacao.player')}</th>
+                    <th>{t('premiacao.statusColumn')}</th>
+                    <th>{t('premiacao.actionColumn')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -827,51 +838,51 @@ const Premiacao = () => {
           <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Adicionar Premiação</h2>
+                <h2>{t('premiacao.addPrizeModalTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowAddModal(false)}>
                   ✕
                 </button>
               </div>
               <form onSubmit={handleAddAllocation}>
                 <div className="form-group">
-                  <label>Posição *</label>
+                  <label>{t('premiacao.positionRequired')}</label>
                   <input
                     type="number"
                     min="1"
                     value={newPosition}
                     onChange={(e) => setNewPosition(e.target.value)}
                     required
-                    placeholder="Ex: 1 para campeão"
+                    placeholder={t('premiacao.positionPlaceholder')}
                   />
-                  <small>1 = Campeão, 2 = Vice, etc.</small>
+                  <small>{t('premiacao.positionHint')}</small>
                 </div>
                 <div className="form-group">
-                  <label>Tipo de Premiação</label>
+                  <label>{t('premiacao.prizeType')}</label>
                   <select value={newPrizeType} onChange={(e) => setNewPrizeType(e.target.value)}>
-                    <option value="cash">Dinheiro</option>
-                    <option value="vaga">Vaga (ticket de entrada)</option>
+                    <option value="cash">{t('premiacao.prizeTypeCash')}</option>
+                    <option value="vaga">{t('premiacao.prizeTypeVaga')}</option>
                   </select>
                 </div>
                 {newPrizeType === 'vaga' ? (
                   <div className="form-group">
-                    <label>Dia alvo da vaga *</label>
+                    <label>{t('premiacao.vagaTargetDay')}</label>
                     <select
                       value={newVagaDayId}
                       onChange={(e) => setNewVagaDayId(e.target.value)}
                       required
                     >
-                      <option value="">Selecione o dia…</option>
+                      <option value="">{t('premiacao.selectDayEllipsis')}</option>
                       {days.map((d) => (
                         <option key={d.id} value={d.id}>
-                          {d.day_name} — buy-in R$ {formatCurrency(d.buy_in)}
+                          {t('premiacao.vagaDayOption', { dayName: d.day_name, buyIn: formatCurrency(d.buy_in) })}
                         </option>
                       ))}
                     </select>
-                    <small>O valor da vaga é igual ao buy-in do dia alvo e não pode ser pago em dinheiro.</small>
+                    <small>{t('premiacao.vagaHint')}</small>
                   </div>
                 ) : (
                   <div className="form-group">
-                    <label>Valor do Prêmio (R$) *</label>
+                    <label>{t('premiacao.prizeAmountRequired')}</label>
                     <input
                       type="number"
                       min="0"
@@ -880,15 +891,15 @@ const Premiacao = () => {
                       onChange={(e) => setNewAmount(e.target.value)}
                       placeholder="0.00"
                     />
-                    <small>Saldo disponível: R$ {formatCurrency(remainingBalance)}</small>
+                    <small>{t('premiacao.availableBalance', { value: formatCurrency(remainingBalance) })}</small>
                   </div>
                 )}
                 <div className="modal-actions">
                   <Button type="button" variant="ghost" onClick={() => setShowAddModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
                   <Button type="submit" disabled={saving}>
-                    {saving ? 'Salvando...' : 'Adicionar'}
+                    {saving ? t('common.saving') : t('common.add')}
                   </Button>
                 </div>
               </form>
@@ -901,7 +912,7 @@ const Premiacao = () => {
           <div className="modal-overlay" onClick={() => setShowPayoutModal(false)}>
             <div className="modal payout-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Registrar Pagamento</h2>
+                <h2>{t('premiacao.registerPayment')}</h2>
                 <button className="close-btn" onClick={() => setShowPayoutModal(false)}>
                   ✕
                 </button>
@@ -909,30 +920,30 @@ const Premiacao = () => {
 
               <div className="payout-position-header">
                 <span className="payout-position-label">{getPositionLabel(payoutAllocation.position)}</span>
-                <span className="payout-prize-value">R$ {formatCurrency(payoutAllocation.prize_amount)}</span>
+                <span className="payout-prize-value">{formatCurrency(payoutAllocation.prize_amount)}</span>
               </div>
 
               {prizePoolInfo && (
                 <div className="payout-balance-info">
                   <div className="payout-balance-row">
-                    <span>Prize Pool do Torneio:</span>
-                    <span>R$ {formatCurrency(prizePoolInfo.prize_pool)}</span>
+                    <span>{t('premiacao.tournamentPrizePool')}</span>
+                    <span>{formatCurrency(prizePoolInfo.prize_pool)}</span>
                   </div>
                   <div className="payout-balance-row">
-                    <span>Ja pago neste torneio:</span>
-                    <span>R$ {formatCurrency(prizePoolInfo.total_paid)}</span>
+                    <span>{t('premiacao.alreadyPaid')}</span>
+                    <span>{formatCurrency(prizePoolInfo.total_paid)}</span>
                   </div>
                   <div className="payout-balance-row payout-balance-row--highlight">
-                    <span>Disponivel no prize pool:</span>
+                    <span>{t('premiacao.availableInPool')}</span>
                     <span className={prizePoolInfo.available >= parseFloat(payoutAllocation.prize_amount) ? 'payout-ok' : 'payout-warn'}>
-                      R$ {formatCurrency(prizePoolInfo.available)}
+                      {formatCurrency(prizePoolInfo.available)}
                     </span>
                   </div>
                   {generalCashBalance !== null && (
                     <div className="payout-balance-row">
-                      <span>Saldo caixa geral:</span>
+                      <span>{t('premiacao.generalCashBalance')}</span>
                       <span className={generalCashBalance >= parseFloat(payoutAllocation.prize_amount) ? 'payout-ok' : 'payout-warn'}>
-                        R$ {formatCurrency(generalCashBalance)}
+                        {formatCurrency(generalCashBalance)}
                       </span>
                     </div>
                   )}
@@ -941,7 +952,7 @@ const Premiacao = () => {
 
               <form onSubmit={handleConfirmPayout}>
                 <div className="form-group">
-                  <label>Número do Documento *</label>
+                  <label>{t('premiacao.documentNumberRequired')}</label>
                   <input
                     type="text"
                     value={payoutDocNumber}
@@ -974,7 +985,7 @@ const Premiacao = () => {
                     }}
                     required
                     autoFocus
-                    placeholder="000.000.000-00"
+                    placeholder={t('premiacao.docNumberPlaceholder')}
                     style={
                       payoutDocError
                         ? { borderColor: '#ef4444' }
@@ -994,7 +1005,7 @@ const Premiacao = () => {
                   <div className="doc-registered-banner">
                     <span className="doc-registered-icon">✓</span>
                     <span>
-                      Jogador: <strong>{payoutResolvedPlayer.name}</strong>
+                      {t('premiacao.playerResolved', { name: '' })}<strong>{payoutResolvedPlayer.name}</strong>
                       {payoutResolvedPlayer.nickname && (
                         <span className="player-nickname"> ({payoutResolvedPlayer.nickname})</span>
                       )}
@@ -1004,31 +1015,30 @@ const Premiacao = () => {
                   </div>
                 ) : payoutDocNumber.trim() ? (
                   <div className="doc-error-msg" style={{ marginBottom: '1rem' }}>
-                    Nenhum jogador deste torneio possui este documento.
+                    {t('premiacao.noPlayerWithDoc')}
                   </div>
                 ) : null}
 
                 <div className="form-group">
-                  <label>Atendente (opcional)</label>
+                  <label>{t('premiacao.attendantOptional')}</label>
                   <input
                     type="text"
                     value={payoutPaidBy}
                     onChange={(e) => setPayoutPaidBy(e.target.value)}
-                    placeholder="Nome do funcionário"
+                    placeholder={t('premiacao.staffNamePlaceholder')}
                   />
                 </div>
 
                 <div className="payout-doc-note">
-                  Digite o documento de identificação. O jogador correspondente
-                  no torneio será exibido automaticamente.
+                  {t('premiacao.docNote')}
                 </div>
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowPayoutModal(false)}>
-                    Cancelar
+                    {t('common.cancel')}
                   </Button>
                   <Button type="submit" disabled={payoutSaving}>
-                    {payoutSaving ? 'Processando...' : 'Confirmar Pagamento'}
+                    {payoutSaving ? t('premiacao.processing') : t('premiacao.confirmPayment')}
                   </Button>
                 </div>
               </form>
@@ -1041,28 +1051,28 @@ const Premiacao = () => {
           <div className="modal-overlay" onClick={() => setShowAutoModal(false)}>
             <div className="modal auto-calc-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Calcular Premiação Automaticamente</h2>
+                <h2>{t('premiacao.autoCalcModalTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowAutoModal(false)}>✕</button>
               </div>
 
               <div className="auto-calc-summary">
                 <div className="auto-calc-stat">
-                  <span className="auto-calc-label">Entradas detectadas</span>
+                  <span className="auto-calc-label">{t('premiacao.entriesDetected')}</span>
                   <span className="auto-calc-value">{autoEntryCount}</span>
                 </div>
                 <div className="auto-calc-stat">
-                  <span className="auto-calc-label">Prizepool disponível</span>
-                  <span className="auto-calc-value">R$ {formatCurrency(availablePrizePool)}</span>
+                  <span className="auto-calc-label">{t('premiacao.prizepoolAvailableShort')}</span>
+                  <span className="auto-calc-value">{formatCurrency(availablePrizePool)}</span>
                 </div>
                 <div className="auto-calc-stat">
-                  <span className="auto-calc-label">Posições premiadas</span>
+                  <span className="auto-calc-label">{t('premiacao.awardedPositions')}</span>
                   <span className="auto-calc-value">{autoPreview.length}</span>
                 </div>
               </div>
 
               {allocations.length > 0 && (
                 <div className="auto-calc-warning">
-                  ⚠ As {allocations.length} posição(ões) existentes serão substituídas.
+                  {t('premiacao.positionsReplaced', { count: allocations.length })}
                 </div>
               )}
 
@@ -1070,9 +1080,9 @@ const Premiacao = () => {
                 <table className="allocations-table">
                   <thead>
                     <tr>
-                      <th>Posição</th>
-                      <th>% do Pool</th>
-                      <th>Valor</th>
+                      <th>{t('premiacao.position')}</th>
+                      <th>{t('premiacao.percentOfPool')}</th>
+                      <th>{t('premiacao.value')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1082,7 +1092,7 @@ const Premiacao = () => {
                           <span className="position-badge rank-other">{getPositionLabel(a.position)}</span>
                         </td>
                         <td className="percentage-cell">{a.percentage}%</td>
-                        <td className="amount-cell">R$ {formatCurrency(a.prize_amount)}</td>
+                        <td className="amount-cell">{formatCurrency(a.prize_amount)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1091,10 +1101,10 @@ const Premiacao = () => {
 
               <div className="modal-actions">
                 <Button type="button" variant="ghost" onClick={() => setShowAutoModal(false)}>
-                  Cancelar
+                  {t('common.cancel')}
                 </Button>
                 <Button onClick={handleConfirmAutoCalculate} disabled={saving}>
-                  {saving ? 'Aplicando...' : 'Confirmar e Aplicar'}
+                  {saving ? t('premiacao.applying') : t('premiacao.confirmAndApply')}
                 </Button>
               </div>
             </div>
@@ -1106,7 +1116,7 @@ const Premiacao = () => {
           <div className="modal-overlay" onClick={() => setShowVoucherModal(false)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Comprovante de Pagamento</h2>
+                <h2>{t('premiacao.paymentVoucher')}</h2>
                 <button className="close-btn" onClick={() => setShowVoucherModal(false)}>
                   ✕
                 </button>
@@ -1115,7 +1125,7 @@ const Premiacao = () => {
                 <PrizeVoucher payout={voucherData} />
               </div>
               <div className="modal-actions">
-                <Button onClick={() => setShowVoucherModal(false)}>Fechar</Button>
+                <Button onClick={() => setShowVoucherModal(false)}>{t('common.close')}</Button>
               </div>
             </div>
           </div>
@@ -1128,6 +1138,8 @@ const Premiacao = () => {
 // ── Config Tab Row ───────────────────────────────────────────────────────────
 
 const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelete, saving }) => {
+  const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(allocation.prize_amount);
 
@@ -1149,7 +1161,7 @@ const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelet
     <tr className={allocation.paid ? 'paid-row' : ''}>
       <td className="position-cell">
         <span className={`position-badge ${getRankClass(allocation.position)}`}>{getPositionLabel(allocation.position)}</span>
-        {allocation.paid && <span className="paid-inline-badge">Pago</span>}
+        {allocation.paid && <span className="paid-inline-badge">{t('premiacao.statusPaid')}</span>}
       </td>
       <td className="amount-cell">
         {editing ? (
@@ -1170,7 +1182,7 @@ const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelet
             onClick={() => !allocation.paid && setEditing(true)}
             className={`editable-value ${allocation.paid ? '' : 'clickable'}`}
           >
-            R$ {formatCurrency(allocation.prize_amount)}
+            {formatCurrency(allocation.prize_amount)}
           </span>
         )}
       </td>
@@ -1180,7 +1192,7 @@ const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelet
           className="btn-small btn-delete"
           onClick={() => onDelete(allocation.id)}
           disabled={saving || allocation.paid}
-          title={allocation.paid ? 'Não pode remover prêmio pago' : 'Remover'}
+          title={allocation.paid ? t('premiacao.cannotRemovePaid') : t('premiacao.removeTitle')}
         >
           X
         </button>
@@ -1192,34 +1204,36 @@ const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelet
 // ── Payout Tab Row ───────────────────────────────────────────────────────────
 
 const PayoutRow = ({ allocation, onPay, onViewVoucher }) => {
+  const { t } = useTranslation();
+  const { formatCurrency } = useCurrency();
   return (
     <tr className={allocation.paid ? 'paid-row' : ''}>
       <td className="position-cell">
         <span className={`position-badge ${getRankClass(allocation.position)}`}>{getPositionLabel(allocation.position)}</span>
       </td>
       <td className="amount-cell">
-        <strong>R$ {formatCurrency(allocation.prize_amount)}</strong>
+        <strong>{formatCurrency(allocation.prize_amount)}</strong>
       </td>
       <td className="player-cell">
         {allocation.player_name
           ? <span className="player-assigned">{allocation.player_name}</span>
-          : <span className="not-assigned">Não atribuído</span>
+          : <span className="not-assigned">{t('premiacao.notAssigned')}</span>
         }
       </td>
       <td className="status-cell">
         {allocation.paid
-          ? <span className="status-badge paid">Pago</span>
-          : <span className="status-badge pending">Pendente</span>
+          ? <span className="status-badge paid">{t('premiacao.statusPaid')}</span>
+          : <span className="status-badge pending">{t('premiacao.statusPending')}</span>
         }
       </td>
       <td className="actions-cell">
         {allocation.paid ? (
           <button className="btn-small btn-view" onClick={() => onViewVoucher(allocation)}>
-            Comprovante
+            {t('premiacao.voucher')}
           </button>
         ) : (
           <button className="btn-small btn-pay" onClick={onPay}>
-            Pagar
+            {t('premiacao.pay')}
           </button>
         )}
       </td>

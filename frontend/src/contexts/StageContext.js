@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { clearCache } from '../utils/apiCache';
 
 const StageContext = createContext({});
 
@@ -23,11 +24,15 @@ export const StageProvider = ({ children }) => {
   }, []);
 
   const selectStage = (stage) => {
+    // Drop cached responses from the previous stage so the next reads can't
+    // serve another stage's data (the stage lives in a header, not the URL).
+    clearCache();
     setSelectedStage(stage);
     localStorage.setItem('selected_stage', JSON.stringify(stage));
   };
 
   const clearStage = () => {
+    clearCache();
     setSelectedStage(null);
     localStorage.removeItem('selected_stage');
   };

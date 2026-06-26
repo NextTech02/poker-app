@@ -3,10 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
 import api from '../config/api';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './RelatorioTorneio.css';
-
-const fmt = (v) =>
-  (parseFloat(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const Stat = ({ label, value, hint }) => (
   <div className="rt-stat">
@@ -19,6 +17,7 @@ const Stat = ({ label, value, hint }) => (
 const RelatorioTorneio = () => {
   const { tournamentId } = useParams();
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -72,18 +71,18 @@ const RelatorioTorneio = () => {
 
             <h3 className="rt-section-title">Financeiro</h3>
             <div className="rt-stats-grid">
-              <Stat label="Arrecadação" value={`R$ ${fmt(report.total_revenue)}`} />
-              <Stat label="Rake" value={`R$ ${fmt(report.rake_amount)}`} hint={`${report.rake_percentage.toFixed(0)}%`} />
-              <Stat label="Garantido" value={`R$ ${fmt(report.guaranteed_prize)}`} />
-              <Stat label="Prizepool disponível" value={`R$ ${fmt(report.available_prize_pool)}`} />
-              <Stat label="Reservado" value={`R$ ${fmt(report.reserved_amount)}`} hint={`${report.reserved_prize_percentage.toFixed(0)}% · ${report.reserved_purpose || 'sem destino'}`} />
-              <Stat label="Pool pagável" value={`R$ ${fmt(report.payable_pool)}`} />
+              <Stat label="Arrecadação" value={formatCurrency(report.total_revenue)} />
+              <Stat label="Rake" value={formatCurrency(report.rake_amount)} hint={`${report.rake_percentage.toFixed(0)}%`} />
+              <Stat label="Garantido" value={formatCurrency(report.guaranteed_prize)} />
+              <Stat label="Prizepool disponível" value={formatCurrency(report.available_prize_pool)} />
+              <Stat label="Reservado" value={formatCurrency(report.reserved_amount)} hint={`${report.reserved_prize_percentage.toFixed(0)}% · ${report.reserved_purpose || 'sem destino'}`} />
+              <Stat label="Pool pagável" value={formatCurrency(report.payable_pool)} />
             </div>
 
             <h3 className="rt-section-title">Premiação</h3>
             <div className="rt-stats-grid">
-              <Stat label="Total alocado" value={`R$ ${fmt(report.total_allocated)}`} />
-              <Stat label="Distribuído (pago)" value={`R$ ${fmt(report.total_distributed)}`} />
+              <Stat label="Total alocado" value={formatCurrency(report.total_allocated)} />
+              <Stat label="Distribuído (pago)" value={formatCurrency(report.total_distributed)} />
               <Stat label="Aguardando liberação" value={report.pending_release} />
               <Stat label="Vagas" value={report.vagas_count} hint={`${report.vagas_generated} ticket(s) gerado(s)`} />
             </div>
@@ -104,12 +103,12 @@ const RelatorioTorneio = () => {
                         <td>{d.day_name}</td>
                         <td>{d.day_type || '—'}</td>
                         <td>{d.status || '—'}</td>
-                        <td>R$ {fmt(d.buy_in)}</td>
+                        <td>{formatCurrency(d.buy_in)}</td>
                         <td>{d.players}</td>
                         <td>{d.buy_ins}</td>
                         <td>{d.rebuys}</td>
                         <td>{d.addons}</td>
-                        <td>R$ {fmt(d.revenue)}</td>
+                        <td>{formatCurrency(d.revenue)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -132,7 +131,7 @@ const RelatorioTorneio = () => {
                       <tr key={p.position}>
                         <td>{p.position}º</td>
                         <td>{p.prize_type === 'vaga' ? 'Vaga' : 'Dinheiro'}</td>
-                        <td>R$ {fmt(p.prize_amount)}</td>
+                        <td>{formatCurrency(p.prize_amount)}</td>
                         <td>{p.player_name || '—'}</td>
                         <td>{p.released ? '✓' : '—'}</td>
                         <td>{p.paid ? '✓' : '—'}</td>

@@ -52,7 +52,7 @@
   border-radius: 8px;
   border: 1px solid rgba(212, 175, 55, 0.5);
   background: rgba(212, 175, 55, 0.08);
-  color: #d4af37;
+  color: var(--brand-gold);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -149,7 +149,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.7px;
-  color: var(--text-gold, #d4af37);
+  color: var(--text-gold, var(--brand-gold));
 }
 
 .bs-card-body {
@@ -309,7 +309,7 @@
 .bs-slider-val {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text-gold, #d4af37);
+  color: var(--text-gold, var(--brand-gold));
   font-variant-numeric: tabular-nums;
 }
 
@@ -325,8 +325,8 @@
   border-radius: 2px;
   background: linear-gradient(
     to right,
-    var(--text-gold, #d4af37) 0%,
-    var(--text-gold, #d4af37) var(--pct, 50%),
+    var(--text-gold, var(--brand-gold)) 0%,
+    var(--text-gold, var(--brand-gold)) var(--pct, 50%),
     rgba(255,255,255,0.12) var(--pct, 50%),
     rgba(255,255,255,0.12) 100%
   );
@@ -341,7 +341,7 @@
   height: 16px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid var(--text-gold, #d4af37);
+  border: 2px solid var(--text-gold, var(--brand-gold));
   cursor: pointer;
   transition: transform 0.15s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);
@@ -624,7 +624,7 @@
 .bs-preview-mode-btn.active {
   background: rgba(212,175,55,0.12);
   border-color: rgba(212,175,55,0.5);
-  color: #d4af37;
+  color: var(--brand-gold);
 }
 
 /* ── Layout selector (split / fullscreen / overlay) ── */
@@ -655,7 +655,7 @@
 .bs-layout-opt.active {
   border-color: rgba(212,175,55,0.55);
   background: rgba(212,175,55,0.1);
-  color: #d4af37;
+  color: var(--brand-gold);
 }
 
 /* ═══════════════════════════════════════════════════════════════

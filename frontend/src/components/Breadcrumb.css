@@ -8,14 +8,14 @@
 }
 
 .breadcrumb-link {
-  color: var(--text-secondary, #8899aa);
+  color: var(--text-secondary, var(--text-secondary));
   text-decoration: none;
   transition: color 0.15s;
   font-weight: 500;
 }
 
 .breadcrumb-link:hover {
-  color: var(--poker-green, #22c55e);
+  color: var(--poker-green, var(--brand-green));
 }
 
 .breadcrumb-sep {
