@@ -200,45 +200,45 @@
   opacity: 0.5;
 }
 
-/* Sangria Table */
+/* Sangria Table — tema escuro, consistente com o restante do app */
 .table-container {
   overflow-x: auto;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color, #243443);
 }
 
 .sangria-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 0;
-  background: white;
+  background: transparent;
 }
 
 .sangria-table thead th {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1rem 1.25rem;
+  background: var(--surface-2, #16212e);
+  padding: 0.9rem 1.25rem;
   text-align: left;
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: white;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--text-secondary, #9fb3c8);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border: none;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color, #243443);
 }
 
 .sangria-table tbody td {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #e9ecef;
-  color: #495057;
-  font-size: 0.95rem;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--border-color, #1f2c3a);
+  color: var(--text, #e6edf3);
+  font-size: 0.9rem;
 }
 
 .sangria-table tbody tr {
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .sangria-table tbody tr:hover {
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .sangria-table tbody tr:last-child td {
@@ -248,7 +248,13 @@
 .sangria-table .amount {
   font-weight: 700;
   text-align: right;
-  font-family: 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rake (valor) discreto só na tabela — sem afetar o card "Rake Acumulado" */
+.sangria-table td.rake-amount {
+  color: var(--text-secondary, #9fb3c8) !important;
+  font-weight: 600;
 }
 
 /* Sangria Modal */
