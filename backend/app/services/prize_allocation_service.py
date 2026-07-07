@@ -64,70 +64,46 @@ class PrizeAllocationService:
     def calculate_total_entries(tournament_id: UUID) -> tuple[Decimal, Decimal, bool]:
         """
         Calculate total entries (buy_ins + rebuys + addons) for ALL days of a tournament.
-        Returns tuple of (total_entries, avg_rake_percentage, has_qualifying_days).
-        Rake average excludes final days (they don't independently collect buy-ins).
+        Returns tuple of (total_entries, effective_rake_percentage, has_qualifying_days).
+
+        FASE 1 (tipos de buy): o rake é a SOMA do rake real por transação
+        (transactions.rake_amount) — não mais o % médio dos dias. Devolvemos o
+        rake EFETIVO (= rake_total / entries * 100) para que os cálculos de pool
+        (player_pool = entries - rake) reflitam o rake real, inclusive quando
+        cada tipo de buy tem um rake diferente.
         """
         days_response = supabase.table("tournament_days")\
-            .select("id, rake_percentage, day_type")\
+            .select("day_type")\
             .eq("tournament_id", str(tournament_id))\
             .execute()
-
-        if not days_response.data:
-            return Decimal("0"), Decimal("20"), False
 
         has_qualifying = any(
             d.get("day_type") in ("qualifying", "final")
-            for d in days_response.data
+            for d in (days_response.data or [])
         )
 
-        # For rake calculation: exclude 'final' days (they don't directly collect money)
-        rake_days = [d for d in days_response.data if d.get("day_type") != "final"]
-        if not rake_days:
-            rake_days = days_response.data  # fallback: use all days
-
-        # Weighted average rake: weight each day's rake_percentage by its actual revenue
-        # (mirrors TournamentDashboard.js logic).
-        # Batch: one query for all rake-days' players instead of one per day
-        # (was 1 + N round-trips to a remote Postgres for an N-day tournament).
-        rake_day_ids = [d["id"] for d in rake_days]
-        tp_rows = []
-        if rake_day_ids:
-            tp_resp = supabase.table("tournament_players")\
-                .select("tournament_day_id, total_buy_in_amount, total_rebuy_amount, total_addon_amount")\
-                .in_("tournament_day_id", rake_day_ids)\
-                .execute()
-            tp_rows = tp_resp.data or []
-
-        rev_by_day: dict = {}
-        for p in tp_rows:
-            did = p.get("tournament_day_id")
-            rev_by_day[did] = rev_by_day.get(did, Decimal("0")) + (
-                Decimal(str(p.get("total_buy_in_amount") or 0)) +
-                Decimal(str(p.get("total_rebuy_amount") or 0)) +
-                Decimal(str(p.get("total_addon_amount") or 0))
-            )
-
-        weighted_rake_sum = Decimal("0")
-        total_day_revenue = Decimal("0")
-        for day in rake_days:
-            day_rev = rev_by_day.get(day["id"], Decimal("0"))
-            weighted_rake_sum += day_rev * Decimal(str(day.get("rake_percentage", 20)))
-            total_day_revenue += day_rev
-
-        avg_rake = weighted_rake_sum / total_day_revenue if total_day_revenue > 0 else Decimal("20")
-
-        # Sum ALL transactions regardless of day type
-        transactions_response = supabase.table("transactions")\
-            .select("amount, type")\
-            .eq("tournament_id", str(tournament_id))\
-            .in_("type", ["buy_in", "rebuy", "addon"])\
-            .execute()
-
+        # Soma bruta das entradas + rake real, agregados no banco (1 round-trip).
+        # Fallback: busca as linhas e soma em Python se a RPC não existir.
         total = Decimal("0")
-        for t in transactions_response.data:
-            total += Decimal(str(t["amount"]))
+        total_rake = Decimal("0")
+        try:
+            r = supabase.rpc("get_tournament_entry_totals", {"p_tournament_id": str(tournament_id)}).execute()
+            if r.data:
+                total = Decimal(str(r.data[0].get("total") or 0))
+                total_rake = Decimal(str(r.data[0].get("total_rake") or 0))
+        except Exception:
+            transactions_response = supabase.table("transactions")\
+                .select("amount, rake_amount")\
+                .eq("tournament_id", str(tournament_id))\
+                .in_("type", ["buy_in", "rebuy", "addon"])\
+                .execute()
+            for t in (transactions_response.data or []):
+                total += Decimal(str(t.get("amount") or 0))
+                total_rake += Decimal(str(t.get("rake_amount") or 0))
 
-        return total, avg_rake, has_qualifying
+        effective_rake = (total_rake / total * Decimal("100")) if total > 0 else Decimal("0")
+
+        return total, effective_rake, has_qualifying
 
     @staticmethod
     def get_prize_summary(tournament_id: UUID) -> PrizeSummary:

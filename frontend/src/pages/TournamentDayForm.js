@@ -28,7 +28,9 @@ const TournamentDayForm = () => {
     rebuy_amount: 100,
     addon_amount: 100,
     max_players: 100,
-    rake_percentage: 20,
+    // Rake não é mais configurado aqui — vem dos "Tipos de Buy" (fonte única).
+    // 0 por padrão; sem tipo de buy selecionado no Caixa, o rake é 0.
+    rake_percentage: 0,
     starting_chips: 10000,
     rebuy_chips: 10000,
     addon_chips: 10000,
@@ -79,12 +81,13 @@ const TournamentDayForm = () => {
           currency: day.currency || 'BRL',
         });
       } else {
-        // For new day, set day_number to next available and default day_type based on tournament
-        const hasQualifying = tournamentRes.data.has_qualifying;
+        // Novos dias adicionados manualmente são sempre 'regular' — os dias
+        // classificatórios e o final são gerados automaticamente na criação do
+        // torneio classificatório.
         setFormData(prev => ({
           ...prev,
           day_number: daysRes.data.length + 1,
-          day_type: hasQualifying ? 'qualifying' : 'regular',
+          day_type: 'regular',
         }));
       }
     } catch (err) {
@@ -129,7 +132,14 @@ const TournamentDayForm = () => {
       if (isEditing) {
         await api.patch(`/tournament-days/${dayId}`, dayData);
       } else {
-        await api.post('/tournament-days', dayData);
+        const createRes = await api.post('/tournament-days', dayData);
+        const newDayId = createRes?.data?.id;
+        // Herança automática: um novo dia (exceto o Final) já nasce com a mesma
+        // estrutura de blinds dos dias classificatórios — copiamos os blinds de
+        // um dia classificatório existente que já tenha estrutura configurada.
+        if (newDayId && formData.day_type !== 'final') {
+          await inheritBlindsFromQualifying(newDayId);
+        }
       }
 
       // Navigate back to tournament detail
@@ -146,6 +156,40 @@ const TournamentDayForm = () => {
       setError(errorMessage);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Copia a estrutura de blinds de um dia classificatório existente para o novo
+  // dia recém-criado. Best-effort: se nenhum classificatório tiver blinds ainda,
+  // simplesmente não copia nada (o dia fica vazio, como antes).
+  const inheritBlindsFromQualifying = async (newDayId) => {
+    try {
+      const sourceDays = days.filter(d => d.day_type === 'qualifying' && d.id !== newDayId);
+      let sourceBlinds = [];
+      for (const d of sourceDays) {
+        const res = await api.get(`/tournament-days/${d.id}/blinds`);
+        if (res?.data?.length) {
+          sourceBlinds = res.data;
+          break;
+        }
+      }
+      if (!sourceBlinds.length) return;
+
+      const ordered = [...sourceBlinds].sort((a, b) => a.level - b.level);
+      for (const b of ordered) {
+        await api.post(`/tournament-days/${newDayId}/blinds`, {
+          level: b.level,
+          small_blind: b.small_blind,
+          big_blind: b.big_blind,
+          ante: b.ante,
+          duration: b.duration,
+          is_break: b.is_break,
+        });
+      }
+      toast.success(t('tournamentDayForm.blindsInherited', 'Estrutura de blinds herdada dos dias classificatórios.'));
+    } catch (err) {
+      console.error('Erro ao herdar blinds:', err);
+      toast.warning(t('tournamentDayForm.blindsInheritError', 'Dia criado, mas não foi possível herdar a estrutura de blinds. Configure na tela de Blinds.'));
     }
   };
 
@@ -210,8 +254,11 @@ const TournamentDayForm = () => {
                     onChange={(e) => setFormData({ ...formData, day_type: e.target.value, qualifies_to_day_id: '' })}
                   >
                     <option value="regular">{t('tournamentDays.regular')}</option>
-                    <option value="qualifying">{t('tournamentDays.qualifying')}</option>
-                    <option value="final">{t('tournamentDays.final')}</option>
+                    {/* Classificatório e Final só aparecem ao EDITAR um dia que já
+                        é desse tipo — na criação manual só existe "Regular", pois
+                        classificatórios/final são gerados na criação do torneio. */}
+                    {isEditing && <option value="qualifying">{t('tournamentDays.qualifying')}</option>}
+                    {isEditing && <option value="final">{t('tournamentDays.final')}</option>}
                   </select>
                   <small className="form-hint">
                     {formData.day_type === 'qualifying' && t('tournamentDayForm.qualifyingHint')}
@@ -279,18 +326,6 @@ const TournamentDayForm = () => {
                       step="0.01"
                       value={formData.addon_amount}
                       onChange={(e) => setFormData({ ...formData, addon_amount: parseFloat(e.target.value) })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="rake_percentage">{t('cashRegister.rake')} (%)</label>
-                    <input
-                      id="rake_percentage"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={formData.rake_percentage}
-                      onChange={(e) => setFormData({ ...formData, rake_percentage: parseFloat(e.target.value) })}
                     />
                   </div>
                   <div className="form-group">

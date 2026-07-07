@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -21,15 +22,11 @@ const TournamentRankings = () => {
 
   useEffect(() => {
     loadData();
-
-    // Setup polling (every 5 seconds)
-    const pollingInterval = setInterval(() => {
-      loadData();
-    }, 5000);
-
-    return () => clearInterval(pollingInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId]);
+
+  // Polling de 5s que pausa quando a aba está oculta.
+  usePolling(() => loadData(), 5000);
 
   const loadData = async () => {
     try {

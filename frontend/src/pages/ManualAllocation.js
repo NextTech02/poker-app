@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -24,15 +25,11 @@ const ManualAllocation = () => {
 
   useEffect(() => {
     loadData();
-
-    // Setup polling (every 3 seconds)
-    const pollingInterval = setInterval(() => {
-      loadData();
-    }, 3000);
-
-    return () => clearInterval(pollingInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId]);
+
+  // Polling que pausa quando a aba está oculta (era 3s, agora 5s).
+  usePolling(() => loadData(), 5000);
 
   const loadData = async () => {
     try {

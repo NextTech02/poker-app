@@ -415,13 +415,24 @@ class AllocationService:
 
     @staticmethod
     def _sync_table_counts(tables, table_counts):
-        """Update occupied_seats on all tables to match actual counts."""
+        """Update occupied_seats on all tables to match actual counts.
+
+        Agrupa as mesas pelo novo valor de occupied_seats e faz UMA query por
+        valor distinto (com .in_(ids)) em vez de uma por mesa (N+1).
+        """
+        from collections import defaultdict
+        by_count = defaultdict(list)
         for t in tables:
             tid = t["id"]
-            if table_counts.get(tid, 0) != t.get("occupied_seats", 0):
-                supabase.table("tournament_tables").update(
-                    {"occupied_seats": table_counts[tid]}
-                ).eq("id", tid).execute()
+            new_count = table_counts.get(tid, 0)
+            if new_count != t.get("occupied_seats", 0):
+                by_count[new_count].append(tid)
+
+        for count, ids in by_count.items():
+            supabase.table("tournament_tables")\
+                .update({"occupied_seats": count})\
+                .in_("id", ids)\
+                .execute()
 
     @staticmethod
     def get_allocation_with_details(allocation_id: str) -> SeatAllocationWithDetails:

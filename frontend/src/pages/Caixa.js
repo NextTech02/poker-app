@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
@@ -11,11 +11,32 @@ import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { useBuyTypes } from '../contexts/BuyTypesContext';
+import { methodLabel } from '../utils/paymentMethodLabels';
+import { usePolling } from '../hooks/usePolling';
 import './Caixa.css';
 
 const Caixa = () => {
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
+  const { activeMethods } = usePaymentMethods();
+  const { activeBuyTypes } = useBuyTypes();
+
+  const buyCategoryLabel = (c) =>
+    c === 'rebuy' ? t('cashRegister.rebuy', 'Rebuy') : c === 'addon' ? t('cashRegister.addon', 'Add-on') : t('cashRegister.buyIn', 'Buy-in');
+
+  // Ao escolher um tipo de buy, ele define a categoria (type) e o rake. O VALOR
+  // da entrada vem da configuração do dia do torneio, não do tipo.
+  const handleBuyTypeChange = (e) => {
+    const id = e.target.value;
+    const bt = activeBuyTypes.find((b) => b.id === id);
+    if (bt) {
+      setFormData((prev) => ({ ...prev, buy_type_id: id, type: bt.category }));
+    } else {
+      setFormData((prev) => ({ ...prev, buy_type_id: '' }));
+    }
+  };
   const [transactions, setTransactions] = useState([]);
   const [tournaments, setTournaments] = useState([]);
   const [tournamentDays, setTournamentDays] = useState([]);
@@ -27,6 +48,8 @@ const Caixa = () => {
   const [playerCredit, setPlayerCredit] = useState(0);
   // Caixa modular do operador: undefined=carregando, null=super-admin/sem caixa, obj=caixa
   const [myCashbox, setMyCashbox] = useState(undefined);
+  // ID da transação cujo bilhete está sendo rebuscado para reimpressão (null = nenhum)
+  const [reprintingId, setReprintingId] = useState(null);
 
   // Bloqueia novas transações se o operador tem um caixa que não está aberto.
   // myCashbox null (super-admin/sem caixa) ou undefined (carregando) → não bloqueia.
@@ -40,20 +63,27 @@ const Caixa = () => {
     payment_method: 'cash',
     payment_source: 'cash',
     rebuy_quantity: 1,
+    buy_type_id: '',
   });
 
   useEffect(() => {
     loadData();
-
-    // Setup polling (every 5 seconds)
-    const pollingInterval = setInterval(() => {
-      loadData();
-    }, 5000);
-
-    return () => {
-      clearInterval(pollingInterval);
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Polling que pausa quando a aba está oculta (reduz carga em produção).
+  usePolling(() => loadData(), 5000);
+
+  // Mantém o método de pagamento selecionado válido conforme a lista configurada
+  // (ex.: se "Dinheiro" foi removido, cai para o primeiro método ativo).
+  useEffect(() => {
+    if (activeMethods.length === 0) return;
+    setFormData((prev) =>
+      activeMethods.some((m) => m.code === prev.payment_method)
+        ? prev
+        : { ...prev, payment_method: activeMethods[0].code }
+    );
+  }, [activeMethods]);
 
   const loadData = async () => {
     try {
@@ -113,6 +143,8 @@ const Caixa = () => {
           player_id: formData.player_id,
           buy_in_count: 1,
           payment_source: formData.payment_source || 'cash',
+          payment_method: formData.payment_method || 'cash',
+          buy_type_id: formData.buy_type_id || null,
           notes: `Registrado via Caixa - ${formData.payment_method}`,
         });
 
@@ -210,7 +242,7 @@ const Caixa = () => {
           // Process the rebuy(s) — supports multiple rebuys at once ("recompra dupla").
           const rebuyQty = Math.max(1, parseInt(formData.rebuy_quantity, 10) || 1);
           for (let i = 0; i < rebuyQty; i++) {
-            await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy?payment_source=${formData.payment_source || 'cash'}`);
+            await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy?payment_source=${formData.payment_source || 'cash'}&payment_method=${formData.payment_method || 'cash'}${formData.buy_type_id ? `&buy_type_id=${formData.buy_type_id}` : ''}`);
           }
 
           // Try to auto-allocate after rebuy
@@ -291,7 +323,7 @@ const Caixa = () => {
         const playersRes = await api.get(`/tournament-players/tournament/${formData.tournament_id}`);
         const tournamentPlayer = playersRes.data.find(p => p.player_id === formData.player_id);
         if (tournamentPlayer) {
-          await api.post(`/tournament-players/${tournamentPlayer.id}/addon?payment_source=${formData.payment_source || 'cash'}`);
+          await api.post(`/tournament-players/${tournamentPlayer.id}/addon?payment_source=${formData.payment_source || 'cash'}&payment_method=${formData.payment_method || 'cash'}${formData.buy_type_id ? `&buy_type_id=${formData.buy_type_id}` : ''}`);
         } else {
           toast.error(t('cashRegister.playerNotRegistered'));
           return;
@@ -308,6 +340,7 @@ const Caixa = () => {
         payment_method: 'cash',
         payment_source: 'cash',
         rebuy_quantity: 1,
+        buy_type_id: '',
       });
       setPlayerCredit(0);
       setTournamentDays([]);
@@ -319,6 +352,50 @@ const Caixa = () => {
         error.response?.data?.detail ||
         t('cashRegister.registerError');
       toast.error(typeof errorMessage === 'string' ? errorMessage : t('cashRegister.registerError'));
+    }
+  };
+
+  // Reimprime o bilhete de um jogador a partir de uma transação já registrada.
+  // Útil quando a impressora falha ou o jogador perde o bilhete após fechar o
+  // pop-up. Busca a alocação atual (mesa/assento) do jogador; se não houver
+  // assento, reimprime como alternate.
+  const handleReprint = async (transaction) => {
+    setReprintingId(transaction.id);
+    try {
+      const res = await api
+        .get(`/allocations/tournament/${transaction.tournament_id}`)
+        .catch(() => ({ data: [] }));
+      const alloc = (res.data || []).find(a => a.player_id === transaction.player_id);
+
+      if (alloc) {
+        setAllocationData({
+          id: alloc.id,
+          player_name: transaction.player_name || alloc.players?.name || '—',
+          tournament_name: transaction.tournament_name || '',
+          day_name: alloc.day_name || '',
+          table_number: alloc.tournament_tables?.table_number,
+          seat_number: alloc.seat_number,
+          created_at: alloc.created_at || transaction.created_at,
+          is_alternate: false,
+          is_reprint: true,
+        });
+      } else {
+        // Sem assento alocado → jogador é alternate (ou torneio com alocação manual)
+        setAllocationData({
+          id: transaction.player_id,
+          player_name: transaction.player_name || '—',
+          tournament_name: transaction.tournament_name || '',
+          day_name: '',
+          is_alternate: true,
+          created_at: transaction.created_at,
+          is_reprint: true,
+        });
+      }
+      setShowTicketModal(true);
+    } catch (error) {
+      toast.error(t('cashRegister.reprintError'));
+    } finally {
+      setReprintingId(null);
     }
   };
 
@@ -414,23 +491,16 @@ const Caixa = () => {
     return <span className={`badge ${badge.className}`}>{badge.label}</span>;
   };
 
-  const getTotalByType = () => {
-    const totals = {
-      buy_in: 0,
-      rebuy: 0,
-      addon: 0,
-      total: 0,
-    };
-
+  // Memoizado: só recalcula quando a lista de transações muda (não a cada render).
+  const totals = useMemo(() => {
+    const acc = { buy_in: 0, rebuy: 0, addon: 0, total: 0 };
     transactions.forEach(t => {
-      totals[t.type] += parseFloat(t.amount);
-      totals.total += parseFloat(t.amount);
+      const v = parseFloat(t.amount) || 0;
+      if (acc[t.type] !== undefined) acc[t.type] += v;
+      acc.total += v;
     });
-
-    return totals;
-  };
-
-  const totals = getTotalByType();
+    return acc;
+  }, [transactions]);
 
   const handleNewTransaction = () => {
     if (cashboxBlocked) {
@@ -522,14 +592,14 @@ const Caixa = () => {
             <table className="transactions-table">
               <thead>
                 <tr>
-                  <th>{t('common.date','Data')}</th><th>{t('cashRegister.player','Jogador')}</th><th>{t('cashRegister.tournament','Torneio')}</th><th>{t('cashRegister.type','Tipo')}</th><th>{t('cashRegister.amount','Valor')}</th>
+                  <th>{t('common.date','Data')}</th><th>{t('cashRegister.player','Jogador')}</th><th>{t('cashRegister.tournament','Torneio')}</th><th>{t('cashRegister.type','Tipo')}</th><th>{t('cashRegister.amount','Valor')}</th><th>{t('cashRegister.actions','Ações')}</th>
                 </tr>
               </thead>
               <tbody>
-                <SkeletonTableRow cols={5} />
-                <SkeletonTableRow cols={5} />
-                <SkeletonTableRow cols={5} />
-                <SkeletonTableRow cols={5} />
+                <SkeletonTableRow cols={6} />
+                <SkeletonTableRow cols={6} />
+                <SkeletonTableRow cols={6} />
+                <SkeletonTableRow cols={6} />
               </tbody>
             </table>
           ) : transactions.length === 0 ? (
@@ -549,6 +619,7 @@ const Caixa = () => {
                     <th>{t('cashRegister.tournament','Torneio')}</th>
                     <th>{t('cashRegister.type','Tipo')}</th>
                     <th>{t('cashRegister.amount','Valor')}</th>
+                    <th>{t('cashRegister.actions','Ações')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -564,6 +635,22 @@ const Caixa = () => {
                       <td>{transaction.tournament_name}</td>
                       <td>{getTransactionTypeBadge(transaction.type)}</td>
                       <td className="amount">{formatCurrency(transaction.amount)}</td>
+                      <td>
+                        {(transaction.type === 'buy_in' || transaction.type === 'rebuy') && (
+                          <button
+                            type="button"
+                            className="reprint-btn"
+                            title={t('cashRegister.reprintTooltip')}
+                            disabled={reprintingId === transaction.id}
+                            onClick={() => handleReprint(transaction)}
+                          >
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                              <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
+                            </svg>
+                            <span>{reprintingId === transaction.id ? '…' : t('cashRegister.reprint')}</span>
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -630,6 +717,25 @@ const Caixa = () => {
                   />
                 </div>
 
+                {activeBuyTypes.length > 0 && (
+                  <div className="form-group">
+                    <label htmlFor="buy_type_id">{t('cashRegister.buyType', 'Tipo de Buy')}</label>
+                    <select
+                      id="buy_type_id"
+                      name="buy_type_id"
+                      value={formData.buy_type_id}
+                      onChange={handleBuyTypeChange}
+                    >
+                      <option value="">{t('cashRegister.buyTypeNone', 'Manual (valor do dia)')}</option>
+                      {activeBuyTypes.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} — {buyCategoryLabel(b.category)} · {Number(b.rake_percentage)}% rake
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="type">{t('cashRegister.type')}</label>
@@ -685,10 +791,12 @@ const Caixa = () => {
                     value={formData.payment_method}
                     onChange={handleChange}
                   >
-                    <option value="cash">{t('cashRegister.cash')}</option>
-                    <option value="pix">{t('cashRegister.pix')}</option>
-                    <option value="card">{t('cashRegister.card')}</option>
-                    <option value="transfer">{t('cashRegister.transfer')}</option>
+                    {activeMethods.length === 0 && (
+                      <option value="cash">{t('cashRegister.cash')}</option>
+                    )}
+                    {activeMethods.map((m) => (
+                      <option key={m.id} value={m.code}>{methodLabel(t, m)}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -736,9 +844,11 @@ const Caixa = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>
-                  {allocationData.is_alternate
-                    ? t('cashRegister.registeredAsAlternate')
-                    : t('cashRegister.registeredAndAllocated')}
+                  {allocationData.is_reprint
+                    ? t('cashRegister.reprintTitle')
+                    : allocationData.is_alternate
+                      ? t('cashRegister.registeredAsAlternate')
+                      : t('cashRegister.registeredAndAllocated')}
                 </h2>
                 <button className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label="Fechar">
                   <span className="close-icon"></span>

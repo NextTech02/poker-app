@@ -15,6 +15,7 @@ class FinancialService:
         stage_id: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
+        tournament_id: Optional[str] = None,
     ) -> FinancialSummary:
         """Generate comprehensive financial summary for DRE and closing"""
 
@@ -40,6 +41,10 @@ class FinancialService:
                     rake=0,
                     net_result=0,
                 )
+
+        # Filtro por torneio específico (compõe com etapa/datas).
+        if tournament_id:
+            query = query.eq("tournament_id", tournament_id)
 
         if start_date:
             query = query.gte("created_at", start_date)
@@ -115,6 +120,7 @@ class FinancialService:
                 player_name=p_name,
                 type=tx_type,
                 payment_source=tx.get("payment_source"),
+                payment_method=tx.get("payment_method"),
                 amount=amount,
             ))
 
@@ -134,14 +140,15 @@ class FinancialService:
         redeemed_tickets = tickets_query.execute().data or []
         tickets_redeemed_value = sum(float(t.get("ticket_value") or 0) for t in redeemed_tickets)
 
-        # ── 4. Rake ──
-        rake_total = 0.0
-        try:
-            rake_resp = supabase.table("rake_register").select("total_rake").limit(1).execute()
-            if rake_resp.data:
-                rake_total = float(rake_resp.data[0].get("total_rake") or 0)
-        except Exception:
-            pass
+        # ── 4. Rake — soma do rake REAL por transação (Fase 1: tipos de buy).
+        # Antes lia rake_register.total_rake (global, alimentado pela sangria).
+        # Agora soma transactions.rake_amount do período/etapa filtrados, então o
+        # rake reflete o % real de cada tipo de buy e respeita os filtros.
+        rake_total = sum(
+            float(tx.get("rake_amount") or 0)
+            for tx in transactions_data
+            if tx.get("type") in ("buy_in", "rebuy", "addon")
+        )
 
         # ── 5. Pending credits ──
         pending_credits = 0.0

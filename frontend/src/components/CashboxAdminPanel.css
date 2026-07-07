@@ -90,6 +90,17 @@
   color: var(--text-primary, #f9fafb);
 }
 
+/* Rake automático (Fase 2) — exibido em vez do input de % manual */
+.sangria-rake-auto {
+  padding: 0.7rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color, #243443);
+  border-radius: 8px;
+  color: var(--gold, #d4af37);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 768px) {
   .cb-admin__actions {
     flex-direction: column;

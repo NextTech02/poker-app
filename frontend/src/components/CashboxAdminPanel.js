@@ -34,8 +34,18 @@ const CashboxAdminPanel = () => {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [rakePct, setRakePct] = useState('20.00'); // só para stageSangria
+  const [pendingRake, setPendingRake] = useState(0); // rake pendente da etapa (auto)
   const [stageCash, setStageCash] = useState(null); // saldo do caixa da etapa
+
+  // Rake automático da sangria (Fase 2): proporcional ao rake pendente da etapa.
+  const autoRake = () => {
+    const amt = parseFloat(amount) || 0;
+    const bal = parseFloat(stageCash?.current_balance) || 0;
+    let rk = bal > 0 ? (pendingRake * amt) / bal : 0;
+    if (rk > amt) rk = amt;
+    const pct = amt > 0 ? (rk / amt) * 100 : 0;
+    return { rakeAmount: rk, netAmount: amt - rk, pct };
+  };
   const [staffList, setStaffList] = useState([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [newStaffId, setNewStaffId] = useState('');
@@ -94,13 +104,17 @@ const CashboxAdminPanel = () => {
     else if (kind === 'open') setAmount('0');
     else setAmount('');
     if (kind === 'stageSangria') {
-      setRakePct('20.00');
+      setPendingRake(0);
       setStageCash(null);
       if (selectedStage?.id) {
         api
           .get(`/cash/stage/${selectedStage.id}`, { _silentError: true })
           .then((r) => setStageCash(r.data))
           .catch(() => setStageCash(null));
+        api
+          .get(`/cash/stage/${selectedStage.id}/pending-rake`, { _silentError: true })
+          .then((r) => setPendingRake(parseFloat(r.data?.pending_rake) || 0))
+          .catch(() => setPendingRake(0));
       }
     }
     setModal({ kind, cashbox });
@@ -128,7 +142,7 @@ const CashboxAdminPanel = () => {
           stage_id: selectedStage?.id,
           stage_name: selectedStage?.name,
           amount: amt,
-          rake_percentage: parseFloat(rakePct) || 0,
+          rake_percentage: autoRake().pct,
           notes: `${tag}${notes || ''}`.trim() || null,
         });
         toast.success(t('cashbox.sangriaToGeneralSuccess'));
@@ -333,23 +347,17 @@ const CashboxAdminPanel = () => {
               {modal.kind === 'stageSangria' && (
                 <>
                   <div className="form-group">
-                    <label htmlFor="cb-admin-rake">{t('generalCash.rakePercentLabel')}</label>
-                    <input
-                      id="cb-admin-rake"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={rakePct}
-                      onChange={(e) => setRakePct(e.target.value)}
-                      required
-                    />
+                    <label>{t('generalCash.rakeAutoLabel', 'Rake (automático)')}</label>
+                    <div className="sangria-rake-auto">
+                      {formatCurrency(autoRake().rakeAmount)}
+                      {parseFloat(amount) > 0 ? ` (${autoRake().pct.toFixed(2)}%)` : ''}
+                    </div>
                   </div>
                   {parseFloat(amount) > 0 && (
                     <div className="cb-admin__expected">
                       {t('generalCash.toGeneralCash')}:{' '}
                       <strong className="amount net-amount">
-                        {formatCurrency((parseFloat(amount) || 0) * (1 - (parseFloat(rakePct) || 0) / 100))}
+                        {formatCurrency(autoRake().netAmount)}
                       </strong>
                     </div>
                   )}

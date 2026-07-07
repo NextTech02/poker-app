@@ -51,6 +51,21 @@ class DashboardService:
             "todayRevenue": 0.0,
         }
 
+        # Caminho rápido: 1 round-trip via RPC de agregação (em vez de buscar até
+        # 10k linhas só para somar). Cai para a lógica antiga se a RPC não existir.
+        try:
+            res = supabase.rpc("get_dashboard_stats", {"p_stage_id": stage_id}).execute()
+            if res.data:
+                row = res.data[0]
+                return {
+                    "activeTournaments": int(row.get("active_tournaments") or 0),
+                    "totalPlayers": int(row.get("total_players") or 0),
+                    "totalRevenue": float(row.get("total_revenue") or 0),
+                    "todayRevenue": float(row.get("today_revenue") or 0),
+                }
+        except Exception as e:
+            logger.warning(f"[DashboardService] get_dashboard_stats RPC unavailable, fallback: {e}")
+
         try:
             # ── 1. Resolve tournament IDs for stage filter ──────────────────
             tournament_ids = None

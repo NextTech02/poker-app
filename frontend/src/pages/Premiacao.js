@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -408,13 +408,14 @@ const Premiacao = () => {
     return Math.max(...allocations.map(a => a.position)) + 1;
   };
 
-  // Deduplicate by player_id (same player can appear in multiple days/rebuys)
-  const eligiblePlayers = Object.values(
+  // Deduplicate by player_id (same player can appear in multiple days/rebuys).
+  // Memoizado: só recalcula quando a lista muda (não a cada render).
+  const eligiblePlayers = useMemo(() => Object.values(
     tournamentPlayers.reduce((acc, p) => {
       if (!acc[p.player_id]) acc[p.player_id] = p;
       return acc;
     }, {})
-  ).sort((a, b) => (a.player_name || '').localeCompare(b.player_name || ''));
+  ).sort((a, b) => (a.player_name || '').localeCompare(b.player_name || '')), [tournamentPlayers]);
 
   if (loading) {
     return (

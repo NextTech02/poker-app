@@ -32,12 +32,14 @@ def register_player(
 def add_rebuy(
     tournament_player_id: str,
     payment_source: Optional[str] = Query("cash"),
+    payment_method: Optional[str] = Query("cash"),
+    buy_type_id: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
 ):
     """Add a rebuy for a tournament player"""
     user_id = current_user.get("sub")
     try:
-        return TournamentPlayerService.add_rebuy(tournament_player_id, user_id, payment_source=payment_source)
+        return TournamentPlayerService.add_rebuy(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -49,12 +51,14 @@ def add_rebuy(
 def add_addon(
     tournament_player_id: str,
     payment_source: Optional[str] = Query("cash"),
+    payment_method: Optional[str] = Query("cash"),
+    buy_type_id: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
 ):
     """Add an add-on for a tournament player"""
     user_id = current_user.get("sub")
     try:
-        return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source)
+        return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

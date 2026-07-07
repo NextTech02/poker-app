@@ -31,6 +31,8 @@ class TournamentPlayerCreate(BaseModel):
     player_id: str
     buy_in_count: int = Field(default=1, ge=1)
     payment_source: Optional[str] = Field(default="cash", description="cash, credit, mixed, or ticket")
+    payment_method: Optional[str] = Field(default=None, description="How it was paid: cash, pix, card, transfer")
+    buy_type_id: Optional[str] = Field(default=None, description="Buy type (per stage) — defines amount and rake %")
     ticket_id: Optional[str] = Field(default=None, description="Satellite ticket ID for ticket payment")
     notes: Optional[str] = None
 

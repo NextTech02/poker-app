@@ -145,6 +145,38 @@
   font-style: italic;
 }
 
+/* Botão de reimpressão de bilhete na tabela de transações */
+.reprint-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.reprint-btn:hover:not(:disabled) {
+  border-color: var(--accent-color, #22c55e);
+  color: var(--accent-color, #22c55e);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.reprint-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reprint-btn svg {
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .transactions-table {
     font-size: 0.85rem;

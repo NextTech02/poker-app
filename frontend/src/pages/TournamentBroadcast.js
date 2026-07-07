@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import nextHubLogo from '../assets/next-hub-logo.png';
 import { useTimerSync, formatTime as formatTimerTime, formatTimeHuman } from '../hooks/useTimerSync';
+import { usePolling } from '../hooks/usePolling';
 import BROADCAST_LABELS from '../utils/broadcastLabels';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentBroadcast.css';
@@ -427,32 +428,22 @@ const TournamentBroadcast = () => {
 
   const getNextBlindValues = (level) => getBlindValues(level + 1);
 
-  // Initial load and player polling
+  // Initial load
   useEffect(() => {
-    let isMounted = true;
     fetchTournamentData(true);
-
-    const pollingInterval = setInterval(() => {
-      if (!isMounted) return;
-      fetchPlayersOnly();
-    }, 10000);
-
-    return () => { isMounted = false; clearInterval(pollingInterval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Periodically re-fetch tournament day settings so changes saved in
-  // BroadcastSettings are reflected here without a manual page refresh.
-  useEffect(() => {
+  // Polling de jogadores (10s) e das configurações do dia (30s), ambos pausando
+  // quando a aba fica oculta. No display da transmissão (sempre visível) seguem
+  // normais; numa aba de fundo, param de martelar a API.
+  usePolling(() => fetchPlayersOnly(), 10000);
+  usePolling(() => {
     if (!isDayBased) return;
-    const settingsInterval = setInterval(async () => {
-      try {
-        const res = await api.get(`/tournament-days/${id}`);
-        setTournamentDay(res.data);
-      } catch { /* ignore */ }
-    }, 30000);
-    return () => clearInterval(settingsInterval);
-  }, [id, isDayBased]);
+    api.get(`/tournament-days/${id}`)
+      .then((res) => setTournamentDay(res.data))
+      .catch(() => { /* ignore */ });
+  }, isDayBased ? 30000 : 0);
 
   // Legacy timer countdown (NON-day tournaments only)
   useEffect(() => {

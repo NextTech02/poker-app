@@ -10,21 +10,27 @@ import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import PaymentMethodsManager from '../components/PaymentMethodsManager';
+import BuyTypesManager from '../components/BuyTypesManager';
 import './Financeiro.css';
 
 const Financeiro = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { currency, setCurrency, currencies, formatCurrency } = useCurrency();
+  const { labelFor: paymentLabelFor } = usePaymentMethods();
   const fmt = formatCurrency;
 
   const [tab, setTab] = useState('dre'); // 'dre' | 'caixas'
   const [data, setData] = useState(null);
   const [stages, setStages] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState({
     stage_id: '',
+    tournament_id: '',
     start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   });
@@ -34,7 +40,17 @@ const Financeiro = () => {
 
   useEffect(() => {
     loadStages();
+    loadTournaments();
   }, []);
+
+  const loadTournaments = async () => {
+    try {
+      const res = await api.get('/tournaments');
+      setTournaments(res.data || []);
+    } catch (err) {
+      console.error('Error loading tournaments:', err);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -55,6 +71,7 @@ const Financeiro = () => {
     try {
       const params = {};
       if (filters.stage_id) params.stage_id = filters.stage_id;
+      if (filters.tournament_id) params.tournament_id = filters.tournament_id;
       if (filters.start) params.start = filters.start;
       if (filters.end) params.end = filters.end;
       const res = await api.get('/reports/financial', { params });
@@ -75,9 +92,38 @@ const Financeiro = () => {
     return map[type] || type;
   };
 
-  const getPaymentLabel = (src) => {
-    const map = { cash: t('financial.paymentCash'), credit: t('financial.paymentCredit'), mixed: t('financial.paymentMixed'), ticket: t('financial.paymentTicket') };
-    return map[src] || src || '--';
+  const getPaymentLabel = (value) => {
+    const map = {
+      // Forma de pagamento (payment_method)
+      cash: t('financial.paymentCash'),
+      pix: t('financial.paymentPix', 'PIX'),
+      card: t('financial.paymentCard', 'Cartão'),
+      transfer: t('financial.paymentTransfer', 'Transferência'),
+      // Origem do pagamento (payment_source)
+      credit: t('financial.paymentCredit'),
+      mixed: t('financial.paymentMixed'),
+      ticket: t('financial.paymentTicket'),
+    };
+    return map[value] || value || '--';
+  };
+
+  // Mostra a forma de pagamento real (PIX/Cartão/Transferência). Quando o método
+  // é "dinheiro" ou ausente (registros antigos), cai para a origem (crédito/misto/
+  // ticket/dinheiro), preservando o comportamento anterior.
+  // Resolve um código para rótulo. Códigos embutidos (cash/pix/card/transfer e
+  // credit/mixed/ticket) usam i18n (traduzem com o idioma); os personalizados
+  // usam o rótulo salvo em payment_methods; por fim, o próprio código.
+  const BUILTIN_CODES = new Set(['cash', 'pix', 'card', 'transfer', 'credit', 'mixed', 'ticket']);
+  const resolveLabel = (code) => {
+    if (!code) return '--';
+    if (BUILTIN_CODES.has(code)) return getPaymentLabel(code);
+    return paymentLabelFor(code) || code;
+  };
+
+  const getPaymentDisplay = (tx) => {
+    const method = tx.payment_method;
+    if (method && method !== 'cash') return resolveLabel(method);
+    return resolveLabel(tx.payment_source);
   };
 
   const getTypeBadgeClass = (type) => {
@@ -144,11 +190,27 @@ const Financeiro = () => {
           >
             {t('cashbox.tabDemonstrativo')}
           </button>
+          <button
+            className={`fn-tab ${tab === 'metodos' ? 'fn-tab--active' : ''}`}
+            onClick={() => setTab('metodos')}
+          >
+            {t('financial.paymentMethodsTab', 'Métodos de Pagamento')}
+          </button>
+          <button
+            className={`fn-tab ${tab === 'buytypes' ? 'fn-tab--active' : ''}`}
+            onClick={() => setTab('buytypes')}
+          >
+            {t('financial.buyTypesTab', 'Tipos de Buy')}
+          </button>
         </div>
 
         {tab === 'caixas' && <CashboxAdminPanel />}
 
         {tab === 'demonstrativo' && <CashboxDemonstrativo />}
+
+        {tab === 'metodos' && <PaymentMethodsManager />}
+
+        {tab === 'buytypes' && <BuyTypesManager />}
 
         {tab === 'dre' && (
         <>
@@ -157,11 +219,22 @@ const Financeiro = () => {
           <div className="fn-filters">
             <div className="form-group">
               <label>{t('financial.filterStage')}</label>
-              <select value={filters.stage_id} onChange={(e) => setFilters(p => ({ ...p, stage_id: e.target.value }))}>
+              <select value={filters.stage_id} onChange={(e) => setFilters(p => ({ ...p, stage_id: e.target.value, tournament_id: '' }))}>
                 <option value="">{t('financial.filterAllStages')}</option>
                 {stages.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{t('financial.filterTournament', 'Torneio')}</label>
+              <select value={filters.tournament_id} onChange={(e) => setFilters(p => ({ ...p, tournament_id: e.target.value }))}>
+                <option value="">{t('financial.filterAllTournaments', 'Todos os torneios')}</option>
+                {tournaments
+                  .filter(tr => !filters.stage_id || tr.stage_id === filters.stage_id)
+                  .map(tr => (
+                    <option key={tr.id} value={tr.id}>{tr.name}</option>
+                  ))}
               </select>
             </div>
             <div className="form-group">
@@ -374,7 +447,7 @@ const Financeiro = () => {
                             {getTypeLabel(tx.type)}
                           </span>
                         </td>
-                        <td>{getPaymentLabel(tx.payment_source)}</td>
+                        <td>{getPaymentDisplay(tx)}</td>
                         <td className={tx.type === 'prize' ? 'fn-negative' : ''}>{fmt(tx.amount)}</td>
                       </tr>
                     ))}

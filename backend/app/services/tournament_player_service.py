@@ -12,6 +12,14 @@ from app.models.tournament_player import (
 
 class TournamentPlayerService:
     @staticmethod
+    def _get_buy_type(buy_type_id: Optional[str]) -> Optional[dict]:
+        """Busca um tipo de buy (por etapa) — define valor e rake da transação."""
+        if not buy_type_id:
+            return None
+        bt = supabase.table("buy_types").select("amount, rake_percentage").eq("id", buy_type_id).execute()
+        return bt.data[0] if bt.data else None
+
+    @staticmethod
     def register_player(registration_data: TournamentPlayerCreate, user_id: str) -> TournamentPlayerDetail:
         """Register a player for a tournament day"""
         # Block when the operator has no open cashbox (super-admins bypass)
@@ -48,6 +56,12 @@ class TournamentPlayerService:
         existing = supabase.table("tournament_players").select("id").eq("tournament_day_id", registration_data.tournament_day_id).eq("player_id", registration_data.player_id).execute()
         if existing.data:
             raise ValueError("Jogador já está registrado neste dia do torneio")
+
+        # O VALOR da entrada vem sempre da configuração do DIA (fonte única).
+        # O tipo de buy (por etapa), quando informado, define apenas o RAKE;
+        # sem tipo, usa o rake do dia.
+        buy_type = TournamentPlayerService._get_buy_type(registration_data.buy_type_id)
+        rake_pct = float(buy_type["rake_percentage"]) if buy_type else float(day_info.get("rake_percentage") or 0)
 
         # Calculate initial amounts
         buy_in_amount = buy_in * registration_data.buy_in_count
@@ -112,6 +126,10 @@ class TournamentPlayerService:
             "type": "buy_in",
             "amount": buy_in_amount,
             "payment_source": payment_source,
+            "payment_method": registration_data.payment_method or "cash",
+            "buy_type_id": registration_data.buy_type_id,
+            "rake_percentage": rake_pct,
+            "rake_amount": round(buy_in_amount * rake_pct / 100, 2),
             "created_by": user_id,
         }
         if ticket_id:
@@ -131,10 +149,10 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash") -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None) -> TournamentPlayer:
         """Add a rebuy for a tournament player"""
         # Get tournament player info with tournament_day data
-        tp_response = supabase.table("tournament_players").select("*, tournament_days(rebuy_amount, rebuy_chips, rebuy_level_limit, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
+        tp_response = supabase.table("tournament_players").select("*, tournament_days(rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 
@@ -143,7 +161,10 @@ class TournamentPlayerService:
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
         day_info = tp.get("tournament_days", {}) or {}
+        # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).
+        buy_type = TournamentPlayerService._get_buy_type(buy_type_id)
         rebuy_amount = float(day_info.get("rebuy_amount") or 0)
+        rake_pct = float(buy_type["rake_percentage"]) if buy_type else float(day_info.get("rake_percentage") or 0)
         rebuy_chips = day_info.get("rebuy_chips") or 10000
         rebuy_level_limit = day_info.get("rebuy_level_limit")
 
@@ -204,6 +225,10 @@ class TournamentPlayerService:
             "type": "rebuy",
             "amount": rebuy_amount,
             "payment_source": actual_payment_source,
+            "payment_method": payment_method or "cash",
+            "buy_type_id": buy_type_id,
+            "rake_percentage": rake_pct,
+            "rake_amount": round(rebuy_amount * rake_pct / 100, 2),
             "created_by": user_id,
         }
         supabase.table("transactions").insert(transaction_data).execute()
@@ -211,10 +236,10 @@ class TournamentPlayerService:
         return TournamentPlayer(**response.data[0])
 
     @staticmethod
-    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash") -> TournamentPlayer:
+    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None) -> TournamentPlayer:
         """Add an add-on for a tournament player"""
         # Get tournament player info with tournament_day data
-        tp_response = supabase.table("tournament_players").select("*, tournament_days(addon_amount, addon_chips)").eq("id", tournament_player_id).execute()
+        tp_response = supabase.table("tournament_players").select("*, tournament_days(addon_amount, addon_chips, rake_percentage)").eq("id", tournament_player_id).execute()
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 
@@ -223,7 +248,10 @@ class TournamentPlayerService:
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
         day_info = tp.get("tournament_days", {}) or {}
+        # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).
+        buy_type = TournamentPlayerService._get_buy_type(buy_type_id)
         addon_amount = float(day_info.get("addon_amount") or 0)
+        rake_pct = float(buy_type["rake_percentage"]) if buy_type else float(day_info.get("rake_percentage") or 0)
         addon_chips = day_info.get("addon_chips") or 10000
 
         # Update tournament player
@@ -265,6 +293,10 @@ class TournamentPlayerService:
             "type": "addon",
             "amount": addon_amount,
             "payment_source": actual_payment_source,
+            "payment_method": payment_method or "cash",
+            "buy_type_id": buy_type_id,
+            "rake_percentage": rake_pct,
+            "rake_amount": round(addon_amount * rake_pct / 100, 2),
             "created_by": user_id,
         }
         supabase.table("transactions").insert(transaction_data).execute()

@@ -70,8 +70,28 @@ export function calculatePayoutAllocations(entries, prizePool) {
       allocations.push({
         position: pos,
         percentage: pct,
-        prize_amount: Math.round(prizePool * pct / 100 * 100) / 100,
+        // Arredonda para valores inteiros (sem centavos quebrados).
+        prize_amount: Math.round(prizePool * pct / 100),
       });
+    }
+  }
+
+  if (allocations.length === 0) return allocations;
+
+  // Ajuste do arredondamento: o total deve ser inteiro e NUNCA ultrapassar o
+  // limite do prize pool. `cap` = maior total inteiro que cabe no pool.
+  // - Se sobrou (arredondou para baixo), o resto vai para o 1º lugar.
+  // - Se passou (arredondou para cima), tira o excedente do topo para baixo.
+  const cap = Math.floor(prizePool);
+  let diff = allocations.reduce((s, a) => s + a.prize_amount, 0) - cap;
+
+  if (diff < 0) {
+    allocations[0].prize_amount += -diff;
+  } else if (diff > 0) {
+    for (let i = 0; i < allocations.length && diff > 0; i++) {
+      const take = Math.min(diff, allocations[i].prize_amount);
+      allocations[i].prize_amount -= take;
+      diff -= take;
     }
   }
 

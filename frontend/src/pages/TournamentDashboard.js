@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { usePolling } from '../hooks/usePolling';
 import './TournamentDashboard.css';
 
 const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
@@ -29,26 +30,6 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
 
       setTournament(tournamentRes.data);
       setDays(daysRes.data);
-
-      // Get players from non-final days only (final days inherit data from qualifying days)
-      const financialDays = daysRes.data.filter(day => day.day_type !== 'final');
-      if (financialDays.length > 0) {
-        const playersPromises = financialDays.map(day =>
-          api.get(`/tournament-players/day/${day.id}`)
-        );
-        const playersResponses = await Promise.all(playersPromises);
-
-        // Flatten all players from non-final days and add tournament_day_id to each player
-        const allPlayersData = financialDays.flatMap((day, index) =>
-          playersResponses[index].data.map(player => ({
-            ...player,
-            tournament_day_id: day.id
-          }))
-        );
-        setAllPlayers(allPlayersData);
-      } else {
-        setAllPlayers([]);
-      }
     } catch (err) {
       console.error('Error loading tournament:', err);
     } finally {
@@ -56,48 +37,67 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
     }
   };
 
-  useEffect(() => {
-    if (tournamentId) {
-      loadTournamentData();
-
-      // Polling every 5 seconds
-      const interval = setInterval(loadTournamentData, 5000);
-      return () => clearInterval(interval);
+  // Carrega TODOS os jogadores do torneio numa só chamada (antes era 1 por dia
+  // = N+1 round-trips a cada 5s). Roda em paralelo ao loadTournamentData.
+  const loadPlayers = async () => {
+    try {
+      const playersRes = await api.get(`/tournament-players/tournament/${tournamentId}`);
+      setAllPlayers(playersRes.data || []);
+    } catch (err) {
+      console.error('Error loading players:', err);
     }
+  };
+
+  const refresh = () => {
+    loadTournamentData();
+    loadPlayers();
+  };
+
+  useEffect(() => {
+    if (tournamentId) refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId]);
 
-  // Calculate tournament financials aggregated from all days
-  const calculateFinancials = () => {
-    const totalBuyInsCount = allPlayers.reduce((sum, p) => sum + (p.buy_in_count || 0), 0);
-    const totalRebuysCount = allPlayers.reduce((sum, p) => sum + (p.rebuy_count || 0), 0);
-    const totalAddonsCount = allPlayers.reduce((sum, p) => sum + (p.addon_count || 0), 0);
+  // Polling de 5s que pausa quando a aba está oculta (reduz carga em produção).
+  usePolling(refresh, tournamentId ? 5000 : 0);
 
-    const totalBuyInsRevenue = allPlayers.reduce((sum, p) => sum + (p.total_buy_in_amount || 0), 0);
-    const totalRebuysRevenue = allPlayers.reduce((sum, p) => sum + (p.total_rebuy_amount || 0), 0);
-    const totalAddonsRevenue = allPlayers.reduce((sum, p) => sum + (p.total_addon_amount || 0), 0);
+  // Financeiro do torneio — memoizado (só recalcula quando jogadores/dias mudam)
+  // e usando um Map dia→jogadores (O(n)) em vez de filtrar por dia (O(n²)).
+  // Considera apenas dias NÃO finais (os finais herdam dos classificatórios).
+  const financials = useMemo(() => {
+    const finalDayIds = new Set(days.filter(d => d.day_type === 'final').map(d => d.id));
+    const players = allPlayers.filter(p => !finalDayIds.has(p.tournament_day_id));
+
+    const totalBuyInsCount = players.reduce((sum, p) => sum + (p.buy_in_count || 0), 0);
+    const totalRebuysCount = players.reduce((sum, p) => sum + (p.rebuy_count || 0), 0);
+    const totalAddonsCount = players.reduce((sum, p) => sum + (p.addon_count || 0), 0);
+
+    const totalBuyInsRevenue = players.reduce((sum, p) => sum + (p.total_buy_in_amount || 0), 0);
+    const totalRebuysRevenue = players.reduce((sum, p) => sum + (p.total_rebuy_amount || 0), 0);
+    const totalAddonsRevenue = players.reduce((sum, p) => sum + (p.total_addon_amount || 0), 0);
 
     const totalRevenue = totalBuyInsRevenue + totalRebuysRevenue + totalAddonsRevenue;
 
-    // Calculate weighted average rake across non-final days only
+    // Agrupa jogadores por dia uma única vez (O(n)).
+    const byDay = new Map();
+    for (const p of players) {
+      const arr = byDay.get(p.tournament_day_id);
+      if (arr) arr.push(p); else byDay.set(p.tournament_day_id, [p]);
+    }
+
     let weightedRakeSum = 0;
     let totalDayRevenue = 0;
-
-    days.filter(d => d.day_type !== 'final').forEach(day => {
-      // Get players for this day
-      const dayPlayers = allPlayers.filter(p => p.tournament_day_id === day.id);
-
-      // Calculate revenue for this day
-      const dayBuyInsRevenue = dayPlayers.reduce((sum, p) => sum + (p.total_buy_in_amount || 0), 0);
-      const dayRebuysRevenue = dayPlayers.reduce((sum, p) => sum + (p.total_rebuy_amount || 0), 0);
-      const dayAddonsRevenue = dayPlayers.reduce((sum, p) => sum + (p.total_addon_amount || 0), 0);
-      const dayRevenue = dayBuyInsRevenue + dayRebuysRevenue + dayAddonsRevenue;
-
-      // Add to weighted sum
+    for (const day of days) {
+      if (day.day_type === 'final') continue;
+      const dayPlayers = byDay.get(day.id) || [];
+      const dayRevenue = dayPlayers.reduce(
+        (sum, p) => sum + (p.total_buy_in_amount || 0) + (p.total_rebuy_amount || 0) + (p.total_addon_amount || 0),
+        0
+      );
       weightedRakeSum += dayRevenue * (day.rake_percentage || 0);
       totalDayRevenue += dayRevenue;
-    });
+    }
 
-    // Calculate weighted average rake percentage
     const averageRakePercentage = totalDayRevenue > 0 ? (weightedRakeSum / totalDayRevenue) : 0;
     const rake = (totalRevenue * averageRakePercentage) / 100;
     const prizePool = totalRevenue - rake;
@@ -114,7 +114,7 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       totalAddonsRevenue,
       averageRakePercentage,
     };
-  };
+  }, [allPlayers, days]);
 
   if (loading) {
     const content = <div className="loading">Carregando...</div>;
@@ -183,8 +183,6 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
     }
     return content;
   }
-
-  const financials = calculateFinancials();
 
   const dashboardContent = (
     <>

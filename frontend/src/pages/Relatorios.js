@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
@@ -55,6 +55,12 @@ const Relatorios = () => {
   };
 
   const rebuyRate = ((reports.totalRebuys + reports.totalAddons) / (reports.totalBuyIns || 1) * 100).toFixed(1);
+
+  // Top 5 por gastos — memoizado (não re-ordena a lista a cada render).
+  const top5Players = useMemo(
+    () => [...(reports.playerReports || [])].sort((a, b) => b.total_spent - a.total_spent).slice(0, 5),
+    [reports.playerReports]
+  );
 
   return (
     <div className="app-container">
@@ -250,10 +256,8 @@ const Relatorios = () => {
             <div className="kpi-grid">
               <Card title={t('reports.top5Players', 'Top 5 Jogadores por Gastos')}>
                 <div className="ranking-list">
-                  {reports.playerReports && reports.playerReports.length > 0 ? (
-                    [...reports.playerReports]
-                      .sort((a, b) => b.total_spent - a.total_spent)
-                      .slice(0, 5)
+                  {top5Players.length > 0 ? (
+                    top5Players
                       .map((player, index) => (
                         <div key={index} className="ranking-item">
                           <div className="ranking-position">{index + 1}</div>

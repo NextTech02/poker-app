@@ -142,7 +142,9 @@ class ReportService:
             total_addons=tot_addons,
             total_revenue=total_revenue,
             rake_percentage=float(summary.rake_percentage),
-            rake_amount=float(Decimal(str(total_revenue)) * summary.rake_percentage / Decimal("100")),
+            # Rake real (Fase 1): rake = entradas brutas − pool dos jogadores
+            # (= soma do rake por transação), em vez de recalcular por %.
+            rake_amount=float(Decimal(str(summary.total_entries)) - Decimal(str(summary.player_pool))),
             guaranteed_prize=float(summary.guaranteed_prize),
             available_prize_pool=float(summary.available_prize_pool),
             reserved_prize_percentage=float(summary.reserved_prize_percentage),
@@ -161,29 +163,41 @@ class ReportService:
     def get_reports(start_date: Optional[str] = None, end_date: Optional[str] = None) -> ReportSummary:
         """Generate comprehensive reports for a date range"""
 
-        # Build query for transactions
-        query = supabase.table("transactions").select("*")
-
-        if start_date:
-            query = query.gte("created_at", start_date)
+        # Fim do período inclui o dia inteiro.
+        end_param = None
         if end_date:
-            # Add one day to include the end date
-            end_datetime = datetime.fromisoformat(end_date)
-            end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
-            query = query.lte("created_at", end_datetime.isoformat())
+            end_datetime = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
+            end_param = end_datetime.isoformat()
 
-        transactions = query.execute().data
+        # Totais de transações agregados NO BANCO (1 round-trip) em vez de buscar
+        # a tabela inteira e somar em Python. Fallback ao fetch+soma se a RPC sumir.
+        total_revenue = 0.0
+        total_buy_ins = total_rebuys = total_addons = 0
+        avg_buy_in = 0.0
+        try:
+            r = supabase.rpc("get_reports_totals", {"p_start": start_date, "p_end": end_param}).execute()
+            if r.data:
+                row = r.data[0]
+                total_revenue = float(row.get("total_revenue") or 0)
+                total_buy_ins = int(row.get("total_buy_ins") or 0)
+                total_rebuys = int(row.get("total_rebuys") or 0)
+                total_addons = int(row.get("total_addons") or 0)
+                avg_buy_in = float(row.get("avg_buy_in") or 0)
+        except Exception:
+            q = supabase.table("transactions").select("type, amount")
+            if start_date:
+                q = q.gte("created_at", start_date)
+            if end_param:
+                q = q.lte("created_at", end_param)
+            transactions = q.execute().data or []
+            total_revenue = sum(float(t["amount"]) for t in transactions if t["type"] in ["buy_in", "rebuy", "addon"])
+            total_buy_ins = sum(1 for t in transactions if t["type"] == "buy_in")
+            total_rebuys = sum(1 for t in transactions if t["type"] == "rebuy")
+            total_addons = sum(1 for t in transactions if t["type"] == "addon")
+            buy_in_amounts = [float(t["amount"]) for t in transactions if t["type"] == "buy_in"]
+            avg_buy_in = sum(buy_in_amounts) / len(buy_in_amounts) if buy_in_amounts else 0
 
-        # Calculate totals
-        total_revenue = sum(float(t["amount"]) for t in transactions if t["type"] in ["buy_in", "rebuy", "addon"])
-        total_buy_ins = sum(1 for t in transactions if t["type"] == "buy_in")
-        total_rebuys = sum(1 for t in transactions if t["type"] == "rebuy")
-        total_addons = sum(1 for t in transactions if t["type"] == "addon")
         total_entries = total_buy_ins + total_rebuys + total_addons
-
-        # Calculate average buy-in
-        buy_in_amounts = [float(t["amount"]) for t in transactions if t["type"] == "buy_in"]
-        avg_buy_in = sum(buy_in_amounts) / len(buy_in_amounts) if buy_in_amounts else 0
 
         # Get tournament count
         tournament_query = supabase.table("tournaments").select("id", count="exact")
@@ -196,30 +210,24 @@ class ReportService:
 
         # Generate player reports from tournament_players data
         player_query = supabase.table("tournament_players").select("*, players(name)")
+        player_data = []
 
-        # Join with tournaments to filter by date if needed
         if start_date or end_date:
-            # Get tournament IDs in date range
+            # Filtra pelos torneios criados no período.
             date_query = supabase.table("tournaments").select("id")
             if start_date:
                 date_query = date_query.gte("created_at", start_date)
             if end_date:
                 date_query = date_query.lte("created_at", end_date)
-            tournament_ids = [t["id"] for t in date_query.execute().data]
-
+            tournament_ids = [t["id"] for t in (date_query.execute().data or [])]
             if tournament_ids:
-                player_query = player_query.in_("tournament_id", tournament_ids)
-            else:
-                # No tournaments in range, return empty player reports
-                player_data = []
+                player_data = player_query.in_("tournament_id", tournament_ids).execute().data or []
+            # senão: sem torneios no período → player_data fica vazio
         else:
-            player_data = player_query.execute().data
+            player_data = player_query.execute().data or []
 
         # Aggregate player stats
         player_stats = {}
-        if 'player_data' not in locals():
-            player_data = player_query.execute().data
-
         for tp in player_data:
             player_info = tp.get("players", {})
             player_name = player_info.get("name", "Unknown")

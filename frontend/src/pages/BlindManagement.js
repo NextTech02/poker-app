@@ -32,9 +32,6 @@ const BlindManagement = () => {
   // Template states
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
-  const [templateName, setTemplateName] = useState('');
-  const [templateDescription, setTemplateDescription] = useState('');
   const [formData, setFormData] = useState({
     level: '',
     small_blind: '',
@@ -331,27 +328,6 @@ const BlindManagement = () => {
     }
   };
 
-  const handleSaveAsTemplate = async (e) => {
-    e.preventDefault();
-    if (!templateName.trim()) {
-      toast.warning(t('blinds.templateName'));
-      return;
-    }
-
-    try {
-      await api.post(`/blind-templates/save-from-day?tournament_day_id=${dayId}&template_name=${encodeURIComponent(templateName)}${templateDescription ? `&description=${encodeURIComponent(templateDescription)}` : ''}`);
-      setShowSaveTemplateModal(false);
-      setTemplateName('');
-      setTemplateDescription('');
-      toast.success(t('blinds.templateSaved'));
-      const templatesRes = await api.get('/blind-templates');
-      setTemplates(templatesRes.data);
-    } catch (error) {
-      console.error('Error saving template:', error);
-      toast.error(t('common.error'));
-    }
-  };
-
   const handleDeleteTemplate = async (templateId, tplName) => {
     const ok = await confirm(`${t('blinds.confirmDeleteTemplate')} "${tplName}"?`, { variant: 'danger', confirmText: t('common.delete') });
     if (!ok) return;
@@ -458,11 +434,6 @@ const BlindManagement = () => {
             <Button variant="info" onClick={() => setShowTemplateModal(true)}>
               {t('blinds.loadTemplate')}
             </Button>
-            {blinds.length > 0 && (
-              <Button variant="success" onClick={() => setShowSaveTemplateModal(true)}>
-                {t('blinds.saveTemplate')}
-              </Button>
-            )}
             <Button onClick={() => openAddModal(false)}>
               {t('blinds.addBlind')}
             </Button>
@@ -886,50 +857,6 @@ const BlindManagement = () => {
           </div>
         )}
 
-        {/* Save Template Modal */}
-        {showSaveTemplateModal && (
-          <div className="modal-overlay" onClick={() => setShowSaveTemplateModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>{t('blinds.saveAsTemplate')}</h2>
-                <button className="close-btn" onClick={() => setShowSaveTemplateModal(false)} aria-label={t('common.close')}>
-                  <span className="close-icon"></span>
-                </button>
-              </div>
-              <form onSubmit={handleSaveAsTemplate}>
-                <div className="form-group">
-                  <label htmlFor="template_name">{t('blinds.templateName')} *</label>
-                  <input
-                    id="template_name"
-                    type="text"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder={t('blinds.templateNamePlaceholder')}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="template_description">{t('blinds.templateDescription')}</label>
-                  <textarea
-                    id="template_description"
-                    value={templateDescription}
-                    onChange={(e) => setTemplateDescription(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                <div className="save-template-info">
-                  <p>{t('blinds.willSaveWith')} {blinds.length} {t('blinds.levels').toLowerCase()} ({blinds.filter(b => !b.is_break).length} blinds, {blinds.filter(b => b.is_break).length} {t('blinds.breaks').toLowerCase()})</p>
-                </div>
-                <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowSaveTemplateModal(false)}>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button type="submit">{t('blinds.saveTemplate')}</Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

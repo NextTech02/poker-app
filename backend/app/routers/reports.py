@@ -31,9 +31,10 @@ def get_reports(
 @router.get("/financial", response_model=FinancialSummary)
 def get_financial_summary(
     stage_id: Optional[str] = Query(None),
+    tournament_id: Optional[str] = Query(None),
     start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     current_user: dict = Depends(get_current_user),
 ):
     """Get financial summary for DRE and closing"""
-    return FinancialService.get_financial_summary(stage_id, start, end)
+    return FinancialService.get_financial_summary(stage_id, start, end, tournament_id)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../config/api';
+import { supabase } from '../config/supabase';
 
 /**
  * Shared hook for timer synchronization between Control Panel and Broadcast Screen.
@@ -29,6 +30,8 @@ export const useTimerSync = (dayId, blinds = null) => {
   const consecutiveFailsRef = useRef(0);
   const isOfflineRef = useRef(false);
   const blindsRef = useRef(blinds);
+  const inFlightRef = useRef(false); // evita requisições sobrepostas sob latência
+  const realtimeDebounceRef = useRef(null); // colapsa rajadas de eventos Realtime
 
   // Keep refs in sync with state
   useEffect(() => { localTickRef.current = localTick; }, [localTick]);
@@ -98,10 +101,33 @@ export const useTimerSync = (dayId, blinds = null) => {
   // Fetch enriched status from server
   const fetchStatus = useCallback(async () => {
     if (!dayId) return null;
+    // Guarda contra requisições sobrepostas: sob latência alta em produção, o
+    // intervalo dispararia novas chamadas antes da anterior terminar, empilhando
+    // requests e fazendo o estado "pular".
+    if (inFlightRef.current) return null;
+    inFlightRef.current = true;
+    const requestStart = Date.now();
 
     try {
       const res = await api.get(`/tournament-days/${dayId}/timer/status-enriched`);
-      const data = res.data;
+      const data = { ...res.data };
+
+      // Compensação de latência: o servidor calcula time_remaining no instante em
+      // que processa a chamada (~metade do round-trip atrás). Descontamos essa
+      // idade para exibir o tempo "de agora" — assim Controle e Broadcast, mesmo
+      // com latências diferentes, convergem para o mesmo valor.
+      const ageSec = data.is_paused ? 0 : Math.round((Date.now() - requestStart) / 2000);
+      if (ageSec > 0) {
+        if (typeof data.time_remaining_current_level === 'number') {
+          data.time_remaining_current_level = Math.max(0, data.time_remaining_current_level - ageSec);
+        }
+        if (data.next_break && typeof data.next_break.time_until_break === 'number') {
+          data.next_break = {
+            ...data.next_break,
+            time_until_break: Math.max(0, data.next_break.time_until_break - ageSec),
+          };
+        }
+      }
 
       // Successful fetch — reset offline tracking
       consecutiveFailsRef.current = 0;
@@ -148,19 +174,75 @@ export const useTimerSync = (dayId, blinds = null) => {
         setError(err.message);
       }
       return null;
+    } finally {
+      inFlightRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayId]);
 
-  // Poll server every 3 seconds for tighter sync
+  // Poll server a cada ~3s, mas SEM empilhar: só agenda a próxima chamada depois
+  // que a anterior termina. Sob latência alta, o intervalo efetivo cresce
+  // sozinho (latência + 3s) em vez de acumular requisições atrasadas.
   useEffect(() => {
-    if (!dayId) return;
+    if (!dayId) return undefined;
 
-    fetchStatus();
+    let stopped = false;
+    let timeoutId = null;
+    const loop = async () => {
+      await fetchStatus();
+      if (!stopped) timeoutId = setTimeout(loop, 3000);
+    };
+    loop();
 
-    const interval = setInterval(fetchStatus, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      stopped = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [fetchStatus, dayId]);
+
+  // Dispara um refetch com debounce curto: colapsa rajadas de eventos Realtime
+  // (ex.: várias linhas de blinds atualizadas de uma vez) numa única chamada.
+  // Se um fetch já estiver em andamento (provavelmente iniciado ANTES do commit
+  // que gerou o evento), reagenda para capturar o estado mais recente.
+  const triggerRefetch = useCallback(() => {
+    if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+    realtimeDebounceRef.current = setTimeout(() => {
+      if (inFlightRef.current) {
+        triggerRefetch();
+        return;
+      }
+      fetchStatus();
+    }, 120);
+  }, [fetchStatus]);
+
+  // Supabase Realtime: empurra mudanças de comando (pause/próximo nível/ajuste em
+  // tournament_days, e edições da estrutura em blinds) para TODAS as telas ao vivo
+  // — Controle (autenticado) e Broadcast (anon) — quase instantaneamente, em vez
+  // de esperar até o próximo poll de 3s. O evento apenas DISPARA o refetch da
+  // fonte da verdade (endpoint enriquecido); o polling continua como fallback e o
+  // ticker local de 1s mantém a contagem regressiva fluida.
+  useEffect(() => {
+    if (!dayId) return undefined;
+
+    const channel = supabase
+      .channel(`timer-sync-${dayId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tournament_days', filter: `id=eq.${dayId}` },
+        () => triggerRefetch()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'blinds', filter: `tournament_day_id=eq.${dayId}` },
+        () => triggerRefetch()
+      )
+      .subscribe();
+
+    return () => {
+      if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [dayId, triggerRefetch]);
 
   // Local tick every second for smooth countdown
   useEffect(() => {

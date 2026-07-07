@@ -9,6 +9,7 @@ import { getSelectedStage } from '../utils/stageUtils';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
+import { usePolling } from '../hooks/usePolling';
 import './Torneios.css';
 
 const Torneios = () => {
@@ -23,18 +24,21 @@ const Torneios = () => {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [formData, setFormData] = useState({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '' });
+  const [formData, setFormData] = useState({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '', qualifying_rebuy: '', qualifying_addon: '', qualifying_currency: 'BRL', qualifying_max_players: 100, qualifying_starting_chips: 10000, qualifying_rebuy_chips: 10000, qualifying_addon_chips: 10000, qualifying_rebuy_level_limit: '', blind_template_id: '' });
   const [sponsors, setSponsors] = useState([]);
+  const [blindTemplates, setBlindTemplates] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     loadTournaments();
     loadSponsors();
-    const interval = setInterval(loadTournaments, 5000);
-    return () => clearInterval(interval);
+    loadBlindTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Polling que pausa quando a aba está oculta (reduz carga em produção).
+  usePolling(() => loadTournaments(), 5000);
 
   const loadSponsors = async () => {
     try {
@@ -42,6 +46,15 @@ const Torneios = () => {
       setSponsors(data || []);
     } catch (err) {
       console.error('Erro ao carregar patrocinadores:', err);
+    }
+  };
+
+  const loadBlindTemplates = async () => {
+    try {
+      const data = await cachedGet(api, '/blind-templates', 60000);
+      setBlindTemplates(data || []);
+    } catch (err) {
+      console.error('Erro ao carregar templates de blind:', err);
     }
   };
 
@@ -97,16 +110,47 @@ const Torneios = () => {
             rake_percentage: 0,
           });
           const finalDayId = finalRes?.data?.id || null;
+          const qualifyingDayIds = [];
           for (let i = 1; i <= qCount; i++) {
-            await api.post('/tournament-days', {
+            const dayRes = await api.post('/tournament-days', {
               tournament_id: newTournamentId,
               day_name: `Dia ${i}`,
               day_number: i,
               day_type: 'qualifying',
               qualifies_to_day_id: finalDayId,
               buy_in: qBuyIn,
-              max_players: 1000,
+              rebuy_amount: parseFloat(formData.qualifying_rebuy) || null,
+              addon_amount: parseFloat(formData.qualifying_addon) || null,
+              // Rake vem dos "Tipos de Buy" (fonte única) — 0 aqui.
+              rake_percentage: 0,
+              currency: formData.qualifying_currency || 'BRL',
+              max_players: parseInt(formData.qualifying_max_players, 10) || 100,
+              starting_chips: parseInt(formData.qualifying_starting_chips, 10) || 10000,
+              rebuy_chips: parseInt(formData.qualifying_rebuy_chips, 10) || 10000,
+              addon_chips: parseInt(formData.qualifying_addon_chips, 10) || 10000,
+              rebuy_level_limit: formData.qualifying_rebuy_level_limit
+                ? parseInt(formData.qualifying_rebuy_level_limit, 10)
+                : null,
             });
+            if (dayRes?.data?.id) qualifyingDayIds.push(dayRes.data.id);
+          }
+
+          // Aplica o template de blinds escolhido a TODOS os dias classificatórios
+          // de uma só vez (o Dia Final fica em branco para ser configurado à parte).
+          if (formData.blind_template_id && qualifyingDayIds.length > 0) {
+            try {
+              await Promise.all(
+                qualifyingDayIds.map((dayId) =>
+                  api.post('/blind-templates/apply', {
+                    template_id: formData.blind_template_id,
+                    tournament_day_id: dayId,
+                    clear_existing: true,
+                  })
+                )
+              );
+            } catch (blindErr) {
+              toast.warning(t('tournaments.qualifyingBlindsPartial', 'Dias criados, mas não foi possível aplicar a estrutura de blinds. Aplique manualmente na tela de Blinds.'));
+            }
           }
         } catch (genErr) {
           // Tournament created OK; only the day generation failed.
@@ -117,7 +161,7 @@ const Torneios = () => {
       toast.success(t('tournaments.createdSuccess'));
       invalidateCache('/tournaments'); // B3: invalida após mutação
       setShowModal(false);
-      setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '' });
+      setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '', qualifying_rebuy: '', qualifying_addon: '', qualifying_currency: 'BRL', qualifying_max_players: 100, qualifying_starting_chips: 10000, qualifying_rebuy_chips: 10000, qualifying_addon_chips: 10000, qualifying_rebuy_level_limit: '', blind_template_id: '' });
       loadTournaments();
     } catch (err) {
       const detail = err.userMessage || err.response?.data?.detail;
@@ -194,7 +238,7 @@ const Torneios = () => {
   };
 
   const openNewModal = () => {
-    setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '' });
+    setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '', qualifying_rebuy: '', qualifying_addon: '', qualifying_currency: 'BRL', qualifying_max_players: 100, qualifying_starting_chips: 10000, qualifying_rebuy_chips: 10000, qualifying_addon_chips: 10000, qualifying_rebuy_level_limit: '', blind_template_id: '' });
     setFormError('');
     setShowModal(true);
   };
@@ -355,6 +399,7 @@ const Torneios = () => {
             submitting={submitting}
             formError={formError}
             sponsors={sponsors}
+            blindTemplates={blindTemplates}
             t={t}
           />
         )}
@@ -383,7 +428,7 @@ const Torneios = () => {
 };
 
 /* ── Shared Modal — A7: inline error + loading state ── */
-const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], t, isEditing }) => (
+const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], blindTemplates = [], t, isEditing }) => (
   <div className="tr-modal-overlay" onClick={onClose}>
     <div className="tr-modal" onClick={(e) => e.stopPropagation()}>
       <div className="tr-modal-header">
@@ -480,6 +525,75 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
                 disabled={submitting}
                 placeholder="0,00"
               />
+            </div>
+
+            <div className="tr-qual-section-label">{t('tournaments.qualifyingValuesLabel', 'Valores aplicados a todos os dias classificatórios')}</div>
+            <div className="tr-qual-grid">
+              <div className="tr-field">
+                <label htmlFor="tr-qrebuy">{t('tournaments.rebuy', 'Rebuy')} (R$)</label>
+                <input id="tr-qrebuy" name="qualifying_rebuy" type="number" min="0" step="0.01"
+                  value={formData.qualifying_rebuy} onChange={onChange} disabled={submitting} placeholder="0,00" />
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-qaddon">{t('tournaments.addon', 'Add-on')} (R$)</label>
+                <input id="tr-qaddon" name="qualifying_addon" type="number" min="0" step="0.01"
+                  value={formData.qualifying_addon} onChange={onChange} disabled={submitting} placeholder="0,00" />
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-qcurrency">{t('tournamentDayForm.currency', 'Moeda')}</label>
+                <select id="tr-qcurrency" name="qualifying_currency"
+                  value={formData.qualifying_currency} onChange={onChange} disabled={submitting}>
+                  <option value="BRL">R$ — Real Brasileiro</option>
+                  <option value="USD">$ — Dólar Americano</option>
+                  <option value="EUR">€ — Euro</option>
+                  <option value="GBP">£ — Libra Esterlina</option>
+                  <option value="ARS">$ — Peso Argentino</option>
+                  <option value="COP">$ — Peso Colombiano</option>
+                </select>
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-qmax">{t('tournaments.maxPlayers', 'Máximo de jogadores')}</label>
+                <input id="tr-qmax" name="qualifying_max_players" type="number" min="1"
+                  value={formData.qualifying_max_players} onChange={onChange} disabled={submitting} />
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-qchips">{t('tournaments.startingChips', 'Fichas iniciais')}</label>
+                <input id="tr-qchips" name="qualifying_starting_chips" type="number" min="1"
+                  value={formData.qualifying_starting_chips} onChange={onChange} disabled={submitting} />
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-qrchips">{t('tournamentDayForm.rebuyChips', 'Fichas do rebuy')}</label>
+                <input id="tr-qrchips" name="qualifying_rebuy_chips" type="number" min="0"
+                  value={formData.qualifying_rebuy_chips} onChange={onChange} disabled={submitting} />
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-qachips">{t('tournamentDayForm.addonChips', 'Fichas do add-on')}</label>
+                <input id="tr-qachips" name="qualifying_addon_chips" type="number" min="0"
+                  value={formData.qualifying_addon_chips} onChange={onChange} disabled={submitting} />
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-qrlimit">{t('tournamentDayForm.rebuyLevelLimit', 'Nível limite de rebuy')}</label>
+                <input id="tr-qrlimit" name="qualifying_rebuy_level_limit" type="number" min="1"
+                  value={formData.qualifying_rebuy_level_limit} onChange={onChange} disabled={submitting}
+                  placeholder={t('tournamentDayForm.leaveEmptyUnlimited', 'Deixe vazio para ilimitado')} />
+              </div>
+            </div>
+
+            <div className="tr-field">
+              <label htmlFor="tr-blind-template">{t('tournaments.qualifyingBlindTemplate', 'Estrutura de blinds')}</label>
+              <select
+                id="tr-blind-template"
+                name="blind_template_id"
+                value={formData.blind_template_id || ''}
+                onChange={onChange}
+                disabled={submitting}
+              >
+                <option value="">{t('tournaments.qualifyingBlindTemplateNone', 'Nenhuma (configurar depois)')}</option>
+                {blindTemplates.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                ))}
+              </select>
+              <small>{t('tournaments.qualifyingBlindTemplateHint', 'A estrutura escolhida será aplicada a todos os dias classificatórios. O Dia Final fica em branco para configurar à parte.')}</small>
             </div>
           </>
         )}

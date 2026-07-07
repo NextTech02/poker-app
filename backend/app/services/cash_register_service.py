@@ -37,6 +37,56 @@ class CashRegisterService:
         return None
 
     @staticmethod
+    def get_stage_pending_rake(stage_id: str) -> Decimal:
+        """
+        Rake ainda 'devido' no caixa da etapa (Fase 2 dos tipos de buy):
+        soma do rake das ENTRADAS (transactions.rake_amount dos torneios da etapa)
+        menos o rake já extraído em sangrias anteriores (sangria_transactions).
+        É esse valor (proporcional ao quanto se sangra) que vira o rake da sangria.
+
+        Agregado no banco (1 round-trip via RPC); fallback ao fetch+soma abaixo.
+        """
+        try:
+            r = supabase.rpc("get_stage_pending_rake", {"p_stage_id": stage_id}).execute()
+            data = r.data
+            if isinstance(data, list):
+                data = data[0] if data else 0
+            if isinstance(data, dict):
+                data = next(iter(data.values()), 0)
+            if data is not None:
+                return Decimal(str(data or 0))
+        except Exception:
+            pass
+
+        tours = supabase.table("tournaments").select("id").eq("stage_id", stage_id).execute()
+        tour_ids = [t["id"] for t in (tours.data or [])]
+
+        entry_rake = Decimal("0")
+        if tour_ids:
+            tx = (
+                supabase.table("transactions")
+                .select("rake_amount")
+                .in_("tournament_id", tour_ids)
+                .in_("type", ["buy_in", "rebuy", "addon"])
+                .execute()
+            )
+            for t in (tx.data or []):
+                entry_rake += Decimal(str(t.get("rake_amount") or 0))
+
+        sang = (
+            supabase.table("sangria_transactions")
+            .select("rake_amount")
+            .eq("stage_id", stage_id)
+            .execute()
+        )
+        sangria_rake = Decimal("0")
+        for s in (sang.data or []):
+            sangria_rake += Decimal(str(s.get("rake_amount") or 0))
+
+        pending = entry_rake - sangria_rake
+        return pending if pending > 0 else Decimal("0")
+
+    @staticmethod
     def get_all_stage_cash() -> List[StageCashSummary]:
         """Get all stage cash registers with stage information"""
         response = (
@@ -160,9 +210,21 @@ class CashRegisterService:
                 f"Requested: {sangria_data.amount}"
             )
 
-        # Calculate rake and net amount
-        rake_percentage = sangria_data.rake_percentage
-        rake_amount = (sangria_data.amount * rake_percentage / Decimal('100')).quantize(Decimal('0.01'))
+        # Rake derivado das transações (Fase 2 — caminho A): o rake é a soma dos
+        # rakes por transação ainda não sangrados, proporcional ao valor sangrado.
+        # O rake_percentage enviado pelo frontend é ignorado (mantido só por
+        # compatibilidade do payload); o efetivo é gravado para registro.
+        pending_rake = CashRegisterService.get_stage_pending_rake(sangria_data.stage_id)
+        if stage_cash.current_balance > 0:
+            rake_amount = (pending_rake * sangria_data.amount / stage_cash.current_balance).quantize(Decimal('0.01'))
+        else:
+            rake_amount = Decimal('0')
+        if rake_amount > sangria_data.amount:
+            rake_amount = sangria_data.amount
+        rake_percentage = (
+            (rake_amount / sangria_data.amount * Decimal('100')).quantize(Decimal('0.01'))
+            if sangria_data.amount > 0 else Decimal('0')
+        )
         net_amount = sangria_data.amount - rake_amount
 
         # Start transaction-like operations

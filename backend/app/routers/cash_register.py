@@ -36,6 +36,19 @@ def get_stage_cash(
     return stage_cash
 
 
+@router.get("/stage/{stage_id}/pending-rake")
+def get_stage_pending_rake(
+    stage_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Rake pendente da etapa (soma dos rakes por transação ainda não sangrados).
+    Usado para pré-visualizar o rake automático da sangria (Fase 2)."""
+    stage_cash = CashRegisterService.get_stage_cash(stage_id)
+    pending = CashRegisterService.get_stage_pending_rake(stage_id)
+    balance = stage_cash.current_balance if stage_cash else 0
+    return {"stage_id": stage_id, "pending_rake": float(pending), "stage_balance": float(balance)}
+
+
 @router.get("/stage", response_model=List[StageCashSummary])
 def get_all_stage_cash(
     current_user: dict = Depends(get_current_user)

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -78,9 +79,10 @@ const TableManagement = () => {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
   }, [loadData]);
+
+  // Polling de 5s que pausa quando a aba está oculta.
+  usePolling(loadData, 5000);
 
   // ── Lock Toggle ───────────────────────────────────────────────────────────
   const handleToggleLock = async () => {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -47,13 +48,14 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadAll();
-    const interval = setInterval(loadAll, 30000);
     return () => {
-      clearInterval(interval);
       if (retryRef.current) clearTimeout(retryRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Polling que pausa quando a aba está oculta (reduz carga em produção).
+  usePolling(() => loadAll(), 30000);
 
   const loadAll = async (isRetry = false) => {
     // Track which sections succeeded / failed independently.

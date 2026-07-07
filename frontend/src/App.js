@@ -5,6 +5,8 @@ import { StageProvider } from './contexts/StageContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { PermissionProvider, usePermissions } from './contexts/PermissionContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
+import { PaymentMethodsProvider } from './contexts/PaymentMethodsContext';
+import { BuyTypesProvider } from './contexts/BuyTypesContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
@@ -26,6 +28,7 @@ const BlindManagement = lazy(() => import('./pages/BlindManagement'));
 const Premiacao = lazy(() => import('./pages/Premiacao'));
 const PremiacaoSelector = lazy(() => import('./pages/PremiacaoSelector'));
 const TournamentDayForm = lazy(() => import('./pages/TournamentDayForm'));
+const BlindTemplates = lazy(() => import('./pages/BlindTemplates'));
 const BroadcastSettings = lazy(() => import('./pages/BroadcastSettings'));
 const TournamentDayStats = lazy(() => import('./pages/TournamentDayStats'));
 const TournamentControl = lazy(() => import('./pages/TournamentControl'));
@@ -109,6 +112,14 @@ function AppRoutes() {
         element={
           <PrivateRoute permission="tournaments">
             <Torneios />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/blinds-templates"
+        element={
+          <PrivateRoute permission="tournaments">
+            <BlindTemplates />
           </PrivateRoute>
         }
       />
@@ -333,11 +344,15 @@ function App() {
         <PermissionProvider>
           <StageProvider>
             <CurrencyProvider>
-              <ToastProvider>
-                <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
-                  <AppRoutes />
-                </ErrorBoundary>
-              </ToastProvider>
+              <PaymentMethodsProvider>
+                <BuyTypesProvider>
+                  <ToastProvider>
+                    <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
+                      <AppRoutes />
+                    </ErrorBoundary>
+                  </ToastProvider>
+                </BuyTypesProvider>
+              </PaymentMethodsProvider>
             </CurrencyProvider>
           </StageProvider>
         </PermissionProvider>

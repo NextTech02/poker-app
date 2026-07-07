@@ -381,16 +381,32 @@ class TournamentDayService:
         Bulk update chip counts for multiple players.
         chip_updates: list of {"player_id": str, "chip_count": int}
         Returns number of players updated.
+
+        Prefere a RPC `bulk_update_chip_counts` (UPDATE set-based, 1 round-trip).
+        Cai para o loop por jogador (N round-trips) se a RPC não estiver no banco.
         """
-        updated_count = 0
-        for update in chip_updates:
-            if TournamentDayService.update_player_chips(
-                day_id,
-                update["player_id"],
-                update["chip_count"]
-            ):
-                updated_count += 1
-        return updated_count
+        if not chip_updates:
+            return 0
+
+        player_ids = [u["player_id"] for u in chip_updates]
+        chips = [int(u["chip_count"]) for u in chip_updates]
+        try:
+            resp = supabase.rpc("bulk_update_chip_counts", {
+                "p_day_id": day_id,
+                "p_player_ids": player_ids,
+                "p_chips": chips,
+            }).execute()
+            _chipcount_cache.pop(day_id, None)
+            return resp.data if isinstance(resp.data, int) else (resp.data or 0)
+        except Exception:
+            updated_count = 0
+            for update in chip_updates:
+                if TournamentDayService.update_player_chips(
+                    day_id, update["player_id"], update["chip_count"]
+                ):
+                    updated_count += 1
+            _chipcount_cache.pop(day_id, None)
+            return updated_count
 
     @staticmethod
     def get_final_day_aggregated_stats(final_day_id: str) -> FinalDayAggregatedStats:
@@ -424,14 +440,20 @@ class TournamentDayService:
         total_qualifying_addon_amount = 0.0
         total_qualifying_prize_pool = 0.0
 
-        for q_day in (qualifying_days_response.data or []):
-            # Get player stats for this qualifying day
-            players_response = supabase.table("tournament_players")\
+        # Busca os jogadores de TODOS os dias classificatórios numa só query e
+        # agrupa por dia (antes era 1 query por dia = N+1 round-trips).
+        q_day_ids = [q["id"] for q in (qualifying_days_response.data or [])]
+        players_by_day = {}
+        if q_day_ids:
+            all_q_players = supabase.table("tournament_players")\
                 .select("*")\
-                .eq("tournament_day_id", q_day["id"])\
+                .in_("tournament_day_id", q_day_ids)\
                 .execute()
+            for p in (all_q_players.data or []):
+                players_by_day.setdefault(p.get("tournament_day_id"), []).append(p)
 
-            players = players_response.data or []
+        for q_day in (qualifying_days_response.data or []):
+            players = players_by_day.get(q_day["id"], [])
 
             # Calculate stats for this qualifying day
             day_buy_ins = sum(p.get("buy_in_count", 0) or 0 for p in players)

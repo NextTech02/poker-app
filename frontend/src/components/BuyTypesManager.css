@@ -1,0 +1,148 @@
+/* Gerenciador de tipos de buy (Financeiro → Tipos de Buy, por etapa) */
+.bty-wrap { max-width: 860px; }
+
+.bty-intro {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary, #9fb3c8);
+  font-size: 0.9rem;
+}
+.bty-intro strong { color: var(--brand-green, #22c55e); }
+
+.bty-add {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.bty-add input,
+.bty-add select,
+.bty-table input,
+.bty-table select {
+  padding: 0.6rem 0.75rem;
+  background: var(--secondary-bg, #16212e);
+  border: 1px solid var(--border-color, #243443);
+  border-radius: 8px;
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.9rem;
+}
+.bty-add input:focus,
+.bty-add select:focus,
+.bty-table input:focus,
+.bty-table select:focus { outline: none; border-color: var(--brand-green, #22c55e); }
+.bty-in-name { flex: 1; min-width: 180px; }
+.bty-in-num { width: 110px; }
+.bty-add select { min-width: 130px; }
+
+.bty-btn-add {
+  background: var(--brand-green, #22c55e);
+  color: #04210f;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.2s, opacity 0.2s;
+}
+.bty-btn-add:hover:not(:disabled) { filter: brightness(1.08); }
+.bty-btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.bty-loading,
+.bty-empty {
+  color: var(--text-secondary, #9fb3c8);
+  font-size: 0.9rem;
+  padding: 1.5rem 0;
+}
+
+.bty-table-wrap {
+  border: 1px solid var(--border-color, #243443);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.bty-table { width: 100%; border-collapse: collapse; }
+.bty-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary, #9fb3c8);
+  background: var(--secondary-bg, #16212e);
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border-color, #243443);
+  white-space: nowrap;
+}
+.bty-table td {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--border-color, #1f2c3a);
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.bty-table tbody tr:last-child td { border-bottom: none; }
+.bty-row-inactive { opacity: 0.5; }
+.bty-row-editing td { background: rgba(34, 197, 94, 0.04); }
+.bty-name { font-weight: 500; }
+
+.bty-cat {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.bty-cat--buy_in { background: rgba(34, 197, 94, 0.14); color: #5fe39a; }
+.bty-cat--rebuy { background: rgba(59, 130, 246, 0.16); color: #7fb0ff; }
+.bty-cat--addon { background: rgba(212, 175, 55, 0.16); color: #e6c552; }
+
+.bty-actions { text-align: right; display: flex; gap: 0.4rem; justify-content: flex-end; }
+.bty-edit-actions { text-align: right; }
+.bty-btn-edit {
+  background: transparent;
+  border: 1px solid var(--border-color, #243443);
+  color: var(--text-secondary, #9fb3c8);
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.bty-btn-edit:hover { border-color: var(--brand-green, #22c55e); color: var(--brand-green, #22c55e); }
+.bty-btn-del {
+  background: none;
+  border: none;
+  color: #e0768a;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.4rem;
+  border-radius: 6px;
+}
+.bty-btn-del:hover { color: #ff6b81; background: rgba(220, 53, 69, 0.08); }
+
+.bty-btn-save, .bty-btn-cancel {
+  border-radius: 6px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  margin-left: 0.4rem;
+}
+.bty-btn-save { background: var(--brand-green, #22c55e); color: #04210f; }
+.bty-btn-cancel { background: transparent; border: 1px solid var(--border-color, #243443); color: var(--text-secondary, #9fb3c8); }
+
+/* Toggle switch */
+.bty-switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+.bty-switch input { opacity: 0; width: 0; height: 0; }
+.bty-slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: var(--border-color, #3a4a5a); border-radius: 22px; transition: background 0.2s;
+}
+.bty-slider::before {
+  content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px;
+  background: #fff; border-radius: 50%; transition: transform 0.2s;
+}
+.bty-switch input:checked + .bty-slider { background: var(--brand-green, #22c55e); }
+.bty-switch input:checked + .bty-slider::before { transform: translateX(18px); }

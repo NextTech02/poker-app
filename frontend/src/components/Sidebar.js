@@ -92,6 +92,7 @@ const Sidebar = () => {
       permission: 'tournaments',
       children: [
         { path: '/torneios', labelKey: 'sidebar.tournamentsList', icon: 'trophy', permission: 'tournaments' },
+        { path: '/blinds-templates', labelKey: 'sidebar.blindTemplates', icon: 'clock', permission: 'tournaments' },
         { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
       ],
     },

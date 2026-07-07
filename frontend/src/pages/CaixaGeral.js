@@ -20,11 +20,22 @@ const CaixaGeral = () => {
   const [rake, setRake] = useState(null);
   const [sangriaHistory, setSangriaHistory] = useState([]);
   const [showSangriaModal, setShowSangriaModal] = useState(false);
+  // Fase 2: o rake da sangria é automático (soma dos rakes por transação ainda
+  // não sangrados). pendingRake = rake pendente da etapa.
+  const [pendingRake, setPendingRake] = useState(0);
   const [sangriaFormData, setSangriaFormData] = useState({
     amount: '',
-    rake_percentage: '20.00',
     notes: ''
   });
+
+  const loadPendingRake = async (stageId) => {
+    try {
+      const res = await api.get(`/cash/stage/${stageId}/pending-rake`);
+      setPendingRake(parseFloat(res.data?.pending_rake) || 0);
+    } catch (e) {
+      setPendingRake(0);
+    }
+  };
 
   useEffect(() => {
     loadStages();
@@ -36,6 +47,7 @@ const CaixaGeral = () => {
     if (selectedStage) {
       loadStageCash();
       loadSangriaHistory();
+      loadPendingRake(selectedStage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStage]);
@@ -127,7 +139,9 @@ const CaixaGeral = () => {
         stage_id: selectedStage,
         stage_name: stage.name,
         amount: amount,
-        rake_percentage: parseFloat(sangriaFormData.rake_percentage),
+        // Rake é calculado no backend a partir dos rakes por transação; enviamos
+        // o % efetivo apenas por compatibilidade do payload (o backend ignora).
+        rake_percentage: calculateNetAmount().effectivePct,
         notes: sangriaFormData.notes || null
       };
 
@@ -138,7 +152,6 @@ const CaixaGeral = () => {
       // Reset form and close modal
       setSangriaFormData({
         amount: '',
-        rake_percentage: '20.00',
         notes: ''
       });
       setShowSangriaModal(false);
@@ -147,6 +160,7 @@ const CaixaGeral = () => {
       loadStageCash();
       loadGeneralData();
       loadSangriaHistory();
+      loadPendingRake(selectedStage);
 
     } catch (error) {
       console.error('Erro ao realizar sangria:', error);
@@ -165,12 +179,15 @@ const CaixaGeral = () => {
     });
   };
 
+  // Rake automático: proporcional ao rake pendente da etapa (Fase 2).
   const calculateNetAmount = () => {
     const amount = parseFloat(sangriaFormData.amount) || 0;
-    const rakePercentage = parseFloat(sangriaFormData.rake_percentage) || 0;
-    const rakeAmount = (amount * rakePercentage) / 100;
+    const balance = parseFloat(stageCash?.current_balance) || 0;
+    let rakeAmount = balance > 0 ? (pendingRake * amount) / balance : 0;
+    if (rakeAmount > amount) rakeAmount = amount;
     const netAmount = amount - rakeAmount;
-    return { rakeAmount, netAmount };
+    const effectivePct = amount > 0 ? (rakeAmount / amount) * 100 : 0;
+    return { rakeAmount, netAmount, effectivePct };
   };
 
   return (
@@ -337,18 +354,12 @@ const CaixaGeral = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="rake_percentage">{t('generalCash.rakePercentLabel')}</label>
-                  <input
-                    id="rake_percentage"
-                    name="rake_percentage"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={sangriaFormData.rake_percentage}
-                    onChange={(e) => setSangriaFormData({...sangriaFormData, rake_percentage: e.target.value})}
-                    required
-                  />
+                  <label>{t('generalCash.rakeAutoLabel', 'Rake (automático)')}</label>
+                  <div className="sangria-rake-auto">
+                    {formatCurrency(calculateNetAmount().rakeAmount)}
+                    {sangriaFormData.amount ? ` (${calculateNetAmount().effectivePct.toFixed(2)}%)` : ''}
+                  </div>
+                  <small>{t('generalCash.rakeAutoHint', 'Calculado a partir do rake dos tipos de buy das entradas desta etapa.')}</small>
                 </div>
 
                 <div className="form-group">
@@ -371,7 +382,7 @@ const CaixaGeral = () => {
                       <strong>{formatCurrency(sangriaFormData.amount)}</strong>
                     </div>
                     <div className="calculation-item rake">
-                      <span>{t('generalCash.rakeWithPercent', { percent: sangriaFormData.rake_percentage })}</span>
+                      <span>{t('generalCash.rakeWithPercent', { percent: calculateNetAmount().effectivePct.toFixed(2) })}</span>
                       <strong className="rake-amount">- {formatCurrency(calculateNetAmount().rakeAmount)}</strong>
                     </div>
                     <div className="calculation-item total">

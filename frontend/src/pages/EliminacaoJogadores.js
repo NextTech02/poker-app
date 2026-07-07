@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { usePolling } from '../hooks/usePolling';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -76,37 +77,11 @@ const EliminacaoJogadores = () => {
       return;
     }
     loadData();
-
-    // Setup polling (every 3 seconds) - only when page is visible
-    let pollingInterval;
-
-    const startPolling = () => {
-      pollingInterval = setInterval(() => {
-        if (!document.hidden) {
-          loadData();
-        }
-      }, 3000);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // Page hidden, clear interval
-        if (pollingInterval) clearInterval(pollingInterval);
-      } else {
-        // Page visible, restart polling and refresh immediately
-        loadData();
-        startPolling();
-      }
-    };
-
-    startPolling();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      if (pollingInterval) clearInterval(pollingInterval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
   }, [tournamentId, navigate, loadData]);
+
+  // Polling de 3s que pausa quando a aba está oculta (substitui o controle
+  // manual de visibilitychange por um hook reutilizável).
+  usePolling(() => loadData(), tournamentId ? 3000 : 0);
 
   const handleEliminate = async (tournamentPlayerId, playerName) => {
     const ok = await confirm(t('elimination.confirmEliminate', { name: playerName }), { variant: 'danger', confirmText: t('elimination.eliminate') });

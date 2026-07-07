@@ -28,6 +28,7 @@ class TransactionEntry(BaseModel):
     player_name: Optional[str] = None
     type: str
     payment_source: Optional[str] = None
+    payment_method: Optional[str] = None
     amount: float
 
 
