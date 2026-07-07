@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import Breadcrumb from '../components/Breadcrumb';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentDetail.css';
 
 // Import the Dashboard component (we'll adapt it later)
@@ -21,6 +22,7 @@ const TournamentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { toast, confirm } = useToast();
+  const { formatCurrency } = useCurrency();
 
   const loadTournamentData = async () => {
     try {
@@ -343,18 +345,18 @@ const TournamentDetail = () => {
           <>
             <div className="day-info-item">
               <span className="day-info-label">{t('tournaments.buyIn')}</span>
-              <span className="day-info-value">R$ {day.buy_in.toFixed(2)}</span>
+              <span className="day-info-value">{formatCurrency(day.buy_in)}</span>
             </div>
             <div className="day-info-item">
               <span className="day-info-label">{t('tournaments.rebuy')}</span>
               <span className="day-info-value">
-                {day.rebuy_amount ? `R$ ${day.rebuy_amount.toFixed(2)}` : '-'}
+                {day.rebuy_amount ? formatCurrency(day.rebuy_amount) : '-'}
               </span>
             </div>
             <div className="day-info-item">
               <span className="day-info-label">{t('tournaments.addon')}</span>
               <span className="day-info-value">
-                {day.addon_amount ? `R$ ${day.addon_amount.toFixed(2)}` : '-'}
+                {day.addon_amount ? formatCurrency(day.addon_amount) : '-'}
               </span>
             </div>
             <div className="day-info-item">

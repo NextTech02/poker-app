@@ -4,11 +4,13 @@ import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentDayStats.css';
 
 const TournamentDayStats = () => {
   const { dayId } = useParams();
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
 
   const [day, setDay] = useState(null);
   const [tournament, setTournament] = useState(null);
@@ -128,11 +130,11 @@ const TournamentDayStats = () => {
               <div className="stats-grid large">
                 <div className="stat-box highlight">
                   <span className="stat-box-label">Prize Pool Total</span>
-                  <span className="stat-box-value">R$ {(stats.combined_prize_pool || 0).toFixed(2)}</span>
+                  <span className="stat-box-value">{formatCurrency(stats.combined_prize_pool || 0)}</span>
                 </div>
                 <div className="stat-box highlight">
                   <span className="stat-box-label">Total Arrecadado</span>
-                  <span className="stat-box-value">R$ {(stats.combined_total_collected || 0).toFixed(2)}</span>
+                  <span className="stat-box-value">{formatCurrency(stats.combined_total_collected || 0)}</span>
                 </div>
                 <div className="stat-box">
                   <span className="stat-box-label">Jogadores no Final</span>
@@ -190,23 +192,23 @@ const TournamentDayStats = () => {
                         </div>
                         <div className="stat-box small">
                           <span className="stat-box-label">Valor Buy-ins</span>
-                          <span className="stat-box-value">R$ {(qDay.buy_in_amount || 0).toFixed(2)}</span>
+                          <span className="stat-box-value">{formatCurrency(qDay.buy_in_amount || 0)}</span>
                         </div>
                         <div className="stat-box small">
                           <span className="stat-box-label">Valor Rebuys</span>
-                          <span className="stat-box-value">R$ {(qDay.rebuy_amount || 0).toFixed(2)}</span>
+                          <span className="stat-box-value">{formatCurrency(qDay.rebuy_amount || 0)}</span>
                         </div>
                         <div className="stat-box small">
                           <span className="stat-box-label">Valor Add-ons</span>
-                          <span className="stat-box-value">R$ {(qDay.addon_amount || 0).toFixed(2)}</span>
+                          <span className="stat-box-value">{formatCurrency(qDay.addon_amount || 0)}</span>
                         </div>
                         <div className="stat-box small highlight-blue">
                           <span className="stat-box-label">Total Arrecadado</span>
-                          <span className="stat-box-value">R$ {(qDay.total_collected || 0).toFixed(2)}</span>
+                          <span className="stat-box-value">{formatCurrency(qDay.total_collected || 0)}</span>
                         </div>
                         <div className="stat-box small highlight-blue">
                           <span className="stat-box-label">Prize Pool</span>
-                          <span className="stat-box-value">R$ {(qDay.prize_pool || 0).toFixed(2)}</span>
+                          <span className="stat-box-value">{formatCurrency(qDay.prize_pool || 0)}</span>
                         </div>
                       </div>
                     </div>
@@ -238,11 +240,11 @@ const TournamentDayStats = () => {
                   </div>
                   <div className="stat-box highlight">
                     <span className="stat-box-label">Total Arrecadado</span>
-                    <span className="stat-box-value">R$ {(stats.total_qualifying_collected || 0).toFixed(2)}</span>
+                    <span className="stat-box-value">{formatCurrency(stats.total_qualifying_collected || 0)}</span>
                   </div>
                   <div className="stat-box highlight">
                     <span className="stat-box-label">Prize Pool Classificatórios</span>
-                    <span className="stat-box-value">R$ {(stats.total_qualifying_prize_pool || 0).toFixed(2)}</span>
+                    <span className="stat-box-value">{formatCurrency(stats.total_qualifying_prize_pool || 0)}</span>
                   </div>
                 </div>
               </Card>
@@ -267,7 +269,7 @@ const TournamentDayStats = () => {
                   </div>
                   <div className="stat-box highlight">
                     <span className="stat-box-label">Arrecadado no Final</span>
-                    <span className="stat-box-value">R$ {(stats.final_day_collected || 0).toFixed(2)}</span>
+                    <span className="stat-box-value">{formatCurrency(stats.final_day_collected || 0)}</span>
                   </div>
                 </div>
               </Card>
@@ -281,11 +283,11 @@ const TournamentDayStats = () => {
               <div className="stats-grid large">
                 <div className="stat-box highlight">
                   <span className="stat-box-label">Prize Pool</span>
-                  <span className="stat-box-value">R$ {(stats.prize_pool || 0).toFixed(2)}</span>
+                  <span className="stat-box-value">{formatCurrency(stats.prize_pool || 0)}</span>
                 </div>
                 <div className="stat-box highlight">
                   <span className="stat-box-label">Total Arrecadado</span>
-                  <span className="stat-box-value">R$ {(stats.total_collected || 0).toFixed(2)}</span>
+                  <span className="stat-box-value">{formatCurrency(stats.total_collected || 0)}</span>
                 </div>
               </div>
             </Card>
@@ -335,15 +337,15 @@ const TournamentDayStats = () => {
               <div className="stats-grid">
                 <div className="stat-box">
                   <span className="stat-box-label">Valor Buy-ins</span>
-                  <span className="stat-box-value">R$ {(stats.buy_in_amount || 0).toFixed(2)}</span>
+                  <span className="stat-box-value">{formatCurrency(stats.buy_in_amount || 0)}</span>
                 </div>
                 <div className="stat-box">
                   <span className="stat-box-label">Valor Rebuys</span>
-                  <span className="stat-box-value">R$ {(stats.rebuy_amount || 0).toFixed(2)}</span>
+                  <span className="stat-box-value">{formatCurrency(stats.rebuy_amount || 0)}</span>
                 </div>
                 <div className="stat-box">
                   <span className="stat-box-label">Valor Add-ons</span>
-                  <span className="stat-box-value">R$ {(stats.addon_amount || 0).toFixed(2)}</span>
+                  <span className="stat-box-value">{formatCurrency(stats.addon_amount || 0)}</span>
                 </div>
               </div>
             </Card>

@@ -8,6 +8,7 @@ import PrizeVoucher from '../components/PrizeVoucher';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { currencySymbol } from '../utils/currencyUtils';
 import { calculatePayoutAllocations } from '../utils/payoutStructure';
 import './Premiacao.css';
 
@@ -20,7 +21,7 @@ const getRankClass = () => 'rank-other';
 const Premiacao = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currency } = useCurrency();
   const DOC_TYPE_LABELS = {
     passport: t('premiacao.docPassport'),
     national_id: t('premiacao.docIdentity'),
@@ -576,7 +577,7 @@ const Premiacao = () => {
                 </div>
                 <div className="card-content">
                   <div className="input-with-prefix">
-                    <span className="prefix">R$</span>
+                    <span className="prefix">{currencySymbol(currency)}</span>
                     <input
                       type="number"
                       min="0"

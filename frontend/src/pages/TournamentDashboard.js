@@ -5,6 +5,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
 import { usePolling } from '../hooks/usePolling';
+import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentDashboard.css';
 
 const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
@@ -19,6 +20,7 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   const [days, setDays] = useState([]);
   const [allPlayers, setAllPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { formatCurrency } = useCurrency();
 
   const loadTournamentData = async () => {
     try {
@@ -204,25 +206,25 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
           <h3 className="card-title">Resultados do Torneio</h3>
           <div className="financial-row">
             <span className="label">Arrecadação Total</span>
-            <span className="value positive">R$ {financials.totalRevenue.toFixed(2)}</span>
+            <span className="value positive">{formatCurrency(financials.totalRevenue)}</span>
           </div>
           <div className="financial-row">
             <span className="label">
               Taxa Administrativa (Rake {financials.averageRakePercentage.toFixed(1)}% médio)
             </span>
-            <span className="value negative">- R$ {financials.rake.toFixed(2)}</span>
+            <span className="value negative">- {formatCurrency(financials.rake)}</span>
           </div>
           <div className="financial-row">
             <span className="label">Banco para Torneio</span>
-            <span className="value positive">R$ {financials.prizePool.toFixed(2)}</span>
+            <span className="value positive">{formatCurrency(financials.prizePool)}</span>
           </div>
           <div className="financial-row">
             <span className="label">Stake de Item</span>
-            <span className="value neutral">R$ {0.00.toFixed(2)}</span>
+            <span className="value neutral">{formatCurrency(0)}</span>
           </div>
           <div className="financial-row total">
             <span className="label">Custo para Premiações</span>
-            <span className="value positive">R$ {financials.prizePool.toFixed(2)}</span>
+            <span className="value positive">{formatCurrency(financials.prizePool)}</span>
           </div>
         </Card>
 
@@ -235,17 +237,17 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
           </div>
           <div className="financial-row">
             <span className="label">Saldo para Torneio</span>
-            <span className="value positive">R$ {financials.totalRevenue.toFixed(2)}</span>
+            <span className="value positive">{formatCurrency(financials.totalRevenue)}</span>
           </div>
           <div className="financial-row">
             <span className="label">
               Rake ({financials.averageRakePercentage.toFixed(1)}% médio)
             </span>
-            <span className="value negative">- R$ {financials.rake.toFixed(2)}</span>
+            <span className="value negative">- {formatCurrency(financials.rake)}</span>
           </div>
           <div className="financial-row total">
             <span className="label">Prize Pool</span>
-            <span className="value positive">R$ {financials.prizePool.toFixed(2)}</span>
+            <span className="value positive">{formatCurrency(financials.prizePool)}</span>
           </div>
         </Card>
       </div>
@@ -270,29 +272,29 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
               <tr>
                 <td>Torneio (Buy-in)</td>
                 <td className="text-center">{financials.totalBuyInsCount}</td>
-                <td className="text-right">R$ {financials.totalBuyInsRevenue.toFixed(2)}</td>
-                <td className="text-right">R$ 0.00</td>
-                <td className="text-right">R$ {financials.totalBuyInsRevenue.toFixed(2)}</td>
-                <td className="text-right total-value">R$ {financials.totalBuyInsRevenue.toFixed(2)}</td>
+                <td className="text-right">{formatCurrency(financials.totalBuyInsRevenue)}</td>
+                <td className="text-right">{formatCurrency(0)}</td>
+                <td className="text-right">{formatCurrency(financials.totalBuyInsRevenue)}</td>
+                <td className="text-right total-value">{formatCurrency(financials.totalBuyInsRevenue)}</td>
               </tr>
               {financials.totalRebuysCount > 0 && (
                 <tr>
                   <td>Rebuy</td>
                   <td className="text-center">{financials.totalRebuysCount}</td>
-                  <td className="text-right">R$ {financials.totalRebuysRevenue.toFixed(2)}</td>
-                  <td className="text-right">R$ 0.00</td>
-                  <td className="text-right">R$ {financials.totalRebuysRevenue.toFixed(2)}</td>
-                  <td className="text-right total-value">R$ {financials.totalRebuysRevenue.toFixed(2)}</td>
+                  <td className="text-right">{formatCurrency(financials.totalRebuysRevenue)}</td>
+                  <td className="text-right">{formatCurrency(0)}</td>
+                  <td className="text-right">{formatCurrency(financials.totalRebuysRevenue)}</td>
+                  <td className="text-right total-value">{formatCurrency(financials.totalRebuysRevenue)}</td>
                 </tr>
               )}
               {financials.totalAddonsCount > 0 && (
                 <tr>
                   <td>Add-on</td>
                   <td className="text-center">{financials.totalAddonsCount}</td>
-                  <td className="text-right">R$ {financials.totalAddonsRevenue.toFixed(2)}</td>
-                  <td className="text-right">R$ 0.00</td>
-                  <td className="text-right">R$ {financials.totalAddonsRevenue.toFixed(2)}</td>
-                  <td className="text-right total-value">R$ {financials.totalAddonsRevenue.toFixed(2)}</td>
+                  <td className="text-right">{formatCurrency(financials.totalAddonsRevenue)}</td>
+                  <td className="text-right">{formatCurrency(0)}</td>
+                  <td className="text-right">{formatCurrency(financials.totalAddonsRevenue)}</td>
+                  <td className="text-right total-value">{formatCurrency(financials.totalAddonsRevenue)}</td>
                 </tr>
               )}
             </tbody>

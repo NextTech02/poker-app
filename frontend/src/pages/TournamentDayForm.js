@@ -6,12 +6,15 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { currencySymbol } from '../utils/currencyUtils';
 import './TournamentDayForm.css';
 
 const TournamentDayForm = () => {
   const { t } = useTranslation();
   const { tournamentId, dayId } = useParams(); // dayId comes from URL param when editing
   const navigate = useNavigate();
+  const { currency } = useCurrency();
 
   const [tournament, setTournament] = useState(null);
   const [days, setDays] = useState([]);
@@ -88,6 +91,8 @@ const TournamentDayForm = () => {
           ...prev,
           day_number: daysRes.data.length + 1,
           day_type: 'regular',
+          // A moeda segue o setting GLOBAL (Financeiro) — não há mais seleção por dia.
+          currency,
         }));
       }
     } catch (err) {
@@ -295,7 +300,7 @@ const TournamentDayForm = () => {
                 <h3 className="form-section-title">{t('tournamentDayForm.values')}</h3>
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="buy_in">{t('tournaments.buyIn')} (R$) *</label>
+                    <label htmlFor="buy_in">{t('tournaments.buyIn')} ({currencySymbol(currency)}) *</label>
                     <input
                       id="buy_in"
                       type="number"
@@ -307,7 +312,7 @@ const TournamentDayForm = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="rebuy_amount">{t('tournaments.rebuy')} (R$)</label>
+                    <label htmlFor="rebuy_amount">{t('tournaments.rebuy')} ({currencySymbol(currency)})</label>
                     <input
                       id="rebuy_amount"
                       type="number"
@@ -318,7 +323,7 @@ const TournamentDayForm = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="addon_amount">{t('tournaments.addon')} (R$)</label>
+                    <label htmlFor="addon_amount">{t('tournaments.addon')} ({currencySymbol(currency)})</label>
                     <input
                       id="addon_amount"
                       type="number"
@@ -327,21 +332,6 @@ const TournamentDayForm = () => {
                       value={formData.addon_amount}
                       onChange={(e) => setFormData({ ...formData, addon_amount: parseFloat(e.target.value) })}
                     />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="currency">Moeda</label>
-                    <select
-                      id="currency"
-                      value={formData.currency}
-                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    >
-                      <option value="BRL">R$ — Real Brasileiro</option>
-                      <option value="USD">$ — Dólar Americano</option>
-                      <option value="EUR">€ — Euro</option>
-                      <option value="GBP">£ — Libra Esterlina</option>
-                      <option value="ARS">$ — Peso Argentino</option>
-                      <option value="COP">$ — Peso Colombiano</option>
-                    </select>
                   </div>
                 </div>
               </div>

@@ -9,6 +9,8 @@ import { getSelectedStage } from '../utils/stageUtils';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { currencySymbol } from '../utils/currencyUtils';
 import { usePolling } from '../hooks/usePolling';
 import './Torneios.css';
 
@@ -17,6 +19,7 @@ const Torneios = () => {
   const navigate = useNavigate();
   const { toast, confirm } = useToast();
   const { selectedStage } = useStage();
+  const { currency } = useCurrency();
   const hasStage = !!selectedStage?.id;
 
   const [tournaments, setTournaments] = useState([]);
@@ -123,7 +126,8 @@ const Torneios = () => {
               addon_amount: parseFloat(formData.qualifying_addon) || null,
               // Rake vem dos "Tipos de Buy" (fonte única) — 0 aqui.
               rake_percentage: 0,
-              currency: formData.qualifying_currency || 'BRL',
+              // Moeda segue o setting GLOBAL (Financeiro) — sem seleção por torneio.
+              currency,
               max_players: parseInt(formData.qualifying_max_players, 10) || 100,
               starting_chips: parseInt(formData.qualifying_starting_chips, 10) || 10000,
               rebuy_chips: parseInt(formData.qualifying_rebuy_chips, 10) || 10000,
@@ -400,6 +404,7 @@ const Torneios = () => {
             formError={formError}
             sponsors={sponsors}
             blindTemplates={blindTemplates}
+            currency={currency}
             t={t}
           />
         )}
@@ -417,6 +422,7 @@ const Torneios = () => {
             submitting={submitting}
             formError={formError}
             sponsors={sponsors}
+            currency={currency}
             t={t}
             isEditing
           />
@@ -428,7 +434,7 @@ const Torneios = () => {
 };
 
 /* ── Shared Modal — A7: inline error + loading state ── */
-const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], blindTemplates = [], t, isEditing }) => (
+const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], blindTemplates = [], currency, t, isEditing }) => (
   <div className="tr-modal-overlay" onClick={onClose}>
     <div className="tr-modal" onClick={(e) => e.stopPropagation()}>
       <div className="tr-modal-header">
@@ -513,7 +519,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
               <small>{t('tournaments.qualifyingDaysHint', 'Criaremos esses dias classificatórios + 1 dia final, já vinculados. Edite a configuração de cada um depois.')}</small>
             </div>
             <div className="tr-field">
-              <label htmlFor="tr-qbuyin">{t('tournaments.qualifyingBuyIn', 'Buy-in por dia classificatório (R$)')}</label>
+              <label htmlFor="tr-qbuyin">{t('tournaments.qualifyingBuyIn', 'Buy-in por dia classificatório')} ({currencySymbol(currency)})</label>
               <input
                 id="tr-qbuyin"
                 name="qualifying_buy_in"
@@ -530,26 +536,14 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
             <div className="tr-qual-section-label">{t('tournaments.qualifyingValuesLabel', 'Valores aplicados a todos os dias classificatórios')}</div>
             <div className="tr-qual-grid">
               <div className="tr-field">
-                <label htmlFor="tr-qrebuy">{t('tournaments.rebuy', 'Rebuy')} (R$)</label>
+                <label htmlFor="tr-qrebuy">{t('tournaments.rebuy', 'Rebuy')} ({currencySymbol(currency)})</label>
                 <input id="tr-qrebuy" name="qualifying_rebuy" type="number" min="0" step="0.01"
                   value={formData.qualifying_rebuy} onChange={onChange} disabled={submitting} placeholder="0,00" />
               </div>
               <div className="tr-field">
-                <label htmlFor="tr-qaddon">{t('tournaments.addon', 'Add-on')} (R$)</label>
+                <label htmlFor="tr-qaddon">{t('tournaments.addon', 'Add-on')} ({currencySymbol(currency)})</label>
                 <input id="tr-qaddon" name="qualifying_addon" type="number" min="0" step="0.01"
                   value={formData.qualifying_addon} onChange={onChange} disabled={submitting} placeholder="0,00" />
-              </div>
-              <div className="tr-field">
-                <label htmlFor="tr-qcurrency">{t('tournamentDayForm.currency', 'Moeda')}</label>
-                <select id="tr-qcurrency" name="qualifying_currency"
-                  value={formData.qualifying_currency} onChange={onChange} disabled={submitting}>
-                  <option value="BRL">R$ — Real Brasileiro</option>
-                  <option value="USD">$ — Dólar Americano</option>
-                  <option value="EUR">€ — Euro</option>
-                  <option value="GBP">£ — Libra Esterlina</option>
-                  <option value="ARS">$ — Peso Argentino</option>
-                  <option value="COP">$ — Peso Colombiano</option>
-                </select>
               </div>
               <div className="tr-field">
                 <label htmlFor="tr-qmax">{t('tournaments.maxPlayers', 'Máximo de jogadores')}</label>

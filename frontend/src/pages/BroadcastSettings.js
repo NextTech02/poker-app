@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import nextHubLogo from '../assets/next-hub-logo.png';
 import './BroadcastSettings.css';
 
@@ -130,7 +131,7 @@ const MOCK = {
   sb: 500, bb: 1000, ante: 1000,
   nsb: 750, nbb: 1500, nante: 1500,
   active: 45, total: 120, entries: 165,
-  prizePool: 'R$ 15.000,00',
+  prizePool: 15000,
   interval: '18:32',
   chipcount: '1.650.000',
   average: '36.667',
@@ -147,6 +148,7 @@ const extractYouTubeIdPreview = (url) => {
 };
 
 const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
+  const { formatCurrency } = useCurrency();
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(0.35);
 
@@ -434,7 +436,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                 textAlign: 'right', padding: '12px 24px',
               }}>
                 <div style={{ fontSize: 13 * pp, color: c.ppLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>PRIZEPOOL</div>
-                <div style={{ fontSize: 32 * pp, fontWeight: 800, color: c.ppVal }}>{MOCK.prizePool}</div>
+                <div style={{ fontSize: 32 * pp, fontWeight: 800, color: c.ppVal }}>{formatCurrency(MOCK.prizePool)}</div>
               </div>
             )}
 
@@ -460,7 +462,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                       <span style={{ fontSize: 14 * ts, color: '#fff', fontWeight: 700 }}>{pos}º Lugar</span>
                       <span style={{ color: '#3a5068', fontSize: 12 * ts }}>:</span>
                       <span style={{ fontSize: 16 * ts, color: '#fff', fontWeight: 800 }}>
-                        R$ {(Math.round(15000 / pos / 100) * 100).toLocaleString('pt-BR')},00
+                        {formatCurrency(Math.round(15000 / pos / 100) * 100)}
                       </span>
                       <span style={{ color: '#d4af37', fontSize: 8 * ts, marginLeft: 8 }}>◆</span>
                     </span>
@@ -493,7 +495,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                     }}>
                       <span style={{ fontSize: 13 * ts, color: '#9ca3af', fontWeight: 700 }}>{pos}º</span>
                       <span style={{ fontSize: 14 * ts, color: '#fff', fontWeight: 800 }}>
-                        R$ {(Math.round(15000 / pos / 100) * 100).toLocaleString('pt-BR')}
+                        {formatCurrency(Math.round(15000 / pos / 100) * 100)}
                       </span>
                     </div>
                   ))}
