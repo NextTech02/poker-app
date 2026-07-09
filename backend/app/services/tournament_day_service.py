@@ -1033,6 +1033,26 @@ class TournamentDayService:
         # ticker from counting down while the server always returns the same value.
         effective_paused = (day.is_paused or False) or (not day.timer_started_at)
 
+        # Instante ABSOLUTO (epoch, relógio do servidor) em que o nível atual termina
+        # — e em que o próximo intervalo começa. Derivado de timer_started_at + duração
+        # − elapsed_base + sum_before, SEM arredondamento e SEM depender de quando a
+        # request é processada (o "agora" do servidor se cancela na conta). Assim
+        # TODAS as telas calculam restante = fim − agora a partir do MESMO valor e
+        # ficam em sincronia exata (some o offset de 1s entre Controle e Broadcast).
+        current_level_ends_at = None
+        next_break_starts_at = None
+        if not effective_paused and day.timer_started_at and current_blind:
+            tsa = day.timer_started_at.timestamp()
+            elapsed_base = day.elapsed_time or 0
+            level_dur = (current_blind.get("duration") or 0) * 60
+            sum_before = TournamentDayService._sum_durations_before_level(blinds, correct_level)
+            current_level_ends_at = tsa + level_dur - elapsed_base + sum_before
+            if next_break_info:
+                sum_before_break = TournamentDayService._sum_durations_before_level(
+                    blinds, next_break_info["level"]
+                )
+                next_break_starts_at = tsa + sum_before_break - elapsed_base
+
         return {
             "current_level": correct_level,
             "elapsed_time": current_elapsed,
@@ -1042,6 +1062,8 @@ class TournamentDayService:
             "next_blind": next_blind,
             "time_remaining_current_level": time_remaining_current,
             "next_break": next_break_info,
+            "current_level_ends_at": current_level_ends_at,
+            "next_break_starts_at": next_break_starts_at,
             "active_players": active_players,
             "total_entries": total_entries,
             "eliminations_count": eliminations_count,

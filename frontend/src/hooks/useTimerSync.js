@@ -28,19 +28,45 @@ import { supabase } from '../config/supabase';
 const REANCHOR_DRIFT = 2.5; // segundos de divergência que forçam re-ancoragem (snap)
 
 // Pure helpers (module scope so they're stable and dependency-free).
-const anchorFromData = (data) => ({
-  at: Date.now(),
-  paused: !!data.is_paused,
-  level: data.current_level,
-  remaining: typeof data.time_remaining_current_level === 'number'
-    ? Math.max(0, data.time_remaining_current_level) : 0,
-  breakRemaining: data.next_break && typeof data.next_break.time_until_break === 'number'
-    ? Math.max(0, data.next_break.time_until_break) : null,
-});
+//
+// Anchor shapes:
+//  - ABSOLUTE (running, server sent current_level_ends_at): { endsAt, breakEndsAt,
+//    level, paused:false } — endsAt/breakEndsAt são epoch SEGUNDOS. Todas as telas
+//    derivam do MESMO instante absoluto → sincronia exata, sem jitter.
+//  - RELATIVE/FROZEN (pausado, otimista, ou backend sem ends_at): { at, remaining,
+//    breakRemaining, level, paused }.
+const anchorFromData = (data) => {
+  const paused = !!data.is_paused;
+  if (!paused && typeof data.current_level_ends_at === 'number') {
+    return {
+      endsAt: data.current_level_ends_at,
+      breakEndsAt: typeof data.next_break_starts_at === 'number' ? data.next_break_starts_at : null,
+      level: data.current_level,
+      paused: false,
+    };
+  }
+  return {
+    at: Date.now(),
+    paused,
+    level: data.current_level,
+    remaining: typeof data.time_remaining_current_level === 'number'
+      ? Math.max(0, data.time_remaining_current_level) : 0,
+    breakRemaining: data.next_break && typeof data.next_break.time_until_break === 'number'
+      ? Math.max(0, data.next_break.time_until_break) : null,
+  };
+};
 
-// Current smooth values derived from an anchor. When paused, time is frozen.
+// Current smooth values derived from an anchor. Absolute anchors derive from the
+// wall clock (Date.now); relative/paused anchors tick from `at` (frozen if paused).
 const anchorNow = (a) => {
   if (!a) return { remaining: null, breakRemaining: null };
+  if (a.endsAt != null) {
+    const now = Date.now() / 1000;
+    return {
+      remaining: Math.max(0, a.endsAt - now),
+      breakRemaining: a.breakEndsAt != null ? Math.max(0, a.breakEndsAt - now) : null,
+    };
+  }
   const elapsed = a.paused ? 0 : (Date.now() - a.at) / 1000;
   return {
     remaining: Math.max(0, a.remaining - elapsed),
@@ -190,19 +216,26 @@ export const useTimerSync = (dayId, blinds = null) => {
       consecutiveFailsRef.current = 0;
       isOfflineRef.current = false;
 
-      // Re-ancora SÓ em mudança real (nível novo, toggle de pause, primeira carga,
-      // ou desvio grande). Diferenças pequenas do poll são ignoradas para o relógio
-      // não pular a cada fetch.
       const a = anchorRef.current;
       const paused = !!data.is_paused;
-      let reanchor = !a || a.level !== data.current_level || a.paused !== paused;
-      if (!reanchor && typeof data.time_remaining_current_level === 'number') {
-        const { remaining: displayed } = anchorNow(a);
-        if (displayed == null || Math.abs(data.time_remaining_current_level - displayed) > REANCHOR_DRIFT) {
-          reanchor = true;
+      const hasAbs = !paused && typeof data.current_level_ends_at === 'number';
+      if (hasAbs) {
+        // Absoluto: valor estável e IDÊNTICO entre telas — adota sempre. Não causa
+        // jitter porque endsAt é constante enquanto nível/elapsed não mudam.
+        anchorRef.current = anchorFromData(data);
+      } else {
+        // Fallback relativo/pausado: re-ancora só em mudança real (nível, pause,
+        // primeira carga, saída do modo absoluto, ou desvio grande). Ignora
+        // microcorreções do poll para não introduzir jitter.
+        let reanchor = !a || a.endsAt != null || a.level !== data.current_level || a.paused !== paused;
+        if (!reanchor && typeof data.time_remaining_current_level === 'number') {
+          const { remaining: displayed } = anchorNow(a);
+          if (displayed == null || Math.abs(data.time_remaining_current_level - displayed) > REANCHOR_DRIFT) {
+            reanchor = true;
+          }
         }
+        if (reanchor) anchorRef.current = anchorFromData(data);
       }
-      if (reanchor) anchorRef.current = anchorFromData(data);
 
       setTimerState(data);
       setError(null);
