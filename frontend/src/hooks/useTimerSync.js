@@ -253,8 +253,13 @@ export const useTimerSync = (dayId, blinds = null) => {
   }, [fetchStatus]);
 
   // Supabase Realtime: empurra mudanças de comando/blinds para todas as telas ao
-  // vivo (Controle + Broadcast) quase instantaneamente. O evento só DISPARA o
-  // refetch; polling continua como fallback.
+  // vivo (Controle + Broadcast) quase instantaneamente.
+  //
+  // O evento de tournament_days JÁ TRAZ a linha nova (payload.new) — então a tela
+  // de visualização (que não tem UI otimista, pois não emite o comando) reflete o
+  // pause/start IMEDIATAMENTE a partir do payload (congela/retoma o relógio), sem
+  // esperar o GET enriquecido. O refetch roda em seguida só para reconciliar
+  // tempo/nível/blinds. Polling continua como fallback.
   useEffect(() => {
     if (!dayId) return undefined;
 
@@ -263,7 +268,17 @@ export const useTimerSync = (dayId, blinds = null) => {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'tournament_days', filter: `id=eq.${dayId}` },
-        () => triggerRefetch()
+        (payload) => {
+          const row = payload?.new;
+          if (row && typeof row.is_paused === 'boolean') {
+            const cur = timerStateRef.current;
+            if (!cur || cur.is_paused !== row.is_paused) {
+              // reflete pause/start na hora (payload é a verdade do banco)
+              applyOptimistic({ is_paused: row.is_paused });
+            }
+          }
+          triggerRefetch();
+        }
       )
       .on(
         'postgres_changes',
@@ -276,7 +291,7 @@ export const useTimerSync = (dayId, blinds = null) => {
       if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [dayId, triggerRefetch]);
+  }, [dayId, triggerRefetch, applyOptimistic]);
 
   // Smooth-render ticker: a cada 250ms força a recomputação do countdown (que é
   // derivado da âncora + Date.now, não de contagem de ticks). Só roda enquanto NÃO
