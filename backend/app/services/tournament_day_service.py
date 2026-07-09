@@ -116,29 +116,55 @@ class TournamentDayService:
         return agg
 
     @staticmethod
-    def get_tournament_day(day_id: str) -> Optional[TournamentDay]:
-        """Get a tournament day by ID"""
+    def get_tournament_day(day_id: str, include_entries: bool = True) -> Optional[TournamentDay]:
+        """Get a tournament day by ID.
+
+        `include_entries=False` skips the tournament_players scan used only to
+        compute total_entries — for callers that don't need it (e.g. timer
+        commands), this avoids a wasteful extra round-trip.
+        """
         response = supabase.table("tournament_days").select("*").eq("id", day_id).execute()
 
         if response.data:
             item = response.data[0]
 
-            # Calculate total_entries
-            players_response = supabase.table("tournament_players")\
-                .select("buy_in_count, rebuy_count")\
-                .eq("tournament_day_id", day_id)\
-                .execute()
-
             total_entries = 0
-            if players_response.data:
-                for player in players_response.data:
-                    buy_ins = player.get("buy_in_count", 0) or 0
-                    rebuys = player.get("rebuy_count", 0) or 0
-                    total_entries += buy_ins + rebuys
+            if include_entries:
+                # Calculate total_entries
+                players_response = supabase.table("tournament_players")\
+                    .select("buy_in_count, rebuy_count")\
+                    .eq("tournament_day_id", day_id)\
+                    .execute()
+
+                if players_response.data:
+                    for player in players_response.data:
+                        buy_ins = player.get("buy_in_count", 0) or 0
+                        rebuys = player.get("rebuy_count", 0) or 0
+                        total_entries += buy_ins + rebuys
 
             item["total_entries"] = total_entries
             return TournamentDay(**item)
         return None
+
+    @staticmethod
+    def get_day_with_stage(day_id: str):
+        """Single round-trip validation helper: fetches the day row plus its parent
+        tournament's stage_id (via FK embedding), WITHOUT the players sub-query.
+        Returns (TournamentDay | None, stage_id | None) so timer endpoints can
+        validate existence + stage scoping and reuse the day without re-fetching."""
+        response = supabase.table("tournament_days")\
+            .select("*, tournaments(stage_id)")\
+            .eq("id", day_id)\
+            .execute()
+
+        if not response.data:
+            return None, None
+
+        row = dict(response.data[0])
+        tourn = row.pop("tournaments", None)
+        stage_id = tourn.get("stage_id") if isinstance(tourn, dict) else None
+        row["total_entries"] = 0
+        return TournamentDay(**row), stage_id
 
     @staticmethod
     def get_tournament_day_summary(
@@ -596,11 +622,15 @@ class TournamentDayService:
     # ================================================
 
     @staticmethod
-    def start_timer(day_id: str):
-        """Start or resume tournament timer"""
-        day = TournamentDayService.get_tournament_day(day_id)
+    def start_timer(day_id: str, day: Optional[TournamentDay] = None):
+        """Start or resume tournament timer. `day` may be passed pre-fetched
+        (e.g. from the router validation) to avoid an extra round-trip."""
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
+
+        was_active = day.status == "active"
 
         # Update timer state
         response = supabase.table("tournament_days")\
@@ -612,16 +642,19 @@ class TournamentDayService:
             .eq("id", day_id)\
             .execute()
 
-        # Sync tournament status (day became active → tournament becomes active)
-        if response.data:
+        # Sync tournament status only on the pending→active transition. On a resume
+        # (pause keeps status='active') the tournament is already active, so we skip
+        # the 2 extra round-trips of _sync_tournament_status.
+        if response.data and not was_active:
             TournamentDayService._sync_tournament_status(day.tournament_id)
 
         return response.data[0] if response.data else None
 
     @staticmethod
-    def pause_timer(day_id: str):
+    def pause_timer(day_id: str, day: Optional[TournamentDay] = None):
         """Pause tournament timer"""
-        day = TournamentDayService.get_tournament_day(day_id)
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
@@ -645,9 +678,10 @@ class TournamentDayService:
         return response.data[0] if response.data else None
 
     @staticmethod
-    def adjust_timer(day_id: str, seconds: int):
+    def adjust_timer(day_id: str, seconds: int, day: Optional[TournamentDay] = None):
         """Manually adjust remaining time. Positive = add time (subtract elapsed), negative = remove time (add elapsed)"""
-        day = TournamentDayService.get_tournament_day(day_id)
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
@@ -679,7 +713,7 @@ class TournamentDayService:
     @staticmethod
     def set_level(day_id: str, level: int):
         """Set current blind level"""
-        day = TournamentDayService.get_tournament_day(day_id)
+        day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
@@ -694,9 +728,10 @@ class TournamentDayService:
         return response.data[0] if response.data else None
 
     @staticmethod
-    def next_level(day_id: str):
+    def next_level(day_id: str, day: Optional[TournamentDay] = None):
         """Advance to next blind level - sync elapsed_time to start of new level"""
-        day = TournamentDayService.get_tournament_day(day_id)
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
@@ -722,9 +757,10 @@ class TournamentDayService:
         return response.data[0] if response.data else None
 
     @staticmethod
-    def previous_level(day_id: str):
+    def previous_level(day_id: str, day: Optional[TournamentDay] = None):
         """Go back to previous blind level - sync elapsed_time to start of that level"""
-        day = TournamentDayService.get_tournament_day(day_id)
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
@@ -750,9 +786,10 @@ class TournamentDayService:
         return response.data[0] if response.data else None
 
     @staticmethod
-    def reset_timer(day_id: str):
+    def reset_timer(day_id: str, day: Optional[TournamentDay] = None):
         """Reset timer to 00:00 and pause"""
-        day = TournamentDayService.get_tournament_day(day_id)
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
@@ -770,20 +807,23 @@ class TournamentDayService:
         return response.data[0] if response.data else None
 
     @staticmethod
-    def get_timer_status(day_id: str):
+    def get_timer_status(day_id: str, day: Optional[TournamentDay] = None):
         """Get current timer status with player counts"""
-        day = TournamentDayService.get_tournament_day(day_id)
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
-        # Get active players count
+        # One players scan feeds both active count and total_entries (so we don't
+        # depend on day.total_entries — the day may be fetched without that scan)
         players_response = supabase.table("tournament_players")\
-            .select("id, status")\
+            .select("status, buy_in_count, rebuy_count")\
             .eq("tournament_day_id", day_id)\
             .execute()
 
-        active_players = len([p for p in players_response.data if p.get("status") == "active"])
-        total_entries = day.total_entries
+        rows = players_response.data or []
+        active_players = len([p for p in rows if p.get("status") == "active"])
+        total_entries = sum((p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0) for p in rows)
 
         # Calculate current elapsed time if timer is running
         current_elapsed = day.elapsed_time
@@ -910,10 +950,13 @@ class TournamentDayService:
         }
 
     @staticmethod
-    def get_enriched_timer_status(day_id: str):
+    def get_enriched_timer_status(day_id: str, day: Optional[TournamentDay] = None):
         """Get timer status with all calculated information (current/next blind, break info).
-        Auto-advances level in DB when elapsed time exceeds current level duration."""
-        day = TournamentDayService.get_tournament_day(day_id)
+        Auto-advances level in DB when elapsed time exceeds current level duration.
+        `day` may be passed pre-fetched (from the router validation) to skip a fetch;
+        total_entries/chipcount come from a cached players scan, not from the day."""
+        if day is None:
+            day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
             raise ValueError("Tournament day not found")
 
@@ -948,34 +991,41 @@ class TournamentDayService:
         # Find next break and calculate time until it
         next_break_info = TournamentDayService._find_next_break(blinds, correct_level, current_elapsed)
 
-        # Active players = total_entries - eliminations_count
-        total_entries = day.total_entries or 0
-        eliminations_count = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
-        active_players = max(0, total_entries - eliminations_count)
-
-        # Chipcount — cached for 60s (only changes on buy-in/rebuy/addon, not every 3s poll)
-        # average_stack is derived from cached chipcount + current active_players each call
+        # Player aggregates (total_entries + chipcount) — cached for 60s in ONE scan,
+        # since both only change on buy-in/rebuy/addon, not on the 3s poll. This avoids
+        # the per-poll players scan that get_tournament_day used to do for total_entries.
         now = time.time()
         cached = _chipcount_cache.get(day_id)
         if cached and (now - cached[0]) < _CHIPCOUNT_TTL:
             chipcount = cached[1]
+            total_entries = cached[2]
         else:
             try:
-                chips_resp = supabase.table("tournament_players")\
-                    .select("total_chips")\
+                agg_resp = supabase.table("tournament_players")\
+                    .select("total_chips, buy_in_count, rebuy_count")\
                     .eq("tournament_day_id", day_id)\
                     .execute()
-                players_data = chips_resp.data or []
+                players_data = agg_resp.data or []
                 if not players_data:
-                    chips_resp2 = supabase.table("tournament_players")\
-                        .select("total_chips")\
+                    agg_resp2 = supabase.table("tournament_players")\
+                        .select("total_chips, buy_in_count, rebuy_count")\
                         .eq("tournament_id", day.tournament_id)\
                         .execute()
-                    players_data = chips_resp2.data or []
+                    players_data = agg_resp2.data or []
                 chipcount = sum(int(p.get("total_chips") or 0) for p in players_data)
-                _chipcount_cache[day_id] = (now, chipcount)
+                total_entries = sum(
+                    (p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0)
+                    for p in players_data
+                )
+                _chipcount_cache[day_id] = (now, chipcount, total_entries)
             except Exception:
                 chipcount = cached[1] if cached else 0
+                total_entries = cached[2] if cached else 0
+
+        # Active players = total_entries - eliminations_count (eliminations read fresh
+        # from the day row, so they reflect instantly even while aggregates are cached)
+        eliminations_count = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
+        active_players = max(0, total_entries - eliminations_count)
         average_stack = round(chipcount / active_players) if active_players > 0 else 0
 
         # If is_paused=False but timer_started_at is None, the timer was never actually

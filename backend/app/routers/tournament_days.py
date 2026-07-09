@@ -38,6 +38,26 @@ class AdvanceQualifiersResponse(BaseModel):
 router = APIRouter(prefix="/tournament-days", tags=["tournament-days"])
 
 
+def _validate_day_for_timer(day_id: str, stage_id: Optional[str]) -> TournamentDay:
+    """Timer-endpoint guard in a SINGLE round-trip: fetches the day + its parent
+    tournament's stage_id (no players sub-query) and enforces existence + stage
+    scoping. Returns the day so the caller can hand it to the service and avoid a
+    second fetch. Replaces the old 2-query (get_tournament_day + get_tournament)
+    validation that ran on every timer command/poll."""
+    day, day_stage_id = TournamentDayService.get_day_with_stage(day_id)
+    if not day:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament day not found"
+        )
+    if stage_id and day_stage_id != stage_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Tournament day does not belong to the selected stage"
+        )
+    return day
+
+
 @router.post("", response_model=TournamentDay, status_code=status.HTTP_201_CREATED)
 def create_tournament_day(
     day_data: TournamentDayCreate,
@@ -478,24 +498,10 @@ def start_tournament_timer(
     Start or resume tournament timer.
     Sets status to active and begins timing.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
-            )
+    day = _validate_day_for_timer(day_id, stage_id)
 
     try:
-        result = TournamentDayService.start_timer(day_id)
+        result = TournamentDayService.start_timer(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
         raise HTTPException(
@@ -514,24 +520,10 @@ def pause_tournament_timer(
     Pause tournament timer.
     Saves current elapsed time and stops counting.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
-            )
+    day = _validate_day_for_timer(day_id, stage_id)
 
     try:
-        result = TournamentDayService.pause_timer(day_id)
+        result = TournamentDayService.pause_timer(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
         raise HTTPException(
@@ -551,24 +543,10 @@ def adjust_tournament_timer(
     Manually adjust timer by adding or subtracting seconds.
     Use positive values to add time, negative to subtract.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
-            )
+    day = _validate_day_for_timer(day_id, stage_id)
 
     try:
-        result = TournamentDayService.adjust_timer(day_id, adjustment.seconds)
+        result = TournamentDayService.adjust_timer(day_id, adjustment.seconds, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
         raise HTTPException(
@@ -586,24 +564,10 @@ def next_blind_level(
     """
     Advance to next blind level.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
-            )
+    day = _validate_day_for_timer(day_id, stage_id)
 
     try:
-        result = TournamentDayService.next_level(day_id)
+        result = TournamentDayService.next_level(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
         raise HTTPException(
@@ -622,24 +586,10 @@ def previous_blind_level(
     Go back to previous blind level.
     Cannot go below level 1.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
-            )
+    day = _validate_day_for_timer(day_id, stage_id)
 
     try:
-        result = TournamentDayService.previous_level(day_id)
+        result = TournamentDayService.previous_level(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
         raise HTTPException(
@@ -658,24 +608,10 @@ def reset_tournament_timer(
     Reset timer to 00:00 and pause.
     Resets elapsed time, adjustments, and returns to level 1.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
-            )
+    day = _validate_day_for_timer(day_id, stage_id)
 
     try:
-        result = TournamentDayService.reset_timer(day_id)
+        result = TournamentDayService.reset_timer(day_id, day=day)
         return {"success": True, "message": "Timer reset successfully", "data": result}
     except ValueError as e:
         raise HTTPException(
@@ -693,24 +629,10 @@ def get_tournament_timer_status(
     Get current timer status including level, elapsed time, and player counts.
     Public endpoint - no authentication required for broadcast display.
     """
-    # Validate day exists
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
-            )
+    day = _validate_day_for_timer(day_id, stage_id)
 
     try:
-        return TournamentDayService.get_timer_status(day_id)
+        return TournamentDayService.get_timer_status(day_id, day=day)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -735,22 +657,8 @@ def get_tournament_timer_status_enriched(
     Public endpoint - no authentication required for broadcast display.
     """
     try:
-        existing_day = TournamentDayService.get_tournament_day(day_id)
-        if not existing_day:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tournament day not found"
-            )
-
-        if stage_id:
-            tournament = TournamentService.get_tournament(existing_day.tournament_id)
-            if tournament and tournament.stage_id != stage_id:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Tournament day does not belong to the selected stage"
-                )
-
-        return TournamentDayService.get_enriched_timer_status(day_id)
+        day = _validate_day_for_timer(day_id, stage_id)
+        return TournamentDayService.get_enriched_timer_status(day_id, day=day)
     except HTTPException:
         raise
     except ValueError as e:
