@@ -6,36 +6,64 @@ import { supabase } from '../config/supabase';
  * Shared hook for timer synchronization between Control Panel and Broadcast Screen.
  *
  * This is the SINGLE SOURCE OF TRUTH for timer display on both screens.
- * Both screens poll the same enriched endpoint and display the same values.
- * The backend auto-advances levels when elapsed time exceeds level duration.
  *
- * Uses a monotonic guard to prevent timer from jumping backward due to
- * server/client timing differences (int truncation, network latency).
+ * TIMING MODEL — anchor-based clock:
+ * The displayed countdown is derived from an ANCHOR `{ remaining, at, paused, level }`
+ * as `remaining - (Date.now() - at)`. A 250ms interval only forces re-renders; it
+ * never drives the value, so throttled/background tabs stay accurate and the tick
+ * cadence never resets. Server fetches RE-ANCHOR only on a meaningful change (new
+ * level, pause toggle, first data, or a large drift > THRESHOLD). Small per-poll
+ * differences are ignored, so the clock ticks evenly instead of jumping on every
+ * fetch (which, under variable network latency, caused the "sometimes fast /
+ * sometimes slow" stutter).
  *
- * Supports OFFLINE MODE: when the server is unreachable and `blinds` array
- * is provided, the hook auto-advances levels locally using the cached blind
- * structure. When the server becomes reachable again, it resyncs seamlessly.
+ * Supports OFFLINE MODE: when the server is unreachable and `blinds` array is
+ * provided, the hook auto-advances levels locally using the cached blind structure.
  *
  * @param {string} dayId - Tournament day ID
  * @param {Array} blinds - Optional sorted blind structure for offline fallback
- * @returns {Object} { timerState, refetch, error, isLoading }
+ * @returns {Object} { timerState, refetch, triggerRefetch, applyOptimistic, error, isLoading }
  */
+
+const REANCHOR_DRIFT = 2.5; // segundos de divergência que forçam re-ancoragem (snap)
+
+// Pure helpers (module scope so they're stable and dependency-free).
+const anchorFromData = (data) => ({
+  at: Date.now(),
+  paused: !!data.is_paused,
+  level: data.current_level,
+  remaining: typeof data.time_remaining_current_level === 'number'
+    ? Math.max(0, data.time_remaining_current_level) : 0,
+  breakRemaining: data.next_break && typeof data.next_break.time_until_break === 'number'
+    ? Math.max(0, data.next_break.time_until_break) : null,
+});
+
+// Current smooth values derived from an anchor. When paused, time is frozen.
+const anchorNow = (a) => {
+  if (!a) return { remaining: null, breakRemaining: null };
+  const elapsed = a.paused ? 0 : (Date.now() - a.at) / 1000;
+  return {
+    remaining: Math.max(0, a.remaining - elapsed),
+    breakRemaining: a.breakRemaining == null ? null : Math.max(0, a.breakRemaining - elapsed),
+  };
+};
+
 export const useTimerSync = (dayId, blinds = null) => {
-  const [timerState, setTimerState] = useState(null);
-  const [localTick, setLocalTick] = useState(0);
+  const [timerState, setTimerState] = useState(null); // server metadata (blinds, players, is_paused, level…)
+  const [renderTick, setRenderTick] = useState(0);     // forces the smooth countdown to recompute
   const [error, setError] = useState(null);
-  const lastLevelRef = useRef(null);
-  const localTickRef = useRef(0);
+
   const timerStateRef = useRef(null);
   const consecutiveFailsRef = useRef(0);
   const isOfflineRef = useRef(false);
   const blindsRef = useRef(blinds);
-  const inFlightRef = useRef(false); // evita requisições sobrepostas sob latência
-  const realtimeDebounceRef = useRef(null); // colapsa rajadas de eventos Realtime
-  const optimisticRef = useRef(null); // override otimista de is_paused até o servidor confirmar
+  const inFlightRef = useRef(false);          // evita requisições sobrepostas sob latência
+  const realtimeDebounceRef = useRef(null);   // colapsa rajadas de eventos Realtime
+  const optimisticRef = useRef(null);         // override otimista de is_paused até o servidor confirmar
+  const anchorRef = useRef(null);             // { at, paused, level, remaining, breakRemaining }
+  const lastEndFetchRef = useRef(0);          // throttle do fetch de fim-de-nível
 
   // Keep refs in sync with state
-  useEffect(() => { localTickRef.current = localTick; }, [localTick]);
   useEffect(() => { timerStateRef.current = timerState; }, [timerState]);
   useEffect(() => { blindsRef.current = blinds; }, [blinds]);
 
@@ -95,19 +123,28 @@ export const useTimerSync = (dayId, blinds = null) => {
       next_break: nextBreakInfo,
     };
 
+    anchorRef.current = anchorFromData(newState);
     setTimerState(newState);
-    setLocalTick(0);
   }, []);
 
   // Atualização OTIMISTA: reflete um comando (play/pause) na hora, sem esperar o
-  // round-trip. O relógio congelado no pause já mostra o tempo correto, então
-  // apenas virar is_paused faz o ticker de 1s arrancar imediatamente a partir do
-  // valor exibido. Registramos a expectativa em optimisticRef para que um poll
-  // atrasado (que ainda leia o estado antigo do servidor) NÃO reverta o comando —
-  // o override cai sozinho quando o servidor confirma ou após uma janela de guarda.
+  // round-trip. Re-ancora a partir do valor ATUALMENTE exibido (sem salto): pause
+  // congela nele; play faz o relógio arrancar dele. optimisticRef segura o
+  // is_paused para um poll atrasado não reverter o comando.
   const applyOptimistic = useCallback((patch) => {
     if (patch && typeof patch.is_paused === 'boolean') {
       optimisticRef.current = { is_paused: patch.is_paused, until: Date.now() + 6000 };
+      const a = anchorRef.current;
+      if (a) {
+        const { remaining, breakRemaining } = anchorNow(a);
+        anchorRef.current = {
+          at: Date.now(),
+          paused: patch.is_paused,
+          level: a.level,
+          remaining,
+          breakRemaining,
+        };
+      }
     }
     setTimerState((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
@@ -115,9 +152,7 @@ export const useTimerSync = (dayId, blinds = null) => {
   // Fetch enriched status from server
   const fetchStatus = useCallback(async () => {
     if (!dayId) return null;
-    // Guarda contra requisições sobrepostas: sob latência alta em produção, o
-    // intervalo dispararia novas chamadas antes da anterior terminar, empilhando
-    // requests e fazendo o estado "pular".
+    // Guarda contra requisições sobrepostas sob latência alta.
     if (inFlightRef.current) return null;
     inFlightRef.current = true;
     const requestStart = Date.now();
@@ -126,10 +161,8 @@ export const useTimerSync = (dayId, blinds = null) => {
       const res = await api.get(`/tournament-days/${dayId}/timer/status-enriched`);
       const data = { ...res.data };
 
-      // Compensação de latência: o servidor calcula time_remaining no instante em
-      // que processa a chamada (~metade do round-trip atrás). Descontamos essa
-      // idade para exibir o tempo "de agora" — assim Controle e Broadcast, mesmo
-      // com latências diferentes, convergem para o mesmo valor.
+      // Compensação de latência: o servidor calcula time_remaining ~metade do
+      // round-trip atrás. Descontamos essa idade para ancorar no tempo "de agora".
       const ageSec = data.is_paused ? 0 : Math.round((Date.now() - requestStart) / 2000);
       if (ageSec > 0) {
         if (typeof data.time_remaining_current_level === 'number') {
@@ -143,15 +176,13 @@ export const useTimerSync = (dayId, blinds = null) => {
         }
       }
 
-      // Override otimista: enquanto um comando play/pause está sendo persistido, um
-      // poll pode retornar o is_paused ANTIGO. Mantemos o valor otimista até o
-      // servidor concordar (ou a janela expirar) para não piscar o relógio.
+      // Override otimista: segura o is_paused do comando até o servidor concordar.
       const opt = optimisticRef.current;
       if (opt) {
         if (Date.now() > opt.until || data.is_paused === opt.is_paused) {
-          optimisticRef.current = null; // servidor alcançou o comando (ou timeout)
+          optimisticRef.current = null;
         } else {
-          data.is_paused = opt.is_paused; // segura o estado do comando
+          data.is_paused = opt.is_paused;
         }
       }
 
@@ -159,43 +190,28 @@ export const useTimerSync = (dayId, blinds = null) => {
       consecutiveFailsRef.current = 0;
       isOfflineRef.current = false;
 
-      const prev = timerStateRef.current;
-      const prevTick = localTickRef.current;
-
-      // Monotonic guard: prevent small backward jumps from server rounding (1-3s).
-      // Large jumps (>5s) indicate a reset or manual time adjustment — accept them.
-      // Also skip guard on pause state transitions (prev paused, now running or vice-versa).
-      if (prev && prev.current_level === data.current_level && !data.is_paused && !prev.is_paused) {
-        const currentDisplay = Math.max(0, prev.time_remaining_current_level - prevTick);
-        const drift = data.time_remaining_current_level - currentDisplay;
-        if (drift > 1 && drift <= 5) {
-          // Small rounding drift — absorb via localTick offset to avoid visual stutter
-          setTimerState(data);
-          setLocalTick(drift);
-          setError(null);
-          lastLevelRef.current = data.current_level;
-          return data;
+      // Re-ancora SÓ em mudança real (nível novo, toggle de pause, primeira carga,
+      // ou desvio grande). Diferenças pequenas do poll são ignoradas para o relógio
+      // não pular a cada fetch.
+      const a = anchorRef.current;
+      const paused = !!data.is_paused;
+      let reanchor = !a || a.level !== data.current_level || a.paused !== paused;
+      if (!reanchor && typeof data.time_remaining_current_level === 'number') {
+        const { remaining: displayed } = anchorNow(a);
+        if (displayed == null || Math.abs(data.time_remaining_current_level - displayed) > REANCHOR_DRIFT) {
+          reanchor = true;
         }
       }
+      if (reanchor) anchorRef.current = anchorFromData(data);
 
-      // Normal update: level changed, paused, or server agrees/is ahead
       setTimerState(data);
-      setLocalTick(0);
       setError(null);
-
-      if (lastLevelRef.current !== null && data.current_level !== lastLevelRef.current) {
-        // Level changed
-      }
-      lastLevelRef.current = data.current_level;
-
       return data;
     } catch (err) {
       consecutiveFailsRef.current += 1;
       if (consecutiveFailsRef.current >= 2) {
         isOfflineRef.current = true;
       }
-
-      // Only set error if we have no existing state and no blinds for fallback
       if (!timerStateRef.current && !blindsRef.current) {
         setError(err.message);
       }
@@ -206,9 +222,7 @@ export const useTimerSync = (dayId, blinds = null) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayId]);
 
-  // Poll server a cada ~3s, mas SEM empilhar: só agenda a próxima chamada depois
-  // que a anterior termina. Sob latência alta, o intervalo efetivo cresce
-  // sozinho (latência + 3s) em vez de acumular requisições atrasadas.
+  // Poll server a cada ~3s, SEM empilhar: só agenda a próxima após a anterior terminar.
   useEffect(() => {
     if (!dayId) return undefined;
 
@@ -226,10 +240,7 @@ export const useTimerSync = (dayId, blinds = null) => {
     };
   }, [fetchStatus, dayId]);
 
-  // Dispara um refetch com debounce curto: colapsa rajadas de eventos Realtime
-  // (ex.: várias linhas de blinds atualizadas de uma vez) numa única chamada.
-  // Se um fetch já estiver em andamento (provavelmente iniciado ANTES do commit
-  // que gerou o evento), reagenda para capturar o estado mais recente.
+  // Refetch com debounce curto: colapsa rajadas de eventos Realtime numa chamada.
   const triggerRefetch = useCallback(() => {
     if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
     realtimeDebounceRef.current = setTimeout(() => {
@@ -241,12 +252,9 @@ export const useTimerSync = (dayId, blinds = null) => {
     }, 120);
   }, [fetchStatus]);
 
-  // Supabase Realtime: empurra mudanças de comando (pause/próximo nível/ajuste em
-  // tournament_days, e edições da estrutura em blinds) para TODAS as telas ao vivo
-  // — Controle (autenticado) e Broadcast (anon) — quase instantaneamente, em vez
-  // de esperar até o próximo poll de 3s. O evento apenas DISPARA o refetch da
-  // fonte da verdade (endpoint enriquecido); o polling continua como fallback e o
-  // ticker local de 1s mantém a contagem regressiva fluida.
+  // Supabase Realtime: empurra mudanças de comando/blinds para todas as telas ao
+  // vivo (Controle + Broadcast) quase instantaneamente. O evento só DISPARA o
+  // refetch; polling continua como fallback.
   useEffect(() => {
     if (!dayId) return undefined;
 
@@ -270,31 +278,37 @@ export const useTimerSync = (dayId, blinds = null) => {
     };
   }, [dayId, triggerRefetch]);
 
-  // Local tick every second for smooth countdown
+  // Smooth-render ticker: a cada 250ms força a recomputação do countdown (que é
+  // derivado da âncora + Date.now, não de contagem de ticks). Só roda enquanto NÃO
+  // pausado e depende apenas de is_paused/level — NUNCA reinicia por atualização de
+  // valor, então a cadência não sofre jitter. Detecta o fim do nível e busca o
+  // próximo (throttled) ou avança localmente no modo offline.
   useEffect(() => {
-    if (!timerState || timerState.is_paused) return;
+    if (!timerState || timerState.is_paused) return undefined;
 
-    const ticker = setInterval(() => {
-      setLocalTick(prev => {
-        const next = prev + 1;
-        const remaining = timerState.time_remaining_current_level - next;
-        if (remaining <= 0) {
+    const iv = setInterval(() => {
+      setRenderTick((t) => (t + 1) % 1000000);
+      const a = anchorRef.current;
+      if (a && !a.paused) {
+        const rem = a.remaining - (Date.now() - a.at) / 1000;
+        if (rem <= 0) {
           if (isOfflineRef.current && blindsRef.current?.length > 0) {
-            // OFFLINE: advance locally using cached blind structure
             advanceLocally();
-            return 0;
           } else {
-            // ONLINE: fetch from server to get authoritative next level
-            fetchStatus();
+            const now = Date.now();
+            if (!inFlightRef.current && now - lastEndFetchRef.current > 1500) {
+              lastEndFetchRef.current = now;
+              fetchStatus();
+            }
           }
         }
-        return next;
-      });
-    }, 1000);
+      }
+    }, 250);
 
-    return () => clearInterval(ticker);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timerState?.is_paused, timerState?.current_level, timerState?.time_remaining_current_level]);
+    return () => clearInterval(iv);
+  // Restart SÓ em pause/nível — nunca por atualização de valor (evita o jitter).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerState?.is_paused, timerState?.current_level, advanceLocally, fetchStatus]);
 
   // Resync when page becomes visible again
   useEffect(() => {
@@ -307,23 +321,36 @@ export const useTimerSync = (dayId, blinds = null) => {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [fetchStatus]);
 
-  // Calculate display values with local tick adjustment
+  // Display values: metadata from timerState, live countdown from the anchor.
   const displayState = useMemo(() => {
     if (!timerState) return null;
 
-    const timeRemainingAdjusted = Math.max(0, timerState.time_remaining_current_level - localTick);
+    const a = anchorRef.current;
+    let remaining = typeof timerState.time_remaining_current_level === 'number'
+      ? timerState.time_remaining_current_level : 0;
+    let breakRemaining = timerState.next_break ? timerState.next_break.time_until_break : null;
 
-    const nextBreakAdjusted = timerState.next_break ? {
-      ...timerState.next_break,
-      time_until_break: Math.max(0, timerState.next_break.time_until_break - localTick)
-    } : null;
+    if (a) {
+      const r = anchorNow(a);
+      remaining = r.remaining;
+      if (r.breakRemaining != null) breakRemaining = r.breakRemaining;
+    }
 
     return {
       ...timerState,
-      time_remaining_current_level: timeRemainingAdjusted,
-      next_break: nextBreakAdjusted
+      time_remaining_current_level: Math.round(remaining),
+      next_break: timerState.next_break
+        ? {
+            ...timerState.next_break,
+            time_until_break: breakRemaining == null
+              ? timerState.next_break.time_until_break
+              : Math.round(breakRemaining),
+          }
+        : null,
     };
-  }, [timerState, localTick]);
+  // renderTick força a recomputação do countdown ao vivo
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerState, renderTick]);
 
   return {
     timerState: displayState,
