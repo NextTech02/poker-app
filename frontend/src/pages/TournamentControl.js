@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -42,30 +42,36 @@ const TournamentControl = () => {
     loadData();
   }, [loadData]);
 
-  // Timer control functions
-  const handleStart = async () => {
-    // Otimista: o relógio arranca AGORA, sem esperar os round-trips ao Supabase.
-    applyOptimistic({ is_paused: false });
-    try {
-      await api.post(`/tournament-days/${dayId}/timer/start`);
-      refetchTimer(); // reconcilia o tempo exato em background
-    } catch (error) {
-      console.error('Error starting timer:', error);
-      refetchTimer(); // falhou — resincroniza com a verdade do servidor
-    }
-  };
+  // Play/pause: a UI otimista vira o relógio na HORA a cada clique, mas o comando
+  // de rede é COALESCIDO (debounce). Assim, cliques rápidos play/pause/play não
+  // empilham vários POST + refetch (o que reiniciava o ticker e causava o pequeno
+  // engasgo) — só o ESTADO FINAL é enviado uma vez.
+  const pauseCmdRef = useRef({ timer: null, desired: null });
 
-  const handlePause = async () => {
-    // Otimista: congela o relógio na hora.
-    applyOptimistic({ is_paused: true });
-    try {
-      await api.post(`/tournament-days/${dayId}/timer/pause`);
-      refetchTimer();
-    } catch (error) {
-      console.error('Error pausing timer:', error);
-      refetchTimer();
-    }
-  };
+  const scheduleToggle = useCallback((paused) => {
+    applyOptimistic({ is_paused: paused }); // feedback visual imediato
+    pauseCmdRef.current.desired = paused;
+    if (pauseCmdRef.current.timer) clearTimeout(pauseCmdRef.current.timer);
+    pauseCmdRef.current.timer = setTimeout(async () => {
+      const target = pauseCmdRef.current.desired;
+      pauseCmdRef.current.timer = null;
+      try {
+        await api.post(`/tournament-days/${dayId}/timer/${target ? 'pause' : 'start'}`);
+      } catch (error) {
+        console.error('Error toggling timer:', error);
+      } finally {
+        refetchTimer(); // reconcilia o tempo exato com o servidor
+      }
+    }, 300);
+  }, [applyOptimistic, refetchTimer, dayId]);
+
+  // Cancela um comando pendente ao desmontar
+  useEffect(() => () => {
+    if (pauseCmdRef.current.timer) clearTimeout(pauseCmdRef.current.timer);
+  }, []);
+
+  const handleStart = () => scheduleToggle(false);
+  const handlePause = () => scheduleToggle(true);
 
   const handleNextLevel = async () => {
     try {
