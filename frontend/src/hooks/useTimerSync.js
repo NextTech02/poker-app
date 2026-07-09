@@ -32,6 +32,7 @@ export const useTimerSync = (dayId, blinds = null) => {
   const blindsRef = useRef(blinds);
   const inFlightRef = useRef(false); // evita requisições sobrepostas sob latência
   const realtimeDebounceRef = useRef(null); // colapsa rajadas de eventos Realtime
+  const optimisticRef = useRef(null); // override otimista de is_paused até o servidor confirmar
 
   // Keep refs in sync with state
   useEffect(() => { localTickRef.current = localTick; }, [localTick]);
@@ -98,6 +99,19 @@ export const useTimerSync = (dayId, blinds = null) => {
     setLocalTick(0);
   }, []);
 
+  // Atualização OTIMISTA: reflete um comando (play/pause) na hora, sem esperar o
+  // round-trip. O relógio congelado no pause já mostra o tempo correto, então
+  // apenas virar is_paused faz o ticker de 1s arrancar imediatamente a partir do
+  // valor exibido. Registramos a expectativa em optimisticRef para que um poll
+  // atrasado (que ainda leia o estado antigo do servidor) NÃO reverta o comando —
+  // o override cai sozinho quando o servidor confirma ou após uma janela de guarda.
+  const applyOptimistic = useCallback((patch) => {
+    if (patch && typeof patch.is_paused === 'boolean') {
+      optimisticRef.current = { is_paused: patch.is_paused, until: Date.now() + 6000 };
+    }
+    setTimerState((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
   // Fetch enriched status from server
   const fetchStatus = useCallback(async () => {
     if (!dayId) return null;
@@ -126,6 +140,18 @@ export const useTimerSync = (dayId, blinds = null) => {
             ...data.next_break,
             time_until_break: Math.max(0, data.next_break.time_until_break - ageSec),
           };
+        }
+      }
+
+      // Override otimista: enquanto um comando play/pause está sendo persistido, um
+      // poll pode retornar o is_paused ANTIGO. Mantemos o valor otimista até o
+      // servidor concordar (ou a janela expirar) para não piscar o relógio.
+      const opt = optimisticRef.current;
+      if (opt) {
+        if (Date.now() > opt.until || data.is_paused === opt.is_paused) {
+          optimisticRef.current = null; // servidor alcançou o comando (ou timeout)
+        } else {
+          data.is_paused = opt.is_paused; // segura o estado do comando
         }
       }
 
@@ -303,6 +329,8 @@ export const useTimerSync = (dayId, blinds = null) => {
     timerState: displayState,
     rawState: timerState,
     refetch: fetchStatus,
+    triggerRefetch,
+    applyOptimistic,
     error,
     isLoading: !timerState && !error
   };

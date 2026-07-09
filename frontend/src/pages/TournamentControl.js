@@ -19,7 +19,12 @@ const TournamentControl = () => {
   const [bulkCount, setBulkCount] = useState('');
 
   // SINGLE SOURCE OF TRUTH - enriched timer from backend
-  const { timerState, refetch: refetchTimer, isLoading: timerLoading } = useTimerSync(dayId);
+  const {
+    timerState,
+    triggerRefetch: refetchTimer,
+    applyOptimistic,
+    isLoading: timerLoading,
+  } = useTimerSync(dayId);
 
   // Load day info
   const loadData = useCallback(async () => {
@@ -39,20 +44,26 @@ const TournamentControl = () => {
 
   // Timer control functions
   const handleStart = async () => {
+    // Otimista: o relógio arranca AGORA, sem esperar os round-trips ao Supabase.
+    applyOptimistic({ is_paused: false });
     try {
       await api.post(`/tournament-days/${dayId}/timer/start`);
-      refetchTimer();
+      refetchTimer(); // reconcilia o tempo exato em background
     } catch (error) {
       console.error('Error starting timer:', error);
+      refetchTimer(); // falhou — resincroniza com a verdade do servidor
     }
   };
 
   const handlePause = async () => {
+    // Otimista: congela o relógio na hora.
+    applyOptimistic({ is_paused: true });
     try {
       await api.post(`/tournament-days/${dayId}/timer/pause`);
       refetchTimer();
     } catch (error) {
       console.error('Error pausing timer:', error);
+      refetchTimer();
     }
   };
 
