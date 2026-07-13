@@ -363,34 +363,49 @@ export const useTimerSync = (dayId, blinds = null) => {
     }
   }, []);
 
-  // Smooth-render ticker: a cada 250ms força a recomputação do countdown (que é
-  // derivado da âncora + Date.now, não de contagem de ticks). Só roda enquanto NÃO
-  // pausado e depende apenas de is_paused/level — NUNCA reinicia por atualização de
-  // valor, então a cadência não sofre jitter. Detecta o fim do nível e busca o
-  // próximo (throttled) ou avança localmente no modo offline.
+  // Ticker AUTO-AGENDADO: em vez de amostrar a cada 250ms (o que deixava a virada
+  // do segundo cair fora da grade → cadência irregular, "acelera e atrasa"), cada
+  // atualização é agendada EXATAMENTE para a próxima virada de segundo do valor
+  // exibido (ceil). Como recomputa o restante de Date.now() a cada disparo e
+  // reagenda pela virada seguinte, não acumula drift. Só roda enquanto NÃO pausado
+  // e reinicia apenas em pause/nível (nunca por atualização de valor → sem jitter).
   useEffect(() => {
     if (!timerState || timerState.is_paused) return undefined;
 
-    const iv = setInterval(() => {
-      setRenderTick((t) => (t + 1) % 1000000);
-      const a = anchorRef.current;
-      if (a && !a.paused) {
-        const rem = a.remaining - (Date.now() - a.at) / 1000;
-        if (rem <= 0) {
-          if (isOfflineRef.current && blindsRef.current?.length > 0) {
-            advanceLocally();
-          } else {
-            const now = Date.now();
-            if (!inFlightRef.current && now - lastEndFetchRef.current > 1500) {
-              lastEndFetchRef.current = now;
-              fetchStatus();
-            }
+    let stopped = false;
+    let timeoutId = null;
+
+    const tick = () => {
+      if (stopped) return;
+      setRenderTick((t) => (t + 1) % 1000000); // força recomputar o display (ceil)
+
+      const { remaining } = anchorNow(anchorRef.current);
+      if (remaining == null) { timeoutId = setTimeout(tick, 250); return; }
+
+      if (remaining <= 0) {
+        // Fim do nível: avança local (offline) ou busca o próximo (throttled).
+        if (isOfflineRef.current && blindsRef.current?.length > 0) {
+          advanceLocally();
+        } else {
+          const now = Date.now();
+          if (!inFlightRef.current && now - lastEndFetchRef.current > 1500) {
+            lastEndFetchRef.current = now;
+            fetchStatus();
           }
         }
+        timeoutId = setTimeout(tick, 250); // aguarda o próximo nível chegar
+        return;
       }
-    }, 250);
 
-    return () => clearInterval(iv);
+      // Agenda para logo após a próxima virada de segundo (com ceil, o display muda
+      // quando `remaining` cruza um inteiro): frac até lá = remaining - ceil(remaining) + 1.
+      const msToNextSecond = (remaining - Math.ceil(remaining) + 1) * 1000;
+      timeoutId = setTimeout(tick, Math.max(20, msToNextSecond + 15));
+    };
+
+    tick();
+
+    return () => { stopped = true; if (timeoutId) clearTimeout(timeoutId); };
   // Restart SÓ em pause/nível — nunca por atualização de valor (evita o jitter).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerState?.is_paused, timerState?.current_level, advanceLocally, fetchStatus]);
@@ -423,13 +438,15 @@ export const useTimerSync = (dayId, blinds = null) => {
 
     return {
       ...timerState,
-      time_remaining_current_level: Math.round(remaining),
+      // ceil = comportamento natural de contagem regressiva (cada segundo aparece
+      // pelo intervalo cheio; "15:00" some só quando falta menos de 15:00).
+      time_remaining_current_level: Math.ceil(remaining),
       next_break: timerState.next_break
         ? {
             ...timerState.next_break,
             time_until_break: breakRemaining == null
               ? timerState.next_break.time_until_break
-              : Math.round(breakRemaining),
+              : Math.ceil(breakRemaining),
           }
         : null,
     };
