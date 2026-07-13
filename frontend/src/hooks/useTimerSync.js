@@ -88,6 +88,7 @@ export const useTimerSync = (dayId, blinds = null) => {
   const optimisticRef = useRef(null);         // override otimista de is_paused até o servidor confirmar
   const anchorRef = useRef(null);             // { at, paused, level, remaining, breakRemaining }
   const lastEndFetchRef = useRef(0);          // throttle do fetch de fim-de-nível
+  const channelRef = useRef(null);            // canal Realtime (p/ enviar comandos broadcast)
 
   // Keep refs in sync with state
   useEffect(() => { timerStateRef.current = timerState; }, [timerState]);
@@ -304,7 +305,20 @@ export const useTimerSync = (dayId, blinds = null) => {
     if (!dayId) return undefined;
 
     const channel = supabase
-      .channel(`timer-sync-${dayId}`)
+      .channel(`timer-sync-${dayId}`, { config: { broadcast: { self: false } } })
+      // Comando EFÊMERO cliente→cliente (não passa pelo backend/DB): quando o
+      // operador clica pause/start, o Controle envia isto e TODAS as telas de
+      // visualização reagem em ~100ms — muito antes do round-trip backend→DB→
+      // postgres_changes. O postgres_changes abaixo ainda chega depois para
+      // persistir/reconciliar o tempo exato.
+      .on('broadcast', { event: 'timer-cmd' }, ({ payload }) => {
+        if (payload && typeof payload.is_paused === 'boolean') {
+          const cur = timerStateRef.current;
+          if (!cur || cur.is_paused !== payload.is_paused) {
+            applyOptimistic({ is_paused: payload.is_paused });
+          }
+        }
+      })
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'tournament_days', filter: `id=eq.${dayId}` },
@@ -313,7 +327,7 @@ export const useTimerSync = (dayId, blinds = null) => {
           if (row && typeof row.is_paused === 'boolean') {
             const cur = timerStateRef.current;
             if (!cur || cur.is_paused !== row.is_paused) {
-              // reflete pause/start na hora (payload é a verdade do banco)
+              // reflete pause/start (payload é a verdade do banco)
               applyOptimistic({ is_paused: row.is_paused });
             }
           }
@@ -327,11 +341,27 @@ export const useTimerSync = (dayId, blinds = null) => {
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
       if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+      channelRef.current = null;
       supabase.removeChannel(channel);
     };
   }, [dayId, triggerRefetch, applyOptimistic]);
+
+  // Envia um comando EFÊMERO (pause/start) para as outras telas via Realtime
+  // broadcast — reação quase instantânea, independente da latência do backend.
+  const broadcastCommand = useCallback((patch) => {
+    const ch = channelRef.current;
+    if (ch) {
+      try {
+        ch.send({ type: 'broadcast', event: 'timer-cmd', payload: patch });
+      } catch (e) {
+        /* canal ainda não pronto — o caminho postgres_changes cobre depois */
+      }
+    }
+  }, []);
 
   // Smooth-render ticker: a cada 250ms força a recomputação do countdown (que é
   // derivado da âncora + Date.now, não de contagem de ticks). Só roda enquanto NÃO
@@ -413,6 +443,7 @@ export const useTimerSync = (dayId, blinds = null) => {
     refetch: fetchStatus,
     triggerRefetch,
     applyOptimistic,
+    broadcastCommand,
     error,
     isLoading: !timerState && !error
   };

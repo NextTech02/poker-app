@@ -23,6 +23,7 @@ const TournamentControl = () => {
     timerState,
     triggerRefetch: refetchTimer,
     applyOptimistic,
+    broadcastCommand,
     isLoading: timerLoading,
   } = useTimerSync(dayId);
 
@@ -51,7 +52,8 @@ const TournamentControl = () => {
   const pauseCmdRef = useRef({ timer: null, desired: null, lastSent: null, lastClickAt: 0 });
 
   const scheduleToggle = useCallback((paused) => {
-    applyOptimistic({ is_paused: paused }); // feedback visual imediato
+    applyOptimistic({ is_paused: paused }); // feedback visual imediato (Controle)
+    broadcastCommand({ is_paused: paused }); // empurra p/ as telas de visualização já
 
     const sendNow = () => {
       const target = pauseCmdRef.current.desired;
@@ -77,7 +79,7 @@ const TournamentControl = () => {
         sendNow();
       }
     }, 350);
-  }, [applyOptimistic, refetchTimer, dayId]);
+  }, [applyOptimistic, broadcastCommand, refetchTimer, dayId]);
 
   // Cancela um comando pendente ao desmontar
   useEffect(() => () => {
