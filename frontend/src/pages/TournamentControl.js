@@ -52,8 +52,10 @@ const TournamentControl = () => {
   const pauseCmdRef = useRef({ timer: null, desired: null, lastSent: null, lastClickAt: 0 });
 
   const scheduleToggle = useCallback((paused) => {
-    applyOptimistic({ is_paused: paused }); // feedback visual imediato (Controle)
-    broadcastCommand({ is_paused: paused }); // empurra p/ as telas de visualização já
+    // Envia primeiro (captura o `remaining` atual e o compartilha) e congela/retoma
+    // o Controle no MESMO valor — assim todas as telas mostram exatamente o mesmo.
+    const cmd = broadcastCommand({ is_paused: paused });
+    applyOptimistic(cmd);
 
     const sendNow = () => {
       const target = pauseCmdRef.current.desired;

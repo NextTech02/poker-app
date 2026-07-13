@@ -155,25 +155,36 @@ export const useTimerSync = (dayId, blinds = null) => {
   }, []);
 
   // Atualização OTIMISTA: reflete um comando (play/pause) na hora, sem esperar o
-  // round-trip. Re-ancora a partir do valor ATUALMENTE exibido (sem salto): pause
-  // congela nele; play faz o relógio arrancar dele. optimisticRef segura o
-  // is_paused para um poll atrasado não reverter o comando.
+  // round-trip. Re-ancora sem salto. Se `patch.remaining` vier (valor COMPARTILHADO
+  // pelo comando broadcast), congela/retoma EXATAMENTE nesse número — assim Controle
+  // e telas de visualização mostram o mesmo valor; senão usa o valor exibido local.
+  // optimisticRef segura o is_paused para um poll atrasado não reverter o comando.
   const applyOptimistic = useCallback((patch) => {
-    if (patch && typeof patch.is_paused === 'boolean') {
-      optimisticRef.current = { is_paused: patch.is_paused, until: Date.now() + 6000 };
-      const a = anchorRef.current;
-      if (a) {
-        const { remaining, breakRemaining } = anchorNow(a);
-        anchorRef.current = {
-          at: Date.now(),
-          paused: patch.is_paused,
-          level: a.level,
-          remaining,
-          breakRemaining,
-        };
-      }
+    if (!patch || typeof patch.is_paused !== 'boolean') return;
+    optimisticRef.current = { is_paused: patch.is_paused, until: Date.now() + 6000 };
+    const a = anchorRef.current;
+    let remaining = null;
+    let breakRemaining = null;
+    if (typeof patch.remaining === 'number') {
+      remaining = patch.remaining;
+      breakRemaining = typeof patch.breakRemaining === 'number'
+        ? patch.breakRemaining
+        : (a ? anchorNow(a).breakRemaining : null);
+    } else if (a) {
+      const n = anchorNow(a);
+      remaining = n.remaining;
+      breakRemaining = n.breakRemaining;
     }
-    setTimerState((prev) => (prev ? { ...prev, ...patch } : prev));
+    if (remaining != null) {
+      anchorRef.current = {
+        at: Date.now(),
+        paused: patch.is_paused,
+        level: a ? a.level : timerStateRef.current?.current_level,
+        remaining,
+        breakRemaining,
+      };
+    }
+    setTimerState((prev) => (prev ? { ...prev, is_paused: patch.is_paused } : prev));
   }, []);
 
   // Fetch enriched status from server
@@ -225,21 +236,17 @@ export const useTimerSync = (dayId, blinds = null) => {
         // jitter porque endsAt é constante enquanto nível/elapsed não mudam.
         anchorRef.current = anchorFromData(data);
       } else {
-        // Fallback relativo/pausado.
+        // Fallback relativo/pausado: re-ancora só em mudança real (nível, pause,
+        // primeira carga, saída do modo absoluto) ou desvio GRANDE (ex.: ajuste
+        // manual de tempo). Um desvio pequeno (~1s do atraso de propagação do
+        // pause) NÃO re-ancora — assim o valor COMPARTILHADO pelo comando broadcast
+        // (igual em todas as telas) não é sobrescrito pelo valor do servidor, que
+        // congela ~1s depois por causa da latência do POST.
         let reanchor = !a || a.endsAt != null || a.level !== data.current_level || a.paused !== paused;
-        if (!reanchor) {
-          if (paused) {
-            // PAUSADO: adota SEMPRE o valor autoritativo do servidor (não há tick, logo
-            // sem risco de jitter) para que Controle e Broadcast mostrem exatamente o
-            // MESMO tempo congelado — some o desvio residual de ~1s causado pelo atraso
-            // de propagação (a tela espectadora conta um pouco a mais antes de congelar).
+        if (!reanchor && typeof data.time_remaining_current_level === 'number') {
+          const { remaining: displayed } = anchorNow(a);
+          if (displayed == null || Math.abs(data.time_remaining_current_level - displayed) > REANCHOR_DRIFT) {
             reanchor = true;
-          } else if (typeof data.time_remaining_current_level === 'number') {
-            // RODANDO (sem abs): re-ancora só em desvio grande, para não introduzir jitter.
-            const { remaining: displayed } = anchorNow(a);
-            if (displayed == null || Math.abs(data.time_remaining_current_level - displayed) > REANCHOR_DRIFT) {
-              reanchor = true;
-            }
           }
         }
         if (reanchor) anchorRef.current = anchorFromData(data);
@@ -315,7 +322,7 @@ export const useTimerSync = (dayId, blinds = null) => {
         if (payload && typeof payload.is_paused === 'boolean') {
           const cur = timerStateRef.current;
           if (!cur || cur.is_paused !== payload.is_paused) {
-            applyOptimistic({ is_paused: payload.is_paused });
+            applyOptimistic(payload); // congela/retoma no valor COMPARTILHADO
           }
         }
       })
@@ -352,15 +359,26 @@ export const useTimerSync = (dayId, blinds = null) => {
 
   // Envia um comando EFÊMERO (pause/start) para as outras telas via Realtime
   // broadcast — reação quase instantânea, independente da latência do backend.
+  // Anexa o `remaining` ATUAL para que todas as telas congelem/retomem no MESMO
+  // valor (sem o desvio de ~1s entre elas). Retorna o payload enriquecido para o
+  // Controle aplicar localmente o mesmo valor.
   const broadcastCommand = useCallback((patch) => {
+    const enriched = { ...patch };
+    const a = anchorRef.current;
+    if (a) {
+      const n = anchorNow(a);
+      if (n.remaining != null) enriched.remaining = n.remaining;
+      if (n.breakRemaining != null) enriched.breakRemaining = n.breakRemaining;
+    }
     const ch = channelRef.current;
     if (ch) {
       try {
-        ch.send({ type: 'broadcast', event: 'timer-cmd', payload: patch });
+        ch.send({ type: 'broadcast', event: 'timer-cmd', payload: enriched });
       } catch (e) {
         /* canal ainda não pronto — o caminho postgres_changes cobre depois */
       }
     }
+    return enriched;
   }, []);
 
   // Ticker AUTO-AGENDADO: em vez de amostrar a cada 250ms (o que deixava a virada
