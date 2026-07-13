@@ -224,14 +224,21 @@ export const useTimerSync = (dayId, blinds = null) => {
         // jitter porque endsAt é constante enquanto nível/elapsed não mudam.
         anchorRef.current = anchorFromData(data);
       } else {
-        // Fallback relativo/pausado: re-ancora só em mudança real (nível, pause,
-        // primeira carga, saída do modo absoluto, ou desvio grande). Ignora
-        // microcorreções do poll para não introduzir jitter.
+        // Fallback relativo/pausado.
         let reanchor = !a || a.endsAt != null || a.level !== data.current_level || a.paused !== paused;
-        if (!reanchor && typeof data.time_remaining_current_level === 'number') {
-          const { remaining: displayed } = anchorNow(a);
-          if (displayed == null || Math.abs(data.time_remaining_current_level - displayed) > REANCHOR_DRIFT) {
+        if (!reanchor) {
+          if (paused) {
+            // PAUSADO: adota SEMPRE o valor autoritativo do servidor (não há tick, logo
+            // sem risco de jitter) para que Controle e Broadcast mostrem exatamente o
+            // MESMO tempo congelado — some o desvio residual de ~1s causado pelo atraso
+            // de propagação (a tela espectadora conta um pouco a mais antes de congelar).
             reanchor = true;
+          } else if (typeof data.time_remaining_current_level === 'number') {
+            // RODANDO (sem abs): re-ancora só em desvio grande, para não introduzir jitter.
+            const { remaining: displayed } = anchorNow(a);
+            if (displayed == null || Math.abs(data.time_remaining_current_level - displayed) > REANCHOR_DRIFT) {
+              reanchor = true;
+            }
           }
         }
         if (reanchor) anchorRef.current = anchorFromData(data);

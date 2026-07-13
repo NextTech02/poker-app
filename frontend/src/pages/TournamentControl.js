@@ -42,27 +42,41 @@ const TournamentControl = () => {
     loadData();
   }, [loadData]);
 
-  // Play/pause: a UI otimista vira o relógio na HORA a cada clique, mas o comando
-  // de rede é COALESCIDO (debounce). Assim, cliques rápidos play/pause/play não
-  // empilham vários POST + refetch (o que reiniciava o ticker e causava o pequeno
-  // engasgo) — só o ESTADO FINAL é enviado uma vez.
-  const pauseCmdRef = useRef({ timer: null, desired: null });
+  // Play/pause: a UI otimista vira o relógio na HORA a cada clique. O comando de
+  // rede usa debounce LEADING-EDGE: o primeiro toque é enviado IMEDIATAMENTE (para
+  // a tela espectadora/Broadcast refletir o quanto antes, sem os 300ms de espera),
+  // e toques rápidos subsequentes são coalescidos — um envio "trailing" garante que
+  // o ESTADO FINAL foi persistido. Assim: 1 clique = 1 POST na hora; rajada = no
+  // máximo 2 POST (primeiro + final), sem empilhar.
+  const pauseCmdRef = useRef({ timer: null, desired: null, lastSent: null, lastClickAt: 0 });
 
   const scheduleToggle = useCallback((paused) => {
     applyOptimistic({ is_paused: paused }); // feedback visual imediato
-    pauseCmdRef.current.desired = paused;
-    if (pauseCmdRef.current.timer) clearTimeout(pauseCmdRef.current.timer);
-    pauseCmdRef.current.timer = setTimeout(async () => {
+
+    const sendNow = () => {
       const target = pauseCmdRef.current.desired;
+      pauseCmdRef.current.lastSent = target;
+      api.post(`/tournament-days/${dayId}/timer/${target ? 'pause' : 'start'}`)
+        .catch((error) => console.error('Error toggling timer:', error))
+        .finally(() => refetchTimer()); // reconcilia o tempo exato com o servidor
+    };
+
+    const now = Date.now();
+    // Início de uma rajada (ocioso há >350ms) → leading edge: envia JÁ.
+    const isNewBurst = now - pauseCmdRef.current.lastClickAt > 350;
+    pauseCmdRef.current.lastClickAt = now;
+    pauseCmdRef.current.desired = paused;
+
+    if (isNewBurst) sendNow();
+
+    // Trailing: ao fim da rajada, envia o estado final se ainda não foi persistido.
+    if (pauseCmdRef.current.timer) clearTimeout(pauseCmdRef.current.timer);
+    pauseCmdRef.current.timer = setTimeout(() => {
       pauseCmdRef.current.timer = null;
-      try {
-        await api.post(`/tournament-days/${dayId}/timer/${target ? 'pause' : 'start'}`);
-      } catch (error) {
-        console.error('Error toggling timer:', error);
-      } finally {
-        refetchTimer(); // reconcilia o tempo exato com o servidor
+      if (pauseCmdRef.current.lastSent !== pauseCmdRef.current.desired) {
+        sendNow();
       }
-    }, 300);
+    }, 350);
   }, [applyOptimistic, refetchTimer, dayId]);
 
   // Cancela um comando pendente ao desmontar
