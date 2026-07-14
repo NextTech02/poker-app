@@ -684,7 +684,7 @@ const BroadcastSettings = () => {
                 onClick={copyTvCode}
                 title={t('broadcastSettings.tvCodeHint', 'Na TV, acesse {{url}} e digite este código', { url: `${window.location.origin}/tv` })}
               >
-                <span className="bs-tv-code-label">📺 {t('broadcastSettings.tvCode', 'Código TV')}</span>
+                <span className="bs-tv-code-label">{t('broadcastSettings.tvCode', 'Código TV')}</span>
                 <span className="bs-tv-code-value">{tvCode}</span>
                 <span className="bs-tv-code-copy">{tvCopied ? t('broadcastSettings.tvCodeCopied', 'copiado!') : t('broadcastSettings.tvCodeCopy', 'copiar')}</span>
               </div>
