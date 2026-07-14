@@ -180,7 +180,7 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False) -> TournamentPlayer:
         """Add a rebuy for a tournament player"""
         # Get tournament player info with tournament_day data
         tp_response = supabase.table("tournament_players").select("*, tournament_days!tournament_players_tournament_day_id_fkey(rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
@@ -206,8 +206,11 @@ class TournamentPlayerService:
         rebuy_chips = day_info.get("rebuy_chips") or 10000
         rebuy_level_limit = day_info.get("rebuy_level_limit")
 
-        # Calculate current blind level if not provided
-        if current_blind_level is None and rebuy_level_limit is not None:
+        # Calculate current blind level if not provided. No replay OFFLINE
+        # (skip_level_gate=True) NÃO recomputamos pelo tempo de agora — o operador fez
+        # o rebuy em tempo real quando ainda era permitido; recomputar no sync (mais
+        # tarde) rejeitaria injustamente.
+        if not skip_level_gate and current_blind_level is None and rebuy_level_limit is not None:
             from datetime import datetime
             blind_duration = day_info.get("blind_duration") or 15
             start_time_str = day_info.get("start_time") or day_info.get("updated_at") or day_info.get("created_at")
@@ -219,7 +222,7 @@ class TournamentPlayerService:
                 current_blind_level = int(elapsed_seconds // blind_duration_seconds) + 1
 
         # Check if rebuys are still allowed based on blind level
-        if rebuy_level_limit is not None and current_blind_level is not None:
+        if not skip_level_gate and rebuy_level_limit is not None and current_blind_level is not None:
             if current_blind_level > rebuy_level_limit:
                 raise ValueError(f"Rebuys não são mais permitidos. Limite: nível {rebuy_level_limit}, Atual: nível {current_blind_level}")
 
@@ -424,7 +427,7 @@ class TournamentPlayerService:
         return None
 
     @staticmethod
-    def eliminate_player(tournament_player_id: str, user_id: str) -> TournamentPlayer:
+    def eliminate_player(tournament_player_id: str, user_id: str, idempotent: bool = False) -> TournamentPlayer:
         """Eliminate a player from the tournament (mark as eliminated)"""
         from datetime import datetime
         from app.services.ranking_service import RankingService
@@ -436,8 +439,11 @@ class TournamentPlayerService:
 
         tp = tp_response.data[0]
 
-        # Check if already eliminated
+        # Check if already eliminated. No replay offline (idempotent=True) devolve o
+        # tp sem erro; online (clique duplo) mantém o aviso ao operador.
         if tp.get("status") == "eliminated":
+            if idempotent:
+                return TournamentPlayer(**tp)
             raise ValueError("Player is already eliminated")
 
         # Update tournament player status to eliminated with timestamp

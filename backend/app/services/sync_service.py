@@ -53,6 +53,7 @@ class SyncService:
                     payment_method=p.get("payment_method", "cash"),
                     buy_type_id=p.get("buy_type_id"),
                     client_mutation_id=p.get("client_mutation_id") or cmid,
+                    skip_level_gate=True,  # offline: feito em tempo real; não re-gatear no sync
                 )
                 out.update(status="applied")
             elif kind == "addon":
@@ -65,7 +66,7 @@ class SyncService:
                 )
                 out.update(status="applied")
             elif kind == "eliminate":
-                TournamentPlayerService.eliminate_player(p["tournament_player_id"], user_id)
+                TournamentPlayerService.eliminate_player(p["tournament_player_id"], user_id, idempotent=True)
                 out.update(status="applied")
             elif kind == "restore":
                 TournamentPlayerService.update_tournament_player(
