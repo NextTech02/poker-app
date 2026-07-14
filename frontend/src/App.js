@@ -8,6 +8,7 @@ import { CurrencyProvider } from './contexts/CurrencyContext';
 import { PaymentMethodsProvider } from './contexts/PaymentMethodsContext';
 import { BuyTypesProvider } from './contexts/BuyTypesContext';
 import { ConnectivityProvider } from './contexts/ConnectivityContext';
+import { isOnline } from './offline/connectivity';
 import OfflineBanner from './components/OfflineBanner';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -74,13 +75,19 @@ const PrivateRoute = ({ children, permission, anyPermission }) => {
     }
   }, [denied, toast]);
 
-  // Show loading while auth or permissions are resolving,
-  // or while we have a token but user hasn't loaded yet (token refresh in progress)
-  if (loading || permLoading || (!user && hasToken)) {
+  // Show loading while auth or permissions are resolving, or while we have a token
+  // but user hasn't loaded yet (token refresh in progress) — só ONLINE; offline não
+  // adianta esperar refresh.
+  if (loading || permLoading || (!user && hasToken && isOnline())) {
     return <div className="loading">Carregando...</div>;
   }
 
-  if (!user) return <Navigate to="/login" />;
+  if (!user) {
+    // Offline com token = sessão caiu por falta de rede; mantém o app utilizável
+    // (o operador não consegue re-autenticar offline). Online sem user = login.
+    if (!isOnline() && hasToken) return children;
+    return <Navigate to="/login" />;
+  }
 
   if (denied) {
     return <Navigate to="/" replace />;

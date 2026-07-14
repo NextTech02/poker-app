@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../config/supabase';
 import { clearCache } from '../utils/apiCache';
+import { isOnline } from '../offline/connectivity';
 
 const AuthContext = createContext({});
 
@@ -22,12 +23,17 @@ export const AuthProvider = ({ children }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
       if (session?.access_token) {
+        setUser(session.user ?? null);
         localStorage.setItem('supabase_token', session.access_token);
-      } else {
+      } else if (isOnline()) {
+        // Sessão nula ESTANDO ONLINE = logout real → limpa.
+        setUser(null);
         localStorage.removeItem('supabase_token');
       }
+      // Sessão nula OFFLINE = falha transitória de refresh (sem rede). NÃO desloga:
+      // mantém user/token para o operador continuar offline e sincronizar depois.
+      // O logout explícito (signOut) remove o token diretamente, então funciona.
     });
 
     return () => subscription.unsubscribe();
