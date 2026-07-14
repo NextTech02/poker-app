@@ -178,18 +178,36 @@ export const applyAddon = async (body) => {
 };
 
 /**
- * Sangria (offline): ajuste BEST-EFFORT na réplica. O rake exato = proporcional ao
- * rake pendente da etapa, é recalculado pelo servidor no sync (perform_sangria).
- * Offline reduzimos o caixa da etapa pelo valor sangrado para o display não ficar
- * atrás; o líquido/rake do caixa geral se acertam na reconciliação.
+ * Sangria (offline). Rake EXATO = proporcional ao rake pendente da etapa
+ * (perform_sangria): rake = pending × amount / saldo, líquido = amount − rake.
+ * Usa `stage_cash_register` e `pending_rake` da réplica (hidratados pelo CaixaGeral).
+ * Reduz o caixa da etapa e o pending; os singletons geral/rake se acertam no sync.
  */
 export const applySangria = async (body) => {
+  const amount = Number(body.amount || 0);
   const sc = await getEntity('stage_cash_register', body.stage_id);
+  const pr = await getEntity('pending_rake', body.stage_id);
+  const bal = sc ? Number(sc.current_balance || 0) : 0;
+  const pending = pr ? Number(pr.pending || 0) : 0;
+
+  let rake = bal > 0 ? round2(pending * amount / bal) : 0;
+  if (rake > amount) rake = amount;
+
   if (sc) {
-    sc.current_balance = round2(Number(sc.current_balance || 0) - Number(body.amount || 0));
-    sc.total_sangrias = round2(Number(sc.total_sangrias || 0) + Number(body.amount || 0));
+    sc.current_balance = round2(bal - amount);
+    sc.total_sangrias = round2(Number(sc.total_sangrias || 0) + amount);
     await putEntity('stage_cash_register', sc);
   }
+  if (pr) {
+    pr.pending = round2(Math.max(0, pending - rake));
+    await putEntity('pending_rake', pr);
+  }
+  return { rake, net: round2(amount - rake) };
+};
+
+/** Cadastro de jogador (offline): grava na réplica com o id do cliente como PK. */
+export const applyPlayerCreate = async (body) => {
+  await putEntity('players', { ...body, id: body.client_id, _offline: true });
 };
 
 /** Eliminação (offline): marca status. Rankings são recalculados no servidor no sync. */

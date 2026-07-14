@@ -8,6 +8,13 @@ class PlayerService:
     def create_player(player_data: PlayerCreate) -> Player:
         """Create a new player"""
         data = player_data.model_dump()
+        client_id = data.pop("client_id", None)
+        # Offline: usa o id do cliente como PK; idempotente (pré-checa).
+        if client_id:
+            dup = supabase.table("players").select("*").eq("id", client_id).execute()
+            if dup.data:
+                return Player(**dup.data[0])
+            data["id"] = client_id
         response = supabase.table("players").insert(data).execute()
         return Player(**response.data[0])
 

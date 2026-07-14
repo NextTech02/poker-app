@@ -6,6 +6,9 @@ import { SkeletonPlayersTable } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { useToast } from '../contexts/ToastContext';
+import { offlineWrite } from '../offline/apiOffline';
+import { applyPlayerCreate } from '../offline/domainRules';
+import { uuid, getEntity, putEntity } from '../offline/db';
 import countries from '../data/countries';
 import './Players.css';
 
@@ -65,11 +68,28 @@ const Players = () => {
     setSubmitting(true);
     try {
       if (editingPlayer) {
-        await api.patch(`/players/${editingPlayer.id}`, formData);
-        toast.success(t('players.updatedSuccess'));
+        const upd = await offlineWrite({
+          kind: 'player-update', method: 'patch', url: `/players/${editingPlayer.id}`,
+          body: { player_id: editingPlayer.id, ...formData },
+          clientMutationId: uuid(), meta: { kind: 'player-update', name: formData.name },
+          synthetic: { ...editingPlayer, ...formData },
+          applyLocal: async () => {
+            const p = await getEntity('players', editingPlayer.id);
+            await putEntity('players', { ...(p || {}), ...formData, id: editingPlayer.id });
+          },
+        });
+        toast.success(upd.offline ? t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar') : t('players.updatedSuccess'));
       } else {
-        await api.post('/players', formData);
-        toast.success(t('players.createdSuccess'));
+        const cid = uuid();
+        const body = { ...formData, client_id: cid };
+        const cr = await offlineWrite({
+          kind: 'player-create', method: 'post', url: '/players', body,
+          clientEntityIds: { players: cid }, clientMutationId: uuid(),
+          meta: { kind: 'player-create', name: formData.name },
+          synthetic: { id: cid, ...formData },
+          applyLocal: () => applyPlayerCreate(body),
+        });
+        toast.success(cr.offline ? t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar') : t('players.createdSuccess'));
       }
       invalidateCache('/players'); // B3: invalida cache após mutação
       setShowModal(false);

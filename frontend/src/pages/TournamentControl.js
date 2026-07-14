@@ -136,7 +136,13 @@ const TournamentControl = () => {
   // Elimination counter functions
   const handleEliminate = async (count) => {
     try {
-      await api.post(`/tournament-days/${dayId}/eliminations`, { count });
+      await offlineWrite({
+        kind: 'elim-counter', method: 'post',
+        url: `/tournament-days/${dayId}/eliminations`,
+        body: { day_id: dayId, count },
+        clientMutationId: uuid(),
+        synthetic: { ok: true },
+      });
       refetchTimer();
     } catch (error) {
       console.error('Error adjusting eliminations:', error);

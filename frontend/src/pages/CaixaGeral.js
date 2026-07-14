@@ -9,7 +9,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { useTranslation } from 'react-i18next';
 import { offlineWrite } from '../offline/apiOffline';
 import { applySangria } from '../offline/domainRules';
-import { uuid } from '../offline/db';
+import { uuid, putEntity } from '../offline/db';
 import './CaixaGeral.css';
 
 const CaixaGeral = () => {
@@ -34,7 +34,9 @@ const CaixaGeral = () => {
   const loadPendingRake = async (stageId) => {
     try {
       const res = await api.get(`/cash/stage/${stageId}/pending-rake`);
-      setPendingRake(parseFloat(res.data?.pending_rake) || 0);
+      const pending = parseFloat(res.data?.pending_rake) || 0;
+      setPendingRake(pending);
+      putEntity('pending_rake', { id: stageId, pending }); // hidrata p/ sangria offline
     } catch (e) {
       setPendingRake(0);
     }
@@ -83,6 +85,8 @@ const CaixaGeral = () => {
     try {
       const response = await api.get(`/cash/stage/${selectedStage}`);
       setStageCash(response.data);
+      // hidrata o caixa da etapa na réplica (chave = stage_id) p/ sangria offline
+      if (response.data) putEntity('stage_cash_register', { ...response.data, id: selectedStage });
     } catch (error) {
       console.error('Erro ao carregar caixa da etapa:', error);
       setStageCash(null);

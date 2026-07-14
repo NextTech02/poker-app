@@ -9,14 +9,40 @@ Status por op:
                rebuy) — vai para a tela de conflitos do operador.
   - error    : falha transitória — o cliente mantém pendente e tenta de novo.
 """
+from app.database import supabase
 from app.services.tournament_player_service import TournamentPlayerService
 from app.services.cash_register_service import CashRegisterService
 from app.services.tournament_day_service import TournamentDayService
+from app.services.player_service import PlayerService
 from app.models.tournament_player import TournamentPlayerCreate, TournamentPlayerUpdate
 from app.models.cash_register import SangriaTransactionCreate
+from app.models.player import PlayerCreate, PlayerUpdate
 
 
 class SyncService:
+    @staticmethod
+    def _ledger_seen(client_mutation_id: str) -> bool:
+        """True se este client_mutation_id já foi aplicado (idempotência genérica)."""
+        if not client_mutation_id:
+            return False
+        try:
+            r = supabase.table("sync_mutations").select("client_mutation_id").eq("client_mutation_id", client_mutation_id).execute()
+            return bool(r.data)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _ledger_record(client_mutation_id: str, kind: str) -> None:
+        if not client_mutation_id:
+            return
+        try:
+            supabase.table("sync_mutations").upsert(
+                {"client_mutation_id": client_mutation_id, "kind": kind},
+                on_conflict="client_mutation_id",
+            ).execute()
+        except Exception:
+            pass
+
     @staticmethod
     def _apply_timer(p: dict) -> None:
         day_id = p["day_id"]
@@ -43,6 +69,10 @@ class SyncService:
         cmid = op.get("clientMutationId")
         out = {"clientMutationId": cmid, "kind": kind}
         try:
+            # Idempotência genérica: se já aplicamos este cmid, pula.
+            if SyncService._ledger_seen(cmid):
+                out.update(status="applied")
+                return out
             if kind == "register":
                 tp = TournamentPlayerService.register_player(TournamentPlayerCreate(**p), user_id)
                 out.update(status="applied", serverId=tp.id)
@@ -79,8 +109,20 @@ class SyncService:
             elif kind == "timer":
                 SyncService._apply_timer(p)
                 out.update(status="applied")
+            elif kind == "elim-counter":
+                TournamentDayService.adjust_eliminations(p["day_id"], int(p.get("count") or 0))
+                out.update(status="applied")
+            elif kind == "player-create":
+                pl = PlayerService.create_player(PlayerCreate(**p))
+                out.update(status="applied", serverId=pl.id)
+            elif kind == "player-update":
+                PlayerService.update_player(p["player_id"], PlayerUpdate(**{k: v for k, v in p.items() if k != "player_id"}))
+                out.update(status="applied")
             else:
                 out.update(status="error", error=f"kind desconhecido: {kind}")
+            # Sucesso → registra no ledger (idempotência p/ ops sem linha âncora).
+            if out.get("status") == "applied":
+                SyncService._ledger_record(cmid, kind)
         except ValueError as e:
             out.update(status="conflict", error=str(e))
         except Exception as e:  # noqa: BLE001

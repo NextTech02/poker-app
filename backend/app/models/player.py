@@ -15,7 +15,8 @@ class PlayerBase(BaseModel):
 
 
 class PlayerCreate(PlayerBase):
-    pass
+    # Offline: id gerado no cliente (vira o PK; idempotência no replay).
+    client_id: Optional[str] = Field(default=None, description="Client-generated player id (offline)")
 
 
 class PlayerUpdate(BaseModel):
