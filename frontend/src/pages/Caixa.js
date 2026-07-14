@@ -15,6 +15,9 @@ import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useBuyTypes } from '../contexts/BuyTypesContext';
 import { methodLabel } from '../utils/paymentMethodLabels';
 import { usePolling } from '../hooks/usePolling';
+import { offlineWrite, offlineRead } from '../offline/apiOffline';
+import { applyRegister } from '../offline/domainRules';
+import { uuid, putEntities, getEntity } from '../offline/db';
 import './Caixa.css';
 
 const Caixa = () => {
@@ -74,6 +77,11 @@ const Caixa = () => {
   // Polling que pausa quando a aba está oculta (reduz carga em produção).
   usePolling(() => loadData(), 5000);
 
+  // Hidrata os tipos de buy na réplica offline (definem o rake).
+  useEffect(() => {
+    if (activeBuyTypes?.length) putEntities('buy_types', activeBuyTypes);
+  }, [activeBuyTypes]);
+
   // Mantém o método de pagamento selecionado válido conforme a lista configurada
   // (ex.: se "Dinheiro" foi removido, cai para o primeiro método ativo).
   useEffect(() => {
@@ -88,12 +96,16 @@ const Caixa = () => {
   const loadData = async () => {
     try {
       // ISSUE-004 fix: use separate calls so one failure doesn't block the other
-      const [transactionsRes, tournamentsRes] = await Promise.all([
+      const [transactionsRes, tournamentsRes, playersRes] = await Promise.all([
         api.get('/transactions').catch(() => ({ data: [] })),
         api.get('/tournaments?status=active,pending').catch(() => ({ data: [] })),
+        api.get('/players').catch(() => ({ data: null })),
       ]);
       setTransactions(transactionsRes.data || []);
       setTournaments(tournamentsRes.data || []);
+      // Hidrata a réplica offline (para registrar/consultar sem internet)
+      if (tournamentsRes.data?.length) putEntities('tournaments', tournamentsRes.data);
+      if (playersRes.data?.length) putEntities('players', playersRes.data);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {
@@ -113,6 +125,8 @@ const Caixa = () => {
         (day.status === 'active' || day.status === 'pending') && day.day_type !== 'final'
       );
       setTournamentDays(activeDays);
+      // Hidrata os dias na réplica (buy_in/rake/chips/registered_players offline)
+      if (response.data?.length) putEntities('tournament_days', response.data);
     } catch (error) {
       console.error('Erro ao carregar dias do torneio:', error);
       setTournamentDays([]);
@@ -137,7 +151,11 @@ const Caixa = () => {
     try {
       // If it's a buy_in, register the player in the tournament day
       if (formData.type === 'buy_in') {
-        await api.post('/tournament-players', {
+        // Camada offline: online chama o backend; sem rede, aplica na réplica e
+        // enfileira (com id gerado no cliente p/ idempotência e p/ rebuy referenciar).
+        const clientTpId = uuid();
+        const clientMutId = uuid();
+        const regBody = {
           tournament_id: formData.tournament_id,
           tournament_day_id: formData.tournament_day_id || null,
           player_id: formData.player_id,
@@ -146,16 +164,44 @@ const Caixa = () => {
           payment_method: formData.payment_method || 'cash',
           buy_type_id: formData.buy_type_id || null,
           notes: `Registrado via Caixa - ${formData.payment_method}`,
+          client_id: clientTpId,
+          client_mutation_id: clientMutId,
+        };
+        const reg = await offlineWrite({
+          kind: 'register', method: 'post', url: '/tournament-players', body: regBody,
+          clientEntityIds: { tournament_players: clientTpId },
+          clientMutationId: clientMutId,
+          meta: { kind: 'register', player_id: formData.player_id, tournament_id: formData.tournament_id },
+          synthetic: { id: clientTpId },
+          applyLocal: () => applyRegister(regBody),
         });
 
         // Check allocation: prefer day-scoped if a day is selected
         const tournament = tournaments.find(t => t.id === formData.tournament_id);
         const selectedDay = tournamentDays.find(d => d.id === formData.tournament_day_id);
 
+        if (reg.offline) {
+          // Offline: sem auto-assento (o servidor aloca no sync) — bilhete de alternado.
+          const pInfo = await offlineRead(`/players/${formData.player_id}`, {
+            fromReplica: () => getEntity('players', formData.player_id),
+          });
+          setAllocationData({
+            player_name: (pInfo && pInfo.name) || '—',
+            tournament_name: tournament?.name || '',
+            day_name: selectedDay?.day_name || '',
+            is_alternate: true,
+            offline: true,
+            created_at: new Date().toISOString(),
+            id: formData.player_id,
+          });
+          setShowTicketModal(true);
+          toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
+        }
+
         const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
         const tablesLocked = selectedDay?.tables_locked ?? false;
 
-        if (allocationTypeToUse === 'automatic') {
+        if (!reg.offline && allocationTypeToUse === 'automatic') {
           if (tablesLocked) {
             // Tables are locked — player becomes alternate, show alternate ticket
             setAllocationData({
