@@ -625,6 +625,10 @@
   "broadcastSettings": {
     "pageTitle": "Broadcast Settings",
     "openLive": "Open live",
+    "tvCode": "TV Code",
+    "tvCodeCopy": "copy",
+    "tvCodeCopied": "copied!",
+    "tvCodeHint": "On the TV, go to {{url}} and enter this code",
     "saveSettings": "Save Settings",
     "saving": "Saving...",
     "errorLoad": "Error loading settings",

@@ -625,6 +625,10 @@
   "broadcastSettings": {
     "pageTitle": "Configuración de Transmisión",
     "openLive": "Abrir en vivo",
+    "tvCode": "Código TV",
+    "tvCodeCopy": "copiar",
+    "tvCodeCopied": "¡copiado!",
+    "tvCodeHint": "En la TV, entra en {{url}} e ingresa este código",
     "saveSettings": "Guardar Configuración",
     "saving": "Guardando...",
     "errorLoad": "Error al cargar la configuración",

@@ -539,6 +539,8 @@ const BroadcastSettings = () => {
   const [loading, setLoading]           = useState(true);
   const [submitting, setSubmitting]     = useState(false);
   const [previewBreak, setPreviewBreak] = useState(false);
+  const [tvCode, setTvCode]             = useState('');
+  const [tvCopied, setTvCopied]         = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -612,6 +614,26 @@ const BroadcastSettings = () => {
     load();
   }, [dayId, tournamentId, t, toast]);
 
+  // Código público da TV (por torneio) — carrega em separado pra não travar a tela
+  useEffect(() => {
+    let active = true;
+    api.get(`/tournaments/${tournamentId}/broadcast-code`)
+      .then(res => { if (active) setTvCode(res.data?.code || ''); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [tournamentId]);
+
+  const copyTvCode = () => {
+    if (!tvCode) return;
+    const text = `${window.location.origin}/tv  →  ${tvCode}`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setTvCopied(true);
+        setTimeout(() => setTvCopied(false), 1800);
+      }).catch(() => {});
+    }
+  };
+
   const set = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
 
   const handleSave = async () => {
@@ -656,6 +678,17 @@ const BroadcastSettings = () => {
             <h1 className="bs-topbar-title">{t('broadcastSettings.pageTitle')}</h1>
           </div>
           <div className="bs-topbar-right">
+            {tvCode && (
+              <div
+                className="bs-tv-code"
+                onClick={copyTvCode}
+                title={t('broadcastSettings.tvCodeHint', 'Na TV, acesse {{url}} e digite este código', { url: `${window.location.origin}/tv` })}
+              >
+                <span className="bs-tv-code-label">📺 {t('broadcastSettings.tvCode', 'Código TV')}</span>
+                <span className="bs-tv-code-value">{tvCode}</span>
+                <span className="bs-tv-code-copy">{tvCopied ? t('broadcastSettings.tvCodeCopied', 'copiado!') : t('broadcastSettings.tvCodeCopy', 'copiar')}</span>
+              </div>
+            )}
             <button className="bs-btn-preview" onClick={() => window.open(`/broadcast/${dayId}`, '_blank')}>
               &#9654; {t('broadcastSettings.openLive')}
             </button>
