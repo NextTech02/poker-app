@@ -65,7 +65,8 @@ class SangriaTransactionBase(BaseModel):
 
 class SangriaTransactionCreate(SangriaTransactionBase):
     """Request model for creating a sangria transaction"""
-    pass
+    # Offline: chave de idempotência (evita sangria duplicada no replay).
+    client_mutation_id: Optional[str] = Field(default=None, description="Idempotency key (offline)")
 
 
 class SangriaTransaction(SangriaTransactionBase):

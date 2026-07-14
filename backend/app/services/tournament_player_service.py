@@ -20,8 +20,32 @@ class TournamentPlayerService:
         return bt.data[0] if bt.data else None
 
     @staticmethod
+    def _detail_from_tp(tp: dict, tournament_name: str = "") -> TournamentPlayerDetail:
+        player = supabase.table("players").select("name, nickname").eq("id", tp["player_id"]).execute()
+        pinfo = player.data[0] if player.data else {}
+        if not tournament_name:
+            tn = supabase.table("tournaments").select("name").eq("id", tp["tournament_id"]).execute()
+            tournament_name = tn.data[0]["name"] if tn.data else ""
+        return TournamentPlayerDetail(
+            **tp,
+            player_name=pinfo.get("name", ""),
+            player_nickname=pinfo.get("nickname"),
+            tournament_name=tournament_name,
+        )
+
+    @staticmethod
     def register_player(registration_data: TournamentPlayerCreate, user_id: str) -> TournamentPlayerDetail:
         """Register a player for a tournament day"""
+        client_id = registration_data.client_id
+        client_mutation_id = registration_data.client_mutation_id
+
+        # Idempotência (replay offline): se este tournament_player já existe (mesmo
+        # client_id), devolve-o sem re-executar — sem validar cashbox/duplicidade.
+        if client_id:
+            dup = supabase.table("tournament_players").select("*").eq("client_id", client_id).execute()
+            if dup.data:
+                return TournamentPlayerService._detail_from_tp(dup.data[0])
+
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, registration_data.tournament_id)
 
@@ -77,6 +101,11 @@ class TournamentPlayerService:
             "total_chips": total_chips,
             "notes": registration_data.notes,
         }
+        # Offline: usa o id gerado no cliente como PK (para o rebuy/addon offline
+        # referenciarem o jogador) e marca client_id para idempotência.
+        if client_id:
+            data["id"] = client_id
+            data["client_id"] = client_id
 
         response = supabase.table("tournament_players").insert(data).execute()
         tp = response.data[0]
@@ -134,6 +163,8 @@ class TournamentPlayerService:
         }
         if ticket_id:
             transaction_data["ticket_id"] = ticket_id
+        if client_mutation_id:
+            transaction_data["client_id"] = client_mutation_id
         supabase.table("transactions").insert(transaction_data).execute()
 
         # Get player info
@@ -149,7 +180,7 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None) -> TournamentPlayer:
         """Add a rebuy for a tournament player"""
         # Get tournament player info with tournament_day data
         tp_response = supabase.table("tournament_players").select("*, tournament_days(rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
@@ -157,6 +188,13 @@ class TournamentPlayerService:
             raise ValueError("Tournament player not found")
 
         tp = tp_response.data[0]
+
+        # Idempotência (replay offline): se a transação deste rebuy já existe
+        # (mesmo client_mutation_id), não re-incrementa contadores — devolve o tp atual.
+        if client_mutation_id:
+            dup = supabase.table("transactions").select("id").eq("client_id", client_mutation_id).execute()
+            if dup.data:
+                return TournamentPlayer(**{k: v for k, v in tp.items() if k != "tournament_days"})
 
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
@@ -231,12 +269,14 @@ class TournamentPlayerService:
             "rake_amount": round(rebuy_amount * rake_pct / 100, 2),
             "created_by": user_id,
         }
+        if client_mutation_id:
+            transaction_data["client_id"] = client_mutation_id
         supabase.table("transactions").insert(transaction_data).execute()
 
         return TournamentPlayer(**response.data[0])
 
     @staticmethod
-    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None) -> TournamentPlayer:
+    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None) -> TournamentPlayer:
         """Add an add-on for a tournament player"""
         # Get tournament player info with tournament_day data
         tp_response = supabase.table("tournament_players").select("*, tournament_days(addon_amount, addon_chips, rake_percentage)").eq("id", tournament_player_id).execute()
@@ -244,6 +284,12 @@ class TournamentPlayerService:
             raise ValueError("Tournament player not found")
 
         tp = tp_response.data[0]
+
+        # Idempotência (replay offline): addon já aplicado? devolve o tp atual.
+        if client_mutation_id:
+            dup = supabase.table("transactions").select("id").eq("client_id", client_mutation_id).execute()
+            if dup.data:
+                return TournamentPlayer(**{k: v for k, v in tp.items() if k != "tournament_days"})
 
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
@@ -299,6 +345,8 @@ class TournamentPlayerService:
             "rake_amount": round(addon_amount * rake_pct / 100, 2),
             "created_by": user_id,
         }
+        if client_mutation_id:
+            transaction_data["client_id"] = client_mutation_id
         supabase.table("transactions").insert(transaction_data).execute()
 
         return TournamentPlayer(**response.data[0])

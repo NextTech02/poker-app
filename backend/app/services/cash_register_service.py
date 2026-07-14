@@ -198,6 +198,21 @@ class CashRegisterService:
         5. Record transaction
         """
 
+        # Idempotência (replay offline): se esta sangria já foi gravada (mesmo
+        # client_mutation_id), devolve-a sem re-debitar os caixas.
+        client_mutation_id = getattr(sangria_data, "client_mutation_id", None)
+        if client_mutation_id:
+            dup = supabase.table("sangria_transactions").select("*").eq("client_mutation_id", client_mutation_id).execute()
+            if dup.data:
+                return SangriaResponse(
+                    success=True,
+                    message="Sangria já sincronizada.",
+                    sangria_transaction=SangriaTransaction(**dup.data[0]),
+                    updated_stage_cash=CashRegisterService.get_stage_cash(sangria_data.stage_id),
+                    updated_general_cash=CashRegisterService.get_general_cash(),
+                    updated_rake=CashRegisterService.get_rake_register(),
+                )
+
         # Get stage cash register
         stage_cash = CashRegisterService.get_stage_cash(sangria_data.stage_id)
         if not stage_cash:
@@ -270,6 +285,8 @@ class CashRegisterService:
                 "notes": sangria_data.notes,
                 "created_by": user_id
             }
+            if client_mutation_id:
+                sangria_record["client_mutation_id"] = client_mutation_id
 
             response = supabase.table("sangria_transactions").insert(sangria_record).execute()
             sangria_transaction = SangriaTransaction(**response.data[0])

@@ -8,7 +8,7 @@ from app.config import get_settings
 from app.auth.permissions import forbid_permission
 
 logger = logging.getLogger("uvicorn.error")
-from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments
+from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
 # API level (the frontend already hides these screens). Non-sangi roles and
@@ -92,6 +92,7 @@ app.include_router(satellite_tickets.router, dependencies=_no_sangi)
 app.include_router(staff.router)
 app.include_router(cashboxes.router, dependencies=_no_sangi)
 app.include_router(chip_consignments.router)
+app.include_router(sync.router)
 
 
 @app.exception_handler(httpx.LocalProtocolError)

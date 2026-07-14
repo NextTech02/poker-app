@@ -35,6 +35,11 @@ class TournamentPlayerCreate(BaseModel):
     buy_type_id: Optional[str] = Field(default=None, description="Buy type (per stage) — defines amount and rake %")
     ticket_id: Optional[str] = Field(default=None, description="Satellite ticket ID for ticket payment")
     notes: Optional[str] = None
+    # Offline: id do tournament_player gerado no cliente (vira o PK; permite que um
+    # rebuy/addon offline referencie o jogador antes do sync) + chave de idempotência
+    # da transação de buy-in (evita duplicar no replay).
+    client_id: Optional[str] = Field(default=None, description="Client-generated tournament_player id (offline)")
+    client_mutation_id: Optional[str] = Field(default=None, description="Idempotency key for the buy-in transaction (offline)")
 
 
 class TournamentPlayerUpdate(BaseModel):
