@@ -1,0 +1,53 @@
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+  color: #0a0e14;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.offline-banner--off {
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+
+.offline-banner--sync {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  color: #06210f;
+}
+
+.offline-banner__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #7f1d1d;
+  animation: offline-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes offline-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.offline-banner__spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(6, 33, 15, 0.35);
+  border-top-color: #06210f;
+  border-radius: 50%;
+  animation: offline-spin 0.7s linear infinite;
+}
+
+@keyframes offline-spin {
+  to { transform: rotate(360deg); }
+}

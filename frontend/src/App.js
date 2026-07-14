@@ -7,6 +7,8 @@ import { PermissionProvider, usePermissions } from './contexts/PermissionContext
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { PaymentMethodsProvider } from './contexts/PaymentMethodsContext';
 import { BuyTypesProvider } from './contexts/BuyTypesContext';
+import { ConnectivityProvider } from './contexts/ConnectivityContext';
+import OfflineBanner from './components/OfflineBanner';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
@@ -340,23 +342,26 @@ function AppRoutes() {
 function App() {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AuthProvider>
-        <PermissionProvider>
-          <StageProvider>
-            <CurrencyProvider>
-              <PaymentMethodsProvider>
-                <BuyTypesProvider>
-                  <ToastProvider>
-                    <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
-                      <AppRoutes />
-                    </ErrorBoundary>
-                  </ToastProvider>
-                </BuyTypesProvider>
-              </PaymentMethodsProvider>
-            </CurrencyProvider>
-          </StageProvider>
-        </PermissionProvider>
-      </AuthProvider>
+      <ConnectivityProvider>
+        <AuthProvider>
+          <PermissionProvider>
+            <StageProvider>
+              <CurrencyProvider>
+                <PaymentMethodsProvider>
+                  <BuyTypesProvider>
+                    <ToastProvider>
+                      <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
+                        <OfflineBanner />
+                        <AppRoutes />
+                      </ErrorBoundary>
+                    </ToastProvider>
+                  </BuyTypesProvider>
+                </PaymentMethodsProvider>
+              </CurrencyProvider>
+            </StageProvider>
+          </PermissionProvider>
+        </AuthProvider>
+      </ConnectivityProvider>
     </Router>
   );
 }
