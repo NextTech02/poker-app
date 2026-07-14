@@ -43,6 +43,58 @@ class TournamentService:
             return Tournament(**item)
         return None
 
+    # ── Código público de exibição (TV) ─────────────────────────────────────────
+    @staticmethod
+    def get_or_create_broadcast_code(tournament_id: str) -> str:
+        """Retorna (ou gera) o código curto e único do torneio p/ exibição em TV."""
+        import random
+        t = supabase.table("tournaments").select("id, broadcast_code").eq("id", tournament_id).execute()
+        if not t.data:
+            raise ValueError("Torneio não encontrado")
+        code = t.data[0].get("broadcast_code")
+        if code:
+            return code
+        alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # sem 0/O/1/I/L
+        for _ in range(12):
+            candidate = "".join(random.choice(alphabet) for _ in range(6))
+            try:
+                supabase.table("tournaments").update({"broadcast_code": candidate}) \
+                    .eq("id", tournament_id).is_("broadcast_code", "null").execute()
+            except Exception:
+                continue  # colisão no UNIQUE — tenta outro
+            cur = supabase.table("tournaments").select("broadcast_code").eq("id", tournament_id).execute()
+            if cur.data and cur.data[0].get("broadcast_code"):
+                return cur.data[0]["broadcast_code"]
+        raise ValueError("Não foi possível gerar o código")
+
+    @staticmethod
+    def resolve_broadcast_code(code: str) -> dict:
+        """Resolve o código público → torneio + dia a exibir (ativo; senão o mais
+        recente não-final; senão o último)."""
+        code = (code or "").strip().upper()
+        if not code:
+            raise ValueError("Código inválido")
+        t = supabase.table("tournaments").select("id, name").eq("broadcast_code", code).execute()
+        if not t.data:
+            raise ValueError("Código inválido")
+        tour = t.data[0]
+        days = supabase.table("tournament_days") \
+            .select("id, day_name, day_number, status, day_type") \
+            .eq("tournament_id", tour["id"]).order("day_number", desc=False).execute().data or []
+        day = None
+        active = [d for d in days if d.get("status") == "active"]
+        if active:
+            day = active[-1]
+        elif days:
+            non_final = [d for d in days if d.get("day_type") != "final"]
+            day = (non_final or days)[-1]
+        return {
+            "tournament_id": tour["id"],
+            "tournament_name": tour["name"],
+            "day_id": day["id"] if day else None,
+            "day_name": day["day_name"] if day else None,
+        }
+
     @staticmethod
     def get_tournament_summary(tournament_id: Optional[str] = None, stage_id: Optional[str] = None) -> List[TournamentSummary]:
         """Tournament summaries — single round-trip via the `get_tournament_summary`

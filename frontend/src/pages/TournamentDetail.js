@@ -21,8 +21,19 @@ const TournamentDetail = () => {
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tvCode, setTvCode] = useState(null);
   const { toast, confirm } = useToast();
   const { formatCurrency } = useCurrency();
+
+  // Código público de TV (blinds por código). Busca/gera sob demanda.
+  const loadTvCode = async () => {
+    try {
+      const res = await api.get(`/tournaments/${id}/broadcast-code`);
+      setTvCode(res.data.code);
+    } catch (e) {
+      toast.error(t('tv.codeError', 'Não foi possível gerar o código de TV.'));
+    }
+  };
 
   const loadTournamentData = async () => {
     try {
@@ -526,6 +537,9 @@ const TournamentDetail = () => {
                 {t('rankings.prize')}
               </Button>
             )}
+            <Button variant="secondary" onClick={loadTvCode}>
+              📺 {t('tv.codeButton', 'Código TV')}
+            </Button>
             <Button onClick={handleCreateDay}>
               {t('common.add')} {t('tournamentDays.title')}
             </Button>
@@ -534,6 +548,23 @@ const TournamentDetail = () => {
             </Button>
           </div>
         </div>
+
+        {tvCode && (
+          <div className="tv-code-card" style={{
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16,
+            background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.4)',
+            borderRadius: 10, padding: '14px 18px', margin: '0 0 16px',
+          }}>
+            <span style={{ color: '#9ca3af' }}>{t('tv.codeLabel', 'Código da TV')}:</span>
+            <strong style={{ fontSize: '1.6rem', letterSpacing: 4, color: '#d4af37' }}>{tvCode}</strong>
+            <span style={{ color: '#9ca3af' }}>
+              {t('tv.instruction', 'Na TV, acesse')} <code>{window.location.origin}/tv</code> {t('tv.andType', 'e digite o código')}
+            </span>
+            <Button size="small" variant="secondary" onClick={() => navigate(`/tv/${tvCode}`)}>
+              {t('tv.openHere', 'Abrir aqui')}
+            </Button>
+          </div>
+        )}
 
         {/* Days List - Top section */}
         {days.length > 0 && renderDaysList(false)}

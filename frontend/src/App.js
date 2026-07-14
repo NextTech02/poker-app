@@ -35,6 +35,7 @@ const BlindTemplates = lazy(() => import('./pages/BlindTemplates'));
 const BroadcastSettings = lazy(() => import('./pages/BroadcastSettings'));
 const TournamentDayStats = lazy(() => import('./pages/TournamentDayStats'));
 const TournamentControl = lazy(() => import('./pages/TournamentControl'));
+const TVCode = lazy(() => import('./pages/TVCode'));
 const SyncConflicts = lazy(() => import('./pages/SyncConflicts'));
 const CaixaJogadores = lazy(() => import('./pages/CaixaJogadores'));
 const SatelliteTickets = lazy(() => import('./pages/SatelliteTickets'));
@@ -281,6 +282,8 @@ function AppRoutes() {
         path="/broadcast/:id"
         element={<TournamentBroadcast />}
       />
+      <Route path="/tv" element={<TVCode />} />
+      <Route path="/tv/:code" element={<TVCode />} />
       <Route
         path="/conflitos"
         element={
