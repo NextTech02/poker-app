@@ -4,8 +4,10 @@ import {
   subscribe as subscribeConnectivity,
   startHeartbeat,
   recheck,
+  OFFLINE_QUEUE_EVENT,
 } from '../offline/connectivity';
 import { getPendingCount } from '../offline/db';
+import { startSyncEngine } from '../offline/syncEngine';
 
 /**
  * Expõe o estado de conectividade + contagem de mutações pendentes para a UI.
@@ -13,7 +15,7 @@ import { getPendingCount } from '../offline/db';
  * A fila (queue.js) dispara `OFFLINE_QUEUE_EVENT` no window quando muda, para
  * atualizarmos `pendingCount` sem polling.
  */
-export const OFFLINE_QUEUE_EVENT = 'offline-queue-changed';
+export { OFFLINE_QUEUE_EVENT };
 
 const ConnectivityContext = createContext({
   isOnline: true,
@@ -39,6 +41,7 @@ export const ConnectivityProvider = ({ children }) => {
 
   useEffect(() => {
     startHeartbeat();
+    startSyncEngine();
     const unsub = subscribeConnectivity((v) => {
       setOnline(v);
       if (v) setLastSyncAt(Date.now());

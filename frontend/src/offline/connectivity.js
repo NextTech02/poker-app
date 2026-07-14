@@ -12,6 +12,9 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 const HEARTBEAT_MS = 10000;
 const FAILS_TO_OFFLINE = 2;
 
+/** Evento (no window) disparado quando a fila de mutações muda. */
+export const OFFLINE_QUEUE_EVENT = 'offline-queue-changed';
+
 let _online = typeof navigator !== 'undefined' ? navigator.onLine : true;
 let _fails = 0;
 let _heartbeatTimer = null;
