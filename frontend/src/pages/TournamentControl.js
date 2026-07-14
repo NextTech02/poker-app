@@ -7,6 +7,8 @@ import Button from '../components/Button';
 import { useTimerSync, formatTime, formatTimeHuman } from '../hooks/useTimerSync';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { offlineWrite } from '../offline/apiOffline';
+import { uuid } from '../offline/db';
 import './TournamentControl.css';
 
 const TournamentControl = () => {
@@ -60,7 +62,14 @@ const TournamentControl = () => {
     const sendNow = () => {
       const target = pauseCmdRef.current.desired;
       pauseCmdRef.current.lastSent = target;
-      api.post(`/tournament-days/${dayId}/timer/${target ? 'pause' : 'start'}`)
+      const action = target ? 'pause' : 'start';
+      offlineWrite({
+        kind: 'timer', method: 'post',
+        url: `/tournament-days/${dayId}/timer/${action}`,
+        body: { day_id: dayId, action },
+        clientMutationId: uuid(),
+        synthetic: { ok: true },
+      })
         .catch((error) => console.error('Error toggling timer:', error))
         .finally(() => refetchTimer()); // reconcilia o tempo exato com o servidor
     };
@@ -91,42 +100,37 @@ const TournamentControl = () => {
   const handleStart = () => scheduleToggle(false);
   const handlePause = () => scheduleToggle(true);
 
+  // Comando de timer com fallback offline: enfileira (o display já usa o relógio
+  // ancorado local). body carrega day_id+action p/ o /sync/batch reexecutar.
+  const timerCmd = (action, extra = {}) =>
+    offlineWrite({
+      kind: 'timer', method: 'post',
+      url: `/tournament-days/${dayId}/timer/${action}`,
+      body: { day_id: dayId, action, ...extra },
+      clientMutationId: uuid(),
+      synthetic: { ok: true },
+    });
+
   const handleNextLevel = async () => {
-    try {
-      await api.post(`/tournament-days/${dayId}/timer/next-level`);
-      refetchTimer();
-    } catch (error) {
-      console.error('Error advancing level:', error);
-    }
+    try { await timerCmd('next-level'); refetchTimer(); }
+    catch (error) { console.error('Error advancing level:', error); }
   };
 
   const handlePrevLevel = async () => {
-    try {
-      await api.post(`/tournament-days/${dayId}/timer/prev-level`);
-      refetchTimer();
-    } catch (error) {
-      console.error('Error going back level:', error);
-    }
+    try { await timerCmd('prev-level'); refetchTimer(); }
+    catch (error) { console.error('Error going back level:', error); }
   };
 
   const handleAdjustTime = async (seconds) => {
-    try {
-      await api.post(`/tournament-days/${dayId}/timer/adjust`, { seconds });
-      refetchTimer();
-    } catch (error) {
-      console.error('Error adjusting timer:', error);
-    }
+    try { await timerCmd('adjust', { seconds }); refetchTimer(); }
+    catch (error) { console.error('Error adjusting timer:', error); }
   };
 
   const handleResetTimer = async () => {
     const ok = await confirm(t('control.confirmReset'), { variant: 'danger', confirmText: 'Reset' });
     if (!ok) return;
-    try {
-      await api.post(`/tournament-days/${dayId}/timer/reset`);
-      refetchTimer();
-    } catch (error) {
-      console.error('Error resetting timer:', error);
-    }
+    try { await timerCmd('reset'); refetchTimer(); }
+    catch (error) { console.error('Error resetting timer:', error); }
   };
 
   // Elimination counter functions

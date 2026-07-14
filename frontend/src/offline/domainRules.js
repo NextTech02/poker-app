@@ -177,6 +177,21 @@ export const applyAddon = async (body) => {
   return { tp };
 };
 
+/**
+ * Sangria (offline): ajuste BEST-EFFORT na réplica. O rake exato = proporcional ao
+ * rake pendente da etapa, é recalculado pelo servidor no sync (perform_sangria).
+ * Offline reduzimos o caixa da etapa pelo valor sangrado para o display não ficar
+ * atrás; o líquido/rake do caixa geral se acertam na reconciliação.
+ */
+export const applySangria = async (body) => {
+  const sc = await getEntity('stage_cash_register', body.stage_id);
+  if (sc) {
+    sc.current_balance = round2(Number(sc.current_balance || 0) - Number(body.amount || 0));
+    sc.total_sangrias = round2(Number(sc.total_sangrias || 0) + Number(body.amount || 0));
+    await putEntity('stage_cash_register', sc);
+  }
+};
+
 /** Eliminação (offline): marca status. Rankings são recalculados no servidor no sync. */
 export const applyEliminate = async (body) => {
   const tp = await getEntity('tournament_players', body.tournament_player_id);

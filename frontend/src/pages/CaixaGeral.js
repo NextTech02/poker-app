@@ -7,6 +7,9 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useTranslation } from 'react-i18next';
+import { offlineWrite } from '../offline/apiOffline';
+import { applySangria } from '../offline/domainRules';
+import { uuid } from '../offline/db';
 import './CaixaGeral.css';
 
 const CaixaGeral = () => {
@@ -145,7 +148,14 @@ const CaixaGeral = () => {
         notes: sangriaFormData.notes || null
       };
 
-      const response = await api.post('/cash/sangria', sangriaData);
+      const cmid = uuid();
+      const body = { ...sangriaData, client_mutation_id: cmid };
+      const response = await offlineWrite({
+        kind: 'sangria', method: 'post', url: '/cash/sangria', body,
+        clientMutationId: cmid, meta: { kind: 'sangria', stage: stage.name, amount },
+        synthetic: { message: t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar') },
+        applyLocal: () => applySangria(body),
+      });
 
       toast.success(response.data.message);
 

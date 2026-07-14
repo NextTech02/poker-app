@@ -26,6 +26,14 @@
   color: #06210f;
 }
 
+.offline-banner--conflict {
+  background: linear-gradient(90deg, #ef4444, #b91c1c);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+.offline-banner--conflict .offline-banner__dot { background: #fff; }
+
 .offline-banner__dot {
   width: 9px;
   height: 9px;

@@ -7,6 +7,9 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { offlineWrite } from '../offline/apiOffline';
+import { applyEliminate } from '../offline/domainRules';
+import { uuid, getEntity, putEntity } from '../offline/db';
 import './EliminacaoJogadores.css';
 
 const EliminacaoJogadores = () => {
@@ -87,9 +90,18 @@ const EliminacaoJogadores = () => {
     const ok = await confirm(t('elimination.confirmEliminate', { name: playerName }), { variant: 'danger', confirmText: t('elimination.eliminate') });
     if (!ok) return;
 
+    const body = { tournament_player_id: tournamentPlayerId };
     try {
-      await api.post(`/tournament-players/${tournamentPlayerId}/eliminate`);
-      loadData();
+      const r = await offlineWrite({
+        kind: 'eliminate', method: 'post',
+        url: `/tournament-players/${tournamentPlayerId}/eliminate`,
+        body, clientMutationId: uuid(), meta: { kind: 'eliminate', name: playerName },
+        synthetic: { ok: true }, applyLocal: () => applyEliminate(body),
+      });
+      // otimista na lista + reconcilia se online
+      setPlayers(prev => prev.map(p => p.id === tournamentPlayerId ? { ...p, status: 'eliminated' } : p));
+      if (r.offline) toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
+      else loadData();
     } catch (error) {
       console.error('Error eliminating player:', error);
       const errorMessage = error.response?.data?.detail || t('common.error');
@@ -102,10 +114,20 @@ const EliminacaoJogadores = () => {
     if (!ok) return;
 
     try {
-      await api.patch(`/tournament-players/${tournamentPlayerId}`, {
-        status: 'active'
+      const r = await offlineWrite({
+        kind: 'restore', method: 'patch',
+        url: `/tournament-players/${tournamentPlayerId}`,
+        body: { tournament_player_id: tournamentPlayerId, status: 'active' },
+        clientMutationId: uuid(), meta: { kind: 'restore', name: playerName },
+        synthetic: { ok: true },
+        applyLocal: async () => {
+          const tp = await getEntity('tournament_players', tournamentPlayerId);
+          if (tp) { tp.status = 'active'; delete tp.eliminated_at; await putEntity('tournament_players', tp); }
+        },
       });
-      loadData();
+      setPlayers(prev => prev.map(p => p.id === tournamentPlayerId ? { ...p, status: 'active' } : p));
+      if (r.offline) toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
+      else loadData();
     } catch (error) {
       console.error('Error restoring player:', error);
       const errorMessage = error.response?.data?.detail || t('common.error');

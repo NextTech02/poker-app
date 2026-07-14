@@ -1,18 +1,19 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useConnectivity } from '../contexts/ConnectivityContext';
 import './OfflineBanner.css';
 
 /**
- * Barra fixa no topo que avisa quando o app está OFFLINE (as ações continuam,
- * ficam na fila) ou quando há pendências sincronizando. Fica oculta quando online
- * e sem pendências.
+ * Barra fixa no topo: avisa quando OFFLINE (ações continuam, ficam na fila), quando
+ * há pendências sincronizando, ou quando há CONFLITOS a revisar. Oculta quando
+ * online, sem pendências e sem conflitos.
  */
 const OfflineBanner = () => {
   const { t } = useTranslation();
-  const { isOnline, pendingCount } = useConnectivity();
+  const { isOnline, pendingCount, conflictCount } = useConnectivity();
 
-  if (isOnline && pendingCount === 0) return null;
+  if (isOnline && pendingCount === 0 && conflictCount === 0) return null;
 
   const pending = pendingCount > 0
     ? ` · ${pendingCount} ${t('offline.pending', 'pendência(s)')}`
@@ -25,6 +26,15 @@ const OfflineBanner = () => {
         {t('offline.offlineMsg', 'Modo offline — suas ações estão sendo salvas e serão enviadas quando a internet voltar')}
         {pending}
       </div>
+    );
+  }
+
+  if (conflictCount > 0) {
+    return (
+      <Link to="/conflitos" className="offline-banner offline-banner--conflict" role="alert">
+        <span className="offline-banner__dot" />
+        {conflictCount} {t('offline.conflictsBanner', 'conflito(s) de sincronização — revisar')}
+      </Link>
     );
   }
 

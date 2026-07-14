@@ -183,7 +183,7 @@ class TournamentPlayerService:
     def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None) -> TournamentPlayer:
         """Add a rebuy for a tournament player"""
         # Get tournament player info with tournament_day data
-        tp_response = supabase.table("tournament_players").select("*, tournament_days(rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
+        tp_response = supabase.table("tournament_players").select("*, tournament_days!tournament_players_tournament_day_id_fkey(rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 
@@ -279,7 +279,7 @@ class TournamentPlayerService:
     def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None) -> TournamentPlayer:
         """Add an add-on for a tournament player"""
         # Get tournament player info with tournament_day data
-        tp_response = supabase.table("tournament_players").select("*, tournament_days(addon_amount, addon_chips, rake_percentage)").eq("id", tournament_player_id).execute()
+        tp_response = supabase.table("tournament_players").select("*, tournament_days!tournament_players_tournament_day_id_fkey(addon_amount, addon_chips, rake_percentage)").eq("id", tournament_player_id).execute()
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 

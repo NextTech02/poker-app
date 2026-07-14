@@ -16,8 +16,9 @@ import { useBuyTypes } from '../contexts/BuyTypesContext';
 import { methodLabel } from '../utils/paymentMethodLabels';
 import { usePolling } from '../hooks/usePolling';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
-import { applyRegister } from '../offline/domainRules';
-import { uuid, putEntities, getEntity } from '../offline/db';
+import { applyRegister, applyRebuy, applyAddon } from '../offline/domainRules';
+import { uuid, putEntities, getEntity, getAllByTable } from '../offline/db';
+import { isOnline } from '../offline/connectivity';
 import './Caixa.css';
 
 const Caixa = () => {
@@ -270,34 +271,61 @@ const Caixa = () => {
           }
         }
       } else if (formData.type === 'rebuy') {
-        // Find tournament player and add rebuy
-        const playersRes = await api.get(`/tournament-players/tournament/${formData.tournament_id}`);
-        const tournamentPlayer = playersRes.data.find(p => p.player_id === formData.player_id);
+        // Resolve o jogador (online: backend; offline: réplica) e hidrata a réplica.
+        const tpList = await offlineRead(`/tournament-players/tournament/${formData.tournament_id}`, {
+          fromReplica: async () => (await getAllByTable('tournament_players')).filter(p => p.tournament_id === formData.tournament_id),
+        });
+        if (tpList?.length) putEntities('tournament_players', tpList);
+        const tournamentPlayer = (tpList || []).find(p => p.player_id === formData.player_id);
         if (tournamentPlayer) {
-          // If player was eliminated, remove from ranking first
-          if (tournamentPlayer.status === 'eliminated') {
+          // If player was eliminated, remove from ranking first (só online)
+          if (tournamentPlayer.status === 'eliminated' && isOnline()) {
             try {
               await api.delete(`/rankings/tournament-player/${tournamentPlayer.id}/ranking`);
-              console.log('Player removed from ranking after rebuy');
             } catch (rankingError) {
               console.error('Error removing from ranking:', rankingError);
-              // Continue with rebuy even if ranking removal fails
             }
           }
 
           // Process the rebuy(s) — supports multiple rebuys at once ("recompra dupla").
           const rebuyQty = Math.max(1, parseInt(formData.rebuy_quantity, 10) || 1);
+          let rebuyOffline = false;
           for (let i = 0; i < rebuyQty; i++) {
-            await api.post(`/tournament-players/${tournamentPlayer.id}/rebuy?payment_source=${formData.payment_source || 'cash'}&payment_method=${formData.payment_method || 'cash'}${formData.buy_type_id ? `&buy_type_id=${formData.buy_type_id}` : ''}`);
+            const cmid = uuid();
+            const rbBody = {
+              tournament_player_id: tournamentPlayer.id,
+              payment_source: formData.payment_source || 'cash',
+              payment_method: formData.payment_method || 'cash',
+              buy_type_id: formData.buy_type_id || null,
+              client_mutation_id: cmid,
+            };
+            const rr = await offlineWrite({
+              kind: 'rebuy', method: 'post',
+              url: `/tournament-players/${tournamentPlayer.id}/rebuy`,
+              params: { payment_source: rbBody.payment_source, payment_method: rbBody.payment_method, ...(formData.buy_type_id ? { buy_type_id: formData.buy_type_id } : {}) },
+              body: rbBody,
+              clientMutationId: cmid,
+              meta: { kind: 'rebuy', player_id: formData.player_id },
+              synthetic: { ok: true },
+              applyLocal: () => applyRebuy(rbBody),
+            });
+            if (rr.offline) rebuyOffline = true;
           }
 
-          // Try to auto-allocate after rebuy
           const tournament = tournaments.find(t => t.id === formData.tournament_id);
           const selectedDay = tournamentDays.find(d => d.id === formData.tournament_day_id);
+
+          if (rebuyOffline) {
+            const pInfo = await offlineRead(`/players/${formData.player_id}`, { fromReplica: () => getEntity('players', formData.player_id) });
+            setAllocationData({ player_name: (pInfo && pInfo.name) || '—', tournament_name: tournament?.name || '', day_name: selectedDay?.day_name || '', is_alternate: true, offline: true, created_at: new Date().toISOString(), id: formData.player_id });
+            setShowTicketModal(true);
+            toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
+          }
+
           const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
           const tablesLocked = selectedDay?.tables_locked ?? false;
 
-          if (allocationTypeToUse === 'automatic') {
+          if (!rebuyOffline && allocationTypeToUse === 'automatic') {
             if (tablesLocked) {
               setAllocationData({
                 player_name: null,
@@ -365,11 +393,32 @@ const Caixa = () => {
           return;
         }
       } else if (formData.type === 'addon') {
-        // Find tournament player and add addon
-        const playersRes = await api.get(`/tournament-players/tournament/${formData.tournament_id}`);
-        const tournamentPlayer = playersRes.data.find(p => p.player_id === formData.player_id);
+        // Resolve o jogador (online: backend; offline: réplica) e hidrata a réplica.
+        const tpList = await offlineRead(`/tournament-players/tournament/${formData.tournament_id}`, {
+          fromReplica: async () => (await getAllByTable('tournament_players')).filter(p => p.tournament_id === formData.tournament_id),
+        });
+        if (tpList?.length) putEntities('tournament_players', tpList);
+        const tournamentPlayer = (tpList || []).find(p => p.player_id === formData.player_id);
         if (tournamentPlayer) {
-          await api.post(`/tournament-players/${tournamentPlayer.id}/addon?payment_source=${formData.payment_source || 'cash'}&payment_method=${formData.payment_method || 'cash'}${formData.buy_type_id ? `&buy_type_id=${formData.buy_type_id}` : ''}`);
+          const cmid = uuid();
+          const adBody = {
+            tournament_player_id: tournamentPlayer.id,
+            payment_source: formData.payment_source || 'cash',
+            payment_method: formData.payment_method || 'cash',
+            buy_type_id: formData.buy_type_id || null,
+            client_mutation_id: cmid,
+          };
+          const ar = await offlineWrite({
+            kind: 'addon', method: 'post',
+            url: `/tournament-players/${tournamentPlayer.id}/addon`,
+            params: { payment_source: adBody.payment_source, payment_method: adBody.payment_method, ...(formData.buy_type_id ? { buy_type_id: formData.buy_type_id } : {}) },
+            body: adBody,
+            clientMutationId: cmid,
+            meta: { kind: 'addon', player_id: formData.player_id },
+            synthetic: { ok: true },
+            applyLocal: () => applyAddon(adBody),
+          });
+          if (ar.offline) toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
         } else {
           toast.error(t('cashRegister.playerNotRegistered'));
           return;

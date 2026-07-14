@@ -6,7 +6,7 @@ import {
   recheck,
   OFFLINE_QUEUE_EVENT,
 } from '../offline/connectivity';
-import { getPendingCount } from '../offline/db';
+import { getPendingCount, getConflicts } from '../offline/db';
 import { startSyncEngine } from '../offline/syncEngine';
 
 /**
@@ -29,11 +29,13 @@ export const useConnectivity = () => useContext(ConnectivityContext);
 export const ConnectivityProvider = ({ children }) => {
   const [online, setOnline] = useState(isOnlineNow());
   const [pendingCount, setPendingCount] = useState(0);
+  const [conflictCount, setConflictCount] = useState(0);
   const [lastSyncAt, setLastSyncAt] = useState(null);
 
   const refreshPending = useCallback(async () => {
     try {
       setPendingCount(await getPendingCount());
+      setConflictCount((await getConflicts()).length);
     } catch (e) {
       /* IndexedDB indisponível — ignora */
     }
@@ -59,7 +61,7 @@ export const ConnectivityProvider = ({ children }) => {
 
   return (
     <ConnectivityContext.Provider
-      value={{ isOnline: online, pendingCount, lastSyncAt, recheck }}
+      value={{ isOnline: online, pendingCount, conflictCount, lastSyncAt, recheck }}
     >
       {children}
     </ConnectivityContext.Provider>
