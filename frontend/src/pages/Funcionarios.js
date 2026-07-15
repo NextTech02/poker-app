@@ -19,7 +19,7 @@ const ALL_PERMISSIONS = [
   { key: 'cashier', label: 'Caixa' },
   { key: 'cashier_players', label: 'Caixa - Jogadores' },
   { key: 'cashier_tickets', label: 'Caixa - Tickets' },
-  { key: 'sangi', label: 'Sangi' },
+  { key: 'sangi', label: 'Sanger' },
   { key: 'prizes', label: 'Premiação' },
   { key: 'prizes_release', label: 'Premiação - Liberar' },
   { key: 'financial', label: 'Financeiro' },

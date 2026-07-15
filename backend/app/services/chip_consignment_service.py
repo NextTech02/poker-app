@@ -69,7 +69,7 @@ class ChipConsignmentService:
         staff = supabase.table("staff").select("id, active, permission_groups(permissions)") \
             .eq("id", data.sangi_staff_id).execute()
         if not staff.data:
-            raise HTTPException(status_code=404, detail="Sangi (funcionário) não encontrada.")
+            raise HTTPException(status_code=404, detail="Sanger (funcionário) não encontrada.")
         staff_row = staff.data[0]
         if not staff_row.get("active", True):
             raise HTTPException(status_code=400, detail="Funcionário inativo.")
@@ -77,7 +77,7 @@ class ChipConsignmentService:
         if "sangi" not in (group.get("permissions") or []):
             raise HTTPException(
                 status_code=400,
-                detail="Este funcionário não está classificado como Sangi.",
+                detail="Este funcionário não está classificado como Sanger.",
             )
 
         # One open consignment per (sangi, stage)
@@ -88,7 +88,7 @@ class ChipConsignmentService:
         if open_existing.data:
             raise HTTPException(
                 status_code=400,
-                detail="Esta sangi já tem uma consignação aberta nesta etapa. Faça o abate antes de liberar outra."
+                detail="Esta sanger já tem uma consignação aberta nesta etapa. Faça o abate antes de liberar outra."
             )
 
         insert = {
