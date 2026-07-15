@@ -614,14 +614,14 @@ const BroadcastSettings = () => {
     load();
   }, [dayId, tournamentId, t, toast]);
 
-  // Código público da TV (por torneio) — carrega em separado pra não travar a tela
+  // Código público da TV (por DIA) — carrega em separado pra não travar a tela
   useEffect(() => {
     let active = true;
-    api.get(`/tournaments/${tournamentId}/broadcast-code`)
+    api.get(`/tournament-days/${dayId}/broadcast-code`)
       .then(res => { if (active) setTvCode(res.data?.code || ''); })
       .catch(() => {});
     return () => { active = false; };
-  }, [tournamentId]);
+  }, [dayId]);
 
   const copyTvCode = () => {
     if (!tvCode) return;

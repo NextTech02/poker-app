@@ -172,6 +172,16 @@ def get_days_by_tournament(
     return TournamentDayService.get_days_by_tournament(tournament_id)
 
 
+@router.get("/{day_id}/broadcast-code")
+def get_day_broadcast_code(day_id: str, current_user: dict = Depends(get_current_user)):
+    """Retorna (ou gera) o código público de TV DESTE DIA."""
+    try:
+        code = TournamentDayService.get_or_create_broadcast_code(day_id)
+        return {"code": code}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
 @router.get("/{day_id}", response_model=TournamentDay)
 def get_tournament_day(
     day_id: str,

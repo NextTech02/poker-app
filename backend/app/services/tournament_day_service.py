@@ -23,6 +23,51 @@ from app.models.tournament_day import (
 
 
 class TournamentDayService:
+    # ── Código público de exibição (TV) — POR DIA ───────────────────────────────
+    @staticmethod
+    def get_or_create_broadcast_code(day_id: str) -> str:
+        """Retorna (ou gera) o código curto e único DESTE DIA p/ exibição em TV.
+        Cada dia do torneio (Dia 1, Dia 2, Final...) tem o seu próprio código."""
+        import random
+        d = supabase.table("tournament_days").select("id, broadcast_code").eq("id", day_id).execute()
+        if not d.data:
+            raise ValueError("Dia não encontrado")
+        code = d.data[0].get("broadcast_code")
+        if code:
+            return code
+        alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # sem 0/O/1/I/L
+        for _ in range(12):
+            candidate = "".join(random.choice(alphabet) for _ in range(6))
+            try:
+                supabase.table("tournament_days").update({"broadcast_code": candidate}) \
+                    .eq("id", day_id).is_("broadcast_code", "null").execute()
+            except Exception:
+                continue  # colisão no índice UNIQUE — tenta outro
+            cur = supabase.table("tournament_days").select("broadcast_code").eq("id", day_id).execute()
+            if cur.data and cur.data[0].get("broadcast_code"):
+                return cur.data[0]["broadcast_code"]
+        raise ValueError("Não foi possível gerar o código")
+
+    @staticmethod
+    def resolve_broadcast_code(code: str) -> dict:
+        """Resolve o código público → o DIA exato (e seu torneio) a exibir."""
+        code = (code or "").strip().upper()
+        if not code:
+            raise ValueError("Código inválido")
+        d = supabase.table("tournament_days") \
+            .select("id, day_name, tournament_id, tournaments(name)") \
+            .eq("broadcast_code", code).execute()
+        if not d.data:
+            raise ValueError("Código inválido")
+        day = d.data[0]
+        tour = day.get("tournaments") or {}
+        return {
+            "tournament_id": day["tournament_id"],
+            "tournament_name": tour.get("name"),
+            "day_id": day["id"],
+            "day_name": day.get("day_name"),
+        }
+
     @staticmethod
     def _sync_tournament_status(tournament_id: str):
         """Sync tournament status based on its days' statuses.

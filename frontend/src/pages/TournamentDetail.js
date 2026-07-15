@@ -21,15 +21,24 @@ const TournamentDetail = () => {
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tvCode, setTvCode] = useState(null);
+  const [dayTvCodes, setDayTvCodes] = useState({}); // { [dayId]: code }
+  const [openTvDay, setOpenTvDay] = useState(null); // qual dia está com o card do código aberto
   const { toast, confirm } = useToast();
   const { formatCurrency } = useCurrency();
 
-  // Código público de TV (blinds por código). Busca/gera sob demanda.
-  const loadTvCode = async () => {
+  // Código público de TV POR DIA (blinds por código). Busca/gera sob demanda.
+  // Cada dia do torneio tem o seu próprio código único.
+  const loadTvCode = async (dayId) => {
+    // Alterna: se já está aberto neste dia, fecha.
+    if (openTvDay === dayId) { setOpenTvDay(null); return; }
     try {
-      const res = await api.get(`/tournaments/${id}/broadcast-code`);
-      setTvCode(res.data.code);
+      let code = dayTvCodes[dayId];
+      if (!code) {
+        const res = await api.get(`/tournament-days/${dayId}/broadcast-code`);
+        code = res.data.code;
+        setDayTvCodes((prev) => ({ ...prev, [dayId]: code }));
+      }
+      setOpenTvDay(dayId);
     } catch (e) {
       toast.error(t('tv.codeError', 'Não foi possível gerar o código de TV.'));
     }
@@ -336,6 +345,14 @@ const TournamentDetail = () => {
           <Button
             size="small"
             variant="secondary"
+            onClick={() => loadTvCode(day.id)}
+            title={t('tv.codeButtonTitle', 'Código para exibir os blinds deste dia numa TV')}
+          >
+            {t('tv.codeButton', 'Código TV')}
+          </Button>
+          <Button
+            size="small"
+            variant="secondary"
             onClick={() => handleEditDay(day)}
           >
             {t('common.edit')}
@@ -350,6 +367,25 @@ const TournamentDetail = () => {
           </Button>
         </div>
       </div>
+
+      {openTvDay === day.id && dayTvCodes[day.id] && (
+        <div className="tv-code-card" style={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14,
+          background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.4)',
+          borderRadius: 10, padding: '12px 16px', margin: '0 0 14px',
+        }}>
+          <span style={{ color: '#9ca3af' }}>{t('tv.codeLabel', 'Código da TV')}:</span>
+          <strong style={{ fontSize: '1.6rem', letterSpacing: 4, color: '#22c55e', fontFamily: 'monospace' }}>
+            {dayTvCodes[day.id]}
+          </strong>
+          <span style={{ color: '#9ca3af' }}>
+            {t('tv.instruction', 'Na TV, acesse')} <code>{window.location.origin}/tv</code> {t('tv.andType', 'e digite o código')}
+          </span>
+          <Button size="small" variant="secondary" onClick={() => navigate(`/tv/${dayTvCodes[day.id]}`)}>
+            {t('tv.openHere', 'Abrir aqui')}
+          </Button>
+        </div>
+      )}
 
       <div className="day-info-grid">
         {day.day_type !== 'final' && (
@@ -537,9 +573,6 @@ const TournamentDetail = () => {
                 {t('rankings.prize')}
               </Button>
             )}
-            <Button variant="secondary" onClick={loadTvCode}>
-              📺 {t('tv.codeButton', 'Código TV')}
-            </Button>
             <Button onClick={handleCreateDay}>
               {t('common.add')} {t('tournamentDays.title')}
             </Button>
@@ -548,23 +581,6 @@ const TournamentDetail = () => {
             </Button>
           </div>
         </div>
-
-        {tvCode && (
-          <div className="tv-code-card" style={{
-            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16,
-            background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.4)',
-            borderRadius: 10, padding: '14px 18px', margin: '0 0 16px',
-          }}>
-            <span style={{ color: '#9ca3af' }}>{t('tv.codeLabel', 'Código da TV')}:</span>
-            <strong style={{ fontSize: '1.6rem', letterSpacing: 4, color: '#d4af37' }}>{tvCode}</strong>
-            <span style={{ color: '#9ca3af' }}>
-              {t('tv.instruction', 'Na TV, acesse')} <code>{window.location.origin}/tv</code> {t('tv.andType', 'e digite o código')}
-            </span>
-            <Button size="small" variant="secondary" onClick={() => navigate(`/tv/${tvCode}`)}>
-              {t('tv.openHere', 'Abrir aqui')}
-            </Button>
-          </div>
-        )}
 
         {/* Days List - Top section */}
         {days.length > 0 && renderDaysList(false)}

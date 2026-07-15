@@ -8,16 +8,6 @@ from app.dependencies import get_stage_id_optional
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
 
-@router.get("/{tournament_id}/broadcast-code")
-def get_broadcast_code(tournament_id: str, current_user: dict = Depends(get_current_user)):
-    """Retorna (ou gera) o código público de TV do torneio."""
-    try:
-        code = TournamentService.get_or_create_broadcast_code(tournament_id)
-        return {"code": code}
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-
 @router.post("", response_model=Tournament, status_code=status.HTTP_201_CREATED)
 def create_tournament(
     tournament: TournamentCreate,
