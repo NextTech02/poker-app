@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTimerSync, formatTime, formatTimeHuman } from '../hooks/useTimerSync';
 import './EnrichedTimerDisplay.css';
 
@@ -14,10 +15,11 @@ import './EnrichedTimerDisplay.css';
  * @param {boolean} compact - Show compact version (default: false)
  */
 const EnrichedTimerDisplay = ({ dayId, compact = false }) => {
+  const { t } = useTranslation();
   const { timerState, isLoading, error } = useTimerSync(dayId);
 
   if (isLoading) {
-    return <div className="enriched-timer-loading">Carregando...</div>;
+    return <div className="enriched-timer-loading">{t('common.loading')}</div>;
   }
 
   if (error || !timerState) {
@@ -33,9 +35,9 @@ const EnrichedTimerDisplay = ({ dayId, compact = false }) => {
         {/* Next Blind Preview */}
         {next_blind && (
           <div className="next-blind-compact">
-            <span className="label">Próximo:</span>
+            <span className="label">{t('timer.next')}</span>
             {next_blind.is_break ? (
-              <span className="value">Intervalo ({next_blind.duration / 60}min)</span>
+              <span className="value">{t('timer.breakWithDuration', { min: next_blind.duration / 60 })}</span>
             ) : (
               <span className="value">
                 {next_blind.small_blind}/{next_blind.big_blind}
@@ -48,7 +50,7 @@ const EnrichedTimerDisplay = ({ dayId, compact = false }) => {
         {/* Break Countdown */}
         {next_break && (
           <div className="break-countdown-compact">
-            <span className="label">Intervalo em:</span>
+            <span className="label">{t('timer.breakIn')}</span>
             <span className="value">{formatTimeHuman(next_break.time_until_break)}</span>
           </div>
         )}
@@ -64,22 +66,22 @@ const EnrichedTimerDisplay = ({ dayId, compact = false }) => {
         <div className="current-blind-section">
           {current_blind.is_break ? (
             <div className="break-indicator">
-              <h2 className="break-title">INTERVALO</h2>
-              <p className="break-subtitle">Tempo restante: {formatTime(timerState.time_remaining_current_level)}</p>
+              <h2 className="break-title">{t('timer.break')}</h2>
+              <p className="break-subtitle">{t('timer.timeRemaining', { time: formatTime(timerState.time_remaining_current_level) })}</p>
             </div>
           ) : (
             <div className="blind-values-grid">
               <div className="blind-value-item">
-                <span className="blind-label">Small Blind</span>
+                <span className="blind-label">{t('timer.smallBlind')}</span>
                 <span className="blind-amount">{current_blind.small_blind}</span>
               </div>
               <div className="blind-value-item">
-                <span className="blind-label">Big Blind</span>
+                <span className="blind-label">{t('timer.bigBlind')}</span>
                 <span className="blind-amount">{current_blind.big_blind}</span>
               </div>
               {current_blind.ante > 0 && (
                 <div className="blind-value-item">
-                  <span className="blind-label">Ante</span>
+                  <span className="blind-label">{t('timer.ante')}</span>
                   <span className="blind-amount">{current_blind.ante}</span>
                 </div>
               )}
@@ -91,15 +93,15 @@ const EnrichedTimerDisplay = ({ dayId, compact = false }) => {
       {/* Next Blind Preview */}
       {next_blind && (
         <div className="next-blind-section">
-          <h3 className="section-title">Próximo Nível</h3>
+          <h3 className="section-title">{t('timer.nextLevel')}</h3>
           {next_blind.is_break ? (
             <p className="next-blind-info">
-              Intervalo - {next_blind.duration / 60} minutos
+              {t('timer.breakMinutes', { min: next_blind.duration / 60 })}
             </p>
           ) : (
             <p className="next-blind-info">
               {next_blind.small_blind} / {next_blind.big_blind}
-              {next_blind.ante > 0 && ` (Ante: ${next_blind.ante})`}
+              {next_blind.ante > 0 && ` ${t('timer.anteInline', { ante: next_blind.ante })}`}
             </p>
           )}
         </div>
@@ -108,7 +110,7 @@ const EnrichedTimerDisplay = ({ dayId, compact = false }) => {
       {/* Break Countdown */}
       {next_break && !current_blind?.is_break && (
         <div className="break-countdown-section">
-          <h3 className="section-title">Próximo Intervalo</h3>
+          <h3 className="section-title">{t('timer.nextBreak')}</h3>
           <p className="break-countdown-time">
             {formatTimeHuman(next_break.time_until_break)}
           </p>

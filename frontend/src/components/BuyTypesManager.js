@@ -136,7 +136,7 @@ const BuyTypesManager = () => {
                 <th>{t('buyTypes.category', 'Categoria')}</th>
                 <th>{t('buyTypes.rake', 'Rake %')}</th>
                 <th>{t('buyTypes.active', 'Ativo')}</th>
-                <th aria-label="ações" />
+                <th aria-label={t('common.actions', 'Ações')} />
               </tr>
             </thead>
             <tbody>

@@ -224,9 +224,9 @@ const Relatorios = () => {
                       <tr>
                         <th>{t('players.columnPlayer', 'Jogador')}</th>
                         <th>{t('reports.totalEntries', 'Entradas')}</th>
-                        <th>Buy-ins</th>
-                        <th>Rebuys</th>
-                        <th>Add-ons</th>
+                        <th>{t('reports.buyIns', 'Buy-ins')}</th>
+                        <th>{t('reports.rebuys', 'Rebuys')}</th>
+                        <th>{t('reports.addons', 'Add-ons')}</th>
                         <th>{t('cashRegister.totalGeneral', 'Total Gasto')}</th>
                       </tr>
                     </thead>

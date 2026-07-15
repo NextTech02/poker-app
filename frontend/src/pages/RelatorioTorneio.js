@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
 import api from '../config/api';
@@ -17,6 +18,7 @@ const Stat = ({ label, value, hint }) => (
 const RelatorioTorneio = () => {
   const { tournamentId } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,11 +30,11 @@ const RelatorioTorneio = () => {
       const res = await api.get(`/reports/tournament/${tournamentId}`);
       setReport(res.data);
     } catch (err) {
-      setError('Erro ao carregar relatório do torneio');
+      setError(t('tournamentReport.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [tournamentId]);
+  }, [tournamentId, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -40,9 +42,9 @@ const RelatorioTorneio = () => {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content rt-page">
-        <Breadcrumb items={[{ label: 'Relatórios', to: '/relatorios' }, { label: 'Torneio' }]} />
+        <Breadcrumb items={[{ label: t('reports.title'), to: '/relatorios' }, { label: t('tournamentReport.breadcrumbTournament') }]} />
 
-        {loading && <div className="rt-loading">Carregando…</div>}
+        {loading && <div className="rt-loading">{t('common.loading')}</div>}
         {error && <div className="error-banner">{error}</div>}
 
         {report && (
@@ -51,50 +53,50 @@ const RelatorioTorneio = () => {
               <div>
                 <h1>{report.tournament_name}</h1>
                 <div className="rt-subtitle">
-                  {report.sponsor_name && <span>Patrocinador: {report.sponsor_name} · </span>}
-                  Status: {report.status || '—'}
-                  {report.has_qualifying && <span> · Classificatório</span>}
-                  {report.is_satellite && <span> · Satélite</span>}
+                  {report.sponsor_name && <span>{t('tournamentReport.sponsor')}: {report.sponsor_name} · </span>}
+                  {t('common.status')}: {report.status || '—'}
+                  {report.has_qualifying && <span> · {t('tournamentReport.qualifying')}</span>}
+                  {report.is_satellite && <span> · {t('tournamentReport.satellite')}</span>}
                 </div>
               </div>
-              <button className="rt-print-btn" onClick={() => window.print()}>Imprimir / PDF</button>
+              <button className="rt-print-btn" onClick={() => window.print()}>{t('tournamentReport.printPdf')}</button>
             </div>
 
-            <h3 className="rt-section-title">Participação</h3>
+            <h3 className="rt-section-title">{t('tournamentReport.participation')}</h3>
             <div className="rt-stats-grid">
-              <Stat label="Jogadores (distintos)" value={report.total_players} />
-              <Stat label="Entradas totais" value={report.total_entries} hint="buy-ins + rebuys + add-ons" />
-              <Stat label="Buy-ins" value={report.total_buy_ins} />
-              <Stat label="Rebuys" value={report.total_rebuys} />
-              <Stat label="Add-ons" value={report.total_addons} />
+              <Stat label={t('tournamentReport.distinctPlayers')} value={report.total_players} />
+              <Stat label={t('tournamentReport.totalEntries')} value={report.total_entries} hint={t('tournamentReport.entriesHint')} />
+              <Stat label={t('tournamentReport.buyIns')} value={report.total_buy_ins} />
+              <Stat label={t('tournamentReport.rebuys')} value={report.total_rebuys} />
+              <Stat label={t('tournamentReport.addons')} value={report.total_addons} />
             </div>
 
-            <h3 className="rt-section-title">Financeiro</h3>
+            <h3 className="rt-section-title">{t('tournamentReport.financial')}</h3>
             <div className="rt-stats-grid">
-              <Stat label="Arrecadação" value={formatCurrency(report.total_revenue)} />
-              <Stat label="Rake" value={formatCurrency(report.rake_amount)} hint={`${report.rake_percentage.toFixed(0)}%`} />
-              <Stat label="Garantido" value={formatCurrency(report.guaranteed_prize)} />
-              <Stat label="Prizepool disponível" value={formatCurrency(report.available_prize_pool)} />
-              <Stat label="Reservado" value={formatCurrency(report.reserved_amount)} hint={`${report.reserved_prize_percentage.toFixed(0)}% · ${report.reserved_purpose || 'sem destino'}`} />
-              <Stat label="Pool pagável" value={formatCurrency(report.payable_pool)} />
+              <Stat label={t('tournamentReport.revenue')} value={formatCurrency(report.total_revenue)} />
+              <Stat label={t('tournamentReport.rake')} value={formatCurrency(report.rake_amount)} hint={`${report.rake_percentage.toFixed(0)}%`} />
+              <Stat label={t('tournamentReport.guaranteed')} value={formatCurrency(report.guaranteed_prize)} />
+              <Stat label={t('tournamentReport.availablePrizePool')} value={formatCurrency(report.available_prize_pool)} />
+              <Stat label={t('tournamentReport.reserved')} value={formatCurrency(report.reserved_amount)} hint={`${report.reserved_prize_percentage.toFixed(0)}% · ${report.reserved_purpose || t('tournamentReport.noPurpose')}`} />
+              <Stat label={t('tournamentReport.payablePool')} value={formatCurrency(report.payable_pool)} />
             </div>
 
-            <h3 className="rt-section-title">Premiação</h3>
+            <h3 className="rt-section-title">{t('tournaments.prizePool')}</h3>
             <div className="rt-stats-grid">
-              <Stat label="Total alocado" value={formatCurrency(report.total_allocated)} />
-              <Stat label="Distribuído (pago)" value={formatCurrency(report.total_distributed)} />
-              <Stat label="Aguardando liberação" value={report.pending_release} />
-              <Stat label="Vagas" value={report.vagas_count} hint={`${report.vagas_generated} ticket(s) gerado(s)`} />
+              <Stat label={t('tournamentReport.totalAllocated')} value={formatCurrency(report.total_allocated)} />
+              <Stat label={t('tournamentReport.distributed')} value={formatCurrency(report.total_distributed)} />
+              <Stat label={t('tournamentReport.pendingRelease')} value={report.pending_release} />
+              <Stat label={t('tournamentReport.seats')} value={report.vagas_count} hint={t('tournamentReport.ticketsGenerated', { count: report.vagas_generated })} />
             </div>
 
             {report.days?.length > 0 && (
               <>
-                <h3 className="rt-section-title">Dias</h3>
+                <h3 className="rt-section-title">{t('tournamentReport.days')}</h3>
                 <table className="rt-table">
                   <thead>
                     <tr>
-                      <th>Dia</th><th>Tipo</th><th>Status</th><th>Buy-in</th>
-                      <th>Jogadores</th><th>Buy-ins</th><th>Rebuys</th><th>Add-ons</th><th>Receita</th>
+                      <th>{t('tournamentReport.day')}</th><th>{t('tournamentReport.type')}</th><th>{t('common.status')}</th><th>{t('tournaments.buyIn')}</th>
+                      <th>{t('tournamentReport.players')}</th><th>{t('tournamentReport.buyIns')}</th><th>{t('tournamentReport.rebuys')}</th><th>{t('tournamentReport.addons')}</th><th>{t('tournamentReport.income')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -118,19 +120,19 @@ const RelatorioTorneio = () => {
 
             {report.prizes?.length > 0 && (
               <>
-                <h3 className="rt-section-title">Faixas de premiação</h3>
+                <h3 className="rt-section-title">{t('tournamentReport.prizeTiers')}</h3>
                 <table className="rt-table">
                   <thead>
                     <tr>
-                      <th>Posição</th><th>Tipo</th><th>Valor</th><th>Jogador</th>
-                      <th>Liberada</th><th>Paga</th><th>Pública</th>
+                      <th>{t('tournamentReport.position')}</th><th>{t('tournamentReport.type')}</th><th>{t('tournamentReport.amount')}</th><th>{t('tournamentReport.player')}</th>
+                      <th>{t('tournamentReport.released')}</th><th>{t('tournamentReport.paid')}</th><th>{t('tournamentReport.visible')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {report.prizes.map((p) => (
                       <tr key={p.position}>
                         <td>{p.position}º</td>
-                        <td>{p.prize_type === 'vaga' ? 'Vaga' : 'Dinheiro'}</td>
+                        <td>{p.prize_type === 'vaga' ? t('tournamentReport.seatPrize') : t('tournamentReport.cashPrize')}</td>
                         <td>{formatCurrency(p.prize_amount)}</td>
                         <td>{p.player_name || '—'}</td>
                         <td>{p.released ? '✓' : '—'}</td>

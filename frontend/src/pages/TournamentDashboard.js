@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
@@ -9,6 +10,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentDashboard.css';
 
 const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
+  const { t } = useTranslation();
   const { id: paramId } = useParams();
   const navigate = useNavigate();
 
@@ -119,7 +121,7 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   }, [allPlayers, days]);
 
   if (loading) {
-    const content = <div className="loading">Carregando...</div>;
+    const content = <div className="loading">{t('common.loading')}</div>;
 
     if (isStandalone) {
       return (
@@ -137,8 +139,8 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   if (!tournament) {
     const content = (
       <Card>
-        <p>Torneio não encontrado</p>
-        {isStandalone && <Button onClick={() => navigate('/torneios')}>Voltar</Button>}
+        <p>{t('tournamentDashboard.tournamentNotFound')}</p>
+        {isStandalone && <Button onClick={() => navigate('/torneios')}>{t('common.back')}</Button>}
       </Card>
     );
 
@@ -159,8 +161,8 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
     const content = (
       <div className="empty-days-professional">
         <div className="empty-days-line" />
-        <h3>Nenhum dia configurado</h3>
-        <p>Acesse a aba "Dias" para criar o primeiro dia do torneio</p>
+        <h3>{t('tournamentDashboard.noDaysConfigured')}</h3>
+        <p>{t('tournamentDashboard.noDaysHint')}</p>
       </div>
     );
 
@@ -172,10 +174,10 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
             <div className="page-header">
               <div>
                 <h1>{tournament.name}</h1>
-                <p className="subtitle">Dashboard Geral do Torneio</p>
+                <p className="subtitle">{t('tournamentDashboard.subtitle')}</p>
               </div>
               <Button variant="secondary" onClick={() => navigate('/torneios')}>
-                Voltar
+                {t('common.back')}
               </Button>
             </div>
             {content}
@@ -192,10 +194,10 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
         <div className="page-header">
           <div>
             <h1>{tournament.name}</h1>
-            <p className="subtitle">Dashboard Geral do Torneio</p>
+            <p className="subtitle">{t('tournamentDashboard.subtitle')}</p>
           </div>
           <Button variant="secondary" onClick={() => navigate('/torneios')}>
-            Voltar
+            {t('common.back')}
           </Button>
         </div>
       )}
@@ -203,50 +205,50 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       <div className="dashboard-grid">
         {/* Resultados do Torneio */}
         <Card className="results-card">
-          <h3 className="card-title">Resultados do Torneio</h3>
+          <h3 className="card-title">{t('tournamentDashboard.tournamentResults')}</h3>
           <div className="financial-row">
-            <span className="label">Arrecadação Total</span>
+            <span className="label">{t('tournamentDashboard.totalRevenue')}</span>
             <span className="value positive">{formatCurrency(financials.totalRevenue)}</span>
           </div>
           <div className="financial-row">
             <span className="label">
-              Taxa Administrativa (Rake {financials.averageRakePercentage.toFixed(1)}% médio)
+              {t('tournamentDashboard.adminFee', { rake: financials.averageRakePercentage.toFixed(1) })}
             </span>
             <span className="value negative">- {formatCurrency(financials.rake)}</span>
           </div>
           <div className="financial-row">
-            <span className="label">Banco para Torneio</span>
+            <span className="label">{t('tournamentDashboard.tournamentBank')}</span>
             <span className="value positive">{formatCurrency(financials.prizePool)}</span>
           </div>
           <div className="financial-row">
-            <span className="label">Stake de Item</span>
+            <span className="label">{t('tournamentDashboard.itemStake')}</span>
             <span className="value neutral">{formatCurrency(0)}</span>
           </div>
           <div className="financial-row total">
-            <span className="label">Custo para Premiações</span>
+            <span className="label">{t('tournamentDashboard.prizeCost')}</span>
             <span className="value positive">{formatCurrency(financials.prizePool)}</span>
           </div>
         </Card>
 
         {/* Premiações e Rake */}
         <Card className="prizes-card">
-          <h3 className="card-title">Premiações e Rake</h3>
+          <h3 className="card-title">{t('tournamentDashboard.prizesAndRake')}</h3>
           <div className="financial-row">
-            <span className="label">Descrição</span>
-            <span className="value">Valor</span>
+            <span className="label">{t('tournamentDashboard.description')}</span>
+            <span className="value">{t('tournamentDashboard.value')}</span>
           </div>
           <div className="financial-row">
-            <span className="label">Saldo para Torneio</span>
+            <span className="label">{t('tournamentDashboard.tournamentBalance')}</span>
             <span className="value positive">{formatCurrency(financials.totalRevenue)}</span>
           </div>
           <div className="financial-row">
             <span className="label">
-              Rake ({financials.averageRakePercentage.toFixed(1)}% médio)
+              {t('tournamentDashboard.rakeAverage', { rake: financials.averageRakePercentage.toFixed(1) })}
             </span>
             <span className="value negative">- {formatCurrency(financials.rake)}</span>
           </div>
           <div className="financial-row total">
-            <span className="label">Prize Pool</span>
+            <span className="label">{t('tournamentDashboard.prizePool')}</span>
             <span className="value positive">{formatCurrency(financials.prizePool)}</span>
           </div>
         </Card>
@@ -254,23 +256,23 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
 
       {/* Items Summary Section */}
       <div className="items-section">
-        <h3 className="section-title">Itens dos Torneios ({days.filter(d => d.day_type !== 'final').length} {days.filter(d => d.day_type !== 'final').length === 1 ? 'dia' : 'dias'})</h3>
+        <h3 className="section-title">{t('tournamentDashboard.tournamentItems', { count: days.filter(d => d.day_type !== 'final').length, unit: days.filter(d => d.day_type !== 'final').length === 1 ? t('tournamentDashboard.day') : t('tournamentDashboard.days') })}</h3>
 
         <div className="players-details-table">
           <table className="details-table">
             <thead>
               <tr>
-                <th>Item</th>
-                <th className="text-center">Qtd. Vencida</th>
-                <th className="text-right">Valor</th>
-                <th className="text-right">Taxa</th>
-                <th className="text-right">Nota Usuária</th>
-                <th className="text-right">Total</th>
+                <th>{t('tournamentDashboard.itemColumn')}</th>
+                <th className="text-center">{t('tournamentDashboard.wonQty')}</th>
+                <th className="text-right">{t('tournamentDashboard.value')}</th>
+                <th className="text-right">{t('tournamentDashboard.fee')}</th>
+                <th className="text-right">{t('tournamentDashboard.userNote')}</th>
+                <th className="text-right">{t('common.total')}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Torneio (Buy-in)</td>
+                <td>{t('tournamentDashboard.tournamentBuyIn')}</td>
                 <td className="text-center">{financials.totalBuyInsCount}</td>
                 <td className="text-right">{formatCurrency(financials.totalBuyInsRevenue)}</td>
                 <td className="text-right">{formatCurrency(0)}</td>
@@ -279,7 +281,7 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
               </tr>
               {financials.totalRebuysCount > 0 && (
                 <tr>
-                  <td>Rebuy</td>
+                  <td>{t('tournamentDashboard.rebuy')}</td>
                   <td className="text-center">{financials.totalRebuysCount}</td>
                   <td className="text-right">{formatCurrency(financials.totalRebuysRevenue)}</td>
                   <td className="text-right">{formatCurrency(0)}</td>
@@ -289,7 +291,7 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
               )}
               {financials.totalAddonsCount > 0 && (
                 <tr>
-                  <td>Add-on</td>
+                  <td>{t('tournamentDashboard.addon')}</td>
                   <td className="text-center">{financials.totalAddonsCount}</td>
                   <td className="text-right">{formatCurrency(financials.totalAddonsRevenue)}</td>
                   <td className="text-right">{formatCurrency(0)}</td>

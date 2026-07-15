@@ -421,8 +421,8 @@ const BlindManagement = () => {
       <main className="main-content">
         {/* A6.4: Breadcrumb */}
         <Breadcrumb items={[
-          { label: 'Início', to: '/' },
-          { label: 'Torneios', to: '/torneios' },
+          { label: t('common.home'), to: '/' },
+          { label: t('tournaments.title'), to: '/torneios' },
           { label: t('blinds.title') },
         ]} />
         <div className="page-header">
@@ -592,19 +592,19 @@ const BlindManagement = () => {
                         const prevBlind = blinds.filter(b => b.level < i).sort((a, b) => b.level - a.level)[0];
                         const nextBlind = blinds.filter(b => b.level > i).sort((a, b) => a.level - b.level)[0];
 
-                        let label = `Nivel ${i}`;
+                        let label = t('blinds.positionLevel', 'Nível {{n}}', { n: i });
                         if (prevBlind && nextBlind) {
-                          const prevLabel = prevBlind.is_break ? 'Break' : `${prevBlind.small_blind}/${prevBlind.big_blind}`;
-                          const nextLabel = nextBlind.is_break ? 'Break' : `${nextBlind.small_blind}/${nextBlind.big_blind}`;
-                          label += ` (entre ${prevLabel} e ${nextLabel})`;
+                          const prevLabel = prevBlind.is_break ? t('blinds.break') : `${prevBlind.small_blind}/${prevBlind.big_blind}`;
+                          const nextLabel = nextBlind.is_break ? t('blinds.break') : `${nextBlind.small_blind}/${nextBlind.big_blind}`;
+                          label += ` ${t('blinds.positionBetween', '(entre {{prev}} e {{next}})', { prev: prevLabel, next: nextLabel })}`;
                         } else if (prevBlind) {
-                          const prevLabel = prevBlind.is_break ? 'Break' : `${prevBlind.small_blind}/${prevBlind.big_blind}`;
-                          label += ` (apos ${prevLabel})`;
+                          const prevLabel = prevBlind.is_break ? t('blinds.break') : `${prevBlind.small_blind}/${prevBlind.big_blind}`;
+                          label += ` ${t('blinds.positionAfter', '(após {{prev}})', { prev: prevLabel })}`;
                         } else if (nextBlind) {
-                          const nextLabel = nextBlind.is_break ? 'Break' : `${nextBlind.small_blind}/${nextBlind.big_blind}`;
-                          label += ` (antes de ${nextLabel})`;
+                          const nextLabel = nextBlind.is_break ? t('blinds.break') : `${nextBlind.small_blind}/${nextBlind.big_blind}`;
+                          label += ` ${t('blinds.positionBefore', '(antes de {{next}})', { next: nextLabel })}`;
                         } else {
-                          label += ' (primeiro nivel)';
+                          label += ` ${t('blinds.positionFirst', '(primeiro nível)')}`;
                         }
                         options.push(<option key={i} value={i}>{label}</option>);
                       }
@@ -641,7 +641,7 @@ const BlindManagement = () => {
                           value={formData.small_blind}
                           onChange={handleChange}
                           required
-                          placeholder="Ex: 25"
+                          placeholder={t('blinds.smallBlindPlaceholder', 'Ex: 25')}
                         />
                       </div>
 
@@ -655,7 +655,7 @@ const BlindManagement = () => {
                           value={formData.big_blind}
                           onChange={handleChange}
                           required
-                          placeholder="Ex: 50"
+                          placeholder={t('blinds.bigBlindPlaceholder', 'Ex: 50')}
                         />
                       </div>
                     </div>
@@ -677,7 +677,7 @@ const BlindManagement = () => {
 
                 {formData.is_break && (
                   <div className="break-info">
-                    <p>Os jogadores terao {formData.duration || '?'} minutos de intervalo neste ponto do torneio.</p>
+                    <p>{t('blinds.breakInfo', 'Os jogadores terão {{duration}} minutos de intervalo neste ponto do torneio.', { duration: formData.duration || '?' })}</p>
                   </div>
                 )}
 
@@ -789,7 +789,7 @@ const BlindManagement = () => {
 
                 {formData.is_break && (
                   <div className="break-info">
-                    <p>Os jogadores terao {formData.duration || '?'} minutos de intervalo neste ponto do torneio.</p>
+                    <p>{t('blinds.breakInfo', 'Os jogadores terão {{duration}} minutos de intervalo neste ponto do torneio.', { duration: formData.duration || '?' })}</p>
                   </div>
                 )}
 

@@ -262,7 +262,7 @@ const BlindTemplates = () => {
                       <th>{t('blinds.bigBlind', 'BB')}</th>
                       <th>{t('blinds.ante', 'Ante')}</th>
                       <th>{t('blinds.duration', 'Duração')}</th>
-                      <th aria-label="remover" />
+                      <th aria-label={t('common.remove', 'Remover')} />
                     </tr>
                   </thead>
                   <tbody>

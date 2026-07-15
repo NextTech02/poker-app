@@ -705,7 +705,7 @@ const TournamentBroadcast = () => {
         </div>
         {broadcastSettings.showPrizepool && (
           <div className="broadcast-prizepool-corner">
-            <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>PRIZEPOOL</div>
+            <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>{t('broadcast.prizepoolLabel')}</div>
             <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
               {formatCurrency(displayPrizePool)}
             </div>
@@ -884,7 +884,7 @@ const TournamentBroadcast = () => {
                 <div className="next-blind-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.nextLabel }}>{t('broadcast.nextBlinds')}</div>
                 <div className="next-blind-value" style={{ fontSize: `${24 * fontScale}px`, color: colors.nextValue }}>
                   {nextBlindIsBreak
-                    ? `INTERVALO`
+                    ? t('broadcast.break').toUpperCase()
                     : `${displayNextSmallBlind}/${displayNextBigBlind} ( ${displayNextAnte} )`
                   }
                 </div>

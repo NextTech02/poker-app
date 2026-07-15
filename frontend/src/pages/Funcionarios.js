@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -12,29 +13,30 @@ import { supabase } from '../config/supabase';
 import './Funcionarios.css';
 
 const ALL_PERMISSIONS = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'stages', label: 'Etapas' },
-  { key: 'tournaments', label: 'Torneios' },
-  { key: 'players', label: 'Jogadores' },
-  { key: 'cashier', label: 'Caixa' },
-  { key: 'cashier_players', label: 'Caixa - Jogadores' },
-  { key: 'cashier_tickets', label: 'Caixa - Tickets' },
-  { key: 'sangi', label: 'Sanger' },
-  { key: 'prizes', label: 'Premiação' },
-  { key: 'prizes_release', label: 'Premiação - Liberar' },
-  { key: 'financial', label: 'Financeiro' },
-  { key: 'reports', label: 'Relatórios' },
-  { key: 'general_cash', label: 'Caixa Geral' },
-  { key: 'cashbox.operate', label: 'Caixa Próprio - Operar' },
-  { key: 'cashbox.admin', label: 'Caixa Próprio - Admin' },
-  { key: 'rankings', label: 'Rankings' },
-  { key: 'blinds', label: 'Blinds' },
-  { key: 'tables', label: 'Mesas' },
-  { key: 'broadcast', label: 'Broadcast' },
-  { key: 'employees', label: 'Funcionários' },
+  { key: 'dashboard', label: 'staff.perm.dashboard' },
+  { key: 'stages', label: 'staff.perm.stages' },
+  { key: 'tournaments', label: 'staff.perm.tournaments' },
+  { key: 'players', label: 'staff.perm.players' },
+  { key: 'cashier', label: 'staff.perm.cashier' },
+  { key: 'cashier_players', label: 'staff.perm.cashierPlayers' },
+  { key: 'cashier_tickets', label: 'staff.perm.cashierTickets' },
+  { key: 'sangi', label: 'staff.perm.sangi' },
+  { key: 'prizes', label: 'staff.perm.prizes' },
+  { key: 'prizes_release', label: 'staff.perm.prizesRelease' },
+  { key: 'financial', label: 'staff.perm.financial' },
+  { key: 'reports', label: 'staff.perm.reports' },
+  { key: 'general_cash', label: 'staff.perm.generalCash' },
+  { key: 'cashbox.operate', label: 'staff.perm.cashboxOperate' },
+  { key: 'cashbox.admin', label: 'staff.perm.cashboxAdmin' },
+  { key: 'rankings', label: 'staff.perm.rankings' },
+  { key: 'blinds', label: 'staff.perm.blinds' },
+  { key: 'tables', label: 'staff.perm.tables' },
+  { key: 'broadcast', label: 'staff.perm.broadcast' },
+  { key: 'employees', label: 'staff.perm.employees' },
 ];
 
 const Funcionarios = () => {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const notify = (msg, type = 'error') => toast[type](msg);
   const { selectedStage } = useStage();
@@ -115,7 +117,7 @@ const Funcionarios = () => {
         setReservedBudget(0);
       }
     } catch (err) {
-      notify('Erro ao carregar pagamentos do staff');
+      notify(t('staff.errLoadPayments'));
     } finally {
       setPayLoading(false);
     }
@@ -146,7 +148,7 @@ const Funcionarios = () => {
       }
       loadPayments();
     } catch (err) {
-      notify('Erro ao salvar o valor');
+      notify(t('staff.errSaveAmount'));
     }
   };
 
@@ -155,12 +157,12 @@ const Funcionarios = () => {
     if (!stageId || !generalCash) return;
     const amount = Math.max(0, parseFloat(amountInputs[staffId]) || parseFloat(payments[staffId]?.amount) || 0);
     if (amount <= 0) {
-      notify('Defina um valor maior que zero antes de pagar.');
+      notify(t('staff.defineAmountBeforePay'));
       return;
     }
     const balance = parseFloat(generalCash.current_balance) || 0;
     if (amount > balance) {
-      notify(`Saldo insuficiente no Caixa Geral. Disponível: ${formatCurrency(balance)}`);
+      notify(t('staff.insufficientGeneralCash', { balance: formatCurrency(balance) }));
       return;
     }
     setPayBusy(staffId);
@@ -181,10 +183,10 @@ const Funcionarios = () => {
         .from('general_cash_register')
         .update({ current_balance: String(balance - amount) })
         .eq('id', generalCash.id);
-      notify('Pagamento registrado e debitado do Caixa Geral.', 'success');
+      notify(t('staff.paymentRegistered'), 'success');
       loadPayments();
     } catch (err) {
-      notify('Erro ao registrar o pagamento');
+      notify(t('staff.errRegisterPayment'));
     } finally {
       setPayBusy(null);
     }
@@ -205,10 +207,10 @@ const Funcionarios = () => {
         .from('general_cash_register')
         .update({ current_balance: String((parseFloat(generalCash.current_balance) || 0) + amount) })
         .eq('id', generalCash.id);
-      notify('Pagamento estornado — valor devolvido ao Caixa Geral.', 'success');
+      notify(t('staff.paymentReversed'), 'success');
       loadPayments();
     } catch (err) {
-      notify('Erro ao estornar o pagamento');
+      notify(t('staff.errReversePayment'));
     } finally {
       setPayBusy(null);
     }
@@ -224,7 +226,7 @@ const Funcionarios = () => {
       setStaffList(staffRes.data || []);
       setGroups(groupsRes.data || []);
     } catch (err) {
-      notify('Erro ao carregar dados');
+      notify(t('staff.errLoadData'));
     } finally {
       setLoading(false);
     }
@@ -239,7 +241,7 @@ const Funcionarios = () => {
 
   const handleCreateStaff = async () => {
     if (!staffForm.name || !staffForm.email || !staffForm.password) {
-      notify('Preencha nome, email e senha');
+      notify(t('staff.fillNameEmailPassword'));
       return;
     }
     setStaffSaving(true);
@@ -247,11 +249,11 @@ const Funcionarios = () => {
       const payload = { ...staffForm };
       if (!payload.permission_group_id) delete payload.permission_group_id;
       await api.post('/staff', payload);
-      notify('Funcionário criado com sucesso', 'success');
+      notify(t('staff.staffCreated'), 'success');
       setShowStaffModal(false);
       loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail || 'Erro ao criar funcionário';
+      const detail = err.response?.data?.detail || t('staff.errCreateStaff');
       notify(detail);
     } finally {
       setStaffSaving(false);
@@ -261,20 +263,20 @@ const Funcionarios = () => {
   const handleToggleActive = async (staff) => {
     try {
       await api.patch(`/staff/${staff.id}`, { active: !staff.active });
-      notify(staff.active ? 'Funcionário desativado' : 'Funcionário ativado', 'success');
+      notify(staff.active ? t('staff.staffDeactivated') : t('staff.staffActivated'), 'success');
       loadData();
     } catch (err) {
-      notify('Erro ao atualizar funcionário');
+      notify(t('staff.errUpdateStaff'));
     }
   };
 
   const handleChangeGroup = async (staffId, groupId) => {
     try {
       await api.patch(`/staff/${staffId}`, { permission_group_id: groupId || null });
-      notify('Grupo atualizado', 'success');
+      notify(t('staff.groupUpdated'), 'success');
       loadData();
     } catch (err) {
-      notify('Erro ao atualizar grupo');
+      notify(t('staff.errUpdateGroup'));
     }
   };
 
@@ -317,22 +319,22 @@ const Funcionarios = () => {
 
   const handleSaveGroup = async () => {
     if (!groupForm.name) {
-      notify('Informe o nome do grupo');
+      notify(t('staff.enterGroupName'));
       return;
     }
     setGroupSaving(true);
     try {
       if (editingGroup) {
         await api.patch(`/staff/groups/${editingGroup.id}`, groupForm);
-        notify('Grupo atualizado', 'success');
+        notify(t('staff.groupUpdated'), 'success');
       } else {
         await api.post('/staff/groups', groupForm);
-        notify('Grupo criado com sucesso', 'success');
+        notify(t('staff.groupCreated'), 'success');
       }
       setShowGroupModal(false);
       loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail || 'Erro ao salvar grupo';
+      const detail = err.response?.data?.detail || t('staff.errSaveGroup');
       notify(detail);
     } finally {
       setGroupSaving(false);
@@ -340,13 +342,13 @@ const Funcionarios = () => {
   };
 
   const handleDeleteGroup = async (group) => {
-    if (!window.confirm(`Remover o grupo "${group.name}"?`)) return;
+    if (!window.confirm(t('staff.confirmRemoveGroup', { name: group.name }))) return;
     try {
       await api.delete(`/staff/groups/${group.id}`);
-      notify('Grupo removido', 'success');
+      notify(t('staff.groupRemoved'), 'success');
       loadData();
     } catch (err) {
-      notify('Erro ao remover grupo');
+      notify(t('staff.errRemoveGroup'));
     }
   };
 
@@ -366,12 +368,12 @@ const Funcionarios = () => {
       <Sidebar />
       <main className="main-content">
         <div className="page-header">
-          <h1>Funcionários</h1>
+          <h1>{t('staff.title')}</h1>
           <div className="page-header-actions">
             {activeTab === 'staff' ? (
-              <Button onClick={openCreateStaff}>+ Novo Funcionário</Button>
+              <Button onClick={openCreateStaff}>+ {t('staff.newEmployee')}</Button>
             ) : (
-              <Button onClick={openCreateGroup}>+ Novo Grupo</Button>
+              <Button onClick={openCreateGroup}>+ {t('staff.newGroup')}</Button>
             )}
           </div>
         </div>
@@ -382,19 +384,19 @@ const Funcionarios = () => {
             className={`func-tab ${activeTab === 'staff' ? 'active' : ''}`}
             onClick={() => setActiveTab('staff')}
           >
-            Funcionários
+            {t('staff.tabStaff')}
           </button>
           <button
             className={`func-tab ${activeTab === 'groups' ? 'active' : ''}`}
             onClick={() => setActiveTab('groups')}
           >
-            Grupos de Permissão
+            {t('staff.tabGroups')}
           </button>
           <button
             className={`func-tab ${activeTab === 'pagamentos' ? 'active' : ''}`}
             onClick={() => setActiveTab('pagamentos')}
           >
-            Pagamentos
+            {t('staff.tabPayments')}
           </button>
         </div>
 
@@ -404,17 +406,17 @@ const Funcionarios = () => {
             {loading ? (
               <table className="table"><tbody>{Array.from({ length: 4 }).map((_, i) => <SkeletonTableRow key={i} cols={5} />)}</tbody></table>
             ) : staffList.length === 0 ? (
-              <EmptyState message="Nenhum funcionário cadastrado" />
+              <EmptyState message={t('staff.noStaffRegistered')} />
             ) : (
               <div className="table-responsive">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Nome</th>
-                      <th>Email</th>
-                      <th>Grupo</th>
-                      <th>Status</th>
-                      <th>Ações</th>
+                      <th>{t('common.name')}</th>
+                      <th>{t('staff.email')}</th>
+                      <th>{t('staff.group')}</th>
+                      <th>{t('common.status')}</th>
+                      <th>{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -428,7 +430,7 @@ const Funcionarios = () => {
                             value={s.permission_group_id || ''}
                             onChange={(e) => handleChangeGroup(s.id, e.target.value)}
                           >
-                            <option value="">Sem grupo</option>
+                            <option value="">{t('staff.noGroup')}</option>
                             {groups.map((g) => (
                               <option key={g.id} value={g.id}>{g.name}</option>
                             ))}
@@ -436,7 +438,7 @@ const Funcionarios = () => {
                         </td>
                         <td>
                           <span className={`func-status ${s.active ? 'func-status--active' : 'func-status--inactive'}`}>
-                            {s.active ? 'Ativo' : 'Inativo'}
+                            {s.active ? t('staff.active') : t('staff.inactive')}
                           </span>
                         </td>
                         <td>
@@ -444,7 +446,7 @@ const Funcionarios = () => {
                             className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
                             onClick={() => handleToggleActive(s)}
                           >
-                            {s.active ? 'Desativar' : 'Ativar'}
+                            {s.active ? t('staff.deactivate') : t('staff.activate')}
                           </button>
                         </td>
                       </tr>
@@ -460,25 +462,25 @@ const Funcionarios = () => {
         {activeTab === 'pagamentos' && (
           <Card>
             {!selectedStage?.id ? (
-              <EmptyState message="Selecione uma etapa para gerenciar os pagamentos do staff." />
+              <EmptyState message={t('staff.selectStageForPayments')} />
             ) : (
               <>
                 <div className="func-pay-summary">
                   <div className="func-pay-stat">
-                    <span className="func-pay-stat-label">Reservado p/ staff (etapa)</span>
+                    <span className="func-pay-stat-label">{t('staff.reservedForStaff')}</span>
                     <strong className="func-pay-stat-value">{formatCurrency(reservedBudget)}</strong>
-                    <span className="func-pay-stat-hint">Soma da % reservada (staff) dos torneios</span>
+                    <span className="func-pay-stat-hint">{t('staff.reservedForStaffHint')}</span>
                   </div>
                   <div className="func-pay-stat">
-                    <span className="func-pay-stat-label">Total atribuído</span>
+                    <span className="func-pay-stat-label">{t('staff.totalAssigned')}</span>
                     <strong className="func-pay-stat-value">{formatCurrency(totalAssigned)}</strong>
                   </div>
                   <div className="func-pay-stat">
-                    <span className="func-pay-stat-label">Total pago</span>
+                    <span className="func-pay-stat-label">{t('staff.totalPaid')}</span>
                     <strong className="func-pay-stat-value">{formatCurrency(totalPaid)}</strong>
                   </div>
                   <div className="func-pay-stat">
-                    <span className="func-pay-stat-label">Caixa Geral disponível</span>
+                    <span className="func-pay-stat-label">{t('staff.generalCashAvailable')}</span>
                     <strong className="func-pay-stat-value">{formatCurrency(generalCash?.current_balance || 0)}</strong>
                   </div>
                 </div>
@@ -486,16 +488,16 @@ const Funcionarios = () => {
                 {payLoading ? (
                   <table className="table"><tbody>{Array.from({ length: 4 }).map((_, i) => <SkeletonTableRow key={i} cols={4} />)}</tbody></table>
                 ) : activeStaff.length === 0 ? (
-                  <EmptyState message="Nenhum funcionário ativo cadastrado." />
+                  <EmptyState message={t('staff.noActiveStaff')} />
                 ) : (
                   <div className="table-responsive">
                     <table className="table">
                       <thead>
                         <tr>
-                          <th>Funcionário</th>
-                          <th>Valor</th>
-                          <th>Status</th>
-                          <th>Ações</th>
+                          <th>{t('staff.employee')}</th>
+                          <th>{t('staff.amount')}</th>
+                          <th>{t('common.status')}</th>
+                          <th>{t('common.actions')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -514,14 +516,14 @@ const Funcionarios = () => {
                                   className="func-pay-input"
                                   value={amountInputs[s.id] ?? ''}
                                   disabled={isPaid}
-                                  placeholder="0,00"
+                                  placeholder={t('staff.amountPlaceholder')}
                                   onChange={(e) => handleAmountChange(s.id, e.target.value)}
                                   onBlur={() => !isPaid && handleSaveAmount(s.id)}
                                 />
                               </td>
                               <td>
                                 <span className={`func-status ${isPaid ? 'func-status--active' : 'func-status--inactive'}`}>
-                                  {isPaid ? 'Pago' : 'Pendente'}
+                                  {isPaid ? t('staff.paid') : t('staff.pending')}
                                 </span>
                                 {isPaid && p?.paid_at && (
                                   <span className="func-pay-date">{new Date(p.paid_at).toLocaleDateString('pt-BR')}</span>
@@ -530,11 +532,11 @@ const Funcionarios = () => {
                               <td>
                                 {isPaid ? (
                                   <button className="func-action-btn func-action-btn--danger" disabled={busy} onClick={() => handleReverse(s.id)}>
-                                    {busy ? '...' : 'Estornar'}
+                                    {busy ? '...' : t('staff.reverse')}
                                   </button>
                                 ) : (
                                   <button className="func-action-btn func-action-btn--success" disabled={busy} onClick={() => handlePay(s.id)}>
-                                    {busy ? '...' : 'Pagar'}
+                                    {busy ? '...' : t('staff.pay')}
                                   </button>
                                 )}
                               </td>
@@ -556,16 +558,16 @@ const Funcionarios = () => {
             {loading ? (
               <table className="table"><tbody>{Array.from({ length: 3 }).map((_, i) => <SkeletonTableRow key={i} cols={4} />)}</tbody></table>
             ) : groups.length === 0 ? (
-              <EmptyState message="Nenhum grupo cadastrado" />
+              <EmptyState message={t('staff.noGroupsRegistered')} />
             ) : (
               <div className="table-responsive">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Nome</th>
-                      <th>Descrição</th>
-                      <th>Permissões</th>
-                      <th>Ações</th>
+                      <th>{t('common.name')}</th>
+                      <th>{t('staff.description')}</th>
+                      <th>{t('staff.permissions')}</th>
+                      <th>{t('common.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -576,15 +578,15 @@ const Funcionarios = () => {
                         <td>
                           <div className="func-perm-tags">
                             {g.permissions.length === ALL_PERMISSIONS.length ? (
-                              <span className="func-perm-tag func-perm-tag--all">Todas</span>
+                              <span className="func-perm-tag func-perm-tag--all">{t('staff.allPermissions')}</span>
                             ) : g.permissions.length === 0 ? (
-                              <span className="func-perm-tag func-perm-tag--none">Nenhuma</span>
+                              <span className="func-perm-tag func-perm-tag--none">{t('staff.noPermissions')}</span>
                             ) : (
                               g.permissions.slice(0, 4).map((p) => {
                                 const found = ALL_PERMISSIONS.find((ap) => ap.key === p);
                                 return (
                                   <span key={p} className="func-perm-tag">
-                                    {found ? found.label : p}
+                                    {found ? t(found.label) : p}
                                   </span>
                                 );
                               })
@@ -598,8 +600,8 @@ const Funcionarios = () => {
                         </td>
                         <td>
                           <div className="func-actions">
-                            <button className="func-action-btn" onClick={() => openEditGroup(g)}>Editar</button>
-                            <button className="func-action-btn func-action-btn--danger" onClick={() => handleDeleteGroup(g)}>Remover</button>
+                            <button className="func-action-btn" onClick={() => openEditGroup(g)}>{t('common.edit')}</button>
+                            <button className="func-action-btn func-action-btn--danger" onClick={() => handleDeleteGroup(g)}>{t('common.remove')}</button>
                           </div>
                         </td>
                       </tr>
@@ -616,22 +618,22 @@ const Funcionarios = () => {
           <div className="modal-overlay" onClick={() => setShowStaffModal(false)}>
             <div className="modal func-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Novo Funcionário</h2>
+                <h2>{t('staff.newEmployee')}</h2>
                 <button className="modal-close" onClick={() => setShowStaffModal(false)}>×</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Nome</label>
+                  <label>{t('common.name')}</label>
                   <input
                     type="text"
                     className="form-input"
                     value={staffForm.name}
                     onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
-                    placeholder="Nome completo"
+                    placeholder={t('staff.fullNamePlaceholder')}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Email</label>
+                  <label>{t('staff.email')}</label>
                   <input
                     type="email"
                     className="form-input"
@@ -641,23 +643,23 @@ const Funcionarios = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Senha</label>
+                  <label>{t('staff.password')}</label>
                   <input
                     type="password"
                     className="form-input"
                     value={staffForm.password}
                     onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder={t('staff.passwordPlaceholder')}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Grupo de Permissão</label>
+                  <label>{t('staff.permissionGroup')}</label>
                   <select
                     className="form-input"
                     value={staffForm.permission_group_id}
                     onChange={(e) => setStaffForm({ ...staffForm, permission_group_id: e.target.value })}
                   >
-                    <option value="">Sem grupo</option>
+                    <option value="">{t('staff.noGroup')}</option>
                     {groups.map((g) => (
                       <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
@@ -665,9 +667,9 @@ const Funcionarios = () => {
                 </div>
               </div>
               <div className="modal-footer">
-                <Button variant="secondary" onClick={() => setShowStaffModal(false)}>Cancelar</Button>
+                <Button variant="secondary" onClick={() => setShowStaffModal(false)}>{t('common.cancel')}</Button>
                 <Button onClick={handleCreateStaff} disabled={staffSaving}>
-                  {staffSaving ? 'Criando...' : 'Criar Funcionário'}
+                  {staffSaving ? t('staff.creating') : t('staff.createStaff')}
                 </Button>
               </div>
             </div>
@@ -679,41 +681,41 @@ const Funcionarios = () => {
           <div className="modal-overlay" onClick={() => setShowGroupModal(false)}>
             <div className="modal func-modal func-modal--wide" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{editingGroup ? 'Editar Grupo' : 'Novo Grupo'}</h2>
+                <h2>{editingGroup ? t('staff.editGroup') : t('staff.newGroup')}</h2>
                 <button className="modal-close" onClick={() => setShowGroupModal(false)}>×</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Nome do Grupo</label>
+                  <label>{t('staff.groupName')}</label>
                   <input
                     type="text"
                     className="form-input"
                     value={groupForm.name}
                     onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                    placeholder="Ex: Caixa, Gerente"
+                    placeholder={t('staff.groupNamePlaceholder')}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Descrição</label>
+                  <label>{t('staff.description')}</label>
                   <input
                     type="text"
                     className="form-input"
                     value={groupForm.description}
                     onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                    placeholder="Breve descrição do grupo"
+                    placeholder={t('staff.groupDescriptionPlaceholder')}
                   />
                 </div>
                 <div className="form-group">
                   <label>
-                    Permissões
+                    {t('staff.permissions')}
                     <button
                       type="button"
                       className="func-select-all-btn"
                       onClick={toggleAllPermissions}
                     >
                       {ALL_PERMISSIONS.every((p) => groupForm.permissions.includes(p.key))
-                        ? 'Desmarcar todas'
-                        : 'Selecionar todas'}
+                        ? t('staff.deselectAll')
+                        : t('staff.selectAll')}
                     </button>
                   </label>
                   <div className="func-perm-grid">
@@ -724,16 +726,16 @@ const Funcionarios = () => {
                           checked={groupForm.permissions.includes(perm.key)}
                           onChange={() => togglePermission(perm.key)}
                         />
-                        <span>{perm.label}</span>
+                        <span>{t(perm.label)}</span>
                       </label>
                     ))}
                   </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <Button variant="secondary" onClick={() => setShowGroupModal(false)}>Cancelar</Button>
+                <Button variant="secondary" onClick={() => setShowGroupModal(false)}>{t('common.cancel')}</Button>
                 <Button onClick={handleSaveGroup} disabled={groupSaving}>
-                  {groupSaving ? 'Salvando...' : editingGroup ? 'Salvar Alterações' : 'Criar Grupo'}
+                  {groupSaving ? t('staff.saving') : editingGroup ? t('staff.saveChanges') : t('staff.createGroup')}
                 </Button>
               </div>
             </div>

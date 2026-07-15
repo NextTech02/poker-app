@@ -127,7 +127,7 @@ const TournamentControl = () => {
   };
 
   const handleResetTimer = async () => {
-    const ok = await confirm(t('control.confirmReset'), { variant: 'danger', confirmText: 'Reset' });
+    const ok = await confirm(t('control.confirmReset'), { variant: 'danger', confirmText: t('control.reset') });
     if (!ok) return;
     try { await timerCmd('reset'); refetchTimer(); }
     catch (error) { console.error('Error resetting timer:', error); }
@@ -195,7 +195,7 @@ const TournamentControl = () => {
             <div className="timer-display">
               {isBreak ? (
                 <div className="timer-break-indicator">
-                  <div className="break-label-control">INTERVALO</div>
+                  <div className="break-label-control">{t('control.break')}</div>
                   <div className="timer-value break">
                     {formatTime(timerState?.time_remaining_current_level || 0)}
                   </div>
@@ -247,12 +247,12 @@ const TournamentControl = () => {
 
             {!isBreak && currentBlind && (
               <Card className="control-stat-card">
-                <div className="stat-label">BLINDS</div>
+                <div className="stat-label">{t('control.blinds')}</div>
                 <div className="stat-value blinds-display">
                   {currentBlind.small_blind}/{currentBlind.big_blind}
                 </div>
                 {currentBlind.ante > 0 && (
-                  <div className="stat-sub">Ante: {currentBlind.ante}</div>
+                  <div className="stat-sub">{t('control.anteValue', { ante: currentBlind.ante })}</div>
                 )}
               </Card>
             )}
@@ -260,23 +260,23 @@ const TournamentControl = () => {
             {nextBlind && (
               <Card className="control-stat-card next-level-card">
                 <div className="stat-label">
-                  {nextBlind.is_break ? 'PRÓXIMO: INTERVALO' : 'PRÓXIMO NÍVEL'}
+                  {nextBlind.is_break ? t('control.nextBreak') : t('control.nextLevel')}
                 </div>
                 <div className="stat-value next-blinds">
                   {nextBlind.is_break
-                    ? `${nextBlind.duration}min`
+                    ? t('control.durationMin', { min: nextBlind.duration })
                     : `${nextBlind.small_blind}/${nextBlind.big_blind}`
                   }
                 </div>
                 {nextBlind.ante > 0 && !nextBlind.is_break && (
-                  <div className="stat-sub">Ante: {nextBlind.ante}</div>
+                  <div className="stat-sub">{t('control.anteValue', { ante: nextBlind.ante })}</div>
                 )}
               </Card>
             )}
 
             {timerState?.next_break && (
               <Card className="control-stat-card break-countdown-card">
-                <div className="stat-label">INTERVALO EM</div>
+                <div className="stat-label">{t('control.intervalIn').toUpperCase()}</div>
                 <div className="stat-value break-time">
                   {formatTimeHuman(timerState.next_break.time_until_break)}
                 </div>
@@ -289,17 +289,17 @@ const TournamentControl = () => {
             <div className="elimination-section">
               <div className="elimination-stats">
                 <div className="elimination-stat">
-                  <div className="elimination-stat-label">ENTRADAS</div>
+                  <div className="elimination-stat-label">{t('control.entries').toUpperCase()}</div>
                   <div className="elimination-stat-value entries">{totalEntries}</div>
                 </div>
                 <div className="elimination-stat-operator">-</div>
                 <div className="elimination-stat">
-                  <div className="elimination-stat-label">ELIMINAÇÕES</div>
+                  <div className="elimination-stat-label">{t('control.eliminations').toUpperCase()}</div>
                   <div className="elimination-stat-value eliminations">{eliminationsCount}</div>
                 </div>
                 <div className="elimination-stat-operator">=</div>
                 <div className="elimination-stat">
-                  <div className="elimination-stat-label">JOGADORES ATIVOS</div>
+                  <div className="elimination-stat-label">{t('control.activePlayers').toUpperCase()}</div>
                   <div className="elimination-stat-value active">{activePlayersCount}</div>
                 </div>
               </div>
@@ -310,19 +310,19 @@ const TournamentControl = () => {
                   variant="secondary"
                   disabled={eliminationsCount <= 0}
                 >
-                  Desfazer 1
+                  {t('control.undoOne')}
                 </Button>
                 <Button
                   onClick={() => handleEliminate(1)}
                   variant="danger"
                 >
-                  Eliminar 1
+                  {t('control.eliminateOne')}
                 </Button>
                 <div className="bulk-elimination">
                   <input
                     type="number"
                     min="1"
-                    placeholder="Qtd"
+                    placeholder={t('control.quantityPlaceholder')}
                     value={bulkCount}
                     onChange={(e) => setBulkCount(e.target.value)}
                     className="bulk-input"
@@ -333,7 +333,7 @@ const TournamentControl = () => {
                     variant="danger"
                     disabled={!bulkCount || parseInt(bulkCount) <= 0}
                   >
-                    Eliminar em massa
+                    {t('control.bulkEliminate')}
                   </Button>
                 </div>
               </div>

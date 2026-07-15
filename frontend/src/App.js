@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StageProvider } from './contexts/StageContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
@@ -55,6 +56,7 @@ const PageFallback = () => (
 );
 
 const PrivateRoute = ({ children, permission, anyPermission }) => {
+  const { t } = useTranslation();
   const { user, loading } = useAuth();
   const { hasPermission, loading: permLoading } = usePermissions();
   const { toast } = useToast();
@@ -72,15 +74,15 @@ const PrivateRoute = ({ children, permission, anyPermission }) => {
   useEffect(() => {
     if (denied && !toastedRef.current) {
       toastedRef.current = true;
-      toast.warning('Você não tem permissão para acessar esta página.');
+      toast.warning(t('app.permissionDenied'));
     }
-  }, [denied, toast]);
+  }, [denied, toast, t]);
 
   // Show loading while auth or permissions are resolving, or while we have a token
   // but user hasn't loaded yet (token refresh in progress) — só ONLINE; offline não
   // adianta esperar refresh.
   if (loading || permLoading || (!user && hasToken && isOnline())) {
-    return <div className="loading">Carregando...</div>;
+    return <div className="loading">{t('common.loading')}</div>;
   }
 
   if (!user) {
@@ -359,6 +361,7 @@ function AppRoutes() {
 }
 
 function App() {
+  const { t } = useTranslation();
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ConnectivityProvider>
@@ -369,7 +372,7 @@ function App() {
                 <PaymentMethodsProvider>
                   <BuyTypesProvider>
                     <ToastProvider>
-                      <ErrorBoundary title="Erro na aplicação" subtitle="Recarregue a página para continuar.">
+                      <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
                         <OfflineBanner />
                         <AppRoutes />
                       </ErrorBoundary>

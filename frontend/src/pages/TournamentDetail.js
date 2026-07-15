@@ -320,16 +320,16 @@ const TournamentDetail = () => {
             size="small"
             variant="secondary"
             onClick={() => handleManageTables(day.id)}
-            title="Gerenciar mesas e alocação de jogadores"
+            title={t('tournamentDetail.manageTablesTitle', 'Gerenciar mesas e alocação de jogadores')}
           >
-            Mesas
+            {t('tables.title')}
           </Button>
           {(day.day_type === 'final' || day.day_type === 'regular' || !day.day_type) && (
             <Button
               size="small"
               variant="secondary"
               onClick={() => navigate(`/premiacao/${id}`)}
-              title="Configurar e pagar premiações"
+              title={t('tournamentDetail.prizeSettingsTitle', 'Configurar e pagar premiações')}
             >
               {t('rankings.prize')}
             </Button>
@@ -338,9 +338,9 @@ const TournamentDetail = () => {
             size="small"
             variant="secondary"
             onClick={() => handleBroadcastSettings(day.id)}
-            title="Configurar aparência do broadcast"
+            title={t('tournamentDetail.broadcastSettingsTitle', 'Configurar aparência do broadcast')}
           >
-            Broadcast
+            {t('tournamentDetail.broadcast', 'Broadcast')}
           </Button>
           <Button
             size="small"
@@ -456,8 +456,8 @@ const TournamentDetail = () => {
       return (
         <div className="empty-days-professional">
           <div className="empty-days-line" />
-          <h3>Nenhum dia configurado</h3>
-          <p>Crie o primeiro dia para configurar o torneio</p>
+          <h3>{t('tournamentDetail.noDaysConfigured', 'Nenhum dia configurado')}</h3>
+          <p>{t('tournamentDetail.noDaysConfiguredHint', 'Crie o primeiro dia para configurar o torneio')}</p>
           <Button onClick={handleCreateDay}>
             {t('tournamentDayForm.createDay')}
           </Button>
@@ -557,8 +557,8 @@ const TournamentDetail = () => {
       <main className="main-content">
         {/* A6.4: Breadcrumb */}
         <Breadcrumb items={[
-          { label: 'Início', to: '/' },
-          { label: 'Torneios', to: '/torneios' },
+          { label: t('common.home'), to: '/' },
+          { label: t('tournaments.title'), to: '/torneios' },
           { label: tournament.name },
         ]} />
 

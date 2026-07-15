@@ -264,7 +264,7 @@ const Caixa = () => {
                 }
                 setShowTicketModal(true);
               } else {
-                const errorMsg = errDetail || 'Erro desconhecido';
+                const errorMsg = errDetail || t('cashRegister.unknownError');
                 toast.warning(t('cashRegister.allocationManualWarning', { reason: errorMsg }));
               }
             }
@@ -382,7 +382,7 @@ const Caixa = () => {
                   }
                   setShowTicketModal(true);
                 } else {
-                  const errorMsg = errDetail || 'Erro desconhecido';
+                  const errorMsg = errDetail || t('cashRegister.unknownError');
                   toast.warning(t('cashRegister.rebuyAllocationManualWarning', { reason: errorMsg }));
                 }
               }
@@ -759,7 +759,7 @@ const Caixa = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{t('cashRegister.newTransaction')}</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)} aria-label="Fechar">
+                <button className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -795,7 +795,7 @@ const Caixa = () => {
                       <option value="">{t('cashRegister.selectDay')}</option>
                       {tournamentDays.map((day) => (
                         <option key={day.id} value={day.id}>
-                          {day.day_name} - {formatCurrency(day.buy_in)} ({day.registered_players}/{day.max_players} jogadores)
+                          {day.day_name} - {formatCurrency(day.buy_in)} ({day.registered_players}/{day.max_players} {t('cashRegister.playersLabel')})
                         </option>
                       ))}
                     </select>
@@ -945,7 +945,7 @@ const Caixa = () => {
                       ? t('cashRegister.registeredAsAlternate')
                       : t('cashRegister.registeredAndAllocated')}
                 </h2>
-                <button className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label="Fechar">
+                <button className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

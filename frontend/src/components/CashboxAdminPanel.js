@@ -307,7 +307,7 @@ const CashboxAdminPanel = () => {
                 {t(ACTION_CONFIG[modal.kind].titleKey)}
                 {modal.cashbox.staff_name ? ` · ${modal.cashbox.staff_name}` : ''}
               </h2>
-              <button className="close-btn" onClick={() => setModal(null)} aria-label="Fechar">
+              <button className="close-btn" onClick={() => setModal(null)} aria-label={t('common.close')}>
                 <span className="close-icon"></span>
               </button>
             </div>
@@ -392,7 +392,7 @@ const CashboxAdminPanel = () => {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{t('cashbox.newCashbox')}</h2>
-              <button className="close-btn" onClick={() => setCreateOpen(false)} aria-label="Fechar">
+              <button className="close-btn" onClick={() => setCreateOpen(false)} aria-label={t('common.close')}>
                 <span className="close-icon"></span>
               </button>
             </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import api from '../config/api';
 import './PremiacaoSelector.css';
@@ -22,6 +23,7 @@ const CARD_ACCENTS = [
 
 const PremiacaoSelector = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,11 +46,11 @@ const PremiacaoSelector = () => {
         setTimeout(() => load({ isRetry: true }), 1500);
         return;
       }
-      setError('Erro ao carregar torneios');
+      setError(t('prizeSelector.errorLoad'));
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, t]);
 
   useEffect(() => {
     load();
@@ -68,19 +70,19 @@ const PremiacaoSelector = () => {
               </svg>
             </div>
             <div>
-              <h1>Premiações</h1>
-              <p className="psel-subtitle">Selecione o torneio para registrar pagamentos</p>
+              <h1>{t('prizeSelector.title')}</h1>
+              <p className="psel-subtitle">{t('prizeSelector.subtitle')}</p>
             </div>
           </div>
         </div>
 
         {/* States */}
-        {loading && <div className="psel-loading">Carregando torneios...</div>}
+        {loading && <div className="psel-loading">{t('prizeSelector.loadingTournaments')}</div>}
         {error && (
           <div className="psel-error">
             <span>{error}</span>
             <button type="button" className="psel-retry-btn" onClick={() => load()}>
-              Tentar novamente
+              {t('prizeSelector.retry')}
             </button>
           </div>
         )}
@@ -92,8 +94,8 @@ const PremiacaoSelector = () => {
                 <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V17H7v2h10v-2h-4v-1.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
               </svg>
             </div>
-            <h3>Nenhum torneio encontrado</h3>
-            <p>Não há torneios disponíveis nesta etapa</p>
+            <h3>{t('prizeSelector.emptyTitle')}</h3>
+            <p>{t('prizeSelector.emptyDesc')}</p>
           </div>
         )}
 

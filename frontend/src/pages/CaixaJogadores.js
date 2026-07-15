@@ -448,7 +448,7 @@ const CaixaJogadores = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{t('playerCash.grantCreditTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowCreditModal(false)} aria-label="Fechar">
+                <button className="close-btn" onClick={() => setShowCreditModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -517,7 +517,7 @@ const CaixaJogadores = () => {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{t('playerCash.registerSponsorTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowSponsorModal(false)} aria-label="Fechar">
+                <button className="close-btn" onClick={() => setShowSponsorModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

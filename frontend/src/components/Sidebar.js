@@ -192,7 +192,7 @@ const Sidebar = () => {
           <button
             className={`hamburger-btn ${isOpen ? 'active' : ''}`}
             onClick={toggleSidebar}
-            aria-label="Toggle menu"
+            aria-label={t('sidebar.toggleMenu')}
           >
             <span className="hamburger-line"></span>
             <span className="hamburger-line"></span>

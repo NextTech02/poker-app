@@ -99,7 +99,7 @@ const PaymentMethodsManager = () => {
                 <th>{t('paymentMethods.name', 'Nome')}</th>
                 <th>{t('paymentMethods.code', 'Código')}</th>
                 <th>{t('paymentMethods.active', 'Ativo')}</th>
-                <th aria-label="ações" />
+                <th aria-label={t('common.actions', 'Ações')} />
               </tr>
             </thead>
             <tbody>

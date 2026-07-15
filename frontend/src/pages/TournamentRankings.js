@@ -80,7 +80,7 @@ const TournamentRankings = () => {
       <div className="app-container">
         <Sidebar />
         <main className="main-content">
-          <div className="loading">Carregando...</div>
+          <div className="loading">{t('common.loading')}</div>
         </main>
       </div>
     );

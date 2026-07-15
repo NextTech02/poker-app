@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStage } from '../contexts/StageContext';
 import './SelectedStageBar.css';
 
 const SelectedStageBar = () => {
+  const { t } = useTranslation();
   const { selectedStage, clearStage } = useStage();
 
   useEffect(() => {
@@ -31,7 +33,7 @@ const SelectedStageBar = () => {
       <div className="selected-stage-content">
         <div className="stage-indicator">
           <div className="stage-details">
-            <span className="stage-label">Etapa Selecionada:</span>
+            <span className="stage-label">{t('stageBar.selectedStage')}</span>
             <span className="stage-name">{selectedStage.name}</span>
             {selectedStage.location && (
               <span className="stage-location"> • {selectedStage.location}</span>
@@ -47,9 +49,9 @@ const SelectedStageBar = () => {
         <button
           className="clear-stage-btn"
           onClick={clearStage}
-          title="Desselecionar etapa"
+          title={t('stageBar.deselectTitle')}
         >
-          Desselecionar
+          {t('stageBar.deselect')}
         </button>
       </div>
     </div>

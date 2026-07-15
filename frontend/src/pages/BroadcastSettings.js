@@ -149,6 +149,7 @@ const extractYouTubeIdPreview = (url) => {
 
 const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
   const { formatCurrency } = useCurrency();
+  const { t } = useTranslation();
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(0.35);
 
@@ -202,7 +203,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
   }
 
   const S = settings;
-  const title = S.broadcast_display_name || displayName || 'Main Event — Dia 1A';
+  const title = S.broadcast_display_name || displayName || t('broadcastSettings.previewMockTitle');
 
   // Break preview helpers
   const breakLayout  = S.broadcast_break_layout || 'split';
@@ -225,34 +226,34 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
   const BreakInfoPreview = () => (
     <div style={{ display: 'flex', flexDirection: breakLayout === 'fullscreen' ? 'row' : 'column', gap: breakLayout === 'fullscreen' ? 32 * bfs : 20 * bfs, ...(breakLayout === 'fullscreen' ? { justifyContent: 'center', alignItems: 'center', width: '100%' } : {}) }}>
       <div style={{ fontSize: breakLayout === 'fullscreen' ? 18 * bfs : 28 * bfs, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 4, color: S.broadcast_break_title_color || '#fff' }}>
-        INTERVALO
+        {t('broadcastSettings.previewInterval')}
       </div>
       <div style={{ fontSize: breakLayout === 'fullscreen' ? 30 * bfs : 68 * bfs, fontWeight: 800, lineHeight: 1, color: S.broadcast_break_timer_color || '#d4af37', fontVariantNumeric: 'tabular-nums' }}>
         {MOCK.breakTimer}
       </div>
       {S.broadcast_break_show_next_level !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>PRÓXIMO</span>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewNext')}</span>
           <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>
-            Nível {MOCK.breakNextLevel}: {MOCK.breakNextSb.toLocaleString()}/{MOCK.breakNextBb.toLocaleString()} ( {MOCK.breakNextAnte.toLocaleString()} )
+            {t('broadcastSettings.previewLevel')} {MOCK.breakNextLevel}: {MOCK.breakNextSb.toLocaleString()}/{MOCK.breakNextBb.toLocaleString()} ( {MOCK.breakNextAnte.toLocaleString()} )
           </span>
         </div>
       )}
       {S.broadcast_break_show_players !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>JOGADORES</span>
-          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.active} de {MOCK.total}</span>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewPlayers')}</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{t('broadcastSettings.previewPlayersValue', { active: MOCK.active, total: MOCK.total })}</span>
         </div>
       )}
       {S.broadcast_break_show_chipcount !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>CHIP COUNT</span>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewChipCount')}</span>
           <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.chipcount}</span>
         </div>
       )}
       {S.broadcast_break_show_average !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>MÉDIA</span>
+          <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewAverage')}</span>
           <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.average}</span>
         </div>
       )}
@@ -316,7 +317,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                     <div style={{ flex: 1, position: 'relative', background: showBreakVid ? 'transparent' : 'rgba(255,255,255,0.03)' }}>
                       {!showBreakVid && (
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 13 * fs }}>
-                          {S.broadcast_break_youtube_url ? '▶ YouTube' : 'Vídeo / Imagem'}
+                          {S.broadcast_break_youtube_url ? '▶ YouTube' : t('broadcastSettings.previewVideoImage')}
                         </div>
                       )}
                     </div>
@@ -353,37 +354,37 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                   {S.broadcast_show_level && (
                     <div>
                       <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                        NÍVEL {MOCK.level}
+                        {t('broadcastSettings.previewLevel')} {MOCK.level}
                       </div>
                     </div>
                   )}
                   {S.broadcast_show_players && (
                     <>
                       <div>
-                        <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>JOGADORES</div>
-                        <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.active} de {MOCK.total}</div>
+                        <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewPlayers')}</div>
+                        <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{t('broadcastSettings.previewPlayersValue', { active: MOCK.active, total: MOCK.total })}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>ENTRADAS</div>
+                        <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewEntries')}</div>
                         <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.entries}</div>
                       </div>
                     </>
                   )}
                   {S.broadcast_show_interval && (
                     <div>
-                      <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>INTERVALO EM</div>
+                      <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewIntervalIn')}</div>
                       <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.interval}</div>
                     </div>
                   )}
                   {S.broadcast_show_chipcount && (
                     <div>
-                      <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>CHIP COUNT</div>
+                      <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewChipCount')}</div>
                       <div style={{ fontSize: 28 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.chipcount}</div>
                     </div>
                   )}
                   {S.broadcast_show_average && (
                     <div>
-                      <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>MÉDIA</div>
+                      <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewAverage')}</div>
                       <div style={{ fontSize: 28 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.average}</div>
                     </div>
                   )}
@@ -403,7 +404,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                 )}
                 {S.broadcast_show_blinds && (
                   <div style={{ marginBottom: 24, textAlign: 'center' }}>
-                    <div style={{ fontSize: 16 * fs, color: c.blLabel, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>BLINDS</div>
+                    <div style={{ fontSize: 16 * fs, color: c.blLabel, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{t('broadcastSettings.previewBlinds')}</div>
                     <div style={{ fontSize: 80 * fs, fontWeight: 800, color: c.blVal, lineHeight: 1 }}>
                       {MOCK.sb.toLocaleString()}/{MOCK.bb.toLocaleString()}
                     </div>
@@ -411,13 +412,13 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                 )}
                 {S.broadcast_show_ante && (
                   <div style={{ marginBottom: 20, textAlign: 'center' }}>
-                    <div style={{ fontSize: 14 * fs, color: c.aLabel, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>ANTE</div>
+                    <div style={{ fontSize: 14 * fs, color: c.aLabel, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewAnte')}</div>
                     <div style={{ fontSize: 36 * fs, fontWeight: 700, color: c.aVal }}>{MOCK.ante.toLocaleString()}</div>
                   </div>
                 )}
                 {S.broadcast_show_next_blind && (
                   <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <div style={{ fontSize: 14 * fs, color: c.nLabel, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>PRÓXIMOS BLINDS</div>
+                    <div style={{ fontSize: 14 * fs, color: c.nLabel, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewNextBlinds')}</div>
                     <div style={{ fontSize: 24 * fs, fontWeight: 700, color: c.nVal }}>
                       {MOCK.nsb.toLocaleString()}/{MOCK.nbb.toLocaleString()} ( {MOCK.nante.toLocaleString()} )
                     </div>
@@ -435,7 +436,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                 right: S.broadcast_prizes_layout === 'sidebar' && S.broadcast_show_prizes ? 280 : 48,
                 textAlign: 'right', padding: '12px 24px',
               }}>
-                <div style={{ fontSize: 13 * pp, color: c.ppLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>PRIZEPOOL</div>
+                <div style={{ fontSize: 13 * pp, color: c.ppLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>{t('broadcastSettings.previewPrizepool')}</div>
                 <div style={{ fontSize: 32 * pp, fontWeight: 800, color: c.ppVal }}>{formatCurrency(MOCK.prizePool)}</div>
               </div>
             )}
@@ -454,12 +455,12 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                   color: '#0a0e14', fontWeight: 900, fontSize: 12 * ts,
                   letterSpacing: 2, textTransform: 'uppercase', whiteSpace: 'nowrap',
                 }}>
-                  PREMIAÇÕES
+                  {t('broadcastSettings.previewPrizes')}
                 </div>
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', overflow: 'hidden', gap: 32, paddingLeft: 24 }}>
                   {[1, 2, 3, 4, 5].map((pos) => (
                     <span key={pos} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
-                      <span style={{ fontSize: 14 * ts, color: '#fff', fontWeight: 700 }}>{pos}º Lugar</span>
+                      <span style={{ fontSize: 14 * ts, color: '#fff', fontWeight: 700 }}>{pos}º {t('broadcastSettings.previewPlace')}</span>
                       <span style={{ color: '#3a5068', fontSize: 12 * ts }}>:</span>
                       <span style={{ fontSize: 16 * ts, color: '#fff', fontWeight: 800 }}>
                         {formatCurrency(Math.round(15000 / pos / 100) * 100)}
@@ -485,7 +486,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                   color: '#0a0e14', fontWeight: 900, fontSize: 13 * ts,
                   letterSpacing: 2, textTransform: 'uppercase', textAlign: 'center',
                 }}>
-                  PREMIAÇÕES
+                  {t('broadcastSettings.previewPrizes')}
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden', padding: '8px 12px' }}>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pos) => (
@@ -712,7 +713,7 @@ const BroadcastSettings = () => {
               onClick={() => setPreviewBreak(b => !b)}
               title={previewBreak ? t('broadcastSettings.previewSwitchBlinds') : t('broadcastSettings.previewSwitchBreak')}
             >
-              {previewBreak ? 'Blinds' : 'Intervalo'}
+              {previewBreak ? t('broadcastSettings.previewBlinds') : t('broadcastSettings.previewInterval')}
             </button>
           </div>
           <BroadcastPreview
@@ -829,7 +830,7 @@ const BroadcastSettings = () => {
                       className={`bs-layout-opt ${settings.broadcast_break_layout === opt ? 'active' : ''}`}
                       onClick={() => set('broadcast_break_layout', opt)}
                     >
-                      {opt === 'split' ? '▌▐ Split' : opt === 'fullscreen' ? '▬ Fullscreen' : '◱ Overlay'}
+                      {opt === 'split' ? `▌▐ ${t('broadcastSettings.breakLayoutSplit')}` : opt === 'fullscreen' ? `▬ ${t('broadcastSettings.breakLayoutFullscreen')}` : `◱ ${t('broadcastSettings.breakLayoutOverlay')}`}
                     </button>
                   ))}
                 </div>
