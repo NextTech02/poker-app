@@ -42,6 +42,8 @@
     "eliminate": "Eliminar"
   },
   "sidebar": {
+    "collapse": "Contraer",
+    "expand": "Expandir",
     "stages": "Etapas",
     "periods": "Inicio",
     "cashRegister": "Caja",
@@ -75,6 +77,8 @@
     "forgotPassword": "¿Olvidaste tu contraseña?"
   },
   "dashboard": {
+    "loadError": "No se pudieron cargar los datos. Reintentando...",
+    "retry": "Reintentar",
     "title": "Panel",
     "subtitle": "Vista general del sistema",
     "activeTournaments": "Torneos Activos",
@@ -211,6 +215,8 @@
     "qualifyingValuesLabel": "Valores aplicados a todos los días clasificatorios"
   },
   "tournamentDays": {
+    "confirmDeleteMessage": "El día \"{{name}}\" y todos sus datos serán eliminados. Esta acción no se puede deshacer.",
+    "confirmDeleteTitle": "¿Eliminar día del torneo?",
     "title": "Días del Torneo",
     "dayName": "Nombre del Día",
     "dayNumber": "Número del Día",
@@ -526,6 +532,12 @@
     "spanish": "Español"
   },
   "blinds": {
+    "dayNotFound": "Día del torneo no encontrado. Verifica el enlace e inténtalo de nuevo.",
+    "loadErrorMessage": "No se pudo cargar la estructura de ciegas.",
+    "confirmDeleteMessage": "El nivel de ciega {{level}} se eliminará permanentemente de la estructura.",
+    "confirmDeleteTitle": "¿Eliminar nivel de ciega?",
+    "dayNotFoundTitle": "Día del torneo no encontrado",
+    "loadErrorTitle": "No se pudo cargar la estructura de ciegas",
     "title": "Estructura de Blinds",
     "level": "Nivel",
     "smallBlind": "Small Blind",
@@ -1128,6 +1140,25 @@
     "noConflictsDesc": "Todas las operaciones sin conexión se sincronizaron con éxito.",
     "conflictGeneric": "Rechazado por el servidor",
     "discard": "Descartar"
+  },
+  "tv": {
+    "title": "Pantalla de Ciegas",
+    "subtitle": "Ingresa el código del torneo indicado por el sistema",
+    "enter": "Entrar",
+    "loading": "Abriendo…",
+    "invalid": "Código inválido. Verifica e inténtalo de nuevo.",
+    "noDay": "El torneo no tiene día para mostrar.",
+    "codeButton": "Código TV",
+    "codeButtonTitle": "Código para mostrar las ciegas de este día en una TV",
+    "codeError": "No se pudo generar el código de TV.",
+    "codeLabel": "Código de la TV",
+    "instruction": "En la TV, entra en",
+    "andType": "e ingresa el código",
+    "openHere": "Abrir aquí"
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "subtitle": "La página a la que intentaste acceder no existe o fue movida."
   },
   "sangi": {
     "pageTitle": "Sanger — Venta de Fichas en Consignación",

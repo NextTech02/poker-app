@@ -42,6 +42,8 @@
     "eliminate": "Eliminate"
   },
   "sidebar": {
+    "collapse": "Collapse",
+    "expand": "Expand",
     "stages": "Stages",
     "periods": "Home",
     "cashRegister": "Cash Register",
@@ -75,6 +77,8 @@
     "forgotPassword": "Forgot password?"
   },
   "dashboard": {
+    "loadError": "Could not load the data. Retrying...",
+    "retry": "Try again",
     "title": "Dashboard",
     "subtitle": "System overview",
     "activeTournaments": "Active Tournaments",
@@ -211,6 +215,8 @@
     "qualifyingValuesLabel": "Values applied to all qualifying days"
   },
   "tournamentDays": {
+    "confirmDeleteMessage": "The day \"{{name}}\" and all its data will be removed. This action cannot be undone.",
+    "confirmDeleteTitle": "Delete tournament day?",
     "title": "Tournament Days",
     "dayName": "Day Name",
     "dayNumber": "Day Number",
@@ -526,6 +532,12 @@
     "spanish": "Español"
   },
   "blinds": {
+    "dayNotFound": "Tournament day not found. Check the link and try again.",
+    "loadErrorMessage": "Could not load the blind structure.",
+    "confirmDeleteMessage": "Blind level {{level}} will be permanently removed from the structure.",
+    "confirmDeleteTitle": "Delete blind level?",
+    "dayNotFoundTitle": "Tournament day not found",
+    "loadErrorTitle": "Could not load the blind structure",
     "title": "Blind Structure",
     "level": "Level",
     "smallBlind": "Small Blind",
@@ -1128,6 +1140,25 @@
     "noConflictsDesc": "All offline operations synced successfully.",
     "conflictGeneric": "Rejected by the server",
     "discard": "Discard"
+  },
+  "tv": {
+    "title": "Blinds Screen",
+    "subtitle": "Enter the tournament code provided by the system",
+    "enter": "Enter",
+    "loading": "Opening…",
+    "invalid": "Invalid code. Check it and try again.",
+    "noDay": "Tournament has no day to display.",
+    "codeButton": "TV Code",
+    "codeButtonTitle": "Code to show this day's blinds on a TV",
+    "codeError": "Could not generate the TV code.",
+    "codeLabel": "TV Code",
+    "instruction": "On the TV, go to",
+    "andType": "and enter the code",
+    "openHere": "Open here"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "subtitle": "The page you tried to access does not exist or has moved."
   },
   "sangi": {
     "pageTitle": "Sanger — Consignment Chip Sales",

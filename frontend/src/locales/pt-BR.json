@@ -42,6 +42,8 @@
     "eliminate": "Eliminar"
   },
   "sidebar": {
+    "collapse": "Recolher",
+    "expand": "Expandir",
     "stages": "Etapas",
     "periods": "Início",
     "cashRegister": "Caixa",
@@ -75,6 +77,8 @@
     "forgotPassword": "Esqueceu a senha?"
   },
   "dashboard": {
+    "loadError": "Não foi possível carregar os dados. Tentando novamente...",
+    "retry": "Tentar novamente",
     "title": "Dashboard",
     "subtitle": "Visão geral do sistema",
     "activeTournaments": "Torneios Ativos",
@@ -211,6 +215,8 @@
     "qualifyingValuesLabel": "Valores aplicados a todos os dias classificatórios"
   },
   "tournamentDays": {
+    "confirmDeleteMessage": "O dia \"{{name}}\" e todos os seus dados serão removidos. Esta ação não pode ser desfeita.",
+    "confirmDeleteTitle": "Excluir dia do torneio?",
     "title": "Dias do Torneio",
     "dayName": "Nome do Dia",
     "dayNumber": "Número do Dia",
@@ -526,6 +532,12 @@
     "spanish": "Español"
   },
   "blinds": {
+    "dayNotFound": "Dia do torneio não encontrado. Verifique o link e tente novamente.",
+    "loadErrorMessage": "Não foi possível carregar a estrutura de blinds.",
+    "confirmDeleteMessage": "O nível de blind {{level}} será removido permanentemente da estrutura.",
+    "confirmDeleteTitle": "Excluir nível de blind?",
+    "dayNotFoundTitle": "Dia do torneio não encontrado",
+    "loadErrorTitle": "Não foi possível carregar a estrutura de blinds",
     "title": "Estrutura de Blinds",
     "level": "Nível",
     "smallBlind": "Small Blind",
@@ -1128,6 +1140,25 @@
     "noConflictsDesc": "Todas as operações offline foram sincronizadas com sucesso.",
     "conflictGeneric": "Rejeitado pelo servidor",
     "discard": "Descartar"
+  },
+  "tv": {
+    "title": "Tela de Blinds",
+    "subtitle": "Digite o código do torneio informado pelo sistema",
+    "enter": "Entrar",
+    "loading": "Abrindo…",
+    "invalid": "Código inválido. Confira e tente de novo.",
+    "noDay": "Torneio sem dia para exibir.",
+    "codeButton": "Código TV",
+    "codeButtonTitle": "Código para exibir os blinds deste dia numa TV",
+    "codeError": "Não foi possível gerar o código de TV.",
+    "codeLabel": "Código da TV",
+    "instruction": "Na TV, acesse",
+    "andType": "e digite o código",
+    "openHere": "Abrir aqui"
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "subtitle": "A página que você tentou acessar não existe ou foi movida."
   },
   "sangi": {
     "pageTitle": "Sanger — Venda de Fichas em Consignação",
