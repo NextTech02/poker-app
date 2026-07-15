@@ -1116,6 +1116,19 @@
     "badgeRedeemed": "Redeemed",
     "badgeCancelled": "Cancelled"
   },
+  "offline": {
+    "offlineMsg": "Offline mode — your actions are being saved and will be sent when the internet is back",
+    "pending": "pending",
+    "syncing": "Syncing…",
+    "savedOffline": "Saved offline — will be sent on sync",
+    "conflictsBanner": "sync conflict(s) — review",
+    "conflictsTitle": "Sync Conflicts",
+    "conflictsSubtitle": "Operations made offline that the server rejected on sync.",
+    "noConflicts": "No conflicts",
+    "noConflictsDesc": "All offline operations synced successfully.",
+    "conflictGeneric": "Rejected by the server",
+    "discard": "Discard"
+  },
   "sangi": {
     "pageTitle": "Sanger — Consignment Chip Sales",
     "noConsignmentOpen": "No open consignment",

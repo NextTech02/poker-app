@@ -1116,6 +1116,19 @@
     "badgeRedeemed": "Resgatado",
     "badgeCancelled": "Cancelado"
   },
+  "offline": {
+    "offlineMsg": "Modo offline — suas ações estão sendo salvas e serão enviadas quando a internet voltar",
+    "pending": "pendência(s)",
+    "syncing": "Sincronizando…",
+    "savedOffline": "Salvo offline — será enviado ao sincronizar",
+    "conflictsBanner": "conflito(s) de sincronização — revisar",
+    "conflictsTitle": "Conflitos de Sincronização",
+    "conflictsSubtitle": "Operações feitas offline que o servidor rejeitou ao sincronizar.",
+    "noConflicts": "Nenhum conflito",
+    "noConflictsDesc": "Todas as operações offline foram sincronizadas com sucesso.",
+    "conflictGeneric": "Rejeitado pelo servidor",
+    "discard": "Descartar"
+  },
   "sangi": {
     "pageTitle": "Sanger — Venda de Fichas em Consignação",
     "noConsignmentOpen": "Nenhuma consignação aberta",
