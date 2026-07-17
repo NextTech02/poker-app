@@ -7,10 +7,43 @@ from .auth.jwt import get_current_user
 from .database.supabase_client import supabase
 
 
+def get_org_id(current_user: dict = Depends(get_current_user)) -> str:
+    """Organização do usuário, lida do CLAIM do JWT (injetado pelo Auth Hook).
+
+    Esta é a fronteira do multi-tenant. O claim vem assinado pelo servidor de
+    auth (ES256) — o cliente não consegue forjá-lo. NUNCA aceite a organização
+    por header/body/query: seria o mesmo buraco do X-Stage-ID, que é fornecido
+    pelo cliente e por isso não isola nada.
+
+    Fail-closed: sem claim => sem organização => 403.
+    """
+    org_id = current_user.get("organization_id")
+    if not org_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Sua conta não está vinculada a nenhuma organização.",
+        )
+    return org_id
+
+
+def get_org_id_optional(current_user: dict = Depends(get_current_user)) -> Optional[str]:
+    """Igual a get_org_id, mas devolve None em vez de 403 (ex.: platform admin)."""
+    return current_user.get("organization_id")
+
+
+def is_platform_admin(current_user: dict = Depends(get_current_user)) -> bool:
+    """Claim `platform_admin` (tabela platform_admins, via Auth Hook)."""
+    return current_user.get("platform_admin") is True
+
+
 async def get_stage_id_optional(x_stage_id: Optional[str] = Header(None)) -> Optional[str]:
     """
     Extract stage_id from X-Stage-ID header (optional).
-    Returns None if header is not present.
+
+    ⚠️ NÃO é fronteira de segurança: o valor vem do cliente e só é checado por
+    EXISTÊNCIA (validate_stage_exists), nunca por posse. Serve para particionar
+    a visão DENTRO da organização. O isolamento entre organizações é feito pelo
+    claim organization_id (get_org_id) + RLS.
     """
     return x_stage_id
 

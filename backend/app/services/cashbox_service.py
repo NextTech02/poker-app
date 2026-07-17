@@ -41,14 +41,23 @@ class CashboxService:
 
     @staticmethod
     def _staff_permissions(auth_user_id: str) -> Tuple[Optional[str], List[str], bool]:
-        """Return (staff_id, permissions, is_admin_no_staff_record).
-        Users without a staff row are treated as super-admin (existing pattern)."""
+        """Return (staff_id, permissions, is_platform_admin).
+
+        Sem registro em `staff` NÃO significa mais super-admin: isso era um
+        fail-open que dava poder total no módulo de caixa a qualquer conta
+        autenticada sem staff (e ignorava até a allowlist). Agora só os IDs
+        explicitamente listados em SUPER_ADMIN_USER_IDS passam; o resto fica
+        sem acesso. Num SaaS isso é obrigatório — uma conta de um cliente sem
+        staff jamais pode virar admin.
+        """
         resp = supabase.table("staff").select(
             "id, active, permission_groups(permissions)"
         ).eq("auth_user_id", auth_user_id).execute()
 
         if not resp.data:
-            return None, [], True  # no staff row = legacy admin user
+            from app.config import get_settings
+            is_platform_admin = auth_user_id in get_settings().super_admin_ids
+            return None, [], is_platform_admin
 
         row = resp.data[0]
         if not row.get("active"):

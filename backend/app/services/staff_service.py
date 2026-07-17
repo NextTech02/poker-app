@@ -250,17 +250,13 @@ class StaffService:
         if not response.data:
             from app.config import get_settings
             allow = get_settings().super_admin_ids
-            if not allow:
-                import logging
-                logging.getLogger("uvicorn.error").warning(
-                    "SUPER_ADMIN_USER_IDS is empty; granting implicit super-admin to "
-                    "user %s with no staff record. Set SUPER_ADMIN_USER_IDS to lock this down.",
-                    auth_user_id,
-                )
-                return MyPermissions(is_admin=True, permissions=ALL_PERMISSIONS, group_name="Admin")
             if auth_user_id in allow:
                 return MyPermissions(is_admin=True, permissions=ALL_PERMISSIONS, group_name="Admin")
-            # Authenticated but unknown (no staff record, not an owner) -> no access.
+            # FAIL-CLOSED: autenticado mas sem vínculo (sem staff e fora da
+            # allowlist) => nenhum acesso. Antes, se a allowlist estivesse VAZIA
+            # qualquer conta sem staff virava super-admin — um deploy que
+            # esquecesse a env dava poder total a qualquer usuário. Num SaaS isso
+            # seria fatal: o funcionário de um cliente viraria dono de tudo.
             return MyPermissions(is_admin=False, permissions=[], group_name=None)
 
         staff = response.data[0]
