@@ -1,10 +1,51 @@
+import contextlib
+import re
+
 from supabase import create_client, Client, ClientOptions
+import supabase._sync.client as _supabase_sync_client
 from app.config import get_settings
 import httpx
 from httpx import Limits
 from postgrest.utils import SyncClient
 
 settings = get_settings()
+
+# supabase-py 2.10.0 valida NO CLIENTE que a chave tenha formato JWT (a.b.c) e
+# levanta "Invalid API key" para as chaves novas da Supabase (sb_secret_... /
+# sb_publishable_...) antes mesmo de falar com o servidor. O servidor aceita o
+# formato novo normalmente (verificado). Subir a lib (2.10 -> 2.31) para ganhar
+# essa checagem relaxada quebraria o hardening de sessão abaixo, que depende de
+# internals do postgrest — então contornamos apenas essa validação de formato.
+_JWT_SHAPE_REGEX_PREFIX = "^[A-Za-z0-9-_=]+"
+
+
+class _ReAllowingNewKeyFormat:
+    """Proxy do módulo `re` que só neutraliza a checagem de formato da chave.
+
+    Substitui o atributo `re` DENTRO do namespace do módulo da lib — nunca o
+    módulo `re` global —, então nada mais no processo é afetado.
+    """
+
+    def __init__(self, real):
+        self._real = real
+
+    def match(self, pattern, string, *args, **kwargs):
+        if isinstance(pattern, str) and pattern.startswith(_JWT_SHAPE_REGEX_PREFIX):
+            return True  # deixa o servidor decidir se a chave é válida
+        return self._real.match(pattern, string, *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
+@contextlib.contextmanager
+def _allow_new_api_key_format():
+    original = _supabase_sync_client.re
+    _supabase_sync_client.re = _ReAllowingNewKeyFormat(original)
+    try:
+        yield
+    finally:
+        _supabase_sync_client.re = original
 
 
 def get_supabase() -> Client:
@@ -27,11 +68,12 @@ def get_supabase() -> Client:
         schema="public",
     )
 
-    client = create_client(
-        settings.supabase_url,
-        settings.supabase_service_key,
-        options=options,
-    )
+    with _allow_new_api_key_format():
+        client = create_client(
+            settings.supabase_url,
+            settings.supabase_service_key,
+            options=options,
+        )
 
     # Rebuild the postgrest session with HTTP/1.1 + a real pool, preserving the
     # base_url/headers that supabase-py already configured (service-role apikey,
