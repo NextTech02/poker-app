@@ -40,10 +40,14 @@ async def get_stage_id_optional(x_stage_id: Optional[str] = Header(None)) -> Opt
     """
     Extract stage_id from X-Stage-ID header (optional).
 
-    ⚠️ NÃO é fronteira de segurança: o valor vem do cliente e só é checado por
-    EXISTÊNCIA (validate_stage_exists), nunca por posse. Serve para particionar
-    a visão DENTRO da organização. O isolamento entre organizações é feito pelo
-    claim organization_id (get_org_id) + RLS.
+    O valor vem do cliente, então por si só não isola nada. A POSSE, porém, é
+    garantida pelo RLS: `validate_stage_exists` faz um SELECT em `stages`, que
+    só devolve linhas da organização do JWT. Um X-Stage-ID de outra organização
+    simplesmente não é encontrado => 404. Verificado: usuário de outra org vê 0
+    etapas, mesmo forjando o header.
+
+    Ou seja: este header particiona a visão DENTRO da organização; o isolamento
+    ENTRE organizações é do claim organization_id + RLS.
     """
     return x_stage_id
 
