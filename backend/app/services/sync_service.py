@@ -12,7 +12,11 @@ Status por op:
 # O ledger `sync_mutations` é deny-all no RLS (só service_role enxerga), então
 # este service usa o client admin explicitamente. As operações que ele despacha
 # continuam passando pelos services normais, que rodam como o usuário.
+import logging
+
 from app.database.supabase_client import supabase_admin as supabase
+
+logger = logging.getLogger("uvicorn.error")
 from app.services.tournament_player_service import TournamentPlayerService
 from app.services.cash_register_service import CashRegisterService
 from app.services.tournament_day_service import TournamentDayService
@@ -35,16 +39,29 @@ class SyncService:
             return False
 
     @staticmethod
-    def _ledger_record(client_mutation_id: str, kind: str) -> None:
+    def _ledger_record(client_mutation_id: str, kind: str, org_id: str | None = None) -> None:
+        """Registra a mutação no ledger (idempotência entre dispositivos).
+
+        `organization_id` vai EXPLÍCITO: este service usa o client admin
+        (sync_mutations é deny-all no RLS), que não carrega o claim do JWT —
+        então o DEFAULT `current_org_id()` resolveria NULL e o INSERT violaria o
+        NOT NULL. O erro era engolido pelo `except` abaixo, o que fazia o ledger
+        NUNCA registrar nada: o sync parecia funcionar, mas a garantia de
+        idempotência não existia na prática.
+        """
         if not client_mutation_id:
             return
+        row = {"client_mutation_id": client_mutation_id, "kind": kind}
+        if org_id:
+            row["organization_id"] = org_id
         try:
             supabase.table("sync_mutations").upsert(
-                {"client_mutation_id": client_mutation_id, "kind": kind},
-                on_conflict="client_mutation_id",
+                row, on_conflict="client_mutation_id",
             ).execute()
-        except Exception:
-            pass
+        except Exception as exc:
+            # Não derruba o batch (a operação em si já foi aplicada), mas para de
+            # falhar em silêncio — sem log, um ledger quebrado passa despercebido.
+            logger.warning("Falha ao registrar no ledger de sync (%s): %s", client_mutation_id, exc)
 
     @staticmethod
     def _apply_timer(p: dict) -> None:
@@ -66,7 +83,7 @@ class SyncService:
             raise ValueError(f"Ação de timer desconhecida: {action}")
 
     @staticmethod
-    def apply_op(op: dict, user_id: str) -> dict:
+    def apply_op(op: dict, user_id: str, org_id: str | None = None) -> dict:
         kind = op.get("kind")
         p = op.get("body") or {}
         cmid = op.get("clientMutationId")
@@ -125,7 +142,7 @@ class SyncService:
                 out.update(status="error", error=f"kind desconhecido: {kind}")
             # Sucesso → registra no ledger (idempotência p/ ops sem linha âncora).
             if out.get("status") == "applied":
-                SyncService._ledger_record(cmid, kind)
+                SyncService._ledger_record(cmid, kind, org_id)
         except ValueError as e:
             out.update(status="conflict", error=str(e))
         except Exception as e:  # noqa: BLE001
@@ -133,5 +150,5 @@ class SyncService:
         return out
 
     @staticmethod
-    def apply_batch(ops: list, user_id: str) -> list:
-        return [SyncService.apply_op(op, user_id) for op in (ops or [])]
+    def apply_batch(ops: list, user_id: str, org_id: str | None = None) -> list:
+        return [SyncService.apply_op(op, user_id, org_id) for op in (ops or [])]

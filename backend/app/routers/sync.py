@@ -28,6 +28,10 @@ def sync_batch(payload: SyncBatchRequest, current_user: dict = Depends(get_curre
     """Reexecuta a fila de mutações offline, em ordem e de forma idempotente.
     Devolve o status de cada op (applied / conflict / error)."""
     user_id = current_user.get("sub")
+    # A organização vem do CLAIM do JWT. O ledger é gravado com o client admin
+    # (sync_mutations é deny-all), que não carrega o claim — então o org precisa
+    # ser passado explicitamente, senão o INSERT viola o NOT NULL.
+    org_id = current_user.get("organization_id")
     ops = [op.model_dump() for op in payload.ops]
-    results = SyncService.apply_batch(ops, user_id)
+    results = SyncService.apply_batch(ops, user_id, org_id)
     return {"results": results}

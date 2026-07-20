@@ -1,0 +1,12 @@
+{
+  "short_name": "Royal Management",
+  "name": "Royal Management — Gestão de Torneios",
+  "description": "Gestão de torneios de poker ao vivo, com operação offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e1620",
+  "theme_color": "#0e1620",
+  "icons": []
+}
