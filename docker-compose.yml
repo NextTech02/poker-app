@@ -10,9 +10,17 @@ services:
     environment:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      # Chave pública, usada como `apikey` quando o backend executa as queries
+      # COMO O USUÁRIO (multi-tenant): nesse modo quem define a identidade é o
+      # Authorization: Bearer <jwt>, e o RLS isola as organizações.
+      # Reaproveita a mesma variável do frontend — é a mesma chave publishable.
+      - SUPABASE_ANON_KEY=${REACT_APP_SUPABASE_ANON_KEY}
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
       - SUPER_ADMIN_USER_IDS=${SUPER_ADMIN_USER_IDS}
       - FRONTEND_URL=${FRONTEND_URL}
+      # Interruptor de emergência do multi-tenant: false volta o backend ao modo
+      # antigo (service_role, ignora RLS) sem precisar de deploy.
+      - SUPABASE_RLS_AS_USER=${SUPABASE_RLS_AS_USER:-true}
       - ENVIRONMENT=production
     networks:
       - torneios-net
