@@ -6,6 +6,7 @@ import logging
 import httpx
 from app.config import get_settings
 from app.auth.permissions import forbid_permission
+from app.database.supabase_client import set_request_jwt, reset_request_jwt
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv
@@ -59,6 +60,32 @@ class CatchAllExceptionMiddleware(BaseHTTPMiddleware):
 # OUTERMOST middleware so that responses produced by the catch-all below still
 # pass back through it and receive CORS headers. Therefore the catch-all is
 # added BEFORE CORS here.
+class SupabaseUserContextMiddleware(BaseHTTPMiddleware):
+    """Coloca o JWT da request no contexto para as queries rodarem COMO O USUÁRIO.
+
+    É isso que faz o RLS (Fase 3) valer também para o backend: sem este passo,
+    tudo rodaria com a service_role, que ignora RLS, e o isolamento entre
+    organizações dependeria de acertar o filtro em cada query.
+
+    Não valida o token — quem valida é o `verify_token` das rotas protegidas.
+    Um token inválido aqui simplesmente não enxerga nada (o Postgres rejeita).
+    Rotas públicas não mandam Authorization e seguem na service_role.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        token = None
+        auth = request.headers.get("authorization") or ""
+        if auth.lower().startswith("bearer "):
+            token = auth[7:].strip() or None
+
+        ctx = set_request_jwt(token)
+        try:
+            return await call_next(request)
+        finally:
+            reset_request_jwt(ctx)  # nunca vaza o token para a próxima request
+
+
+app.add_middleware(SupabaseUserContextMiddleware)
 app.add_middleware(CatchAllExceptionMiddleware)
 
 # Configure CORS (added last → outermost)

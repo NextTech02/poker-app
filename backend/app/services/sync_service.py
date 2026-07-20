@@ -9,7 +9,10 @@ Status por op:
                rebuy) — vai para a tela de conflitos do operador.
   - error    : falha transitória — o cliente mantém pendente e tenta de novo.
 """
-from app.database import supabase
+# O ledger `sync_mutations` é deny-all no RLS (só service_role enxerga), então
+# este service usa o client admin explicitamente. As operações que ele despacha
+# continuam passando pelos services normais, que rodam como o usuário.
+from app.database.supabase_client import supabase_admin as supabase
 from app.services.tournament_player_service import TournamentPlayerService
 from app.services.cash_register_service import CashRegisterService
 from app.services.tournament_day_service import TournamentDayService

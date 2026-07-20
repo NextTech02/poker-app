@@ -13,6 +13,15 @@ class Settings(BaseSettings):
     # treated as super-admin — a privilege-escalation default. This pins admin to
     # known owner accounts only. Seed it in .env with the real owner IDs.
     super_admin_user_ids: str = ""
+    # Chave pública (anon/publishable). Usada como `apikey` quando o backend
+    # executa queries COMO O USUÁRIO — nesse modo quem define a identidade é o
+    # Authorization: Bearer <jwt>, e o RLS aplica. Sem ela, cai na service_key.
+    supabase_anon_key: str = ""
+    # Interruptor do modo multi-tenant no backend. Ligado: as queries rodam com
+    # o JWT do usuário e o RLS isola as organizações. Desligado: volta ao
+    # comportamento antigo (service_role, ignora RLS) — rollback de emergência
+    # sem precisar de deploy, basta SUPABASE_RLS_AS_USER=false e reiniciar.
+    rls_as_user: bool = True
 
     @property
     def super_admin_ids(self) -> set[str]:
@@ -21,6 +30,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 
 @lru_cache()
