@@ -1459,6 +1459,15 @@
     "emptyDesc": "No hay torneos disponibles en esta etapa"
   },
   "organizations": {
+    "suspend": "Suspender",
+    "reactivate": "Reactivar",
+    "suspendTitle": "¿Suspender organización?",
+    "reactivateTitle": "¿Reactivar organización?",
+    "confirmSuspend": "¿Suspender \"{{name}}\"? Todos los usuarios de este club pierden el acceso de inmediato.",
+    "confirmReactivate": "¿Reactivar \"{{name}}\"? Los usuarios recuperan el acceso.",
+    "suspended_ok": "Organización suspendida.",
+    "reactivated_ok": "Organización reactivada.",
+    "errorStatus": "Error al cambiar el estado",
     "title": "Organizaciones",
     "subtitle": "Clubes y operadores que usan el sistema",
     "new": "Nueva Organización",

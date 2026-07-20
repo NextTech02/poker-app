@@ -21,8 +21,9 @@ import './Organizacoes.css';
  */
 const Organizacoes = () => {
   const { t } = useTranslation();
-  const { toast } = useToast();
+  const { toast, confirm } = useToast();
   const { isPlatformAdmin, loading: permLoading } = usePermissions();
+  const [busyId, setBusyId] = useState(null);
 
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,43 @@ const Organizacoes = () => {
     if (!permLoading && isPlatformAdmin) load();
     else if (!permLoading) setLoading(false);
   }, [permLoading, isPlatformAdmin, load]);
+
+  /** Suspender/reativar corta ou devolve o acesso de TODOS os usuários do clube
+   *  imediatamente (o RLS deixa de enxergar a organização). Por isso confirma. */
+  const toggleStatus = async (org) => {
+    const suspending = org.status === 'active';
+    const ok = await confirm(
+      suspending
+        ? t('organizations.confirmSuspend', 'Suspender "{{name}}"? Todos os usuários deste clube perdem o acesso imediatamente.', { name: org.name })
+        : t('organizations.confirmReactivate', 'Reativar "{{name}}"? Os usuários voltam a ter acesso.', { name: org.name }),
+      {
+        title: suspending
+          ? t('organizations.suspendTitle', 'Suspender organização?')
+          : t('organizations.reactivateTitle', 'Reativar organização?'),
+        variant: suspending ? 'danger' : 'primary',
+        confirmText: suspending
+          ? t('organizations.suspend', 'Suspender')
+          : t('organizations.reactivate', 'Reativar'),
+      }
+    );
+    if (!ok) return;
+
+    setBusyId(org.id);
+    try {
+      await api.patch(`/organizations/${org.id}/status`, {
+        status: suspending ? 'suspended' : 'active',
+      });
+      toast.success(suspending
+        ? t('organizations.suspended_ok', 'Organização suspensa.')
+        : t('organizations.reactivated_ok', 'Organização reativada.'));
+      setOrgs((prev) => prev.map((o) =>
+        o.id === org.id ? { ...o, status: suspending ? 'suspended' : 'active' } : o));
+    } catch (err) {
+      toast.error(err.userMessage || t('organizations.errorStatus', 'Erro ao alterar o status'));
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const validate = () => {
     const e = {};
@@ -120,13 +158,14 @@ const Organizacoes = () => {
                 <th>{t('organizations.colSlug', 'Identificador')}</th>
                 <th>{t('organizations.colStaff', 'Funcionários')}</th>
                 <th>{t('common.status')}</th>
+                <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <SkeletonTableRow columns={4} rows={3} />
+                <SkeletonTableRow columns={5} rows={3} />
               ) : orgs.length === 0 ? (
-                <tr><td colSpan={4}>
+                <tr><td colSpan={5}>
                   <EmptyState
                     title={t('organizations.emptyTitle', 'Nenhuma organização')}
                     description={t('organizations.emptyDesc', 'Cadastre o primeiro clube para começar.')}
@@ -145,6 +184,22 @@ const Organizacoes = () => {
                           ? t('organizations.suspended', 'Suspensa')
                           : t('common.cancelled')}
                     </span>
+                  </td>
+                  <td>
+                    {o.status !== 'cancelled' && (
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onClick={() => toggleStatus(o)}
+                        disabled={busyId === o.id}
+                      >
+                        {busyId === o.id
+                          ? t('common.saving')
+                          : o.status === 'active'
+                            ? t('organizations.suspend', 'Suspender')
+                            : t('organizations.reactivate', 'Reativar')}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

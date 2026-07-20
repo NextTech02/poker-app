@@ -71,6 +71,32 @@ def list_organizations():
     return orgs
 
 
+class OrganizationStatusUpdate(BaseModel):
+    status: str = Field(..., pattern="^(active|suspended|cancelled)$")
+
+
+@router.patch("/{org_id}/status", dependencies=[Depends(require_platform_admin)])
+def update_organization_status(org_id: str, data: OrganizationStatusUpdate):
+    """Suspende, cancela ou reativa uma organização.
+
+    Não é cosmético: `current_org_id()` só devolve a organização quando ela está
+    ATIVA, e todo o RLS depende dessa função. Suspender corta leitura e escrita
+    de todos os usuários do clube na PRÓXIMA QUERY — não espera o token expirar.
+    Reativar devolve o acesso na hora, sem precisar de novo login.
+    """
+    org = supabase_admin.table("organizations").select("id, name, status").eq("id", org_id).execute()
+    if not org.data:
+        raise HTTPException(status_code=404, detail="Organização não encontrada.")
+
+    updated = (
+        supabase_admin.table("organizations")
+        .update({"status": data.status})
+        .eq("id", org_id)
+        .execute()
+    )
+    return (updated.data or [{}])[0]
+
+
 @router.post("", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(require_platform_admin)])
 def create_organization(data: OrganizationCreate):
