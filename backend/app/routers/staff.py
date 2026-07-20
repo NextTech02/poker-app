@@ -26,7 +26,10 @@ _manage_staff = Depends(require_permission("employees"))
 
 @router.get("/me/permissions", response_model=MyPermissions)
 def get_my_permissions(user=Depends(get_current_user)):
-    return StaffService.get_my_permissions(user.get("sub"))
+    perms = StaffService.get_my_permissions(user.get("sub"))
+    # O claim vem assinado pelo servidor de auth — não dá para o cliente forjar.
+    perms.is_platform_admin = user.get("platform_admin") is True
+    return perms
 
 
 # ── Permission Groups ──

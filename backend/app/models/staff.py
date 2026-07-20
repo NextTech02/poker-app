@@ -64,3 +64,7 @@ class MyPermissions(BaseModel):
     is_admin: bool = False
     permissions: List[str] = []
     group_name: Optional[str] = None
+    # Platform admin (NextHub): atravessa organizações para dar suporte e é
+    # quem enxerga a tela de cadastro de clientes. Vem do claim do JWT, não do
+    # banco — quem decide é o Auth Hook.
+    is_platform_admin: bool = False

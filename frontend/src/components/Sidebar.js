@@ -13,7 +13,7 @@ const Sidebar = () => {
   const { t } = useTranslation();
   const { signOut } = useAuth();
   const { selectedStage } = useStage();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isPlatformAdmin } = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -100,10 +100,15 @@ const Sidebar = () => {
     { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
     { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
     { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document', permission: 'reports' },
+    // Só a NextHub: cadastro dos clubes clientes. `platformAdminOnly` não é
+    // permissão de grupo — vem do claim do JWT. O backend valida o mesmo claim.
+    { path: '/organizacoes', labelKey: 'sidebar.organizations', icon: 'briefcase', platformAdminOnly: true },
   ];
 
   // Filter menu items based on permissions
   const menuItems = allMenuItems.filter((item) => {
+    // Itens exclusivos da plataforma ignoram o RBAC de organização.
+    if (item.platformAdminOnly) return isPlatformAdmin;
     if (item.type === 'group') {
       // Show group if user has permission for at least one child
       const visibleChildren = item.children.filter((c) => hasPermission(c.permission));

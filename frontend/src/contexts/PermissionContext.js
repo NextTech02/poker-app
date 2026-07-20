@@ -5,6 +5,7 @@ import api from '../config/api';
 const PermissionContext = createContext({
   permissions: [],
   isAdmin: false,
+  isPlatformAdmin: false,
   loading: true,
   hasPermission: () => true,
 });
@@ -15,6 +16,9 @@ export const PermissionProvider = ({ children }) => {
   const { user } = useAuth();
   const [permissions, setPermissions] = useState([]);
   const [isAdmin, setIsAdmin] = useState(true);
+  // Platform admin (NextHub): quem enxerga o cadastro de organizações. Começa
+  // false — o backend valida o mesmo claim, então esconder a tela é só UX.
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [groupName, setGroupName] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +26,7 @@ export const PermissionProvider = ({ children }) => {
     if (!user) {
       setPermissions([]);
       setIsAdmin(true);
+      setIsPlatformAdmin(false);
       setLoading(false);
       return;
     }
@@ -31,6 +36,7 @@ export const PermissionProvider = ({ children }) => {
         const res = await api.get('/staff/me/permissions', { _silentError: true });
         setPermissions(res.data.permissions || []);
         setIsAdmin(res.data.is_admin);
+        setIsPlatformAdmin(res.data.is_platform_admin === true);
         setGroupName(res.data.group_name);
       } catch (err) {
         // Retry once after 3s on server errors (503, 500)
@@ -57,7 +63,7 @@ export const PermissionProvider = ({ children }) => {
   };
 
   return (
-    <PermissionContext.Provider value={{ permissions, isAdmin, groupName, loading, hasPermission }}>
+    <PermissionContext.Provider value={{ permissions, isAdmin, isPlatformAdmin, groupName, loading, hasPermission }}>
       {children}
     </PermissionContext.Provider>
   );

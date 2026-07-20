@@ -43,6 +43,7 @@
     "eliminate": "Eliminate"
   },
   "sidebar": {
+    "organizations": "Organizations",
     "toggleMenu": "Toggle menu",
     "collapse": "Collapse",
     "expand": "Expand",
@@ -1456,6 +1457,32 @@
     "retry": "Try again",
     "emptyTitle": "No tournaments found",
     "emptyDesc": "No tournaments available in this stage"
+  },
+  "organizations": {
+    "title": "Organizations",
+    "subtitle": "Clubs and operators using the system",
+    "new": "New Organization",
+    "create": "Create and invite",
+    "colName": "Organization",
+    "colSlug": "Identifier",
+    "colStaff": "Employees",
+    "orgName": "Club name",
+    "orgNamePlaceholder": "e.g. Royal Lima Club",
+    "adminName": "Administrator name",
+    "adminNamePlaceholder": "Full name",
+    "adminEmail": "Administrator e-mail",
+    "currency": "Currency",
+    "inviteHint": "The administrator will receive an e-mail invitation to set their own password.",
+    "created": "Organization created. Invitation sent to {{email}}.",
+    "errorCreate": "Error creating organization",
+    "errorLoad": "Error loading organizations",
+    "emptyTitle": "No organizations",
+    "emptyDesc": "Register the first club to get started.",
+    "noAccessTitle": "Restricted area",
+    "noAccessDesc": "This area is exclusive to platform administrators.",
+    "suspended": "Suspended",
+    "required": "Required",
+    "invalidEmail": "Invalid e-mail"
   },
   "sangi": {
     "pageTitle": "Sanger — Consignment Chip Sales",

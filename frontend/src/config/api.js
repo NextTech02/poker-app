@@ -32,8 +32,31 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const detail = error?.response?.data?.detail;
+    // Erros de validação (422) do FastAPI vêm como LISTA de objetos
+    // ({type, loc, msg, input, ctx}), não como texto. Sem achatar aqui, quem
+    // renderizasse `detail` direto quebraria a tela com "Objects are not valid
+    // as a React child". Convertemos para uma frase legível, indicando o campo.
+    const flattenDetail = (d) => {
+      if (typeof d === 'string') return d;
+      if (Array.isArray(d)) {
+        return d
+          .map((item) => {
+            if (typeof item === 'string') return item;
+            const field = Array.isArray(item?.loc)
+              ? item.loc.filter((p) => p !== 'body').join('.')
+              : null;
+            const text = item?.msg || '';
+            return field ? `${field}: ${text}` : text;
+          })
+          .filter(Boolean)
+          .join(' · ');
+      }
+      if (d && typeof d === 'object') return d.msg || d.message || null;
+      return null;
+    };
+
     const msg =
-      (typeof detail === 'string' ? detail : null) ||
+      flattenDetail(detail) ||
       error?.message ||
       'Erro desconhecido';
 

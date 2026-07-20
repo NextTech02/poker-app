@@ -43,6 +43,7 @@
     "eliminate": "Eliminar"
   },
   "sidebar": {
+    "organizations": "Organizações",
     "toggleMenu": "Alternar menu",
     "collapse": "Recolher",
     "expand": "Expandir",
@@ -1456,6 +1457,32 @@
     "retry": "Tentar novamente",
     "emptyTitle": "Nenhum torneio encontrado",
     "emptyDesc": "Não há torneios disponíveis nesta etapa"
+  },
+  "organizations": {
+    "title": "Organizações",
+    "subtitle": "Clubes e operadores que usam o sistema",
+    "new": "Nova Organização",
+    "create": "Criar e convidar",
+    "colName": "Organização",
+    "colSlug": "Identificador",
+    "colStaff": "Funcionários",
+    "orgName": "Nome do clube",
+    "orgNamePlaceholder": "Ex: Clube Royal Lima",
+    "adminName": "Nome do administrador",
+    "adminNamePlaceholder": "Nome completo",
+    "adminEmail": "E-mail do administrador",
+    "currency": "Moeda",
+    "inviteHint": "O administrador receberá um convite por e-mail para definir a própria senha.",
+    "created": "Organização criada. Convite enviado para {{email}}.",
+    "errorCreate": "Erro ao criar organização",
+    "errorLoad": "Erro ao carregar organizações",
+    "emptyTitle": "Nenhuma organização",
+    "emptyDesc": "Cadastre o primeiro clube para começar.",
+    "noAccessTitle": "Acesso restrito",
+    "noAccessDesc": "Esta área é exclusiva dos administradores da plataforma.",
+    "suspended": "Suspensa",
+    "required": "Obrigatório",
+    "invalidEmail": "E-mail inválido"
   },
   "sangi": {
     "pageTitle": "Sanger — Venda de Fichas em Consignação",

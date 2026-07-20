@@ -38,6 +38,7 @@ const TournamentDayStats = lazy(() => import('./pages/TournamentDayStats'));
 const TournamentControl = lazy(() => import('./pages/TournamentControl'));
 const TVCode = lazy(() => import('./pages/TVCode'));
 const SyncConflicts = lazy(() => import('./pages/SyncConflicts'));
+const Organizacoes = lazy(() => import('./pages/Organizacoes'));
 const CaixaJogadores = lazy(() => import('./pages/CaixaJogadores'));
 const SatelliteTickets = lazy(() => import('./pages/SatelliteTickets'));
 const CaixaGeral = lazy(() => import('./pages/CaixaGeral'));
@@ -286,6 +287,14 @@ function AppRoutes() {
       />
       <Route path="/tv" element={<TVCode />} />
       <Route path="/tv/:code" element={<TVCode />} />
+      <Route
+        path="/organizacoes"
+        element={
+          <PrivateRoute>
+            <Organizacoes />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/conflitos"
         element={
