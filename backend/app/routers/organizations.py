@@ -97,6 +97,62 @@ def update_organization_status(org_id: str, data: OrganizationStatusUpdate):
     return (updated.data or [{}])[0]
 
 
+@router.delete("/{org_id}", dependencies=[Depends(require_platform_admin)])
+def delete_organization(org_id: str):
+    """Exclui DEFINITIVAMENTE uma organização e todos os seus dados.
+
+    Só permitido para organização não-ativa: obriga a suspender antes, o que já
+    corta o acesso e dá uma chance de perceber o engano. Irreversível.
+    Não remove usuários do auth — com multi-org, a mesma pessoa pode pertencer
+    a outro clube; apenas os vínculos (staff) desta organização somem.
+    """
+    try:
+        result = supabase_admin.rpc("delete_organization", {"p_org": org_id}).execute()
+        return result.data if not isinstance(result.data, list) else (result.data or [{}])[0]
+    except Exception as exc:
+        msg = str(exc)
+        if "Suspenda" in msg:
+            raise HTTPException(status_code=409, detail="Suspenda a organização antes de excluí-la.")
+        if "não encontrada" in msg or "nao encontrada" in msg:
+            raise HTTPException(status_code=404, detail="Organização não encontrada.")
+        raise HTTPException(status_code=400, detail=f"Falha ao excluir a organização: {msg}")
+
+
+# ── Multi-organização: o mesmo usuário pode pertencer a vários clubes ────────
+
+@router.get("/mine")
+def my_organizations(current_user: dict = Depends(get_current_user)):
+    """Organizações às quais o usuário logado pertence (para o seletor)."""
+    res = supabase_admin.rpc("list_my_organizations", {"p_user": current_user.get("sub")}).execute()
+    return res.data or []
+
+
+class SwitchOrgRequest(BaseModel):
+    organization_id: str
+
+
+@router.post("/switch")
+def switch_organization(data: SwitchOrgRequest, current_user: dict = Depends(get_current_user)):
+    """Troca a organização ativa do usuário.
+
+    Grava a escolha; o CLAIM só muda no próximo token, então o frontend precisa
+    chamar `supabase.auth.refreshSession()` depois. É de propósito: o RLS confia
+    no claim assinado, não em nada que o cliente envie — aceitar a organização
+    por header seria o mesmo buraco do X-Stage-ID.
+
+    A função no banco valida o vínculo: não dá para "trocar" para um clube do
+    qual você não faz parte.
+    """
+    try:
+        supabase_admin.rpc("set_active_organization", {
+            "p_user": current_user.get("sub"),
+            "p_org": data.organization_id,
+        }).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=403, detail="Você não pertence a esta organização.")
+    return {"organization_id": data.organization_id, "refresh_required": True}
+
+
 @router.post("", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(require_platform_admin)])
 def create_organization(data: OrganizationCreate):

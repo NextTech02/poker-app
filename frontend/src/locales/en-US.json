@@ -1459,6 +1459,14 @@
     "emptyDesc": "No tournaments available in this stage"
   },
   "organizations": {
+    "delete": "Delete",
+    "deleteTitle": "Delete organization?",
+    "confirmDelete": "Delete \"{{name}}\" and ALL its data (tournaments, players, cash, history)? This action cannot be undone.",
+    "deleteHint": "Erases all data of this organization",
+    "deleted_ok": "Organization deleted ({{count}} records removed).",
+    "errorDelete": "Error deleting the organization",
+    "current": "Organization",
+    "errorSwitch": "Could not switch organization",
     "suspend": "Suspend",
     "reactivate": "Reactivate",
     "suspendTitle": "Suspend organization?",

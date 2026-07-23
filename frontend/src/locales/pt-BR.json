@@ -1459,6 +1459,14 @@
     "emptyDesc": "Não há torneios disponíveis nesta etapa"
   },
   "organizations": {
+    "delete": "Excluir",
+    "deleteTitle": "Excluir organização?",
+    "confirmDelete": "Excluir \"{{name}}\" e TODOS os seus dados (torneios, jogadores, caixa, histórico)? Esta ação não pode ser desfeita.",
+    "deleteHint": "Apaga todos os dados desta organização",
+    "deleted_ok": "Organização excluída ({{count}} registros removidos).",
+    "errorDelete": "Erro ao excluir a organização",
+    "current": "Organização",
+    "errorSwitch": "Não foi possível trocar de organização",
     "suspend": "Suspender",
     "reactivate": "Reativar",
     "suspendTitle": "Suspender organização?",

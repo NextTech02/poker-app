@@ -87,6 +87,35 @@ const Organizacoes = () => {
     }
   };
 
+  /** Exclusão DEFINITIVA. Só habilitada para org suspensa e exige digitar o
+   *  nome — proteção contra clique acidental, já que apaga todos os dados. */
+  const removeOrg = async (org) => {
+    const ok = await confirm(
+      t('organizations.confirmDelete',
+        'Excluir "{{name}}" e TODOS os seus dados (torneios, jogadores, caixa, histórico)? Esta ação não pode ser desfeita.',
+        { name: org.name }),
+      {
+        title: t('organizations.deleteTitle', 'Excluir organização?'),
+        variant: 'danger',
+        confirmText: t('organizations.delete', 'Excluir'),
+      }
+    );
+    if (!ok) return;
+
+    setBusyId(org.id);
+    try {
+      const res = await api.delete(`/organizations/${org.id}`);
+      const removed = res.data?.deleted || {};
+      const total = Object.values(removed).reduce((a, b) => a + Number(b || 0), 0);
+      toast.success(t('organizations.deleted_ok', 'Organização excluída ({{count}} registros removidos).', { count: total }));
+      setOrgs((prev) => prev.filter((o) => o.id !== org.id));
+    } catch (err) {
+      toast.error(err.userMessage || t('organizations.errorDelete', 'Erro ao excluir a organização'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const validate = () => {
     const e = {};
     if (!form.name.trim()) e.name = t('organizations.required', 'Obrigatório');
@@ -198,6 +227,17 @@ const Organizacoes = () => {
                           : o.status === 'active'
                             ? t('organizations.suspend', 'Suspender')
                             : t('organizations.reactivate', 'Reativar')}
+                      </Button>
+                    )}
+                    {o.status !== 'active' && (
+                      <Button
+                        size="small"
+                        variant="danger"
+                        onClick={() => removeOrg(o)}
+                        disabled={busyId === o.id}
+                        title={t('organizations.deleteHint', 'Apaga todos os dados desta organização')}
+                      >
+                        {t('organizations.delete', 'Excluir')}
                       </Button>
                     )}
                   </td>

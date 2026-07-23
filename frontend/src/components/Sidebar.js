@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
+import OrgSwitcher from './OrgSwitcher';
 import LanguageSelector from './LanguageSelector';
 import nextHubLogo from '../assets/next-hub-logo.png';
 import './Sidebar.css';
@@ -238,6 +239,9 @@ const Sidebar = () => {
             <span className={`collapse-arrow ${isCollapsed ? 'rotated' : ''}`}>«</span>
           </button>
         )}
+
+        {/* Só aparece para quem pertence a mais de uma organização. */}
+        <OrgSwitcher collapsed={!isMobile && isCollapsed} />
 
         <nav className="sidebar-nav">
           {menuItems.map((item) => {
