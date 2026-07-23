@@ -19,12 +19,16 @@
  *                        atuais — pior que falhar.
  */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL_CACHE = `poker-shell-${VERSION}`;
 const ASSET_CACHE = `poker-assets-${VERSION}`;
 
-// Mínimo para a aplicação abrir.
-const SHELL_URLS = ['/', '/index.html', '/manifest.json'];
+// Mínimo para a aplicação abrir. Os ícones entram aqui para que o app
+// INSTALADO (PWA) mantenha ícone e splash mesmo sem rede.
+const SHELL_URLS = [
+  '/', '/index.html', '/manifest.json',
+  '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/favicon.ico',
+];
 
 /**
  * Pré-cacheia os bundles JS/CSS lidos do asset-manifest.json (gerado pelo CRA).
