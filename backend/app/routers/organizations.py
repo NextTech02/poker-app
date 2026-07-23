@@ -144,6 +144,17 @@ def create_organization(data: OrganizationCreate):
         if r.status_code in (200, 201):
             auth_user_id = r.json().get("id")
             invite_sent = True
+        elif r.status_code == 429:
+            # Limite de envio de e-mail do Supabase (SMTP padrão manda pouquíssimos
+            # por hora). Mensagem explícita: sem isso o operador só via "erro".
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Limite de envio de e-mails do Supabase atingido. Configure um SMTP "
+                    "próprio em Authentication → Emails para convidar clientes sem limite, "
+                    "ou aguarde e tente novamente."
+                ),
+            )
         elif r.status_code in (409, 422):
             # Usuário já existe no auth — reaproveita (o provisionamento recusa
             # se ele já pertencer a alguma organização).
@@ -157,14 +168,14 @@ def create_organization(data: OrganizationCreate):
                     break
             invite_error = "Usuário já existia no sistema; vinculado sem novo convite."
         else:
-            raise HTTPException(status_code=502, detail=f"Falha ao convidar o administrador: {r.text[:200]}")
+            raise HTTPException(status_code=400, detail=f"Falha ao convidar o administrador: {r.text[:200]}")
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Falha ao convidar o administrador: {exc}")
+        raise HTTPException(status_code=503, detail=f"Falha ao contatar o serviço de e-mail: {exc}")
 
     if not auth_user_id:
-        raise HTTPException(status_code=502, detail="Não foi possível obter o usuário do administrador.")
+        raise HTTPException(status_code=400, detail="Não foi possível obter o usuário do administrador.")
 
     # 2) Provisionamento atômico da organização
     try:
