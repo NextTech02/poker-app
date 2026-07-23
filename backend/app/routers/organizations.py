@@ -125,10 +125,20 @@ def create_organization(data: OrganizationCreate):
     invite_sent = False
     invite_error = None
     try:
+        # `redirect_to` define para onde o link do e-mail leva. Sem ele, o
+        # Supabase cai no "Site URL" do dashboard — que apontava para localhost,
+        # deixando o convite inútil para o cliente. Mandamos o FRONTEND_URL do
+        # ambiente (em produção, o domínio real).
+        # ⚠️ A URL também precisa estar na allowlist de Redirect URLs do
+        # Supabase; fora dela, ele ignora e volta a usar o Site URL.
         r = httpx.post(
             f"{base}/auth/v1/invite",
             headers=headers,
-            json={"email": data.admin_email, "data": {"organization_name": data.name}},
+            json={
+                "email": data.admin_email,
+                "data": {"organization_name": data.name},
+                "redirect_to": settings.frontend_url.rstrip("/") + "/login",
+            },
             timeout=20,
         )
         if r.status_code in (200, 201):

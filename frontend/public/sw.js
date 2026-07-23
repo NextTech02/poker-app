@@ -19,19 +19,46 @@
  *                        atuais — pior que falhar.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `poker-shell-${VERSION}`;
 const ASSET_CACHE = `poker-assets-${VERSION}`;
 
-// Mínimo para a aplicação abrir. Os bundles com hash entram via runtime caching.
+// Mínimo para a aplicação abrir.
 const SHELL_URLS = ['/', '/index.html', '/manifest.json'];
+
+/**
+ * Pré-cacheia os bundles JS/CSS lidos do asset-manifest.json (gerado pelo CRA).
+ *
+ * Por que é essencial: na PRIMEIRA visita o service worker ainda não controla a
+ * página, então os bundles já baixados não passam pelo `fetch` dele e nunca
+ * seriam cacheados. Resultado observado em produção: só o cache do shell
+ * existia — offline o index.html abria e a tela ficava EM BRANCO, porque o
+ * JavaScript não estava disponível. Buscando o manifest no install, o app passa
+ * a funcionar offline já na primeira visita.
+ */
+async function precacheAppBundles(cache) {
+  try {
+    const res = await fetch('/asset-manifest.json', { cache: 'no-cache' });
+    if (!res.ok) return;
+    const manifest = await res.json();
+    // entrypoints = o JS/CSS necessários para a aplicação iniciar.
+    const urls = (manifest.entrypoints || []).map((p) => (p.startsWith('/') ? p : `/${p}`));
+    await Promise.allSettled(urls.map((u) => cache.add(u)));
+  } catch (_) {
+    // Sem manifest o app ainda funciona online; o runtime caching cobre depois.
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE)
+    (async () => {
+      const cache = await caches.open(SHELL_CACHE);
       // addAll falha inteiro se UM item falhar; individual é mais resiliente.
-      .then((cache) => Promise.allSettled(SHELL_URLS.map((u) => cache.add(u))))
-      .then(() => self.skipWaiting())   // ativa a versão nova sem esperar
+      await Promise.allSettled(SHELL_URLS.map((u) => cache.add(u)));
+      const assets = await caches.open(ASSET_CACHE);
+      await precacheAppBundles(assets);
+      await self.skipWaiting();   // ativa a versão nova sem esperar
+    })()
   );
 });
 
