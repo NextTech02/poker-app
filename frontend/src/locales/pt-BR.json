@@ -1,5 +1,6 @@
 {
   "common": {
+    "retry": "Tentar novamente",
     "breadcrumb": "Trilha de navegação",
     "loading": "Carregando...",
     "save": "Salvar",
@@ -1179,6 +1180,8 @@
     "badgeCancelled": "Cancelado"
   },
   "offline": {
+    "screenNeedsNetTitle": "Sem conexão",
+    "screenNeedsNetDesc": "Esta tela ainda não foi carregada offline. Abra-a uma vez com internet, ou volte para uma tela já usada.",
     "offlineMsg": "Modo offline — suas ações estão sendo salvas e serão enviadas quando a internet voltar",
     "pending": "pendência(s)",
     "syncing": "Sincronizando…",

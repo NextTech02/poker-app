@@ -1,5 +1,6 @@
 {
   "common": {
+    "retry": "Try again",
     "breadcrumb": "Breadcrumb",
     "loading": "Loading...",
     "save": "Save",
@@ -1179,6 +1180,8 @@
     "badgeCancelled": "Cancelled"
   },
   "offline": {
+    "screenNeedsNetTitle": "No connection",
+    "screenNeedsNetDesc": "This screen hasn't been loaded offline yet. Open it once with internet, or go back to a screen you've already used.",
     "offlineMsg": "Offline mode — your actions are being saved and will be sent when the internet is back",
     "pending": "pending",
     "syncing": "Syncing…",

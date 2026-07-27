@@ -14,7 +14,7 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'poker-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let _dbPromise = null;
 
@@ -36,6 +36,12 @@ export const getDB = () => {
         }
         if (!db.objectStoreNames.contains('meta')) {
           db.createObjectStore('meta', { keyPath: 'k' });
+        }
+        // v2: cache de respostas GET (read-through). Guarda a última resposta
+        // de cada endpoint por usuário/organização, para as telas mostrarem os
+        // últimos dados vistos quando estiver offline.
+        if (!db.objectStoreNames.contains('getCache')) {
+          db.createObjectStore('getCache', { keyPath: 'key' });
         }
       },
     });
@@ -194,7 +200,27 @@ export const removeConflict = async (id) => {
 export const clearOfflineDB = async () => {
   const db = await getDB();
   await Promise.all(
-    ['mutationQueue', 'entities', 'conflicts'].map((s) => db.clear(s))
+    ['mutationQueue', 'entities', 'conflicts', 'getCache'].map((s) => db.clear(s))
   );
   // preserva `meta.deviceId`
+};
+
+// ── Cache de respostas GET (read-through para leitura offline) ────────────────
+/** Guarda a resposta de um GET sob uma chave já escopada por usuário/org. */
+export const putGetCache = async (key, data) => {
+  try {
+    const db = await getDB();
+    await db.put('getCache', { key, data, at: Date.now() });
+  } catch (_) { /* cache é best-effort; nunca quebra a request */ }
+};
+
+/** Recupera a última resposta cacheada de um GET (ou null). */
+export const getGetCache = async (key) => {
+  try {
+    const db = await getDB();
+    const row = await db.get('getCache', key);
+    return row ? row.data : null;
+  } catch (_) {
+    return null;
+  }
 };

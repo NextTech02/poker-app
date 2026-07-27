@@ -2,6 +2,8 @@ import axios from 'axios';
 import i18n from 'i18next';
 import { getSelectedStageId } from '../utils/stageUtils';
 import { emitToastError } from '../utils/toastEmitter';
+import { putGetCache, getGetCache } from '../offline/db';
+import { markOffline, markOnline } from '../offline/connectivity';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -27,10 +29,72 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ── Cache de leitura (read-through) para funcionar OFFLINE ───────────────────
+// Toda resposta GET bem-sucedida é guardada no IndexedDB. Quando a rede falha
+// (offline), servimos a última resposta cacheada daquele endpoint — assim as
+// telas mostram os últimos dados vistos (torneios, jogadores, mesas...) em vez
+// de quebrar. Online, sempre bate no servidor: nada de dado velho com rede.
+//
+// A chave é escopada por USUÁRIO + ORGANIZAÇÃO (claims do JWT), senão o cache de
+// um cliente vazaria para outro no mesmo dispositivo. É limpo no logout.
+
+// Endpoints voláteis/ruidosos: não vale cachear (mudam a cada segundo ou têm
+// lógica offline própria).
+const NO_CACHE = ['/timer/', '/health', '/sync/', '/broadcast-code'];
+
+const isNetworkError = (error) =>
+  !error?.response &&
+  (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error' ||
+   error?.code === 'ECONNABORTED' || !navigator.onLine);
+
+const scopeFromToken = () => {
+  try {
+    const t = localStorage.getItem('supabase_token');
+    const c = JSON.parse(atob(t.split('.')[1]));
+    return `${c.sub || 'anon'}:${c.organization_id || 'noorg'}`;
+  } catch (_) {
+    return 'anon:noorg';
+  }
+};
+
+const cacheKey = (config) => {
+  const method = (config.method || 'get').toLowerCase();
+  const url = config.url || '';
+  const params = config.params ? JSON.stringify(config.params) : '';
+  const stage = config.headers?.['X-Stage-ID'] || getSelectedStageId() || '';
+  return `${scopeFromToken()}|${method}|${url}|${params}|${stage}`;
+};
+
+const isCacheableGet = (config) => {
+  if ((config.method || 'get').toLowerCase() !== 'get') return false;
+  const url = config.url || '';
+  return !NO_CACHE.some((p) => url.includes(p));
+};
+
 // Global response error interceptor (B2.1)
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response) => {
+    // Guarda a resposta para leitura offline (fire-and-forget).
+    try {
+      if (isCacheableGet(response.config)) {
+        markOnline();
+        putGetCache(cacheKey(response.config), response.data);
+      }
+    } catch (_) { /* cache nunca atrapalha a resposta */ }
+    return response;
+  },
+  async (error) => {
+    // OFFLINE: se for uma leitura e tivermos cache, devolve o cache em vez de
+    // falhar — é o que faz as telas carregarem sem internet.
+    if (isNetworkError(error) && error.config && isCacheableGet(error.config)) {
+      markOffline();
+      const cached = await getGetCache(cacheKey(error.config));
+      if (cached !== null && cached !== undefined) {
+        return { data: cached, status: 200, statusText: 'OK (cache offline)',
+                 headers: {}, config: error.config, _fromCache: true };
+      }
+    }
+
     const detail = error?.response?.data?.detail;
     // Erros de validação (422) do FastAPI vêm como LISTA de objetos
     // ({type, loc, msg, input, ctx}), não como texto. Sem achatar aqui, quem

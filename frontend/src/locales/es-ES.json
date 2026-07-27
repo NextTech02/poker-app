@@ -1,5 +1,6 @@
 {
   "common": {
+    "retry": "Reintentar",
     "breadcrumb": "Ruta de navegación",
     "loading": "Cargando...",
     "save": "Guardar",
@@ -1179,6 +1180,8 @@
     "badgeCancelled": "Cancelado"
   },
   "offline": {
+    "screenNeedsNetTitle": "Sin conexión",
+    "screenNeedsNetDesc": "Esta pantalla aún no se cargó sin conexión. Ábrela una vez con internet, o vuelve a una pantalla ya usada.",
     "offlineMsg": "Modo sin conexión — tus acciones se están guardando y se enviarán cuando vuelva el internet",
     "pending": "pendiente(s)",
     "syncing": "Sincronizando…",
