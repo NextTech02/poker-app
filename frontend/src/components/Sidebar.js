@@ -6,7 +6,7 @@ import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import OrgSwitcher from './OrgSwitcher';
 import LanguageSelector from './LanguageSelector';
-import nextHubLogo from '../assets/next-hub-logo.png';
+import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Sidebar.css';
 
 const Sidebar = () => {
@@ -204,7 +204,7 @@ const Sidebar = () => {
             <span className="hamburger-line"></span>
             <span className="hamburger-line"></span>
           </button>
-          <img src={nextHubLogo} alt="Next Hub" className="mobile-logo" />
+          <img src={aceblindLogo} alt="AceBlind" className="mobile-logo" />
           {selectedStage && (
             <div className="mobile-stage-badge">
               {selectedStage.name}
@@ -221,7 +221,7 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside className={`sidebar ${isMobile ? 'mobile' : ''} ${isOpen ? 'open' : ''} ${!isMobile && isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <img src={nextHubLogo} alt="Next Hub" className="sidebar-logo" />
+          <img src={aceblindLogo} alt="AceBlind" className="sidebar-logo" />
           {selectedStage && !isCollapsed && (
             <div className="selected-stage-sidebar">
               {selectedStage.name}

@@ -96,7 +96,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-color, #243443);
   border-radius: 8px;
-  color: var(--gold, #d4af37);
+  color: var(--gold, #5b5be8);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }

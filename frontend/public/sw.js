@@ -19,7 +19,7 @@
  *                        atuais — pior que falhar.
  */
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL_CACHE = `poker-shell-${VERSION}`;
 const ASSET_CACHE = `poker-assets-${VERSION}`;
 

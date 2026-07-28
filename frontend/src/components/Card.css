@@ -47,7 +47,7 @@
 /* Card variants */
 .card-premium {
   border: 1px solid var(--gold-dark);
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, var(--card-bg) 100%);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.1) 0%, var(--card-bg) 100%);
 }
 
 .card-premium::before {

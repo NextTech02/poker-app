@@ -60,7 +60,7 @@
 }
 
 .ticket-preview-highlight {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.15) 0%, rgba(91, 91, 232, 0.05) 100%);
   border: 2px solid var(--gold-accent);
   border-radius: 8px;
   padding: 1.25rem;
@@ -72,7 +72,7 @@
   font-size: 1.75rem;
   font-weight: 800;
   color: var(--text-gold);
-  text-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+  text-shadow: 0 2px 8px rgba(91, 91, 232, 0.3);
   letter-spacing: 1px;
 }
 

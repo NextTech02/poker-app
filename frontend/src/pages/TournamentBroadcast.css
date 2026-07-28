@@ -20,7 +20,7 @@
   bottom: 0;
   background-image:
     radial-gradient(circle at 20% 50%, rgba(15, 122, 78, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(212, 175, 55, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 80% 80%, rgba(91, 91, 232, 0.05) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -103,10 +103,10 @@
 }
 
 .day-type-indicator.final {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(212, 175, 55, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.3) 0%, rgba(91, 91, 232, 0.1) 100%);
   border: 2px solid var(--gold-accent, var(--brand-gold));
   color: var(--text-gold, var(--brand-gold));
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+  box-shadow: 0 0 20px rgba(91, 91, 232, 0.3);
 }
 
 .day-type-indicator.qualifying {
@@ -214,7 +214,7 @@
 
 .sidebar-section.enriched-timer-section .enriched-timer-compact {
   background: rgba(30, 60, 114, 0.8);
-  border: 1px solid rgba(212, 175, 55, 0.3);
+  border: 1px solid rgba(91, 91, 232, 0.3);
 }
 
 /* Center - Main Display */
@@ -233,7 +233,7 @@
   font-size: 160px;
   font-weight: 800;
   color: var(--text-gold);
-  text-shadow: 0 4px 20px rgba(212, 175, 55, 0.5);
+  text-shadow: 0 4px 20px rgba(91, 91, 232, 0.5);
   margin-bottom: 32px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 4px;
@@ -363,7 +363,7 @@
   font-size: 96px;
   font-weight: 800;
   color: var(--text-gold);
-  text-shadow: 0 4px 24px rgba(212, 175, 55, 0.6);
+  text-shadow: 0 4px 24px rgba(91, 91, 232, 0.6);
   margin-bottom: 24px;
   font-variant-numeric: tabular-nums;
 }
@@ -493,7 +493,7 @@
   text-transform: uppercase;
   letter-spacing: 8px;
   margin-bottom: 16px;
-  text-shadow: 0 0 30px rgba(212, 175, 55, 0.5);
+  text-shadow: 0 0 30px rgba(91, 91, 232, 0.5);
 }
 
 .broadcast-completed p {
@@ -552,7 +552,7 @@
   letter-spacing: 2px;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+  border-bottom: 1px solid rgba(91, 91, 232, 0.3);
   text-align: center;
 }
 
@@ -573,8 +573,8 @@
 }
 
 .prize-row:nth-child(1) {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 100%);
-  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.2) 0%, rgba(91, 91, 232, 0.05) 100%);
+  border: 1px solid rgba(91, 91, 232, 0.4);
 }
 
 .prize-row:nth-child(2) {
@@ -615,7 +615,7 @@
 
 .prize-row:nth-child(1) .prize-value {
   color: var(--gold-accent, var(--brand-gold));
-  text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+  text-shadow: 0 0 10px rgba(91, 91, 232, 0.3);
 }
 
 /* Responsive adjustments for prizes sidebar */
@@ -798,7 +798,7 @@
   justify-content: space-between;
   align-items: baseline;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  border-bottom: 1px solid rgba(91, 91, 232, 0.15);
   white-space: nowrap;
 }
 

@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import nextHubLogo from '../assets/next-hub-logo.png';
+import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './BroadcastSettings.css';
 
 // ─────────────────────────────────────────────────────────────────
@@ -20,16 +20,16 @@ const DEFAULT_SETTINGS = {
   broadcast_prizepool_label_color: '#ffffff',
   broadcast_prizepool_value_color: '#ffffff',
   broadcast_prizepool_size: 100,
-  broadcast_timer_color: '#d4af37',
-  broadcast_title_color: '#d4af37',
-  broadcast_blinds_label_color: '#d4af37',
+  broadcast_timer_color: '#5b5be8',
+  broadcast_title_color: '#5b5be8',
+  broadcast_blinds_label_color: '#5b5be8',
   broadcast_blinds_value_color: '#ffffff',
-  broadcast_ante_label_color: '#d4af37',
-  broadcast_ante_value_color: '#d4af37',
-  broadcast_next_label_color: '#d4af37',
+  broadcast_ante_label_color: '#5b5be8',
+  broadcast_ante_value_color: '#5b5be8',
+  broadcast_next_label_color: '#5b5be8',
   broadcast_next_value_color: '#9ca3af',
   broadcast_sidebar_label_color: '#9ca3af',
-  broadcast_sidebar_value_color: '#d4af37',
+  broadcast_sidebar_value_color: '#5b5be8',
   broadcast_show_logo: true,
   broadcast_show_title: true,
   broadcast_show_prizepool: true,
@@ -58,9 +58,9 @@ const DEFAULT_SETTINGS = {
   broadcast_break_show_average:    true,
   broadcast_break_overlay_opacity: 70,
   broadcast_break_font_size:       100,
-  broadcast_break_timer_color:     '#d4af37',
+  broadcast_break_timer_color:     '#5b5be8',
   broadcast_break_label_color:     '#9ca3af',
-  broadcast_break_value_color:     '#d4af37',
+  broadcast_break_value_color:     '#5b5be8',
   broadcast_break_title_color:     '#ffffff',
 };
 
@@ -228,13 +228,13 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
       <div style={{ fontSize: breakLayout === 'fullscreen' ? 18 * bfs : 28 * bfs, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 4, color: S.broadcast_break_title_color || '#fff' }}>
         {t('broadcastSettings.previewInterval')}
       </div>
-      <div style={{ fontSize: breakLayout === 'fullscreen' ? 30 * bfs : 68 * bfs, fontWeight: 800, lineHeight: 1, color: S.broadcast_break_timer_color || '#d4af37', fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ fontSize: breakLayout === 'fullscreen' ? 30 * bfs : 68 * bfs, fontWeight: 800, lineHeight: 1, color: S.broadcast_break_timer_color || '#5b5be8', fontVariantNumeric: 'tabular-nums' }}>
         {MOCK.breakTimer}
       </div>
       {S.broadcast_break_show_next_level !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewNext')}</span>
-          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#5b5be8' }}>
             {t('broadcastSettings.previewLevel')} {MOCK.breakNextLevel}: {MOCK.breakNextSb.toLocaleString()}/{MOCK.breakNextBb.toLocaleString()} ( {MOCK.breakNextAnte.toLocaleString()} )
           </span>
         </div>
@@ -242,19 +242,19 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
       {S.broadcast_break_show_players !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewPlayers')}</span>
-          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{t('broadcastSettings.previewPlayersValue', { active: MOCK.active, total: MOCK.total })}</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#5b5be8' }}>{t('broadcastSettings.previewPlayersValue', { active: MOCK.active, total: MOCK.total })}</span>
         </div>
       )}
       {S.broadcast_break_show_chipcount !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewChipCount')}</span>
-          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.chipcount}</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#5b5be8' }}>{MOCK.chipcount}</span>
         </div>
       )}
       {S.broadcast_break_show_average !== false && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span style={{ fontSize: 9 * bfs, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: S.broadcast_break_label_color || '#9ca3af' }}>{t('broadcastSettings.previewAverage')}</span>
-          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#d4af37' }}>{MOCK.average}</span>
+          <span style={{ fontSize: breakLayout === 'fullscreen' ? 14 * bfs : 18 * bfs, fontWeight: 800, color: S.broadcast_break_value_color || '#5b5be8' }}>{MOCK.average}</span>
         </div>
       )}
     </div>
@@ -271,13 +271,13 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '24px 48px', flexShrink: 0,
               background: 'linear-gradient(180deg, rgba(20,25,34,0.95) 0%, rgba(10,14,19,0.8) 100%)',
-              borderBottom: '3px solid #d4af37',
+              borderBottom: '3px solid #5b5be8',
               boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
             }}>
               {/* Logo — left */}
               <div style={{ display: 'flex', alignItems: 'center', minWidth: 250 }}>
                 {S.broadcast_show_logo && (
-                  <img src={nextHubLogo} alt="" style={{ height: 48, width: 'auto', filter: 'brightness(1.1)' }} />
+                  <img src={aceblindLogo} alt="" style={{ height: 48, width: 'auto', filter: 'brightness(1.1)' }} />
                 )}
               </div>
               {/* Title — center */}
@@ -309,7 +309,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                   <>
                     <div style={{
                       width: 260, flexShrink: 0, padding: '40px 28px',
-                      background: 'rgba(0,0,0,0.65)', borderRight: '2px solid #d4af37',
+                      background: 'rgba(0,0,0,0.65)', borderRight: '2px solid #5b5be8',
                       display: 'flex', flexDirection: 'column', gap: 20, zIndex: 1,
                     }}>
                       <BreakInfoPreview />
@@ -327,7 +327,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                 {breakLayout === 'fullscreen' && (
                   <div style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0,
-                    background: `rgba(5,8,12,${breakOpacity})`, borderTop: '2px solid #d4af37',
+                    background: `rgba(5,8,12,${breakOpacity})`, borderTop: '2px solid #5b5be8',
                     padding: '10px 40px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1,
                   }}>
                     <BreakInfoPreview />
@@ -337,7 +337,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                 {breakLayout === 'overlay' && (
                   <div style={{
                     position: 'absolute', left: 40, top: '50%', transform: 'translateY(-50%)',
-                    background: `rgba(5,8,12,${breakOpacity})`, border: '1px solid rgba(212,175,55,0.4)',
+                    background: `rgba(5,8,12,${breakOpacity})`, border: '1px solid rgba(91,91,232,0.4)',
                     borderRadius: 12, padding: '24px 22px', minWidth: 240, zIndex: 1,
                   }}>
                     <BreakInfoPreview />
@@ -445,13 +445,13 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
             {S.broadcast_show_prizes && S.broadcast_prizes_layout !== 'sidebar' && !previewBreak && (
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0, height: barH,
-                background: 'rgba(5,8,12,0.96)', borderTop: '2px solid #d4af37',
+                background: 'rgba(5,8,12,0.96)', borderTop: '2px solid #5b5be8',
                 display: 'flex', alignItems: 'stretch', overflow: 'hidden',
               }}>
                 <div style={{
                   flexShrink: 0, display: 'flex', alignItems: 'center',
                   padding: '0 2rem 0 1.25rem',
-                  background: 'linear-gradient(135deg, #d4af37 0%, #b8960a 100%)',
+                  background: 'linear-gradient(135deg, #5b5be8 0%, #2525b9 100%)',
                   color: '#0a0e14', fontWeight: 900, fontSize: 12 * ts,
                   letterSpacing: 2, textTransform: 'uppercase', whiteSpace: 'nowrap',
                 }}>
@@ -465,7 +465,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                       <span style={{ fontSize: 16 * ts, color: '#fff', fontWeight: 800 }}>
                         {formatCurrency(Math.round(15000 / pos / 100) * 100)}
                       </span>
-                      <span style={{ color: '#d4af37', fontSize: 8 * ts, marginLeft: 8 }}>◆</span>
+                      <span style={{ color: '#5b5be8', fontSize: 8 * ts, marginLeft: 8 }}>◆</span>
                     </span>
                   ))}
                 </div>
@@ -476,13 +476,13 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
             {S.broadcast_show_prizes && S.broadcast_prizes_layout === 'sidebar' && !previewBreak && (
               <div style={{
                 position: 'absolute', top: 100, right: 24, bottom: 24, width: 240,
-                background: 'rgba(5,8,12,0.96)', border: '2px solid #d4af37', borderRadius: 8,
+                background: 'rgba(5,8,12,0.96)', border: '2px solid #5b5be8', borderRadius: 8,
                 display: 'flex', flexDirection: 'column', overflow: 'hidden', zIndex: 50,
               }}>
                 <div style={{
                   flexShrink: 0,
                   padding: '10px 16px',
-                  background: 'linear-gradient(135deg, #d4af37 0%, #b8960a 100%)',
+                  background: 'linear-gradient(135deg, #5b5be8 0%, #2525b9 100%)',
                   color: '#0a0e14', fontWeight: 900, fontSize: 13 * ts,
                   letterSpacing: 2, textTransform: 'uppercase', textAlign: 'center',
                 }}>
@@ -492,7 +492,7 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((pos) => (
                     <div key={pos} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                      padding: '6px 0', borderBottom: '1px solid rgba(212,175,55,0.15)',
+                      padding: '6px 0', borderBottom: '1px solid rgba(91,91,232,0.15)',
                     }}>
                       <span style={{ fontSize: 13 * ts, color: '#9ca3af', fontWeight: 700 }}>{pos}º</span>
                       <span style={{ fontSize: 14 * ts, color: '#fff', fontWeight: 800 }}>

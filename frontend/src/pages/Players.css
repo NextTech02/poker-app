@@ -22,7 +22,7 @@
   width: 48px;
   height: 48px;
   min-width: 48px;
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(114, 51, 248, 0.12);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -63,13 +63,13 @@
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 4px 14px rgba(114, 51, 248, 0.3);
   white-space: nowrap;
 }
 
 .pl-btn-new:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 6px 20px rgba(114, 51, 248, 0.4);
 }
 
 .pl-btn-new:active { transform: translateY(0); }
@@ -108,7 +108,7 @@
 .pl-search-input:focus {
   outline: none;
   border-color: var(--poker-green, var(--brand-green));
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+  box-shadow: 0 0 0 3px rgba(114, 51, 248, 0.12);
 }
 
 .pl-search-clear {
@@ -514,7 +514,7 @@
 .pl-textarea:focus {
   outline: none;
   border-color: var(--poker-green, var(--brand-green));
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+  box-shadow: 0 0 0 3px rgba(114, 51, 248, 0.1);
 }
 
 .pl-field select {
@@ -581,12 +581,12 @@
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 4px 14px rgba(114, 51, 248, 0.3);
 }
 
 .pl-btn-submit:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 6px 18px rgba(114, 51, 248, 0.4);
 }
 
 .pl-btn-submit:disabled {

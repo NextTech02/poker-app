@@ -12,7 +12,7 @@
   max-width: 460px;
   text-align: center;
   background: rgba(12, 18, 26, 0.9);
-  border: 1px solid rgba(212, 175, 55, 0.35);
+  border: 1px solid rgba(91, 91, 232, 0.35);
   border-radius: 16px;
   padding: 40px 32px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
@@ -20,7 +20,7 @@
 
 .tv-code__title {
   margin: 0 0 8px;
-  color: #d4af37;
+  color: #5b5be8;
   font-size: 1.8rem;
   letter-spacing: 1px;
 }
@@ -47,7 +47,7 @@
   text-transform: uppercase;
   color: #fff;
   background: #0a0e13;
-  border: 2px solid #22c55e;
+  border: 2px solid #7233f8;
   border-radius: 10px;
   outline: none;
   box-sizing: border-box;
@@ -60,7 +60,7 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: #06210f;
-  background: linear-gradient(90deg, #22c55e, #16a34a);
+  background: linear-gradient(90deg, #7233f8, #5b21e0);
   border: none;
   border-radius: 10px;
   cursor: pointer;

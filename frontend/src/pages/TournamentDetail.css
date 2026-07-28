@@ -59,7 +59,7 @@
 }
 
 .players-table thead {
-  background-color: rgba(46, 204, 113, 0.1);
+  background-color: rgba(114, 51, 248, 0.1);
 }
 
 .players-table th {
@@ -77,7 +77,7 @@
 }
 
 .players-table tbody tr:hover {
-  background-color: rgba(46, 204, 113, 0.05);
+  background-color: rgba(114, 51, 248, 0.05);
 }
 
 .player-name {
@@ -157,7 +157,7 @@
 
 .tab-button:hover {
   color: var(--text-primary);
-  background-color: rgba(46, 204, 113, 0.05);
+  background-color: rgba(114, 51, 248, 0.05);
 }
 
 .tab-button.active {
@@ -202,7 +202,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  background-color: rgba(46, 204, 113, 0.05);
+  background-color: rgba(114, 51, 248, 0.05);
   border-radius: 8px;
 }
 
@@ -373,9 +373,9 @@
 }
 
 .day-status-badge.active {
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(114, 51, 248, 0.12);
   color: var(--success-light);
-  border: 1px solid rgba(34, 197, 94, 0.25);
+  border: 1px solid rgba(114, 51, 248, 0.25);
 }
 
 .day-status-badge.completed {
@@ -909,8 +909,8 @@
 }
 
 .stat-item.highlight {
-  background: linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(46, 204, 113, 0.05) 100%);
-  border-color: rgba(46, 204, 113, 0.3);
+  background: linear-gradient(135deg, rgba(114, 51, 248, 0.15) 0%, rgba(114, 51, 248, 0.05) 100%);
+  border-color: rgba(114, 51, 248, 0.3);
 }
 
 .stat-item.highlight-small {

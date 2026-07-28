@@ -132,7 +132,7 @@
   outline: none;
   border-color: var(--accent-color, var(--brand-green));
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.15);
+  box-shadow: 0 0 0 2px rgba(114, 51, 248, 0.15);
 }
 
 .tournament-day-form-page .form-group input::placeholder {
@@ -359,14 +359,14 @@
 }
 
 .tournament-day-form-page .visibility-card.active {
-  border-color: var(--accent-color, #0f8454);
+  border-color: var(--accent-color, #7233f8);
   background: rgba(15, 132, 84, 0.1);
 }
 
 .tournament-day-form-page .visibility-card input[type="checkbox"] {
   width: auto;
   margin: 0;
-  accent-color: var(--accent-color, #0f8454);
+  accent-color: var(--accent-color, #7233f8);
 }
 
 .tournament-day-form-page .visibility-label {

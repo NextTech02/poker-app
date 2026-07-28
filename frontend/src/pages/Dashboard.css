@@ -52,9 +52,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(34, 197, 94, 0.18);
+  background: rgba(114, 51, 248, 0.18);
   border-radius: 10px;
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(114, 51, 248, 0.2);
 }
 
 .db-stat-icon svg {
@@ -89,7 +89,7 @@
   font-weight: 700;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(114, 51, 248, 0.15);
   color: var(--brand-green);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -116,7 +116,7 @@
 
 .db-delta--up {
   color: var(--brand-green);
-  background: rgba(34, 197, 94, 0.1);
+  background: rgba(114, 51, 248, 0.1);
 }
 
 .db-delta--down {
@@ -229,7 +229,7 @@ a.db-activity-item-link:hover {
   white-space: nowrap;
 }
 
-.db-status--active { background: rgba(34,197,94,0.15); color: var(--brand-green); }
+.db-status--active { background: rgba(114,51,248,0.15); color: var(--brand-green); }
 .db-status--pending { background: rgba(234,179,8,0.15); color: var(--warning-yellow); }
 .db-status--done { background: rgba(100,116,139,0.15); color: #94a3b8; }
 .db-status--cancelled { background: rgba(239,68,68,0.15); color: var(--danger); }

@@ -21,7 +21,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4);
+  box-shadow: 0 4px 20px rgba(91, 91, 232, 0.4);
 }
 
 .psel-trophy-icon svg {
@@ -92,8 +92,8 @@
 .psel-empty-icon {
   width: 72px;
   height: 72px;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(212, 175, 55, 0.04) 100%);
-  border: 1.5px solid rgba(212, 175, 55, 0.2);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.12) 0%, rgba(91, 91, 232, 0.04) 100%);
+  border: 1.5px solid rgba(91, 91, 232, 0.2);
   border-radius: 18px;
   display: flex;
   align-items: center;
@@ -104,7 +104,7 @@
 .psel-empty-icon svg {
   width: 36px;
   height: 36px;
-  color: rgba(212, 175, 55, 0.45);
+  color: rgba(91, 91, 232, 0.45);
 }
 
 .psel-empty h3 {

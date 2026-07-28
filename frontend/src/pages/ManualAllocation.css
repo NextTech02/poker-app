@@ -126,7 +126,7 @@
 }
 
 .table-header {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.2) 0%, rgba(91, 91, 232, 0.05) 100%);
   padding: 1rem 1.5rem;
   border-bottom: 2px solid var(--gold-accent);
   display: flex;
@@ -190,7 +190,7 @@
 }
 
 .seat.occupied {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.2) 0%, rgba(91, 91, 232, 0.05) 100%);
   border-color: var(--gold-accent);
 }
 

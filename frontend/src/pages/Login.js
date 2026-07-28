@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
 import LanguageSelector from '../components/LanguageSelector';
+import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
 
 const Login = () => {
@@ -37,7 +38,7 @@ const Login = () => {
       </div>
       <div className="login-card">
         <div className="login-header">
-          <h1>Royal Management</h1>
+          <img src={aceblindLogo} alt="AceBlind" className="login-logo" />
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

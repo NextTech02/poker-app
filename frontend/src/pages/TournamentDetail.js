@@ -383,11 +383,11 @@ const TournamentDetail = () => {
       {openTvDay === day.id && dayTvCodes[day.id] && (
         <div className="tv-code-card" style={{
           display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14,
-          background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.4)',
+          background: 'rgba(114,51,248,0.08)', border: '1px solid rgba(114,51,248,0.4)',
           borderRadius: 10, padding: '12px 16px', margin: '0 0 14px',
         }}>
           <span style={{ color: '#9ca3af' }}>{t('tv.codeLabel', 'Código da TV')}:</span>
-          <strong style={{ fontSize: '1.6rem', letterSpacing: 4, color: '#22c55e', fontFamily: 'monospace' }}>
+          <strong style={{ fontSize: '1.6rem', letterSpacing: 4, color: '#7233f8', fontFamily: 'monospace' }}>
             {dayTvCodes[day.id]}
           </strong>
           <span style={{ color: '#9ca3af' }}>

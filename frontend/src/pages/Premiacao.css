@@ -84,7 +84,7 @@
 .status-badge.paid {
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(46, 204, 113, 0.15);
+  background: rgba(114, 51, 248, 0.15);
   color: var(--brand-green);
   font-size: 12px;
 }
@@ -114,7 +114,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.35);
+  box-shadow: 0 4px 16px rgba(91, 91, 232, 0.35);
 }
 
 .premiacao-trophy-icon svg {
@@ -331,12 +331,12 @@
 
 .input-with-prefix:focus-within {
   border-color: var(--brand-gold);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 0 3px rgba(91, 91, 232, 0.12);
 }
 
 .input-with-prefix .prefix {
   padding: 0.625rem 0.875rem;
-  background: rgba(212, 175, 55, 0.08);
+  background: rgba(91, 91, 232, 0.08);
   color: var(--brand-gold);
   font-weight: 700;
   font-size: 0.9rem;
@@ -458,11 +458,11 @@
 }
 
 .allocations-table tbody tr.paid-row {
-  background: rgba(74, 222, 128, 0.04);
+  background: rgba(154, 112, 249, 0.04);
 }
 
 .allocations-table tfoot {
-  background: rgba(212, 175, 55, 0.04);
+  background: rgba(91, 91, 232, 0.04);
   border-top: 1px solid var(--surface);
 }
 
@@ -492,9 +492,9 @@
 
 /* 1st — gold */
 .position-badge.rank-1 {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.2) 0%, rgba(91, 91, 232, 0.08) 100%);
   color: var(--brand-gold);
-  border: 1px solid rgba(212, 175, 55, 0.35);
+  border: 1px solid rgba(91, 91, 232, 0.35);
 }
 
 /* 2nd — silver */
@@ -522,7 +522,7 @@
   display: inline-block;
   margin-left: 0.5rem;
   padding: 0.15rem 0.5rem;
-  background: rgba(74, 222, 128, 0.15);
+  background: rgba(154, 112, 249, 0.15);
   color: var(--success-light);
   font-size: 0.65rem;
   font-weight: 800;
@@ -612,15 +612,15 @@
 }
 
 .status-badge.paid {
-  background: rgba(74, 222, 128, 0.12);
+  background: rgba(154, 112, 249, 0.12);
   color: var(--success-light);
-  border: 1px solid rgba(74, 222, 128, 0.25);
+  border: 1px solid rgba(154, 112, 249, 0.25);
 }
 
 .status-badge.pending {
-  background: rgba(212, 175, 55, 0.12);
+  background: rgba(91, 91, 232, 0.12);
   color: var(--brand-gold);
-  border: 1px solid rgba(212, 175, 55, 0.25);
+  border: 1px solid rgba(91, 91, 232, 0.25);
 }
 
 .actions-cell { text-align: right; padding-right: 1.5rem !important; }
@@ -688,8 +688,8 @@
 .prem-empty-icon {
   width: 64px;
   height: 64px;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
-  border: 1.5px solid rgba(212, 175, 55, 0.25);
+  background: linear-gradient(135deg, rgba(91, 91, 232, 0.15) 0%, rgba(91, 91, 232, 0.05) 100%);
+  border: 1.5px solid rgba(91, 91, 232, 0.25);
   border-radius: 16px;
   display: flex;
   align-items: center;
@@ -700,7 +700,7 @@
 .prem-empty-icon svg {
   width: 32px;
   height: 32px;
-  color: rgba(212, 175, 55, 0.6);
+  color: rgba(91, 91, 232, 0.6);
 }
 
 .prem-empty h3 {
@@ -725,7 +725,7 @@
   align-items: center;
   padding: 1.25rem 1.75rem;
   background: linear-gradient(135deg, rgba(10, 20, 14, 0.9) 0%, rgba(13, 26, 40, 0.9) 100%);
-  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+  border-bottom: 1px solid rgba(91, 91, 232, 0.2);
   gap: 1rem;
 }
 
@@ -746,7 +746,7 @@
   font-weight: 800;
   color: var(--brand-gold);
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 12px rgba(212, 175, 55, 0.3);
+  text-shadow: 0 2px 12px rgba(91, 91, 232, 0.3);
 }
 
 /* ── Payout balance info ── */
@@ -811,7 +811,7 @@
 .player-search-option:last-child { border-bottom: none; }
 
 .player-search-option:hover {
-  background: rgba(212, 175, 55, 0.1);
+  background: rgba(91, 91, 232, 0.1);
 }
 
 .pso-name {
@@ -837,8 +837,8 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: rgba(74, 222, 128, 0.07);
-  border: 1px solid rgba(74, 222, 128, 0.25);
+  background: rgba(154, 112, 249, 0.07);
+  border: 1px solid rgba(154, 112, 249, 0.25);
   border-left: 3px solid var(--success-light);
   border-radius: 6px;
   padding: 0.65rem 1rem;
@@ -913,8 +913,8 @@
 /* Selected state */
 .radio-option:has(input:checked) {
   color: var(--brand-gold);
-  background: rgba(212, 175, 55, 0.08);
-  border-color: rgba(212, 175, 55, 0.3);
+  background: rgba(91, 91, 232, 0.08);
+  border-color: rgba(91, 91, 232, 0.3);
 }
 
 .radio-option:has(input:checked)::before {
@@ -922,8 +922,8 @@
   font-size: 0.72rem;
   font-weight: 900;
   color: var(--brand-gold);
-  background: rgba(212, 175, 55, 0.15);
-  border-color: rgba(212, 175, 55, 0.5);
+  background: rgba(91, 91, 232, 0.15);
+  border-color: rgba(91, 91, 232, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -941,9 +941,9 @@
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
-  background: rgba(212, 175, 55, 0.06);
-  border: 1px solid rgba(212, 175, 55, 0.18);
-  border-left: 3px solid rgba(212, 175, 55, 0.5);
+  background: rgba(91, 91, 232, 0.06);
+  border: 1px solid rgba(91, 91, 232, 0.18);
+  border-left: 3px solid rgba(91, 91, 232, 0.5);
   border-radius: 6px;
   padding: 0.75rem 1rem;
   font-size: 0.8rem;
@@ -1052,7 +1052,7 @@
 .form-group select:focus {
   outline: none;
   border-color: var(--brand-gold);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  box-shadow: 0 0 0 3px rgba(91, 91, 232, 0.1);
 }
 
 .form-group select {
@@ -1116,8 +1116,8 @@
   display: flex;
   gap: 1.5rem;
   padding: 1rem 1.5rem;
-  background: rgba(212, 175, 55, 0.06);
-  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  background: rgba(91, 91, 232, 0.06);
+  border-bottom: 1px solid rgba(91, 91, 232, 0.15);
   flex-shrink: 0;
 }
 

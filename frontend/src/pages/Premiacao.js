@@ -992,7 +992,7 @@ const Premiacao = () => {
                       payoutDocError
                         ? { borderColor: '#ef4444' }
                         : payoutResolvedPlayer
-                          ? { borderColor: '#22c55e' }
+                          ? { borderColor: '#7233f8' }
                           : undefined
                     }
                   />

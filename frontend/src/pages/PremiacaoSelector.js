@@ -13,7 +13,7 @@ const formatDate = (dateStr) => {
 };
 
 const CARD_ACCENTS = [
-  { from: '#d4af37', to: '#b8960a' }, // gold
+  { from: '#5b5be8', to: '#2525b9' }, // gold
   { from: '#60a5fa', to: '#2563eb' }, // blue
   { from: '#a78bfa', to: '#7c3aed' }, // purple
   { from: '#34d399', to: '#059669' }, // green

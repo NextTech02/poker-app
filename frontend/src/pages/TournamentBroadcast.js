@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
-import nextHubLogo from '../assets/next-hub-logo.png';
+import aceblindLogo from '../assets/aceblind-logo-white.png';
 import { useTimerSync, formatTime as formatTimerTime, formatTimeHuman } from '../hooks/useTimerSync';
 import { usePolling } from '../hooks/usePolling';
 import BROADCAST_LABELS from '../utils/broadcastLabels';
@@ -202,7 +202,7 @@ const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlay
     return (
       <div className="break-screen break-layout-fullscreen" style={{ ...bgStyle, ...fsVar }}>
         {showVid && <iframe className="break-video-bg" src={embedUrl} allow="autoplay; encrypted-media" allowFullScreen title="break-video" />}
-        <div className="break-bottom-bar" style={{ background: `rgba(5,8,12,${opacity})`, borderTop: '2px solid #d4af37' }}>
+        <div className="break-bottom-bar" style={{ background: `rgba(5,8,12,${opacity})`, borderTop: '2px solid #5b5be8' }}>
           <InfoPanel />
         </div>
       </div>
@@ -213,7 +213,7 @@ const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlay
   return (
     <div className="break-screen break-layout-overlay" style={{ ...bgStyle, ...fsVar }}>
       {showVid && <iframe className="break-video-bg" src={embedUrl} allow="autoplay; encrypted-media" allowFullScreen title="break-video" />}
-      <div className="break-overlay-panel" style={{ background: `rgba(5,8,12,${opacity})`, border: '1px solid rgba(212,175,55,0.4)' }}>
+      <div className="break-overlay-panel" style={{ background: `rgba(5,8,12,${opacity})`, border: '1px solid rgba(91,91,232,0.4)' }}>
         <InfoPanel />
       </div>
     </div>
@@ -631,9 +631,9 @@ const TournamentBroadcast = () => {
     breakOverlayOpacity:  bSource?.broadcast_break_overlay_opacity ?? 70,
     breakFontSize:        bSource?.broadcast_break_font_size        ?? 100,
     language:             bSource?.broadcast_language               || 'pt-BR',
-    breakTimerColor:      bSource?.broadcast_break_timer_color     || '#d4af37',
+    breakTimerColor:      bSource?.broadcast_break_timer_color     || '#5b5be8',
     breakLabelColor:      bSource?.broadcast_break_label_color     || '#9ca3af',
-    breakValueColor:      bSource?.broadcast_break_value_color     || '#d4af37',
+    breakValueColor:      bSource?.broadcast_break_value_color     || '#5b5be8',
     breakTitleColor:      bSource?.broadcast_break_title_color     || '#ffffff',
   };
 
@@ -646,16 +646,16 @@ const TournamentBroadcast = () => {
 
   // Per-element colors
   const colors = {
-    timer:        bSource?.broadcast_timer_color         || '#d4af37',
-    title:        bSource?.broadcast_title_color         || '#d4af37',
-    blindsLabel:  bSource?.broadcast_blinds_label_color  || '#d4af37',
+    timer:        bSource?.broadcast_timer_color         || '#5b5be8',
+    title:        bSource?.broadcast_title_color         || '#5b5be8',
+    blindsLabel:  bSource?.broadcast_blinds_label_color  || '#5b5be8',
     blindsValue:  bSource?.broadcast_blinds_value_color  || '#ffffff',
-    anteLabel:    bSource?.broadcast_ante_label_color    || '#d4af37',
-    anteValue:    bSource?.broadcast_ante_value_color    || '#d4af37',
-    nextLabel:    bSource?.broadcast_next_label_color    || '#d4af37',
+    anteLabel:    bSource?.broadcast_ante_label_color    || '#5b5be8',
+    anteValue:    bSource?.broadcast_ante_value_color    || '#5b5be8',
+    nextLabel:    bSource?.broadcast_next_label_color    || '#5b5be8',
     nextValue:    bSource?.broadcast_next_value_color    || '#9ca3af',
     sidebarLabel: bSource?.broadcast_sidebar_label_color || '#9ca3af',
-    sidebarValue: bSource?.broadcast_sidebar_value_color || '#d4af37',
+    sidebarValue: bSource?.broadcast_sidebar_value_color || '#5b5be8',
   };
 
   // Prizepool = guaranteed + all-days entries net of rake (from backend summary)
@@ -682,7 +682,7 @@ const TournamentBroadcast = () => {
         <header className="broadcast-header">
           {broadcastSettings.showLogo && (
             <div className="broadcast-logo">
-              <img src={nextHubLogo} alt="Next Hub" className="broadcast-logo-img" />
+              <img src={aceblindLogo} alt="AceBlind" className="broadcast-logo-img" />
             </div>
           )}
           {broadcastSettings.showTitle && (
@@ -779,7 +779,7 @@ const TournamentBroadcast = () => {
       <header className="broadcast-header">
         {broadcastSettings.showLogo && (
           <div className="broadcast-logo">
-            <img src={nextHubLogo} alt="Next Hub" className="broadcast-logo-img" />
+            <img src={aceblindLogo} alt="AceBlind" className="broadcast-logo-img" />
           </div>
         )}
         {broadcastSettings.showTitle && (

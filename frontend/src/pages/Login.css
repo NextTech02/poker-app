@@ -35,6 +35,13 @@
   margin-bottom: 0.5rem;
 }
 
+.login-logo {
+  height: 46px;
+  width: auto;
+  max-width: 80%;
+  object-fit: contain;
+}
+
 .login-header p {
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -71,7 +78,7 @@
 .form-group input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+  box-shadow: 0 0 0 3px rgba(114, 51, 248, 0.1);
 }
 
 .form-group input::placeholder {

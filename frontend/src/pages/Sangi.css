@@ -55,7 +55,7 @@
 
 .sangi-badge { padding: 3px 8px; border-radius: 6px; font-size: 12px; }
 .sangi-badge.open { background: rgba(52, 152, 219, 0.18); color: #3498db; }
-.sangi-badge.reconciled { background: rgba(46, 204, 113, 0.16); color: var(--brand-green); }
+.sangi-badge.reconciled { background: rgba(114, 51, 248, 0.16); color: var(--brand-green); }
 
 .sangi-actions { display: flex; gap: 10px; }
 .sangi-link {
