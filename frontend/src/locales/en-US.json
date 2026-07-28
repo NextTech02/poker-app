@@ -219,6 +219,8 @@
     "qualifyingValuesLabel": "Values applied to all qualifying days"
   },
   "tournamentDays": {
+    "restarted": "Day restarted.",
+    "reopened": "Day reopened.",
     "confirmDeleteMessage": "The day \"{{name}}\" and all its data will be removed. This action cannot be undone.",
     "confirmDeleteTitle": "Delete tournament day?",
     "title": "Tournament Days",

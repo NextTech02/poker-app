@@ -154,7 +154,12 @@ const TournamentDetail = () => {
     }
   };
 
-  const handleRestartDay = async (dayId) => {
+  // resetTimer=true -> "Reiniciar dia": além de reativar, ZERA o timer (nível 1,
+  // 00:00, pausado). Sem isso, o botão parecia "não fazer nada": o dia já estava
+  // ativo e o relógio continuava no nível em que parou.
+  // resetTimer=false -> "Reabrir dia" (dia concluído): só reativa, preservando o
+  // estado do timer.
+  const handleRestartDay = async (dayId, { resetTimer = false } = {}) => {
     const name = dayNameOf(dayId);
     const ok = await confirm(
       t('tournamentDays.confirmRestartMessage', { name }),
@@ -170,10 +175,17 @@ const TournamentDetail = () => {
         status: 'active',
         start_time: new Date().toISOString()
       });
+      // Zera o relógio de fato — é o que faz o "reiniciar" reiniciar.
+      if (resetTimer) {
+        await api.post(`/tournament-days/${dayId}/timer/reset`);
+      }
       loadTournamentData();
+      toast.success(resetTimer
+        ? t('tournamentDays.restarted', 'Dia reiniciado.')
+        : t('tournamentDays.reopened', 'Dia reaberto.'));
     } catch (err) {
       console.error('Error restarting day:', err);
-      toast.error(t('common.error'));
+      toast.error(err.userMessage || t('common.error'));
     }
   };
 
@@ -269,7 +281,7 @@ const TournamentDetail = () => {
               <Button
                 size="small"
                 variant="secondary"
-                onClick={() => handleRestartDay(day.id)}
+                onClick={() => handleRestartDay(day.id, { resetTimer: true })}
               >
                 {t('tournamentDays.restartDay')}
               </Button>

@@ -219,6 +219,8 @@
     "qualifyingValuesLabel": "Valores aplicados a todos os dias classificatórios"
   },
   "tournamentDays": {
+    "restarted": "Dia reiniciado.",
+    "reopened": "Dia reaberto.",
     "confirmDeleteMessage": "O dia \"{{name}}\" e todos os seus dados serão removidos. Esta ação não pode ser desfeita.",
     "confirmDeleteTitle": "Excluir dia do torneio?",
     "title": "Dias do Torneio",
