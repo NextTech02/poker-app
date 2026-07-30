@@ -250,6 +250,20 @@
   gap: 0.75rem;
 }
 
+.pl-player-cell-link {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0.15rem 0.35rem;
+  margin: -0.15rem -0.35rem;
+  transition: background 0.15s;
+}
+.pl-player-cell-link:hover {
+  background: rgba(114, 51, 248, 0.08);
+}
+.pl-player-cell-link:hover .pl-player-name {
+  color: var(--brand-green);
+}
+
 .pl-avatar {
   width: 38px;
   height: 38px;
@@ -353,6 +367,17 @@
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
   white-space: nowrap;
+}
+
+.pl-btn-history {
+  background: rgba(114, 51, 248, 0.12);
+  color: var(--brand-green);
+  border: 1px solid rgba(114, 51, 248, 0.2);
+}
+
+.pl-btn-history:hover {
+  background: rgba(114, 51, 248, 0.22);
+  border-color: rgba(114, 51, 248, 0.4);
 }
 
 .pl-btn-edit {

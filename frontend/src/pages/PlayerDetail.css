@@ -1,0 +1,169 @@
+/* Perfil / histórico do jogador — usa os tokens canônicos (paleta AceBlind). */
+
+.pd-empty {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: var(--text-secondary);
+}
+.pd-btn-back {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--brand-green);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ── Cabeçalho ── */
+.pd-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.5rem 0 1.5rem;
+}
+.pd-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--brand-green);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.pd-name { margin: 0; font-size: 1.6rem; color: var(--text); }
+.pd-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.pd-nick { color: var(--brand-green); font-weight: 600; }
+
+/* ── Destaques financeiros ── */
+.pd-finance {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.pd-finance-box {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.pd-finance-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.pd-finance-value { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+.pd-positive { color: var(--brand-green); }
+.pd-negative { color: var(--danger); }
+
+/* ── Grade de métricas ── */
+.pd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.pd-metric {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.pd-metric-value { font-size: 1.35rem; font-weight: 700; color: var(--text); }
+.pd-metric-label { font-size: 0.75rem; color: var(--text-secondary); }
+
+/* ── Histórico ── */
+.pd-history-card {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pd-history-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pd-history-header h2 { margin: 0; font-size: 1.05rem; color: var(--text); }
+.pd-history-count {
+  background: rgba(114, 51, 248, 0.15);
+  color: var(--brand-green);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.pd-history-empty { padding: 2rem 1.25rem; color: var(--text-secondary); text-align: center; }
+
+.pd-table-wrap { overflow-x: auto; }
+.pd-table { width: 100%; border-collapse: collapse; }
+.pd-table th {
+  text-align: left;
+  padding: 0.7rem 1.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  font-weight: 700;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pd-table td {
+  padding: 0.8rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.pd-table tr:last-child td { border-bottom: none; }
+.pd-table .pd-num { text-align: right; }
+.pd-t-cell { display: flex; flex-direction: column; }
+.pd-t-name { font-weight: 600; }
+.pd-t-day { font-size: 0.78rem; color: var(--text-secondary); }
+
+@media (max-width: 720px) {
+  .pd-finance { grid-template-columns: 1fr; }
+  .pd-table thead { display: none; }
+  .pd-table, .pd-table tbody, .pd-table tr, .pd-table td { display: block; width: 100%; }
+  .pd-table tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.5rem 0;
+  }
+  .pd-table td {
+    border: none;
+    padding: 0.35rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    text-align: right;
+  }
+  .pd-table td::before {
+    content: attr(data-label);
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: left;
+  }
+  .pd-table .pd-num { text-align: right; }
+  .pd-t-cell { align-items: flex-end; }
+}

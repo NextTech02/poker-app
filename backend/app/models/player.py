@@ -40,20 +40,54 @@ class Player(PlayerBase):
 
 
 class PlayerStats(BaseModel):
-    """Player statistics from view"""
+    """Player statistics from the player_statistics view (org-scoped via RLS)."""
     id: str
     name: str
     nickname: Optional[str] = None
     tournaments_played: int = 0
+    entries: int = 0            # participações (linhas em tournament_players)
+    days_played: int = 0
     total_buy_ins: int = 0
     total_rebuys: int = 0
     total_addons: int = 0
+    total_buy_in_amount: float = 0.0
+    total_rebuy_amount: float = 0.0
+    total_addon_amount: float = 0.0
     total_spent: float = 0.0
     total_prizes: float = 0.0
     net_profit: float = 0.0
     first_places: int = 0
     top_3_finishes: int = 0
+    itm_count: int = 0          # in the money (nº de premiações)
+    eliminated_count: int = 0
+    best_position: Optional[int] = None
     avg_position: Optional[float] = None
+    first_played: Optional[str] = None
+    last_played: Optional[str] = None
+    win_rate: float = 0.0       # 0..1 — % de 1º lugar
+    itm_rate: float = 0.0       # 0..1 — % de vezes no dinheiro
+    rebuy_rate: float = 0.0     # rebuys por participação
+    roi: float = 0.0            # lucro / investido
+
+    class Config:
+        from_attributes = True
+
+
+class PlayerHistoryEntry(BaseModel):
+    """Uma participação do jogador (linha do histórico)."""
+    tournament_player_id: str
+    tournament_id: Optional[str] = None
+    tournament_name: Optional[str] = None
+    tournament_day_id: Optional[str] = None
+    day_name: Optional[str] = None
+    registered_at: Optional[str] = None
+    status: Optional[str] = None
+    buy_in_count: int = 0
+    rebuy_count: int = 0
+    addon_count: int = 0
+    total_spent: float = 0.0
+    final_position: Optional[int] = None
+    prize_won: float = 0.0
 
     class Config:
         from_attributes = True

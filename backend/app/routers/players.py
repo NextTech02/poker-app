@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
-from app.models.player import PlayerCreate, PlayerUpdate, Player, PlayerStats
+from app.models.player import (
+    PlayerCreate,
+    PlayerUpdate,
+    Player,
+    PlayerStats,
+    PlayerHistoryEntry,
+)
 from app.services.player_service import PlayerService
 from app.auth.jwt import get_current_user
 
@@ -32,6 +38,15 @@ def get_player_statistics(
 ):
     """Get player statistics"""
     return PlayerService.get_player_statistics(player_id)
+
+
+@router.get("/{player_id}/history", response_model=List[PlayerHistoryEntry])
+def get_player_history(
+    player_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get a player's per-tournament participation history"""
+    return PlayerService.get_player_history(player_id)
 
 
 @router.get("/{player_id}", response_model=Player)

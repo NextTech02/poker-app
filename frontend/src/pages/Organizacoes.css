@@ -32,6 +32,13 @@
   color: #9ca3af;
 }
 
+.org-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .org-badge {
   display: inline-block;
   padding: 0.2rem 0.6rem;

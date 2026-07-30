@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
@@ -30,6 +31,7 @@ const EMPTY_FORM = {
 const Players = () => {
   const { toast, confirm } = useToast();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -248,7 +250,14 @@ const Players = () => {
                     return (
                       <tr key={player.id} className="pl-row">
                         <td className="pl-cell-player">
-                          <div className="pl-player-cell">
+                          <div
+                            className="pl-player-cell pl-player-cell-link"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => navigate(`/jogadores/${player.id}`)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/jogadores/${player.id}`); }}
+                            title={t('players.viewHistory', 'Ver histórico')}
+                          >
                             <div className="pl-avatar">
                               {initials}
                             </div>
@@ -295,6 +304,16 @@ const Players = () => {
                         </td>
                         <td className="pl-cell-actions">
                           <div className="pl-actions">
+                            <button
+                              className="pl-btn-icon pl-btn-history"
+                              onClick={() => navigate(`/jogadores/${player.id}`)}
+                              title={t('players.viewHistory', 'Ver histórico')}
+                            >
+                              <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+                                <path d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H6a7 7 0 1 1 7 7 6.97 6.97 0 0 1-4.95-2.05l-1.42 1.42A9 9 0 1 0 13 3zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+                              </svg>
+                              {t('players.history', 'Histórico')}
+                            </button>
                             <button
                               className="pl-btn-icon pl-btn-edit"
                               onClick={() => handleEdit(player)}

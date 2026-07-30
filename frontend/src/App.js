@@ -16,6 +16,7 @@ import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
 import Torneios from './pages/Torneios';
 import Players from './pages/Players';
+import PlayerDetail from './pages/PlayerDetail';
 import Caixa from './pages/Caixa';
 import ComingSoon from './pages/ComingSoon';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -182,6 +183,14 @@ function AppRoutes() {
         element={
           <PrivateRoute permission="players">
             <Players />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/jogadores/:id"
+        element={
+          <PrivateRoute permission="players">
+            <PlayerDetail />
           </PrivateRoute>
         }
       />

@@ -1,6 +1,12 @@
 from typing import List, Optional
 from app.database import supabase
-from app.models.player import PlayerCreate, PlayerUpdate, Player, PlayerStats
+from app.models.player import (
+    PlayerCreate,
+    PlayerUpdate,
+    Player,
+    PlayerStats,
+    PlayerHistoryEntry,
+)
 
 
 class PlayerService:
@@ -71,3 +77,66 @@ class PlayerService:
 
         response = query.execute()
         return [PlayerStats(**item) for item in response.data]
+
+    @staticmethod
+    def get_player_history(player_id: str) -> List[PlayerHistoryEntry]:
+        """Histórico por participação (uma linha por entrada em tournament_players).
+
+        Org-scoped: o backend roda as queries como o usuário (RLS), então só
+        retorna torneios da própria organização. Prêmio por entrada vem de
+        prize_allocations casado por (torneio + posição final) — a tabela não
+        tem tournament_day_id, então o casamento é por posição.
+        """
+        tp_res = (
+            supabase.table("tournament_players")
+            .select(
+                "id, tournament_id, tournament_day_id, registered_at, status, "
+                "buy_in_count, rebuy_count, addon_count, total_spent, final_position, "
+                "tournaments(name), "
+                "tournament_days!tournament_players_tournament_day_id_fkey(day_name, day_number)"
+            )
+            .eq("player_id", player_id)
+            .order("registered_at", desc=True)
+            .execute()
+        )
+        rows = tp_res.data or []
+
+        # Prêmios do jogador (cash), agrupados por (tournament_id, position).
+        prize_res = (
+            supabase.table("prize_allocations")
+            .select("tournament_id, position, prize_amount, prize_type")
+            .eq("player_id", player_id)
+            .execute()
+        )
+        prize_map = {}
+        for pa in (prize_res.data or []):
+            if pa.get("prize_type") not in (None, "cash"):
+                continue
+            key = (pa.get("tournament_id"), pa.get("position"))
+            prize_map[key] = prize_map.get(key, 0.0) + float(pa.get("prize_amount") or 0)
+
+        history: List[PlayerHistoryEntry] = []
+        for r in rows:
+            tour = r.get("tournaments") or {}
+            day = r.get("tournament_days") or {}
+            day_name = day.get("day_name")
+            if not day_name and day.get("day_number") is not None:
+                day_name = f"Dia {day.get('day_number')}"
+            final_pos = r.get("final_position")
+            prize = prize_map.get((r.get("tournament_id"), final_pos), 0.0)
+            history.append(PlayerHistoryEntry(
+                tournament_player_id=r["id"],
+                tournament_id=r.get("tournament_id"),
+                tournament_name=tour.get("name"),
+                tournament_day_id=r.get("tournament_day_id"),
+                day_name=day_name,
+                registered_at=r.get("registered_at"),
+                status=r.get("status"),
+                buy_in_count=r.get("buy_in_count") or 0,
+                rebuy_count=r.get("rebuy_count") or 0,
+                addon_count=r.get("addon_count") or 0,
+                total_spent=float(r.get("total_spent") or 0),
+                final_position=final_pos,
+                prize_won=prize,
+            ))
+        return history

@@ -215,31 +215,33 @@ const Organizacoes = () => {
                     </span>
                   </td>
                   <td>
-                    {o.status !== 'cancelled' && (
-                      <Button
-                        size="small"
-                        variant="secondary"
-                        onClick={() => toggleStatus(o)}
-                        disabled={busyId === o.id}
-                      >
-                        {busyId === o.id
-                          ? t('common.saving')
-                          : o.status === 'active'
-                            ? t('organizations.suspend', 'Suspender')
-                            : t('organizations.reactivate', 'Reativar')}
-                      </Button>
-                    )}
-                    {o.status !== 'active' && (
-                      <Button
-                        size="small"
-                        variant="danger"
-                        onClick={() => removeOrg(o)}
-                        disabled={busyId === o.id}
-                        title={t('organizations.deleteHint', 'Apaga todos os dados desta organização')}
-                      >
-                        {t('organizations.delete', 'Excluir')}
-                      </Button>
-                    )}
+                    <div className="org-actions">
+                      {o.status !== 'cancelled' && (
+                        <Button
+                          size="small"
+                          variant="secondary"
+                          onClick={() => toggleStatus(o)}
+                          disabled={busyId === o.id}
+                        >
+                          {busyId === o.id
+                            ? t('common.saving')
+                            : o.status === 'active'
+                              ? t('organizations.suspend', 'Suspender')
+                              : t('organizations.reactivate', 'Reativar')}
+                        </Button>
+                      )}
+                      {o.status !== 'active' && (
+                        <Button
+                          size="small"
+                          variant="danger"
+                          onClick={() => removeOrg(o)}
+                          disabled={busyId === o.id}
+                          title={t('organizations.deleteHint', 'Apaga todos os dados desta organização')}
+                        >
+                          {t('organizations.delete', 'Excluir')}
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
