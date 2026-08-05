@@ -1,0 +1,149 @@
+/* Painel de exportação de relatórios (Relatórios → Exportar) */
+
+.rex-wrap { display: inline-flex; }
+
+.rex-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--accent-color);
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, transform .05s ease;
+}
+.rex-trigger:hover { background: var(--accent-hover); }
+.rex-trigger:active { transform: translateY(1px); }
+
+/* Overlay + modal */
+.rex-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 14, .62);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: rex-fade .12s ease;
+}
+@keyframes rex-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.rex-modal {
+  width: 100%;
+  max-width: 480px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+  overflow: hidden;
+  animation: rex-pop .15s ease;
+}
+@keyframes rex-pop { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.rex-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.rex-head h3 { margin: 0 0 4px; font-size: 17px; color: var(--text-primary); }
+.rex-head p { margin: 0; font-size: 13px; color: var(--text-secondary); }
+.rex-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 6px;
+}
+.rex-close:hover { color: var(--text-primary); }
+
+.rex-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 22px; }
+
+.rex-field { display: flex; flex-direction: column; gap: 10px; }
+.rex-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Segmented format selector */
+.rex-formats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rex-format {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-color);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.rex-format:hover { border-color: var(--accent-hover); }
+.rex-format.active {
+  border-color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+}
+.rex-format-name { font-size: 14px; font-weight: 700; }
+.rex-format-ext { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.rex-hint { margin: 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
+
+/* Section checkboxes */
+.rex-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rex-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-color);
+  background: var(--secondary-bg);
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  transition: border-color .15s ease, background .15s ease;
+}
+.rex-check.on { border-color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 10%, transparent); }
+.rex-check input { accent-color: var(--accent-color); width: 16px; height: 16px; cursor: pointer; }
+
+.rex-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px 20px;
+  border-top: 1px solid var(--border-color);
+}
+.rex-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background .15s ease, opacity .15s ease;
+}
+.rex-btn:disabled { opacity: .6; cursor: not-allowed; }
+.rex-btn.ghost { background: transparent; border-color: var(--border-color); color: var(--text-secondary); }
+.rex-btn.ghost:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-secondary); }
+.rex-btn.primary { background: var(--accent-color); color: #fff; }
+.rex-btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+@media (max-width: 520px) {
+  .rex-sections { grid-template-columns: 1fr; }
+}

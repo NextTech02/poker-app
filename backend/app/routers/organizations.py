@@ -8,6 +8,7 @@ tudo numa transação (org + grupos + staff admin + moeda + caixa geral + rake +
 formas de pagamento). Assim um cliente nunca nasce pela metade.
 """
 import re
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import httpx
@@ -42,6 +43,7 @@ class OrganizationCreate(BaseModel):
     admin_name: str = Field(..., min_length=2, max_length=120)
     admin_email: EmailStr
     currency: str = Field("BRL", min_length=3, max_length=3)
+    plan: str = Field("free", max_length=30)
 
 
 class OrganizationOut(BaseModel):
@@ -58,17 +60,137 @@ def _slugify(value: str) -> str:
     return re.sub(r"-{2,}", "-", s)[:60] or "org"
 
 
+@router.get("/plans", dependencies=[Depends(require_platform_admin)])
+def list_plans():
+    """Catálogo de planos e seus limites (para o seletor e a exibição)."""
+    return supabase_admin.table("plans").select("*").order("sort_order").execute().data or []
+
+
 @router.get("", dependencies=[Depends(require_platform_admin)])
 def list_organizations():
-    """Lista as organizações com uma contagem básica de uso."""
+    """Lista as organizações com plano, limites e uso básico (usuários)."""
     orgs = supabase_admin.table("organizations").select("*").order("created_at").execute().data or []
     staff = supabase_admin.table("staff").select("organization_id, active").execute().data or []
-    counts: dict = {}
+    total: dict = {}
+    active: dict = {}
     for s in staff:
-        counts[s["organization_id"]] = counts.get(s["organization_id"], 0) + 1
+        oid = s["organization_id"]
+        total[oid] = total.get(oid, 0) + 1
+        if s.get("active"):
+            active[oid] = active.get(oid, 0) + 1
+
+    plans = {p["code"]: p for p in (supabase_admin.table("plans").select("*").execute().data or [])}
     for o in orgs:
-        o["staff_count"] = counts.get(o["id"], 0)
+        p = plans.get(o.get("plan_code")) or {}
+        o["staff_count"] = total.get(o["id"], 0)            # total (drill-down)
+        o["active_users"] = active.get(o["id"], 0)          # ativos (limite)
+        o["plan_name"] = p.get("name")
+        # Limite efetivo de usuários: override por org vence o do plano.
+        o["max_users"] = (
+            o["max_users_override"] if o.get("max_users_override") is not None
+            else p.get("max_users")
+        )
+        o["max_tournaments_month"] = p.get("max_tournaments_month")
+        o["max_tables_tournament"] = p.get("max_tables_tournament")
+        o["max_clients"] = p.get("max_clients")
     return orgs
+
+
+@router.get("/{org_id}/staff", dependencies=[Depends(require_platform_admin)])
+def list_organization_staff(org_id: str):
+    """Lista os funcionários de uma organização, para o platform_admin inspecionar.
+
+    Usa o cliente admin (bypassa RLS): o `StaffService` normal é escopado à org
+    ATIVA do usuário via RLS, então nunca enxergaria os funcionários de outro
+    clube. Aqui a autorização é o `require_platform_admin` — só a NextHub chega.
+    Read-only: gerência (editar/desativar) continua sendo do admin de cada clube.
+    """
+    org = supabase_admin.table("organizations").select("id, name").eq("id", org_id).execute()
+    if not org.data:
+        raise HTTPException(status_code=404, detail="Organização não encontrada.")
+
+    rows = (
+        supabase_admin.table("staff")
+        .select("id, name, email, active, created_at, permission_group_id, permission_groups(name)")
+        .eq("organization_id", org_id)
+        .order("name")
+        .execute()
+        .data
+        or []
+    )
+    staff = []
+    for s in rows:
+        group = s.pop("permission_groups", None) or {}
+        s["permission_group_name"] = group.get("name")
+        staff.append(s)
+    return staff
+
+
+@router.get("/{org_id}/usage", dependencies=[Depends(require_platform_admin)])
+def organization_usage(org_id: str):
+    """Uso atual vs limite: usuários ativos, clientes e torneios do mês."""
+    active_users = len(
+        supabase_admin.table("staff").select("id")
+        .eq("organization_id", org_id).eq("active", True).execute().data or []
+    )
+    clients = (
+        supabase_admin.table("players").select("id", count="exact")
+        .eq("organization_id", org_id).execute().count or 0
+    )
+    month_start = datetime.now(timezone.utc).replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    ).isoformat()
+    tournaments_month = (
+        supabase_admin.table("tournaments").select("id", count="exact")
+        .eq("organization_id", org_id).gte("created_at", month_start).execute().count or 0
+    )
+    return {
+        "active_users": active_users,
+        "clients": clients,
+        "tournaments_month": tournaments_month,
+    }
+
+
+class OrganizationPlanUpdate(BaseModel):
+    plan_code: str = Field(..., max_length=30)
+    max_users_override: Optional[int] = Field(None, ge=0)
+    reset_trial: bool = False
+
+
+@router.patch("/{org_id}/plan", dependencies=[Depends(require_platform_admin)])
+def update_organization_plan(org_id: str, data: OrganizationPlanUpdate):
+    """Muda o plano de uma org (upgrade/downgrade) e o override de usuários.
+
+    Não é retroativo: se o novo limite for menor que o uso atual, os registros
+    existentes ficam — a org apenas não consegue criar mais até regularizar.
+    Trial: ao entrar num plano com trial, recomputa `trial_ends_at`; num plano
+    sem trial, limpa.
+    """
+    org = supabase_admin.table("organizations").select("id, plan_code").eq("id", org_id).execute()
+    if not org.data:
+        raise HTTPException(status_code=404, detail="Organização não encontrada.")
+    plan = supabase_admin.table("plans").select("*").eq("code", data.plan_code).execute()
+    if not plan.data:
+        raise HTTPException(status_code=400, detail=f"Plano '{data.plan_code}' inválido.")
+    p = plan.data[0]
+
+    update = {
+        "plan_code": data.plan_code,
+        "max_users_override": data.max_users_override,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    trial_days = p.get("trial_days")
+    if trial_days is not None:
+        changing_plan = org.data[0].get("plan_code") != data.plan_code
+        if data.reset_trial or changing_plan:
+            update["trial_ends_at"] = (
+                datetime.now(timezone.utc) + timedelta(days=int(trial_days))
+            ).isoformat()
+    else:
+        update["trial_ends_at"] = None  # plano sem trial
+
+    res = supabase_admin.table("organizations").update(update).eq("id", org_id).execute()
+    return (res.data or [{}])[0]
 
 
 class OrganizationStatusUpdate(BaseModel):
@@ -242,6 +364,7 @@ def create_organization(data: OrganizationCreate):
             "p_admin_name": data.admin_name,
             "p_admin_email": data.admin_email,
             "p_currency": data.currency.upper(),
+            "p_plan": data.plan,
         }).execute()
         org_id = result.data if isinstance(result.data, str) else (result.data or [None])[0]
     except Exception as exc:

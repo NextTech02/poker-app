@@ -9,7 +9,7 @@ from app.auth.permissions import forbid_permission
 from app.database.supabase_client import set_request_jwt, reset_request_jwt
 
 logger = logging.getLogger("uvicorn.error")
-from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, organizations
+from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, organizations, loyalty
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
 # API level (the frontend already hides these screens). Non-sangi roles and
@@ -91,7 +91,7 @@ app.add_middleware(CatchAllExceptionMiddleware)
 # Configure CORS (added last → outermost)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    allow_origins=[settings.frontend_url, "http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -122,6 +122,7 @@ app.include_router(chip_consignments.router)
 app.include_router(sync.router)
 app.include_router(public_tv.router)
 app.include_router(organizations.router)
+app.include_router(loyalty.router)
 
 
 @app.exception_handler(httpx.LocalProtocolError)
@@ -137,6 +138,55 @@ async def supabase_connection_error_handler(request: Request, exc: Exception):
         status_code=503,
         content={"detail": "Database connection error. Please retry in a moment."},
     )
+
+
+# Limites de plano (SaaS): as triggers do banco levantam
+# "PLANO_LIMITE_*: <mensagem>" quando uma org tenta passar do limite do plano.
+# Aqui traduzimos isso num 409 amigável — cobre criar usuário/torneio/mesa/
+# cliente num único ponto, sem tocar em cada service. Handlers registrados
+# rodam ANTES do CatchAll (são mais internos), então o 500 genérico não engole.
+from typing import Optional as _Optional
+try:
+    from postgrest.exceptions import APIError as _PostgrestAPIError
+except Exception:  # pragma: no cover - fallback entre versões do postgrest
+    try:
+        from postgrest import APIError as _PostgrestAPIError
+    except Exception:
+        _PostgrestAPIError = None
+
+
+def _plan_limit_detail(exc) -> _Optional[str]:
+    # Preferimos o campo `message` (limpo). str(exc) é o repr do dict do erro e
+    # inclui o próprio `message` de novo — por isso fica por último e cortamos
+    # qualquer "{...}" que venha grudado.
+    for cand in (getattr(exc, "message", None), getattr(exc, "details", None), str(exc)):
+        c = str(cand or "")
+        if "PLANO_LIMITE_" not in c:
+            continue
+        frag = c[c.find("PLANO_LIMITE_"):].split("\n")[0]
+        # remove o repr do dict, se veio junto (fallback via str(exc))
+        for stop in ("  {", " {'", ' {"', "{'", '{"'):
+            i = frag.find(stop)
+            if i != -1:
+                frag = frag[:i]
+        # "PLANO_LIMITE_X: mensagem amigável" -> "mensagem amigável"
+        friendly = frag.split(":", 1)[1] if ":" in frag else frag
+        return friendly.strip().strip("'\"").strip()
+    return None
+
+
+if _PostgrestAPIError is not None:
+    @app.exception_handler(_PostgrestAPIError)
+    async def plan_limit_exception_handler(request: Request, exc):
+        detail = _plan_limit_detail(exc)
+        if detail:
+            return JSONResponse(status_code=409, content={"detail": detail})
+        # Não é limite de plano: mantém o 500 padrão (com CORS via middleware).
+        logger.exception("Postgrest error on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal server error: {type(exc).__name__}: {exc}"},
+        )
 
 
 @app.get("/")

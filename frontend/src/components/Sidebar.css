@@ -39,6 +39,22 @@
   transform: scale(1.02);
 }
 
+/* Logo clicável → leva para o Início */
+.sidebar-logo-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.mobile-logo-link {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
 .selected-stage-sidebar {
   margin-top: 0.75rem;
   padding: 0.5rem 1rem;
@@ -152,7 +168,8 @@
 }
 
 /* Icon definitions */
-.nav-icon[class*="dashboard"]::before {
+.nav-icon[class*="dashboard"]::before,
+.nav-icon[class*="home"]::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' /%3E%3C/svg%3E");
 }
 
@@ -355,30 +372,56 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: 0.4rem 0;
+  padding: 0.55rem 0;
   background: none;
   border: none;
   border-bottom: 1px solid var(--border-color);
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 1rem;
+  transition: background 0.2s ease;
 }
 
 .sidebar-collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
+  background: rgba(114, 51, 248, 0.08);
 }
 
+/* Foco limpo e on-brand (substitui o contorno claro padrão do navegador). */
+.sidebar-collapse-btn:focus { outline: none; }
+.sidebar-collapse-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -3px;
+  border-radius: 4px;
+}
+
+/* A setinha vira um "chip" arredondado — ar mais intencional e profissional. */
 .collapse-arrow {
-  display: inline-block;
-  transition: transform 0.3s ease;
-  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
   font-weight: 700;
+  line-height: 1;
+  transition: transform 0.3s ease, background 0.2s ease,
+              color 0.2s ease, border-color 0.2s ease;
+}
+
+.sidebar-collapse-btn:hover .collapse-arrow {
+  background: rgba(114, 51, 248, 0.18);
+  border-color: var(--accent-color);
+  color: #ffffff;
 }
 
 .collapse-arrow.rotated {
   transform: rotate(180deg);
+}
+.sidebar-collapse-btn:hover .collapse-arrow.rotated {
+  transform: rotate(180deg) scale(1.05);
 }
 
 /* ================================

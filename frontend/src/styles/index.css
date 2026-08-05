@@ -4,13 +4,37 @@
   box-sizing: border-box;
 }
 
-/* Global fix: native <select> dropdown lists render on a white system
-   background. Across the dark theme the option text inherited a light color
-   and became invisible. Force dark text on white for every option list. */
+/* Listas suspensas (<select>) e date/time pickers no tema escuro da marca.
+   `color-scheme: dark` faz o NAVEGADOR desenhar o popup nativo em tema escuro
+   (fundo escuro + texto claro) — o CSS comum não alcança o popup do sistema.
+   `accent-color` tinge o destaque da seleção com o roxo da marca. As regras de
+   option são fallback para navegadores que respeitam a cor das options.
+   (Antes: as options eram forçadas em branco #fff, deixando as listas
+   destoando do tema escuro.) */
+select,
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"],
+input[type="number"] {
+  color-scheme: dark;
+  accent-color: var(--accent-color, #7233f8);
+}
+
+select {
+  cursor: pointer;
+}
+
 select option,
 select optgroup {
-  color: #111;
-  background-color: #fff;
+  background-color: var(--tertiary-bg, #16202e);
+  color: var(--text-primary, #e0eaf4);
+}
+
+select option:checked {
+  background: var(--accent-color, #7233f8);
+  color: #ffffff;
 }
 
 body {
@@ -202,6 +226,19 @@ code {
   gap: var(--spacing-md);
   padding: var(--spacing-lg) var(--spacing-xl);
   border-top: 1px solid var(--border-secondary);
+}
+
+/* Alguns modais colocam o <form> DIRETO no .modal (sem .modal-body), então o
+   conteúdo colava nas bordas. Damos respiro lateral ao form; a barra de ações
+   dentro dele zera o padding lateral para alinhar com os campos. Vale para
+   todos os pop-ups que seguem esse padrão. */
+.modal > form {
+  padding: var(--spacing-lg) var(--spacing-xl) 0;
+}
+.modal > form > .modal-actions,
+.modal > form > .modal-footer {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Professional Form Styles */

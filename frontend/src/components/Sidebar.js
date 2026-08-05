@@ -65,7 +65,7 @@ const Sidebar = () => {
   }, [isOpen, isMobile]);
 
   const allMenuItems = [
-    { path: '/home', labelKey: 'sidebar.periods', icon: 'clock', permission: 'dashboard' },
+    { path: '/home', labelKey: 'sidebar.periods', icon: 'home', permission: 'dashboard' },
     { path: '/etapas', labelKey: 'sidebar.stages', icon: 'calendar', permission: 'stages' },
     {
       type: 'group',
@@ -204,7 +204,9 @@ const Sidebar = () => {
             <span className="hamburger-line"></span>
             <span className="hamburger-line"></span>
           </button>
-          <img src={aceblindLogo} alt="AceBlind" className="mobile-logo" />
+          <Link to="/home" className="mobile-logo-link" aria-label={t('sidebar.goHome', 'Ir para o início')} onClick={() => setIsOpen(false)}>
+            <img src={aceblindLogo} alt="AceBlind" className="mobile-logo" />
+          </Link>
           {selectedStage && (
             <div className="mobile-stage-badge">
               {selectedStage.name}
@@ -221,7 +223,14 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside className={`sidebar ${isMobile ? 'mobile' : ''} ${isOpen ? 'open' : ''} ${!isMobile && isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <img src={aceblindLogo} alt="AceBlind" className="sidebar-logo" />
+          <Link
+            to="/home"
+            className="sidebar-logo-link"
+            aria-label={t('sidebar.goHome', 'Ir para o início')}
+            onClick={() => isMobile && setIsOpen(false)}
+          >
+            <img src={aceblindLogo} alt="AceBlind" className="sidebar-logo" />
+          </Link>
           {selectedStage && !isCollapsed && (
             <div className="selected-stage-sidebar">
               {selectedStage.name}

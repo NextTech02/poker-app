@@ -1,6 +1,14 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional, Literal
 from datetime import datetime
+
+
+def _blank_to_none(v):
+    # Data vem do form como string 'YYYY-MM-DD' (ou '' quando vazia). Mantemos
+    # string (o Postgres aceita para coluna date) e tratamos vazio como null.
+    if v in (None, ""):
+        return None
+    return v
 
 
 class PlayerBase(BaseModel):
@@ -11,7 +19,13 @@ class PlayerBase(BaseModel):
     document_type: Literal['passport', 'national_id', 'driver_license'] = Field(..., description="Type of identification document")
     document_number: str = Field(..., min_length=1, max_length=100, description="Document number (required)")
     nickname: Optional[str] = Field(None, max_length=100, description="Player nickname (optional)")
+    birth_date: Optional[str] = Field(None, description="Birth date 'YYYY-MM-DD' (optional) — loyalty birthday bonus")
     notes: Optional[str] = Field(None, description="Additional notes (optional)")
+
+    @field_validator("birth_date", mode="before")
+    @classmethod
+    def _bd_base(cls, v):
+        return _blank_to_none(v)
 
 
 class PlayerCreate(PlayerBase):
@@ -27,7 +41,13 @@ class PlayerUpdate(BaseModel):
     document_type: Optional[Literal['passport', 'national_id', 'driver_license']] = None
     document_number: Optional[str] = Field(None, max_length=100)
     nickname: Optional[str] = Field(None, max_length=100)
+    birth_date: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("birth_date", mode="before")
+    @classmethod
+    def _bd_upd(cls, v):
+        return _blank_to_none(v)
 
 
 class Player(PlayerBase):
@@ -68,6 +88,8 @@ class PlayerStats(BaseModel):
     itm_rate: float = 0.0       # 0..1 — % de vezes no dinheiro
     rebuy_rate: float = 0.0     # rebuys por participação
     roi: float = 0.0            # lucro / investido
+    final_tables: int = 0       # mesas finais alcançadas (final_position 1..9)
+    hours_played: float = 0.0   # horas jogadas (Σ eliminated_at − registered_at)
 
     class Config:
         from_attributes = True

@@ -1,0 +1,330 @@
+import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { exportSections } from '../utils/reportExport';
+import './ReportExportPanel.css';
+
+// Painel "Exportar" da aba Relatórios.
+// Monta as seções a partir dos dados já na tela (summary) + busca sob demanda
+// o financeiro detalhado (/reports/financial) e, se pedido, a premiação por
+// torneio (/reports/tournament/{id}). Gera CSV / Excel / PDF via reportExport.
+
+const FORMATS = [
+  { id: 'xlsx', ext: '.xlsx' },
+  { id: 'csv', ext: '.csv' },
+  { id: 'pdf', ext: '.pdf' },
+];
+
+// Seções disponíveis. `needsFinancial` = depende de /reports/financial.
+const SECTION_DEFS = [
+  { id: 'summary', needsFinancial: false },
+  { id: 'financial', needsFinancial: true },
+  { id: 'players', needsFinancial: false },
+  { id: 'tournaments', needsFinancial: true },
+  { id: 'transactions', needsFinancial: true },
+  { id: 'prizes', needsFinancial: true, needsTournaments: true },
+];
+
+const typeLabelMap = (t) => ({
+  buy_in: t('reports.buyIns', 'Buy-ins'),
+  rebuy: t('reports.rebuys', 'Rebuys'),
+  addon: t('reports.addons', 'Add-ons'),
+  prize: t('financial.typePrize', 'Prêmio'),
+});
+
+const ReportExportPanel = ({ summary, dateRange }) => {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
+
+  const [open, setOpen] = useState(false);
+  const [format, setFormat] = useState('xlsx');
+  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState({
+    summary: true,
+    financial: true,
+    players: true,
+    tournaments: true,
+    transactions: true,
+    prizes: true,
+  });
+
+  const toggle = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }));
+
+  const secTitle = (id) => t(`reports.export.sec_${id}`, {
+    summary: 'Resumo geral',
+    financial: 'Financeiro (DRE)',
+    players: 'Jogadores',
+    tournaments: 'Torneios',
+    transactions: 'Transações',
+    prizes: 'Premiação',
+  }[id]);
+
+  const buildSections = useCallback((financial, prizesByTournament) => {
+    const sections = [];
+    const s = summary || {};
+
+    if (selected.summary) {
+      const totalBuyIns = s.totalBuyIns || 0;
+      const rebuyRate = totalBuyIns
+        ? ((s.totalRebuys + s.totalAddons) / totalBuyIns) * 100
+        : 0;
+      sections.push({
+        kind: 'keyvalue',
+        title: secTitle('summary'),
+        keyLabel: t('reports.export.metric', 'Métrica'),
+        valueLabel: t('reports.export.value', 'Valor'),
+        rows: [
+          { label: t('reports.period', 'Período'), value: `${dateRange.start} — ${dateRange.end}`, type: 'text' },
+          { label: t('reports.totalRevenue', 'Receita Total'), value: s.totalRevenue, type: 'currency' },
+          { label: t('reports.totalTournaments', 'Total de Torneios'), value: s.totalTournaments, type: 'int' },
+          { label: t('reports.totalEntries', 'Total de Entradas'), value: s.totalPlayers, type: 'int' },
+          { label: t('reports.avgTicket', 'Ticket Médio'), value: s.avgBuyIn, type: 'currency' },
+          { label: t('cashRegister.totalBuyIns', 'Total Buy-ins'), value: s.totalBuyIns, type: 'int' },
+          { label: t('cashRegister.totalRebuys', 'Total Rebuys'), value: s.totalRebuys, type: 'int' },
+          { label: t('cashRegister.totalAddons', 'Total Add-ons'), value: s.totalAddons, type: 'int' },
+          { label: t('reports.rebuyRate', 'Taxa de Rebuy/Add-on'), value: rebuyRate, type: 'percent' },
+        ],
+      });
+    }
+
+    if (selected.financial && financial) {
+      const rev = financial.revenue || {};
+      sections.push({
+        kind: 'keyvalue',
+        title: secTitle('financial'),
+        keyLabel: t('reports.export.metric', 'Métrica'),
+        valueLabel: t('reports.export.value', 'Valor'),
+        rows: [
+          { label: t('financial.revenueBuyIns', 'Receita Buy-ins'), value: rev.buy_ins, type: 'currency' },
+          { label: t('financial.revenueRebuys', 'Receita Rebuys'), value: rev.rebuys, type: 'currency' },
+          { label: t('financial.revenueAddons', 'Receita Add-ons'), value: rev.addons, type: 'currency' },
+          { label: t('financial.grossRevenue', 'Receita Bruta'), value: financial.gross_revenue, type: 'currency' },
+          { label: t('financial.ticketsRedeemed', 'Tickets Resgatados'), value: financial.tickets_redeemed_value, type: 'currency' },
+          { label: t('financial.prizes', 'Prêmios'), value: financial.prizes, type: 'currency' },
+          { label: t('financial.operationalResult', 'Resultado Operacional'), value: financial.operational_result, type: 'currency' },
+          { label: t('financial.rake', 'Rake'), value: financial.rake, type: 'currency' },
+          { label: t('financial.netResult', 'Resultado Líquido'), value: financial.net_result, type: 'currency' },
+          { label: t('financial.pendingCredits', 'Créditos Pendentes'), value: financial.pending_credits, type: 'currency' },
+          { label: t('financial.availableTickets', 'Tickets Disponíveis'), value: financial.available_tickets, type: 'int' },
+        ],
+      });
+    }
+
+    if (selected.players) {
+      sections.push({
+        kind: 'table',
+        title: secTitle('players'),
+        columns: [
+          { key: 'player_name', label: t('players.columnPlayer', 'Jogador'), type: 'text' },
+          { key: 'total_entries', label: t('reports.totalEntries', 'Entradas'), type: 'int' },
+          { key: 'buy_ins', label: t('reports.buyIns', 'Buy-ins'), type: 'int' },
+          { key: 'rebuys', label: t('reports.rebuys', 'Rebuys'), type: 'int' },
+          { key: 'addons', label: t('reports.addons', 'Add-ons'), type: 'int' },
+          { key: 'total_spent', label: t('cashRegister.totalGeneral', 'Total Gasto'), type: 'currency' },
+        ],
+        rows: s.playerReports || [],
+      });
+    }
+
+    if (selected.tournaments && financial) {
+      sections.push({
+        kind: 'table',
+        title: secTitle('tournaments'),
+        columns: [
+          { key: 'tournament_name', label: t('financial.tournament', 'Torneio'), type: 'text' },
+          { key: 'players', label: t('tournamentReport.players', 'Jogadores'), type: 'int' },
+          { key: 'buy_ins_count', label: t('reports.buyIns', 'Buy-ins'), type: 'int' },
+          { key: 'rebuys_count', label: t('reports.rebuys', 'Rebuys'), type: 'int' },
+          { key: 'addons_count', label: t('reports.addons', 'Add-ons'), type: 'int' },
+          { key: 'revenue', label: t('tournamentReport.revenue', 'Receita'), type: 'currency' },
+          { key: 'prizes', label: t('financial.prizes', 'Prêmios'), type: 'currency' },
+          { key: 'net', label: t('financial.net', 'Líquido'), type: 'currency' },
+        ],
+        rows: financial.by_tournament || [],
+      });
+    }
+
+    if (selected.transactions && financial) {
+      const tl = typeLabelMap(t);
+      sections.push({
+        kind: 'table',
+        title: secTitle('transactions'),
+        columns: [
+          { key: 'created_at', label: t('common.date', 'Data'), type: 'date' },
+          { key: 'tournament_name', label: t('financial.tournament', 'Torneio'), type: 'text' },
+          { key: 'player_name', label: t('players.columnPlayer', 'Jogador'), type: 'text' },
+          { key: 'type', label: t('financial.type', 'Tipo'), type: 'text' },
+          { key: 'payment_method', label: t('financial.paymentMethod', 'Forma de Pgto'), type: 'text' },
+          { key: 'amount', label: t('financial.amount', 'Valor'), type: 'currency' },
+        ],
+        rows: (financial.transactions || []).map((tx) => ({
+          ...tx,
+          type: tl[tx.type] || tx.type,
+          payment_method: tx.payment_method || tx.payment_source || '—',
+        })),
+      });
+    }
+
+    if (selected.prizes && prizesByTournament && prizesByTournament.length) {
+      sections.push({
+        kind: 'table',
+        title: secTitle('prizes'),
+        columns: [
+          { key: 'tournament_name', label: t('financial.tournament', 'Torneio'), type: 'text' },
+          { key: 'position', label: t('tournamentReport.position', 'Posição'), type: 'int' },
+          { key: 'prize_type', label: t('tournamentReport.type', 'Tipo'), type: 'text' },
+          { key: 'player_name', label: t('tournamentReport.player', 'Jogador'), type: 'text' },
+          { key: 'prize_amount', label: t('tournamentReport.amount', 'Valor'), type: 'currency' },
+          { key: 'released', label: t('tournamentReport.released', 'Liberado'), type: 'text' },
+          { key: 'paid', label: t('tournamentReport.paid', 'Pago'), type: 'text' },
+        ],
+        rows: prizesByTournament,
+      });
+    }
+
+    return sections;
+  }, [summary, selected, dateRange, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleExport = async () => {
+    const chosen = SECTION_DEFS.filter((d) => selected[d.id]);
+    if (!chosen.length) {
+      toast.error(t('reports.export.noneSelected', 'Selecione pelo menos uma seção'));
+      return;
+    }
+    setBusy(true);
+    try {
+      // Busca o financeiro só se alguma seção precisar.
+      let financial = null;
+      if (chosen.some((d) => d.needsFinancial)) {
+        const res = await api.get('/reports/financial', { params: dateRange });
+        financial = res.data;
+      }
+
+      // Premiação: 1 chamada por torneio do período (resiliente a falhas).
+      let prizesByTournament = [];
+      if (selected.prizes && financial && (financial.by_tournament || []).length) {
+        const results = await Promise.allSettled(
+          financial.by_tournament.map((bt) =>
+            api.get(`/reports/tournament/${bt.tournament_id}`).then((r) => ({ bt, data: r.data }))
+          )
+        );
+        results.forEach((r) => {
+          if (r.status !== 'fulfilled') return;
+          const { bt, data } = r.value;
+          (data.prizes || []).forEach((p) => {
+            prizesByTournament.push({
+              tournament_name: bt.tournament_name,
+              position: p.position,
+              prize_type: p.prize_type === 'vaga'
+                ? t('tournamentReport.seatPrize', 'Vaga')
+                : t('tournamentReport.cashPrize', 'Dinheiro'),
+              player_name: p.player_name || '—',
+              prize_amount: p.prize_amount,
+              released: p.released ? '✓' : '—',
+              paid: p.paid ? '✓' : '—',
+            });
+          });
+        });
+      }
+
+      const sections = buildSections(financial, prizesByTournament);
+      const filename = `relatorio_${dateRange.start}_a_${dateRange.end}`;
+      await exportSections(sections, {
+        format,
+        filename,
+        formatCurrency,
+        meta: {
+          title: t('reports.export.docTitle', 'Relatório de Torneios'),
+          subtitle: `${t('reports.period', 'Período')}: ${dateRange.start} — ${dateRange.end}`,
+          footer: t('reports.export.docTitle', 'Relatório de Torneios'),
+          brandRgb: [114, 51, 248],
+        },
+      });
+
+      toast.success(t('reports.export.success', 'Relatório exportado'));
+      setOpen(false);
+    } catch (err) {
+      const msg = err?.message === 'no-sections'
+        ? t('reports.export.noneSelected', 'Selecione pelo menos uma seção')
+        : t('reports.export.error', 'Falha ao exportar. Tente novamente.');
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rex-wrap">
+      <button className="rex-trigger" onClick={() => setOpen(true)} type="button">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+        </svg>
+        {t('reports.export.button', 'Exportar')}
+      </button>
+
+      {open && (
+        <div className="rex-overlay" onClick={() => !busy && setOpen(false)}>
+          <div className="rex-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="rex-head">
+              <div>
+                <h3>{t('reports.export.title', 'Exportar relatórios')}</h3>
+                <p>{t('reports.export.subtitle', 'Escolha o formato e o que incluir na análise')}</p>
+              </div>
+              <button className="rex-close" onClick={() => !busy && setOpen(false)} aria-label={t('common.close', 'Fechar')} type="button">×</button>
+            </div>
+
+            <div className="rex-body">
+              <div className="rex-field">
+                <label className="rex-label">{t('reports.export.format', 'Formato')}</label>
+                <div className="rex-formats">
+                  {FORMATS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`rex-format ${format === f.id ? 'active' : ''}`}
+                      onClick={() => setFormat(f.id)}
+                    >
+                      <span className="rex-format-name">{t(`reports.export.fmt_${f.id}`, f.id.toUpperCase())}</span>
+                      <span className="rex-format-ext">{f.ext}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="rex-hint">
+                  {format === 'xlsx' && t('reports.export.hintXlsx', 'Uma planilha com várias abas — ideal para análise em Excel, Sheets ou Power BI.')}
+                  {format === 'csv' && t('reports.export.hintCsv', 'Arquivo único com todas as seções empilhadas (UTF-8).')}
+                  {format === 'pdf' && t('reports.export.hintPdf', 'Documento formatado com a marca — para apresentação/impressão.')}
+                </p>
+              </div>
+
+              <div className="rex-field">
+                <label className="rex-label">{t('reports.export.include', 'Incluir no arquivo')}</label>
+                <div className="rex-sections">
+                  {SECTION_DEFS.map((d) => (
+                    <label key={d.id} className={`rex-check ${selected[d.id] ? 'on' : ''}`}>
+                      <input type="checkbox" checked={!!selected[d.id]} onChange={() => toggle(d.id)} />
+                      <span>{secTitle(d.id)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rex-foot">
+              <button className="rex-btn ghost" onClick={() => !busy && setOpen(false)} type="button" disabled={busy}>
+                {t('common.cancel', 'Cancelar')}
+              </button>
+              <button className="rex-btn primary" onClick={handleExport} type="button" disabled={busy}>
+                {busy ? t('reports.export.gathering', 'Preparando…') : t('reports.export.run', 'Exportar')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ReportExportPanel;

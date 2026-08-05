@@ -25,17 +25,31 @@ const Organizacoes = () => {
   const { isPlatformAdmin, loading: permLoading } = usePermissions();
   const [busyId, setBusyId] = useState(null);
 
+  // Drill-down de funcionários por organização (carregado sob demanda).
+  const [expandedOrg, setExpandedOrg] = useState(null);
+  const [staffByOrg, setStaffByOrg] = useState({});
+  const [staffLoading, setStaffLoading] = useState(null);
+
   const [orgs, setOrgs] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', admin_name: '', admin_email: '', currency: 'BRL' });
+  const [form, setForm] = useState({ name: '', admin_name: '', admin_email: '', currency: 'BRL', plan: 'free' });
   const [errors, setErrors] = useState({});
+
+  // Modal de mudança de plano.
+  const [planModal, setPlanModal] = useState(null); // { org, plan_code, max_users_override }
+  const [savingPlan, setSavingPlan] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const res = await api.get('/organizations');
-      setOrgs(res.data || []);
+      const [orgRes, planRes] = await Promise.all([
+        api.get('/organizations'),
+        api.get('/organizations/plans').catch(() => ({ data: [] })),
+      ]);
+      setOrgs(orgRes.data || []);
+      setPlans(planRes.data || []);
     } catch (err) {
       if (err.response?.status !== 403) {
         toast.error(t('organizations.errorLoad', 'Erro ao carregar organizações'));
@@ -49,6 +63,64 @@ const Organizacoes = () => {
     if (!permLoading && isPlatformAdmin) load();
     else if (!permLoading) setLoading(false);
   }, [permLoading, isPlatformAdmin, load]);
+
+  /** Abre/fecha a lista de funcionários de uma organização, buscando sob
+   *  demanda na 1ª vez (cache em staffByOrg). */
+  const toggleStaff = async (org) => {
+    if (expandedOrg === org.id) {
+      setExpandedOrg(null);
+      return;
+    }
+    setExpandedOrg(org.id);
+    if (staffByOrg[org.id]) return; // já em cache
+    setStaffLoading(org.id);
+    try {
+      const res = await api.get(`/organizations/${org.id}/staff`);
+      setStaffByOrg((prev) => ({ ...prev, [org.id]: res.data || [] }));
+    } catch (err) {
+      toast.error(err.userMessage || t('organizations.errorLoadStaff', 'Erro ao carregar funcionários'));
+      setExpandedOrg(null);
+    } finally {
+      setStaffLoading(null);
+    }
+  };
+
+  /** Salva a mudança de plano / override de usuários de uma org. */
+  const savePlan = async () => {
+    if (!planModal) return;
+    setSavingPlan(true);
+    try {
+      const body = {
+        plan_code: planModal.plan_code,
+        max_users_override:
+          planModal.max_users_override === '' || planModal.max_users_override == null
+            ? null
+            : Number(planModal.max_users_override),
+      };
+      const res = await api.patch(`/organizations/${planModal.org.id}/plan`, body);
+      const updated = res.data || {};
+      // Recarrega para trazer limites/trial recalculados do backend.
+      setPlanModal(null);
+      toast.success(t('organizations.planUpdated', 'Plano atualizado.'));
+      setLoading(true);
+      load();
+      return updated;
+    } catch (err) {
+      toast.error(err.userMessage || t('organizations.errorPlan', 'Erro ao alterar o plano'));
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  // "∞" quando o limite é ilimitado (null).
+  const fmtLimit = (v) => (v == null ? '∞' : v);
+
+  // Dias restantes do trial (ou null se não houver trial).
+  const trialDaysLeft = (org) => {
+    if (!org.trial_ends_at) return null;
+    const ms = new Date(org.trial_ends_at).getTime() - Date.now();
+    return Math.ceil(ms / 86400000);
+  };
 
   /** Suspender/reativar corta ou devolve o acesso de TODOS os usuários do clube
    *  imediatamente (o RLS deixa de enxergar a organização). Por isso confirma. */
@@ -139,7 +211,7 @@ const Organizacoes = () => {
         toast.success(t('organizations.created', 'Organização criada. Convite enviado para {{email}}.', { email: form.admin_email }));
       }
       setShowForm(false);
-      setForm({ name: '', admin_name: '', admin_email: '', currency: 'BRL' });
+      setForm({ name: '', admin_name: '', admin_email: '', currency: 'BRL', plan: 'free' });
       setLoading(true);
       load();
     } catch (err) {
@@ -185,6 +257,7 @@ const Organizacoes = () => {
               <tr>
                 <th>{t('organizations.colName', 'Organização')}</th>
                 <th>{t('organizations.colSlug', 'Identificador')}</th>
+                <th>{t('organizations.colPlan', 'Plano')}</th>
                 <th>{t('organizations.colStaff', 'Funcionários')}</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.actions')}</th>
@@ -192,19 +265,49 @@ const Organizacoes = () => {
             </thead>
             <tbody>
               {loading ? (
-                <SkeletonTableRow columns={5} rows={3} />
+                <SkeletonTableRow columns={6} rows={3} />
               ) : orgs.length === 0 ? (
-                <tr><td colSpan={5}>
+                <tr><td colSpan={6}>
                   <EmptyState
                     title={t('organizations.emptyTitle', 'Nenhuma organização')}
                     description={t('organizations.emptyDesc', 'Cadastre o primeiro clube para começar.')}
                   />
                 </td></tr>
               ) : orgs.map((o) => (
-                <tr key={o.id}>
+                <React.Fragment key={o.id}>
+                <tr>
                   <td className="org-name">{o.name}</td>
                   <td><code>{o.slug}</code></td>
-                  <td>{o.staff_count ?? 0}</td>
+                  <td>
+                    <span className={`org-plan-badge plan-${o.plan_code}`}>{o.plan_name || o.plan_code}</span>
+                    {trialDaysLeft(o) != null && (
+                      <div className={`org-trial ${trialDaysLeft(o) <= 0 ? 'expired' : trialDaysLeft(o) <= 7 ? 'soon' : ''}`}>
+                        {trialDaysLeft(o) > 0
+                          ? t('organizations.trialLeft', 'Trial: {{n}}d', { n: trialDaysLeft(o) })
+                          : t('organizations.trialExpired', 'Trial expirado')}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <div className="org-staff-cell">
+                      <button
+                        type="button"
+                        className="org-staff-toggle"
+                        onClick={() => toggleStaff(o)}
+                        aria-expanded={expandedOrg === o.id}
+                        title={t('organizations.viewStaff', 'Ver funcionários')}
+                      >
+                        <span className={`org-staff-chevron ${expandedOrg === o.id ? 'open' : ''}`}>▸</span>
+                        <span className="org-staff-count">{o.staff_count ?? 0}</span>
+                      </button>
+                      <span
+                        className={`org-usage ${o.max_users != null && (o.active_users ?? 0) >= o.max_users ? 'at-limit' : ''}`}
+                        title={t('organizations.usageHint', 'Usuários ativos / limite do plano')}
+                      >
+                        {o.active_users ?? 0}/{fmtLimit(o.max_users)}
+                      </span>
+                    </div>
+                  </td>
                   <td>
                     <span className={`org-badge ${o.status}`}>
                       {o.status === 'active'
@@ -216,6 +319,15 @@ const Organizacoes = () => {
                   </td>
                   <td>
                     <div className="org-actions">
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onClick={() => setPlanModal({ org: o, plan_code: o.plan_code, max_users_override: o.max_users_override ?? '' })}
+                        disabled={busyId === o.id}
+                        title={t('organizations.changePlan', 'Alterar plano')}
+                      >
+                        {t('organizations.plan', 'Plano')}
+                      </Button>
                       {o.status !== 'cancelled' && (
                         <Button
                           size="small"
@@ -244,6 +356,49 @@ const Organizacoes = () => {
                     </div>
                   </td>
                 </tr>
+                {expandedOrg === o.id && (
+                  <tr className="org-staff-row">
+                    <td colSpan={6}>
+                      {staffLoading === o.id ? (
+                        <div className="org-staff-loading">{t('common.loading', 'Carregando...')}</div>
+                      ) : (staffByOrg[o.id] || []).length === 0 ? (
+                        <div className="org-staff-empty">
+                          {t('organizations.noStaff', 'Nenhum funcionário cadastrado nesta organização.')}
+                        </div>
+                      ) : (
+                        <div className="org-staff-wrap">
+                          <table className="org-staff-table">
+                            <thead>
+                              <tr>
+                                <th>{t('staff.name', 'Nome')}</th>
+                                <th>{t('staff.email', 'E-mail')}</th>
+                                <th>{t('organizations.staffRole', 'Função')}</th>
+                                <th>{t('common.status', 'Status')}</th>
+                                <th>{t('organizations.staffSince', 'Desde')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(staffByOrg[o.id] || []).map((s) => (
+                                <tr key={s.id}>
+                                  <td className="org-staff-name">{s.name}</td>
+                                  <td>{s.email}</td>
+                                  <td>{s.permission_group_name || <span className="org-staff-nogroup">—</span>}</td>
+                                  <td>
+                                    <span className={`org-staff-badge ${s.active ? 'active' : 'inactive'}`}>
+                                      {s.active ? t('common.active', 'Ativo') : t('organizations.staffInactive', 'Inativo')}
+                                    </span>
+                                  </td>
+                                  <td>{s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -284,6 +439,30 @@ const Organizacoes = () => {
                     ))}
                   </select>
                 </div>
+                <div className="org-field">
+                  <label>{t('organizations.plan', 'Plano')}</label>
+                  <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })}>
+                    {(plans.length ? plans : [
+                      { code: 'free', name: 'Free' }, { code: 'standard', name: 'Standard' },
+                      { code: 'pro', name: 'Pro' }, { code: 'premium', name: 'Premium' },
+                    ]).map((p) => (
+                      <option key={p.code} value={p.code}>{p.name}</option>
+                    ))}
+                  </select>
+                  {(() => {
+                    const p = plans.find((x) => x.code === form.plan);
+                    if (!p) return null;
+                    return (
+                      <span className="org-plan-hint">
+                        {t('organizations.planLimits', 'Usuários {{u}} · Torneios/mês {{t}} · Mesas {{m}} · Clientes {{c}}', {
+                          u: fmtLimit(p.max_users), t: fmtLimit(p.max_tournaments_month),
+                          m: fmtLimit(p.max_tables_tournament), c: fmtLimit(p.max_clients),
+                        })}
+                        {p.trial_days ? ` · ${t('organizations.planTrial', 'Trial {{d}}d', { d: p.trial_days })}` : ''}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div className="org-modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowForm(false)} disabled={saving}>
                     {t('common.cancel')}
@@ -296,6 +475,64 @@ const Organizacoes = () => {
             </div>
           </div>
         )}
+
+        {planModal && (() => {
+          const p = (plans.find((x) => x.code === planModal.plan_code)) || {};
+          return (
+            <div className="org-modal-overlay" onClick={() => !savingPlan && setPlanModal(null)}>
+              <div className="org-modal" onClick={(e) => e.stopPropagation()}>
+                <h2>{t('organizations.changePlanTitle', 'Alterar plano')}</h2>
+                <p className="org-modal-hint">
+                  {t('organizations.changePlanHint', 'Muda o plano de "{{name}}". Não remove dados existentes — apenas ajusta os limites daqui pra frente.', { name: planModal.org.name })}
+                </p>
+                <div className="org-field">
+                  <label>{t('organizations.plan', 'Plano')}</label>
+                  <select
+                    value={planModal.plan_code}
+                    onChange={(e) => setPlanModal({ ...planModal, plan_code: e.target.value })}
+                  >
+                    {(plans.length ? plans : [
+                      { code: 'free', name: 'Free' }, { code: 'standard', name: 'Standard' },
+                      { code: 'pro', name: 'Pro' }, { code: 'premium', name: 'Premium' },
+                    ]).map((pl) => (
+                      <option key={pl.code} value={pl.code}>{pl.name}</option>
+                    ))}
+                  </select>
+                  {p.code && (
+                    <span className="org-plan-hint">
+                      {t('organizations.planLimits', 'Usuários {{u}} · Torneios/mês {{t}} · Mesas {{m}} · Clientes {{c}}', {
+                        u: fmtLimit(p.max_users), t: fmtLimit(p.max_tournaments_month),
+                        m: fmtLimit(p.max_tables_tournament), c: fmtLimit(p.max_clients),
+                      })}
+                      {p.trial_days ? ` · ${t('organizations.planTrial', 'Trial {{d}}d', { d: p.trial_days })}` : ''}
+                    </span>
+                  )}
+                </div>
+                <div className="org-field">
+                  <label>{t('organizations.userOverride', 'Limite de usuários (override)')}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={planModal.max_users_override}
+                    onChange={(e) => setPlanModal({ ...planModal, max_users_override: e.target.value })}
+                    placeholder={t('organizations.userOverridePlaceholder', 'Deixe vazio para usar o limite do plano')}
+                  />
+                  <span className="org-plan-hint">
+                    {t('organizations.userOverrideHint', 'Opcional. Use para acordos Premium/personalizados — vence o limite do plano.')}
+                  </span>
+                </div>
+                <div className="org-modal-actions">
+                  <Button type="button" variant="secondary" onClick={() => setPlanModal(null)} disabled={savingPlan}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button type="button" onClick={savePlan} disabled={savingPlan}>
+                    {savingPlan ? t('common.saving') : t('organizations.savePlan', 'Salvar plano')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </main>
     </div>
   );

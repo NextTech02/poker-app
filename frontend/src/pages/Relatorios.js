@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
+import ReportExportPanel from '../components/ReportExportPanel';
 import { SkeletonStatCard } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
@@ -79,6 +80,9 @@ const Relatorios = () => {
               <h1 className="rl-title">{t('reports.title', 'Relatórios')}</h1>
               <p className="rl-subtitle">{t('reports.subtitle', 'Análise de desempenho e estatísticas')}</p>
             </div>
+          </div>
+          <div className="rl-header-actions">
+            <ReportExportPanel summary={reports} dateRange={dateRange} />
           </div>
         </div>
 

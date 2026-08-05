@@ -51,6 +51,142 @@
 .org-badge.suspended { background: rgba(234, 179, 8, 0.15);  color: #eab308; }
 .org-badge.cancelled { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
 
+/* ── Plano / uso ── */
+.org-plan-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+.org-plan-badge.plan-free     { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+.org-plan-badge.plan-standard { background: rgba(56, 189, 248, 0.15);  color: #38bdf8; }
+.org-plan-badge.plan-pro      { background: rgba(114, 51, 248, 0.18);  color: #9a70f9; }
+.org-plan-badge.plan-premium  { background: rgba(201, 154, 58, 0.18);  color: #d9b45f; }
+
+.org-trial {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #9ca3af;
+}
+.org-trial.soon    { color: #eab308; }
+.org-trial.expired { color: #ef4444; }
+
+.org-staff-cell { display: flex; align-items: center; gap: 0.6rem; }
+.org-usage {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.org-usage.at-limit { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
+
+.org-plan-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+/* ── Drill-down de funcionários ── */
+.org-staff-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.org-staff-toggle:hover { background: rgba(114, 51, 248, 0.12); color: #fff; }
+
+.org-staff-chevron {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: #7233f8;
+  transition: transform 0.18s ease;
+}
+.org-staff-chevron.open { transform: rotate(90deg); }
+
+.org-staff-count { font-variant-numeric: tabular-nums; }
+
+.org-staff-row td {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0 !important;
+}
+
+.org-staff-loading,
+.org-staff-empty {
+  padding: 1rem 1.25rem;
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.org-staff-wrap { padding: 0.5rem 1.25rem 1rem; overflow-x: auto; }
+
+.org-staff-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.org-staff-table th {
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.45);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.org-staff-table td {
+  padding: 0.6rem 0.85rem;
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.82);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.org-staff-table tr:last-child td { border-bottom: none; }
+.org-staff-name { font-weight: 600; color: #fff; }
+.org-staff-nogroup { color: #6b7280; }
+
+.org-staff-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.org-staff-badge.active   { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.org-staff-badge.inactive { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+
+/* No mobile, a media query base transforma td em block; preservar a tabela
+   aninhada de funcionários como tabela de verdade. */
+@media (max-width: 560px) {
+  .org-staff-table { display: table; width: 100%; }
+  .org-staff-table thead { display: table-header-group; }
+  .org-staff-table tbody { display: table-row-group; }
+  .org-staff-table tr { display: table-row; }
+  .org-staff-table th,
+  .org-staff-table td { display: table-cell; width: auto; }
+}
+
 /* ── Modal ── */
 .org-modal-overlay {
   position: fixed;

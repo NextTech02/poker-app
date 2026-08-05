@@ -40,9 +40,14 @@
   border-color: #14b8a6;
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
 }
-/* Native option lists render on white — force dark text so they're legible */
+/* Listas de options no tema escuro (o `color-scheme: dark` global cuida da
+   legibilidade; aqui só reforçamos as cores). Antes forçava branco (#fff),
+   o que vazava para TODOS os modais do site (não era escopado). */
 .reserved-purpose-select option,
-.modal .form-group select option { color: #111; background: #fff; }
+.modal .form-group select option {
+  color: var(--text-primary, #e0eaf4);
+  background: var(--secondary-bg, #0e1620);
+}
 
 /* Reserved card: teal accent on the % input (overrides the gold default) */
 .reserved-card .input-with-prefix:focus-within {

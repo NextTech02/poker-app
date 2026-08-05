@@ -31,14 +31,16 @@ const Caixa = () => {
     c === 'rebuy' ? t('cashRegister.rebuy', 'Rebuy') : c === 'addon' ? t('cashRegister.addon', 'Add-on') : t('cashRegister.buyIn', 'Buy-in');
 
   // Ao escolher um tipo de buy, ele define a categoria (type) e o rake. O VALOR
-  // da entrada vem da configuração do dia do torneio, não do tipo.
+  // da entrada vem da configuração do dia do torneio, não do tipo. O tipo de buy
+  // é a fonte única da categoria — por isso o select "Tipo" só aparece quando
+  // NÃO há buy types configurados (fallback). No "Manual", assume buy_in.
   const handleBuyTypeChange = (e) => {
     const id = e.target.value;
     const bt = activeBuyTypes.find((b) => b.id === id);
     if (bt) {
       setFormData((prev) => ({ ...prev, buy_type_id: id, type: bt.category }));
     } else {
-      setFormData((prev) => ({ ...prev, buy_type_id: '' }));
+      setFormData((prev) => ({ ...prev, buy_type_id: '', type: 'buy_in' }));
     }
   };
   const [transactions, setTransactions] = useState([]);
@@ -831,7 +833,10 @@ const Caixa = () => {
                   </div>
                 )}
 
-                <div className="form-row">
+                {/* "Tipo" (categoria) é derivado do Tipo de Buy quando há buy
+                    types configurados — então só mostramos este select como
+                    fallback, quando não há nenhum buy type para escolher. */}
+                {activeBuyTypes.length === 0 && (
                   <div className="form-group">
                     <label htmlFor="type">{t('cashRegister.type')}</label>
                     <select
@@ -846,20 +851,20 @@ const Caixa = () => {
                       <option value="addon">{t('cashRegister.addon')}</option>
                     </select>
                   </div>
+                )}
 
-                  <div className="form-group">
-                    <label htmlFor="amount">{t('cashRegister.amount')}</label>
-                    <input
-                      id="amount"
-                      name="amount"
-                      type="number"
-                      step="0.01"
-                      value={formData.amount}
-                      onChange={handleChange}
-                      required
-                      placeholder="0.00"
-                    />
-                  </div>
+                <div className="form-group">
+                  <label htmlFor="amount">{t('cashRegister.amount')}</label>
+                  <input
+                    id="amount"
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={handleChange}
+                    required
+                    placeholder="0.00"
+                  />
                 </div>
 
                 {formData.type === 'rebuy' && (

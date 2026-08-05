@@ -25,7 +25,7 @@ const getInitials = (name = '') =>
 
 const EMPTY_FORM = {
   name: '', email: '', phone: '', nationality: '',
-  document_type: 'national_id', document_number: '', nickname: '', notes: '',
+  document_type: 'national_id', document_number: '', nickname: '', birth_date: '', notes: '',
 };
 
 const Players = () => {
@@ -116,6 +116,7 @@ const Players = () => {
       document_type: player.document_type || 'national_id',
       document_number: player.document_number || '',
       nickname: player.nickname || '',
+      birth_date: player.birth_date || '',
       notes: player.notes || '',
     });
     setFormError('');
@@ -383,6 +384,14 @@ const Players = () => {
                     id="nickname" name="nickname" type="text"
                     value={formData.nickname} onChange={handleChange}
                     placeholder={t('players.nicknamePlaceholder')}
+                  />
+                </div>
+
+                <div className="pl-field pl-field-full">
+                  <label htmlFor="birth_date">{t('players.birthDate', 'Data de nascimento')}</label>
+                  <input
+                    id="birth_date" name="birth_date" type="date"
+                    value={formData.birth_date} onChange={handleChange}
                   />
                 </div>
 
