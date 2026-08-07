@@ -315,7 +315,10 @@ def create_organization(data: OrganizationCreate):
             json={
                 "email": data.admin_email,
                 "data": {"organization_name": data.name},
-                "redirect_to": settings.frontend_url.rstrip("/") + "/login",
+                # O convite leva para a tela onde o dono DEFINE a própria senha.
+                # Apontar para /login fazia o link autenticar direto (a sessão
+                # vem no fragmento da URL), sem o cliente escolher a senha.
+                "redirect_to": settings.frontend_url.rstrip("/") + "/definir-senha",
             },
             timeout=20,
         )

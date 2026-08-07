@@ -68,6 +68,23 @@
     "reports": "Relatórios",
     "logout": "Sair"
   },
+  "setPassword": {
+    "title": "Bem-vindo! Defina sua senha",
+    "subtitle": "Escolha uma senha para acessar sua conta.",
+    "subtitleEmail": "Você está criando o acesso de {{email}}.",
+    "newPassword": "Nova senha",
+    "newPasswordPlaceholder": "Mínimo de 8 caracteres",
+    "confirmPassword": "Confirme a senha",
+    "confirmPasswordPlaceholder": "Repita a senha",
+    "submit": "Definir senha e entrar",
+    "saving": "Salvando...",
+    "tooShort": "A senha precisa ter pelo menos 8 caracteres.",
+    "mismatch": "As senhas não coincidem.",
+    "saveError": "Não foi possível definir a senha.",
+    "invalidTitle": "Link inválido ou expirado",
+    "invalidHint": "Peça um novo convite ao administrador ou use \"esqueci minha senha\" na tela de login.",
+    "goToLogin": "Ir para o login"
+  },
   "login": {
     "title": "Torneios Poker",
     "subtitle": "Sistema de Gerenciamento",

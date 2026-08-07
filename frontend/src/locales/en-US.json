@@ -68,6 +68,23 @@
     "reports": "Reports",
     "logout": "Logout"
   },
+  "setPassword": {
+    "title": "Welcome! Set your password",
+    "subtitle": "Choose a password to access your account.",
+    "subtitleEmail": "You're creating access for {{email}}.",
+    "newPassword": "New password",
+    "newPasswordPlaceholder": "At least 8 characters",
+    "confirmPassword": "Confirm password",
+    "confirmPasswordPlaceholder": "Repeat the password",
+    "submit": "Set password and sign in",
+    "saving": "Saving...",
+    "tooShort": "Password must be at least 8 characters.",
+    "mismatch": "Passwords don't match.",
+    "saveError": "Could not set the password.",
+    "invalidTitle": "Invalid or expired link",
+    "invalidHint": "Ask the administrator for a new invite, or use \"forgot my password\" on the login screen.",
+    "goToLogin": "Go to login"
+  },
   "login": {
     "title": "Poker Tournaments",
     "subtitle": "Management System",

@@ -12,6 +12,7 @@ import { ConnectivityProvider } from './contexts/ConnectivityContext';
 import { isOnline } from './offline/connectivity';
 import OfflineBanner from './components/OfflineBanner';
 import Login from './pages/Login';
+import SetPassword from './pages/SetPassword';
 import Dashboard from './pages/Dashboard';
 import Etapas from './pages/Etapas';
 import Torneios from './pages/Torneios';
@@ -106,6 +107,9 @@ function AppRoutes() {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
+      {/* Destino do convite: o usuário define a própria senha antes de entrar.
+          Rota pública — a sessão vem no fragmento da URL enviada por e-mail. */}
+      <Route path="/definir-senha" element={<SetPassword />} />
       <Route
         path="/"
         element={

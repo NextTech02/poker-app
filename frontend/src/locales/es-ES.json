@@ -68,6 +68,23 @@
     "reports": "Informes",
     "logout": "Salir"
   },
+  "setPassword": {
+    "title": "¡Bienvenido! Define tu contraseña",
+    "subtitle": "Elige una contraseña para acceder a tu cuenta.",
+    "subtitleEmail": "Estás creando el acceso de {{email}}.",
+    "newPassword": "Nueva contraseña",
+    "newPasswordPlaceholder": "Mínimo 8 caracteres",
+    "confirmPassword": "Confirma la contraseña",
+    "confirmPasswordPlaceholder": "Repite la contraseña",
+    "submit": "Definir contraseña y entrar",
+    "saving": "Guardando...",
+    "tooShort": "La contraseña debe tener al menos 8 caracteres.",
+    "mismatch": "Las contraseñas no coinciden.",
+    "saveError": "No se pudo definir la contraseña.",
+    "invalidTitle": "Enlace inválido o expirado",
+    "invalidHint": "Pide una nueva invitación al administrador o usa \"olvidé mi contraseña\" en la pantalla de inicio de sesión.",
+    "goToLogin": "Ir al inicio de sesión"
+  },
   "login": {
     "title": "Torneos de Poker",
     "subtitle": "Sistema de Gestión",
