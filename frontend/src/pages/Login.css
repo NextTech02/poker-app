@@ -136,3 +136,15 @@
   background: color-mix(in srgb, var(--success-color, #10b981) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--success-color, #10b981) 32%, transparent);
 }
+
+/* Seletor de idioma no canto superior direito: o menu abre alinhado à ESQUERDA
+   do botão por padrão, o que o fazia crescer para fora da tela e ficar cortado.
+   Aqui ele é ancorado à direita e cresce para dentro. Vale também para as telas
+   de convite e de escolha de organização, que reaproveitam este layout. */
+.login-language-selector .language-dropdown {
+  left: auto;
+  right: 0;
+}
+.login-language-selector .language-name {
+  white-space: nowrap;
+}
