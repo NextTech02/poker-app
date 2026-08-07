@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../config/api';
 import Button from '../components/Button';
 import LanguageSelector from '../components/LanguageSelector';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
@@ -21,14 +22,31 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    const { error } = await signIn(email, password);
+    const { data, error } = await signIn(email, password);
 
     if (error) {
       setError(t('login.invalidCredentials'));
       setLoading(false);
-    } else {
-      navigate('/');
+      return;
     }
+
+    // Grava o token já com a resposta do login: o interceptor do axios lê do
+    // localStorage e o AuthContext pode ainda não ter processado o evento.
+    const token = data?.session?.access_token;
+    if (token) localStorage.setItem('supabase_token', token);
+
+    // Quem trabalha em mais de um clube escolhe onde entrar — evita operar na
+    // organização errada. Falha ao consultar não bloqueia o login.
+    try {
+      const res = await api.get('/organizations/mine', { _silentError: true });
+      const orgs = res.data || [];
+      if (orgs.length > 1) {
+        navigate('/selecionar-organizacao', { state: { orgs } });
+        return;
+      }
+    } catch (_) { /* segue para o app */ }
+
+    navigate('/');
   };
 
   return (

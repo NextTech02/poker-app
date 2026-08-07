@@ -68,6 +68,14 @@
     "reports": "Relatórios",
     "logout": "Sair"
   },
+  "selectOrg": {
+    "title": "Escolha a organização",
+    "subtitle": "Você tem acesso a mais de um clube. Selecione onde quer trabalhar agora.",
+    "lastUsed": "Última usada",
+    "noRole": "Sem grupo",
+    "error": "Não foi possível entrar nesta organização.",
+    "signOut": "Sair"
+  },
   "setPassword": {
     "title": "Bem-vindo! Defina sua senha",
     "subtitle": "Escolha uma senha para acessar sua conta.",

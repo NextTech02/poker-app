@@ -68,6 +68,14 @@
     "reports": "Reports",
     "logout": "Logout"
   },
+  "selectOrg": {
+    "title": "Choose the organization",
+    "subtitle": "You have access to more than one club. Select where you want to work now.",
+    "lastUsed": "Last used",
+    "noRole": "No group",
+    "error": "Could not enter this organization.",
+    "signOut": "Sign out"
+  },
   "setPassword": {
     "title": "Welcome! Set your password",
     "subtitle": "Choose a password to access your account.",
