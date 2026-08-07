@@ -96,7 +96,11 @@
     "namePlaceholder": "Nombre completo",
     "nameRequired": "Indica tu nombre.",
     "usedTitle": "Invitación ya utilizada",
-    "usedHint": "Este registro ya fue completado. Inicia sesión con tu correo y la contraseña que definiste."
+    "usedHint": "Este registro ya fue completado. Inicia sesión con tu correo y la contraseña que definiste.",
+    "recoveryTitle": "Elige una nueva contraseña",
+    "recoverySubtitle": "Define una nueva contraseña para tu cuenta.",
+    "recoverySubtitleEmail": "Definiendo una nueva contraseña para {{email}}.",
+    "recoverySubmit": "Guardar nueva contraseña"
   },
   "login": {
     "title": "Torneos de Poker",
@@ -108,7 +112,12 @@
     "submit": "Ingresar",
     "submitting": "Ingresando...",
     "invalidCredentials": "Correo o contraseña inválidos",
-    "forgotPassword": "¿Olvidaste tu contraseña?"
+    "forgotPassword": "Olvidé mi contraseña",
+    "forgotHint": "Indica tu correo y te enviaremos un enlace para crear una nueva contraseña.",
+    "sendResetLink": "Enviar enlace",
+    "sending": "Enviando...",
+    "backToSignin": "Volver al inicio de sesión",
+    "resetSent": "Si existe una cuenta con este correo, enviamos el enlace para restablecer la contraseña."
   },
   "dashboard": {
     "loadError": "No se pudieron cargar los datos. Reintentando...",

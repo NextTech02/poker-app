@@ -98,3 +98,41 @@
   width: 100%;
   margin-top: 1rem;
 }
+
+/* Recuperação de senha: link de alternância, aviso e texto de apoio */
+.login-link {
+  display: block;
+  margin: 0.9rem auto 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #8aa0b0);
+  font-size: 0.84rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.3rem;
+}
+.login-link:hover { color: var(--text-primary, #e0eaf4); }
+.login-link:focus-visible {
+  outline: 2px solid var(--accent-color, #7233f8);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.login-forgot-hint {
+  margin: 0 0 1rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #8aa0b0);
+  text-align: center;
+}
+
+.login-notice {
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--success-color, #10b981);
+  background: color-mix(in srgb, var(--success-color, #10b981) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success-color, #10b981) 32%, transparent);
+}

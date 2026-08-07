@@ -9,17 +9,23 @@ import './Login.css';
 import './SetPassword.css';
 
 /**
- * Destino do link de convite (e do "esqueci minha senha").
+ * Destino de DOIS fluxos que chegam por e-mail:
  *
- * O Supabase manda o usuário para cá com a sessão no fragmento da URL; o
- * supabase-js detecta e autentica sozinho. Em vez de já jogar o usuário no app
- * (que era o efeito de apontar o convite para /login), aqui ele DEFINE a própria
- * senha antes de entrar — o convite deixa de ser um login automático.
+ *  • convite (type=invite)   → cadastro inicial: nome + senha, uso único.
+ *  • recuperação (recovery)  → apenas a nova senha, quantas vezes precisar.
+ *
+ * O Supabase manda o usuário para cá com a sessão no fragmento da URL e o
+ * supabase-js autentica sozinho. Em vez de já jogar no app, aqui ele conclui o
+ * que precisa antes de entrar.
+ *
+ * A recuperação é reconhecida pelo evento PASSWORD_RECOVERY (sinal confiável,
+ * mesmo depois de o SDK limpar o fragmento) e, como reforço, pelo `type` na URL.
  */
 const SetPassword = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState('invite');       // invite | recovery
   const [status, setStatus] = useState('checking'); // checking | ready | invalid | used
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -31,29 +37,32 @@ const SetPassword = () => {
   useEffect(() => {
     let done = false;
 
-    // Link expirado/já usado volta com erro no fragmento, sem sessão.
     const hash = window.location.hash || '';
+    // Link expirado/já usado volta com erro no fragmento, sem sessão.
     if (hash.includes('error=')) {
       setStatus('invalid');
       return undefined;
     }
+    if (hash.includes('type=recovery')) setMode('recovery');
 
     const accept = (session) => {
       if (done || !session) return;
       done = true;
       const meta = session.user?.user_metadata || {};
       setEmail(session.user?.email || '');
-      // Pré-preenche com o nome que o administrador informou no convite.
-      setName(meta.full_name || meta.admin_name || '');
-      // Cadastro já concluído: o convite é de uso único.
+      setName(meta.full_name || '');
+      // Convite já concluído → uso único. (Se for recuperação, o efeito abaixo
+      // libera a tela: trocar a senha pode ser feito quantas vezes precisar.)
       setStatus(meta.onboarded_at ? 'used' : 'ready');
     };
 
     supabase.auth.getSession().then(({ data }) => accept(data?.session));
 
-    // A sessão do convite pode chegar logo depois (o SDK processa a URL).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => accept(session)
+      (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') setMode('recovery');
+        accept(session);
+      }
     );
 
     // Sem sessão em alguns segundos = link inválido ou expirado.
@@ -62,11 +71,18 @@ const SetPassword = () => {
     return () => { subscription.unsubscribe(); clearTimeout(timer); };
   }, []);
 
+  // Recuperação nunca é bloqueada pelo "já utilizado" do convite.
+  useEffect(() => {
+    if (mode === 'recovery' && status === 'used') setStatus('ready');
+  }, [mode, status]);
+
+  const isRecovery = mode === 'recovery';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!name.trim()) {
+    if (!isRecovery && !name.trim()) {
       setError(t('setPassword.nameRequired', 'Informe seu nome.'));
       return;
     }
@@ -80,11 +96,13 @@ const SetPassword = () => {
     }
 
     setSaving(true);
-    // `onboarded_at` fecha o convite: uma segunda visita cai em "já utilizado".
-    const { data, error: upErr } = await supabase.auth.updateUser({
-      password,
-      data: { full_name: name.trim(), onboarded_at: new Date().toISOString() },
-    });
+
+    // No convite, `onboarded_at` fecha o link; na recuperação só a senha muda.
+    const payload = isRecovery
+      ? { password }
+      : { password, data: { full_name: name.trim(), onboarded_at: new Date().toISOString() } };
+
+    const { data, error: upErr } = await supabase.auth.updateUser(payload);
 
     if (upErr) {
       setSaving(false);
@@ -94,10 +112,12 @@ const SetPassword = () => {
 
     // Reflete o nome escolhido no cadastro de funcionários (best-effort: se o
     // RLS recusar, o nome ainda fica no perfil da conta).
-    try {
-      const uid = data?.user?.id;
-      if (uid) await supabase.from('staff').update({ name: name.trim() }).eq('auth_user_id', uid);
-    } catch (_) { /* não impede a entrada */ }
+    if (!isRecovery) {
+      try {
+        const uid = data?.user?.id;
+        if (uid) await supabase.from('staff').update({ name: name.trim() }).eq('auth_user_id', uid);
+      } catch (_) { /* não impede a entrada */ }
+    }
 
     setSaving(false);
     // Recarrega para o app nascer com a sessão e o perfil definitivos.
@@ -144,28 +164,38 @@ const SetPassword = () => {
 
         {status === 'ready' && (
           <>
-            <h2 className="sp-title">{t('setPassword.title', 'Bem-vindo! Defina sua senha')}</h2>
+            <h2 className="sp-title">
+              {isRecovery
+                ? t('setPassword.recoveryTitle', 'Escolha uma nova senha')
+                : t('setPassword.title', 'Bem-vindo! Complete seu cadastro')}
+            </h2>
             <p className="sp-hint">
-              {email
-                ? t('setPassword.subtitleEmail', 'Você está criando o acesso de {{email}}.', { email })
-                : t('setPassword.subtitle', 'Escolha uma senha para acessar sua conta.')}
+              {isRecovery
+                ? (email
+                    ? t('setPassword.recoverySubtitleEmail', 'Definindo uma nova senha para {{email}}.', { email })
+                    : t('setPassword.recoverySubtitle', 'Defina uma nova senha para sua conta.'))
+                : (email
+                    ? t('setPassword.subtitleEmail', 'Você está criando o acesso de {{email}}.', { email })
+                    : t('setPassword.subtitle', 'Informe seu nome e escolha uma senha para acessar sua conta.'))}
             </p>
 
             <form onSubmit={handleSubmit} className="login-form">
               {error && <div className="error-message">{error}</div>}
 
-              <div className="form-group">
-                <label htmlFor="sp-name">{t('setPassword.name', 'Seu nome')}</label>
-                <input
-                  id="sp-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  autoComplete="name"
-                  placeholder={t('setPassword.namePlaceholder', 'Nome completo')}
-                />
-              </div>
+              {!isRecovery && (
+                <div className="form-group">
+                  <label htmlFor="sp-name">{t('setPassword.name', 'Seu nome')}</label>
+                  <input
+                    id="sp-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    autoComplete="name"
+                    placeholder={t('setPassword.namePlaceholder', 'Nome completo')}
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <label htmlFor="sp-password">{t('setPassword.newPassword', 'Nova senha')}</label>
@@ -194,7 +224,11 @@ const SetPassword = () => {
               </div>
 
               <Button type="submit" disabled={saving} className="login-btn">
-                {saving ? t('setPassword.saving', 'Salvando...') : t('setPassword.submit', 'Definir senha e entrar')}
+                {saving
+                  ? t('setPassword.saving', 'Salvando...')
+                  : isRecovery
+                    ? t('setPassword.recoverySubmit', 'Salvar nova senha')
+                    : t('setPassword.submit', 'Definir senha e entrar')}
               </Button>
             </form>
           </>

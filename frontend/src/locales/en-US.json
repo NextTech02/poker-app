@@ -96,7 +96,11 @@
     "namePlaceholder": "Full name",
     "nameRequired": "Please enter your name.",
     "usedTitle": "Invite already used",
-    "usedHint": "This registration is already complete. Sign in with your e-mail and the password you set."
+    "usedHint": "This registration is already complete. Sign in with your e-mail and the password you set.",
+    "recoveryTitle": "Choose a new password",
+    "recoverySubtitle": "Set a new password for your account.",
+    "recoverySubtitleEmail": "Setting a new password for {{email}}.",
+    "recoverySubmit": "Save new password"
   },
   "login": {
     "title": "Poker Tournaments",
@@ -108,7 +112,12 @@
     "submit": "Sign In",
     "submitting": "Signing in...",
     "invalidCredentials": "Invalid email or password",
-    "forgotPassword": "Forgot password?"
+    "forgotPassword": "Forgot my password",
+    "forgotHint": "Enter your e-mail and we'll send a link to create a new password.",
+    "sendResetLink": "Send link",
+    "sending": "Sending...",
+    "backToSignin": "Back to sign in",
+    "resetSent": "If an account exists for this e-mail, we've sent the password reset link."
   },
   "dashboard": {
     "loadError": "Could not load the data. Retrying...",

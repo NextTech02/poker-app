@@ -1,0 +1,101 @@
+<!--
+  Invite email template (Supabase → Authentication → Emails → Invite user).
+  Suggested subject: Your AceBlind access
+
+  Written in English on purpose: the Supabase template is global (it cannot vary
+  per recipient), and the product serves clubs across different countries.
+
+  Variables filled in by Supabase:
+    {{ .ConfirmationURL }}         invite link (DO NOT change)
+    {{ .Data.full_name }}          admin name (sent by our backend)
+    {{ .Data.organization_name }}  club name (sent by our backend)
+
+  Email HTML is deliberately old-fashioned: <table> layout, inline styles and
+  fixed widths — that is what survives Outlook and Gmail. No flex/grid.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0;padding:0;background-color:#f4f4f8;">
+  <tr>
+    <td align="center" style="padding:32px 12px;">
+
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;background-color:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(20,16,40,0.08);font-family:Helvetica,Arial,sans-serif;">
+
+        <!-- Header -->
+        <tr>
+          <td align="center" bgcolor="#7233f8" style="background-color:#7233f8;padding:28px 24px;">
+            <img src="https://aceblind.net/icon-192.png" width="56" height="56" alt="AceBlind"
+                 style="display:block;border:0;outline:none;text-decoration:none;width:56px;height:56px;border-radius:14px;" />
+            <div style="margin-top:12px;font-size:22px;line-height:26px;font-weight:bold;color:#ffffff;letter-spacing:-0.3px;">
+              AceBlind
+            </div>
+            <div style="margin-top:4px;font-size:13px;line-height:18px;color:#e3d9fd;">
+              Poker tournament management
+            </div>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 36px 8px 36px;">
+
+            <h1 style="margin:0 0 16px 0;font-size:21px;line-height:28px;color:#1c1830;font-weight:bold;">
+              Hi {{ .Data.full_name }}, your access is ready.
+            </h1>
+
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:24px;color:#4a4560;">
+              You've been invited to manage
+              <strong style="color:#1c1830;">{{ .Data.organization_name }}</strong> on AceBlind.
+            </p>
+
+            <p style="margin:0 0 28px 0;font-size:15px;line-height:24px;color:#4a4560;">
+              To get started, create your password. It takes less than a minute.
+            </p>
+
+            <!-- Button -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px auto;">
+              <tr>
+                <td align="center" bgcolor="#7233f8" style="background-color:#7233f8;border-radius:10px;">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:inline-block;padding:15px 34px;font-size:16px;line-height:20px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">
+                    Create my password
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Single-use notice -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background-color:#f6f3ff;border-left:3px solid #7233f8;border-radius:6px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:14px 16px;font-size:13px;line-height:20px;color:#4a4560;">
+                  This link is <strong style="color:#1c1830;">personal and single-use</strong>:
+                  once you create your password, it stops working.
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 8px 0;font-size:13px;line-height:20px;color:#7b7590;">
+              If the button doesn't work, copy and paste this address into your browser:
+            </p>
+            <p style="margin:0 0 28px 0;font-size:12px;line-height:19px;word-break:break-all;">
+              <a href="{{ .ConfirmationURL }}" style="color:#7233f8;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+            </p>
+
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:0 36px 32px 36px;">
+            <div style="border-top:1px solid #eceaf4;padding-top:18px;font-size:12px;line-height:19px;color:#8d87a0;">
+              Weren't expecting this invite? You can safely ignore this email — without your password, no one can access the account.
+              <br /><br />
+              AceBlind · <a href="https://aceblind.net" style="color:#7233f8;text-decoration:none;">aceblind.net</a>
+            </div>
+          </td>
+        </tr>
+
+      </table>
+
+    </td>
+  </tr>
+</table>

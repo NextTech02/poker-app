@@ -96,7 +96,11 @@
     "saveError": "Não foi possível concluir o cadastro.",
     "invalidTitle": "Link inválido ou expirado",
     "invalidHint": "Peça um novo convite ao administrador ou use \"esqueci minha senha\" na tela de login.",
-    "goToLogin": "Ir para o login"
+    "goToLogin": "Ir para o login",
+    "recoveryTitle": "Escolha uma nova senha",
+    "recoverySubtitle": "Defina uma nova senha para sua conta.",
+    "recoverySubtitleEmail": "Definindo uma nova senha para {{email}}.",
+    "recoverySubmit": "Salvar nova senha"
   },
   "login": {
     "title": "Torneios Poker",
@@ -108,7 +112,12 @@
     "submit": "Entrar",
     "submitting": "Entrando...",
     "invalidCredentials": "Email ou senha inválidos",
-    "forgotPassword": "Esqueceu a senha?"
+    "forgotPassword": "Esqueci minha senha",
+    "forgotHint": "Informe seu e-mail e enviaremos um link para criar uma nova senha.",
+    "sendResetLink": "Enviar link",
+    "sending": "Enviando...",
+    "backToSignin": "Voltar para o login",
+    "resetSent": "Se houver uma conta com esse e-mail, enviamos o link para redefinir a senha."
   },
   "dashboard": {
     "loadError": "Não foi possível carregar os dados. Tentando novamente...",
