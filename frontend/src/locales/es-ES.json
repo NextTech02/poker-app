@@ -77,8 +77,8 @@
     "signOut": "Salir"
   },
   "setPassword": {
-    "title": "¡Bienvenido! Define tu contraseña",
-    "subtitle": "Elige una contraseña para acceder a tu cuenta.",
+    "title": "¡Bienvenido! Completa tu registro",
+    "subtitle": "Indica tu nombre y elige una contraseña para acceder a tu cuenta.",
     "subtitleEmail": "Estás creando el acceso de {{email}}.",
     "newPassword": "Nueva contraseña",
     "newPasswordPlaceholder": "Mínimo 8 caracteres",
@@ -88,10 +88,15 @@
     "saving": "Guardando...",
     "tooShort": "La contraseña debe tener al menos 8 caracteres.",
     "mismatch": "Las contraseñas no coinciden.",
-    "saveError": "No se pudo definir la contraseña.",
+    "saveError": "No se pudo completar el registro.",
     "invalidTitle": "Enlace inválido o expirado",
     "invalidHint": "Pide una nueva invitación al administrador o usa \"olvidé mi contraseña\" en la pantalla de inicio de sesión.",
-    "goToLogin": "Ir al inicio de sesión"
+    "goToLogin": "Ir al inicio de sesión",
+    "name": "Tu nombre",
+    "namePlaceholder": "Nombre completo",
+    "nameRequired": "Indica tu nombre.",
+    "usedTitle": "Invitación ya utilizada",
+    "usedHint": "Este registro ya fue completado. Inicia sesión con tu correo y la contraseña que definiste."
   },
   "login": {
     "title": "Torneos de Poker",

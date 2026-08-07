@@ -77,8 +77,13 @@
     "signOut": "Sair"
   },
   "setPassword": {
-    "title": "Bem-vindo! Defina sua senha",
-    "subtitle": "Escolha uma senha para acessar sua conta.",
+    "title": "Bem-vindo! Complete seu cadastro",
+    "subtitle": "Informe seu nome e escolha uma senha para acessar sua conta.",
+    "name": "Seu nome",
+    "namePlaceholder": "Nome completo",
+    "nameRequired": "Informe seu nome.",
+    "usedTitle": "Convite já utilizado",
+    "usedHint": "Este cadastro já foi concluído. Entre com seu e-mail e a senha que você definiu.",
     "subtitleEmail": "Você está criando o acesso de {{email}}.",
     "newPassword": "Nova senha",
     "newPasswordPlaceholder": "Mínimo de 8 caracteres",
@@ -88,7 +93,7 @@
     "saving": "Salvando...",
     "tooShort": "A senha precisa ter pelo menos 8 caracteres.",
     "mismatch": "As senhas não coincidem.",
-    "saveError": "Não foi possível definir a senha.",
+    "saveError": "Não foi possível concluir o cadastro.",
     "invalidTitle": "Link inválido ou expirado",
     "invalidHint": "Peça um novo convite ao administrador ou use \"esqueci minha senha\" na tela de login.",
     "goToLogin": "Ir para o login"

@@ -20,8 +20,9 @@ const SetPassword = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState('checking'); // checking | ready | invalid
+  const [status, setStatus] = useState('checking'); // checking | ready | invalid | used
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -40,8 +41,12 @@ const SetPassword = () => {
     const accept = (session) => {
       if (done || !session) return;
       done = true;
+      const meta = session.user?.user_metadata || {};
       setEmail(session.user?.email || '');
-      setStatus('ready');
+      // Pré-preenche com o nome que o administrador informou no convite.
+      setName(meta.full_name || meta.admin_name || '');
+      // Cadastro já concluído: o convite é de uso único.
+      setStatus(meta.onboarded_at ? 'used' : 'ready');
     };
 
     supabase.auth.getSession().then(({ data }) => accept(data?.session));
@@ -61,6 +66,10 @@ const SetPassword = () => {
     e.preventDefault();
     setError('');
 
+    if (!name.trim()) {
+      setError(t('setPassword.nameRequired', 'Informe seu nome.'));
+      return;
+    }
     if (password.length < 8) {
       setError(t('setPassword.tooShort', 'A senha precisa ter pelo menos 8 caracteres.'));
       return;
@@ -71,14 +80,28 @@ const SetPassword = () => {
     }
 
     setSaving(true);
-    const { error: upErr } = await supabase.auth.updateUser({ password });
-    setSaving(false);
+    // `onboarded_at` fecha o convite: uma segunda visita cai em "já utilizado".
+    const { data, error: upErr } = await supabase.auth.updateUser({
+      password,
+      data: { full_name: name.trim(), onboarded_at: new Date().toISOString() },
+    });
 
     if (upErr) {
-      setError(upErr.message || t('setPassword.saveError', 'Não foi possível definir a senha.'));
+      setSaving(false);
+      setError(upErr.message || t('setPassword.saveError', 'Não foi possível concluir o cadastro.'));
       return;
     }
-    navigate('/');
+
+    // Reflete o nome escolhido no cadastro de funcionários (best-effort: se o
+    // RLS recusar, o nome ainda fica no perfil da conta).
+    try {
+      const uid = data?.user?.id;
+      if (uid) await supabase.from('staff').update({ name: name.trim() }).eq('auth_user_id', uid);
+    } catch (_) { /* não impede a entrada */ }
+
+    setSaving(false);
+    // Recarrega para o app nascer com a sessão e o perfil definitivos.
+    window.location.href = '/';
   };
 
   return (
@@ -93,6 +116,18 @@ const SetPassword = () => {
 
         {status === 'checking' && (
           <p className="sp-state">{t('common.loading', 'Carregando...')}</p>
+        )}
+
+        {status === 'used' && (
+          <div className="sp-state">
+            <h2 className="sp-title">{t('setPassword.usedTitle', 'Convite já utilizado')}</h2>
+            <p className="sp-hint">
+              {t('setPassword.usedHint', 'Este cadastro já foi concluído. Entre com seu e-mail e a senha que você definiu.')}
+            </p>
+            <Button type="button" className="login-btn" onClick={() => navigate('/login')}>
+              {t('setPassword.goToLogin', 'Ir para o login')}
+            </Button>
+          </div>
         )}
 
         {status === 'invalid' && (
@@ -118,6 +153,19 @@ const SetPassword = () => {
 
             <form onSubmit={handleSubmit} className="login-form">
               {error && <div className="error-message">{error}</div>}
+
+              <div className="form-group">
+                <label htmlFor="sp-name">{t('setPassword.name', 'Seu nome')}</label>
+                <input
+                  id="sp-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  placeholder={t('setPassword.namePlaceholder', 'Nome completo')}
+                />
+              </div>
 
               <div className="form-group">
                 <label htmlFor="sp-password">{t('setPassword.newPassword', 'Nova senha')}</label>

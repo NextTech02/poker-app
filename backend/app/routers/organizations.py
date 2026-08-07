@@ -314,7 +314,11 @@ def create_organization(data: OrganizationCreate):
             headers=headers,
             json={
                 "email": data.admin_email,
-                "data": {"organization_name": data.name},
+                # `organization_name` marca a conta como criada por convite: o
+                # app usa isso (com `onboarded_at`) para exigir a definicao da
+                # senha antes de liberar o sistema. `full_name` pre-preenche o
+                # campo de nome na tela de cadastro.
+                "data": {"organization_name": data.name, "full_name": data.admin_name},
                 # O convite leva para a tela onde o dono DEFINE a própria senha.
                 # Apontar para /login fazia o link autenticar direto (a sessão
                 # vem no fragmento da URL), sem o cliente escolher a senha.

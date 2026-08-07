@@ -77,8 +77,8 @@
     "signOut": "Sign out"
   },
   "setPassword": {
-    "title": "Welcome! Set your password",
-    "subtitle": "Choose a password to access your account.",
+    "title": "Welcome! Complete your registration",
+    "subtitle": "Enter your name and choose a password to access your account.",
     "subtitleEmail": "You're creating access for {{email}}.",
     "newPassword": "New password",
     "newPasswordPlaceholder": "At least 8 characters",
@@ -88,10 +88,15 @@
     "saving": "Saving...",
     "tooShort": "Password must be at least 8 characters.",
     "mismatch": "Passwords don't match.",
-    "saveError": "Could not set the password.",
+    "saveError": "Could not complete the registration.",
     "invalidTitle": "Invalid or expired link",
     "invalidHint": "Ask the administrator for a new invite, or use \"forgot my password\" on the login screen.",
-    "goToLogin": "Go to login"
+    "goToLogin": "Go to login",
+    "name": "Your name",
+    "namePlaceholder": "Full name",
+    "nameRequired": "Please enter your name.",
+    "usedTitle": "Invite already used",
+    "usedHint": "This registration is already complete. Sign in with your e-mail and the password you set."
   },
   "login": {
     "title": "Poker Tournaments",

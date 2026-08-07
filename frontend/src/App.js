@@ -96,6 +96,15 @@ const PrivateRoute = ({ children, permission, anyPermission }) => {
     return <Navigate to="/login" />;
   }
 
+  // Convidado que ainda não definiu a própria senha: completa o cadastro antes
+  // de usar o sistema. `organization_name` só existe em conta criada por
+  // convite; `onboarded_at` é gravado quando ela conclui. Isso vale mesmo que o
+  // Supabase ignore o redirect do convite e caia direto no app.
+  const meta = user.user_metadata || {};
+  if (meta.organization_name && !meta.onboarded_at) {
+    return <Navigate to="/definir-senha" replace />;
+  }
+
   if (denied) {
     return <Navigate to="/" replace />;
   }
