@@ -1903,7 +1903,20 @@
     "emptyTitle": "No expenses recorded",
     "emptyDesc": "Record the stage costs so the income statement shows the real result.",
     "paidOutside": "Paid externally (bank) — does not affect the general cash",
-    "outsideTag": "external"
+    "outsideTag": "external",
+    "attachments": "Receipts",
+    "attachEmpty": "No receipts attached.",
+    "attachAdd": "Attach receipt (image or PDF, up to 10 MB)",
+    "attachUploading": "Uploading…",
+    "attachUploaded": "Receipt attached.",
+    "attachError": "Could not attach",
+    "attachOpenError": "Could not open the receipt",
+    "attachLoadError": "Error loading receipts",
+    "attachNoOrg": "Could not identify the organization.",
+    "useTemplate": "Use a template",
+    "pickTemplate": "Select to prefill…",
+    "saveTemplate": "Save as template — to reuse in the next stages",
+    "templateError": "Could not delete the template"
   },
   "revenues": {
     "new": "New revenue",

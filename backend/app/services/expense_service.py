@@ -180,6 +180,9 @@ class ExpenseService:
             except ValueError:
                 pass  # sem caixa configurado: segue com a exclusão
 
+        # Os metadados somem por cascade, mas o Storage não — remove os arquivos.
+        ExpenseService._purge_attachment_files(org_id, expense_id)
+
         res = (
             supabase.table("expenses").delete()
             .eq("id", expense_id).eq("organization_id", org_id).execute()
@@ -295,6 +298,98 @@ class ExpenseService:
             else:
                 pending += v
         return total, paid, pending
+
+    # ── Comprovantes ────────────────────────────────────────────────────────
+    # O arquivo sobe direto do navegador para o Storage (evita o backend virar
+    # gargalo de upload); aqui guardamos só os metadados para a listagem.
+
+    @staticmethod
+    def list_attachments(org_id: Optional[str], expense_id: str) -> List[dict]:
+        if not org_id:
+            return []
+        return (
+            supabase.table("expense_attachments").select("*")
+            .eq("organization_id", org_id).eq("expense_id", expense_id)
+            .order("created_at").execute().data or []
+        )
+
+    @staticmethod
+    def add_attachment(org_id: str, expense_id: str, data: dict, user_id: Optional[str]) -> dict:
+        payload = {k: v for k, v in data.items() if v is not None}
+        payload.update({
+            "organization_id": org_id,
+            "expense_id": expense_id,
+            "uploaded_by": user_id,
+        })
+        return (supabase.table("expense_attachments").insert(payload).execute().data or [None])[0]
+
+    @staticmethod
+    def delete_attachment(org_id: str, attachment_id: str) -> bool:
+        rows = (
+            supabase.table("expense_attachments").select("path")
+            .eq("id", attachment_id).eq("organization_id", org_id).execute().data or []
+        )
+        if not rows:
+            return False
+        # Remove o arquivo antes do registro: se o Storage falhar, o metadado
+        # permanece e o usuário pode tentar de novo (em vez de virar órfão).
+        try:
+            supabase.storage.from_("comprovantes").remove([rows[0]["path"]])
+        except Exception:
+            pass
+        res = (
+            supabase.table("expense_attachments").delete()
+            .eq("id", attachment_id).eq("organization_id", org_id).execute()
+        )
+        return bool(res.data)
+
+    @staticmethod
+    def _purge_attachment_files(org_id: str, expense_id: str) -> None:
+        """Apaga os arquivos do Storage ao excluir a despesa.
+
+        O cascade do banco remove os metadados, mas o Storage não participa dele
+        — sem isso os comprovantes ficariam ocupando espaço para sempre.
+        """
+        try:
+            rows = (
+                supabase.table("expense_attachments").select("path")
+                .eq("organization_id", org_id).eq("expense_id", expense_id).execute().data or []
+            )
+            paths = [r["path"] for r in rows if r.get("path")]
+            if paths:
+                supabase.storage.from_("comprovantes").remove(paths)
+        except Exception:
+            pass  # nunca impede a exclusão da despesa
+
+    # ── Modelos de despesa recorrente ───────────────────────────────────────
+
+    @staticmethod
+    def get_templates(org_id: Optional[str]) -> List[dict]:
+        if not org_id:
+            return []
+        rows = (
+            supabase.table("expense_templates")
+            .select("*, expense_categories(name)")
+            .eq("organization_id", org_id).order("name").execute().data or []
+        )
+        for r in rows:
+            cat = r.pop("expense_categories", None) or {}
+            r["category_name"] = cat.get("name")
+        return rows
+
+    @staticmethod
+    def create_template(org_id: str, data: dict) -> dict:
+        payload = {k: v for k, v in data.items() if v is not None}
+        payload["organization_id"] = org_id
+        return (supabase.table("expense_templates").insert(payload).execute().data or [None])[0]
+
+    @staticmethod
+    def delete_template(org_id: str, template_id: str) -> bool:
+        res = (
+            supabase.table("expense_templates").delete()
+            .eq("id", template_id).eq("organization_id", org_id).execute()
+        )
+        return bool(res.data)
 
     # ── Outras receitas ─────────────────────────────────────────────────────
     # Bar, patrocínio, aluguel de espaço: faturamento que não passa pelo caixa

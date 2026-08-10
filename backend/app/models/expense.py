@@ -37,6 +37,25 @@ class ExpenseCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class AttachmentCreate(BaseModel):
+    """Metadados do comprovante. O arquivo em si sobe direto para o Storage
+    pelo navegador; aqui só registramos o caminho para listar depois."""
+    path: str = Field(..., min_length=1, max_length=500)
+    file_name: str = Field(..., min_length=1, max_length=255)
+    content_type: Optional[str] = Field(None, max_length=120)
+    size_bytes: Optional[int] = Field(None, ge=0)
+
+
+class ExpenseTemplateCreate(BaseModel):
+    """Modelo de despesa recorrente: o operador aplica em cada etapa nova em vez
+    de o sistema ratear sozinho — o valor de aluguel/dealers muda entre etapas."""
+    name: str = Field(..., min_length=1, max_length=80)
+    category_id: Optional[str] = None
+    description: str = Field(..., min_length=1, max_length=200)
+    supplier: Optional[str] = Field(None, max_length=120)
+    amount: float = Field(..., ge=0)
+
+
 class RevenueCreate(BaseModel):
     """Outras receitas da etapa: bar, patrocínio, aluguel de espaço…"""
     stage_id: str = Field(..., description="Etapa a que a receita pertence")

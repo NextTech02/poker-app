@@ -6,6 +6,7 @@ from app.models.expense import (
     ExpenseCreate, ExpenseUpdate,
     ExpenseCategoryCreate, ExpenseCategoryUpdate,
     RevenueCreate, RevenueUpdate,
+    AttachmentCreate, ExpenseTemplateCreate,
 )
 from app.services.expense_service import ExpenseService
 
@@ -47,6 +48,26 @@ def update_category(
 def delete_category(category_id: str, current_user: dict = Depends(get_current_user)):
     if not ExpenseService.delete_category(_org(current_user), category_id):
         raise HTTPException(status_code=404, detail="Categoria não encontrada.")
+    return {"deleted": True}
+
+
+# ── Modelos de despesa recorrente ────────────────────────────────────────────
+# Antes de /{expense_id} pelo mesmo motivo das categorias.
+
+@router.get("/templates")
+def list_templates(current_user: dict = Depends(get_current_user)):
+    return ExpenseService.get_templates(_org(current_user))
+
+
+@router.post("/templates")
+def create_template(data: ExpenseTemplateCreate, current_user: dict = Depends(get_current_user)):
+    return ExpenseService.create_template(_org(current_user), data.model_dump())
+
+
+@router.delete("/templates/{template_id}")
+def delete_template(template_id: str, current_user: dict = Depends(get_current_user)):
+    if not ExpenseService.delete_template(_org(current_user), template_id):
+        raise HTTPException(status_code=404, detail="Modelo não encontrado.")
     return {"deleted": True}
 
 
@@ -115,6 +136,40 @@ def update_expense(
 def delete_expense(expense_id: str, current_user: dict = Depends(get_current_user)):
     if not ExpenseService.delete_expense(_org(current_user), expense_id):
         raise HTTPException(status_code=404, detail="Despesa não encontrada.")
+    return {"deleted": True}
+
+
+# ── Comprovantes ─────────────────────────────────────────────────────────────
+# O upload/download acontece direto entre navegador e Storage (URL assinada);
+# estas rotas só registram e listam os metadados.
+
+@router.get("/{expense_id}/attachments")
+def list_attachments(expense_id: str, current_user: dict = Depends(get_current_user)):
+    return ExpenseService.list_attachments(_org(current_user), expense_id)
+
+
+@router.post("/{expense_id}/attachments")
+def add_attachment(
+    expense_id: str,
+    data: AttachmentCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    created = ExpenseService.add_attachment(
+        _org(current_user), expense_id, data.model_dump(), current_user.get("sub")
+    )
+    if not created:
+        raise HTTPException(status_code=400, detail="Não foi possível registrar o comprovante.")
+    return created
+
+
+@router.delete("/{expense_id}/attachments/{attachment_id}")
+def delete_attachment(
+    expense_id: str,
+    attachment_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    if not ExpenseService.delete_attachment(_org(current_user), attachment_id):
+        raise HTTPException(status_code=404, detail="Comprovante não encontrado.")
     return {"deleted": True}
 
 

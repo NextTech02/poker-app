@@ -1903,7 +1903,20 @@
     "emptyTitle": "Nenhuma despesa registrada",
     "emptyDesc": "Lance os gastos da etapa para o DRE fechar o resultado real.",
     "paidOutside": "Pago por fora (banco) — não movimenta o caixa geral",
-    "outsideTag": "por fora"
+    "outsideTag": "por fora",
+    "attachments": "Comprovantes",
+    "attachEmpty": "Nenhum comprovante anexado.",
+    "attachAdd": "Anexar comprovante (imagem ou PDF, até 10 MB)",
+    "attachUploading": "Enviando…",
+    "attachUploaded": "Comprovante anexado.",
+    "attachError": "Não foi possível anexar",
+    "attachOpenError": "Não foi possível abrir o comprovante",
+    "attachLoadError": "Erro ao carregar os comprovantes",
+    "attachNoOrg": "Não foi possível identificar a organização.",
+    "useTemplate": "Usar um modelo",
+    "pickTemplate": "Selecione para preencher…",
+    "saveTemplate": "Salvar como modelo — para reaplicar nas próximas etapas",
+    "templateError": "Não foi possível excluir o modelo"
   },
   "revenues": {
     "new": "Nova receita",

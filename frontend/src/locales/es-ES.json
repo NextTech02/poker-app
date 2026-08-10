@@ -1903,7 +1903,20 @@
     "emptyTitle": "Ningún gasto registrado",
     "emptyDesc": "Registra los gastos de la etapa para que el resultado sea real.",
     "paidOutside": "Pagado por fuera (banco) — no mueve la caja general",
-    "outsideTag": "por fuera"
+    "outsideTag": "por fuera",
+    "attachments": "Comprobantes",
+    "attachEmpty": "Ningún comprobante adjunto.",
+    "attachAdd": "Adjuntar comprobante (imagen o PDF, hasta 10 MB)",
+    "attachUploading": "Enviando…",
+    "attachUploaded": "Comprobante adjuntado.",
+    "attachError": "No se pudo adjuntar",
+    "attachOpenError": "No se pudo abrir el comprobante",
+    "attachLoadError": "Error al cargar los comprobantes",
+    "attachNoOrg": "No se pudo identificar la organización.",
+    "useTemplate": "Usar una plantilla",
+    "pickTemplate": "Selecciona para rellenar…",
+    "saveTemplate": "Guardar como plantilla — para reutilizar en las próximas etapas",
+    "templateError": "No se pudo eliminar la plantilla"
   },
   "revenues": {
     "new": "Nuevo ingreso",

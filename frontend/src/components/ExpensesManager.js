@@ -1,11 +1,32 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
+import { supabase } from '../config/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import Button from './Button';
 import EmptyState from './EmptyState';
 import './ExpensesManager.css';
+
+const BUCKET = 'comprovantes';
+
+// A organização vem do token: o caminho do arquivo começa por ela e é isso que
+// a policy do Storage compara para isolar os clubes.
+const currentOrgId = () => {
+  try {
+    const tok = localStorage.getItem('supabase_token');
+    return JSON.parse(atob(tok.split('.')[1])).organization_id || null;
+  } catch (_) {
+    return null;
+  }
+};
+
+const fmtSize = (b) => {
+  const n = Number(b) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+};
 
 // Aba "Despesas" do Financeiro. Os lançamentos ancoram numa ETAPA (fecham o DRE
 // dela) e podem, opcionalmente, apontar um torneio específico.
@@ -40,18 +61,129 @@ export default function ExpensesManager() {
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
 
+  // Modelos de despesa recorrente (aluguel, dealers…).
+  const [templates, setTemplates] = useState([]);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+
+  // Comprovantes da despesa aberta no modal de anexos.
+  const [attachFor, setAttachFor] = useState(null);
+  const [attachments, setAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
   // Listas auxiliares (uma vez).
   useEffect(() => {
     Promise.all([
       api.get('/stages').catch(() => ({ data: [] })),
       api.get('/tournaments').catch(() => ({ data: [] })),
       api.get('/expenses/categories', { params: { active: true } }).catch(() => ({ data: [] })),
-    ]).then(([s, tr, c]) => {
+      api.get('/expenses/templates').catch(() => ({ data: [] })),
+    ]).then(([s, tr, c, tp]) => {
       setStages(s.data || []);
       setTournaments(tr.data || []);
       setCategories(c.data || []);
+      setTemplates(tp.data || []);
     });
   }, []);
+
+  const reloadTemplates = useCallback(async () => {
+    try {
+      const r = await api.get('/expenses/templates');
+      setTemplates(r.data || []);
+    } catch (_) { /* silencioso */ }
+  }, []);
+
+  // ── Comprovantes ────────────────────────────────────────────────────────
+  const openAttachments = async (e) => {
+    setAttachFor(e);
+    setAttachments([]);
+    try {
+      const r = await api.get(`/expenses/${e.id}/attachments`);
+      setAttachments(r.data || []);
+    } catch (err) {
+      toast.error(err.userMessage || t('expenses.attachLoadError', 'Erro ao carregar os comprovantes'));
+    }
+  };
+
+  const uploadFile = async (file) => {
+    if (!file || !attachFor) return;
+    const org = currentOrgId();
+    if (!org) {
+      toast.error(t('expenses.attachNoOrg', 'Não foi possível identificar a organização.'));
+      return;
+    }
+    setUploading(true);
+    try {
+      // Nome único: dois comprovantes com o mesmo nome não se sobrescrevem.
+      const safe = file.name.replace(/[^\w.-]+/g, '_');
+      const path = `${org}/${attachFor.id}/${Date.now()}-${safe}`;
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
+        contentType: file.type || 'application/octet-stream',
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+
+      await api.post(`/expenses/${attachFor.id}/attachments`, {
+        path,
+        file_name: file.name,
+        content_type: file.type || null,
+        size_bytes: file.size,
+      });
+      toast.success(t('expenses.attachUploaded', 'Comprovante anexado.'));
+      const r = await api.get(`/expenses/${attachFor.id}/attachments`);
+      setAttachments(r.data || []);
+      load();
+    } catch (err) {
+      toast.error(err.userMessage || err.message || t('expenses.attachError', 'Não foi possível anexar'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const downloadAttachment = async (a) => {
+    try {
+      // URL assinada de vida curta: o bucket é privado, não há link público.
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(a.path, 60);
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } catch (err) {
+      toast.error(t('expenses.attachOpenError', 'Não foi possível abrir o comprovante'));
+    }
+  };
+
+  const removeAttachment = async (a) => {
+    setUploading(true);
+    try {
+      await api.delete(`/expenses/${attachFor.id}/attachments/${a.id}`);
+      setAttachments((prev) => prev.filter((x) => x.id !== a.id));
+      load();
+    } catch (err) {
+      toast.error(err.userMessage || t('expenses.attachError', 'Não foi possível remover'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ── Modelos ─────────────────────────────────────────────────────────────
+  const applyTemplate = (id) => {
+    const tp = templates.find((x) => x.id === id);
+    if (!tp) return;
+    setForm((f) => ({
+      ...f,
+      category_id: tp.category_id || '',
+      description: tp.description || '',
+      supplier: tp.supplier || '',
+      amount: tp.amount != null ? String(tp.amount) : '',
+    }));
+  };
+
+  const removeTemplate = async (tp) => {
+    try {
+      await api.delete(`/expenses/templates/${tp.id}`);
+      reloadTemplates();
+    } catch (err) {
+      toast.error(err.userMessage || t('expenses.templateError', 'Não foi possível excluir o modelo'));
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,6 +217,7 @@ export default function ExpensesManager() {
     setEditing(null);
     setForm({ ...EMPTY, stage_id: filters.stage_id || '' });
     setErrors({});
+    setSaveAsTemplate(false);
     setShowForm(true);
   };
 
@@ -104,6 +237,7 @@ export default function ExpensesManager() {
       paid_from_cash: e.paid_from_cash !== false,
     });
     setErrors({});
+    setSaveAsTemplate(false);
     setShowForm(true);
   };
 
@@ -142,6 +276,19 @@ export default function ExpensesManager() {
       } else {
         await api.post('/expenses', body);
         toast.success(t('expenses.created', 'Despesa registrada.'));
+      }
+      // Guarda como modelo para reaplicar nas próximas etapas.
+      if (saveAsTemplate) {
+        try {
+          await api.post('/expenses/templates', {
+            name: body.description.slice(0, 80),
+            category_id: body.category_id,
+            description: body.description,
+            supplier: body.supplier,
+            amount: body.amount,
+          });
+          reloadTemplates();
+        } catch (_) { /* não impede o salvamento da despesa */ }
       }
       setShowForm(false);
       load();
@@ -286,6 +433,10 @@ export default function ExpensesManager() {
                   </td>
                   <td>
                     <div className="exp-actions">
+                      <Button size="small" variant="secondary" onClick={() => openAttachments(e)} disabled={busy}
+                        title={t('expenses.attachments', 'Comprovantes')}>
+                        📎
+                      </Button>
                       <Button size="small" variant="secondary" onClick={() => openEdit(e)} disabled={busy}>
                         {t('common.edit', 'Editar')}
                       </Button>
@@ -306,6 +457,30 @@ export default function ExpensesManager() {
         <div className="exp-modal-overlay" onClick={() => !busy && setShowForm(false)}>
           <div className="exp-modal" onClick={(ev) => ev.stopPropagation()}>
             <h2>{editing ? t('expenses.editTitle', 'Editar despesa') : t('expenses.new', 'Nova despesa')}</h2>
+
+            {/* Modelos recorrentes: preenchem o formulário em um clique. */}
+            {!editing && templates.length > 0 && (
+              <div className="exp-field">
+                <label>{t('expenses.useTemplate', 'Usar um modelo')}</label>
+                <select defaultValue="" onChange={(e) => { applyTemplate(e.target.value); e.target.value = ''; }}>
+                  <option value="">{t('expenses.pickTemplate', 'Selecione para preencher…')}</option>
+                  {templates.map((tp) => (
+                    <option key={tp.id} value={tp.id}>
+                      {tp.name} — {formatCurrency(tp.amount)}
+                    </option>
+                  ))}
+                </select>
+                <div className="exp-template-chips">
+                  {templates.map((tp) => (
+                    <span className="exp-template-chip" key={tp.id}>
+                      {tp.name}
+                      <button type="button" onClick={() => removeTemplate(tp)} title={t('common.delete', 'Excluir')}>×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <form onSubmit={submit}>
               <div className="exp-field">
                 <label>{t('expenses.colStage', 'Etapa')} *</label>
@@ -396,6 +571,17 @@ export default function ExpensesManager() {
                 </span>
               </label>
 
+              {!editing && (
+                <label className="exp-check">
+                  <input
+                    type="checkbox"
+                    checked={saveAsTemplate}
+                    onChange={(e) => setSaveAsTemplate(e.target.checked)}
+                  />
+                  <span>{t('expenses.saveTemplate', 'Salvar como modelo — para reaplicar nas próximas etapas')}</span>
+                </label>
+              )}
+
               <div className="exp-modal-actions">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)} disabled={busy}>
                   {t('common.cancel', 'Cancelar')}
@@ -405,6 +591,60 @@ export default function ExpensesManager() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Comprovantes: nota fiscal, recibo, foto do pagamento */}
+      {attachFor && (
+        <div className="exp-modal-overlay" onClick={() => !uploading && setAttachFor(null)}>
+          <div className="exp-modal" onClick={(ev) => ev.stopPropagation()}>
+            <h2>{t('expenses.attachments', 'Comprovantes')}</h2>
+            <p className="exp-attach-sub">{attachFor.description}</p>
+
+            {attachments.length === 0 ? (
+              <p className="exp-attach-empty">{t('expenses.attachEmpty', 'Nenhum comprovante anexado.')}</p>
+            ) : (
+              <ul className="exp-attach-list">
+                {attachments.map((a) => (
+                  <li key={a.id} className="exp-attach-item">
+                    <button type="button" className="exp-attach-name" onClick={() => downloadAttachment(a)}>
+                      {a.file_name}
+                    </button>
+                    <span className="exp-attach-size">{fmtSize(a.size_bytes)}</span>
+                    <button
+                      type="button"
+                      className="exp-attach-del"
+                      onClick={() => removeAttachment(a)}
+                      disabled={uploading}
+                      title={t('common.delete', 'Excluir')}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <label className="exp-upload">
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                disabled={uploading}
+                onChange={(e) => { uploadFile(e.target.files?.[0]); e.target.value = ''; }}
+              />
+              <span>
+                {uploading
+                  ? t('expenses.attachUploading', 'Enviando…')
+                  : t('expenses.attachAdd', 'Anexar comprovante (imagem ou PDF, até 10 MB)')}
+              </span>
+            </label>
+
+            <div className="exp-modal-actions">
+              <Button type="button" variant="secondary" onClick={() => setAttachFor(null)} disabled={uploading}>
+                {t('common.close', 'Fechar')}
+              </Button>
+            </div>
           </div>
         </div>
       )}
