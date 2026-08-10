@@ -14,6 +14,7 @@ import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import PaymentMethodsManager from '../components/PaymentMethodsManager';
 import BuyTypesManager from '../components/BuyTypesManager';
 import ExpensesManager from '../components/ExpensesManager';
+import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
 
 const Financeiro = () => {
@@ -198,6 +199,12 @@ const Financeiro = () => {
             {t('financial.expensesTab', 'Despesas')}
           </button>
           <button
+            className={`fn-tab ${tab === 'receitas' ? 'fn-tab--active' : ''}`}
+            onClick={() => setTab('receitas')}
+          >
+            {t('financial.revenuesTab', 'Outras receitas')}
+          </button>
+          <button
             className={`fn-tab ${tab === 'metodos' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('metodos')}
           >
@@ -216,6 +223,8 @@ const Financeiro = () => {
         {tab === 'demonstrativo' && <CashboxDemonstrativo />}
 
         {tab === 'despesas' && <ExpensesManager />}
+
+        {tab === 'receitas' && <RevenuesManager />}
 
         {tab === 'metodos' && <PaymentMethodsManager />}
 
@@ -363,6 +372,30 @@ const Financeiro = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Outras receitas: bar, patrocínio, aluguel — faturamento que
+                  não passa pelo caixa de torneio. */}
+              {(data.other_revenue || 0) > 0 && (
+                <div className="fn-dre-section">
+                  <div className="fn-dre-title">{t('financial.dreOtherRevenue', 'Outras receitas')}</div>
+                  {(data.other_revenue_by_source || []).map((s) => (
+                    <div className="fn-dre-row" key={s.category}>
+                      <span>{s.category}</span>
+                      <span className="fn-dre-positive">{fmt(s.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="fn-dre-row fn-dre-row--total">
+                    <span>{t('financial.dreOtherRevenueTotal', 'Total de outras receitas')}</span>
+                    <span className="fn-dre-positive">{fmt(data.other_revenue)}</span>
+                  </div>
+                  {(data.other_revenue_pending || 0) > 0 && (
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreOtherRevenuePending', 'Sendo a receber')}</span>
+                      <span>{fmt(data.other_revenue_pending)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Despesas da etapa — abertas por categoria. Sem elas o
                   "resultado líquido" era só o operacional. */}

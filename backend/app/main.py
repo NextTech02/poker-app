@@ -124,6 +124,7 @@ app.include_router(public_tv.router)
 app.include_router(organizations.router)
 app.include_router(loyalty.router)
 app.include_router(expenses.router, dependencies=_no_sangi)
+app.include_router(expenses.revenues_router, dependencies=_no_sangi)
 
 
 @app.exception_handler(httpx.LocalProtocolError)

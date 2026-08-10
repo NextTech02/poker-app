@@ -5,6 +5,7 @@ from app.auth.jwt import get_current_user
 from app.models.expense import (
     ExpenseCreate, ExpenseUpdate,
     ExpenseCategoryCreate, ExpenseCategoryUpdate,
+    RevenueCreate, RevenueUpdate,
 )
 from app.services.expense_service import ExpenseService
 
@@ -114,4 +115,72 @@ def update_expense(
 def delete_expense(expense_id: str, current_user: dict = Depends(get_current_user)):
     if not ExpenseService.delete_expense(_org(current_user), expense_id):
         raise HTTPException(status_code=404, detail="Despesa não encontrada.")
+    return {"deleted": True}
+
+
+# ── Outras receitas ──────────────────────────────────────────────────────────
+# Router separado para não colidir com /expenses/{expense_id}.
+
+revenues_router = APIRouter(prefix="/revenues", tags=["revenues"])
+
+
+@revenues_router.get("/summary")
+def revenue_summary(
+    stage_id: Optional[str] = Query(None),
+    tournament_id: Optional[str] = Query(None),
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    return ExpenseService.summarize_revenues(_org(current_user), stage_id, tournament_id, start, end)
+
+
+@revenues_router.get("")
+def list_revenues(
+    stage_id: Optional[str] = Query(None),
+    tournament_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    return ExpenseService.list_revenues(
+        _org(current_user), stage_id, tournament_id, status, start, end
+    )
+
+
+@revenues_router.post("")
+def create_revenue(data: RevenueCreate, current_user: dict = Depends(get_current_user)):
+    try:
+        created = ExpenseService.create_revenue(
+            _org(current_user), data.model_dump(), current_user.get("sub")
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not created:
+        raise HTTPException(status_code=400, detail="Não foi possível registrar a receita.")
+    return created
+
+
+@revenues_router.patch("/{revenue_id}")
+def update_revenue(
+    revenue_id: str,
+    data: RevenueUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        updated = ExpenseService.update_revenue(
+            _org(current_user), revenue_id, data.model_dump(exclude_unset=True)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Receita não encontrada.")
+    return updated
+
+
+@revenues_router.delete("/{revenue_id}")
+def delete_revenue(revenue_id: str, current_user: dict = Depends(get_current_user)):
+    if not ExpenseService.delete_revenue(_org(current_user), revenue_id):
+        raise HTTPException(status_code=404, detail="Receita não encontrada.")
     return {"deleted": True}

@@ -651,7 +651,9 @@
       "sec_players": "Jogadores",
       "sec_tournaments": "Torneios",
       "sec_transactions": "Transações",
-      "sec_prizes": "Premiação"
+      "sec_prizes": "Premiação",
+      "sec_expenses": "Despesas",
+      "sec_revenues": "Outras receitas"
     },
     "buyIns": "Buy-ins",
     "rebuys": "Rebuys",
@@ -1251,7 +1253,12 @@
     "dreExpensesTotal": "Total de despesas",
     "dreExpensesPending": "Sendo a pagar",
     "dreNoExpenses": "Nenhuma despesa lançada no período",
-    "dreGuarantee": "Garantia aportada pela casa (já na premiação)"
+    "dreGuarantee": "Garantia aportada pela casa (já na premiação)",
+    "revenuesTab": "Outras receitas",
+    "dreOtherRevenue": "Outras receitas",
+    "dreOtherRevenueTotal": "Total de outras receitas",
+    "dreOtherRevenuePending": "Sendo a receber",
+    "otherRevenueKpi": "Outras receitas"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneio",
@@ -1897,5 +1904,27 @@
     "emptyDesc": "Lance os gastos da etapa para o DRE fechar o resultado real.",
     "paidOutside": "Pago por fora (banco) — não movimenta o caixa geral",
     "outsideTag": "por fora"
+  },
+  "revenues": {
+    "new": "Nova receita",
+    "editTitle": "Editar receita",
+    "received": "Recebido",
+    "pending": "A receber",
+    "statusReceived": "Recebido",
+    "statusPending": "A receber",
+    "colSource": "Origem",
+    "descPlaceholder": "Ex: vendas do bar - sábado",
+    "notToCash": "Recebido por fora (banco) — não entra no caixa geral",
+    "outsideTag": "fora do caixa",
+    "created": "Receita registrada.",
+    "updated": "Receita atualizada.",
+    "deleted": "Receita excluída.",
+    "saveError": "Não foi possível salvar a receita",
+    "deleteError": "Não foi possível excluir",
+    "loadError": "Erro ao carregar as receitas",
+    "deleteTitle": "Excluir receita?",
+    "confirmDelete": "Excluir \"{{d}}\"? Esta ação não pode ser desfeita.",
+    "emptyTitle": "Nenhuma receita registrada",
+    "emptyDesc": "Registre bar, patrocínio e outras entradas para o DRE mostrar todo o faturamento."
   }
 }

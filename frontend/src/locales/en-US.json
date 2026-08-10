@@ -651,7 +651,9 @@
       "sec_players": "Players",
       "sec_tournaments": "Tournaments",
       "sec_transactions": "Transactions",
-      "sec_prizes": "Prizes"
+      "sec_prizes": "Prizes",
+      "sec_expenses": "Expenses",
+      "sec_revenues": "Other revenue"
     },
     "buyIns": "Buy-ins",
     "rebuys": "Rebuys",
@@ -1251,7 +1253,12 @@
     "dreExpensesTotal": "Total expenses",
     "dreExpensesPending": "Of which unpaid",
     "dreNoExpenses": "No expenses in this period",
-    "dreGuarantee": "House guarantee (already in prizes)"
+    "dreGuarantee": "House guarantee (already in prizes)",
+    "revenuesTab": "Other revenue",
+    "dreOtherRevenue": "Other revenue",
+    "dreOtherRevenueTotal": "Total other revenue",
+    "dreOtherRevenuePending": "Of which unreceived",
+    "otherRevenueKpi": "Other revenue"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -1897,5 +1904,27 @@
     "emptyDesc": "Record the stage costs so the income statement shows the real result.",
     "paidOutside": "Paid externally (bank) — does not affect the general cash",
     "outsideTag": "external"
+  },
+  "revenues": {
+    "new": "New revenue",
+    "editTitle": "Edit revenue",
+    "received": "Received",
+    "pending": "Receivable",
+    "statusReceived": "Received",
+    "statusPending": "Receivable",
+    "colSource": "Source",
+    "descPlaceholder": "e.g. bar sales - Saturday",
+    "notToCash": "Received externally (bank) — does not enter the general cash",
+    "outsideTag": "outside cash",
+    "created": "Revenue recorded.",
+    "updated": "Revenue updated.",
+    "deleted": "Revenue deleted.",
+    "saveError": "Could not save the revenue",
+    "deleteError": "Could not delete",
+    "loadError": "Error loading revenues",
+    "deleteTitle": "Delete revenue?",
+    "confirmDelete": "Delete \"{{d}}\"? This cannot be undone.",
+    "emptyTitle": "No revenue recorded",
+    "emptyDesc": "Record bar, sponsorship and other income so the statement shows all earnings."
   }
 }

@@ -53,7 +53,12 @@ class FinancialSummary(BaseModel):
     # Aporte da casa na premiação. INFORMATIVO: já sai como prêmio e está
     # embutido em `prizes`, então somar aqui contaria o mesmo dinheiro 2x.
     guarantee_committed: float = 0
-    net_result: float = 0           # operacional − despesas
+    # Outras receitas (bar, patrocínio, aluguel de espaço) — competência.
+    other_revenue: float = 0
+    other_revenue_received: float = 0
+    other_revenue_pending: float = 0
+    other_revenue_by_source: List[ExpenseCategoryTotal] = []
+    net_result: float = 0           # operacional + outras receitas − despesas
     pending_credits: float = 0
     available_tickets: int = 0
     by_tournament: List[TournamentFinancial] = []

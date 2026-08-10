@@ -651,7 +651,9 @@
       "sec_players": "Jugadores",
       "sec_tournaments": "Torneos",
       "sec_transactions": "Transacciones",
-      "sec_prizes": "Premios"
+      "sec_prizes": "Premios",
+      "sec_expenses": "Gastos",
+      "sec_revenues": "Otros ingresos"
     },
     "buyIns": "Buy-ins",
     "rebuys": "Rebuys",
@@ -1251,7 +1253,12 @@
     "dreExpensesTotal": "Total de gastos",
     "dreExpensesPending": "Pendiente de pago",
     "dreNoExpenses": "Ningún gasto en el período",
-    "dreGuarantee": "Garantía aportada por la casa (ya en los premios)"
+    "dreGuarantee": "Garantía aportada por la casa (ya en los premios)",
+    "revenuesTab": "Otros ingresos",
+    "dreOtherRevenue": "Otros ingresos",
+    "dreOtherRevenueTotal": "Total de otros ingresos",
+    "dreOtherRevenuePending": "Pendiente de cobro",
+    "otherRevenueKpi": "Otros ingresos"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneo",
@@ -1897,5 +1904,27 @@
     "emptyDesc": "Registra los gastos de la etapa para que el resultado sea real.",
     "paidOutside": "Pagado por fuera (banco) — no mueve la caja general",
     "outsideTag": "por fuera"
+  },
+  "revenues": {
+    "new": "Nuevo ingreso",
+    "editTitle": "Editar ingreso",
+    "received": "Recibido",
+    "pending": "Por cobrar",
+    "statusReceived": "Recibido",
+    "statusPending": "Por cobrar",
+    "colSource": "Origen",
+    "descPlaceholder": "Ej: ventas del bar - sábado",
+    "notToCash": "Recibido por fuera (banco) — no entra en la caja general",
+    "outsideTag": "fuera de caja",
+    "created": "Ingreso registrado.",
+    "updated": "Ingreso actualizado.",
+    "deleted": "Ingreso eliminado.",
+    "saveError": "No se pudo guardar el ingreso",
+    "deleteError": "No se pudo eliminar",
+    "loadError": "Error al cargar los ingresos",
+    "deleteTitle": "¿Eliminar ingreso?",
+    "confirmDelete": "¿Eliminar \"{{d}}\"? Esta acción no se puede deshacer.",
+    "emptyTitle": "Ningún ingreso registrado",
+    "emptyDesc": "Registra bar, patrocinio y otras entradas para que el resultado muestre todo."
   }
 }

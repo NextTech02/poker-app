@@ -25,6 +25,9 @@ const SECTION_DEFS = [
   { id: 'tournaments', needsFinancial: true },
   { id: 'transactions', needsFinancial: true },
   { id: 'prizes', needsFinancial: true, needsTournaments: true },
+  // Lançamentos da etapa: vêm dos próprios endpoints, não do /reports/financial.
+  { id: 'expenses', needsExpenses: true },
+  { id: 'revenues', needsRevenues: true },
 ];
 
 const typeLabelMap = (t) => ({
@@ -49,6 +52,8 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     tournaments: true,
     transactions: true,
     prizes: true,
+    expenses: true,
+    revenues: true,
   });
 
   const toggle = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }));
@@ -60,9 +65,11 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     tournaments: 'Torneios',
     transactions: 'Transações',
     prizes: 'Premiação',
+    expenses: 'Despesas',
+    revenues: 'Outras receitas',
   }[id]);
 
-  const buildSections = useCallback((financial, prizesByTournament) => {
+  const buildSections = useCallback((financial, prizesByTournament, expenses, revenues) => {
     const sections = [];
     const s = summary || {};
 
@@ -168,6 +175,49 @@ const ReportExportPanel = ({ summary, dateRange }) => {
       });
     }
 
+    if (selected.expenses && expenses && expenses.length) {
+      sections.push({
+        kind: 'table',
+        title: secTitle('expenses'),
+        columns: [
+          { key: 'created_at', label: t('common.date', 'Data'), type: 'date' },
+          { key: 'description', label: t('expenses.colDescription', 'Descrição'), type: 'text' },
+          { key: 'category_name', label: t('expenses.colCategory', 'Categoria'), type: 'text' },
+          { key: 'stage_name', label: t('expenses.colStage', 'Etapa'), type: 'text' },
+          { key: 'supplier', label: t('expenses.colSupplier', 'Fornecedor'), type: 'text' },
+          { key: 'status', label: t('common.status', 'Status'), type: 'text' },
+          { key: 'amount', label: t('expenses.colAmount', 'Valor'), type: 'currency' },
+        ],
+        rows: expenses.map((e) => ({
+          ...e,
+          status: e.status === 'pago'
+            ? t('expenses.statusPaid', 'Pago')
+            : t('expenses.statusPending', 'A pagar'),
+        })),
+      });
+    }
+
+    if (selected.revenues && revenues && revenues.length) {
+      sections.push({
+        kind: 'table',
+        title: secTitle('revenues'),
+        columns: [
+          { key: 'created_at', label: t('common.date', 'Data'), type: 'date' },
+          { key: 'description', label: t('expenses.colDescription', 'Descrição'), type: 'text' },
+          { key: 'source', label: t('revenues.colSource', 'Origem'), type: 'text' },
+          { key: 'stage_name', label: t('expenses.colStage', 'Etapa'), type: 'text' },
+          { key: 'status', label: t('common.status', 'Status'), type: 'text' },
+          { key: 'amount', label: t('expenses.colAmount', 'Valor'), type: 'currency' },
+        ],
+        rows: revenues.map((r) => ({
+          ...r,
+          status: r.status === 'recebido'
+            ? t('revenues.statusReceived', 'Recebido')
+            : t('revenues.statusPending', 'A receber'),
+        })),
+      });
+    }
+
     if (selected.prizes && prizesByTournament && prizesByTournament.length) {
       sections.push({
         kind: 'table',
@@ -230,7 +280,17 @@ const ReportExportPanel = ({ summary, dateRange }) => {
         });
       }
 
-      const sections = buildSections(financial, prizesByTournament);
+      // Lançamentos da etapa: buscados só quando a seção está marcada.
+      let expenses = [];
+      let revenues = [];
+      if (chosen.some((d) => d.needsExpenses)) {
+        expenses = (await api.get('/expenses', { params: dateRange }).catch(() => ({ data: [] }))).data || [];
+      }
+      if (chosen.some((d) => d.needsRevenues)) {
+        revenues = (await api.get('/revenues', { params: dateRange }).catch(() => ({ data: [] }))).data || [];
+      }
+
+      const sections = buildSections(financial, prizesByTournament, expenses, revenues);
       const filename = `relatorio_${dateRange.start}_a_${dateRange.end}`;
       await exportSections(sections, {
         format,

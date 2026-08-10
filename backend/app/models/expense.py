@@ -37,6 +37,31 @@ class ExpenseCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class RevenueCreate(BaseModel):
+    """Outras receitas da etapa: bar, patrocínio, aluguel de espaço…"""
+    stage_id: str = Field(..., description="Etapa a que a receita pertence")
+    tournament_id: Optional[str] = None
+    source: str = Field('Outros', max_length=80)
+    description: str = Field(..., min_length=1, max_length=200)
+    amount: float = Field(..., gt=0)
+    status: Literal['pendente', 'recebido'] = 'pendente'
+    payment_method: Optional[str] = None
+    # false = caiu direto no banco, não entra no caixa geral.
+    to_cash: bool = True
+    notes: Optional[str] = None
+
+
+class RevenueUpdate(BaseModel):
+    tournament_id: Optional[str] = None
+    source: Optional[str] = Field(None, max_length=80)
+    description: Optional[str] = Field(None, min_length=1, max_length=200)
+    amount: Optional[float] = Field(None, gt=0)
+    status: Optional[Literal['pendente', 'recebido']] = None
+    payment_method: Optional[str] = None
+    to_cash: Optional[bool] = None
+    notes: Optional[str] = None
+
+
 class ExpenseUpdate(BaseModel):
     category_id: Optional[str] = None
     tournament_id: Optional[str] = None

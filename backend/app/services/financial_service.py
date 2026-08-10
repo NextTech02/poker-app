@@ -41,6 +41,9 @@ class FinancialService:
                 exp = ExpenseService.summarize(
                     organization_id, stage_id, tournament_id, start_date, end_date
                 )
+                rev = ExpenseService.summarize_revenues(
+                    organization_id, stage_id, tournament_id, start_date, end_date
+                )
                 return FinancialSummary(
                     revenue=RevenueBreakdown(),
                     gross_revenue=0,
@@ -51,7 +54,11 @@ class FinancialService:
                     expenses_paid=exp["paid"],
                     expenses_pending=exp["pending"],
                     expenses_by_category=[ExpenseCategoryTotal(**c) for c in exp["by_category"]],
-                    net_result=-exp["total"],
+                    other_revenue=rev["total"],
+                    other_revenue_received=rev["received"],
+                    other_revenue_pending=rev["pending"],
+                    other_revenue_by_source=[ExpenseCategoryTotal(**c) for c in rev["by_source"]],
+                    net_result=rev["total"] - exp["total"],
                 )
 
         # Filtro por torneio específico (compõe com etapa/datas).
@@ -212,10 +219,15 @@ class FinancialService:
         exp = ExpenseService.summarize(
             organization_id, stage_id, tournament_id, start_date, end_date
         )
+        # ── 9. Outras receitas (bar, patrocínio, aluguel) ──
+        # Faturamento que não passa pelo caixa de torneio e ficava fora do DRE.
+        rev = ExpenseService.summarize_revenues(
+            organization_id, stage_id, tournament_id, start_date, end_date
+        )
 
         gross_revenue = revenue_total
         operational_result = gross_revenue - prize_total
-        net_result = operational_result - exp["total"]
+        net_result = operational_result + rev["total"] - exp["total"]
 
         return FinancialSummary(
             revenue=RevenueBreakdown(
@@ -236,6 +248,10 @@ class FinancialService:
             guarantee_committed=ExpenseService.guarantee_committed(
                 organization_id, stage_id, tournament_id
             ),
+            other_revenue=rev["total"],
+            other_revenue_received=rev["received"],
+            other_revenue_pending=rev["pending"],
+            other_revenue_by_source=[ExpenseCategoryTotal(**c) for c in rev["by_source"]],
             net_result=net_result,
             pending_credits=pending_credits,
             available_tickets=available_tickets,

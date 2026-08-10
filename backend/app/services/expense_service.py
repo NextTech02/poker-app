@@ -296,6 +296,171 @@ class ExpenseService:
                 pending += v
         return total, paid, pending
 
+    # ── Outras receitas ─────────────────────────────────────────────────────
+    # Bar, patrocínio, aluguel de espaço: faturamento que não passa pelo caixa
+    # de torneio e ficava fora do DRE. Mesma mecânica das despesas, com o sinal
+    # invertido no caixa (receber CREDITA).
+
+    @staticmethod
+    def list_revenues(
+        org_id: Optional[str],
+        stage_id: Optional[str] = None,
+        tournament_id: Optional[str] = None,
+        status: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+    ) -> List[dict]:
+        if not org_id:
+            return []
+        q = (
+            supabase.table("other_revenues")
+            .select("*, stages(name), tournaments(name)")
+            .eq("organization_id", org_id)
+        )
+        if stage_id:
+            q = q.eq("stage_id", stage_id)
+        if tournament_id:
+            q = q.eq("tournament_id", tournament_id)
+        if status:
+            q = q.eq("status", status)
+        if start:
+            q = q.gte("created_at", start)
+        if end:
+            q = q.lte("created_at", _iso_end_of_day(end))
+
+        rows = q.order("created_at", desc=True).execute().data or []
+        for r in rows:
+            stg = r.pop("stages", None) or {}
+            trn = r.pop("tournaments", None) or {}
+            r["stage_name"] = stg.get("name")
+            r["tournament_name"] = trn.get("name")
+        return rows
+
+    @staticmethod
+    def set_revenue_status(org_id: str, revenue_id: str, status: str) -> dict:
+        try:
+            r = supabase.rpc("revenue_set_status", {
+                "p_org": org_id, "p_revenue": revenue_id, "p_status": status,
+            }).execute()
+            return r.data or {}
+        except Exception as exc:
+            raise ValueError(ExpenseService._friendly_revenue(exc))
+
+    @staticmethod
+    def _friendly_revenue(exc: Exception) -> str:
+        blob = " ".join(str(getattr(exc, a, "") or "") for a in ("message", "details")) + " " + str(exc)
+        if "RECEITA:" in blob:
+            frag = blob[blob.find("RECEITA:"):].split("\n")[0]
+            for stop in ("  {", " {'", '{"'):
+                i = frag.find(stop)
+                if i != -1:
+                    frag = frag[:i]
+            return frag.split(":", 1)[1].strip().strip("'\"").strip()
+        return "Não foi possível atualizar a receita."
+
+    @staticmethod
+    def create_revenue(org_id: str, data: dict, user_id: Optional[str]) -> dict:
+        payload = {k: v for k, v in data.items() if v is not None}
+        payload["organization_id"] = org_id
+        payload["created_by"] = user_id
+        # Nasce pendente; se veio recebida, a transição pelo RPC credita o caixa.
+        wants_received = payload.pop("status", "pendente") == "recebido"
+        payload["status"] = "pendente"
+        payload.pop("received_at", None)
+
+        created = (supabase.table("other_revenues").insert(payload).execute().data or [None])[0]
+        if created and wants_received:
+            ExpenseService.set_revenue_status(org_id, created["id"], "recebido")
+            cur = supabase.table("other_revenues").select("*").eq("id", created["id"]).execute()
+            created = (cur.data or [created])[0]
+        return created
+
+    @staticmethod
+    def update_revenue(org_id: str, revenue_id: str, data: dict) -> Optional[dict]:
+        upd = {k: v for k, v in data.items() if v is not None}
+        new_status = upd.pop("status", None)
+        upd.pop("received_at", None)
+
+        if upd:
+            upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+            res = (
+                supabase.table("other_revenues").update(upd)
+                .eq("id", revenue_id).eq("organization_id", org_id).execute()
+            )
+            if not res.data:
+                return None
+
+        if new_status:
+            ExpenseService.set_revenue_status(org_id, revenue_id, new_status)
+
+        cur = (
+            supabase.table("other_revenues").select("*")
+            .eq("id", revenue_id).eq("organization_id", org_id).execute()
+        )
+        return (cur.data or [None])[0]
+
+    @staticmethod
+    def delete_revenue(org_id: str, revenue_id: str) -> bool:
+        # Apagar receita recebida devolve o crédito, senão o caixa fica inflado.
+        cur = (
+            supabase.table("other_revenues").select("status")
+            .eq("id", revenue_id).eq("organization_id", org_id).execute().data or []
+        )
+        if cur and cur[0].get("status") == "recebido":
+            try:
+                ExpenseService.set_revenue_status(org_id, revenue_id, "pendente")
+            except ValueError:
+                pass
+        res = (
+            supabase.table("other_revenues").delete()
+            .eq("id", revenue_id).eq("organization_id", org_id).execute()
+        )
+        return bool(res.data)
+
+    @staticmethod
+    def summarize_revenues(
+        org_id: Optional[str],
+        stage_id: Optional[str] = None,
+        tournament_id: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+    ) -> dict:
+        """Total por origem + recebido/pendente (competência, como as despesas)."""
+        empty = {"total": 0.0, "received": 0.0, "pending": 0.0, "by_source": []}
+        if not org_id:
+            return empty
+        q = (
+            supabase.table("other_revenues").select("amount, status, source")
+            .eq("organization_id", org_id)
+        )
+        if stage_id:
+            q = q.eq("stage_id", stage_id)
+        if tournament_id:
+            q = q.eq("tournament_id", tournament_id)
+        if start:
+            q = q.gte("created_at", start)
+        if end:
+            q = q.lte("created_at", _iso_end_of_day(end))
+        rows = q.execute().data or []
+        if not rows:
+            return empty
+
+        total = received = pending = 0.0
+        buckets: dict = {}
+        for r in rows:
+            v = float(r.get("amount") or 0)
+            total += v
+            if r.get("status") == "recebido":
+                received += v
+            else:
+                pending += v
+            name = r.get("source") or "Outros"
+            b = buckets.setdefault(name, {"category": name, "kind": "receita", "amount": 0.0})
+            b["amount"] += v
+
+        by_source = sorted(buckets.values(), key=lambda x: x["amount"], reverse=True)
+        return {"total": total, "received": received, "pending": pending, "by_source": by_source}
+
     @staticmethod
     def guarantee_committed(
         org_id: Optional[str],
