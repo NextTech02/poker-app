@@ -1689,7 +1689,17 @@
     "noAccessDesc": "Esta área é exclusiva dos administradores da plataforma.",
     "suspended": "Suspensa",
     "required": "Obrigatório",
-    "invalidEmail": "E-mail inválido"
+    "invalidEmail": "E-mail inválido",
+    "enter": "Entrar",
+    "enterTitle": "Entrar na organização?",
+    "enterHint": "Ver e editar os dados apenas deste clube",
+    "confirmEnter": "Entrar em \"{{name}}\"? O sistema passa a mostrar e editar apenas os dados deste clube.",
+    "errorEnter": "Não foi possível entrar nesta organização",
+    "viewing": "Visualizando",
+    "viewingAs": "Visualizando",
+    "leave": "Sair",
+    "errorLeave": "Não foi possível sair desta organização",
+    "unknownOrg": "outra organização"
   },
   "sangi": {
     "pageTitle": "Sanger — Venda de Fichas em Consignação",

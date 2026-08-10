@@ -9,6 +9,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { CURRENCIES } from '../utils/currencyUtils';
+import { currentOrgId, enterOrg } from '../utils/orgScope';
 import './Organizacoes.css';
 
 /**
@@ -24,6 +25,9 @@ const Organizacoes = () => {
   const { toast, confirm } = useToast();
   const { isPlatformAdmin, loading: permLoading } = usePermissions();
   const [busyId, setBusyId] = useState(null);
+
+  // Organização que o token carrega agora — é o que o RLS está enxergando.
+  const activeOrgId = currentOrgId();
 
   // Drill-down de funcionários por organização (carregado sob demanda).
   const [expandedOrg, setExpandedOrg] = useState(null);
@@ -82,6 +86,36 @@ const Organizacoes = () => {
       setExpandedOrg(null);
     } finally {
       setStaffLoading(null);
+    }
+  };
+
+  /**
+   * Entra na organização para operá-la como se fosse dela: o app inteiro
+   * (dados, caixa, relatórios, convites de funcionário) passa a enxergar só
+   * este clube.
+   *
+   * Não é um filtro de tela — é um TOKEN NOVO com o claim da organização. Por
+   * isso o isolamento vale também no banco (RLS) e nas telas que falam direto
+   * com o Supabase, sem depender de nenhum filtro no frontend.
+   */
+  const inspect = async (org) => {
+    if (org.id === activeOrgId || busyId) return;
+    const ok = await confirm(
+      t('organizations.confirmEnter',
+        'Entrar em "{{name}}"? O sistema passa a mostrar e editar apenas os dados deste clube.',
+        { name: org.name }),
+      {
+        title: t('organizations.enterTitle', 'Entrar na organização?'),
+        confirmText: t('organizations.enter', 'Entrar'),
+      }
+    );
+    if (!ok) return;
+    setBusyId(org.id);
+    try {
+      await enterOrg(org.id);   // recarrega o app já escopado
+    } catch (err) {
+      toast.error(err.userMessage || t('organizations.errorEnter', 'Não foi possível entrar nesta organização'));
+      setBusyId(null);
     }
   };
 
@@ -276,7 +310,14 @@ const Organizacoes = () => {
               ) : orgs.map((o) => (
                 <React.Fragment key={o.id}>
                 <tr>
-                  <td className="org-name">{o.name}</td>
+                  <td className="org-name">
+                    {o.name}
+                    {o.id === activeOrgId && (
+                      <span className="org-viewing-badge">
+                        {t('organizations.viewing', 'Visualizando')}
+                      </span>
+                    )}
+                  </td>
                   <td><code>{o.slug}</code></td>
                   <td>
                     <span className={`org-plan-badge plan-${o.plan_code}`}>{o.plan_name || o.plan_code}</span>
@@ -319,6 +360,16 @@ const Organizacoes = () => {
                   </td>
                   <td>
                     <div className="org-actions">
+                      {o.status === 'active' && o.id !== activeOrgId && (
+                        <Button
+                          size="small"
+                          onClick={() => inspect(o)}
+                          disabled={busyId === o.id}
+                          title={t('organizations.enterHint', 'Ver e editar os dados apenas deste clube')}
+                        >
+                          {busyId === o.id ? t('common.loading') : t('organizations.enter', 'Entrar')}
+                        </Button>
+                      )}
                       <Button
                         size="small"
                         variant="secondary"

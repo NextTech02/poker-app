@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
-import { supabase } from '../config/supabase';
 import { useToast } from '../contexts/ToastContext';
+import { currentOrgId, enterOrg } from '../utils/orgScope';
 import './OrgSwitcher.css';
 
 /**
@@ -30,11 +30,7 @@ const OrgSwitcher = ({ collapsed }) => {
         const list = res.data || [];
         setOrgs(list);
         // A org do token é a fonte da verdade do que está ativo agora.
-        const token = localStorage.getItem('supabase_token');
-        let activeId = null;
-        try {
-          activeId = JSON.parse(atob(token.split('.')[1])).organization_id;
-        } catch (_) { /* sem token legível */ }
+        const activeId = currentOrgId();
         setCurrent(list.find((o) => o.id === activeId) || list.find((o) => o.is_active_org) || list[0] || null);
       })
       .catch(() => {});
@@ -45,11 +41,7 @@ const OrgSwitcher = ({ collapsed }) => {
     if (!orgId || orgId === current?.id || switching) return;
     setSwitching(true);
     try {
-      await api.post('/organizations/switch', { organization_id: orgId });
-      // O claim só muda em um token novo.
-      const { error } = await supabase.auth.refreshSession();
-      if (error) throw error;
-      window.location.reload();   // limpa caches/estado da organização anterior
+      await enterOrg(orgId);   // token novo + limpa etapa/cache + recarrega
     } catch (err) {
       toast.error(err.userMessage || t('organizations.errorSwitch', 'Não foi possível trocar de organização'));
       setSwitching(false);

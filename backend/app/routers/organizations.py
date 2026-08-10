@@ -262,16 +262,23 @@ def switch_organization(data: SwitchOrgRequest, current_user: dict = Depends(get
     no claim assinado, não em nada que o cliente envie — aceitar a organização
     por header seria o mesmo buraco do X-Stage-ID.
 
-    A função no banco valida o vínculo: não dá para "trocar" para um clube do
-    qual você não faz parte.
+    Quem autoriza é a função no banco, não esta rota:
+    - usuário comum   -> exige vínculo ativo em `staff`;
+    - platform_admin  -> pode entrar em qualquer organização ativa (é assim que
+      o admin inspeciona o clube de um cliente vendo SÓ os dados dele).
     """
+    is_admin = current_user.get("platform_admin") is True
     try:
         supabase_admin.rpc("set_active_organization", {
             "p_user": current_user.get("sub"),
             "p_org": data.organization_id,
         }).execute()
-    except Exception as exc:
-        raise HTTPException(status_code=403, detail="Você não pertence a esta organização.")
+    except Exception:
+        raise HTTPException(
+            status_code=403,
+            detail=("Organização inexistente ou inativa."
+                    if is_admin else "Você não pertence a esta organização."),
+        )
     return {"organization_id": data.organization_id, "refresh_required": True}
 
 

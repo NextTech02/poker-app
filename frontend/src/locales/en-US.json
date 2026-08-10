@@ -1689,7 +1689,17 @@
     "noAccessDesc": "This area is exclusive to platform administrators.",
     "suspended": "Suspended",
     "required": "Required",
-    "invalidEmail": "Invalid e-mail"
+    "invalidEmail": "Invalid e-mail",
+    "enter": "Enter",
+    "enterTitle": "Enter organization?",
+    "enterHint": "View and edit only this club's data",
+    "confirmEnter": "Enter \"{{name}}\"? The system will show and edit only this club's data.",
+    "errorEnter": "Could not enter this organization",
+    "viewing": "Viewing",
+    "viewingAs": "Viewing",
+    "leave": "Exit",
+    "errorLeave": "Could not leave this organization",
+    "unknownOrg": "another organization"
   },
   "sangi": {
     "pageTitle": "Sanger — Consignment Chip Sales",

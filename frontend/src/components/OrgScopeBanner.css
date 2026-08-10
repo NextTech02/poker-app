@@ -1,0 +1,71 @@
+/* Faixa de "você está dentro da organização de um cliente".
+   Fica FIXA no rodapé em vez de empurrar o topo: assim nenhuma página precisa
+   ajustar o próprio layout para conviver com ela. */
+.org-scope-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;          /* acima do conteúdo, abaixo de modais/toasts */
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+
+  /* Âmbar: é um estado de atenção, não um erro nem uma confirmação. */
+  background: rgba(245, 158, 11, 0.14);
+  border-top: 1px solid var(--text-warning);
+  backdrop-filter: blur(6px);
+
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.osb-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-warning);
+  flex-shrink: 0;
+}
+
+.osb-text {
+  color: var(--text-secondary);
+}
+
+.osb-text strong {
+  color: var(--text-warning);
+  font-weight: var(--font-weight-semibold);
+}
+
+.osb-exit {
+  background: transparent;
+  border: 1px solid var(--text-warning);
+  border-radius: var(--radius-sm);
+  color: var(--text-warning);
+  padding: 3px 12px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.osb-exit:hover:not(:disabled) {
+  background: var(--text-warning);
+  color: #1a1400;
+}
+
+.osb-exit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  .org-scope-banner {
+    gap: 8px;
+    padding: 6px 10px;
+    font-size: var(--font-size-xs);
+  }
+}

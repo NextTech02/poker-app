@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
+import { enterOrg } from '../utils/orgScope';
 import LanguageSelector from '../components/LanguageSelector';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
@@ -52,13 +52,12 @@ const SelectOrg = () => {
     setEntering(org.id);
     try {
       // Já é a organização do token atual: não precisa emitir outro.
-      if (!org.is_active_org) {
-        await api.post('/organizations/switch', { organization_id: org.id });
-        const { error: refErr } = await supabase.auth.refreshSession();
-        if (refErr) throw refErr;
+      if (org.is_active_org) {
+        window.location.href = '/';
+        return;
       }
-      // Recarrega para o app inteiro nascer com a organização escolhida.
-      window.location.href = '/';
+      // Emite token novo, limpa a etapa/cache da org anterior e recarrega.
+      await enterOrg(org.id);
     } catch (err) {
       setError(err.userMessage || t('selectOrg.error', 'Não foi possível entrar nesta organização.'));
       setEntering(null);

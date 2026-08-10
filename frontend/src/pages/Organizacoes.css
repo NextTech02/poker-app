@@ -24,6 +24,20 @@
 
 .org-name { font-weight: 600; color: #fff; }
 
+/* Marca qual organização o token está enxergando agora. */
+.org-viewing-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--text-warning);
+  color: var(--text-warning);
+  background: rgba(245, 158, 11, 0.12);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  vertical-align: middle;
+}
+
 .org-table code {
   background: rgba(255, 255, 255, 0.06);
   padding: 0.15rem 0.45rem;

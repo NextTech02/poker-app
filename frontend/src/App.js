@@ -11,6 +11,7 @@ import { BuyTypesProvider } from './contexts/BuyTypesContext';
 import { ConnectivityProvider } from './contexts/ConnectivityContext';
 import { isOnline } from './offline/connectivity';
 import OfflineBanner from './components/OfflineBanner';
+import OrgScopeBanner from './components/OrgScopeBanner';
 import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
 import SelectOrg from './pages/SelectOrg';
@@ -415,6 +416,7 @@ function App() {
                     <ToastProvider>
                       <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
                         <OfflineBanner />
+                        <OrgScopeBanner />
                         <AppRoutes />
                       </ErrorBoundary>
                     </ToastProvider>
