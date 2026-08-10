@@ -13,6 +13,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import PaymentMethodsManager from '../components/PaymentMethodsManager';
 import BuyTypesManager from '../components/BuyTypesManager';
+import ExpensesManager from '../components/ExpensesManager';
 import './Financeiro.css';
 
 const Financeiro = () => {
@@ -191,6 +192,12 @@ const Financeiro = () => {
             {t('cashbox.tabDemonstrativo')}
           </button>
           <button
+            className={`fn-tab ${tab === 'despesas' ? 'fn-tab--active' : ''}`}
+            onClick={() => setTab('despesas')}
+          >
+            {t('financial.expensesTab', 'Despesas')}
+          </button>
+          <button
             className={`fn-tab ${tab === 'metodos' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('metodos')}
           >
@@ -207,6 +214,8 @@ const Financeiro = () => {
         {tab === 'caixas' && <CashboxAdminPanel />}
 
         {tab === 'demonstrativo' && <CashboxDemonstrativo />}
+
+        {tab === 'despesas' && <ExpensesManager />}
 
         {tab === 'metodos' && <PaymentMethodsManager />}
 
@@ -277,6 +286,20 @@ const Financeiro = () => {
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
+                  <h3 className="fn-stat-expense">{fmt(data.expenses || 0)}</h3>
+                  <p>{t('financial.expensesTotal', 'Despesas')}</p>
+                </div>
+              </Card>
+              <Card className="stat-card">
+                <div className="stat-info">
+                  <h3 className={(data.net_result || 0) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
+                    {fmt(data.net_result)}
+                  </h3>
+                  <p>{t('financial.netResult', 'Resultado líquido')}</p>
+                </div>
+              </Card>
+              <Card className="stat-card">
+                <div className="stat-info">
                   <h3 className="fn-stat-rake">{fmt(data.rake)}</h3>
                   <p>{t('financial.accumulatedRake')}</p>
                 </div>
@@ -339,6 +362,35 @@ const Financeiro = () => {
                     {fmt(data.operational_result)}
                   </span>
                 </div>
+              </div>
+
+              {/* Despesas da etapa — abertas por categoria. Sem elas o
+                  "resultado líquido" era só o operacional. */}
+              <div className="fn-dre-section">
+                <div className="fn-dre-title">{t('financial.dreExpenses', 'Despesas')}</div>
+                {(data.expenses_by_category || []).length === 0 ? (
+                  <div className="fn-dre-row fn-dre-row--muted">
+                    <span>{t('financial.dreNoExpenses', 'Nenhuma despesa lançada no período')}</span>
+                    <span>{fmt(0)}</span>
+                  </div>
+                ) : (
+                  (data.expenses_by_category || []).map((c) => (
+                    <div className="fn-dre-row" key={c.category}>
+                      <span>{c.category}</span>
+                      <span className="fn-dre-negative">{fmt(c.amount)}</span>
+                    </div>
+                  ))
+                )}
+                <div className="fn-dre-row fn-dre-row--total">
+                  <span>{t('financial.dreExpensesTotal', 'Total de despesas')}</span>
+                  <span className="fn-dre-negative">{fmt(data.expenses || 0)}</span>
+                </div>
+                {(data.expenses_pending || 0) > 0 && (
+                  <div className="fn-dre-row fn-dre-row--muted">
+                    <span>{t('financial.dreExpensesPending', 'Sendo a pagar')}</span>
+                    <span>{fmt(data.expenses_pending)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="fn-dre-section">

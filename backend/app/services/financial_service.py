@@ -6,7 +6,9 @@ from app.models.financial import (
     RevenueBreakdown,
     TournamentFinancial,
     TransactionEntry,
+    ExpenseCategoryTotal,
 )
+from app.services.expense_service import ExpenseService
 
 
 class FinancialService:
@@ -16,6 +18,7 @@ class FinancialService:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         tournament_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
     ) -> FinancialSummary:
         """Generate comprehensive financial summary for DRE and closing"""
 
@@ -32,14 +35,23 @@ class FinancialService:
             if t_ids:
                 query = query.in_("tournament_id", t_ids)
             else:
-                # No tournaments in stage, return empty
+                # Etapa ainda sem torneios: não há receita, mas pode já haver
+                # despesa lançada (aluguel, montagem). O DRE precisa mostrar o
+                # prejuízo — devolver zerado esconderia dinheiro já gasto.
+                exp = ExpenseService.summarize(
+                    organization_id, stage_id, tournament_id, start_date, end_date
+                )
                 return FinancialSummary(
                     revenue=RevenueBreakdown(),
                     gross_revenue=0,
                     prizes=0,
                     operational_result=0,
                     rake=0,
-                    net_result=0,
+                    expenses=exp["total"],
+                    expenses_paid=exp["paid"],
+                    expenses_pending=exp["pending"],
+                    expenses_by_category=[ExpenseCategoryTotal(**c) for c in exp["by_category"]],
+                    net_result=-exp["total"],
                 )
 
         # Filtro por torneio específico (compõe com etapa/datas).
@@ -194,9 +206,16 @@ class FinancialService:
 
         by_tournament.sort(key=lambda t: t.revenue, reverse=True)
 
+        # ── 8. Despesas da etapa ──
+        # É o que faltava para o DRE fechar: antes `net_result` era igual ao
+        # operacional, ou seja, o resultado ignorava todo custo da operação.
+        exp = ExpenseService.summarize(
+            organization_id, stage_id, tournament_id, start_date, end_date
+        )
+
         gross_revenue = revenue_total
         operational_result = gross_revenue - prize_total
-        net_result = operational_result
+        net_result = operational_result - exp["total"]
 
         return FinancialSummary(
             revenue=RevenueBreakdown(
@@ -210,6 +229,10 @@ class FinancialService:
             prizes=prize_total,
             operational_result=operational_result,
             rake=rake_total,
+            expenses=exp["total"],
+            expenses_paid=exp["paid"],
+            expenses_pending=exp["pending"],
+            expenses_by_category=[ExpenseCategoryTotal(**c) for c in exp["by_category"]],
             net_result=net_result,
             pending_credits=pending_credits,
             available_tickets=available_tickets,

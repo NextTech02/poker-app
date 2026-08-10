@@ -44,6 +44,11 @@
   color: #f97316 !important;
 }
 
+/* Despesa é saída de caixa: vermelho, o mesmo código do negativo no DRE. */
+.fn-stat-expense {
+  color: var(--danger-color, #ef4444) !important;
+}
+
 /* DRE Card */
 .fn-dre-card {
   margin-bottom: 1.5rem;

@@ -32,14 +32,25 @@ class TransactionEntry(BaseModel):
     amount: float
 
 
+class ExpenseCategoryTotal(BaseModel):
+    category: str
+    kind: Optional[str] = None      # fixo | variavel
+    amount: float = 0
+
+
 class FinancialSummary(BaseModel):
     revenue: RevenueBreakdown
     tickets_redeemed_value: float = 0
     gross_revenue: float = 0
     prizes: float = 0
-    operational_result: float = 0
+    operational_result: float = 0   # entradas − premiação (≈ rake)
     rake: float = 0
-    net_result: float = 0
+    # Despesas da etapa (competência: pagas + pendentes).
+    expenses: float = 0
+    expenses_paid: float = 0
+    expenses_pending: float = 0
+    expenses_by_category: List[ExpenseCategoryTotal] = []
+    net_result: float = 0           # operacional − despesas
     pending_credits: float = 0
     available_tickets: int = 0
     by_tournament: List[TournamentFinancial] = []

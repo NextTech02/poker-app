@@ -37,4 +37,6 @@ def get_financial_summary(
     current_user: dict = Depends(get_current_user),
 ):
     """Get financial summary for DRE and closing"""
-    return FinancialService.get_financial_summary(stage_id, start, end, tournament_id)
+    return FinancialService.get_financial_summary(
+        stage_id, start, end, tournament_id, current_user.get("organization_id")
+    )
