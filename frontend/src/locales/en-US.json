@@ -1949,5 +1949,33 @@
     "confirmDelete": "Delete \"{{d}}\"? This cannot be undone.",
     "emptyTitle": "No revenue recorded",
     "emptyDesc": "Record bar, sponsorship and other income so the statement shows all earnings."
+  },
+  "playerImport": {
+    "button": "Import",
+    "buttonHint": "Bring your player base from another system",
+    "title": "Import players",
+    "hint": "Upload the player spreadsheet exported from your current system. Accepts .xls and .xlsx.",
+    "choose": "Choose file",
+    "reading": "Checking the file...",
+    "previewHint": "Review before saving. Nothing has been saved yet.",
+    "willImport": "will be imported",
+    "already": "already registered",
+    "pending": "incomplete",
+    "imported": "imported",
+    "pendingExplain": "Incomplete records are missing an email, phone or document — fields this system requires. Download the list, complete them in the old system and import again: anyone already added will not be duplicated.",
+    "pendingAfter": "Complete the pending records in the old system and import the file again — those already created will be skipped.",
+    "downloadPending": "Download pending list",
+    "overLimit": "Your plan allows {{limite}} players. This organization already has {{atual}} and the import would add {{novos}}.",
+    "sample": "Sample of what will be created",
+    "confirm": "Import {{n}} players",
+    "importing": "Importing...",
+    "done": "{{n}} players imported.",
+    "emptyFile": "We found no players in this file.",
+    "noHeader": "We could not find the player name column. Check that this is the file exported by the old system.",
+    "readError": "We could not read this file.",
+    "importError": "The import could not be completed.",
+    "csvId": "ID in old system",
+    "csvName": "Player",
+    "csvReason": "What is missing"
   }
 }

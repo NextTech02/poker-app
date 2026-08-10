@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -12,6 +12,9 @@ import { applyPlayerCreate } from '../offline/domainRules';
 import { uuid, getEntity, putEntity } from '../offline/db';
 import countries from '../data/countries';
 import './Players.css';
+
+// Carregado só quando o usuário importa: puxa o leitor de planilha junto.
+const PlayerImportModal = lazy(() => import('../components/PlayerImportModal'));
 
 const DOC_TYPE_LABELS = {
   national_id: 'players.docIdentity',
@@ -40,6 +43,7 @@ const Players = () => {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     loadPlayers();
@@ -170,12 +174,21 @@ const Players = () => {
               <p className="pl-subtitle">{t('players.subtitle')}</p>
             </div>
           </div>
-          <button className="pl-btn-new" onClick={openNewModal}>
-            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
-            {t('players.newPlayer')}
-          </button>
+          <div className="pl-head-actions">
+            <button className="pl-btn-import" onClick={() => setShowImport(true)}
+                    title={t('playerImport.buttonHint', 'Trazer a base de jogadores de outro sistema')}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67 2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
+              </svg>
+              {t('playerImport.button', 'Importar')}
+            </button>
+            <button className="pl-btn-new" onClick={openNewModal}>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              {t('players.newPlayer')}
+            </button>
+          </div>
         </div>
 
         {/* ── Search ── */}
@@ -506,6 +519,15 @@ const Players = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {showImport && (
+          <Suspense fallback={null}>
+            <PlayerImportModal
+              onClose={() => setShowImport(false)}
+              onImported={() => { invalidateCache('/players'); loadPlayers(); }}
+            />
+          </Suspense>
         )}
       </main>
     </div>

@@ -1949,5 +1949,33 @@
     "confirmDelete": "Excluir \"{{d}}\"? Esta ação não pode ser desfeita.",
     "emptyTitle": "Nenhuma receita registrada",
     "emptyDesc": "Registre bar, patrocínio e outras entradas para o DRE mostrar todo o faturamento."
+  },
+  "playerImport": {
+    "button": "Importar",
+    "buttonHint": "Trazer a base de jogadores de outro sistema",
+    "title": "Importar jogadores",
+    "hint": "Envie a planilha de jogadores exportada do seu sistema atual. Aceita .xls e .xlsx.",
+    "choose": "Escolher arquivo",
+    "reading": "Conferindo o arquivo...",
+    "previewHint": "Confira antes de gravar. Nada foi salvo ainda.",
+    "willImport": "serão importados",
+    "already": "já cadastrados",
+    "pending": "incompletos",
+    "imported": "importados",
+    "pendingExplain": "Os incompletos não têm e-mail, telefone ou documento — campos que o sistema exige. Baixe a lista, complete no sistema antigo e importe de novo: quem já entrou não será duplicado.",
+    "pendingAfter": "Complete os pendentes no sistema antigo e importe o arquivo de novo — os já criados serão ignorados.",
+    "downloadPending": "Baixar lista de pendentes",
+    "overLimit": "O plano permite {{limite}} jogadores. A organização já tem {{atual}} e a importação traria {{novos}}.",
+    "sample": "Amostra do que será criado",
+    "confirm": "Importar {{n}} jogadores",
+    "importing": "Importando...",
+    "done": "{{n}} jogadores importados.",
+    "emptyFile": "Não encontramos jogadores neste arquivo.",
+    "noHeader": "Não achamos a coluna de nome do jogador. Confira se este é o arquivo exportado pelo sistema antigo.",
+    "readError": "Não foi possível ler este arquivo.",
+    "importError": "Não foi possível concluir a importação.",
+    "csvId": "ID no sistema antigo",
+    "csvName": "Jogador",
+    "csvReason": "O que falta"
   }
 }

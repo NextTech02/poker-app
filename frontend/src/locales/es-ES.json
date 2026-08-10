@@ -1949,5 +1949,33 @@
     "confirmDelete": "¿Eliminar \"{{d}}\"? Esta acción no se puede deshacer.",
     "emptyTitle": "Ningún ingreso registrado",
     "emptyDesc": "Registra bar, patrocinio y otras entradas para que el resultado muestre todo."
+  },
+  "playerImport": {
+    "button": "Importar",
+    "buttonHint": "Traer la base de jugadores de otro sistema",
+    "title": "Importar jugadores",
+    "hint": "Sube la planilla de jugadores exportada de tu sistema actual. Acepta .xls y .xlsx.",
+    "choose": "Elegir archivo",
+    "reading": "Revisando el archivo...",
+    "previewHint": "Revisa antes de guardar. Aún no se ha guardado nada.",
+    "willImport": "se importarán",
+    "already": "ya registrados",
+    "pending": "incompletos",
+    "imported": "importados",
+    "pendingExplain": "A los incompletos les falta correo, teléfono o documento — campos que el sistema exige. Descarga la lista, complétalos en el sistema anterior e importa de nuevo: quien ya entró no se duplicará.",
+    "pendingAfter": "Completa los pendientes en el sistema anterior e importa el archivo otra vez — los ya creados se omitirán.",
+    "downloadPending": "Descargar lista de pendientes",
+    "overLimit": "El plan permite {{limite}} jugadores. La organización ya tiene {{atual}} y la importación añadiría {{novos}}.",
+    "sample": "Muestra de lo que se creará",
+    "confirm": "Importar {{n}} jugadores",
+    "importing": "Importando...",
+    "done": "{{n}} jugadores importados.",
+    "emptyFile": "No encontramos jugadores en este archivo.",
+    "noHeader": "No encontramos la columna con el nombre del jugador. Verifica que sea el archivo exportado por el sistema anterior.",
+    "readError": "No se pudo leer este archivo.",
+    "importError": "No se pudo completar la importación.",
+    "csvId": "ID en el sistema anterior",
+    "csvName": "Jugador",
+    "csvReason": "Qué falta"
   }
 }

@@ -50,6 +50,36 @@
 }
 
 /* ── New Player Button — A3: padronizado com var(--brand-green) ── */
+.pl-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* Secundário de propósito: importar é evento raro (migração de clube),
+   "Novo Jogador" é o gesto do dia a dia e continua sendo o botão principal. */
+.pl-btn-import {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.pl-btn-import:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+  background: var(--card-bg-hover);
+}
+
 .pl-btn-new {
   display: inline-flex;
   align-items: center;
