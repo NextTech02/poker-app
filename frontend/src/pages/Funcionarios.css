@@ -149,6 +149,18 @@
 }
 
 /* Modal overrides */
+/* Explica por que não há campo de senha — sem isso o admin procura o campo. */
+.func-invite-hint {
+  margin: 0 0 18px;
+  padding: 11px 13px;
+  background: var(--card-bg-hover);
+  border-left: 3px solid var(--accent-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
 .func-modal {
   max-width: 480px;
 }

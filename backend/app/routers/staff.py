@@ -77,8 +77,11 @@ def delete_group(group_id: str, user=_manage_staff):
 
 @router.post("", response_model=StaffResponse)
 def create_staff(data: StaffCreate, user=_manage_staff):
+    """Convida o funcionário por e-mail — ele define o próprio nome e senha."""
     try:
-        return StaffService.create_staff(data, user.get("sub"))
+        return StaffService.create_staff(
+            data, user.get("sub"), user.get("organization_id")
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -1,6 +1,7 @@
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.database import supabase
+from app.database.supabase_client import supabase_admin
 from app.config import get_settings
 from app.models.staff import (
     PermissionGroupCreate,
@@ -85,43 +86,153 @@ class StaffService:
     # ================================================
 
     @staticmethod
-    def create_staff(data: StaffCreate, created_by: str) -> StaffResponse:
-        """Create a staff member: creates Supabase Auth user + staff record"""
+    def create_staff(data: StaffCreate, created_by: str, organization_id: str = None) -> StaffResponse:
+        """Convida o funcionário por e-mail; ele define nome e senha.
+
+        Antes, o admin digitava a senha do funcionário — ou seja, conhecia a
+        senha de outra pessoa e precisava repassá-la por fora. Agora vale o
+        mesmo caminho do convite do dono do clube: o Supabase cria a conta e
+        manda o e-mail; a senha nunca passa por aqui.
+
+        `organization_name` nos metadados é o que marca a conta como criada por
+        convite — o app usa isso (com `onboarded_at`) para exigir o cadastro
+        antes de liberar o sistema. Sem esse campo, o convidado entraria direto.
+        """
         import httpx
 
-        # Create user in Supabase Auth via admin API
-        auth_url = f"{settings.supabase_url}/auth/v1/admin/users"
+        base = settings.supabase_url.rstrip("/")
         headers = {
             "apikey": settings.supabase_service_key,
             "Authorization": f"Bearer {settings.supabase_service_key}",
             "Content-Type": "application/json",
         }
-        body = {
-            "email": data.email,
-            "password": data.password,
-            "email_confirm": True,
-        }
 
-        resp = httpx.post(auth_url, json=body, headers=headers, timeout=15)
-        if resp.status_code >= 400:
-            error_detail = resp.json().get("msg") or resp.json().get("message") or resp.text
-            raise ValueError(f"Erro ao criar usuario: {error_detail}")
+        # Nome do clube: aparece no e-mail e liga o gate de cadastro.
+        # Precisa ser `supabase_admin`: `organizations` tem RLS sem nenhuma
+        # policy, então a consulta como usuário volta vazia e cairia no
+        # genérico — o convidado receberia um e-mail sem o nome do clube.
+        org_nome = "AceBlind"
+        if organization_id:
+            try:
+                r = (
+                    supabase_admin.table("organizations")
+                    .select("name").eq("id", organization_id).limit(1).execute()
+                )
+                if r.data:
+                    org_nome = r.data[0]["name"]
+            except Exception:
+                pass
 
-        auth_user = resp.json()
-        auth_user_id = auth_user["id"]
+        # Limite do plano ANTES de convidar. O convite cria a conta e dispara o
+        # e-mail; se o gatilho `trg_enforce_staff_limit` recusasse a inserção
+        # depois, sobraria um usuário órfão e uma pessoa convidada que não
+        # consegue entrar.
+        if organization_id:
+            try:
+                atual = (
+                    supabase.table("staff").select("id", count="exact")
+                    .eq("organization_id", organization_id).eq("active", True)
+                    .limit(1).execute()
+                ).count or 0
+                lim = supabase.rpc(
+                    "org_limit", {"p_org": organization_id, "p_kind": "users"}
+                ).execute().data
+                if isinstance(lim, int) and atual >= lim:
+                    raise ValueError(
+                        f"O plano atual permite {lim} usuário(s) e a organização já tem {atual}. "
+                        "Altere o plano para convidar mais gente."
+                    )
+            except ValueError:
+                raise
+            except Exception:
+                pass  # indisponível: o gatilho do banco ainda protege
 
-        # Create staff record
+        auth_user_id = None
+        criamos_o_usuario = False
+        try:
+            resp = httpx.post(
+                f"{base}/auth/v1/invite",
+                headers=headers,
+                json={
+                    "email": data.email,
+                    "data": {"organization_name": org_nome},
+                    # Leva para a tela onde o funcionário define nome e senha.
+                    # (a URL precisa estar na allowlist de Redirect URLs do Supabase)
+                    "redirect_to": settings.frontend_url.rstrip("/") + "/definir-senha",
+                },
+                timeout=20,
+            )
+        except Exception as exc:
+            raise ValueError(f"Falha ao contatar o serviço de e-mail: {exc}")
+
+        if resp.status_code in (200, 201):
+            auth_user_id = resp.json().get("id")
+            criamos_o_usuario = True
+        elif resp.status_code == 429:
+            raise ValueError(
+                "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente de novo."
+            )
+        elif resp.status_code in (409, 422):
+            # Já existe conta com este e-mail: reaproveita em vez de barrar. Pode
+            # ser alguém que já trabalha em outro clube — o vínculo é por
+            # organização, então a mesma pessoa pode atuar em mais de um.
+            found = httpx.get(
+                f"{base}/auth/v1/admin/users",
+                headers=headers, params={"page": 1, "per_page": 200}, timeout=20,
+            )
+            for u in (found.json().get("users") or []):
+                if (u.get("email") or "").lower() == data.email.lower():
+                    auth_user_id = u.get("id")
+                    break
+            if not auth_user_id:
+                raise ValueError("Já existe uma conta com este e-mail.")
+        else:
+            detalhe = ""
+            try:
+                j = resp.json()
+                detalhe = j.get("msg") or j.get("message") or ""
+            except Exception:
+                detalhe = resp.text[:160]
+            raise ValueError(f"Não foi possível enviar o convite. {detalhe}".strip())
+
+        if not auth_user_id:
+            raise ValueError("Não foi possível criar o acesso deste funcionário.")
+
+        # `staff.name` é obrigatório no banco, mas quem informa o nome é o
+        # próprio funcionário ao aceitar o convite. Até lá, vale a parte do
+        # e-mail — a lista fica legível e a tela de cadastro sobrescreve depois.
+        nome = (data.name or "").strip() or data.email.split("@")[0]
+
         insert_data = {
             "auth_user_id": auth_user_id,
-            "name": data.name,
+            "name": nome,
             "email": data.email,
             "permission_group_id": data.permission_group_id,
             "active": True,
             "created_by": created_by,
         }
 
-        response = supabase.table("staff").insert(insert_data).execute()
-        staff = response.data[0]
+        try:
+            response = supabase.table("staff").insert(insert_data).execute()
+            staff = response.data[0]
+        except Exception as exc:
+            # Se a inserção falhar depois de o convite ter criado a conta,
+            # desfaz o usuário: senão fica uma conta órfã no auth, que ninguém
+            # vê pela interface e que impede reconvidar o mesmo e-mail.
+            if criamos_o_usuario and auth_user_id:
+                try:
+                    httpx.delete(
+                        f"{base}/auth/v1/admin/users/{auth_user_id}",
+                        headers=headers, timeout=15,
+                    )
+                except Exception:
+                    pass
+            txt = str(exc)
+            if "PLANO_LIMITE" in txt:
+                raise ValueError("O plano atual não permite mais usuários.")
+            if "staff_email" in txt or "duplicate key" in txt:
+                raise ValueError("Este e-mail já está cadastrado nesta organização.")
+            raise ValueError("Não foi possível cadastrar o funcionário.")
 
         # Get group info
         group_name = None

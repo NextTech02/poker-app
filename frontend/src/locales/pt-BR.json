@@ -1546,7 +1546,14 @@
       "tables": "Mesas",
       "broadcast": "Broadcast",
       "employees": "Funcionários"
-    }
+    },
+    "inviteEmployee": "Convidar funcionário",
+    "inviteHint": "O funcionário recebe um e-mail e define o próprio nome e senha. Você não precisa criar nem repassar senha.",
+    "sendInvite": "Enviar convite",
+    "sending": "Enviando...",
+    "inviteSent": "Convite enviado para {{email}}.",
+    "fillEmail": "Informe um e-mail válido.",
+    "pendingInvite": "Convite pendente"
   },
   "stageBar": {
     "selectedStage": "Etapa Selecionada:",

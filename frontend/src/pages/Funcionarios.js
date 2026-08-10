@@ -49,7 +49,7 @@ const Funcionarios = () => {
 
   // Staff modal
   const [showStaffModal, setShowStaffModal] = useState(false);
-  const [staffForm, setStaffForm] = useState({ name: '', email: '', password: '', permission_group_id: '' });
+  const [staffForm, setStaffForm] = useState({ email: '', permission_group_id: '' });
   const [staffSaving, setStaffSaving] = useState(false);
 
   // Group modal
@@ -235,21 +235,24 @@ const Funcionarios = () => {
   // ── Staff handlers ──
 
   const openCreateStaff = () => {
-    setStaffForm({ name: '', email: '', password: '', permission_group_id: '' });
+    setStaffForm({ email: '', permission_group_id: '' });
     setShowStaffModal(true);
   };
 
   const handleCreateStaff = async () => {
-    if (!staffForm.name || !staffForm.email || !staffForm.password) {
-      notify(t('staff.fillNameEmailPassword'));
+    const email = (staffForm.email || '').trim();
+    if (!email || !/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) {
+      notify(t('staff.fillEmail', 'Informe um e-mail válido.'));
       return;
     }
     setStaffSaving(true);
     try {
-      const payload = { ...staffForm };
-      if (!payload.permission_group_id) delete payload.permission_group_id;
+      // Só o e-mail vai: o próprio funcionário define nome e senha ao aceitar
+      // o convite. O admin não escolhe a senha de ninguém.
+      const payload = { email };
+      if (staffForm.permission_group_id) payload.permission_group_id = staffForm.permission_group_id;
       await api.post('/staff', payload);
-      notify(t('staff.staffCreated'), 'success');
+      notify(t('staff.inviteSent', 'Convite enviado para {{email}}.', { email }), 'success');
       setShowStaffModal(false);
       loadData();
     } catch (err) {
@@ -618,20 +621,14 @@ const Funcionarios = () => {
           <div className="modal-overlay" onClick={() => setShowStaffModal(false)}>
             <div className="modal func-modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>{t('staff.newEmployee')}</h2>
+                <h2>{t('staff.inviteEmployee', 'Convidar funcionário')}</h2>
                 <button className="modal-close" onClick={() => setShowStaffModal(false)}>×</button>
               </div>
               <div className="modal-body">
-                <div className="form-group">
-                  <label>{t('common.name')}</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={staffForm.name}
-                    onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
-                    placeholder={t('staff.fullNamePlaceholder')}
-                  />
-                </div>
+                <p className="func-invite-hint">
+                  {t('staff.inviteHint',
+                     'O funcionário recebe um e-mail e define o próprio nome e senha. Você não precisa criar nem repassar senha.')}
+                </p>
                 <div className="form-group">
                   <label>{t('staff.email')}</label>
                   <input
@@ -640,16 +637,7 @@ const Funcionarios = () => {
                     value={staffForm.email}
                     onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
                     placeholder="email@exemplo.com"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>{t('staff.password')}</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    value={staffForm.password}
-                    onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
-                    placeholder={t('staff.passwordPlaceholder')}
+                    autoFocus
                   />
                 </div>
                 <div className="form-group">
@@ -669,7 +657,7 @@ const Funcionarios = () => {
               <div className="modal-footer">
                 <Button variant="secondary" onClick={() => setShowStaffModal(false)}>{t('common.cancel')}</Button>
                 <Button onClick={handleCreateStaff} disabled={staffSaving}>
-                  {staffSaving ? t('staff.creating') : t('staff.createStaff')}
+                  {staffSaving ? t('staff.sending', 'Enviando...') : t('staff.sendInvite', 'Enviar convite')}
                 </Button>
               </div>
             </div>

@@ -1546,7 +1546,14 @@
       "tables": "Tables",
       "broadcast": "Broadcast",
       "employees": "Employees"
-    }
+    },
+    "inviteEmployee": "Invite employee",
+    "inviteHint": "The employee gets an email and sets their own name and password. You never create or share a password.",
+    "sendInvite": "Send invite",
+    "sending": "Sending...",
+    "inviteSent": "Invite sent to {{email}}.",
+    "fillEmail": "Enter a valid email.",
+    "pendingInvite": "Invite pending"
   },
   "stageBar": {
     "selectedStage": "Selected Stage:",

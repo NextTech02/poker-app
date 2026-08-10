@@ -32,9 +32,11 @@ class PermissionGroupResponse(BaseModel):
 # ── Staff ──
 
 class StaffCreate(BaseModel):
-    name: str
+    # Só o e-mail é obrigatório: o funcionário recebe o convite e define nome e
+    # senha. `name` fica opcional para quem quiser deixar a lista já legível
+    # antes do aceite; `password` some — o admin não define senha de ninguém.
     email: str
-    password: str
+    name: Optional[str] = None
     permission_group_id: Optional[str] = None
 
 
