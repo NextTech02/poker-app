@@ -73,6 +73,12 @@
   color: var(--danger);
 }
 
+/* Aguardando resposta: âmbar, porque não é erro nem estado final. */
+.func-status--pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--text-warning);
+}
+
 /* Action buttons */
 .func-actions {
   display: flex;

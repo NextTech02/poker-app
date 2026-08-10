@@ -55,6 +55,8 @@ class StaffResponse(BaseModel):
     permission_group_name: Optional[str] = None
     permissions: List[str] = []
     active: bool = True
+    # 'pending' enquanto um convidado que já tinha conta não respondeu.
+    invite_status: str = "accepted"
     created_at: datetime
     updated_at: Optional[datetime] = None
 

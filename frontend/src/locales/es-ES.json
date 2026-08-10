@@ -1553,7 +1553,12 @@
     "sending": "Enviando...",
     "inviteSent": "Invitación enviada a {{email}}.",
     "fillEmail": "Escribe un correo válido.",
-    "pendingInvite": "Invitación pendiente"
+    "pendingInvite": "Invitación pendiente",
+    "pendingInviteHint": "Esperando que la persona acepte la invitación",
+    "cancelInvite": "Cancelar invitación",
+    "confirmCancelInvite": "¿Cancelar la invitación de {{email}}?",
+    "inviteCancelled": "Invitación cancelada.",
+    "errCancelInvite": "No se pudo cancelar la invitación."
   },
   "stageBar": {
     "selectedStage": "Etapa Seleccionada:",
@@ -1984,5 +1989,17 @@
     "csvId": "ID en el sistema anterior",
     "csvName": "Jugador",
     "csvReason": "Qué falta"
+  },
+  "orgInvite": {
+    "titleOne": "Recibiste una invitación",
+    "titleMany": "Recibiste {{n}} invitaciones",
+    "hint": "Tu cuenta sigue igual — solo decides si quieres trabajar en este club.",
+    "accept": "Aceptar",
+    "decline": "Rechazar",
+    "later": "Decidir después",
+    "noGroup": "Sin grupo de permisos",
+    "accepted": "Ahora formas parte de {{org}}.",
+    "declined": "Invitación rechazada.",
+    "error": "No se pudo responder a la invitación."
   }
 }

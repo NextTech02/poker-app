@@ -249,6 +249,53 @@ def my_organizations(current_user: dict = Depends(get_current_user)):
     return res.data or []
 
 
+# ── Convites pendentes ───────────────────────────────────────────────────────
+# Quem já tem conta e é convidado por outro clube não refaz cadastro: só aceita
+# ou recusa. Estas rotas são do USUÁRIO, não de uma organização — por isso não
+# passam pelo escopo de org e filtram sempre pelo `sub` do token.
+
+@router.get("/invites")
+def my_invites(current_user: dict = Depends(get_current_user)):
+    """Convites que este usuário ainda não respondeu."""
+    res = supabase_admin.rpc(
+        "list_my_pending_invites", {"p_user": current_user.get("sub")}
+    ).execute()
+    return res.data or []
+
+
+@router.post("/invites/{staff_id}/accept")
+def accept_invite(staff_id: str, current_user: dict = Depends(get_current_user)):
+    """Aceita: o vínculo vira ativo. É aqui que a vaga do plano é ocupada."""
+    try:
+        res = supabase_admin.rpc(
+            "accept_org_invite",
+            {"p_user": current_user.get("sub"), "p_staff": staff_id},
+        ).execute()
+    except Exception as exc:
+        msg = str(exc)
+        if "PLANO_LIMITE_USUARIOS" in msg:
+            raise HTTPException(
+                status_code=409,
+                detail="Este clube atingiu o limite de usuários do plano. Fale com o administrador.",
+            )
+        if "CONVITE_INVALIDO" in msg:
+            raise HTTPException(status_code=404, detail="Convite não encontrado ou já respondido.")
+        raise HTTPException(status_code=400, detail="Não foi possível aceitar o convite.")
+    return res.data or {}
+
+
+@router.post("/invites/{staff_id}/decline")
+def decline_invite(staff_id: str, current_user: dict = Depends(get_current_user)):
+    """Recusa: apaga o vínculo, para o clube poder convidar de novo depois."""
+    res = supabase_admin.rpc(
+        "decline_org_invite",
+        {"p_user": current_user.get("sub"), "p_staff": staff_id},
+    ).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Convite não encontrado ou já respondido.")
+    return {"declined": True}
+
+
 class SwitchOrgRequest(BaseModel):
     organization_id: str
 

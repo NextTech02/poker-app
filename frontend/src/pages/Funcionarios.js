@@ -37,7 +37,7 @@ const ALL_PERMISSIONS = [
 
 const Funcionarios = () => {
   const { t } = useTranslation();
-  const { toast } = useToast();
+  const { toast, confirm } = useToast();
   const notify = (msg, type = 'error') => toast[type](msg);
   const { selectedStage } = useStage();
   const { formatCurrency } = useCurrency();
@@ -263,6 +263,22 @@ const Funcionarios = () => {
     }
   };
 
+  const handleCancelInvite = async (staff) => {
+    const ok = await confirm(
+      t('staff.confirmCancelInvite', 'Cancelar o convite de {{email}}?', { email: staff.email }),
+      { title: t('staff.cancelInvite', 'Cancelar convite'), variant: 'danger',
+        confirmText: t('staff.cancelInvite', 'Cancelar convite') }
+    );
+    if (!ok) return;
+    try {
+      await api.delete(`/staff/${staff.id}`);
+      notify(t('staff.inviteCancelled', 'Convite cancelado.'), 'success');
+      loadData();
+    } catch (err) {
+      notify(err.response?.data?.detail || t('staff.errCancelInvite', 'Não foi possível cancelar o convite.'));
+    }
+  };
+
   const handleToggleActive = async (staff) => {
     try {
       await api.patch(`/staff/${staff.id}`, { active: !staff.active });
@@ -440,17 +456,38 @@ const Funcionarios = () => {
                           </select>
                         </td>
                         <td>
-                          <span className={`func-status ${s.active ? 'func-status--active' : 'func-status--inactive'}`}>
-                            {s.active ? t('staff.active') : t('staff.inactive')}
-                          </span>
+                          {/* Convidado que já tinha conta: inativo por ainda não
+                              ter respondido — diferente de desativado pelo admin. */}
+                          {s.invite_status === 'pending' ? (
+                            <span className="func-status func-status--pending"
+                                  title={t('staff.pendingInviteHint', 'Aguardando a pessoa aceitar o convite')}>
+                              {t('staff.pendingInvite', 'Convite pendente')}
+                            </span>
+                          ) : (
+                            <span className={`func-status ${s.active ? 'func-status--active' : 'func-status--inactive'}`}>
+                              {s.active ? t('staff.active') : t('staff.inactive')}
+                            </span>
+                          )}
                         </td>
                         <td>
-                          <button
-                            className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
-                            onClick={() => handleToggleActive(s)}
-                          >
-                            {s.active ? t('staff.deactivate') : t('staff.activate')}
-                          </button>
+                          {/* Num convite pendente, "Ativar" forçaria a entrada de
+                              alguém que ainda não aceitou. O que cabe é desfazer
+                              o convite. */}
+                          {s.invite_status === 'pending' ? (
+                            <button
+                              className="func-action-btn func-action-btn--danger"
+                              onClick={() => handleCancelInvite(s)}
+                            >
+                              {t('staff.cancelInvite', 'Cancelar convite')}
+                            </button>
+                          ) : (
+                            <button
+                              className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
+                              onClick={() => handleToggleActive(s)}
+                            >
+                              {s.active ? t('staff.deactivate') : t('staff.activate')}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

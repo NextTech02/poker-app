@@ -149,6 +149,7 @@ class StaffService:
 
         auth_user_id = None
         criamos_o_usuario = False
+        ja_tem_conta = False
         try:
             resp = httpx.post(
                 f"{base}/auth/v1/invite",
@@ -173,9 +174,11 @@ class StaffService:
                 "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente de novo."
             )
         elif resp.status_code in (409, 422):
-            # Já existe conta com este e-mail: reaproveita em vez de barrar. Pode
-            # ser alguém que já trabalha em outro clube — o vínculo é por
-            # organização, então a mesma pessoa pode atuar em mais de um.
+            # Já existe conta com este e-mail — alguém que trabalha em outro
+            # clube. Ela NÃO refaz cadastro (já tem nome e senha), mas também
+            # não pode ser jogada dentro do clube sem saber: o vínculo nasce
+            # PENDENTE e ela aceita ou recusa ao entrar no sistema.
+            ja_tem_conta = True
             found = httpx.get(
                 f"{base}/auth/v1/admin/users",
                 headers=headers, params={"page": 1, "per_page": 200}, timeout=20,
@@ -203,12 +206,44 @@ class StaffService:
         # e-mail — a lista fica legível e a tela de cadastro sobrescreve depois.
         nome = (data.name or "").strip() or data.email.split("@")[0]
 
+        # Já houve vínculo com este clube? A chave única (auth_user_id,
+        # organization_id) impede uma segunda linha, então um funcionário
+        # desativado nunca poderia ser readmitido — o cadastro morria com
+        # "e-mail já cadastrado". Aqui o vínculo antigo volta como convite
+        # pendente, e a pessoa decide de novo.
+        if organization_id:
+            try:
+                antigo = (
+                    supabase.table("staff")
+                    .select("id, active, invite_status")
+                    .eq("auth_user_id", auth_user_id)
+                    .eq("organization_id", organization_id)
+                    .limit(1).execute()
+                )
+            except Exception:
+                antigo = None
+            if antigo and antigo.data:
+                linha = antigo.data[0]
+                if linha.get("active"):
+                    raise ValueError("Esta pessoa já faz parte da equipe deste clube.")
+                supabase.table("staff").update({
+                    "invite_status": "pending",
+                    "permission_group_id": data.permission_group_id,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", linha["id"]).execute()
+                return StaffService.get_staff(linha["id"])
+
+        # Conta nova: o e-mail de convite JÁ é o aceite — clicar no link e
+        # definir a senha é a decisão dela. Conta que já existe: fica pendente
+        # até responder, e nesse estado não ocupa vaga do plano (o gatilho de
+        # limite só conta ativos).
         insert_data = {
             "auth_user_id": auth_user_id,
             "name": nome,
             "email": data.email,
             "permission_group_id": data.permission_group_id,
-            "active": True,
+            "active": not ja_tem_conta,
+            "invite_status": "pending" if ja_tem_conta else "accepted",
             "created_by": created_by,
         }
 
@@ -333,8 +368,22 @@ class StaffService:
 
     @staticmethod
     def delete_staff(staff_id: str) -> bool:
-        """Deactivate staff (doesn't delete auth user). Blocks if any cashbox is open."""
+        """Desativa o funcionário (a conta de acesso continua existindo).
+
+        Exceção: convite ainda PENDENTE é apagado de verdade. Desativar não
+        serviria — a linha continuaria marcada como pendente e o convite seguiria
+        aparecendo para o convidado, além de travar a chave única
+        (auth_user_id, organization_id) e impedir um novo convite depois.
+        Convite pendente não tem histórico (nem caixa, nem pagamento), então
+        remover é seguro.
+        """
         StaffService._guard_no_open_cashbox(staff_id)
+
+        atual = supabase.table("staff").select("invite_status").eq("id", staff_id).execute()
+        if atual.data and atual.data[0].get("invite_status") == "pending":
+            r = supabase.table("staff").delete().eq("id", staff_id).execute()
+            return len(r.data or []) > 0
+
         response = supabase.table("staff").update({
             "active": False,
             "updated_at": datetime.now(timezone.utc).isoformat(),

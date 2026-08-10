@@ -1553,7 +1553,12 @@
     "sending": "Enviando...",
     "inviteSent": "Convite enviado para {{email}}.",
     "fillEmail": "Informe um e-mail válido.",
-    "pendingInvite": "Convite pendente"
+    "pendingInvite": "Convite pendente",
+    "pendingInviteHint": "Aguardando a pessoa aceitar o convite",
+    "cancelInvite": "Cancelar convite",
+    "confirmCancelInvite": "Cancelar o convite de {{email}}?",
+    "inviteCancelled": "Convite cancelado.",
+    "errCancelInvite": "Não foi possível cancelar o convite."
   },
   "stageBar": {
     "selectedStage": "Etapa Selecionada:",
@@ -1984,5 +1989,17 @@
     "csvId": "ID no sistema antigo",
     "csvName": "Jogador",
     "csvReason": "O que falta"
+  },
+  "orgInvite": {
+    "titleOne": "Você recebeu um convite",
+    "titleMany": "Você recebeu {{n}} convites",
+    "hint": "Sua conta continua a mesma — você só decide se quer trabalhar neste clube.",
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "later": "Decidir depois",
+    "noGroup": "Sem grupo de permissão",
+    "accepted": "Você agora faz parte de {{org}}.",
+    "declined": "Convite recusado.",
+    "error": "Não foi possível responder ao convite."
   }
 }

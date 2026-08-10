@@ -12,6 +12,7 @@ import { ConnectivityProvider } from './contexts/ConnectivityContext';
 import { isOnline } from './offline/connectivity';
 import OfflineBanner from './components/OfflineBanner';
 import OrgScopeBanner from './components/OrgScopeBanner';
+import OrgInviteModal from './components/OrgInviteModal';
 import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
 import SelectOrg from './pages/SelectOrg';
@@ -417,6 +418,7 @@ function App() {
                       <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
                         <OfflineBanner />
                         <OrgScopeBanner />
+                        <OrgInviteModal />
                         <AppRoutes />
                       </ErrorBoundary>
                     </ToastProvider>

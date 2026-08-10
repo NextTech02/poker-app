@@ -1553,7 +1553,12 @@
     "sending": "Sending...",
     "inviteSent": "Invite sent to {{email}}.",
     "fillEmail": "Enter a valid email.",
-    "pendingInvite": "Invite pending"
+    "pendingInvite": "Invite pending",
+    "pendingInviteHint": "Waiting for the person to accept the invite",
+    "cancelInvite": "Cancel invite",
+    "confirmCancelInvite": "Cancel the invite for {{email}}?",
+    "inviteCancelled": "Invite cancelled.",
+    "errCancelInvite": "Could not cancel the invite."
   },
   "stageBar": {
     "selectedStage": "Selected Stage:",
@@ -1984,5 +1989,17 @@
     "csvId": "ID in old system",
     "csvName": "Player",
     "csvReason": "What is missing"
+  },
+  "orgInvite": {
+    "titleOne": "You have an invitation",
+    "titleMany": "You have {{n}} invitations",
+    "hint": "Your account stays the same — you only decide whether to work at this club.",
+    "accept": "Accept",
+    "decline": "Decline",
+    "later": "Decide later",
+    "noGroup": "No permission group",
+    "accepted": "You are now part of {{org}}.",
+    "declined": "Invitation declined.",
+    "error": "Could not respond to the invitation."
   }
 }
