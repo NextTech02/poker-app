@@ -1250,7 +1250,8 @@
     "dreExpenses": "Gastos",
     "dreExpensesTotal": "Total de gastos",
     "dreExpensesPending": "Pendiente de pago",
-    "dreNoExpenses": "Ningún gasto en el período"
+    "dreNoExpenses": "Ningún gasto en el período",
+    "dreGuarantee": "Garantía aportada por la casa (ya en los premios)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneo",
@@ -1893,6 +1894,8 @@
     "confirmDelete": "¿Eliminar \"{{d}}\"? Esta acción no se puede deshacer.",
     "toggleHint": "Haz clic para alternar",
     "emptyTitle": "Ningún gasto registrado",
-    "emptyDesc": "Registra los gastos de la etapa para que el resultado sea real."
+    "emptyDesc": "Registra los gastos de la etapa para que el resultado sea real.",
+    "paidOutside": "Pagado por fuera (banco) — no mueve la caja general",
+    "outsideTag": "por fuera"
   }
 }

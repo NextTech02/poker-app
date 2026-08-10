@@ -233,6 +233,9 @@ class FinancialService:
             expenses_paid=exp["paid"],
             expenses_pending=exp["pending"],
             expenses_by_category=[ExpenseCategoryTotal(**c) for c in exp["by_category"]],
+            guarantee_committed=ExpenseService.guarantee_committed(
+                organization_id, stage_id, tournament_id
+            ),
             net_result=net_result,
             pending_credits=pending_credits,
             available_tickets=available_tickets,

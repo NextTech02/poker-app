@@ -1250,7 +1250,8 @@
     "dreExpenses": "Expenses",
     "dreExpensesTotal": "Total expenses",
     "dreExpensesPending": "Of which unpaid",
-    "dreNoExpenses": "No expenses in this period"
+    "dreNoExpenses": "No expenses in this period",
+    "dreGuarantee": "House guarantee (already in prizes)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -1893,6 +1894,8 @@
     "confirmDelete": "Delete \"{{d}}\"? This cannot be undone.",
     "toggleHint": "Click to toggle",
     "emptyTitle": "No expenses recorded",
-    "emptyDesc": "Record the stage costs so the income statement shows the real result."
+    "emptyDesc": "Record the stage costs so the income statement shows the real result.",
+    "paidOutside": "Paid externally (bank) — does not affect the general cash",
+    "outsideTag": "external"
   }
 }

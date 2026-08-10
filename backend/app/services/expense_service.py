@@ -102,29 +102,84 @@ class ExpenseService:
         payload = {k: v for k, v in data.items() if v is not None}
         payload["organization_id"] = org_id
         payload["created_by"] = user_id
-        # Marcado como pago sem data: assume agora (evita despesa paga "sem data").
-        if payload.get("status") == "pago" and not payload.get("paid_at"):
-            payload["paid_at"] = datetime.now(timezone.utc).isoformat()
-        return (supabase.table("expenses").insert(payload).execute().data or [None])[0]
+        # Nasce sempre pendente: se veio marcada como paga, a transição é feita
+        # pelo RPC logo abaixo — é ele que debita o caixa. Gravar "pago" direto
+        # criaria uma despesa paga que nunca saiu do caixa.
+        wants_paid = payload.pop("status", "pendente") == "pago"
+        payload["status"] = "pendente"
+        payload.pop("paid_at", None)
+
+        created = (supabase.table("expenses").insert(payload).execute().data or [None])[0]
+        if created and wants_paid:
+            ExpenseService.set_status(org_id, created["id"], "pago")
+            cur = supabase.table("expenses").select("*").eq("id", created["id"]).execute()
+            created = (cur.data or [created])[0]
+        return created
+
+    @staticmethod
+    def _friendly(exc: Exception) -> str:
+        blob = " ".join(str(getattr(exc, a, "") or "") for a in ("message", "details")) + " " + str(exc)
+        if "DESPESA:" in blob:
+            frag = blob[blob.find("DESPESA:"):].split("\n")[0]
+            for stop in ("  {", " {'", '{"'):
+                i = frag.find(stop)
+                if i != -1:
+                    frag = frag[:i]
+            return frag.split(":", 1)[1].strip().strip("'\"").strip()
+        return "Não foi possível atualizar a despesa."
+
+    @staticmethod
+    def set_status(org_id: str, expense_id: str, status: str) -> dict:
+        """Muda o status pelo RPC: o débito/estorno no caixa geral é atômico e
+        idempotente (repetir a chamada não movimenta o caixa de novo)."""
+        try:
+            r = supabase.rpc("expense_set_status", {
+                "p_org": org_id, "p_expense": expense_id, "p_status": status,
+            }).execute()
+            return r.data or {}
+        except Exception as exc:
+            raise ValueError(ExpenseService._friendly(exc))
 
     @staticmethod
     def update_expense(org_id: str, expense_id: str, data: dict) -> Optional[dict]:
         upd = {k: v for k, v in data.items() if v is not None}
-        if not upd:
-            return None
-        upd["updated_at"] = datetime.now(timezone.utc).isoformat()
-        if upd.get("status") == "pago" and not upd.get("paid_at"):
-            upd["paid_at"] = datetime.now(timezone.utc).isoformat()
-        if upd.get("status") == "pendente":
-            upd["paid_at"] = None
-        res = (
-            supabase.table("expenses").update(upd)
+        # A troca de status vai pelo RPC (mexe no caixa); os demais campos, direto.
+        new_status = upd.pop("status", None)
+        upd.pop("paid_at", None)  # quem define é o RPC
+
+        if upd:
+            upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+            res = (
+                supabase.table("expenses").update(upd)
+                .eq("id", expense_id).eq("organization_id", org_id).execute()
+            )
+            if not res.data:
+                return None
+
+        if new_status:
+            ExpenseService.set_status(org_id, expense_id, new_status)
+
+        cur = (
+            supabase.table("expenses").select("*")
             .eq("id", expense_id).eq("organization_id", org_id).execute()
         )
-        return (res.data or [None])[0]
+        return (cur.data or [None])[0]
 
     @staticmethod
     def delete_expense(org_id: str, expense_id: str) -> bool:
+        # Apagar uma despesa PAGA precisa devolver o dinheiro ao caixa, senão o
+        # saldo fica debitado para sempre por um lançamento que não existe mais.
+        # Reaproveita a transição já testada em vez de mexer no caixa aqui.
+        cur = (
+            supabase.table("expenses").select("status")
+            .eq("id", expense_id).eq("organization_id", org_id).execute().data or []
+        )
+        if cur and cur[0].get("status") == "pago":
+            try:
+                ExpenseService.set_status(org_id, expense_id, "pendente")
+            except ValueError:
+                pass  # sem caixa configurado: segue com a exclusão
+
         res = (
             supabase.table("expenses").delete()
             .eq("id", expense_id).eq("organization_id", org_id).execute()
@@ -182,5 +237,86 @@ class ExpenseService:
             b = buckets.setdefault(name, {"category": name, "kind": cat.get("kind"), "amount": 0.0})
             b["amount"] += amount
 
+        # ── Pagamentos de funcionários ──
+        # Já eram custo real (debitam o caixa geral em Funcionários → Pagamentos)
+        # mas nunca entravam no DRE. Entram como categoria própria e NÃO editável
+        # aqui: quem lança é a tela de Funcionários. Se o operador também criar
+        # uma despesa manual "Dealers" para o mesmo pagamento, aí sim duplica —
+        # por isso a categoria é nomeada de forma distinta.
+        sp_total, sp_paid, sp_pending = ExpenseService._staff_payments(
+            org_id, stage_id, tournament_id, start, end
+        )
+        if sp_total:
+            total += sp_total
+            paid += sp_paid
+            pending += sp_pending
+            buckets["Equipe (pagamentos)"] = {
+                "category": "Equipe (pagamentos)", "kind": "variavel", "amount": sp_total,
+            }
+
         by_category = sorted(buckets.values(), key=lambda x: x["amount"], reverse=True)
         return {"total": total, "paid": paid, "pending": pending, "by_category": by_category}
+
+    @staticmethod
+    def _staff_payments(
+        org_id: str,
+        stage_id: Optional[str] = None,
+        tournament_id: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+    ):
+        """(total, pago, pendente) dos pagamentos de equipe no recorte.
+
+        `staff_payments` é por ETAPA — não tem torneio. Filtrando por torneio,
+        devolvemos zero para não atribuir a um torneio um custo da etapa toda.
+        """
+        if tournament_id:
+            return 0.0, 0.0, 0.0
+        try:
+            q = supabase.table("staff_payments").select("amount, status") \
+                .eq("organization_id", org_id)
+            if stage_id:
+                q = q.eq("stage_id", stage_id)
+            if start:
+                q = q.gte("created_at", start)
+            if end:
+                q = q.lte("created_at", _iso_end_of_day(end))
+            rows = q.execute().data or []
+        except Exception:
+            return 0.0, 0.0, 0.0
+
+        total = paid = pending = 0.0
+        for r in rows:
+            v = float(r.get("amount") or 0)
+            total += v
+            # A tela de Funcionários grava 'paid'; qualquer outro estado é a pagar.
+            if r.get("status") == "paid":
+                paid += v
+            else:
+                pending += v
+        return total, paid, pending
+
+    @staticmethod
+    def guarantee_committed(
+        org_id: Optional[str],
+        stage_id: Optional[str] = None,
+        tournament_id: Optional[str] = None,
+    ) -> float:
+        """Soma da premiação garantida pela casa no recorte — INFORMATIVA.
+
+        NÃO entra no total de despesas: esse dinheiro sai como prêmio e o DRE já
+        o subtrai em `gross_revenue − prizes`. Somar de novo contaria duas vezes.
+        """
+        if not org_id:
+            return 0.0
+        try:
+            q = supabase.table("tournaments").select("guaranteed_prize") \
+                .eq("organization_id", org_id).gt("guaranteed_prize", 0)
+            if stage_id:
+                q = q.eq("stage_id", stage_id)
+            if tournament_id:
+                q = q.eq("id", tournament_id)
+            rows = q.execute().data or []
+        except Exception:
+            return 0.0
+        return sum(float(r.get("guaranteed_prize") or 0) for r in rows)

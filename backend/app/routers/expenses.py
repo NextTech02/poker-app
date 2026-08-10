@@ -82,9 +82,12 @@ def list_expenses(
 
 @router.post("")
 def create_expense(data: ExpenseCreate, current_user: dict = Depends(get_current_user)):
-    created = ExpenseService.create_expense(
-        _org(current_user), data.model_dump(), current_user.get("sub")
-    )
+    try:
+        created = ExpenseService.create_expense(
+            _org(current_user), data.model_dump(), current_user.get("sub")
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not created:
         raise HTTPException(status_code=400, detail="Não foi possível registrar a despesa.")
     return created
@@ -96,9 +99,12 @@ def update_expense(
     data: ExpenseUpdate,
     current_user: dict = Depends(get_current_user),
 ):
-    updated = ExpenseService.update_expense(
-        _org(current_user), expense_id, data.model_dump(exclude_unset=True)
-    )
+    try:
+        updated = ExpenseService.update_expense(
+            _org(current_user), expense_id, data.model_dump(exclude_unset=True)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if updated is None:
         raise HTTPException(status_code=404, detail="Despesa não encontrada.")
     return updated

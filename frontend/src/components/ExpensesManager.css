@@ -166,3 +166,32 @@
   .exp-row { grid-template-columns: 1fr; }
   .exp-toolbar-actions { margin-left: 0; width: 100%; }
 }
+
+/* "Pago por fora": não movimenta o caixa geral */
+.exp-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  background: var(--secondary-bg, #0e1620);
+  border: 1px solid var(--border-color, #2a3a4d);
+  font-size: 0.84rem;
+  color: var(--text-secondary, #8aa0b0);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.exp-check input { accent-color: var(--accent-color, #7233f8); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; margin-top: 1px; }
+
+.exp-tag-outside {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #5a7080);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color, #2a3a4d);
+}

@@ -14,6 +14,7 @@ const EMPTY = {
   stage_id: '', category_id: '', tournament_id: '',
   description: '', supplier: '', amount: '',
   status: 'pendente', due_date: '', payment_method: '', notes: '',
+  paid_from_cash: true,
 };
 
 const fmtDate = (v, locale) => {
@@ -100,6 +101,7 @@ export default function ExpensesManager() {
       due_date: e.due_date || '',
       payment_method: e.payment_method || '',
       notes: e.notes || '',
+      paid_from_cash: e.paid_from_cash !== false,
     });
     setErrors({});
     setShowForm(true);
@@ -131,6 +133,7 @@ export default function ExpensesManager() {
         due_date: form.due_date || null,
         payment_method: form.payment_method || null,
         notes: form.notes.trim() || null,
+        paid_from_cash: !!form.paid_from_cash,
       };
       if (editing) {
         const { stage_id, ...patch } = body; // etapa não muda depois de criada
@@ -253,11 +256,16 @@ export default function ExpensesManager() {
                 <tr key={e.id}>
                   <td>
                     <div className="exp-desc">{e.description}</div>
-                    {(e.supplier || e.tournament_name) && (
+                    {(e.supplier || e.tournament_name || e.paid_from_cash === false) && (
                       <div className="exp-sub">
                         {e.supplier}
                         {e.supplier && e.tournament_name ? ' · ' : ''}
                         {e.tournament_name}
+                        {e.paid_from_cash === false && (
+                          <span className="exp-tag-outside">
+                            {t('expenses.outsideTag', 'por fora')}
+                          </span>
+                        )}
                       </div>
                     )}
                   </td>
@@ -375,6 +383,18 @@ export default function ExpensesManager() {
                   </select>
                 </div>
               </div>
+
+              {/* Define se o pagamento sai do caixa geral do clube. */}
+              <label className="exp-check">
+                <input
+                  type="checkbox"
+                  checked={!form.paid_from_cash}
+                  onChange={(e) => setForm({ ...form, paid_from_cash: !e.target.checked })}
+                />
+                <span>
+                  {t('expenses.paidOutside', 'Pago por fora (banco) — não movimenta o caixa geral')}
+                </span>
+              </label>
 
               <div className="exp-modal-actions">
                 <Button type="button" variant="secondary" onClick={() => setShowForm(false)} disabled={busy}>

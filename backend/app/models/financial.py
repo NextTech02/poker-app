@@ -50,6 +50,9 @@ class FinancialSummary(BaseModel):
     expenses_paid: float = 0
     expenses_pending: float = 0
     expenses_by_category: List[ExpenseCategoryTotal] = []
+    # Aporte da casa na premiação. INFORMATIVO: já sai como prêmio e está
+    # embutido em `prizes`, então somar aqui contaria o mesmo dinheiro 2x.
+    guarantee_committed: float = 0
     net_result: float = 0           # operacional − despesas
     pending_credits: float = 0
     available_tickets: int = 0

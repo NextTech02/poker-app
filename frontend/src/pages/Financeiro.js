@@ -391,6 +391,14 @@ const Financeiro = () => {
                     <span>{fmt(data.expenses_pending)}</span>
                   </div>
                 )}
+                {/* Informativo: esse aporte sai como prêmio e já está subtraído
+                    na linha de premiação. Somar aqui contaria duas vezes. */}
+                {(data.guarantee_committed || 0) > 0 && (
+                  <div className="fn-dre-row fn-dre-row--muted">
+                    <span>{t('financial.dreGuarantee', 'Garantia aportada pela casa (já na premiação)')}</span>
+                    <span>{fmt(data.guarantee_committed)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="fn-dre-section">
