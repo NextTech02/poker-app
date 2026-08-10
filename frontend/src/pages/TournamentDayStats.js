@@ -28,23 +28,21 @@ const TournamentDayStats = () => {
     try {
       setLoading(true);
 
-      // Load day info
+      // O dia precisa vir primeiro: dele saem o torneio e qual endpoint de
+      // estatística usar. As duas chamadas seguintes, porém, não dependem uma
+      // da outra — em paralelo, são 2 idas ao servidor em vez de 3.
       const dayRes = await api.get(`/tournament-days/${dayId}`);
       const dayData = dayRes.data;
       setDay(dayData);
 
-      // Load tournament info
-      const tournamentRes = await api.get(`/tournaments/${dayData.tournament_id}`);
-      setTournament(tournamentRes.data);
+      const isFinalDay = dayData.day_type === 'final';
+      const [tournamentRes, statsRes] = await Promise.all([
+        api.get(`/tournaments/${dayData.tournament_id}`),
+        api.get(`/tournament-days/${dayId}/${isFinalDay ? 'aggregated-stats' : 'stats'}`),
+      ]);
 
-      // Load stats based on day type
-      if (dayData.day_type === 'final') {
-        const statsRes = await api.get(`/tournament-days/${dayId}/aggregated-stats`);
-        setStats({ ...statsRes.data, isFinalDay: true });
-      } else {
-        const statsRes = await api.get(`/tournament-days/${dayId}/stats`);
-        setStats({ ...statsRes.data, isFinalDay: false });
-      }
+      setTournament(tournamentRes.data);
+      setStats({ ...statsRes.data, isFinalDay });
     } catch (err) {
       console.error('Error loading stats:', err);
       setError(t('dayStats.loadError'));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { usePolling } from '../hooks/usePolling';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,28 @@ const ManualAllocation = () => {
   const [showTableModal, setShowTableModal] = useState(false);
   const [newTableSeats, setNewTableSeats] = useState(9);
 
+  /**
+   * Índices das alocações, montados UMA vez por atualização da lista.
+   *
+   * Antes, cada assento desenhado varria a lista inteira de alocações para
+   * descobrir quem estava sentado ali — o custo era mesas × lugares ×
+   * alocações. Numa etapa cheia (25 mesas de 9 lugares, 225 jogadores) davam
+   * dezenas de milhares de comparações A CADA render, e esta tela se atualiza
+   * sozinha a cada 5 segundos.
+   *
+   * Com os mapas, montar custa uma passada pela lista e cada consulta passa a
+   * ser imediata. Declarado aqui, antes dos handlers que o usam.
+   */
+  const { allocationBySeat, occupancyByTable } = useMemo(() => {
+    const bySeat = new Map();
+    const byTable = new Map();
+    for (const alloc of allocations) {
+      bySeat.set(`${alloc.table_id}#${alloc.seat_number}`, alloc);
+      byTable.set(alloc.table_id, (byTable.get(alloc.table_id) || 0) + 1);
+    }
+    return { allocationBySeat: bySeat, occupancyByTable: byTable };
+  }, [allocations]);
+
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -33,20 +55,20 @@ const ManualAllocation = () => {
 
   const loadData = async () => {
     try {
-      // Load tournament details
-      const tournamentRes = await api.get(`/tournaments/${tournamentId}`);
+      // As quatro consultas são independentes — em série, a tela esperava a
+      // soma das quatro idas ao servidor. Como isto roda a cada 5s por polling
+      // durante o torneio, a espera se repetia o tempo todo. Em paralelo, a
+      // espera passa a ser a da consulta mais lenta.
+      const [tournamentRes, tablesRes, allocationsRes, unallocatedRes] = await Promise.all([
+        api.get(`/tournaments/${tournamentId}`),
+        api.get(`/tables/tournament/${tournamentId}`),
+        api.get(`/allocations/tournament/${tournamentId}`),
+        api.get(`/allocations/tournament/${tournamentId}/unallocated`),
+      ]);
+
       setTournament(tournamentRes.data);
-
-      // Load tables
-      const tablesRes = await api.get(`/tables/tournament/${tournamentId}`);
       setTables(tablesRes.data);
-
-      // Load allocations
-      const allocationsRes = await api.get(`/allocations/tournament/${tournamentId}`);
       setAllocations(allocationsRes.data);
-
-      // Load unallocated players
-      const unallocatedRes = await api.get(`/allocations/tournament/${tournamentId}/unallocated`);
       setUnallocatedPlayers(unallocatedRes.data);
 
       setLoading(false);
@@ -97,9 +119,7 @@ const ManualAllocation = () => {
 
     try {
       // Check if seat is occupied
-      const isOccupied = allocations.some(
-        alloc => alloc.table_id === tableId && alloc.seat_number === seatNumber
-      );
+      const isOccupied = allocationBySeat.has(`${tableId}#${seatNumber}`);
 
       if (isOccupied) {
         toast.warning(t('manualAllocation.seatOccupied'));
@@ -195,7 +215,7 @@ const ManualAllocation = () => {
 
   const handleRemoveTable = async (tableId, tableNumber) => {
     // Check if table has players
-    const hasPlayers = allocations.some(alloc => alloc.table_id === tableId);
+    const hasPlayers = (occupancyByTable.get(tableId) || 0) > 0;
 
     if (hasPlayers) {
       toast.warning(t('manualAllocation.cannotRemoveTableWithPlayers'));
@@ -215,11 +235,8 @@ const ManualAllocation = () => {
     }
   };
 
-  const getAllocationForSeat = (tableId, seatNumber) => {
-    return allocations.find(
-      alloc => alloc.table_id === tableId && alloc.seat_number === seatNumber
-    );
-  };
+  const getAllocationForSeat = (tableId, seatNumber) =>
+    allocationBySeat.get(`${tableId}#${seatNumber}`);
 
   const renderSeat = (table, seatNumber) => {
     const allocation = getAllocationForSeat(table.id, seatNumber);
@@ -262,7 +279,7 @@ const ManualAllocation = () => {
       seats.push(renderSeat(table, i));
     }
 
-    const occupiedSeats = allocations.filter(alloc => alloc.table_id === table.id).length;
+    const occupiedSeats = occupancyByTable.get(table.id) || 0;
     const canRemove = occupiedSeats === 0;
 
     return (
@@ -427,7 +444,7 @@ const ManualAllocation = () => {
                   ) : (
                     <div className="tables-list" style={{ marginTop: '15px' }}>
                       {tables.map((table) => {
-                        const occupiedSeats = allocations.filter(alloc => alloc.table_id === table.id).length;
+                        const occupiedSeats = occupancyByTable.get(table.id) || 0;
                         const canRemove = occupiedSeats === 0;
                         return (
                           <div key={table.id} style={{

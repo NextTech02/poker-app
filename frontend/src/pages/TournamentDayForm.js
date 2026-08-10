@@ -54,17 +54,19 @@ const TournamentDayForm = () => {
     try {
       setLoading(true);
 
-      // Load tournament info
-      const tournamentRes = await api.get(`/tournaments/${tournamentId}`);
-      setTournament(tournamentRes.data);
+      // Nenhuma das três depende das outras — em série, o formulário esperava
+      // a soma das três; em paralelo, espera só a mais lenta.
+      const [tournamentRes, daysRes, dayRes] = await Promise.all([
+        api.get(`/tournaments/${tournamentId}`),
+        api.get(`/tournament-days/tournament/${tournamentId}`),
+        dayId ? api.get(`/tournament-days/${dayId}`) : Promise.resolve(null),
+      ]);
 
-      // Load all days for this tournament (for qualifies_to dropdown)
-      const daysRes = await api.get(`/tournament-days/tournament/${tournamentId}`);
+      setTournament(tournamentRes.data);
       setDays(daysRes.data);
 
       // If editing, load the day data
-      if (dayId) {
-        const dayRes = await api.get(`/tournament-days/${dayId}`);
+      if (dayRes) {
         const day = dayRes.data;
         setFormData({
           day_name: day.day_name,

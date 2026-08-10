@@ -584,13 +584,23 @@ const BlindManagement = () => {
                       const existingLevels = new Set(blinds.map(b => b.level));
                       const options = [];
 
+                      // Ordena UMA vez. Antes, cada nível candidato refazia dois
+                      // filter + sort sobre a lista inteira — custo quadrático
+                      // dentro do próprio render do <select>.
+                      const porNivel = [...blinds].sort((a, b) => a.level - b.level);
+                      // Como `i` só cresce, um ponteiro que avança encontra a
+                      // vizinhança de cada nível sem revarrer a lista.
+                      let p = 0;
+
                       // Generate options for all available levels (1 to maxLevel + 1)
                       for (let i = 1; i <= maxLevel + 1; i++) {
                         // Skip if level already exists
                         if (existingLevels.has(i)) continue;
 
-                        const prevBlind = blinds.filter(b => b.level < i).sort((a, b) => b.level - a.level)[0];
-                        const nextBlind = blinds.filter(b => b.level > i).sort((a, b) => a.level - b.level)[0];
+                        while (p < porNivel.length && porNivel[p].level < i) p++;
+                        // porNivel[p] tem level > i: o nível i não existe (foi filtrado acima).
+                        const prevBlind = p > 0 ? porNivel[p - 1] : undefined;
+                        const nextBlind = p < porNivel.length ? porNivel[p] : undefined;
 
                         let label = t('blinds.positionLevel', 'Nível {{n}}', { n: i });
                         if (prevBlind && nextBlind) {
