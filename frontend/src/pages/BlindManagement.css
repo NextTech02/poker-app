@@ -239,24 +239,8 @@
   color: #2d3748;
 }
 
-/* Scrollbar Styling */
-.modal::-webkit-scrollbar {
-  width: 8px;
-}
-
-.modal::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 8px;
-}
-
-.modal::-webkit-scrollbar-thumb {
-  background: #667eea;
-  border-radius: 8px;
-}
-
-.modal::-webkit-scrollbar-thumb:hover {
-  background: #764ba2;
-}
+/* A barra de rolagem vem do padrão global em styles/index.css.
+   (Aqui havia trilho branco #f1f1f1 e roxo de uma paleta antiga.) */
 
 /* Responsive Design */
 @media (max-width: 768px) {

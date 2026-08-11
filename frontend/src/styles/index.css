@@ -4,6 +4,63 @@
   box-sizing: border-box;
 }
 
+/* ── Barras de rolagem ──────────────────────────────────────────────────────
+   Antes cada tela decidia a sua: a lateral usava uma, o editor de blinds tinha
+   trilho BRANCO (#f1f1f1) com roxo de uma paleta antiga, e todo o resto ficava
+   com a barra padrão do navegador — clara, destoando do tema escuro.
+
+   São duas camadas, de propósito:
+   1. `color-scheme: dark` faz o NAVEGADOR desenhar a barra nativa em tema
+      escuro. É o que cobre o Firefox e qualquer área que os seletores abaixo
+      não alcancem (inclusive popups nativos).
+   2. `::-webkit-scrollbar` dá o acabamento da marca no Chrome/Edge/Safari.
+
+   Regra em `html` (e não em `body`) porque a barra da página é desenhada pelo
+   elemento raiz. */
+html {
+  color-scheme: dark;
+}
+
+/* `scrollbar-width`/`scrollbar-color` são o padrão novo — e no Chrome atual
+   eles VENCEM o `::-webkit-scrollbar`. Aplicá-los sem escopo deixaria a barra
+   da página com um visual e as de dentro com outro, justamente o contrário de
+   padronizar. Então só entram onde o `::-webkit-scrollbar` não existe: o
+   Firefox. */
+@supports not selector(::-webkit-scrollbar) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-lighter, #4a5568) transparent;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-lighter, #4a5568);
+  border-radius: 999px;
+  /* A borda transparente afina a alça sem estreitar a área de clique — pegar
+     uma barra de 4px com o mouse é ruim. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color, #7233f8);
+  background-clip: content-box;
+}
+
+/* Quadrado onde as duas barras se encontram — ficava branco. */
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Listas suspensas (<select>) e date/time pickers no tema escuro da marca.
    `color-scheme: dark` faz o NAVEGADOR desenhar o popup nativo em tema escuro
    (fundo escuro + texto claro) — o CSS comum não alcança o popup do sistema.

@@ -76,9 +76,7 @@
   flex: 1;
   padding: 0.5rem 0;
   overflow-y: auto;
-  /* scrollbar discreto */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.1) transparent;
+  /* A barra vem do padrão global em styles/index.css. */
 }
 
 .nav-item {
