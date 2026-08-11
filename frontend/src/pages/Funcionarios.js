@@ -531,6 +531,9 @@ const Funcionarios = () => {
                           )}
                         </td>
                         <td>
+                          {/* Contêiner flex: botões irmãos soltos na célula não
+                              têm como receber espaçamento entre si. */}
+                          <div className="func-acoes-linha">
                           {/* Num convite pendente, "Ativar" forçaria a entrada de
                               alguém que ainda não aceitou. O que cabe é desfazer
                               o convite. */}
@@ -574,6 +577,7 @@ const Funcionarios = () => {
                               </button>
                             </>
                           )}
+                          </div>
                         </td>
                       </tr>
                     ))}

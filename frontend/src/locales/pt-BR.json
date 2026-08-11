@@ -123,7 +123,10 @@
     "resetSent": "Se houver uma conta com esse e-mail, enviamos o link para redefinir a senha.",
     "linkExpired": "Este link expirou. Peça um novo convite ao administrador, ou use \"Esqueci minha senha\" para receber outro link.",
     "linkInvalid": "Não foi possível validar este link. Peça um novo ao administrador.",
-    "captchaFailed": "Não foi possível concluir a verificação de segurança. Tente de novo."
+    "captchaFailed": "Não foi possível concluir a verificação de segurança. Tente de novo.",
+    "captchaNotice": "Protegido por hCaptcha —",
+    "captchaPrivacy": "Privacidade",
+    "captchaTerms": "Termos"
   },
   "dashboard": {
     "loadError": "Não foi possível carregar os dados. Tentando novamente...",
@@ -1565,7 +1568,7 @@
     "confirmCancelInvite": "Cancelar o convite de {{email}}?",
     "inviteCancelled": "Convite cancelado.",
     "errCancelInvite": "Não foi possível cancelar o convite.",
-    "awaitingSignup": "Aguardando cadastro",
+    "awaitingSignup": "Aguarda cadastro",
     "awaitingSignupHint": "Convite enviado; a pessoa ainda não definiu a senha",
     "resendInvite": "Reenviar",
     "resendHint": "Os links do e-mail expiram; envie outro",

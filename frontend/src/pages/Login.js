@@ -6,7 +6,7 @@ import { supabase } from '../config/supabase';
 import api from '../config/api';
 import Button from '../components/Button';
 import LanguageSelector from '../components/LanguageSelector';
-import Captcha from '../components/Captcha';
+import Captcha, { captchaAtivo } from '../components/Captcha';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
 
@@ -209,6 +209,22 @@ const Login = () => {
             captcha dentro de cada seria desmontado a cada troca de modo,
             invalidando a referência no meio do envio. */}
         <Captcha ref={captchaRef} />
+
+        {/* No modo invisível não existe widget na tela. O aviso é exigido pelo
+            hCaptcha nesse formato — e serve para o operador saber que a
+            proteção está ativa, já que nada aparece até haver desafio. */}
+        {captchaAtivo() && (
+          <p className="login-captcha-aviso">
+            {t('login.captchaNotice', 'Protegido por hCaptcha —')}{' '}
+            <a href="https://hcaptcha.com/privacy" target="_blank" rel="noreferrer noopener">
+              {t('login.captchaPrivacy', 'Privacidade')}
+            </a>
+            {' · '}
+            <a href="https://hcaptcha.com/terms" target="_blank" rel="noreferrer noopener">
+              {t('login.captchaTerms', 'Termos')}
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );

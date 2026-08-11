@@ -148,3 +148,22 @@
 .login-language-selector .language-name {
   white-space: nowrap;
 }
+
+/* Aviso do hCaptcha: no modo invisível não há widget, então este texto é a
+   única indicação de que a proteção existe (e é exigido pelo hCaptcha). */
+.login-captcha-aviso {
+  margin-top: 1.1rem;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-tertiary, #5a7080);
+  line-height: 1.5;
+}
+
+.login-captcha-aviso a {
+  color: var(--text-secondary, #8aa0b0);
+  text-decoration: underline;
+}
+
+.login-captcha-aviso a:hover {
+  color: var(--accent-hover, #9a70f9);
+}

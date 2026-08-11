@@ -61,6 +61,17 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  /* Sem isto, "AGUARDANDO CADASTRO" quebrava em duas linhas e a pílula
+     inflava — ficava alta e larga, com metade da área vazia. */
+  white-space: nowrap;
+}
+
+/* Ações da linha: os botões eram irmãos soltos na célula e ficavam colados. */
+.func-acoes-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .func-status--active {
