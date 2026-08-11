@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..auth.jwt import get_current_user
 from ..database import supabase
@@ -131,7 +131,7 @@ async def update_blind(
             )
 
     # Add updated_at timestamp
-    update_data["updated_at"] = datetime.utcnow().isoformat()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # Update blind
     try:
@@ -312,7 +312,7 @@ async def update_blind_for_day(
             )
 
     # Add updated_at timestamp
-    update_data["updated_at"] = datetime.utcnow().isoformat()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # Update blind
     try:

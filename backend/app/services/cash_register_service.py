@@ -4,7 +4,7 @@ Business logic for cash management: stage cash, general cash, rake, and sangria 
 """
 from typing import Optional, List
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import Counter
 from app.database import supabase
 from app.models.cash_register import (
@@ -251,7 +251,7 @@ class CashRegisterService:
             supabase.table("stage_cash_register").update({
                 "current_balance": str(new_stage_balance),
                 "total_sangrias": str(new_stage_sangrias),
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("stage_id", sangria_data.stage_id).execute()
 
             # 2. Update general cash (add net amount)
@@ -262,7 +262,7 @@ class CashRegisterService:
             supabase.table("general_cash_register").update({
                 "current_balance": str(new_general_balance),
                 "total_received": str(new_general_total),
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", general_cash.id).execute()
 
             # 3. Update rake register (add rake amount)
@@ -271,7 +271,7 @@ class CashRegisterService:
 
             supabase.table("rake_register").update({
                 "total_rake": str(new_rake_total),
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", rake_register.id).execute()
 
             # 4. Create sangria transaction record

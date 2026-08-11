@@ -263,8 +263,8 @@ class PrizeAllocationService:
         if update.paid is not None:
             update_data["paid"] = update.paid
             if update.paid:
-                from datetime import datetime
-                update_data["paid_at"] = datetime.utcnow().isoformat()
+                from datetime import datetime, timezone
+                update_data["paid_at"] = datetime.now(timezone.utc).isoformat()
             else:
                 update_data["paid_at"] = None
 
@@ -274,8 +274,8 @@ class PrizeAllocationService:
         if update.released is not None:
             update_data["released"] = update.released
             if update.released:
-                from datetime import datetime
-                update_data["released_at"] = datetime.utcnow().isoformat()
+                from datetime import datetime, timezone
+                update_data["released_at"] = datetime.now(timezone.utc).isoformat()
             else:
                 update_data["released_at"] = None
                 update_data["released_by"] = None
@@ -286,8 +286,8 @@ class PrizeAllocationService:
                 detail="No fields to update"
             )
 
-        from datetime import datetime
-        update_data["updated_at"] = datetime.utcnow().isoformat()
+        from datetime import datetime, timezone
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         response = supabase.table("prize_allocations")\
             .update(update_data)\
@@ -316,7 +316,7 @@ class PrizeAllocationService:
     ) -> PrizeAllocationResponse:
         """Release (or revoke release of) a prize allocation for payment.
         Feature 4.3: a prize can only be paid after being released here."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         existing = supabase.table("prize_allocations")\
             .select("*")\
@@ -337,9 +337,9 @@ class PrizeAllocationService:
 
         update_data = {
             "released": released,
-            "released_at": datetime.utcnow().isoformat() if released else None,
+            "released_at": datetime.now(timezone.utc).isoformat() if released else None,
             "released_by": user_id if released else None,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Feature 4.2: releasing a 'vaga' generates a satellite ticket (entry)
@@ -401,7 +401,7 @@ class PrizeAllocationService:
         reserved_purpose: Optional[str],
     ) -> dict:
         """Update reserved-prize configuration on the tournament (feature 4.1)."""
-        from datetime import datetime
+        from datetime import datetime, timezone
         PrizeAllocationService.get_tournament_info(tournament_id)
 
         if reserved_purpose not in (None, "", "ranking", "staff"):
@@ -414,7 +414,7 @@ class PrizeAllocationService:
             .update({
                 "reserved_prize_percentage": float(reserved_prize_percentage),
                 "reserved_purpose": reserved_purpose or None,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             })\
             .eq("id", str(tournament_id))\
             .execute()
@@ -488,7 +488,7 @@ class PrizeAllocationService:
         6. Creates transaction record for traceability.
         7. Marks allocation as paid with document info.
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         # Verify allocation exists, belongs to tournament, and is not already paid
         alloc_resp = supabase.table("prize_allocations")\
@@ -586,14 +586,14 @@ class PrizeAllocationService:
             supabase.table("players").update({
                 "document_type": payout.document_type,
                 "document_number": payout.document_number,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", str(payout.player_id)).execute()
 
         # ── Deduct from general cash register ──
         new_balance = general_cash.current_balance - prize_amount
         supabase.table("general_cash_register").update({
             "current_balance": str(new_balance),
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", general_cash.id).execute()
 
         # ── Create transaction record ──
@@ -611,11 +611,11 @@ class PrizeAllocationService:
         update_data = {
             "player_id": str(payout.player_id),
             "paid": True,
-            "paid_at": datetime.utcnow().isoformat(),
+            "paid_at": datetime.now(timezone.utc).isoformat(),
             "document_type": payout.document_type,
             "document_number": payout.document_number,
             "paid_by": payout.paid_by,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
 
         supabase.table("prize_allocations")\
@@ -659,11 +659,11 @@ class PrizeAllocationService:
         """Update the guaranteed prize for a tournament"""
         PrizeAllocationService.get_tournament_info(tournament_id)
 
-        from datetime import datetime
+        from datetime import datetime, timezone
         response = supabase.table("tournaments")\
             .update({
                 "guaranteed_prize": float(guaranteed_prize),
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat()
             })\
             .eq("id", str(tournament_id))\
             .execute()

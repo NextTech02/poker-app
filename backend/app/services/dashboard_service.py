@@ -18,7 +18,7 @@ class DashboardService:
             )
             return [t["id"] for t in (res.data or [])]
         except Exception as e:
-            logger.error(f"[DashboardService] Failed to get stage tournament IDs: {e}")
+            logger.exception("[DashboardService] Failed to get stage tournament IDs")
             return []
 
     @staticmethod
@@ -28,7 +28,7 @@ class DashboardService:
             res = query.execute()
             return sum(float(row["amount"]) for row in (res.data or []))
         except Exception as e:
-            logger.error(f"[DashboardService] Revenue query failed: {e}")
+            logger.exception("[DashboardService] Revenue query failed")
             return 0.0
 
     @staticmethod
@@ -38,7 +38,7 @@ class DashboardService:
             res = query.execute()
             return res.count or 0
         except Exception as e:
-            logger.error(f"[DashboardService] Count query failed: {e}")
+            logger.exception("[DashboardService] Count query failed")
             return 0
 
     @staticmethod
@@ -105,7 +105,7 @@ class DashboardService:
                             players_q.in_("tournament_day_id", day_ids)
                         )
                 except Exception as e:
-                    logger.error(f"[DashboardService] Player count query failed: {e}")
+                    logger.exception("[DashboardService] Player count query failed")
             else:
                 player_count = DashboardService._safe_count(players_q)
 
@@ -136,5 +136,5 @@ class DashboardService:
             }
 
         except Exception as e:
-            logger.error(f"[DashboardService] get_stats failed entirely: {e}")
+            logger.exception("[DashboardService] get_stats failed entirely")
             return safe_defaults

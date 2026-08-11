@@ -1,6 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import supabase
 from app.models.blind_template import (
     BlindTemplateCreate,
@@ -61,7 +61,7 @@ class BlindTemplateService:
             data['custom_levels'] = [level.model_dump() if hasattr(level, 'model_dump') else level for level in data['custom_levels']]
 
         # Add updated_at timestamp
-        data['updated_at'] = datetime.utcnow().isoformat()
+        data['updated_at'] = datetime.now(timezone.utc).isoformat()
 
         response = supabase.table("blind_templates").update(data).eq("id", template_id).execute()
 
