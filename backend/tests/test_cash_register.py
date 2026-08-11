@@ -168,3 +168,77 @@ class TestLeituras:
         hist = CashRegisterService.get_sangria_history(stage_id=STAGE)
         assert len(hist) == 1
         assert hist[0].net_amount == Decimal("45.00")
+
+
+class TestRakePendente:
+    """O rake pendente e o que a sangria rateia. Vem por RPC, com soma em
+    Python de reserva — e o fallback precisa funcionar, senao o rake sai
+    zerado e o clube deixa de extrair a propria receita."""
+
+    def test_usa_o_valor_agregado_do_banco(self, monkeypatch):
+        fake = _fake(monkeypatch, _mundo())
+        fake.rpcs = {"get_stage_pending_rake": [{"pending": "250.00"}]}
+        assert CashRegisterService.get_stage_pending_rake(STAGE) == Decimal("250.00")
+
+    def test_aceita_valor_escalar(self, monkeypatch):
+        fake = _fake(monkeypatch, _mundo())
+        fake.rpcs = {"get_stage_pending_rake": "175.50"}
+        assert CashRegisterService.get_stage_pending_rake(STAGE) == Decimal("175.50")
+
+    def test_sem_rpc_soma_em_python(self, monkeypatch):
+        """Fallback: rake das entradas menos o ja extraido em sangrias."""
+        tabelas = _mundo()
+        tabelas["transactions"] = [
+            {"id": "t1", "tournament_id": "t1", "type": "buy_in",
+             "amount": "500.00", "rake_amount": "100.00"},
+            {"id": "t2", "tournament_id": "t1", "type": "rebuy",
+             "amount": "200.00", "rake_amount": "40.00"},
+        ]
+        tabelas["sangria_transactions"] = [{
+            "id": "s1", "stage_id": STAGE, "stage_name": "Etapa", "amount": "100.00",
+            "rake_percentage": "30.00", "rake_amount": "30.00", "net_amount": "70.00",
+            "notes": None, "created_by": "u1",
+            "created_at": "2026-06-08T00:00:00Z", "updated_at": "2026-06-08T00:00:00Z",
+        }]
+        _fake(monkeypatch, tabelas)   # nenhum rpc registrado => estoura => fallback
+        # 140 de rake nas entradas - 30 ja extraidos = 110
+        assert CashRegisterService.get_stage_pending_rake(STAGE) == Decimal("110.00")
+
+
+class TestPainel:
+    def test_reune_os_tres_saldos_e_o_historico(self, monkeypatch):
+        tabelas = _mundo(saldo="800.00", geral="1200.00", rake="300.00")
+        tabelas["sangria_transactions"] = [{
+            "id": "s1", "stage_id": STAGE, "stage_name": "Etapa", "amount": "50.00",
+            "rake_percentage": "10.00", "rake_amount": "5.00", "net_amount": "45.00",
+            "notes": None, "created_by": "u1",
+            "created_at": "2026-06-08T00:00:00Z", "updated_at": "2026-06-08T00:00:00Z",
+        }]
+        _fake(monkeypatch, tabelas)
+
+        d = CashRegisterService.get_cash_dashboard(stage_id=STAGE)
+        assert d.stage_cash.current_balance == Decimal("800.00")
+        assert d.general_cash.current_balance == Decimal("1200.00")
+        assert d.rake.total_rake == Decimal("300.00")
+        assert len(d.recent_sangrias) == 1
+
+    def test_sem_etapa_selecionada_ainda_traz_o_geral(self, monkeypatch):
+        _fake(monkeypatch, _mundo(geral="900.00"))
+        d = CashRegisterService.get_cash_dashboard(stage_id=None)
+        assert d.stage_cash is None
+        assert d.general_cash.current_balance == Decimal("900.00")
+
+    def test_lista_caixas_de_todas_as_etapas(self, monkeypatch):
+        tabelas = _mundo()
+        tabelas["stage_cash_register"][0]["stages"] = {
+            "id": STAGE, "name": "Etapa 1", "location": "Medellin", "status": "active",
+        }
+        _fake(monkeypatch, tabelas)
+        r = CashRegisterService.get_all_stage_cash()
+        assert len(r) == 1
+
+    def test_sem_caixa_nenhum_devolve_lista_vazia(self, monkeypatch):
+        tabelas = _mundo()
+        tabelas["stage_cash_register"] = []
+        _fake(monkeypatch, tabelas)
+        assert CashRegisterService.get_all_stage_cash() == []
