@@ -11,6 +11,22 @@ import uuid
 import pytest
 
 
+def _chave_de_ordem(valor):
+    """Chave de ordenacao tolerante a tipos misturados.
+
+    Uma coluna pode vir com None em algumas linhas (day_number ainda nao
+    preenchido, por exemplo); comparar None com int estoura em Python. Nulos
+    vao para o inicio, como no Postgres com ASC NULLS FIRST.
+    """
+    if valor is None:
+        return (0, "")
+    if isinstance(valor, bool):
+        return (1, float(valor))
+    if isinstance(valor, (int, float)):
+        return (1, float(valor))
+    return (2, str(valor))
+
+
 class FakeQuery:
     def __init__(self, store, table):
         self._store = store
@@ -19,6 +35,7 @@ class FakeQuery:
         self._op = "select"
         self._payload = None
         self._filters = []  # list of (col, value)
+        self._orders = []   # list of (col, desc)
         self._limit = None
         self._single = False
 
@@ -62,13 +79,23 @@ class FakeQuery:
     def or_(self, *a, **k):
         return self
 
-    def order(self, *a, **k):
+    def order(self, col=None, *a, desc=False, **k):
+        """Ordena de verdade (nao e no-op).
+
+        Varios servicos dependem da ordem para estar CORRETOS, nao so
+        bonitos: o consumo de credito e FIFO (mais antigo primeiro) e a
+        alocacao sequencial pega a mesa de menor numero. Com um order que
+        nao ordena, esses testes passariam sem exercitar a regra."""
+        if col:
+            self._orders.append((col, bool(desc)))
         return self
 
-    def gte(self, *a, **k):
+    def gte(self, col, val):
+        self._filters.append((("gte", col), val))
         return self
 
-    def lte(self, *a, **k):
+    def lte(self, col, val):
+        self._filters.append((("lte", col), val))
         return self
 
     def gt(self, col, val):
@@ -123,6 +150,21 @@ class FakeQuery:
                     return False
                 if kind == "lt" and not (float(row.get(real) or 0) < float(val)):
                     return False
+                # gte/lte servem para recorte de PERIODO, entao comparam como
+                # texto (datas ISO ordenam lexicograficamente) quando o valor
+                # nao e numerico.
+                if kind in ("gte", "lte"):
+                    atual = row.get(real)
+                    if atual is None:
+                        return False
+                    try:
+                        a, b = float(atual), float(val)
+                    except (TypeError, ValueError):
+                        a, b = str(atual), str(val)
+                    if kind == "gte" and not a >= b:
+                        return False
+                    if kind == "lte" and not a <= b:
+                        return False
             else:
                 if row.get(col) != val:
                     return False
@@ -132,6 +174,11 @@ class FakeQuery:
         table = self._table
         if self._op == "select":
             rows = [r for r in self._rows if self._match(r)]
+            # A ordem e aplicada da ULTIMA chave para a PRIMEIRA, para que a
+            # primeira chamada a order() seja a mais significativa (como no
+            # PostgREST).
+            for col, desc in reversed(self._orders):
+                rows.sort(key=lambda r: _chave_de_ordem(r.get(col)), reverse=desc)
             if self._limit is not None:
                 rows = rows[: self._limit]
             if self._single:

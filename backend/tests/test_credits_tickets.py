@@ -40,16 +40,16 @@ class TestUsoDeCredito:
     def test_sem_credito_disponivel_e_recusado(self, monkeypatch):
         self._monta(monkeypatch, creditos=[])
         with pytest.raises(ValueError, match="crédito"):
-            PlayerCreditService.use_credit(PLAYER, 100, "buy_in", TOUR, None, "u1")
+            PlayerCreditService.use_credit(PLAYER, 100, TOUR, None, "buy_in", "u1")
 
     def test_credito_zerado_conta_como_indisponivel(self, monkeypatch):
         self._monta(monkeypatch, creditos=[_credito(restante=0)])
         with pytest.raises(ValueError, match="crédito"):
-            PlayerCreditService.use_credit(PLAYER, 100, "buy_in", TOUR, None, "u1")
+            PlayerCreditService.use_credit(PLAYER, 100, TOUR, None, "buy_in", "u1")
 
     def test_consome_apenas_o_necessario(self, monkeypatch):
         fake = self._monta(monkeypatch, creditos=[_credito(restante=500)])
-        r = PlayerCreditService.use_credit(PLAYER, 100, "buy_in", TOUR, None, "u1")
+        r = PlayerCreditService.use_credit(PLAYER, 100, TOUR, None, "buy_in", "u1")
         assert r["credit_used"] == 100
         assert r["cash_remaining"] == 0
         assert float(fake.store["player_credits"][0]["remaining_amount"]) == 400.0
@@ -57,18 +57,18 @@ class TestUsoDeCredito:
     def test_credito_insuficiente_cobra_a_diferenca_em_dinheiro(self, monkeypatch):
         """Nao pode recusar a entrada: o jogador paga o que falta no caixa."""
         self._monta(monkeypatch, creditos=[_credito(restante=30)])
-        r = PlayerCreditService.use_credit(PLAYER, 100, "buy_in", TOUR, None, "u1")
+        r = PlayerCreditService.use_credit(PLAYER, 100, TOUR, None, "buy_in", "u1")
         assert r["credit_used"] == 30
         assert r["cash_remaining"] == 70
 
     def test_credito_totalmente_usado_muda_de_status(self, monkeypatch):
         fake = self._monta(monkeypatch, creditos=[_credito(restante=100)])
-        PlayerCreditService.use_credit(PLAYER, 100, "buy_in", TOUR, None, "u1")
+        PlayerCreditService.use_credit(PLAYER, 100, TOUR, None, "buy_in", "u1")
         assert fake.store["player_credits"][0]["status"] == "fully_used"
 
     def test_registra_o_movimento_para_auditoria(self, monkeypatch):
         fake = self._monta(monkeypatch)
-        PlayerCreditService.use_credit(PLAYER, 50, "rebuy", TOUR, None, "u1")
+        PlayerCreditService.use_credit(PLAYER, 50, TOUR, None, "rebuy", "u1")
         assert len(fake.store["credit_transactions"]) == 1
         assert float(fake.store["credit_transactions"][0]["amount"]) == 50.0
 
