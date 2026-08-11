@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
 
@@ -35,7 +35,12 @@ class StaffCreate(BaseModel):
     # Só o e-mail é obrigatório: o funcionário recebe o convite e define nome e
     # senha. `name` fica opcional para quem quiser deixar a lista já legível
     # antes do aceite; `password` some — o admin não define senha de ninguém.
-    email: str
+    #
+    # EmailStr (e não str): o e-mail digitado errado só era recusado lá no
+    # Supabase, depois de uma ida à rede, e voltava como um 400 genérico. Aqui
+    # a recusa é imediata e aponta o campo — mesmo tratamento do convite do
+    # dono do clube em OrganizationCreate.
+    email: EmailStr
     name: Optional[str] = None
     permission_group_id: Optional[str] = None
 
