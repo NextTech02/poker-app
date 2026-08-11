@@ -138,3 +138,102 @@ class TestPagamentoEfetivo:
         prizes = [t for t in fake.store["transactions"] if t.get("type") == "prize"]
         assert len(prizes) == 1
         assert float(prizes[0]["amount"]) == 500.0
+
+
+from app.models.prize_allocation import PrizeAllocationCreate
+
+
+class TestCriacaoDeAlocacao:
+    def test_posicao_duplicada_e_recusada(self, monkeypatch):
+        """Duas alocacoes na mesma posicao dividiriam o premio de forma
+        ambigua na hora de pagar."""
+        _monta(monkeypatch)
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.create_allocation(
+                TOUR, PrizeAllocationCreate(position=1, prize_amount=100)
+            )
+        assert "already has a prize allocation" in e.value.detail
+
+    def test_cria_em_posicao_livre(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        r = PrizeAllocationService.create_allocation(
+            TOUR, PrizeAllocationCreate(position=2, prize_amount=250)
+        )
+        assert r.position == 2
+        assert len(fake.store["prize_allocations"]) == 2
+
+    def test_torneio_inexistente_e_recusado(self, monkeypatch):
+        _monta(monkeypatch, tabelas={"tournaments": []})
+        with pytest.raises(HTTPException):
+            PrizeAllocationService.create_allocation(
+                TOUR, PrizeAllocationCreate(position=3, prize_amount=100)
+            )
+
+
+class TestLiberacao:
+    def test_libera_para_pagamento(self, monkeypatch):
+        fake = _monta(monkeypatch, alocacao=_alocacao(released=False))
+        r = PrizeAllocationService.set_released(TOUR, ALLOC, released=True, user_id="u1")
+        assert r.released is True
+        assert fake.store["prize_allocations"][0]["released"] is True
+
+    def test_nao_revoga_liberacao_de_premio_ja_pago(self, monkeypatch):
+        """Revogar depois de pago deixaria o dinheiro fora do caixa sem um
+        premio liberado que o justifique."""
+        _monta(monkeypatch, alocacao=_alocacao(paid=True))
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.set_released(TOUR, ALLOC, released=False, user_id="u1")
+        assert "já pago" in e.value.detail
+
+    def test_alocacao_inexistente_da_404(self, monkeypatch):
+        _monta(monkeypatch, tabelas={"prize_allocations": []})
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.set_released(TOUR, ALLOC, released=True, user_id="u1")
+        assert e.value.status_code == 404
+
+
+class TestExclusaoDeAlocacao:
+    def test_premio_pago_nao_pode_ser_apagado(self, monkeypatch):
+        """Apagar apagaria o registro de uma saida de caixa que aconteceu."""
+        _monta(monkeypatch, alocacao=_alocacao(paid=True))
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.delete_allocation(TOUR, ALLOC)
+        assert "Cannot delete a paid" in e.value.detail
+
+    def test_premio_nao_pago_e_apagado(self, monkeypatch):
+        fake = _monta(monkeypatch, alocacao=_alocacao(paid=False))
+        PrizeAllocationService.delete_allocation(TOUR, ALLOC)
+        assert fake.store["prize_allocations"] == []
+
+    def test_inexistente_da_404(self, monkeypatch):
+        _monta(monkeypatch, tabelas={"prize_allocations": []})
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.delete_allocation(TOUR, ALLOC)
+        assert e.value.status_code == 404
+
+
+class TestCriacaoEmLote:
+    def test_substitui_a_tabela_de_premiacao(self, monkeypatch):
+        """A tela envia a estrutura inteira; manter as antigas deixaria
+        posicoes orfas de uma configuracao anterior."""
+        fake = _monta(monkeypatch)
+        r = PrizeAllocationService.bulk_create_allocations(TOUR, [
+            PrizeAllocationCreate(position=1, prize_amount=500),
+            PrizeAllocationCreate(position=2, prize_amount=300),
+        ])
+        assert len(r) == 2
+        posicoes = sorted(a["position"] for a in fake.store["prize_allocations"])
+        assert posicoes == [1, 2]
+
+    def test_lista_vazia_apenas_limpa(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        assert PrizeAllocationService.bulk_create_allocations(TOUR, []) == []
+        assert fake.store["prize_allocations"] == []
+
+
+class TestGarantia:
+    def test_atualiza_o_valor_garantido(self, monkeypatch):
+        from decimal import Decimal
+        fake = _monta(monkeypatch)
+        PrizeAllocationService.update_guaranteed_prize(TOUR, Decimal("5000"))
+        assert float(fake.store["tournaments"][0]["guaranteed_prize"]) == 5000.0
