@@ -14,7 +14,13 @@ import './Premiacao.css';
 
 const getPositionLabel = (position) => `${position}°`;
 
-const getRankClass = () => 'rank-other';
+/** Destaque do pódio: 1º ouro, 2º prata, 3º bronze; o resto neutro.
+ *  Antes a função ignorava o argumento e devolvia sempre 'rank-other' — as
+ *  três classes existiam no CSS e nunca eram aplicadas. */
+const getRankClass = (position) => {
+  const p = Number(position);
+  return p === 1 || p === 2 || p === 3 ? `rank-${p}` : 'rank-other';
+};
 
 // ── Main Component ──────────────────────────────────────────────────────────
 

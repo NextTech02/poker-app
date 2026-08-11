@@ -44,8 +44,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
     # Fall back to asymmetric JWKS verification (ES256 / RS256)
     try:
+        # O header é lido SEM verificação — só para descobrir qual chave do JWKS
+        # usar (`kid`). A assinatura é conferida no `decode` abaixo.
         header = jwt.get_unverified_header(token)
-        alg = header.get("alg", "RS256")
         kid = header.get("kid")
 
         jwks = get_jwks()
@@ -59,7 +60,13 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         payload = jwt.decode(
             token,
             key,
-            algorithms=[alg],
+            # Algoritmos FIXOS, e não o `alg` que vem no header do token.
+            # Aceitar o algoritmo informado pelo próprio token é a brecha
+            # clássica de "confusão de algoritmo": bastaria forjar um token
+            # dizendo `alg: HS256` e assiná-lo com a CHAVE PÚBLICA do JWKS
+            # (que é pública, em /.well-known/jwks.json) usada como segredo
+            # HMAC. Aqui só entram os assimétricos que o Supabase emite.
+            algorithms=["ES256", "RS256"],
             options={"verify_aud": False}
         )
         user_id: str = payload.get("sub")

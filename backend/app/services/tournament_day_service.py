@@ -28,7 +28,10 @@ class TournamentDayService:
     def get_or_create_broadcast_code(day_id: str) -> str:
         """Retorna (ou gera) o código curto e único DESTE DIA p/ exibição em TV.
         Cada dia do torneio (Dia 1, Dia 2, Final...) tem o seu próprio código."""
-        import random
+        # `secrets` e não `random`: este código é a credencial que libera a
+        # exibição das blinds sem login. O gerador do `random` é previsível a
+        # partir de saídas observadas — e os códigos ficam visíveis nas TVs.
+        import secrets
         d = supabase.table("tournament_days").select("id, broadcast_code").eq("id", day_id).execute()
         if not d.data:
             raise ValueError("Dia não encontrado")
@@ -37,7 +40,7 @@ class TournamentDayService:
             return code
         alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # sem 0/O/1/I/L
         for _ in range(12):
-            candidate = "".join(random.choice(alphabet) for _ in range(6))
+            candidate = "".join(secrets.choice(alphabet) for _ in range(6))
             try:
                 supabase.table("tournament_days").update({"broadcast_code": candidate}) \
                     .eq("id", day_id).is_("broadcast_code", "null").execute()
