@@ -180,3 +180,96 @@ class TestOperacoesSuportadas:
         r = SyncService.apply_op(_op("player-create", "cm-p", corpo), "u1", ORG)
         assert r["status"] == "applied"
         assert r["serverId"] == "id-do-servidor"
+
+
+class TestComandosDeRelogio:
+    """O relogio tambem entra na fila: comandos dados sem internet precisam
+    ser reaplicados na ordem quando ela volta."""
+
+    def _timer(self, monkeypatch):
+        from app.services.tournament_day_service import TournamentDayService
+        _monta(monkeypatch)
+        chamadas = []
+        for nome in ("start_timer", "pause_timer", "next_level",
+                     "previous_level", "reset_timer"):
+            monkeypatch.setattr(TournamentDayService, nome,
+                                staticmethod(lambda day_id, _n=nome: chamadas.append(_n)))
+        monkeypatch.setattr(TournamentDayService, "adjust_timer",
+                            staticmethod(lambda day_id, seg: chamadas.append(("adjust", seg))))
+        return chamadas
+
+    @pytest.mark.parametrize("acao,esperado", [
+        ("start", "start_timer"),
+        ("pause", "pause_timer"),
+        ("next-level", "next_level"),
+        ("prev-level", "previous_level"),
+        ("reset", "reset_timer"),
+    ])
+    def test_cada_comando_chama_a_operacao_certa(self, monkeypatch, acao, esperado):
+        chamadas = self._timer(monkeypatch)
+        r = SyncService.apply_op(
+            _op("timer", f"cm-{acao}", {"day_id": "d1", "action": acao}), "u1", ORG
+        )
+        assert r["status"] == "applied"
+        assert chamadas == [esperado]
+
+    def test_ajuste_leva_os_segundos(self, monkeypatch):
+        chamadas = self._timer(monkeypatch)
+        SyncService.apply_op(
+            _op("timer", "cm-adj", {"day_id": "d1", "action": "adjust", "seconds": 90}),
+            "u1", ORG,
+        )
+        assert chamadas == [("adjust", 90)]
+
+    def test_acao_desconhecida_vira_conflito(self, monkeypatch):
+        self._timer(monkeypatch)
+        r = SyncService.apply_op(
+            _op("timer", "cm-?", {"day_id": "d1", "action": "voar"}), "u1", ORG
+        )
+        assert r["status"] == "conflict"
+        assert "desconhecida" in r["error"]
+
+
+class TestDemaisOperacoes:
+    def test_eliminacao_e_restauracao(self, monkeypatch):
+        _monta(monkeypatch)
+        feitos = []
+        monkeypatch.setattr(TournamentPlayerService, "eliminate_player",
+                            staticmethod(lambda *a, **k: feitos.append("elim")))
+        monkeypatch.setattr(TournamentPlayerService, "update_tournament_player",
+                            staticmethod(lambda *a, **k: feitos.append("restore")))
+
+        SyncService.apply_op(_op("eliminate", "cm-e", {"tournament_player_id": TP}), "u1", ORG)
+        SyncService.apply_op(_op("restore", "cm-r", {"tournament_player_id": TP}), "u1", ORG)
+        assert feitos == ["elim", "restore"]
+
+    def test_addon_offline(self, monkeypatch):
+        _monta(monkeypatch)
+        feitos = []
+        monkeypatch.setattr(TournamentPlayerService, "add_addon",
+                            staticmethod(lambda *a, **k: feitos.append("addon")))
+        r = SyncService.apply_op(_op("addon", "cm-ad", {"tournament_player_id": TP}), "u1", ORG)
+        assert r["status"] == "applied"
+        assert feitos == ["addon"]
+
+    def test_contador_de_eliminados(self, monkeypatch):
+        from app.services.tournament_day_service import TournamentDayService
+        _monta(monkeypatch)
+        recebido = {}
+        monkeypatch.setattr(TournamentDayService, "adjust_eliminations",
+                            staticmethod(lambda day_id, n: recebido.update(n=n)))
+        SyncService.apply_op(_op("elim-counter", "cm-c", {"day_id": "d1", "count": 3}), "u1", ORG)
+        assert recebido["n"] == 3
+
+    def test_registro_de_jogador_devolve_o_id(self, monkeypatch):
+        _monta(monkeypatch)
+
+        class _TP:
+            id = "tp-servidor"
+
+        monkeypatch.setattr(TournamentPlayerService, "register_player",
+                            staticmethod(lambda dados, user_id: _TP()))
+        corpo = {"tournament_id": "22222222-2222-2222-2222-222222222222",
+                 "player_id": "44444444-4444-4444-4444-444444444444"}
+        r = SyncService.apply_op(_op("register", "cm-reg", corpo), "u1", ORG)
+        assert r["serverId"] == "tp-servidor"

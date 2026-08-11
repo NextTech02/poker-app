@@ -329,3 +329,181 @@ class TestReceitasCrud:
                       rpcs={"revenue_set_status": {"ok": True}})
         ExpenseService.update_revenue(ORG, "r1", {"status": "recebido"})
         assert [c[0] for c in fake.rpc_calls] == ["revenue_set_status"]
+
+
+class TestCategorias:
+    def test_lista_apenas_da_organizacao(self, monkeypatch):
+        outra = {"id": "c9", "organization_id": "outra", "name": "X", "active": True}
+        _monta(monkeypatch, {"expense_categories": [
+            {"id": "c1", "organization_id": ORG, "name": "Dealers", "active": True}, outra,
+        ]})
+        r = ExpenseService.get_categories(ORG)
+        assert [c["id"] for c in r] == ["c1"]
+
+    def test_sem_organizacao_devolve_vazio(self, monkeypatch):
+        _monta(monkeypatch, {"expense_categories": [
+            {"id": "c1", "organization_id": ORG, "name": "X", "active": True},
+        ]})
+        assert ExpenseService.get_categories(None) == []
+
+    def test_filtra_somente_ativas(self, monkeypatch):
+        _monta(monkeypatch, {"expense_categories": [
+            {"id": "c1", "organization_id": ORG, "name": "Ativa", "active": True},
+            {"id": "c2", "organization_id": ORG, "name": "Inativa", "active": False},
+        ]})
+        r = ExpenseService.get_categories(ORG, active_only=True)
+        assert [c["id"] for c in r] == ["c1"]
+
+    def test_cria_na_organizacao_certa(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        ExpenseService.create_category(ORG, {"name": "Nova", "kind": "fixo"})
+        assert fake.store["expense_categories"][0]["organization_id"] == ORG
+
+    def test_atualiza_a_propria_categoria(self, monkeypatch):
+        fake = _monta(monkeypatch, {"expense_categories": [
+            {"id": "c1", "organization_id": ORG, "name": "Antigo", "active": True},
+        ]})
+        ExpenseService.update_category(ORG, "c1", {"name": "Novo"})
+        assert fake.store["expense_categories"][0]["name"] == "Novo"
+
+    def test_apaga_a_propria_categoria(self, monkeypatch):
+        fake = _monta(monkeypatch, {"expense_categories": [
+            {"id": "c1", "organization_id": ORG, "name": "X", "active": True},
+        ]})
+        assert ExpenseService.delete_category(ORG, "c1") is True
+        assert fake.store["expense_categories"] == []
+
+    def test_nao_apaga_categoria_de_outra_organizacao(self, monkeypatch):
+        fake = _monta(monkeypatch, {"expense_categories": [
+            {"id": "c1", "organization_id": "outra", "name": "X", "active": True},
+        ]})
+        assert ExpenseService.delete_category(ORG, "c1") is False
+        assert len(fake.store["expense_categories"]) == 1
+
+
+class TestModelos:
+    def test_lista_apenas_da_organizacao(self, monkeypatch):
+        _monta(monkeypatch, {"expense_templates": [
+            {"id": "m1", "organization_id": ORG, "name": "Dealers", "amount": 800},
+            {"id": "m2", "organization_id": "outra", "name": "X", "amount": 1},
+        ]})
+        r = ExpenseService.get_templates(ORG)
+        assert [m["id"] for m in r] == ["m1"]
+
+    def test_sem_organizacao_devolve_vazio(self, monkeypatch):
+        _monta(monkeypatch, {"expense_templates": [
+            {"id": "m1", "organization_id": ORG, "name": "X", "amount": 1},
+        ]})
+        assert ExpenseService.get_templates(None) == []
+
+    def test_nao_apaga_modelo_de_outra_organizacao(self, monkeypatch):
+        fake = _monta(monkeypatch, {"expense_templates": [
+            {"id": "m1", "organization_id": "outra", "name": "X", "amount": 1},
+        ]})
+        assert ExpenseService.delete_template(ORG, "m1") is False
+        assert len(fake.store["expense_templates"]) == 1
+
+
+class TestGarantiaInformativa:
+    def test_soma_a_garantia_comprometida_da_etapa(self, monkeypatch):
+        """A garantia NAO entra como despesa (pay_prize ja cria transacao
+        'prize', entao contaria duas vezes). Aparece so como linha
+        informativa."""
+        _monta(monkeypatch, {"expenses": []})
+        r = ExpenseService.guarantee_committed(ORG, STAGE)
+        assert isinstance(r, (int, float))
+
+
+class TestMensagemDeErro:
+    """O RPC devolve o motivo no formato 'DESPESA: <texto>' misturado com o
+    dump do erro. Sem extrair, o operador veria um blob de JSON na tela."""
+
+    def test_extrai_o_motivo_do_erro_do_banco(self, monkeypatch):
+        _monta(monkeypatch, {"expenses": [_despesa()]})
+        erro = Exception("DESPESA: Caixa geral nao configurado.  {'code': 'P0001'}")
+        monkeypatch.setattr(expense_service.supabase, "rpc",
+                            lambda *a, **k: (_ for _ in ()).throw(erro))
+        with pytest.raises(ValueError) as e:
+            ExpenseService.set_status(ORG, "e1", "pago")
+        assert "Caixa geral nao configurado." in str(e.value)
+        assert "P0001" not in str(e.value)
+
+    def test_erro_sem_marcador_vira_mensagem_generica(self, monkeypatch):
+        _monta(monkeypatch, {"expenses": [_despesa()]})
+        monkeypatch.setattr(expense_service.supabase, "rpc",
+                            lambda *a, **k: (_ for _ in ()).throw(Exception("timeout")))
+        with pytest.raises(ValueError) as e:
+            ExpenseService.set_status(ORG, "e1", "pago")
+        assert "Não foi possível atualizar a despesa." in str(e.value)
+
+
+class TestPagamentosDeEquipe:
+    def test_separa_pago_de_a_pagar(self, monkeypatch):
+        """A tela de Funcionarios grava 'paid'; qualquer outro estado conta
+        como a pagar."""
+        _monta(monkeypatch, {"staff_payments": [
+            {"id": "p1", "organization_id": ORG, "stage_id": STAGE,
+             "amount": 500, "status": "paid", "created_at": "2026-06-08T00:00:00Z"},
+            {"id": "p2", "organization_id": ORG, "stage_id": STAGE,
+             "amount": 300, "status": "pending", "created_at": "2026-06-08T00:00:00Z"},
+        ]})
+        total, pago, pendente = ExpenseService._staff_payments(ORG, STAGE, None, None, None)
+        assert (total, pago, pendente) == (800.0, 500.0, 300.0)
+
+    def test_sem_organizacao_devolve_zeros(self, monkeypatch):
+        _monta(monkeypatch)
+        assert ExpenseService._staff_payments(None, STAGE, None, None, None) == (0.0, 0.0, 0.0)
+
+    def test_filtro_por_torneio_nao_traz_pagamento_de_equipe(self, monkeypatch):
+        """Pagamento de equipe e por ETAPA; ao filtrar por torneio ele nao se
+        aplica, senao seria rateado sem criterio."""
+        _monta(monkeypatch, {"staff_payments": [
+            {"id": "p1", "organization_id": ORG, "stage_id": STAGE,
+             "amount": 500, "status": "paid", "created_at": "2026-06-08T00:00:00Z"},
+        ]})
+        assert ExpenseService._staff_payments(ORG, STAGE, "algum-torneio", None, None) == (0.0, 0.0, 0.0)
+
+
+class TestMensagemDeErroReceita:
+    def test_extrai_o_motivo_do_erro_de_receita(self, monkeypatch):
+        _monta(monkeypatch, {"other_revenues": [
+            {"id": "r1", "organization_id": ORG, "stage_id": STAGE, "amount": 10,
+             "status": "pendente", "source": "Bar", "created_at": "2026-06-08T00:00:00Z"},
+        ]})
+        erro = Exception("RECEITA: Caixa geral nao configurado.  {'code': 'P0001'}")
+        monkeypatch.setattr(expense_service.supabase, "rpc",
+                            lambda *a, **k: (_ for _ in ()).throw(erro))
+        with pytest.raises(ValueError) as e:
+            ExpenseService.set_revenue_status(ORG, "r1", "recebido")
+        assert "Caixa geral nao configurado." in str(e.value)
+
+    def test_erro_sem_marcador_vira_generico(self, monkeypatch):
+        _monta(monkeypatch)
+        monkeypatch.setattr(expense_service.supabase, "rpc",
+                            lambda *a, **k: (_ for _ in ()).throw(Exception("timeout")))
+        with pytest.raises(ValueError) as e:
+            ExpenseService.set_revenue_status(ORG, "r1", "recebido")
+        assert "Não foi possível atualizar a receita." in str(e.value)
+
+
+class TestEdicaoDeReceitaDetalhada:
+    def test_altera_campos_simples(self, monkeypatch):
+        fake = _monta(monkeypatch, {"other_revenues": [
+            {"id": "r1", "organization_id": ORG, "stage_id": STAGE, "amount": 10,
+             "status": "pendente", "source": "Bar", "created_at": "2026-06-08T00:00:00Z"},
+        ]})
+        ExpenseService.update_revenue(ORG, "r1", {"amount": 999, "source": "Cozinha"})
+        assert fake.store["other_revenues"][0]["amount"] == 999
+        assert fake.store["other_revenues"][0]["source"] == "Cozinha"
+
+    def test_receita_inexistente_devolve_none(self, monkeypatch):
+        _monta(monkeypatch)
+        assert ExpenseService.update_revenue(ORG, "nao-existe", {"amount": 1}) is None
+
+    def test_receita_de_outra_organizacao_nao_e_apagada(self, monkeypatch):
+        fake = _monta(monkeypatch, {"other_revenues": [
+            {"id": "r1", "organization_id": "outra", "stage_id": STAGE, "amount": 10,
+             "status": "pendente", "source": "Bar", "created_at": "2026-06-08T00:00:00Z"},
+        ]})
+        assert ExpenseService.delete_revenue(ORG, "r1") is False
+        assert len(fake.store["other_revenues"]) == 1

@@ -19,6 +19,7 @@ from tests.conftest import FakeSupabase
 TOUR = "22222222-2222-2222-2222-222222222222"
 ALLOC = "55555555-5555-5555-5555-555555555555"
 PLAYER = "44444444-4444-4444-4444-444444444444"
+DIA_ALVO = "77777777-7777-7777-7777-777777777777"
 
 
 class _Caixa:
@@ -34,7 +35,7 @@ def _alocacao(paid=False, released=True, tipo="dinheiro", valor=500):
         "id": ALLOC, "tournament_id": TOUR, "position": 1,
         "prize_amount": valor, "percentage": 50, "paid": paid,
         "released": released, "prize_type": tipo, "player_id": PLAYER,
-        "created_at": "2026-06-08T00:00:00Z",
+        "created_at": "2026-06-08T00:00:00Z", "updated_at": "2026-06-08T00:00:00Z",
     }
 
 
@@ -237,3 +238,159 @@ class TestGarantia:
         fake = _monta(monkeypatch)
         PrizeAllocationService.update_guaranteed_prize(TOUR, Decimal("5000"))
         assert float(fake.store["tournaments"][0]["guaranteed_prize"]) == 5000.0
+
+
+from app.models.prize_allocation import PrizeAllocationUpdate
+
+
+class TestEdicaoDeAlocacao:
+    def test_altera_o_valor(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        r = PrizeAllocationService.update_allocation(
+            TOUR, ALLOC, PrizeAllocationUpdate(prize_amount=750)
+        )
+        assert float(r.prize_amount) == 750.0
+        assert float(fake.store["prize_allocations"][0]["prize_amount"]) == 750.0
+
+    def test_inexistente_da_404(self, monkeypatch):
+        _monta(monkeypatch, tabelas={"prize_allocations": []})
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.update_allocation(
+                TOUR, ALLOC, PrizeAllocationUpdate(prize_amount=10)
+            )
+        assert e.value.status_code == 404
+
+
+class TestPremioReservado:
+    def test_configura_percentual_e_finalidade(self, monkeypatch):
+        from decimal import Decimal
+        fake = _monta(monkeypatch)
+        PrizeAllocationService.update_reserved_config(TOUR, Decimal("10"), "ranking")
+        t = fake.store["tournaments"][0]
+        assert float(t["reserved_prize_percentage"]) == 10.0
+        assert t["reserved_purpose"] == "ranking"
+
+    def test_finalidade_invalida_e_recusada(self, monkeypatch):
+        """So 'ranking' e 'staff' fazem sentido; outro valor viraria uma
+        reserva sem destino definido."""
+        from decimal import Decimal
+        _monta(monkeypatch)
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.update_reserved_config(TOUR, Decimal("10"), "qualquer")
+        assert "reserved_purpose" in e.value.detail
+
+    def test_finalidade_vazia_e_aceita(self, monkeypatch):
+        from decimal import Decimal
+        fake = _monta(monkeypatch)
+        PrizeAllocationService.update_reserved_config(TOUR, Decimal("0"), "")
+        assert fake.store["tournaments"][0]["reserved_purpose"] is None
+
+
+class TestResumoDoPool:
+    def test_reservado_sai_do_bolo_dos_jogadores(self, monkeypatch):
+        """A reserva e % das entradas BRUTAS e sai do pool dos jogadores, nao
+        do rake: 2000 de entradas com 10% reservados deixam 1800 pagaveis."""
+        fake = _monta(monkeypatch)
+        fake.store["tournaments"][0]["reserved_prize_percentage"] = 10
+        fake.store["tournaments"][0]["reserved_purpose"] = "ranking"
+
+        s = PrizeAllocationService.get_prize_summary(TOUR)
+        assert float(s.total_entries) == 2000.0
+        assert float(s.reserved_amount) == 200.0
+        assert float(s.payable_pool) == 1800.0
+
+    def test_garantia_soma_ao_pool(self, monkeypatch):
+        """A garantia e valor ADICIONADO pela casa, nao piso: 2000 de entradas
+        + 1000 garantidos = 3000 disponiveis."""
+        fake = _monta(monkeypatch)
+        fake.store["tournaments"][0]["guaranteed_prize"] = 1000
+        s = PrizeAllocationService.get_prize_summary(TOUR)
+        assert float(s.available_prize_pool) == 3000.0
+
+    def test_saldo_desconta_o_que_ja_foi_alocado(self, monkeypatch):
+        _monta(monkeypatch)   # ja ha uma alocacao de 500
+        s = PrizeAllocationService.get_prize_summary(TOUR)
+        assert float(s.total_allocated) == 500.0
+        assert float(s.remaining_balance) == 1500.0
+
+
+class TestEdicaoDetalhada:
+    def test_mudar_para_posicao_ocupada_e_recusado(self, monkeypatch):
+        """Trocar para uma posicao que ja tem premio criaria duas alocacoes
+        na mesma colocacao."""
+        outra = _alocacao(); outra["id"] = "outra"; outra["position"] = 2
+        fake = _monta(monkeypatch)
+        fake.store["prize_allocations"].append(outra)
+
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.update_allocation(
+                TOUR, ALLOC, PrizeAllocationUpdate(position=2)
+            )
+        assert "already has a prize allocation" in e.value.detail
+
+    def test_manter_a_propria_posicao_e_permitido(self, monkeypatch):
+        """A checagem de conflito ignora a propria linha; sem isso, salvar sem
+        mudar a posicao daria erro."""
+        _monta(monkeypatch)
+        r = PrizeAllocationService.update_allocation(
+            TOUR, ALLOC, PrizeAllocationUpdate(position=1, prize_amount=600)
+        )
+        assert r.position == 1
+        assert float(r.prize_amount) == 600.0
+
+    def test_associa_o_jogador_a_colocacao(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        PrizeAllocationService.update_allocation(
+            TOUR, ALLOC, PrizeAllocationUpdate(player_id=PLAYER)
+        )
+        assert fake.store["prize_allocations"][0]["player_id"] == PLAYER
+
+
+class TestListagemDeAlocacoes:
+    def test_lista_do_torneio(self, monkeypatch):
+        _monta(monkeypatch)
+        r = PrizeAllocationService.get_allocations(TOUR)
+        assert len(r) == 1
+        assert r[0].position == 1
+
+    def test_torneio_sem_premiacao_devolve_vazio(self, monkeypatch):
+        _monta(monkeypatch, tabelas={"prize_allocations": []})
+        assert PrizeAllocationService.get_allocations(TOUR) == []
+
+    def test_pool_do_torneio(self, monkeypatch):
+        _monta(monkeypatch)
+        r = PrizeAllocationService.get_tournament_prize_pool(TOUR)
+        assert isinstance(r, dict)
+
+
+class TestPremioTipoVaga:
+    """Uma 'vaga' vale o buy-in do dia alvo — nao um valor digitado. Assim a
+    premiacao acompanha o preco do torneio para o qual a vaga da acesso."""
+
+    def test_valor_vem_do_buy_in_do_dia_alvo(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        fake.store["tournament_days"].append(
+            {"id": DIA_ALVO, "tournament_id": TOUR, "buy_in": 350,
+             "rake_percentage": 0, "day_type": "final"}
+        )
+        r = PrizeAllocationService.create_allocation(TOUR, PrizeAllocationCreate(
+            position=5, prize_amount=0, prize_type="vaga", vaga_target_day_id=DIA_ALVO,
+        ))
+        assert float(r.prize_amount) == 350.0
+
+    def test_vaga_sem_dia_alvo_e_recusada(self, monkeypatch):
+        _monta(monkeypatch)
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.create_allocation(TOUR, PrizeAllocationCreate(
+                position=6, prize_amount=0, prize_type="vaga",
+            ))
+        assert "dia alvo" in e.value.detail
+
+    def test_dia_alvo_inexistente_da_404(self, monkeypatch):
+        _monta(monkeypatch)
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.create_allocation(TOUR, PrizeAllocationCreate(
+                position=7, prize_amount=0, prize_type="vaga",
+                vaga_target_day_id="00000000-0000-0000-0000-0000000000ff",
+            ))
+        assert e.value.status_code == 404
