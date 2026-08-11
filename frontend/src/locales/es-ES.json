@@ -1582,7 +1582,9 @@
     "removedOnly": "{{name}} fue eliminado de este club.",
     "removedButKept": "{{name}} tiene movimientos registrados, así que solo fue desactivado — el historial financiero se conserva.",
     "errRemove": "No se pudo eliminar al empleado.",
-    "showInactive": "Mostrar desactivados ({{n}})"
+    "inactiveFilter": "Desactivados",
+    "showInactiveHint": "Mostrar empleados desactivados",
+    "hideInactiveHint": "Ocultar empleados desactivados"
   },
   "stageBar": {
     "selectedStage": "Etapa Seleccionada:",

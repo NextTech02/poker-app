@@ -84,20 +84,67 @@
   color: var(--danger);
 }
 
-.func-filtro-inativos {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.85rem;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  user-select: none;
+/* Barra do filtro: alinhada à direita para não competir com o cabeçalho da
+   tabela, que é o que o olho procura primeiro. */
+.func-barra-filtro {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.9rem;
 }
 
-.func-filtro-inativos input {
-  accent-color: var(--accent-color);
+.func-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
+  user-select: none;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.func-chip:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+  background: var(--card-bg-hover);
+}
+
+/* Ligado: o roxo da marca deixa claro que há um filtro ativo — sem isso o
+   usuário não sabe se a lista está completa. */
+.func-chip.ativo {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  background: rgba(114, 51, 248, 0.12);
+}
+
+.func-chip-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 9999px;
+  background: var(--card-bg-active);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.func-chip.ativo .func-chip-num {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.func-chip:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
 /* Aguardando resposta: âmbar, porque não é erro nem estado final. */

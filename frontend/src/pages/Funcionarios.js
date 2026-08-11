@@ -472,16 +472,32 @@ const Funcionarios = () => {
                     reescrever os livros. Esconder os desativados resolve a
                     poluição da lista sem perder o histórico. */}
                 {staffList.some((x) => !x.active) && (
-                  <label className="func-filtro-inativos">
-                    <input
-                      type="checkbox"
-                      checked={verInativos}
-                      onChange={(e) => setVerInativos(e.target.checked)}
-                    />
-                    {t('staff.showInactive', 'Mostrar desativados ({{n}})', {
-                      n: staffList.filter((x) => !x.active).length,
-                    })}
-                  </label>
+                  <div className="func-barra-filtro">
+                    {/* Botão de alternância, não caixa de seleção: o gesto é
+                        "ligar/desligar uma visão", e o estado precisa ser
+                        legível de relance. */}
+                    <button
+                      type="button"
+                      className={`func-chip ${verInativos ? 'ativo' : ''}`}
+                      onClick={() => setVerInativos((v) => !v)}
+                      aria-pressed={verInativos}
+                      title={verInativos
+                        ? t('staff.hideInactiveHint', 'Ocultar funcionários desativados')
+                        : t('staff.showInactiveHint', 'Mostrar funcionários desativados')}
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true">
+                        {verInativos ? (
+                          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
+                        ) : (
+                          <path d="M12 6.5c2.76 0 5 2.24 5 5 0 .51-.1 1-.24 1.46l3.06 3.06c1.39-1.23 2.49-2.77 3.18-4.53C21.27 7.11 17 4 12 4c-1.27 0-2.49.2-3.64.57l2.17 2.17c.47-.14.96-.24 1.47-.24zM2.71 3.16a.996.996 0 0 0 0 1.41l1.97 1.97A11.892 11.892 0 0 0 1 11.5C2.73 15.89 7 19 12 19c1.52 0 2.97-.3 4.31-.82l2.72 2.72a.996.996 0 1 0 1.41-1.41L4.13 3.16a.996.996 0 0 0-1.42 0zM12 16.5c-2.76 0-5-2.24-5-5 0-.77.18-1.5.49-2.14l1.57 1.57c-.03.18-.06.37-.06.57 0 1.66 1.34 3 3 3 .2 0 .38-.03.57-.07l1.57 1.57c-.65.32-1.37.5-2.14.5z"/>
+                        )}
+                      </svg>
+                      {t('staff.inactiveFilter', 'Desativados')}
+                      <span className="func-chip-num">
+                        {staffList.filter((x) => !x.active).length}
+                      </span>
+                    </button>
+                  </div>
                 )}
                 <table className="table">
                   <thead>
