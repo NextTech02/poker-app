@@ -48,3 +48,8 @@ yarn-error.log*
 
 # Saída de execução do SonarScanner (metadados locais da última análise)
 .scannerwork/
+
+# Relatórios de cobertura (gerados a cada execução dos testes)
+backend/coverage.xml
+backend/.coverage
+frontend/coverage/
