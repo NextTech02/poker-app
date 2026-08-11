@@ -71,17 +71,18 @@ async def create_blind(
     # Create blind
     try:
         response = supabase.table("blinds").insert(blind_data).execute()
-        if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create blind"
-            )
-        return response.data[0]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating blind: {str(e)}"
         )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create blind"
+        )
+    return response.data[0]
 
 
 @router.patch("/tournaments/{tournament_id}/blinds/{blind_id}", response_model=BlindResponse)
@@ -139,18 +140,18 @@ async def update_blind(
             .update(update_data)\
             .eq("id", str(blind_id))\
             .execute()
-
-        if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update blind"
-            )
-        return response.data[0]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating blind: {str(e)}"
         )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update blind"
+        )
+    return response.data[0]
 
 
 @router.delete("/tournaments/{tournament_id}/blinds/{blind_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -252,17 +253,18 @@ async def create_blind_for_day(
     # Create blind
     try:
         response = supabase.table("blinds").insert(blind_data).execute()
-        if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create blind"
-            )
-        return response.data[0]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating blind: {str(e)}"
         )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create blind"
+        )
+    return response.data[0]
 
 
 @router.patch("/tournament-days/{tournament_day_id}/blinds/{blind_id}", response_model=BlindResponse)
@@ -320,18 +322,18 @@ async def update_blind_for_day(
             .update(update_data)\
             .eq("id", str(blind_id))\
             .execute()
-
-        if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update blind"
-            )
-        return response.data[0]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating blind: {str(e)}"
         )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update blind"
+        )
+    return response.data[0]
 
 
 @router.delete("/tournament-days/{tournament_day_id}/blinds/{blind_id}", status_code=status.HTTP_204_NO_CONTENT)

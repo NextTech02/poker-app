@@ -45,13 +45,12 @@ def remove_player_from_ranking(
     Remove a player from ranking (used for rebuy after elimination).
     Automatically recalculates remaining rankings.
     """
+    # O 404 fica FORA do try: dentro dele, o `except Exception` abaixo
+    # capturava o próprio HTTPException (que é uma Exception) e o reescrevia
+    # como 500 — remover alguém que não está no ranking devolvia "erro do
+    # servidor" em vez de "não encontrado".
     try:
         success = RankingService.remove_from_ranking(tournament_player_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Player ranking not found"
-            )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -61,4 +60,10 @@ def remove_player_from_ranking(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error removing from ranking: {str(e)}"
+        )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player ranking not found"
         )
