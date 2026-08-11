@@ -115,6 +115,7 @@ class FakeQuery:
         return True
 
     def execute(self):
+        table = self._table
         if self._op == "select":
             rows = [r for r in self._rows if self._match(r)]
             if self._limit is not None:
@@ -130,6 +131,16 @@ class FakeQuery:
                 row.setdefault("id", str(uuid.uuid4()))
                 row.setdefault("created_at", "2026-06-08T00:00:00Z")
                 row.setdefault("updated_at", "2026-06-08T00:00:00Z")
+                # DEFAULTs que o banco real aplica e os modelos exigem.
+                if table == "tournament_players":
+                    row.setdefault("registered_at", "2026-06-08T00:00:00Z")
+                    row.setdefault("status", "active")
+                    row.setdefault("total_spent", 0)
+                    row.setdefault("rebuy_count", 0)
+                    row.setdefault("addon_count", 0)
+                    row.setdefault("total_buy_in_amount", 0)
+                    row.setdefault("total_rebuy_amount", 0)
+                    row.setdefault("total_addon_amount", 0)
                 self._rows.append(row)
                 out.append(row)
             return SimpleNamespace(data=out)
