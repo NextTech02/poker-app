@@ -1570,7 +1570,16 @@
     "resendInvite": "Reenviar",
     "resendHint": "Los enlaces del correo caducan; envía otro",
     "inviteResent": "Nuevo enlace enviado a {{email}}.",
-    "errResend": "No se pudo reenviar la invitación."
+    "errResend": "No se pudo reenviar la invitación.",
+    "remove": "Eliminar",
+    "removeTitle": "¿Eliminar empleado?",
+    "removeHint": "Lo saca del club; borra la cuenta si no está en otro",
+    "confirmRemove": "¿Eliminar a {{name}} de este club? Si no trabaja en otro club, su cuenta de acceso también será borrada.",
+    "removedWithAccount": "{{name}} fue eliminado y su cuenta borrada.",
+    "removedOnly": "{{name}} fue eliminado de este club.",
+    "removedButKept": "{{name}} tiene movimientos registrados, así que solo fue desactivado — el historial financiero se conserva.",
+    "errRemove": "No se pudo eliminar al empleado.",
+    "showInactive": "Mostrar desactivados ({{n}})"
   },
   "stageBar": {
     "selectedStage": "Etapa Seleccionada:",

@@ -73,6 +73,22 @@
   color: var(--danger);
 }
 
+.func-filtro-inativos {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.func-filtro-inativos input {
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
 /* Aguardando resposta: âmbar, porque não é erro nem estado final. */
 .func-status--pending {
   background: rgba(245, 158, 11, 0.15);

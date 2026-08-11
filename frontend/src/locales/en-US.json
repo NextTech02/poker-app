@@ -1570,7 +1570,16 @@
     "resendInvite": "Resend",
     "resendHint": "Email links expire; send another one",
     "inviteResent": "New link sent to {{email}}.",
-    "errResend": "Could not resend the invite."
+    "errResend": "Could not resend the invite.",
+    "remove": "Delete",
+    "removeTitle": "Delete employee?",
+    "removeHint": "Removes from this club; deletes the account if not in another",
+    "confirmRemove": "Delete {{name}} from this club? If they do not work at another club, their account will be deleted too.",
+    "removedWithAccount": "{{name}} was deleted and their account removed.",
+    "removedOnly": "{{name}} was removed from this club.",
+    "removedButKept": "{{name}} has recorded activity, so they were only deactivated — the financial history is preserved.",
+    "errRemove": "Could not delete the employee.",
+    "showInactive": "Show deactivated ({{n}})"
   },
   "stageBar": {
     "selectedStage": "Selected Stage:",

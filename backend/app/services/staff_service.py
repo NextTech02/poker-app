@@ -295,6 +295,55 @@ class StaffService:
         )
 
     @staticmethod
+    def remove_from_org(staff_id: str, organization_id: str) -> dict:
+        """Tira o funcionário do clube — e a conta de acesso, se for o último.
+
+        Quem decide entre apagar e desativar é o banco (`remove_staff_member`),
+        pelos dados: com histórico financeiro o registro é preservado, porque
+        apagá-lo reescreveria resultados de etapas já apuradas.
+        """
+        import httpx
+
+        if not organization_id:
+            raise ValueError("Sua conta não está vinculada a nenhuma organização.")
+
+        StaffService._guard_no_open_cashbox(staff_id)
+
+        try:
+            r = supabase_admin.rpc(
+                "remove_staff_member",
+                {"p_org": organization_id, "p_staff": staff_id},
+            ).execute()
+        except Exception as exc:
+            if "FUNCIONARIO_NAO_ENCONTRADO" in str(exc):
+                raise ValueError("Funcionário não encontrado.")
+            raise ValueError("Não foi possível excluir o funcionário.")
+
+        res = r.data or {}
+
+        # Conta de acesso: só sai se a pessoa não trabalha em mais nenhum clube.
+        # Pode falhar de propósito — 15 tabelas apontam para `auth.users` com
+        # NO ACTION, então quem já criou torneio, transação ou sangria não pode
+        # ser apagado sem levar o histórico junto. Nesse caso a conta fica, mas
+        # inofensiva: sem vínculo, ela não enxerga nenhuma organização.
+        res["conta_removida"] = False
+        if res.get("acao") == "removido" and res.get("ultima_organizacao") and res.get("auth_user_id"):
+            try:
+                base = settings.supabase_url.rstrip("/")
+                d = httpx.delete(
+                    f"{base}/auth/v1/admin/users/{res['auth_user_id']}",
+                    headers={
+                        "apikey": settings.supabase_service_key,
+                        "Authorization": f"Bearer {settings.supabase_service_key}",
+                    },
+                    timeout=15,
+                )
+                res["conta_removida"] = d.status_code < 300
+            except Exception:
+                pass
+        return res
+
+    @staticmethod
     def resend_invite(staff_id: str, organization_id: str = None) -> dict:
         """Reenvia o link de cadastro para quem ainda não concluiu.
 

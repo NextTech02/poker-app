@@ -1570,7 +1570,16 @@
     "resendInvite": "Reenviar",
     "resendHint": "Os links do e-mail expiram; envie outro",
     "inviteResent": "Novo link enviado para {{email}}.",
-    "errResend": "Não foi possível reenviar o convite."
+    "errResend": "Não foi possível reenviar o convite.",
+    "remove": "Excluir",
+    "removeTitle": "Excluir funcionário?",
+    "removeHint": "Tira do clube; apaga a conta se ela não estiver em outro",
+    "confirmRemove": "Excluir {{name}} deste clube? Se a pessoa não trabalhar em outro clube, a conta de acesso dela também será apagada.",
+    "removedWithAccount": "{{name}} foi excluído e a conta de acesso removida.",
+    "removedOnly": "{{name}} foi excluído deste clube.",
+    "removedButKept": "{{name}} tem movimentações registradas, então foi apenas desativado — o histórico financeiro é preservado.",
+    "errRemove": "Não foi possível excluir o funcionário.",
+    "showInactive": "Mostrar desativados ({{n}})"
   },
   "stageBar": {
     "selectedStage": "Etapa Selecionada:",

@@ -86,6 +86,19 @@ def create_staff(data: StaffCreate, user=_manage_staff):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.delete("/{staff_id}/remove")
+def remove_staff(staff_id: str, user=_manage_staff):
+    """Exclui o funcionário do clube (e a conta, se ele não estiver em outro).
+
+    Rota separada do DELETE /{staff_id}, que apenas desativa: são intenções
+    diferentes e o desfazer de uma não serve para a outra.
+    """
+    try:
+        return StaffService.remove_from_org(staff_id, user.get("organization_id"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/{staff_id}/resend-invite")
 def resend_invite(staff_id: str, user=_manage_staff):
     """Manda outro link para quem ainda não concluiu o cadastro.

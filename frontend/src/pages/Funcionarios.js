@@ -51,6 +51,7 @@ const Funcionarios = () => {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [staffForm, setStaffForm] = useState({ email: '', permission_group_id: '' });
   const [staffSaving, setStaffSaving] = useState(false);
+  const [verInativos, setVerInativos] = useState(false);
 
   // Group modal
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -263,6 +264,36 @@ const Funcionarios = () => {
     }
   };
 
+  const handleRemoveStaff = async (staff) => {
+    const ok = await confirm(
+      t('staff.confirmRemove',
+        'Excluir {{name}} deste clube? Se a pessoa não trabalhar em outro clube, a conta de acesso dela também será apagada.',
+        { name: staff.name || staff.email }),
+      { title: t('staff.removeTitle', 'Excluir funcionário?'), variant: 'danger',
+        confirmText: t('staff.remove', 'Excluir') }
+    );
+    if (!ok) return;
+    try {
+      const { data } = await api.delete(`/staff/${staff.id}/remove`);
+      if (data.acao === 'desativado') {
+        // Não é falha: o banco preserva quem tem lançamento financeiro, senão
+        // apagá-lo mudaria o resultado de etapas já fechadas.
+        notify(t('staff.removedButKept',
+          '{{name}} tem movimentações registradas, então foi apenas desativado — o histórico financeiro é preservado.',
+          { name: data.nome || staff.name }), 'info');
+      } else if (data.conta_removida) {
+        notify(t('staff.removedWithAccount', '{{name}} foi excluído e a conta de acesso removida.',
+          { name: data.nome || staff.name }), 'success');
+      } else {
+        notify(t('staff.removedOnly', '{{name}} foi excluído deste clube.',
+          { name: data.nome || staff.name }), 'success');
+      }
+      loadData();
+    } catch (err) {
+      notify(err.response?.data?.detail || t('staff.errRemove', 'Não foi possível excluir o funcionário.'));
+    }
+  };
+
   const handleResendInvite = async (staff) => {
     try {
       await api.post(`/staff/${staff.id}/resend-invite`);
@@ -437,6 +468,21 @@ const Funcionarios = () => {
               <EmptyState message={t('staff.noStaffRegistered')} />
             ) : (
               <div className="table-responsive">
+                {/* Quem tem lançamento financeiro não pode ser apagado sem
+                    reescrever os livros. Esconder os desativados resolve a
+                    poluição da lista sem perder o histórico. */}
+                {staffList.some((x) => !x.active) && (
+                  <label className="func-filtro-inativos">
+                    <input
+                      type="checkbox"
+                      checked={verInativos}
+                      onChange={(e) => setVerInativos(e.target.checked)}
+                    />
+                    {t('staff.showInactive', 'Mostrar desativados ({{n}})', {
+                      n: staffList.filter((x) => !x.active).length,
+                    })}
+                  </label>
+                )}
                 <table className="table">
                   <thead>
                     <tr>
@@ -448,7 +494,7 @@ const Funcionarios = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {staffList.map((s) => (
+                    {staffList.filter((s) => verInativos || s.active).map((s) => (
                       <tr key={s.id} className={!s.active ? 'func-row-inactive' : ''}>
                         <td>{s.name}</td>
                         <td>{s.email}</td>
@@ -512,12 +558,21 @@ const Funcionarios = () => {
                               {t('staff.cancelInvite', 'Cancelar convite')}
                             </button>
                           ) : (
-                            <button
-                              className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
-                              onClick={() => handleToggleActive(s)}
-                            >
-                              {s.active ? t('staff.deactivate') : t('staff.activate')}
-                            </button>
+                            <>
+                              <button
+                                className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
+                                onClick={() => handleToggleActive(s)}
+                              >
+                                {s.active ? t('staff.deactivate') : t('staff.activate')}
+                              </button>
+                              <button
+                                className="func-action-btn func-action-btn--danger"
+                                onClick={() => handleRemoveStaff(s)}
+                                title={t('staff.removeHint', 'Tira do clube; apaga a conta se ela não estiver em outro')}
+                              >
+                                {t('staff.remove', 'Excluir')}
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
