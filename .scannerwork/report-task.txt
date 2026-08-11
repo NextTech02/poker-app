@@ -1,6 +1,0 @@
-projectKey=aceblind
-serverUrl=http://localhost:9000
-serverVersion=26.8.0.126808
-dashboardUrl=http://localhost:9000/dashboard?id=aceblind
-ceTaskId=dd055175-933e-47ef-9786-15d5902bf96a
-ceTaskUrl=http://localhost:9000/api/ce/task?id=dd055175-933e-47ef-9786-15d5902bf96a

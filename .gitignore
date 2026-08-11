@@ -45,3 +45,6 @@ yarn-error.log*
 # app deployado deixa de ser instalável — o Chrome exige os ícones do manifest.
 !frontend/public/icon-*.png
 !frontend/src/assets/*.png
+
+# Saída de execução do SonarScanner (metadados locais da última análise)
+.scannerwork/
