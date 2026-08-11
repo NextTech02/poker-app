@@ -124,6 +124,11 @@ const SetPassword = () => {
       if (cru.includes('different from the old password')) {
         setError(t('setPassword.samePassword',
           'Esta já é a sua senha atual — seu cadastro foi concluído antes. Entre normalmente com ela, ou escolha uma senha diferente para trocá-la.'));
+      } else if (cru.includes('weak') || cru.includes('easy to guess') || cru.includes('pwned')) {
+        // Proteção contra senhas vazadas: o Supabase recusa senhas que já
+        // apareceram em vazamentos conhecidos, e responde em inglês.
+        setError(t('setPassword.weakPassword',
+          'Esta senha aparece em vazamentos conhecidos e não pode ser usada. Escolha outra, de preferência sem palavras comuns.'));
       } else if (cru.includes('expired') || cru.includes('invalid') || cru.includes('token')) {
         setError(t('setPassword.linkExpired',
           'Este link expirou. Peça um novo convite ao administrador, ou use "Esqueci minha senha".'));

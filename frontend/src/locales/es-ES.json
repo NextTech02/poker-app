@@ -102,7 +102,8 @@
     "recoverySubtitleEmail": "Definiendo una nueva contraseña para {{email}}.",
     "recoverySubmit": "Guardar nueva contraseña",
     "samePassword": "Esta ya es tu contraseña actual — tu registro se completó antes. Inicia sesión con ella, o elige una contraseña distinta para cambiarla.",
-    "linkExpired": "Este enlace caducó. Pide una nueva invitación al administrador, o usa \"Olvidé mi contraseña\"."
+    "linkExpired": "Este enlace caducó. Pide una nueva invitación al administrador, o usa \"Olvidé mi contraseña\".",
+    "weakPassword": "Esta contraseña aparece en filtraciones conocidas y no puede usarse. Elige otra, preferiblemente sin palabras comunes."
   },
   "login": {
     "title": "Torneos de Poker",

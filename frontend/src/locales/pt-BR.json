@@ -102,7 +102,8 @@
     "recoverySubtitleEmail": "Definindo uma nova senha para {{email}}.",
     "recoverySubmit": "Salvar nova senha",
     "samePassword": "Esta já é a sua senha atual — seu cadastro foi concluído antes. Entre normalmente com ela, ou escolha uma senha diferente para trocá-la.",
-    "linkExpired": "Este link expirou. Peça um novo convite ao administrador, ou use \"Esqueci minha senha\"."
+    "linkExpired": "Este link expirou. Peça um novo convite ao administrador, ou use \"Esqueci minha senha\".",
+    "weakPassword": "Esta senha aparece em vazamentos conhecidos e não pode ser usada. Escolha outra, de preferência sem palavras comuns."
   },
   "login": {
     "title": "Torneios Poker",
