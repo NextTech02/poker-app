@@ -132,6 +132,10 @@ class FakeQuery:
                 row.setdefault("created_at", "2026-06-08T00:00:00Z")
                 row.setdefault("updated_at", "2026-06-08T00:00:00Z")
                 # DEFAULTs que o banco real aplica e os modelos exigem.
+                if table == "seat_allocations":
+                    row.setdefault("players", {"name": "Jogador"})
+                    row.setdefault("tournament_tables", {"table_number": 1})
+                    row.setdefault("tournaments", {"name": "Torneio"})
                 if table == "tournament_players":
                     row.setdefault("registered_at", "2026-06-08T00:00:00Z")
                     row.setdefault("status", "active")
@@ -146,8 +150,14 @@ class FakeQuery:
             return SimpleNamespace(data=out)
         if self._op == "update":
             matched = [r for r in self._rows if self._match(r)]
+            # O codigo envia expressoes SQL como "now()", que o Postgres avalia.
+            # Guardar a string literal quebraria a validacao de data no modelo.
+            payload = {
+                k: ("2026-06-08T00:00:00Z" if v == "now()" else v)
+                for k, v in (self._payload or {}).items()
+            }
             for r in matched:
-                r.update(self._payload)
+                r.update(payload)
             return SimpleNamespace(data=matched)
         if self._op == "upsert":
             items = self._payload if isinstance(self._payload, list) else [self._payload]
