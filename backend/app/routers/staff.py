@@ -86,6 +86,19 @@ def create_staff(data: StaffCreate, user=_manage_staff):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/{staff_id}/resend-invite")
+def resend_invite(staff_id: str, user=_manage_staff):
+    """Manda outro link para quem ainda não concluiu o cadastro.
+
+    Os links do e-mail expiram; sem reenvio, quem demorou para clicar ficava
+    travado e só o suporte resolvia.
+    """
+    try:
+        return StaffService.resend_invite(staff_id, user.get("organization_id"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("", response_model=List[StaffResponse])
 def get_staff_list(user=Depends(get_current_user)):
     return StaffService.get_staff_list()

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,6 +19,32 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+
+  /**
+   * Link de e-mail expirado cai AQUI, não na tela de cadastro: quando o
+   * Supabase não consegue validar o link, ele manda para a URL do site com o
+   * erro no fragmento. Sem tratar, a pessoa via só o formulário de login e
+   * não entendia por que o convite "não funcionou".
+   */
+  useEffect(() => {
+    const frag = window.location.hash || '';
+    const busca = window.location.search || '';
+    if (!frag.includes('error') && !busca.includes('error')) return;
+
+    const p = new URLSearchParams((frag.startsWith('#') ? frag.slice(1) : frag) || busca.slice(1));
+    const code = p.get('error_code') || '';
+    const desc = p.get('error_description') || '';
+
+    setError(
+      code.includes('expired') || desc.toLowerCase().includes('expired')
+        ? t('login.linkExpired',
+             'Este link expirou. Peça um novo convite ao administrador, ou use "Esqueci minha senha" para receber outro link.')
+        : t('login.linkInvalid',
+             'Não foi possível validar este link. Peça um novo ao administrador.')
+    );
+    // Limpa a URL para o aviso não voltar a cada recarga.
+    window.history.replaceState({}, '', window.location.pathname);
+  }, [t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

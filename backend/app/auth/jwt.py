@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from jose.exceptions import JWKError
+from jose.exceptions import JWKError, ExpiredSignatureError
 import httpx
 from functools import lru_cache
 from app.config import get_settings
@@ -66,9 +66,16 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         if user_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
         return payload
-    except JWTError as e:
+    except (JWTError, JWKError) as e:
+        # JWKError precisa entrar aqui junto com JWTError: um token EXPIRADO
+        # falha no caminho HS256, cai para o JWKS e estoura JWKError ("Expected
+        # 'oct', Received: EC"). Sem capturar, virava HTTP 500 — o usuário via
+        # "erro interno" no lugar de "sua sessão expirou, entre de novo".
         print(f"[JWT ERROR] {e}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão expirada ou credenciais inválidas.",
+        )
 
 
 def get_current_user(token_data: dict = Depends(verify_token)):

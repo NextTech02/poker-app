@@ -100,7 +100,9 @@
     "recoveryTitle": "Escolha uma nova senha",
     "recoverySubtitle": "Defina uma nova senha para sua conta.",
     "recoverySubtitleEmail": "Definindo uma nova senha para {{email}}.",
-    "recoverySubmit": "Salvar nova senha"
+    "recoverySubmit": "Salvar nova senha",
+    "samePassword": "Esta já é a sua senha atual — seu cadastro foi concluído antes. Entre normalmente com ela, ou escolha uma senha diferente para trocá-la.",
+    "linkExpired": "Este link expirou. Peça um novo convite ao administrador, ou use \"Esqueci minha senha\"."
   },
   "login": {
     "title": "Torneios Poker",
@@ -117,7 +119,9 @@
     "sendResetLink": "Enviar link",
     "sending": "Enviando...",
     "backToSignin": "Voltar para o login",
-    "resetSent": "Se houver uma conta com esse e-mail, enviamos o link para redefinir a senha."
+    "resetSent": "Se houver uma conta com esse e-mail, enviamos o link para redefinir a senha.",
+    "linkExpired": "Este link expirou. Peça um novo convite ao administrador, ou use \"Esqueci minha senha\" para receber outro link.",
+    "linkInvalid": "Não foi possível validar este link. Peça um novo ao administrador."
   },
   "dashboard": {
     "loadError": "Não foi possível carregar os dados. Tentando novamente...",
@@ -1558,7 +1562,13 @@
     "cancelInvite": "Cancelar convite",
     "confirmCancelInvite": "Cancelar o convite de {{email}}?",
     "inviteCancelled": "Convite cancelado.",
-    "errCancelInvite": "Não foi possível cancelar o convite."
+    "errCancelInvite": "Não foi possível cancelar o convite.",
+    "awaitingSignup": "Aguardando cadastro",
+    "awaitingSignupHint": "Convite enviado; a pessoa ainda não definiu a senha",
+    "resendInvite": "Reenviar",
+    "resendHint": "Os links do e-mail expiram; envie outro",
+    "inviteResent": "Novo link enviado para {{email}}.",
+    "errResend": "Não foi possível reenviar o convite."
   },
   "stageBar": {
     "selectedStage": "Etapa Selecionada:",

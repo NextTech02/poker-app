@@ -263,6 +263,15 @@ const Funcionarios = () => {
     }
   };
 
+  const handleResendInvite = async (staff) => {
+    try {
+      await api.post(`/staff/${staff.id}/resend-invite`);
+      notify(t('staff.inviteResent', 'Novo link enviado para {{email}}.', { email: staff.email }), 'success');
+    } catch (err) {
+      notify(err.response?.data?.detail || t('staff.errResend', 'Não foi possível reenviar o convite.'));
+    }
+  };
+
   const handleCancelInvite = async (staff) => {
     const ok = await confirm(
       t('staff.confirmCancelInvite', 'Cancelar o convite de {{email}}?', { email: staff.email }),
@@ -456,12 +465,18 @@ const Funcionarios = () => {
                           </select>
                         </td>
                         <td>
-                          {/* Convidado que já tinha conta: inativo por ainda não
-                              ter respondido — diferente de desativado pelo admin. */}
+                          {/* Dois estados de convite, com causas diferentes:
+                              'pending'         = já tinha conta, falta aceitar;
+                              'awaiting_signup' = conta nova, falta definir a senha. */}
                           {s.invite_status === 'pending' ? (
                             <span className="func-status func-status--pending"
                                   title={t('staff.pendingInviteHint', 'Aguardando a pessoa aceitar o convite')}>
                               {t('staff.pendingInvite', 'Convite pendente')}
+                            </span>
+                          ) : s.invite_status === 'awaiting_signup' ? (
+                            <span className="func-status func-status--pending"
+                                  title={t('staff.awaitingSignupHint', 'Convite enviado; a pessoa ainda não definiu a senha')}>
+                              {t('staff.awaitingSignup', 'Aguardando cadastro')}
                             </span>
                           ) : (
                             <span className={`func-status ${s.active ? 'func-status--active' : 'func-status--inactive'}`}>
@@ -473,7 +488,23 @@ const Funcionarios = () => {
                           {/* Num convite pendente, "Ativar" forçaria a entrada de
                               alguém que ainda não aceitou. O que cabe é desfazer
                               o convite. */}
-                          {s.invite_status === 'pending' ? (
+                          {s.invite_status === 'awaiting_signup' ? (
+                            <>
+                              <button
+                                className="func-action-btn func-action-btn--success"
+                                onClick={() => handleResendInvite(s)}
+                                title={t('staff.resendHint', 'Os links do e-mail expiram; envie outro')}
+                              >
+                                {t('staff.resendInvite', 'Reenviar')}
+                              </button>
+                              <button
+                                className="func-action-btn func-action-btn--danger"
+                                onClick={() => handleCancelInvite(s)}
+                              >
+                                {t('staff.cancelInvite', 'Cancelar convite')}
+                              </button>
+                            </>
+                          ) : s.invite_status === 'pending' ? (
                             <button
                               className="func-action-btn func-action-btn--danger"
                               onClick={() => handleCancelInvite(s)}

@@ -100,7 +100,9 @@
     "recoveryTitle": "Choose a new password",
     "recoverySubtitle": "Set a new password for your account.",
     "recoverySubtitleEmail": "Setting a new password for {{email}}.",
-    "recoverySubmit": "Save new password"
+    "recoverySubmit": "Save new password",
+    "samePassword": "This is already your current password — your signup was completed earlier. Just sign in with it, or pick a different password to change it.",
+    "linkExpired": "This link has expired. Ask your administrator for a new invite, or use \"Forgot my password\"."
   },
   "login": {
     "title": "Poker Tournaments",
@@ -117,7 +119,9 @@
     "sendResetLink": "Send link",
     "sending": "Sending...",
     "backToSignin": "Back to sign in",
-    "resetSent": "If an account exists for this e-mail, we've sent the password reset link."
+    "resetSent": "If an account exists for this e-mail, we've sent the password reset link.",
+    "linkExpired": "This link has expired. Ask your administrator for a new invite, or use \"Forgot my password\" to get another link.",
+    "linkInvalid": "We could not validate this link. Ask your administrator for a new one."
   },
   "dashboard": {
     "loadError": "Could not load the data. Retrying...",
@@ -1558,7 +1562,13 @@
     "cancelInvite": "Cancel invite",
     "confirmCancelInvite": "Cancel the invite for {{email}}?",
     "inviteCancelled": "Invite cancelled.",
-    "errCancelInvite": "Could not cancel the invite."
+    "errCancelInvite": "Could not cancel the invite.",
+    "awaitingSignup": "Awaiting signup",
+    "awaitingSignupHint": "Invite sent; the person has not set a password yet",
+    "resendInvite": "Resend",
+    "resendHint": "Email links expire; send another one",
+    "inviteResent": "New link sent to {{email}}.",
+    "errResend": "Could not resend the invite."
   },
   "stageBar": {
     "selectedStage": "Selected Stage:",

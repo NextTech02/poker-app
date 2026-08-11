@@ -33,6 +33,7 @@ const SetPassword = () => {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [onboardedAt, setOnboardedAt] = useState(null);
 
   useEffect(() => {
     let done = false;
@@ -51,6 +52,7 @@ const SetPassword = () => {
       const meta = session.user?.user_metadata || {};
       setEmail(session.user?.email || '');
       setName(meta.full_name || '');
+      setOnboardedAt(meta.onboarded_at || null);
       // Convite já concluído → uso único. (Se for recuperação, o efeito abaixo
       // libera a tela: trocar a senha pode ser feito quantas vezes precisar.)
       setStatus(meta.onboarded_at ? 'used' : 'ready');
@@ -76,13 +78,22 @@ const SetPassword = () => {
     if (mode === 'recovery' && status === 'used') setStatus('ready');
   }, [mode, status]);
 
-  const isRecovery = mode === 'recovery';
+  /**
+   * O que decide se ainda falta CADASTRO é a conta nunca ter concluído
+   * (`onboarded_at`) — não o caminho pelo qual a pessoa chegou.
+   *
+   * Isso importa porque, com o convite expirado, ela recorre a "Esqueci minha
+   * senha". Se esse caminho apenas trocasse a senha, `onboarded_at` nunca seria
+   * gravado e o guard do app devolveria para esta tela a cada entrada: laço sem
+   * saída e sem mensagem de erro.
+   */
+  const precisaCadastro = !onboardedAt;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!isRecovery && !name.trim()) {
+    if (precisaCadastro && !name.trim()) {
       setError(t('setPassword.nameRequired', 'Informe seu nome.'));
       return;
     }
@@ -98,7 +109,7 @@ const SetPassword = () => {
     setSaving(true);
 
     // No convite, `onboarded_at` fecha o link; na recuperação só a senha muda.
-    const payload = isRecovery
+    const payload = !precisaCadastro
       ? { password }
       : { password, data: { full_name: name.trim(), onboarded_at: new Date().toISOString() } };
 
@@ -106,16 +117,35 @@ const SetPassword = () => {
 
     if (upErr) {
       setSaving(false);
-      setError(upErr.message || t('setPassword.saveError', 'Não foi possível concluir o cadastro.'));
+      const cru = (upErr.message || '').toLowerCase();
+      // O Supabase responde em inglês e de um jeito que confunde justamente
+      // quem acha que nunca definiu senha: na prática, esta senha JÁ é a da
+      // conta — ou seja, o cadastro anterior deu certo e basta entrar.
+      if (cru.includes('different from the old password')) {
+        setError(t('setPassword.samePassword',
+          'Esta já é a sua senha atual — seu cadastro foi concluído antes. Entre normalmente com ela, ou escolha uma senha diferente para trocá-la.'));
+      } else if (cru.includes('expired') || cru.includes('invalid') || cru.includes('token')) {
+        setError(t('setPassword.linkExpired',
+          'Este link expirou. Peça um novo convite ao administrador, ou use "Esqueci minha senha".'));
+      } else {
+        setError(upErr.message || t('setPassword.saveError', 'Não foi possível concluir o cadastro.'));
+      }
       return;
     }
 
-    // Reflete o nome escolhido no cadastro de funcionários (best-effort: se o
-    // RLS recusar, o nome ainda fica no perfil da conta).
-    if (!isRecovery) {
+    // Fecha o cadastro: grava o nome escolhido e tira o vínculo de
+    // "aguardando cadastro", para o administrador parar de ver esta pessoa
+    // como convite em aberto.
+    //
+    // Vai por RPC, e não por UPDATE direto: neste ponto o token ainda é o do
+    // convite e pode não ter o claim de organização, então o RLS recusaria a
+    // escrita em `staff` — o nome sumia e o status ficava preso.
+    if (precisaCadastro) {
       try {
         const uid = data?.user?.id;
-        if (uid) await supabase.from('staff').update({ name: name.trim() }).eq('auth_user_id', uid);
+        if (uid) {
+          await supabase.rpc('complete_staff_signup', { p_user: uid, p_name: name.trim() });
+        }
       } catch (_) { /* não impede a entrada */ }
     }
 
@@ -165,12 +195,12 @@ const SetPassword = () => {
         {status === 'ready' && (
           <>
             <h2 className="sp-title">
-              {isRecovery
+              {!precisaCadastro
                 ? t('setPassword.recoveryTitle', 'Escolha uma nova senha')
                 : t('setPassword.title', 'Bem-vindo! Complete seu cadastro')}
             </h2>
             <p className="sp-hint">
-              {isRecovery
+              {!precisaCadastro
                 ? (email
                     ? t('setPassword.recoverySubtitleEmail', 'Definindo uma nova senha para {{email}}.', { email })
                     : t('setPassword.recoverySubtitle', 'Defina uma nova senha para sua conta.'))
@@ -182,7 +212,7 @@ const SetPassword = () => {
             <form onSubmit={handleSubmit} className="login-form">
               {error && <div className="error-message">{error}</div>}
 
-              {!isRecovery && (
+              {precisaCadastro && (
                 <div className="form-group">
                   <label htmlFor="sp-name">{t('setPassword.name', 'Seu nome')}</label>
                   <input
@@ -226,7 +256,7 @@ const SetPassword = () => {
               <Button type="submit" disabled={saving} className="login-btn">
                 {saving
                   ? t('setPassword.saving', 'Salvando...')
-                  : isRecovery
+                  : !precisaCadastro
                     ? t('setPassword.recoverySubmit', 'Salvar nova senha')
                     : t('setPassword.submit', 'Definir senha e entrar')}
               </Button>

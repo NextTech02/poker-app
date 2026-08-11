@@ -233,17 +233,19 @@ class StaffService:
                 }).eq("id", linha["id"]).execute()
                 return StaffService.get_staff(linha["id"])
 
-        # Conta nova: o e-mail de convite JÁ é o aceite — clicar no link e
-        # definir a senha é a decisão dela. Conta que já existe: fica pendente
-        # até responder, e nesse estado não ocupa vaga do plano (o gatilho de
-        # limite só conta ativos).
+        # Conta que JÁ existe: fica 'pending' e inativa até aceitar ou recusar.
+        # Conta NOVA: fica 'awaiting_signup' — convite enviado, cadastro ainda
+        # não concluído. Precisa nascer ATIVA porque o Auth Hook exige vínculo
+        # ativo para emitir o claim de organização, e sem ele a pessoa não
+        # conseguiria nem terminar o cadastro pelo link do e-mail. O status é o
+        # que impede a lista de mostrá-la como membro efetivo.
         insert_data = {
             "auth_user_id": auth_user_id,
             "name": nome,
             "email": data.email,
             "permission_group_id": data.permission_group_id,
             "active": not ja_tem_conta,
-            "invite_status": "pending" if ja_tem_conta else "accepted",
+            "invite_status": "pending" if ja_tem_conta else "awaiting_signup",
             "created_by": created_by,
         }
 
@@ -291,6 +293,49 @@ class StaffService:
             permission_group_name=group_name,
             permissions=permissions,
         )
+
+    @staticmethod
+    def resend_invite(staff_id: str, organization_id: str = None) -> dict:
+        """Reenvia o link de cadastro para quem ainda não concluiu.
+
+        Usa `/recover` e não `/invite`: a conta já existe, então o convite
+        seria recusado com 422. O link de recuperação serve igual — a tela de
+        cadastro decide o que pedir pelo `onboarded_at` da conta, não pelo tipo
+        do link, então quem nunca concluiu continua informando nome e senha.
+        """
+        import httpx
+
+        alvo = supabase.table("staff").select(
+            "id, email, invite_status, organization_id"
+        ).eq("id", staff_id).execute()
+        if not alvo.data:
+            raise ValueError("Funcionário não encontrado.")
+        linha = alvo.data[0]
+
+        if organization_id and linha.get("organization_id") != organization_id:
+            raise ValueError("Funcionário não encontrado.")
+        if linha.get("invite_status") == "accepted":
+            raise ValueError("Esta pessoa já concluiu o cadastro.")
+
+        base = settings.supabase_url.rstrip("/")
+        r = httpx.post(
+            f"{base}/auth/v1/recover",
+            headers={
+                "apikey": settings.supabase_service_key,
+                "Authorization": f"Bearer {settings.supabase_service_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "email": linha["email"],
+                "redirect_to": settings.frontend_url.rstrip("/") + "/definir-senha",
+            },
+            timeout=20,
+        )
+        if r.status_code == 429:
+            raise ValueError("Muitos e-mails enviados. Aguarde alguns minutos e tente de novo.")
+        if r.status_code >= 400:
+            raise ValueError("Não foi possível reenviar o convite.")
+        return {"sent": True, "email": linha["email"]}
 
     @staticmethod
     def get_staff_list() -> List[StaffResponse]:
@@ -379,9 +424,33 @@ class StaffService:
         """
         StaffService._guard_no_open_cashbox(staff_id)
 
-        atual = supabase.table("staff").select("invite_status").eq("id", staff_id).execute()
-        if atual.data and atual.data[0].get("invite_status") == "pending":
+        atual = supabase.table("staff").select(
+            "invite_status, auth_user_id"
+        ).eq("id", staff_id).execute()
+        linha = atual.data[0] if atual.data else {}
+        estado = linha.get("invite_status")
+
+        if estado in ("pending", "awaiting_signup"):
             r = supabase.table("staff").delete().eq("id", staff_id).execute()
+
+            # Cadastro nunca concluído: a conta de acesso também sai. Deixá-la
+            # criaria uma armadilha — no próximo convite o e-mail já existiria e
+            # a pessoa cairia no fluxo de "aceitar convite", que exige entrar no
+            # sistema... com uma senha que ela nunca chegou a definir.
+            if estado == "awaiting_signup" and linha.get("auth_user_id"):
+                try:
+                    import httpx
+                    base = settings.supabase_url.rstrip("/")
+                    httpx.delete(
+                        f"{base}/auth/v1/admin/users/{linha['auth_user_id']}",
+                        headers={
+                            "apikey": settings.supabase_service_key,
+                            "Authorization": f"Bearer {settings.supabase_service_key}",
+                        },
+                        timeout=15,
+                    )
+                except Exception:
+                    pass  # o vínculo já saiu; a conta órfã é tratável depois
             return len(r.data or []) > 0
 
         response = supabase.table("staff").update({
