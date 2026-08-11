@@ -122,7 +122,8 @@
     "backToSignin": "Voltar para o login",
     "resetSent": "Se houver uma conta com esse e-mail, enviamos o link para redefinir a senha.",
     "linkExpired": "Este link expirou. Peça um novo convite ao administrador, ou use \"Esqueci minha senha\" para receber outro link.",
-    "linkInvalid": "Não foi possível validar este link. Peça um novo ao administrador."
+    "linkInvalid": "Não foi possível validar este link. Peça um novo ao administrador.",
+    "captchaFailed": "Não foi possível concluir a verificação de segurança. Tente de novo."
   },
   "dashboard": {
     "loadError": "Não foi possível carregar os dados. Tentando novamente...",

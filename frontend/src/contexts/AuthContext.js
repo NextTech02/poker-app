@@ -39,10 +39,13 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email, password) => {
+  const signIn = async (email, password, captchaToken) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      // Só vai quando a tela resolveu o desafio. Se o captcha estiver
+      // desligado no Supabase, o campo é ignorado — então enviar não atrapalha.
+      ...(captchaToken ? { options: { captchaToken } } : {}),
     });
     return { data, error };
   };

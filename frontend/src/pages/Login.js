@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +6,7 @@ import { supabase } from '../config/supabase';
 import api from '../config/api';
 import Button from '../components/Button';
 import LanguageSelector from '../components/LanguageSelector';
+import Captcha from '../components/Captcha';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
 
@@ -19,6 +20,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const captchaRef = useRef(null);
 
   /**
    * Link de e-mail expirado cai AQUI, não na tela de cadastro: quando o
@@ -51,7 +53,16 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    const { data, error } = await signIn(email, password);
+    let captchaToken;
+    try {
+      captchaToken = await captchaRef.current?.getToken();
+    } catch (_) {
+      setLoading(false);
+      setError(t('login.captchaFailed', 'Não foi possível concluir a verificação de segurança. Tente de novo.'));
+      return;
+    }
+
+    const { data, error } = await signIn(email, password, captchaToken);
 
     if (error) {
       setError(t('login.invalidCredentials'));
@@ -84,8 +95,18 @@ const Login = () => {
     setNotice('');
     setLoading(true);
 
+    let captchaToken;
+    try {
+      captchaToken = await captchaRef.current?.getToken();
+    } catch (_) {
+      setLoading(false);
+      setError(t('login.captchaFailed', 'Não foi possível concluir a verificação de segurança. Tente de novo.'));
+      return;
+    }
+
     await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/definir-senha`,
+      captchaToken,
     });
 
     // Resposta idêntica exista ou não a conta: confirmar um e-mail cadastrado
@@ -183,6 +204,11 @@ const Login = () => {
             </button>
           </form>
         )}
+
+        {/* Fora dos dois formulários de propósito: eles se alternam, e um
+            captcha dentro de cada seria desmontado a cada troca de modo,
+            invalidando a referência no meio do envio. */}
+        <Captcha ref={captchaRef} />
       </div>
     </div>
   );

@@ -122,7 +122,8 @@
     "backToSignin": "Back to sign in",
     "resetSent": "If an account exists for this e-mail, we've sent the password reset link.",
     "linkExpired": "This link has expired. Ask your administrator for a new invite, or use \"Forgot my password\" to get another link.",
-    "linkInvalid": "We could not validate this link. Ask your administrator for a new one."
+    "linkInvalid": "We could not validate this link. Ask your administrator for a new one.",
+    "captchaFailed": "We could not complete the security check. Please try again."
   },
   "dashboard": {
     "loadError": "Could not load the data. Retrying...",

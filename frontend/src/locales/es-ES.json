@@ -122,7 +122,8 @@
     "backToSignin": "Volver al inicio de sesión",
     "resetSent": "Si existe una cuenta con este correo, enviamos el enlace para restablecer la contraseña.",
     "linkExpired": "Este enlace caducó. Pide una nueva invitación al administrador, o usa \"Olvidé mi contraseña\" para recibir otro enlace.",
-    "linkInvalid": "No se pudo validar este enlace. Pide uno nuevo al administrador."
+    "linkInvalid": "No se pudo validar este enlace. Pide uno nuevo al administrador.",
+    "captchaFailed": "No se pudo completar la verificación de seguridad. Inténtalo de nuevo."
   },
   "dashboard": {
     "loadError": "No se pudieron cargar los datos. Reintentando...",
