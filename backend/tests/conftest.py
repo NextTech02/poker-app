@@ -8,6 +8,8 @@ mutate state and subsequent selects observe the change.
 from types import SimpleNamespace
 import uuid
 
+import pytest
+
 
 class FakeQuery:
     def __init__(self, store, table):
@@ -218,3 +220,73 @@ class FakeSupabase:
         alvo = self.rpcs[fn]
         valor = alvo(params or {}) if callable(alvo) else alvo
         return SimpleNamespace(execute=lambda: SimpleNamespace(data=valor))
+
+
+# ---------------------------------------------------------------------------
+# Camada HTTP
+# ---------------------------------------------------------------------------
+
+USUARIO_TESTE = {
+    "sub": "88888888-8888-8888-8888-888888888888",
+    "email": "admin@clube.com",
+    "organization_id": "33333333-3333-3333-3333-333333333333",
+    "role": "authenticated",
+    "platform_admin": False,
+}
+
+
+@pytest.fixture
+def client(monkeypatch):
+    """TestClient com a autenticação neutralizada.
+
+    Os routers são casca fina: validam entrada, chamam o service e traduzem
+    erro em status HTTP. É essa tradução que se testa aqui — a regra de
+    negócio já tem teste próprio no nível do service. Por isso o JWT e o
+    RBAC saem do caminho: sem isso todo request pararia em 401 antes de
+    chegar na linha que interessa.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.auth.jwt import get_current_user, verify_token
+    from app.models.staff import MyPermissions
+    from app.services.staff_service import StaffService
+
+    # is_admin=True faz require_permission/forbid_permission liberarem tudo.
+    monkeypatch.setattr(
+        StaffService, "get_my_permissions",
+        staticmethod(lambda uid: MyPermissions(is_admin=True, permissions=[])),
+    )
+
+    usuario = dict(USUARIO_TESTE)
+    app.dependency_overrides[get_current_user] = lambda: usuario
+    app.dependency_overrides[verify_token] = lambda: usuario
+    try:
+        with TestClient(app) as c:
+            # `client.usuario` e o mesmo dict que a dependencia devolve: o
+            # teste muda um claim (platform_admin, organization_id) e o
+            # proximo request ja enxerga.
+            c.usuario = usuario
+            yield c
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def stub():
+    """Troca métodos de service por funções fixas durante um teste.
+
+    `stub(TournamentService, get_tournament=lambda tid: {...})` — devolve o
+    próprio monkeypatch por baixo, então a restauração é automática.
+    """
+    from _pytest.monkeypatch import MonkeyPatch
+
+    mp = MonkeyPatch()
+
+    def _aplicar(alvo, **metodos):
+        for nome, fn in metodos.items():
+            mp.setattr(alvo, nome, staticmethod(fn) if callable(fn) else fn)
+        return alvo
+
+    yield _aplicar
+    mp.undo()
