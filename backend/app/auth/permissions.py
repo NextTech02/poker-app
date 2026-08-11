@@ -7,8 +7,13 @@ roles — notably the `sangi` — cannot reach financial/cashier endpoints by
 calling the API directly with a valid JWT.
 
 Semantics (mirrors PermissionContext.hasPermission on the frontend):
-  - A user with NO staff record is treated as super-admin (bypass).
-  - Otherwise the user must hold at least one of the required permission keys.
+  - Sem linha em `staff`: NENHUM acesso, a menos que o id esteja na allowlist
+    SUPER_ADMIN_USER_IDS. (Este comentario dizia o contrario — "tratado como
+    super-admin" — mas `get_my_permissions` foi endurecido para fail-closed:
+    o comportamento antigo dava poder total a qualquer conta autenticada sem
+    vinculo, o que num SaaS faria o funcionario de um cliente virar dono de
+    tudo.)
+  - Com vinculo ativo: precisa ter ao menos uma das permissoes exigidas.
 """
 from typing import Iterable
 from fastapi import Depends, HTTPException, status
