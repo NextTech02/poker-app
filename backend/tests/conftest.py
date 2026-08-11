@@ -69,6 +69,14 @@ class FakeQuery:
     def lte(self, *a, **k):
         return self
 
+    def gt(self, col, val):
+        self._filters.append((("gt", col), val))
+        return self
+
+    def lt(self, col, val):
+        self._filters.append((("lt", col), val))
+        return self
+
     def limit(self, n, *a, **k):
         self._limit = n
         return self
@@ -108,6 +116,10 @@ class FakeQuery:
                 if kind == "in" and row.get(real) not in val:
                     return False
                 if kind == "is" and row.get(real) != val:
+                    return False
+                if kind == "gt" and not (float(row.get(real) or 0) > float(val)):
+                    return False
+                if kind == "lt" and not (float(row.get(real) or 0) < float(val)):
                     return False
             else:
                 if row.get(col) != val:
