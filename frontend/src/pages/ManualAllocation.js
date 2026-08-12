@@ -256,7 +256,12 @@ const ManualAllocation = () => {
             draggable={true}
             onDragStart={(e) => handleDragStart(e, allocation.players, true, allocation.id)}
           >
-            <div className="player-name">{allocation.players.name}</div>
+            {/* `players` pode vir nulo quando o join do jogador falha; sem a
+                protecao, UMA alocacao inconsistente derruba o mapa inteiro de
+                mesas. O proprio handleEliminatePlayer ja preve esse caso. */}
+            <div className="player-name">
+              {allocation.players?.name || t('manualAllocation.defaultPlayer')}
+            </div>
             <button
               className="btn-remove-allocation"
               onClick={() => handleEliminatePlayer(allocation)}
