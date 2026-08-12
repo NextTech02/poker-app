@@ -1,0 +1,897 @@
+/**
+ * Premiação — configurar, liberar e PAGAR o prêmio.
+ *
+ * É a tela em que o clube entrega dinheiro. Três travas existem por isso, e
+ * são o centro dos testes:
+ *
+ * - **Saldo restante.** O que foi alocado nas posições não pode passar do
+ *   *payable pool* (o pool já descontada a premiação reservada). Estourar
+ *   significa prometer prêmio que não existe, e a tela precisa gritar isso
+ *   antes de alguém sentar na mesa final.
+ * - **Liberação antes do pagamento.** Um prêmio só vira dinheiro na mão
+ *   depois de liberado; pago não volta a ser editável nem removível.
+ * - **Documento primeiro.** O pagamento não começa por escolher o jogador
+ *   numa lista: o operador digita o documento e o sistema resolve quem é.
+ *   Escolher da lista é como se paga o prêmio para a pessoa errada.
+ *
+ * O comprovante é emitido no ato e pode ser revisto depois — é o papel que
+ * prova que aquele dinheiro saiu para aquela pessoa.
+ */
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import Premiacao from './Premiacao';
+import api from '../config/api';
+import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+
+jest.mock('../config/api', () => ({
+  __esModule: true,
+  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
+}));
+jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
+jest.mock('../components/PrizeVoucher', () => ({ payout }) => (
+  <div data-testid="comprovante">
+    <span data-testid="comprovante-jogador">{payout.player_name}</span>
+    <span data-testid="comprovante-posicao">{payout.position}</span>
+    <span data-testid="comprovante-doc">{payout.document_number}</span>
+    <span data-testid="comprovante-atendente">{payout.paid_by || '—'}</span>
+  </div>
+));
+jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
+jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useParams: () => ({ tournamentId: 't1' }),
+  useNavigate: () => mockNavigate,
+}));
+jest.mock('react-i18next', () => {
+  const t = (chave, vars) =>
+    vars && typeof vars === 'object' ? `${chave}:${Object.values(vars).join(',')}` : chave;
+  const traducao = { t, i18n: { language: 'pt-BR' } };
+  return { useTranslation: () => traducao };
+});
+
+const TORNEIO = { id: 't1', name: 'Main Event' };
+
+const ALOCACOES = [
+  { id: 'a1', position: 1, prize_amount: 20000, released: true, visible: true, paid: false },
+  { id: 'a2', position: 2, prize_amount: 10000, released: true, visible: false, paid: true,
+    player_name: 'Ana', document_type: 'national_id', document_number: '12345678',
+    paid_at: '2026-06-09T02:00:00Z', paid_by: 'Caixa 1' },
+  { id: 'a3', position: 3, prize_amount: 5000, prize_type: 'vaga', released: false,
+    visible: true, paid: false },
+];
+
+const RESUMO = {
+  guaranteed_prize: '10000',
+  reserved_prize_percentage: 3,
+  reserved_purpose: 'ranking',
+  reserved_amount: 1500,
+  total_entries: 50000,
+  player_pool: 40000,
+  rake_percentage: 20,
+  available_prize_pool: 40000,
+  payable_pool: 38500,
+  allocations: ALOCACOES,
+};
+
+const DIAS = [
+  { id: 'd1', day_name: 'Dia 1A', day_type: 'qualifying', buy_in: 500 },
+  { id: 'd2', day_name: 'Final', day_type: 'final', buy_in: 0 },
+];
+
+// 3 inscrições que somam 5 entradas (buy-ins + rebuys) — a faixa 1..5 da
+// estrutura paga 2 posições (65% / 35%).
+const INSCRITOS = [
+  { player_id: 'p1', player_name: 'Ana', buy_in_count: 1, rebuy_count: 1 },
+  { player_id: 'p2', player_name: 'Beto', buy_in_count: 1, rebuy_count: 1 },
+  { player_id: 'p1', player_name: 'Ana', buy_in_count: 1, rebuy_count: 0 },
+];
+
+const JOGADORES = [
+  { id: 'p1', name: 'Ana', nickname: 'Aninha', document_type: 'national_id', document_number: '12.345.678-9' },
+  { id: 'p2', name: 'Beto', document_type: 'passport', document_number: 'XY9090' },
+  { id: 'p9', name: 'Sem doc' },
+];
+
+let toast;
+let confirmar;
+
+const responder = ({
+  torneio = TORNEIO,
+  resumo = RESUMO,
+  dias = DIAS,
+  inscritos = INSCRITOS,
+  jogadores = JOGADORES,
+  pool = { prize_pool: 40000, total_paid: 10000, available: 30000 },
+  caixa = { current_balance: 50000 },
+} = {}) => {
+  api.get.mockImplementation((url) => {
+    const erro = (v) => v instanceof Error;
+    if (url === '/tournaments/t1') {
+      return erro(torneio) ? Promise.reject(torneio) : Promise.resolve({ data: torneio });
+    }
+    if (url === '/tournaments/t1/prizes/summary') {
+      return erro(resumo) ? Promise.reject(resumo) : Promise.resolve({ data: resumo });
+    }
+    if (url === '/tournament-days/tournament/t1') return Promise.resolve({ data: dias });
+    if (url === '/tournament-players/tournament/t1') return Promise.resolve({ data: inscritos });
+    if (url === '/tournaments/t1/prizes/pool') {
+      return erro(pool) ? Promise.reject(pool) : Promise.resolve({ data: pool });
+    }
+    if (url === '/cash/general') return Promise.resolve({ data: caixa });
+    if (url === '/players') return Promise.resolve({ data: jogadores });
+    return Promise.resolve({ data: [] });
+  });
+};
+
+const montar = async (opcoes) => {
+  responder(opcoes);
+  render(<MemoryRouter><Premiacao /></MemoryRouter>);
+  await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+};
+
+const aba = (nome) => screen.getByRole('button', { name: new RegExp(`^${nome}`) });
+const irPara = async (nome) => userEvent.click(aba(nome));
+
+/** Espera o banner "jogador resolvido" do fluxo documento-primeiro. */
+const esperarResolvido = () =>
+  waitFor(() => {
+    const banner = document.querySelector('.doc-registered-banner');
+    expect(banner).not.toBeNull();
+    return banner;
+  });
+
+const linhaDaPosicao = (rotulo) =>
+  Array.from(document.querySelectorAll('tbody tr')).find((tr) =>
+    within(tr).queryByText(rotulo)
+  );
+
+beforeEach(() => {
+  toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
+  confirmar = jest.fn().mockResolvedValue(true);
+  useToast.mockReturnValue({ toast, confirm: confirmar });
+  useCurrency.mockReturnValue({
+    formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}`,
+    currency: 'BRL',
+  });
+  api.post.mockResolvedValue({ data: {} });
+  api.patch.mockResolvedValue({ data: {} });
+  api.delete.mockResolvedValue({ data: {} });
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterEach(() => console.error.mockRestore());
+
+describe('carga', () => {
+  it('mostra o carregamento antes dos dados', () => {
+    api.get.mockReturnValue(new Promise(() => {}));
+    render(<MemoryRouter><Premiacao /></MemoryRouter>);
+    expect(screen.getByText('common.loading')).toBeInTheDocument();
+  });
+
+  it('mostra o nome do torneio', async () => {
+    await montar();
+    expect(screen.getByText('Main Event')).toBeInTheDocument();
+  });
+
+  it('falha ao carregar vira um aviso, não uma tela em branco', async () => {
+    await montar({ resumo: new Error('500') });
+    expect(screen.getByText('premiacao.loadError')).toBeInTheDocument();
+  });
+
+  it('o aviso pode ser dispensado', async () => {
+    await montar({ resumo: new Error('500') });
+    await userEvent.click(within(document.querySelector('.error-banner')).getByText('✕'));
+    expect(screen.queryByText('premiacao.loadError')).toBeNull();
+  });
+
+  it('torneio com dias classificatórios avisa que a premiação é da final', async () => {
+    // Num torneio com Dia 1, o prêmio não é de cada dia: é do dia final. Sem
+    // esse aviso o operador configuraria premiação por classificatório.
+    await montar();
+    expect(document.querySelector('.qualifying-banner')).toHaveTextContent('premiacao.qualifyingBanner');
+    expect(document.querySelector('.qualifying-banner')).toHaveTextContent('Final');
+  });
+
+  it('torneio de dia único não mostra esse aviso', async () => {
+    await montar({ dias: [{ id: 'd1', day_name: 'Único', day_type: 'starting' }] });
+    expect(document.querySelector('.qualifying-banner')).toBeNull();
+  });
+
+  it('o botão voltar volta', async () => {
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: /common.back/ }));
+    expect(mockNavigate).toHaveBeenCalledWith(-1);
+  });
+});
+
+describe('resumo financeiro', () => {
+  it('mostra entradas, bolo dos jogadores e rake', async () => {
+    // Os mesmos valores aparecem nas posições da tabela; os cartões do topo
+    // são o alvo.
+    await montar();
+    expect(document.querySelector('.entries-card .card-value')).toHaveTextContent('R$ 50000.00');
+    expect(document.querySelector('.player-pool-card .card-value')).toHaveTextContent('R$ 40000.00');
+    // rake = 20% de 50000
+    expect(document.querySelector('.rake-card .card-value')).toHaveTextContent('R$ 10000.00');
+  });
+
+  it('o percentual do bolo é o complemento do rake', async () => {
+    await montar();
+    expect(screen.getByText('premiacao.percentOfEntries:80')).toBeInTheDocument();
+  });
+
+  it('sem rake informado assume 20%', async () => {
+    // Um resumo antigo sem o campo não pode virar "NaN%" na tela.
+    await montar({ resumo: { ...RESUMO, rake_percentage: null } });
+    expect(screen.getByText('20%')).toBeInTheDocument();
+  });
+
+  it('mostra alocado e saldo restante sobre o pool pagável', async () => {
+    // 38500 pagáveis − 35000 alocados = 3500. O pool pagável já desconta a
+    // premiação reservada; usar o pool bruto aqui prometeria prêmio a mais.
+    await montar();
+    expect(document.querySelector('.pool-item.allocated')).toHaveTextContent('R$ 35000.00');
+    expect(document.querySelector('.pool-item.remaining')).toHaveTextContent('R$ 3500.00');
+  });
+
+  it('alocação acima do pool é sinalizada como estouro', async () => {
+    // Prometer mais do que existe é o erro mais caro dessa tela.
+    await montar({
+      resumo: {
+        ...RESUMO,
+        allocations: [{ id: 'a1', position: 1, prize_amount: 99000, paid: false }],
+      },
+    });
+    const saldo = document.querySelector('.pool-item.remaining');
+    expect(saldo).toHaveClass('negative');
+    expect(saldo).toHaveTextContent('premiacao.allocationExceeds');
+  });
+
+  it('sem pool pagável informado cai no pool disponível', async () => {
+    await montar({ resumo: { ...RESUMO, payable_pool: null } });
+    // 40000 − 35000 = 5000
+    expect(document.querySelector('.pool-item.remaining')).toHaveTextContent('R$ 5000.00');
+  });
+});
+
+describe('prêmio garantido', () => {
+  it('salva o valor digitado', async () => {
+    await montar();
+    const campo = document.querySelector('.guaranteed-card .guaranteed-input');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '25000');
+    await userEvent.click(within(document.querySelector('.guaranteed-card')).getByRole('button'));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/guaranteed-prize', {
+        guaranteed_prize: 25000,
+      })
+    );
+    expect(toast.success).toHaveBeenCalledWith('premiacao.guaranteedSaved');
+  });
+
+  it('campo vazio salva zero, não NaN', async () => {
+    await montar();
+    const campo = document.querySelector('.guaranteed-card .guaranteed-input');
+    await userEvent.clear(campo);
+    await userEvent.click(within(document.querySelector('.guaranteed-card')).getByRole('button'));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/guaranteed-prize', {
+        guaranteed_prize: 0,
+      })
+    );
+  });
+
+  it('falha ao salvar avisa', async () => {
+    api.patch.mockRejectedValue(new Error('500'));
+    await montar();
+    await userEvent.click(within(document.querySelector('.guaranteed-card')).getByRole('button'));
+    expect(await screen.findByText('premiacao.guaranteedSaveError')).toBeInTheDocument();
+  });
+});
+
+describe('premiação reservada', () => {
+  it('mostra o percentual e a finalidade já configurados', async () => {
+    await montar();
+    await irPara('premiacao.reservedPrize');
+    expect(document.querySelector('.reserved-card .guaranteed-input')).toHaveValue(3);
+    expect(document.querySelector('.reserved-purpose-select')).toHaveValue('ranking');
+  });
+
+  it('salva percentual e finalidade juntos', async () => {
+    await montar();
+    await irPara('premiacao.reservedPrize');
+    await userEvent.selectOptions(document.querySelector('.reserved-purpose-select'), 'staff');
+    await userEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/reserved-prize', {
+        reserved_prize_percentage: 3,
+        reserved_purpose: 'staff',
+      })
+    );
+  });
+
+  it('finalidade em branco vai como nula, não string vazia', async () => {
+    await montar({ resumo: { ...RESUMO, reserved_purpose: '' } });
+    await irPara('premiacao.reservedPrize');
+    await userEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith(
+        '/tournaments/t1/reserved-prize',
+        expect.objectContaining({ reserved_purpose: null })
+      )
+    );
+  });
+
+  it('mostra em dinheiro quanto a reserva representa', async () => {
+    // O percentual sozinho não diz nada ao operador; o valor sim.
+    await montar();
+    await irPara('premiacao.reservedPrize');
+    expect(screen.getByText('premiacao.reservedResult:R$ 1500.00')).toBeInTheDocument();
+  });
+
+  it('reserva zerada não mostra valor', async () => {
+    await montar({ resumo: { ...RESUMO, reserved_amount: 0 } });
+    await irPara('premiacao.reservedPrize');
+    expect(document.querySelector('.reserved-result')).toBeNull();
+  });
+
+  it('erro do servidor é mostrado como veio', async () => {
+    // O backend recusa percentuais que estouram o pool, com uma explicação;
+    // trocá-la por um texto genérico esconderia o motivo.
+    api.patch.mockRejectedValue({ response: { data: { detail: 'Reserva acima do pool' } } });
+    await montar();
+    await irPara('premiacao.reservedPrize');
+    await userEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    expect(await screen.findByText('Reserva acima do pool')).toBeInTheDocument();
+  });
+});
+
+describe('posições configuradas', () => {
+  it('lista cada posição com o percentual do pool', async () => {
+    await montar();
+    const linha = linhaDaPosicao('1°');
+    expect(within(linha).getByText('R$ 20000.00')).toBeInTheDocument();
+    expect(within(linha).getByText('50.0%')).toBeInTheDocument();
+  });
+
+  it('o pódio recebe destaque próprio', async () => {
+    // A função já devolveu 'rank-other' para todos; as três classes existiam
+    // no CSS e nunca eram aplicadas.
+    await montar();
+    expect(within(linhaDaPosicao('1°')).getByText('1°')).toHaveClass('rank-1');
+    expect(within(linhaDaPosicao('2°')).getByText('2°')).toHaveClass('rank-2');
+    expect(within(linhaDaPosicao('3°')).getByText('3°')).toHaveClass('rank-3');
+  });
+
+  it('fora do pódio fica neutro', async () => {
+    await montar({
+      resumo: { ...RESUMO, allocations: [{ id: 'a4', position: 4, prize_amount: 100, paid: false }] },
+    });
+    expect(screen.getByText('4°')).toHaveClass('rank-other');
+  });
+
+  it('sem posição nenhuma explica o que fazer', async () => {
+    await montar({ resumo: { ...RESUMO, allocations: [] } });
+    expect(screen.getByText('premiacao.noPrizesConfigured')).toBeInTheDocument();
+  });
+
+  it('o rodapé fecha o total e o percentual usado', async () => {
+    await montar();
+    const rodape = document.querySelector('tfoot');
+    expect(rodape).toHaveTextContent('R$ 35000.00');
+    expect(rodape).toHaveTextContent('87.5%');
+  });
+
+  it('pool zerado não vira divisão por zero', async () => {
+    await montar({ resumo: { ...RESUMO, available_prize_pool: 0 } });
+    expect(document.querySelector('tfoot')).toHaveTextContent('0%');
+  });
+});
+
+describe('edição do valor de uma posição', () => {
+  it('clicar no valor abre a edição e salvar envia', async () => {
+    await montar();
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('R$ 20000.00'));
+    const campo = within(linhaDaPosicao('1°')).getByRole('spinbutton');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '21000');
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('OK'));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/prizes/a1', { prize_amount: 21000 })
+    );
+  });
+
+  it('cancelar devolve o valor original', async () => {
+    await montar();
+    const linha = linhaDaPosicao('1°');
+    await userEvent.click(within(linha).getByText('R$ 20000.00'));
+    const campo = within(linha).getByRole('spinbutton');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '999');
+    // O "X" de cancelar a edição e o "X" de remover a posição têm o mesmo
+    // texto; a classe distingue.
+    await userEvent.click(linha.querySelector('.btn-cancel'));
+    expect(within(linhaDaPosicao('1°')).getByText('R$ 20000.00')).toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('posição JÁ PAGA não pode ser editada', async () => {
+    // Mudar o valor de um prêmio já entregue quebraria a conferência do caixa.
+    await montar();
+    await userEvent.click(within(linhaDaPosicao('2°')).getByText('R$ 10000.00'));
+    expect(within(linhaDaPosicao('2°')).queryByRole('spinbutton')).toBeNull();
+  });
+
+  it('posição paga não pode ser removida', async () => {
+    await montar();
+    expect(within(linhaDaPosicao('2°')).getByTitle('premiacao.cannotRemovePaid')).toBeDisabled();
+  });
+
+  it('falha ao salvar avisa', async () => {
+    api.patch.mockRejectedValue(new Error('500'));
+    await montar();
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('R$ 20000.00'));
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('OK'));
+    expect(await screen.findByText('premiacao.updateError')).toBeInTheDocument();
+  });
+});
+
+describe('remoção de posição', () => {
+  it('pede confirmação de perigo antes de remover', async () => {
+    await montar();
+    await userEvent.click(within(linhaDaPosicao('1°')).getByTitle('premiacao.removeTitle'));
+    expect(confirmar).toHaveBeenCalledWith(
+      'premiacao.confirmRemovePosition',
+      expect.objectContaining({ variant: 'danger' })
+    );
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/tournaments/t1/prizes/a1'));
+  });
+
+  it('cancelar não remove', async () => {
+    confirmar.mockResolvedValue(false);
+    await montar();
+    await userEvent.click(within(linhaDaPosicao('1°')).getByTitle('premiacao.removeTitle'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('erro do servidor aparece com o motivo', async () => {
+    api.delete.mockRejectedValue({ response: { data: { detail: 'Prêmio já liberado' } } });
+    await montar();
+    await userEvent.click(within(linhaDaPosicao('1°')).getByTitle('premiacao.removeTitle'));
+    expect(await screen.findByText('Prêmio já liberado')).toBeInTheDocument();
+  });
+});
+
+describe('nova posição', () => {
+  const abrir = async () => {
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.addPosition' }));
+    return document.querySelector('.modal form');
+  };
+
+  it('já sugere a próxima posição livre', async () => {
+    // A última configurada é a 3ª; digitar "1" de novo criaria conflito.
+    await montar();
+    await abrir();
+    expect(screen.getByPlaceholderText('premiacao.positionPlaceholder')).toHaveValue(4);
+  });
+
+  it('sem posição nenhuma configurada começa na primeira', async () => {
+    await montar({ resumo: { ...RESUMO, allocations: [] } });
+    await abrir();
+    expect(screen.getByPlaceholderText('premiacao.positionPlaceholder')).toHaveValue(1);
+  });
+
+  it('cria um prêmio em dinheiro', async () => {
+    await montar();
+    await abrir();
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '2500');
+    await userEvent.click(screen.getByRole('button', { name: 'common.add' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments/t1/prizes', {
+        position: 4,
+        prize_amount: 2500,
+      })
+    );
+  });
+
+  it('mostra quanto ainda cabe no pool na hora de digitar', async () => {
+    await montar();
+    await abrir();
+    expect(screen.getByText('premiacao.availableBalance:R$ 3500.00')).toBeInTheDocument();
+  });
+
+  it('prêmio do tipo VAGA aponta para um dia, não para um valor', async () => {
+    // A vaga é uma entrada em outro dia; ela não sai do bolo em dinheiro.
+    await montar();
+    await abrir();
+    await userEvent.selectOptions(document.querySelector('.modal select'), 'vaga');
+    expect(screen.queryByPlaceholderText('0.00')).toBeNull();
+    await userEvent.selectOptions(screen.getAllByRole('combobox')[1], 'd2');
+    await userEvent.click(screen.getByRole('button', { name: 'common.add' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments/t1/prizes', {
+        position: 4,
+        prize_type: 'vaga',
+        vaga_target_tournament_id: 't1',
+        vaga_target_day_id: 'd2',
+      })
+    );
+  });
+
+  it('vaga sem dia escolhido é recusada', async () => {
+    // (fireEvent.submit pula a validação do navegador, que aqui esconderia a
+    // regra da aplicação.)
+    await montar();
+    const form = await abrir();
+    await userEvent.selectOptions(document.querySelector('.modal select'), 'vaga');
+    fireEvent.submit(form);
+    expect(await screen.findByText('premiacao.selectVagaDay')).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('valor em branco não cria nada', async () => {
+    await montar();
+    const form = await abrir();
+    fireEvent.submit(form);
+    await waitFor(() => expect(api.post).not.toHaveBeenCalled());
+  });
+
+  it('erro do servidor aparece com o motivo', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'Posição já existe' } } });
+    await montar();
+    await abrir();
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '10');
+    await userEvent.click(screen.getByRole('button', { name: 'common.add' }));
+    expect(await screen.findByText('Posição já existe')).toBeInTheDocument();
+  });
+
+  it('cancelar fecha sem criar', async () => {
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
+    expect(document.querySelector('.modal')).toBeNull();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+});
+
+describe('cálculo automático da estrutura', () => {
+  const abrir = () => userEvent.click(screen.getByRole('button', { name: 'premiacao.calculateAuto' }));
+
+  it('conta as ENTRADAS, não as pessoas', async () => {
+    // Quem recomprou pagou duas vezes e conta duas vezes na estrutura; contar
+    // cabeças pagaria menos posições do que o devido.
+    await montar();
+    await abrir();
+    expect(await screen.findByText('5')).toBeInTheDocument();
+  });
+
+  it('sem ninguém inscrito não há o que calcular', async () => {
+    await montar({ inscritos: [] });
+    await abrir();
+    expect(toast.error).toHaveBeenCalledWith('premiacao.noEntries');
+  });
+
+  it('pool zerado não gera estrutura', async () => {
+    await montar({ resumo: { ...RESUMO, available_prize_pool: 0 } });
+    await abrir();
+    expect(toast.error).toHaveBeenCalledWith('premiacao.prizepoolZero');
+  });
+
+  it('mostra a prévia das posições antes de aplicar', async () => {
+    // 5 entradas pagam 2 posições: 65% e 35%.
+    await montar();
+    await abrir();
+    const previa = document.querySelector('.auto-calc-table-wrap');
+    expect(within(previa).getByText('65%')).toBeInTheDocument();
+    expect(within(previa).getByText('35%')).toBeInTheDocument();
+  });
+
+  it('avisa que as posições atuais serão substituídas', async () => {
+    // Aplicar por cima apaga a configuração manual; sem o aviso o operador
+    // perderia o que ajustou à mão.
+    await montar();
+    await abrir();
+    expect(screen.getByText('premiacao.positionsReplaced:3')).toBeInTheDocument();
+  });
+
+  it('sem posições configuradas não há o que avisar', async () => {
+    await montar({ resumo: { ...RESUMO, allocations: [] } });
+    await abrir();
+    expect(document.querySelector('.auto-calc-warning')).toBeNull();
+  });
+
+  it('aplicar envia as posições em lote', async () => {
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [url, corpo] = api.post.mock.calls[0];
+    expect(url).toBe('/tournaments/t1/prizes/bulk');
+    expect(corpo.allocations).toHaveLength(2);
+    expect(corpo.allocations[0]).toEqual({ position: 1, prize_amount: 26000 });
+  });
+
+  it('erro ao aplicar aparece com o motivo', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'Torneio encerrado' } } });
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
+    expect(await screen.findByText('Torneio encerrado')).toBeInTheDocument();
+  });
+
+  it('cancelar fecha sem aplicar', async () => {
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
+    expect(document.querySelector('.auto-calc-modal')).toBeNull();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+});
+
+describe('liberação', () => {
+  const irLiberacao = async () => irPara('premiacao.tabRelease');
+
+  it('a aba conta quantos estão liberados e ainda não pagos', async () => {
+    await montar();
+    expect(within(aba('premiacao.tabRelease')).getByText('1')).toBeInTheDocument();
+  });
+
+  it('mostra a proporção de liberados', async () => {
+    await montar();
+    await irLiberacao();
+    expect(screen.getByText('2/3')).toBeInTheDocument();
+  });
+
+  it('liberar envia a marcação', async () => {
+    await montar();
+    await irLiberacao();
+    await userEvent.click(within(linhaDaPosicao('3°')).getByText('premiacao.releaseAction'));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/prizes/a3/release', { released: true })
+    );
+    expect(toast.success).toHaveBeenCalledWith('premiacao.releaseGranted');
+  });
+
+  it('revogar a liberação também é possível', async () => {
+    // Um prêmio liberado por engano precisa poder voltar atrás enquanto não
+    // foi pago.
+    await montar();
+    await irLiberacao();
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('premiacao.releasedRevoke'));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/prizes/a1/release', { released: false })
+    );
+    expect(toast.success).toHaveBeenCalledWith('premiacao.releaseRevoked');
+  });
+
+  it('prêmio JÁ PAGO não oferece o botão de liberar', async () => {
+    await montar();
+    await irLiberacao();
+    const linha = linhaDaPosicao('2°');
+    expect(within(linha).getByText('premiacao.statusPaid')).toBeInTheDocument();
+    expect(within(linha).queryByText('premiacao.releasedRevoke')).toBeNull();
+  });
+
+  it('erro ao liberar aparece com o motivo', async () => {
+    api.patch.mockRejectedValue({ response: { data: { detail: 'Sem permissão' } } });
+    await montar();
+    await irLiberacao();
+    await userEvent.click(within(linhaDaPosicao('3°')).getByText('premiacao.releaseAction'));
+    expect(await screen.findByText('Sem permissão')).toBeInTheDocument();
+  });
+
+  it('a visibilidade pública é alternada em separado', async () => {
+    // Liberar (pagar) e mostrar na TV são decisões diferentes.
+    await montar();
+    await irLiberacao();
+    await userEvent.click(within(linhaDaPosicao('2°')).getByText('premiacao.toggleHidden'));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/prizes/a2', { visible: true })
+    );
+  });
+
+  it('erro ao trocar a visibilidade avisa', async () => {
+    api.patch.mockRejectedValue(new Error('500'));
+    await montar();
+    await irLiberacao();
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('premiacao.toggleVisible'));
+    expect(await screen.findByText('premiacao.visibilityError')).toBeInTheDocument();
+  });
+
+  it('sem posições configuradas orienta a configurar antes', async () => {
+    await montar({ resumo: { ...RESUMO, allocations: [] } });
+    await irLiberacao();
+    expect(screen.getByText('premiacao.configBeforeRelease')).toBeInTheDocument();
+  });
+});
+
+describe('pagamento', () => {
+  const irPagamentos = async () => irPara('premiacao.tabPayments');
+  const abrirPagamento = async (posicao = '1°') => {
+    await irPagamentos();
+    await userEvent.click(within(linhaDaPosicao(posicao)).getByText('premiacao.pay'));
+    return screen.findByText('premiacao.registerPayment');
+  };
+
+  it('a aba conta quantos já foram pagos', async () => {
+    await montar();
+    expect(within(aba('premiacao.tabPayments')).getByText('1')).toBeInTheDocument();
+  });
+
+  it('lista quem já recebeu e quem falta', async () => {
+    await montar();
+    await irPagamentos();
+    expect(within(linhaDaPosicao('2°')).getByText('premiacao.statusPaid')).toBeInTheDocument();
+    expect(within(linhaDaPosicao('1°')).getByText('premiacao.statusPending')).toBeInTheDocument();
+    expect(within(linhaDaPosicao('1°')).getByText('premiacao.notAssigned')).toBeInTheDocument();
+  });
+
+  it('sem posições configuradas manda configurar antes', async () => {
+    await montar({ resumo: { ...RESUMO, allocations: [] } });
+    await irPagamentos();
+    expect(screen.getByText('premiacao.configFirst')).toBeInTheDocument();
+  });
+
+  it('o modal mostra o saldo do pool e do caixa antes de pagar', async () => {
+    // O operador precisa ver se o dinheiro existe ANTES de contar as notas.
+    await montar();
+    await abrirPagamento();
+    const info = document.querySelector('.payout-balance-info');
+    expect(info).toHaveTextContent('R$ 30000.00');
+    expect(info).toHaveTextContent('R$ 50000.00');
+  });
+
+  it('saldo insuficiente é marcado como alerta', async () => {
+    // 20000 de prêmio contra 5000 disponíveis: pagar aqui estoura o pool.
+    await montar({ pool: { prize_pool: 40000, total_paid: 35000, available: 5000 } });
+    await abrirPagamento();
+    expect(document.querySelector('.payout-warn')).toBeInTheDocument();
+  });
+
+  it('saldo suficiente é marcado como ok', async () => {
+    await montar();
+    await abrirPagamento();
+    expect(document.querySelectorAll('.payout-ok').length).toBe(2);
+  });
+
+  it('falha ao carregar os saldos não impede o pagamento', async () => {
+    await montar({ pool: new Error('500') });
+    await abrirPagamento();
+    expect(document.querySelector('.payout-balance-info')).toBeNull();
+    expect(screen.getByText('premiacao.confirmPayment')).toBeInTheDocument();
+  });
+
+  it('o documento digitado resolve QUEM é o jogador', async () => {
+    // O fluxo é documento-primeiro: escolher de uma lista é como se paga o
+    // prêmio para o homônimo errado.
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+    expect(await esperarResolvido()).toHaveTextContent('Ana');
+    expect(screen.getByText('(Aninha)')).toBeInTheDocument();
+  });
+
+  it('pontuação e traços do documento são ignorados', async () => {
+    // O documento no cadastro tem pontos; o operador digita como vem no papel.
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12.345.678/9');
+    expect(await esperarResolvido()).toHaveTextContent('Ana');
+  });
+
+  it('documento de quem não jogou não resolve ninguém', async () => {
+    // Impede pagar o prêmio a alguém que nem estava no torneio.
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '00000000');
+    expect(await screen.findByText('premiacao.noPlayerWithDoc')).toBeInTheDocument();
+  });
+
+  it('apagar o documento limpa o jogador resolvido', async () => {
+    await montar();
+    await abrirPagamento();
+    const campo = screen.getByPlaceholderText('premiacao.docNumberPlaceholder');
+    await userEvent.type(campo, '12345678-9');
+    await esperarResolvido();
+    await userEvent.clear(campo);
+    await waitFor(() =>
+      expect(document.querySelector('.doc-registered-banner')).toBeNull()
+    );
+  });
+
+  it('confirmar envia o pagamento com documento e atendente', async () => {
+    api.post.mockResolvedValue({ data: { player_name: 'Ana', paid_at: '2026-06-09T03:00:00Z' } });
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+    await esperarResolvido();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.staffNamePlaceholder'), 'Caixa 2');
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments/t1/prizes/a1/pay', {
+        player_id: 'p1',
+        document_type: 'national_id',
+        document_number: '12345678-9',
+        paid_by: 'Caixa 2',
+      })
+    );
+    expect(toast.success).toHaveBeenCalledWith('premiacao.paymentSuccess');
+  });
+
+  it('atendente em branco vai como nulo', async () => {
+    api.post.mockResolvedValue({ data: { player_name: 'Ana' } });
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+    await esperarResolvido();
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/tournaments/t1/prizes/a1/pay',
+        expect.objectContaining({ paid_by: null })
+      )
+    );
+  });
+
+  it('o tipo de documento vem do cadastro do jogador', async () => {
+    // Passaporte de um estrangeiro não pode virar "RG" no comprovante.
+    api.post.mockResolvedValue({ data: { player_name: 'Beto' } });
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), 'xy9090');
+    await esperarResolvido();
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/tournaments/t1/prizes/a1/pay',
+        expect.objectContaining({ document_type: 'passport', player_id: 'p2' })
+      )
+    );
+  });
+
+  it('o comprovante sai no ato do pagamento', async () => {
+    // É o papel que prova que aquele dinheiro saiu para aquela pessoa.
+    api.post.mockResolvedValue({ data: { player_name: 'Ana', paid_at: '2026-06-09T03:00:00Z' } });
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+    await esperarResolvido();
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+    expect(await screen.findByTestId('comprovante')).toBeInTheDocument();
+    expect(screen.getByTestId('comprovante-jogador')).toHaveTextContent('Ana');
+    expect(screen.getByTestId('comprovante-posicao')).toHaveTextContent('1');
+    expect(screen.getByTestId('comprovante-doc')).toHaveTextContent('12345678-9');
+  });
+
+  it('erro no pagamento aparece com o motivo', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'Prêmio não liberado' } } });
+    await montar();
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+    await esperarResolvido();
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+    expect(await screen.findByText('Prêmio não liberado')).toBeInTheDocument();
+  });
+
+  it('o comprovante de um prêmio já pago pode ser revisto', async () => {
+    // O jogador volta dias depois pedindo a segunda via.
+    await montar();
+    await irPagamentos();
+    await userEvent.click(within(linhaDaPosicao('2°')).getByText('premiacao.voucher'));
+    expect(await screen.findByTestId('comprovante-jogador')).toHaveTextContent('Ana');
+    expect(screen.getByTestId('comprovante-atendente')).toHaveTextContent('Caixa 1');
+  });
+
+  it('fechar o modal de pagamento não paga nada', async () => {
+    await montar();
+    await abrirPagamento();
+    await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
+    await waitFor(() => expect(screen.queryByText('premiacao.registerPayment')).toBeNull());
+    expect(api.post).not.toHaveBeenCalled();
+  });
+});
