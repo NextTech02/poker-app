@@ -15,6 +15,14 @@ if (typeof global.crypto === 'undefined') {
   global.crypto = {};
 }
 
+// TextEncoder/TextDecoder não existem no jsdom. A importação de jogadores
+// depende deles para decidir o formato do arquivo pelo CONTEÚDO (o "xls" do
+// concorrente é HTML com a extensão trocada).
+// eslint-disable-next-line global-require
+const { TextEncoder, TextDecoder } = require('util');
+if (typeof global.TextEncoder === 'undefined') global.TextEncoder = TextEncoder;
+if (typeof global.TextDecoder === 'undefined') global.TextDecoder = TextDecoder;
+
 // matchMedia é usado por componentes que reagem a tema/tamanho de tela.
 if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = (query) => ({
