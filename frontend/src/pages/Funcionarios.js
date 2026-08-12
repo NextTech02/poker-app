@@ -465,7 +465,7 @@ const Funcionarios = () => {
             {loading ? (
               <table className="table"><tbody>{Array.from({ length: 4 }).map((_, i) => <SkeletonTableRow key={i} cols={5} />)}</tbody></table>
             ) : staffList.length === 0 ? (
-              <EmptyState message={t('staff.noStaffRegistered')} />
+              <EmptyState title={t('staff.noStaffRegistered')} />
             ) : (
               <div className="table-responsive">
                 {/* Quem tem lançamento financeiro não pode ser apagado sem
@@ -608,7 +608,7 @@ const Funcionarios = () => {
         {activeTab === 'pagamentos' && (
           <Card>
             {!selectedStage?.id ? (
-              <EmptyState message={t('staff.selectStageForPayments')} />
+              <EmptyState title={t('staff.selectStageForPayments')} />
             ) : (
               <>
                 <div className="func-pay-summary">
@@ -634,7 +634,7 @@ const Funcionarios = () => {
                 {payLoading ? (
                   <table className="table"><tbody>{Array.from({ length: 4 }).map((_, i) => <SkeletonTableRow key={i} cols={4} />)}</tbody></table>
                 ) : activeStaff.length === 0 ? (
-                  <EmptyState message={t('staff.noActiveStaff')} />
+                  <EmptyState title={t('staff.noActiveStaff')} />
                 ) : (
                   <div className="table-responsive">
                     <table className="table">
@@ -704,7 +704,7 @@ const Funcionarios = () => {
             {loading ? (
               <table className="table"><tbody>{Array.from({ length: 3 }).map((_, i) => <SkeletonTableRow key={i} cols={4} />)}</tbody></table>
             ) : groups.length === 0 ? (
-              <EmptyState message={t('staff.noGroupsRegistered')} />
+              <EmptyState title={t('staff.noGroupsRegistered')} />
             ) : (
               <div className="table-responsive">
                 <table className="table">
@@ -839,10 +839,17 @@ const Funcionarios = () => {
                 <div className="form-group">
                   <label>
                     {t('staff.permissions')}
+                    {/* O botao mora DENTRO do <label>, e <button> e um
+                        elemento rotulavel: sem o aria-label, o leitor de tela
+                        anuncia "Permissoes" — o texto do rotulo — em vez da
+                        acao que o botao executa. */}
                     <button
                       type="button"
                       className="func-select-all-btn"
                       onClick={toggleAllPermissions}
+                      aria-label={ALL_PERMISSIONS.every((p) => groupForm.permissions.includes(p.key))
+                        ? t('staff.deselectAll')
+                        : t('staff.selectAll')}
                     >
                       {ALL_PERMISSIONS.every((p) => groupForm.permissions.includes(p.key))
                         ? t('staff.deselectAll')
