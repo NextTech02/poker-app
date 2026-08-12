@@ -45,6 +45,15 @@ const RELATORIO = {
   rake: 10000, pending_credits: 2000, available_tickets: 3,
   tickets_redeemed_value: 1000,
   revenue: { buy_ins: 30000, rebuys: 15000, addons: 5000 },
+  other_revenue: 4000,
+  other_revenue_by_source: [{ category: 'Bar', amount: 4000 }],
+  expenses: 2500,
+  expenses_by_category: [{ category: 'Aluguel', amount: 2500 }],
+  by_tournament: [{
+    tournament_id: 't1', tournament_name: 'Main Event', players: 80,
+    buy_ins_count: 80, rebuys_count: 30, addons_count: 10,
+    revenue: 50000, prizes: 30000, net: 20000,
+  }],
   transactions: [
     { id: 'x1', type: 'buy_in', amount: 500, payment_method: 'pix', payment_source: 'cash' },
     { id: 'x2', type: 'rebuy', amount: 300, payment_method: 'cash', payment_source: 'credit' },
@@ -231,6 +240,64 @@ describe('indicadores', () => {
     await gerar();
     await waitFor(() => expect(document.querySelector('.fn-dre')).not.toBeNull());
     expect(document.querySelector('.fn-dre')).not.toHaveTextContent('dreTicketsRedeemed');
+  });
+});
+
+describe('outras receitas e despesas no DRE', () => {
+  it('outras receitas aparecem detalhadas por origem', async () => {
+    // Bar, patrocínio e aluguel não passam pelo caixa do torneio, mas fazem
+    // parte do faturamento — fora do DRE, o resultado sai menor do que é.
+    await montar();
+    await gerar();
+    await waitFor(() => expect(document.querySelector('.fn-dre')).not.toBeNull());
+    expect(document.querySelector('.fn-dre')).toHaveTextContent('Bar');
+    expect(document.querySelector('.fn-dre')).toHaveTextContent('R$ 4000.00');
+  });
+
+  it('sem outras receitas, a seção nem aparece', async () => {
+    await montar({ relatorio: { ...RELATORIO, other_revenue: 0 } });
+    await gerar();
+    await waitFor(() => expect(document.querySelector('.fn-dre')).not.toBeNull());
+    expect(document.querySelector('.fn-dre')).not.toHaveTextContent('Bar');
+  });
+
+  it('despesas aparecem detalhadas por categoria', async () => {
+    await montar();
+    await gerar();
+    await waitFor(() => expect(document.querySelector('.fn-dre')).not.toBeNull());
+    expect(document.querySelector('.fn-dre')).toHaveTextContent('Aluguel');
+  });
+
+  it('período sem despesa diz isso, em vez de deixar a seção vazia', async () => {
+    // Uma seção em branco pareceria dado faltando.
+    await montar({ relatorio: { ...RELATORIO, expenses_by_category: [] } });
+    await gerar();
+    await waitFor(() => expect(document.querySelector('.fn-dre')).not.toBeNull());
+    expect(document.querySelector('.fn-dre')).toHaveTextContent('Nenhuma despesa lançada no período');
+  });
+
+  it('o quadro por torneio lista cada torneio do período', async () => {
+    // "Main Event" também é opção do filtro de torneio; a tabela é o alvo.
+    await montar();
+    await gerar();
+    await waitFor(() =>
+      expect(document.querySelector('.transactions-table tbody')).not.toBeNull()
+    );
+    const quadro = Array.from(document.querySelectorAll('table')).find((t) =>
+      t.textContent.includes('Main Event')
+    );
+    expect(quadro).toBeTruthy();
+  });
+
+  it('relatório SEM o quadro por torneio não derruba a tela', async () => {
+    // Era o defeito: `data.by_tournament.length` sem proteção quebrava tudo.
+    await montar({ relatorio: { ...RELATORIO, by_tournament: undefined } });
+    await gerar();
+    await waitFor(() => expect(document.querySelector('.fn-dre')).not.toBeNull());
+    const quadro = Array.from(document.querySelectorAll('table')).find((t) =>
+      t.textContent.includes('Main Event')
+    );
+    expect(quadro).toBeUndefined();
   });
 });
 

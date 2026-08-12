@@ -153,6 +153,74 @@ class TestExclusao:
         assert client.delete(rotas[1].format(SUMIU)).status_code == 404
 
 
+class TestGravacaoQueNaoDevolveNada:
+    """O insert/update pode responder SEM linha (RLS barrando, por exemplo).
+
+    Esse caso tem tratamento próprio, separado do `except`: a checagem mora
+    FORA do try, porque um `except Exception` que a envolvesse capturaria o
+    próprio HTTPException e o reescreveria como "erro do servidor" genérico,
+    escondendo qual foi o problema.
+    """
+
+    def test_criacao_sem_retorno_vira_500_explicito(self, client, banco, rotas, monkeypatch):
+        _silencia_escrita(banco, monkeypatch, "insert")
+        r = client.post(rotas[0], json={"level": 9, "small_blind": 1,
+                                        "big_blind": 2, "duration": 1})
+        assert r.status_code == 500
+        assert r.json()["detail"] == "Failed to create blind"
+
+    def test_edicao_sem_retorno_vira_500_explicito(self, client, banco, rotas, monkeypatch):
+        _silencia_escrita(banco, monkeypatch, "update")
+        r = client.patch(rotas[1].format(B1), json={"duration": 30})
+        assert r.status_code == 500
+        assert r.json()["detail"] == "Failed to update blind"
+
+
+class TestFalhasDoBanco:
+    def test_falha_na_edicao_vira_500_com_o_motivo(self, client, banco, rotas, monkeypatch):
+        def _estoura():
+            raise RuntimeError("conexão perdida")
+        # Sem mexer no nível, a checagem de duplicidade nem acontece: a
+        # gravação é a 2ª ida ao banco.
+        monkeypatch.setattr(mod.supabase, "table", _estoura_apos(banco, _estoura, 1))
+        r = client.patch(rotas[1].format(B1), json={"duration": 30})
+        assert r.status_code == 500
+        assert "conexão perdida" in r.json()["detail"]
+
+    def test_falha_na_exclusao_vira_500_com_o_motivo(self, client, banco, rotas, monkeypatch):
+        def _estoura():
+            raise RuntimeError("conexão perdida")
+        monkeypatch.setattr(mod.supabase, "table", _estoura_apos(banco, _estoura, 1))
+        r = client.delete(rotas[1].format(B1))
+        assert r.status_code == 500
+        assert "conexão perdida" in r.json()["detail"]
+
+
+def _silencia_escrita(fake, monkeypatch, operacao):
+    """Faz `insert`/`update` responderem sem linha nenhuma, como o banco faz
+    quando a RLS barra a gravação sem levantar erro."""
+    from types import SimpleNamespace
+    original = fake.table
+
+    def _table(nome):
+        q = original(nome)
+        if nome == "blinds":
+            metodo = getattr(q, operacao)
+
+            def _sem_retorno(*a, **k):
+                metodo(*a, **k)
+                return SimpleNamespace(
+                    execute=lambda: SimpleNamespace(data=[], count=0),
+                    eq=lambda *a, **k: SimpleNamespace(
+                        execute=lambda: SimpleNamespace(data=[], count=0)),
+                )
+
+            setattr(q, operacao, _sem_retorno)
+        return q
+
+    monkeypatch.setattr(mod.supabase, "table", _table)
+
+
 def _estoura_apos(fake, erro, n):
     """Deixa as `n` primeiras chamadas de `table()` passarem e faz a seguinte
     estourar — é assim que se alcança o `except` do insert sem quebrar as
