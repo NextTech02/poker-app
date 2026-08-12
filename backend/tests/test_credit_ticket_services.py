@@ -484,26 +484,30 @@ class TestCriacaoDeTicket:
 
     def test_torneio_alvo_inexistente(self, monkeypatch):
         _monta_ticket(monkeypatch, tickets=[], tournaments=[])
+        arg = _corpo_ticket()
         with pytest.raises(ValueError, match="Torneio alvo"):
-            T.create_ticket(_corpo_ticket(), AUTOR)
+            T.create_ticket(arg, AUTOR)
 
     def test_dia_alvo_inexistente(self, monkeypatch):
         _monta_ticket(monkeypatch, tickets=[], tournament_days=[])
+        arg = _corpo_ticket()
         with pytest.raises(ValueError, match="Dia do torneio"):
-            T.create_ticket(_corpo_ticket(), AUTOR)
+            T.create_ticket(arg, AUTOR)
 
     def test_dia_de_outro_torneio_e_recusado(self, monkeypatch):
         """O ticket daria entrada num torneio que não é o que ele diz pagar."""
         _monta_ticket(monkeypatch, tickets=[], tournament_days=[
             {"id": DIA, "tournament_id": "outro-torneio", "buy_in": 300,
              "day_name": "Dia Final"}])
+        arg = _corpo_ticket()
         with pytest.raises(ValueError, match="não pertence ao torneio alvo"):
-            T.create_ticket(_corpo_ticket(), AUTOR)
+            T.create_ticket(arg, AUTOR)
 
     def test_jogador_inexistente(self, monkeypatch):
         _monta_ticket(monkeypatch, tickets=[], players=[])
+        arg = _corpo_ticket()
         with pytest.raises(ValueError, match="Jogador não encontrado"):
-            T.create_ticket(_corpo_ticket(), AUTOR)
+            T.create_ticket(arg, AUTOR)
 
     def test_banco_sem_as_colunas_novas_guarda_tudo_em_notas(self, monkeypatch):
         """Cliente que ainda não rodou a migração: em vez de falhar, o dado de
@@ -534,8 +538,9 @@ class TestCriacaoDeTicket:
             return original(nome)
 
         monkeypatch.setattr(fake, "table", _table)
+        arg = _corpo_ticket()
         with pytest.raises(Exception, match="connection reset"):
-            T.create_ticket(_corpo_ticket(), AUTOR)
+            T.create_ticket(arg, AUTOR)
 
 
 class TestConsultaDeTickets:

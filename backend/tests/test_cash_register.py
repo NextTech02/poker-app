@@ -55,15 +55,17 @@ def _sangria(valor, notes=None, client_mutation_id=None):
 class TestSangria:
     def test_saldo_insuficiente_e_recusado(self, monkeypatch):
         _fake(monkeypatch, _mundo(saldo="100.00"))
+        arg = _sangria("500.00")
         with pytest.raises(ValueError, match="Insufficient balance"):
-            CashRegisterService.perform_sangria(_sangria("500.00"), user_id="u1")
+            CashRegisterService.perform_sangria(arg, user_id="u1")
 
     def test_etapa_sem_caixa_e_recusada(self, monkeypatch):
         tabelas = _mundo()
         tabelas["stage_cash_register"] = []
         _fake(monkeypatch, tabelas)
+        arg = _sangria("10.00")
         with pytest.raises(ValueError, match="Cash register not found"):
-            CashRegisterService.perform_sangria(_sangria("10.00"), user_id="u1")
+            CashRegisterService.perform_sangria(arg, user_id="u1")
 
     def test_move_o_dinheiro_entre_os_tres_registradores(self, monkeypatch):
         # 1000 em caixa, sem rake pendente: tudo vira líquido no caixa geral.

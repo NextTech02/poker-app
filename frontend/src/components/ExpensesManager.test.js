@@ -175,7 +175,7 @@ describe('listagem e totais', () => {
   it('falha ao carregar avisa', async () => {
     api.get.mockImplementation((url) =>
       url === '/expenses'
-        ? Promise.reject({ userMessage: 'sem permissão' })
+        ? Promise.reject(Object.assign(new Error('403'), { userMessage: 'sem permissão' }))
         : Promise.resolve({ data: [] })
     );
     render(<ExpensesManager />);
@@ -452,7 +452,7 @@ describe('comprovantes', () => {
 
   it('falha ao carregar comprovantes avisa', async () => {
     api.get.mockImplementation((url) => {
-      if (url.includes('/attachments')) return Promise.reject({ userMessage: 'sem acesso' });
+      if (url.includes('/attachments')) return Promise.reject(Object.assign(new Error('403'), { userMessage: 'sem acesso' }));
       if (url === '/expenses') return Promise.resolve({ data: DESPESAS });
       return Promise.resolve({ data: [] });
     });

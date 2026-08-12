@@ -73,8 +73,9 @@ class TestCriacao:
 
     def test_caixa_fechado_impede_o_lancamento(self, monkeypatch):
         _monta(monkeypatch, caixa_aberto=False)
+        arg = _nova()
         with pytest.raises(ValueError, match="caixa fechado"):
-            TransactionService.create_transaction(_nova(), user_id="u1")
+            TransactionService.create_transaction(arg, user_id="u1")
 
     def test_torneio_ou_jogador_ausente_nao_quebra(self, monkeypatch):
         """Dado incompleto nao pode derrubar o caixa no meio do evento."""

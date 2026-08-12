@@ -13,7 +13,7 @@
  *   alarmante de erro no meio de um evento faz o operador achar que perdeu
  *   tudo; o aviso calmo de rede diz o que fazer.
  */
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import OfflineBanner from './OfflineBanner';

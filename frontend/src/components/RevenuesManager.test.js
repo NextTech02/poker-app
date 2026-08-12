@@ -129,7 +129,7 @@ describe('listagem e totais', () => {
   it('falha ao carregar avisa', async () => {
     api.get.mockImplementation((url) =>
       url === '/revenues'
-        ? Promise.reject({ userMessage: 'sem permissão' })
+        ? Promise.reject(Object.assign(new Error('403'), { userMessage: 'sem permissão' }))
         : Promise.resolve({ data: [] })
     );
     render(<RevenuesManager />);

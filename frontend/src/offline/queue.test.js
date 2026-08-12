@@ -12,7 +12,6 @@
  * servidor ainda não conhece. O uuid é gerado aqui e vai junto no replay.
  */
 import { enqueue, notifyQueueChanged } from './queue';
-import { enqueueMutation, uuid, getDeviceId } from './db';
 import { OFFLINE_QUEUE_EVENT } from './connectivity';
 
 jest.mock('./db', () => {

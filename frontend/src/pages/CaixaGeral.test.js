@@ -101,9 +101,7 @@ const montar = async (opcoes) => {
 };
 
 const abrirSangria = async () => {
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'generalCash.performSangria' })).toBeInTheDocument()
-  );
+  await screen.findByRole('button', { name: 'generalCash.performSangria' });
   await userEvent.click(screen.getByRole('button', { name: 'generalCash.performSangria' }));
 };
 

@@ -58,8 +58,9 @@ class TestReleaseGate:
             "prize_type": "cash", "prize_amount": 100,
         }]}
         monkeypatch.setattr(prize_allocation_service, "supabase", FakeSupabase(tables))
+        arg = _payout()
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.pay_prize(TOURNAMENT_UUID, "a1", _payout(), user_id=None)
+            PrizeAllocationService.pay_prize(TOURNAMENT_UUID, "a1", arg, user_id=None)
         assert exc.value.status_code == 400
         assert "liberada" in exc.value.detail.lower()
 
@@ -69,8 +70,9 @@ class TestReleaseGate:
             "prize_type": "vaga", "prize_amount": 100,
         }]}
         monkeypatch.setattr(prize_allocation_service, "supabase", FakeSupabase(tables))
+        arg = _payout()
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.pay_prize(TOURNAMENT_UUID, "a1", _payout(), user_id=None)
+            PrizeAllocationService.pay_prize(TOURNAMENT_UUID, "a1", arg, user_id=None)
         assert exc.value.status_code == 400
         assert "vaga" in exc.value.detail.lower()
 
@@ -130,8 +132,9 @@ class TestAtualizacaoDaFaixa:
     def test_corpo_vazio_e_recusado(self, monkeypatch):
         """Sem campo nenhum, a gravação só carimbaria `updated_at` à toa."""
         self._monta(monkeypatch)
+        arg = self._update()
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.update_allocation(TOURNAMENT_UUID, ALLOC_UUID, self._update())
+            PrizeAllocationService.update_allocation(TOURNAMENT_UUID, ALLOC_UUID, arg)
         assert exc.value.status_code == 400
         assert "No fields" in exc.value.detail
 
@@ -140,8 +143,9 @@ class TestAtualizacaoDaFaixa:
         fake = FakeSupabase({"prize_allocations": [
             self._faixa(), self._faixa(id=ALLOC2_UUID, position=2)]})
         monkeypatch.setattr(prize_allocation_service, "supabase", fake)
+        arg = self._update(position=2)
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.update_allocation(TOURNAMENT_UUID, ALLOC_UUID, self._update(position=2))
+            PrizeAllocationService.update_allocation(TOURNAMENT_UUID, ALLOC_UUID, arg)
         assert exc.value.status_code == 400
         assert "already has" in exc.value.detail
 

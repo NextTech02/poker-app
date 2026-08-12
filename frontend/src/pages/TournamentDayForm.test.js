@@ -337,7 +337,7 @@ describe('erros ao salvar', () => {
     await montar();
     await userEvent.type(campo('day_name'), 'Dia 2');
     await salvar();
-    await waitFor(() => expect(screen.getByText('common.error')).toBeInTheDocument());
+    await screen.findByText('common.error');
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

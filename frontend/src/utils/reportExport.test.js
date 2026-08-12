@@ -39,14 +39,17 @@ jest.mock('jspdf', () => ({
       };
       this.lastAutoTable = { finalY: 200 };
     }
-    setFillColor() {}
-    rect() {}
-    setTextColor() {}
-    setFont() {}
-    setFontSize() {}
-    text() {}
-    addPage() {}
-    setPage() {}
+    // Comandos de desenho do jsPDF: o teste verifica o CONTEÚDO exportado
+    // (via autoTable e `save`), não os traços na página — então estes só
+    // precisam existir para a chamada não estourar.
+    setFillColor = () => this;
+    rect = () => this;
+    setTextColor = () => this;
+    setFont = () => this;
+    setFontSize = () => this;
+    text = () => this;
+    addPage = () => this;
+    setPage = () => this;
     save(nome) {
       espiaoPdf.salvo = nome;
     }

@@ -276,7 +276,7 @@ describe('falhas', () => {
     api.get.mockImplementation((url) =>
       url === '/cashboxes'
         ? Promise.resolve({ data: [] })
-        : Promise.reject({ userMessage: 'sem permissão' })
+        : Promise.reject(Object.assign(new Error('403'), { userMessage: 'sem permissão' }))
     );
     render(<CashboxDemonstrativo />);
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('sem permissão'));

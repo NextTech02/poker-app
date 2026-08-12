@@ -105,7 +105,7 @@ describe('indicadores', () => {
     // O painel de exportar (mockado) também imprime o total de torneios; os
     // cartões do topo são o alvo.
     await montar();
-    await waitFor(() => expect(screen.getByText('R$ 120000.00')).toBeInTheDocument());
+    await screen.findByText('R$ 120000.00');
     const indicadores = document.querySelector('.stats-grid');
     expect(indicadores).toHaveTextContent('8');
     expect(indicadores).toHaveTextContent('240');
@@ -114,7 +114,7 @@ describe('indicadores', () => {
   it('a taxa de recompra é calculada sobre os buy-ins', async () => {
     // (80 + 20) / 200 = 50%.
     await montar();
-    await waitFor(() => expect(screen.getByText(/50\.0/)).toBeInTheDocument());
+    await screen.findByText(/50\.0/);
   });
 
   it('período SEM buy-in não vira divisão por zero', async () => {
@@ -148,13 +148,13 @@ describe('top 5 jogadores', () => {
 
   it('sem jogador nenhum não quebra a tela', async () => {
     await montar({ relatorio: { ...RELATORIO, playerReports: [] } });
-    await waitFor(() => expect(screen.getByText('R$ 120000.00')).toBeInTheDocument());
+    await screen.findByText('R$ 120000.00');
   });
 
   it('lista ausente também não quebra', async () => {
     // Um relatório antigo pode não trazer a chave.
     await montar({ relatorio: { ...RELATORIO, playerReports: undefined } });
-    await waitFor(() => expect(screen.getByText('R$ 120000.00')).toBeInTheDocument());
+    await screen.findByText('R$ 120000.00');
   });
 });
 

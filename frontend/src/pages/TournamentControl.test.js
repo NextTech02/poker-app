@@ -71,7 +71,7 @@ const montar = async (extraRelogio = {}) => {
   };
   useTimerSync.mockReturnValue(relogio);
   render(<MemoryRouter><TournamentControl /></MemoryRouter>);
-  await waitFor(() => expect(screen.getByText('Dia 1A')).toBeInTheDocument());
+  await screen.findByText('Dia 1A');
 };
 
 const comando = (acao) =>
@@ -120,7 +120,7 @@ describe('carga', () => {
       isLoading: false,
     });
     render(<MemoryRouter><TournamentControl /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByText('5:05')).toBeInTheDocument());
+    await screen.findByText('5:05');
   });
 });
 

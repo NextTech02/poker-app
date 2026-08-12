@@ -20,7 +20,7 @@ import {
   applyPlayerCreate,
   applyEliminate,
 } from './domainRules';
-import { getEntity, putEntity } from './db';
+import { putEntity } from './db';
 
 // Réplica local em memória. As funções são comuns (não `jest.fn`) de
 // propósito: o CRA liga `resetMocks`, que apaga a implementação de qualquer

@@ -76,41 +76,47 @@ def _pedido(documento="123456"):
 class TestPortoesDoPagamento:
     def test_alocacao_inexistente_da_404(self, monkeypatch):
         _monta(monkeypatch, tabelas={"prize_allocations": []})
+        arg = _pedido()
         with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.pay_prize(TOUR, ALLOC, _pedido(), user_id=None)
+            PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
         assert e.value.status_code == 404
 
     def test_premio_ja_pago_nao_paga_de_novo(self, monkeypatch):
         _monta(monkeypatch, alocacao=_alocacao(paid=True))
+        arg = _pedido()
         with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.pay_prize(TOUR, ALLOC, _pedido(), user_id=None)
+            PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
         assert e.value.status_code == 400
         assert "already been paid" in e.value.detail
 
     def test_premio_nao_liberado_e_bloqueado(self, monkeypatch):
         _monta(monkeypatch, alocacao=_alocacao(released=False))
+        arg = _pedido()
         with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.pay_prize(TOUR, ALLOC, _pedido(), user_id=None)
+            PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
         assert "não liberada" in e.value.detail
 
     def test_premio_do_tipo_vaga_nao_sai_em_dinheiro(self, monkeypatch):
         _monta(monkeypatch, alocacao=_alocacao(tipo="vaga"))
+        arg = _pedido()
         with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.pay_prize(TOUR, ALLOC, _pedido(), user_id=None)
+            PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
         assert "Vaga" in e.value.detail
 
     def test_saldo_insuficiente_no_caixa_geral(self, monkeypatch):
         _monta(monkeypatch, alocacao=_alocacao(valor=5000), saldo=100)
+        arg = _pedido()
         with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.pay_prize(TOUR, ALLOC, _pedido(), user_id=None)
+            PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
         assert e.value.status_code == 400
 
     def test_documento_divergente_bloqueia(self, monkeypatch):
         """Confere o documento apresentado contra o cadastrado: e o que evita
         pagar o premio para a pessoa errada."""
         _monta(monkeypatch, documento="999999")
+        arg = _pedido("123456")
         with pytest.raises(HTTPException):
-            PrizeAllocationService.pay_prize(TOUR, ALLOC, _pedido("123456"), user_id=None)
+            PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
 
     def test_documento_com_pontuacao_diferente_e_aceito(self, monkeypatch):
         """'123.456-78' e '12345678' sao o mesmo documento; recusar seria

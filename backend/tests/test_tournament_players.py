@@ -86,24 +86,28 @@ class TestInscricao:
             "id": TP, "tournament_id": TOUR, "tournament_day_id": DIA,
             "player_id": PLAYER, "status": "active",
         }])
+        arg = _inscricao()
         with pytest.raises(ValueError, match="já está registrado"):
-            TournamentPlayerService.register_player(_inscricao(), "u1")
+            TournamentPlayerService.register_player(arg, "u1")
 
     def test_dia_cheio_recusa_novo_jogador(self, monkeypatch):
         """Aceitar acima do limite deixaria alguem sem assento."""
         _monta(monkeypatch, dia=_dia(max_players=10, registrados=10))
+        arg = _inscricao()
         with pytest.raises(ValueError, match="cheio"):
-            TournamentPlayerService.register_player(_inscricao(), "u1")
+            TournamentPlayerService.register_player(arg, "u1")
 
     def test_torneio_inexistente_e_recusado(self, monkeypatch):
         _monta(monkeypatch, tabelas={"tournaments": []})
+        arg = _inscricao()
         with pytest.raises(ValueError, match="Tournament not found"):
-            TournamentPlayerService.register_player(_inscricao(), "u1")
+            TournamentPlayerService.register_player(arg, "u1")
 
     def test_dia_inexistente_e_recusado(self, monkeypatch):
         _monta(monkeypatch, tabelas={"tournament_days": []})
+        arg = _inscricao()
         with pytest.raises(ValueError, match="Tournament day not found"):
-            TournamentPlayerService.register_player(_inscricao(), "u1")
+            TournamentPlayerService.register_player(arg, "u1")
 
     def test_entrega_as_fichas_iniciais(self, monkeypatch):
         fake = _monta(monkeypatch, dia=_dia(chips=25000))

@@ -337,7 +337,7 @@ describe('importação', () => {
   it('importação que não criou ninguém não festeja', async () => {
     // Todos já existiam: um "2 jogadores importados" seria mentira.
     await importar({ importados: 0, ja_cadastrados: 2, rejeitados: 0, lista_rejeitados: [] });
-    await waitFor(() => expect(screen.getByText('importados')).toBeInTheDocument());
+    await screen.findByText('importados');
     expect(toast.success).not.toHaveBeenCalled();
     expect(aoImportar).not.toHaveBeenCalled();
   });
