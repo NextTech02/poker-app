@@ -54,7 +54,7 @@ const SyncConflicts = () => {
         ) : conflicts.length === 0 ? (
           <EmptyState
             title={t('offline.noConflicts', 'Nenhum conflito')}
-            description={t('offline.noConflictsDesc', 'Todas as operações offline foram sincronizadas com sucesso.')}
+            subtitle={t('offline.noConflictsDesc', 'Todas as operações offline foram sincronizadas com sucesso.')}
           />
         ) : (
           conflicts

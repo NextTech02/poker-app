@@ -382,7 +382,7 @@ export default function ExpensesManager() {
       ) : expenses.length === 0 ? (
         <EmptyState
           title={t('expenses.emptyTitle', 'Nenhuma despesa registrada')}
-          description={t('expenses.emptyDesc', 'Lance os gastos da etapa para o DRE fechar o resultado real.')}
+          subtitle={t('expenses.emptyDesc', 'Lance os gastos da etapa para o DRE fechar o resultado real.')}
         />
       ) : (
         <div className="table-container">

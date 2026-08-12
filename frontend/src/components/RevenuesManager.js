@@ -212,7 +212,7 @@ export default function RevenuesManager() {
       ) : revenues.length === 0 ? (
         <EmptyState
           title={t('revenues.emptyTitle', 'Nenhuma receita registrada')}
-          description={t('revenues.emptyDesc', 'Registre bar, patrocínio e outras entradas para o DRE mostrar todo o faturamento.')}
+          subtitle={t('revenues.emptyDesc', 'Registre bar, patrocínio e outras entradas para o DRE mostrar todo o faturamento.')}
         />
       ) : (
         <div className="table-container">

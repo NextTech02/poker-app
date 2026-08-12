@@ -264,7 +264,7 @@ const Organizacoes = () => {
         <main className="main-content">
           <EmptyState
             title={t('organizations.noAccessTitle', 'Acesso restrito')}
-            description={t('organizations.noAccessDesc', 'Esta área é exclusiva dos administradores da plataforma.')}
+            subtitle={t('organizations.noAccessDesc', 'Esta área é exclusiva dos administradores da plataforma.')}
           />
         </main>
       </div>
@@ -299,12 +299,12 @@ const Organizacoes = () => {
             </thead>
             <tbody>
               {loading ? (
-                <SkeletonTableRow columns={6} rows={3} />
+                <SkeletonTableRow cols={6} />
               ) : orgs.length === 0 ? (
                 <tr><td colSpan={6}>
                   <EmptyState
                     title={t('organizations.emptyTitle', 'Nenhuma organização')}
-                    description={t('organizations.emptyDesc', 'Cadastre o primeiro clube para começar.')}
+                    subtitle={t('organizations.emptyDesc', 'Cadastre o primeiro clube para começar.')}
                   />
                 </td></tr>
               ) : orgs.map((o) => (
