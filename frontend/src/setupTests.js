@@ -42,3 +42,13 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 if (typeof window !== 'undefined' && !window.scrollTo) {
   window.scrollTo = () => {};
 }
+
+// ResizeObserver não existe no jsdom. A tela de transmissão mede o cabeçalho
+// para encaixar a barra de prêmios; sem o polyfill ela nem renderiza.
+if (typeof global.ResizeObserver === 'undefined') {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
