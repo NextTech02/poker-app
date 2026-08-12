@@ -337,15 +337,15 @@ const Financeiro = () => {
                 <div className="fn-dre-title">{t('financial.dreRevenues')}</div>
                 <div className="fn-dre-row">
                   <span>{t('financial.dreBuyIns')}</span>
-                  <span>{fmt(data.revenue.buy_ins)}</span>
+                  <span>{fmt(data.revenue?.buy_ins)}</span>
                 </div>
                 <div className="fn-dre-row">
                   <span>{t('financial.dreRebuys')}</span>
-                  <span>{fmt(data.revenue.rebuys)}</span>
+                  <span>{fmt(data.revenue?.rebuys)}</span>
                 </div>
                 <div className="fn-dre-row">
                   <span>{t('financial.dreAddons')}</span>
-                  <span>{fmt(data.revenue.addons)}</span>
+                  <span>{fmt(data.revenue?.addons)}</span>
                 </div>
                 {data.tickets_redeemed_value > 0 && (
                   <div className="fn-dre-row fn-dre-row--muted">
@@ -452,7 +452,10 @@ const Financeiro = () => {
         )}
 
         {/* Per-Tournament Breakdown */}
-        {!loading && data && data.by_tournament.length > 0 && (
+        {/* Acesso protegido: um relatorio sem `by_tournament` (payload antigo
+            ou parcial) derrubava a tela INTEIRA em vez de so omitir o quadro.
+            O mesmo vale para `revenue` logo acima. */}
+        {!loading && data && (data.by_tournament?.length || 0) > 0 && (
           <Card title={t('financial.byTournamentTitle')}>
             <div className="table-container">
               <table className="transactions-table">
@@ -469,7 +472,7 @@ const Financeiro = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.by_tournament.map((t) => (
+                  {(data.by_tournament || []).map((t) => (
                     <tr key={t.tournament_id}>
                       <td>{t.tournament_name}</td>
                       <td>{t.players}</td>
