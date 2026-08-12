@@ -594,8 +594,11 @@ const TournamentDetail = () => {
           </div>
         </div>
 
-        {/* Days List - Top section */}
-        {days.length > 0 && renderDaysList(false)}
+        {/* Days List - Top section.
+            Sem guarda de tamanho: `renderDaysList` ja trata a lista vazia, e a
+            guarda tornava o estado vazio ("Nenhum dia configurado") inalcancavel
+            — um torneio recem-criado nao mostrava orientacao nenhuma. */}
+        {renderDaysList(false)}
 
         {/* Dashboard */}
         <TournamentDashboard tournamentId={id} />
