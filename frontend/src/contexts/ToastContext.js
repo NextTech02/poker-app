@@ -33,39 +33,46 @@ export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const timersRef = useRef({});
+  // Espelho síncrono da lista. O React só executa o updater de `setToasts`
+  // durante a renderização, então ler o estado de dentro dele e conferir o
+  // resultado logo abaixo NÃO funciona — a variável ainda está no valor
+  // inicial. Era assim que a deduplicação estava escrita, e por isso ela
+  // nunca deduplicava: cada clique repetido empilhava mais um toast.
+  const toastsRef = useRef([]);
+
+  const aplicar = useCallback((fn) => {
+    setToasts((prev) => {
+      const next = fn(prev);
+      toastsRef.current = next;
+      return next;
+    });
+  }, []);
 
   const removeToast = useCallback((id) => {
     // Mark as exiting for animation
-    setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+    aplicar(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
     // Remove after animation
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
+      aplicar(prev => prev.filter(t => t.id !== id));
     }, 300);
     if (timersRef.current[id]) {
       clearTimeout(timersRef.current[id]);
       delete timersRef.current[id];
     }
-  }, []);
+  }, [aplicar]);
 
   const addToast = useCallback((type, message, options = {}) => {
     const duration = options.duration || (type === 'error' ? 6000 : 4000);
 
     // Dedupe: if a non-exiting toast with same (type, title, message) already exists,
     // extend its timer instead of stacking duplicates (ISSUE-004).
-    let existingId = null;
-    setToasts(prev => {
-      const existing = prev.find(t =>
-        !t.exiting &&
-        t.type === type &&
-        t.message === message &&
-        (t.title || null) === (options.title || null)
-      );
-      if (existing) {
-        existingId = existing.id;
-        return prev;
-      }
-      return prev;
-    });
+    const existing = toastsRef.current.find(t =>
+      !t.exiting &&
+      t.type === type &&
+      t.message === message &&
+      (t.title || null) === (options.title || null)
+    );
+    const existingId = existing ? existing.id : null;
 
     if (existingId !== null) {
       if (timersRef.current[existingId]) {
@@ -78,7 +85,7 @@ export const ToastProvider = ({ children }) => {
     }
 
     const id = ++toastIdCounter;
-    setToasts(prev => [...prev, {
+    aplicar(prev => [...prev, {
       id,
       type,
       title: options.title || null,
@@ -92,7 +99,7 @@ export const ToastProvider = ({ children }) => {
     }, duration);
 
     return id;
-  }, [removeToast]);
+  }, [aplicar, removeToast]);
 
   const toast = useCallback({
     success: (message, options) => addToast('success', message, options),
