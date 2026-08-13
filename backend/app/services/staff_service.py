@@ -15,7 +15,10 @@ from app.models.staff import (
 
 ALL_PERMISSIONS = [
     'dashboard', 'stages', 'tournaments', 'players',
-    'cashier', 'cashier_players', 'cashier_tickets', 'prizes',
+    'cashier', 'cashier_players', 'cashier_tickets',
+    # Emissão de ticket em LOTE: operação de dono, não de caixa (ver
+    # db/migrations/database_migration_ticket_master_permission.sql).
+    'cashier_tickets.master', 'prizes',
     'prizes_release', 'financial', 'reports', 'general_cash', 'rankings',
     'blinds', 'tables', 'broadcast', 'employees',
     'cashbox.operate', 'cashbox.admin',

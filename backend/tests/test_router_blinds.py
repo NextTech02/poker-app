@@ -153,6 +153,102 @@ class TestExclusao:
         assert client.delete(rotas[1].format(SUMIU)).status_code == 404
 
 
+class TestExclusaoEmMassa:
+    """Limpar a estrutura inteira do dia.
+
+    É a operação mais destrutiva da tela: não há desfazer e o telão fica sem
+    blind nenhum. Por isso ela recusa um dia em andamento sem confirmação
+    explícita, e zera o relógio — que passaria a contar tempo contra uma
+    estrutura que não existe mais.
+    """
+
+    ROTA = f"/tournament-days/{DIA}/blinds"
+
+    def test_apaga_a_estrutura_inteira(self, client, banco):
+        r = client.delete(self.ROTA)
+        assert r.status_code == 200
+        assert r.json()["deleted"] == 2
+        assert banco.store["blinds"] == []
+
+    def test_nao_toca_na_estrutura_de_outro_dia_do_mesmo_torneio(self, client, banco):
+        """Cada dia tem a sua estrutura; limpar o Dia 1A não pode derrubar o
+        Dia 1B, que talvez já esteja rodando na sala ao lado."""
+        outro = "77777777-7777-7777-7777-7777777770ut"
+        banco.store["blinds"].append(_blind("outro-b", 1, dia=outro))
+        client.delete(self.ROTA)
+        assert [b["id"] for b in banco.store["blinds"]] == ["outro-b"]
+
+    def test_dia_inexistente_da_404(self, client, banco):
+        banco.store["tournament_days"] = []
+        assert client.delete(self.ROTA).status_code == 404
+
+    def test_dia_ativo_sem_confirmacao_da_409_e_nao_apaga_nada(self, client, banco):
+        banco.store["tournament_days"][0]["status"] = "active"
+        r = client.delete(self.ROTA)
+        assert r.status_code == 409
+        assert "force=true" in r.json()["detail"]
+        assert len(banco.store["blinds"]) == 2
+
+    def test_relogio_rodando_tambem_exige_confirmacao(self, client, banco):
+        """O status pode estar desatualizado; o que denuncia mesa jogando é o
+        cronômetro correndo."""
+        banco.store["tournament_days"][0].update(
+            {"timer_started_at": "2026-06-08T10:00:00Z", "is_paused": False})
+        assert client.delete(self.ROTA).status_code == 409
+
+    def test_relogio_pausado_nao_bloqueia(self, client, banco):
+        banco.store["tournament_days"][0].update(
+            {"timer_started_at": "2026-06-08T10:00:00Z", "is_paused": True})
+        assert client.delete(self.ROTA).status_code == 200
+
+    def test_dia_ativo_com_force_apaga(self, client, banco):
+        banco.store["tournament_days"][0]["status"] = "active"
+        r = client.delete(self.ROTA, params={"force": "true"})
+        assert r.status_code == 200
+        assert banco.store["blinds"] == []
+
+    def test_zera_o_relogio_do_dia(self, client, banco):
+        banco.store["tournament_days"][0].update({
+            "current_level": 7, "elapsed_time": 3000, "manual_time_adjustment": 120,
+            "is_paused": False, "timer_started_at": "2026-06-08T10:00:00Z"})
+        r = client.delete(self.ROTA, params={"force": "true"})
+        assert r.json()["timer_reset"] is True
+        linha = banco.store["tournament_days"][0]
+        assert (linha["current_level"], linha["elapsed_time"],
+                linha["manual_time_adjustment"], linha["is_paused"],
+                linha["timer_started_at"]) == (1, 0, 0, True, None)
+
+    def test_estrutura_ja_vazia_nao_mexe_no_relogio(self, client, banco):
+        """Clicar por engano num dia sem blinds não pode virar um reset
+        silencioso do cronômetro."""
+        banco.store["blinds"] = []
+        banco.store["tournament_days"][0].update(
+            {"current_level": 5, "elapsed_time": 900})
+        r = client.delete(self.ROTA)
+        assert r.json() == {"deleted": 0, "timer_reset": False}
+        assert banco.store["tournament_days"][0]["elapsed_time"] == 900
+
+    def test_sem_a_permissao_de_blinds_da_403(self, client, banco, monkeypatch):
+        """Quem só opera o caixa não pode zerar a estrutura do torneio."""
+        from app.models.staff import MyPermissions
+        from app.services.staff_service import StaffService
+        monkeypatch.setattr(
+            StaffService, "get_my_permissions",
+            staticmethod(lambda uid: MyPermissions(is_admin=False, permissions=["cashier"])),
+        )
+        assert client.delete(self.ROTA).status_code == 403
+        assert len(banco.store["blinds"]) == 2
+
+    def test_falha_do_banco_vira_500_com_o_motivo(self, client, banco, monkeypatch):
+        def _estoura():
+            raise RuntimeError("conexão perdida")
+        # A 1ª ida ao banco é a busca do dia; a 2ª é o delete.
+        monkeypatch.setattr(mod.supabase, "table", _estoura_apos(banco, _estoura, 1))
+        r = client.delete(self.ROTA)
+        assert r.status_code == 500
+        assert "conexão perdida" in r.json()["detail"]
+
+
 class TestGravacaoQueNaoDevolveNada:
     """O insert/update pode responder SEM linha (RLS barrando, por exemplo).
 

@@ -7,8 +7,10 @@ from app.models.player import (
     PlayerStats,
     PlayerHistoryEntry,
 )
+from app.models.satellite_ticket import TicketResponse
 from app.services.player_service import PlayerService
 from app.services.player_import_service import PlayerImportService
+from app.services.satellite_ticket_service import SatelliteTicketService
 from app.auth.jwt import get_current_user
 from pydantic import BaseModel, Field
 
@@ -100,6 +102,20 @@ def get_player_history(
 ):
     """Get a player's per-tournament participation history"""
     return PlayerService.get_player_history(player_id)
+
+
+@router.get("/{player_id}/tickets", response_model=List[TicketResponse])
+def get_player_tickets(
+    player_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Tickets do jogador, de TODAS as etapas.
+
+    Fica aqui (e não só em /satellite-tickets?player_id=) porque a tela do
+    perfil manda o X-Stage-ID em toda requisição: se o recorte de etapa valesse,
+    a vaga ganhada na etapa passada sumiria justo de onde o operador vai
+    procurar por ela."""
+    return SatelliteTicketService.get_all_tickets(player_id=player_id)
 
 
 @router.get("/{player_id}", response_model=Player)

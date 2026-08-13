@@ -20,6 +20,8 @@ import SatelliteTickets from './SatelliteTickets';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePermissions } from '../contexts/PermissionContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -36,8 +38,20 @@ jest.mock('../components/PlayerSelect', () => ({ value, onChange, name }) => (
     <option value="p1">Ana</option>
   </select>
 ));
+// Seleção múltipla: o teste só precisa do contrato (lista de ids que entra e
+// sai); a busca por digitação tem teste próprio no componente.
+jest.mock('../components/PlayerMultiSelect', () => ({ values, onChange }) => (
+  <div data-testid="multi-jogadores">
+    <span data-testid="multi-total">{values.length}</span>
+    <button type="button" onClick={() => onChange([...values, `p${values.length + 1}`])}>
+      somar-jogador
+    </button>
+  </div>
+));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
+jest.mock('../contexts/PaymentMethodsContext', () => ({ usePaymentMethods: jest.fn() }));
 jest.mock('react-i18next', () => {
   const t = (chave) => chave;
   const traducao = { t, i18n: { language: 'pt-BR' } };
@@ -68,9 +82,14 @@ const DISPONIVEIS = [
 
 let toast;
 
+const HISTORICO_TROCAS = [
+  { id: 'h1', kind: 'sale', amount: 200, from_player_name: 'Ana',
+    to_player_name: 'Beto', created_at: '2026-06-04T00:00:00Z' },
+];
+
 const responder = ({
   tickets = TICKETS, torneios = TORNEIOS, dias = DIAS, resumo = RESUMO,
-  disponiveis = DISPONIVEIS,
+  disponiveis = DISPONIVEIS, trocas = HISTORICO_TROCAS,
 } = {}) => {
   api.get.mockImplementation((url) => {
     if (url === '/satellite-tickets/available') {
@@ -79,6 +98,11 @@ const responder = ({
         : Promise.resolve({ data: disponiveis });
     }
     if (url === '/satellite-tickets/summary') return Promise.resolve({ data: resumo });
+    if (url.endsWith('/transfers')) {
+      return trocas instanceof Error
+        ? Promise.reject(trocas)
+        : Promise.resolve({ data: trocas });
+    }
     if (url.startsWith('/satellite-tickets')) {
       return tickets instanceof Error ? Promise.reject(tickets) : Promise.resolve({ data: tickets });
     }
@@ -115,10 +139,22 @@ const linhaDoTicket = (texto) =>
     tr.textContent.includes(texto)
   );
 
+/** Liga o perfil "master" (quem pode emitir em lote). */
+const comoMaster = () =>
+  usePermissions.mockReturnValue({
+    isAdmin: false,
+    hasPermission: (p) => p === 'cashier_tickets.master',
+  });
+
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
   useToast.mockReturnValue({ toast });
   useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
+  // Por padrão, operador de caixa comum: sem emissão em lote.
+  usePermissions.mockReturnValue({ isAdmin: false, hasPermission: () => false });
+  usePaymentMethods.mockReturnValue({
+    activeMethods: [{ id: 'm1', code: 'pix', label: 'PIX' }],
+  });
   api.post.mockResolvedValue({ data: {} });
   jest.spyOn(window, 'confirm').mockReturnValue(true);
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -287,6 +323,211 @@ describe('emitir ticket', () => {
       within(document.querySelector('.modal')).getByRole('button', { name: 'satelliteTickets.cancelAction' })
     );
     expect(api.post).not.toHaveBeenCalled();
+  });
+});
+
+describe('emitir em lote (só master)', () => {
+  const abrir = () => userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.registerTicket' }));
+
+  const preencherDestino = async () => {
+    await userEvent.selectOptions(seletorComOpcao('t1'), 't1');
+    await waitFor(() => expect(seletorComOpcao('d1')).toBeTruthy());
+    await userEvent.selectOptions(seletorComOpcao('d1'), 'd1');
+    await userEvent.type(screen.getByPlaceholderText('satelliteTickets.wonAtPlaceholder'), 'Satélite');
+    await userEvent.type(screen.getByPlaceholderText('satelliteTickets.fundedByPlaceholder'), 'Clube');
+  };
+
+  it('operador de caixa comum não vê o modo lote', async () => {
+    // Emitir 40 entradas já pagas num clique é decisão de dono; o backend
+    // recusa, e oferecer o botão só geraria 403.
+    await montar();
+    await abrir();
+    expect(screen.queryByRole('button', { name: 'satelliteTickets.bulkModeMultiple' })).toBeNull();
+    expect(screen.getByLabelText('jogador')).toBeInTheDocument();
+  });
+
+  it('o master escolhe entre um e vários jogadores', async () => {
+    comoMaster();
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' }));
+    expect(screen.getByTestId('multi-jogadores')).toBeInTheDocument();
+    expect(screen.queryByLabelText('jogador')).toBeNull();
+  });
+
+  it('o lote mostra quantos jogadores e quanto custa antes de confirmar', async () => {
+    // O valor total é o que o financiador vai bancar no pool do destino.
+    comoMaster();
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' }));
+    await preencherDestino();
+    await userEvent.click(screen.getByText('somar-jogador'));
+    await userEvent.click(screen.getByText('somar-jogador'));
+    const caixa = document.querySelectorAll('.st-info-box')[1];
+    expect(caixa).toHaveTextContent('2');
+    expect(caixa).toHaveTextContent('R$ 2000.00');
+  });
+
+  it('três jogadores viram UM post no endpoint de lote', async () => {
+    comoMaster();
+    api.post.mockResolvedValue({ data: { created: [{}, {}, {}], skipped: [], total_value: 3000 } });
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' }));
+    await preencherDestino();
+    await userEvent.click(screen.getByText('somar-jogador'));
+    await userEvent.click(screen.getByText('somar-jogador'));
+    await userEvent.click(screen.getByText('somar-jogador'));
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkSubmit' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/satellite-tickets/bulk', expect.objectContaining({
+        player_ids: ['p1', 'p2', 'p3'],
+        target_tournament_id: 't1',
+        target_tournament_day_id: 'd1',
+        funded_by: 'Clube',
+      }))
+    );
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.modal')).toBeNull();
+  });
+
+  it('sem jogador escolhido o lote não é enviado', async () => {
+    comoMaster();
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' }));
+    await preencherDestino();
+    expect(screen.getByRole('button', { name: 'satelliteTickets.bulkSubmit' })).toBeDisabled();
+  });
+
+  it('lote parcial avisa quem ficou de fora', async () => {
+    // Ignorados em silêncio viram jogador sem vaga na hora de sentar à mesa.
+    comoMaster();
+    api.post.mockResolvedValue({
+      data: { created: [{}, {}], skipped: [{ player_id: 'p3', reason: 'jogador_nao_encontrado' }] },
+    });
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' }));
+    await preencherDestino();
+    await userEvent.click(screen.getByText('somar-jogador'));
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkSubmit' }));
+    await waitFor(() => expect(toast.warning).toHaveBeenCalled());
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('lote que não emitiu nada mantém o modal aberto para correção', async () => {
+    comoMaster();
+    api.post.mockResolvedValue({ data: { created: [], skipped: [{ player_id: 'p1', reason: 'x' }] } });
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' }));
+    await preencherDestino();
+    await userEvent.click(screen.getByText('somar-jogador'));
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkSubmit' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('satelliteTickets.bulkNoneCreated'));
+    expect(document.querySelector('.modal')).not.toBeNull();
+  });
+
+  it('erro do servidor no lote mostra o motivo e não fecha o modal', async () => {
+    comoMaster();
+    api.post.mockRejectedValue(erroHttp('Você não tem permissão para acessar este recurso.'));
+    await montar();
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' }));
+    await preencherDestino();
+    await userEvent.click(screen.getByText('somar-jogador'));
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.bulkSubmit' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Você não tem permissão para acessar este recurso.')
+    );
+    expect(document.querySelector('.modal')).not.toBeNull();
+  });
+});
+
+describe('transferir e vender ticket', () => {
+  const abrir = async (nome = 'Ana') => {
+    await userEvent.click(within(linhaDoTicket(nome)).getByText('satelliteTickets.transferAction'));
+    await waitFor(() => expect(document.querySelector('.st-transfer-history')).toBeTruthy());
+  };
+
+  it('só ticket ainda não resgatado pode trocar de dono', async () => {
+    // Resgatado já virou inscrição no dia; trocar o dono deixaria o jogador
+    // antigo sentado na mesa sem ticket.
+    await montar();
+    expect(within(linhaDoTicket('Ana')).getByText('satelliteTickets.transferAction')).toBeInTheDocument();
+    expect(within(linhaDoTicket('Beto')).queryByText('satelliteTickets.transferAction')).toBeNull();
+  });
+
+  it('o modal traz o histórico de trocas do ticket', async () => {
+    await montar();
+    await abrir();
+    expect(api.get).toHaveBeenCalledWith('/satellite-tickets/tk1/transfers');
+    expect(document.querySelector('.st-history-list')).toHaveTextContent('Ana');
+    expect(document.querySelector('.st-history-list')).toHaveTextContent('R$ 200.00');
+  });
+
+  it('ticket que nunca mudou de mão diz isso', async () => {
+    await montar({ trocas: [] });
+    await abrir();
+    expect(screen.getByText('satelliteTickets.historyEmpty')).toBeInTheDocument();
+  });
+
+  it('valor zero é transferência simples, sem forma de pagamento', async () => {
+    await montar();
+    await abrir();
+    expect(screen.queryByText('satelliteTickets.registerInCash')).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.transferSubmit' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/satellite-tickets/tk1/transfer', expect.objectContaining({
+        to_player_id: 'p1', amount: 0, register_in_cash: false,
+      }))
+    );
+    expect(toast.success).toHaveBeenCalledWith('satelliteTickets.toastTransferred');
+  });
+
+  it('com valor, a venda leva forma de pagamento e lançamento no caixa', async () => {
+    await montar();
+    await abrir();
+    await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
+    await userEvent.type(screen.getByPlaceholderText('0'), '250');
+    await userEvent.selectOptions(seletorComOpcao('pix'), 'pix');
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.transferSubmit' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/satellite-tickets/tk1/transfer', expect.objectContaining({
+        to_player_id: 'p1', amount: 250, payment_method: 'pix', register_in_cash: true,
+      }))
+    );
+    expect(toast.success).toHaveBeenCalledWith('satelliteTickets.toastSold');
+  });
+
+  it('sem destinatário não dá para confirmar', async () => {
+    // Transferir sem destino perderia a vaga.
+    await montar();
+    await abrir();
+    expect(screen.getByRole('button', { name: 'satelliteTickets.transferSubmit' })).toBeDisabled();
+  });
+
+  it('erro do servidor mostra o motivo e mantém o modal', async () => {
+    api.post.mockRejectedValue(erroHttp('Selecione uma etapa para lançar a venda no caixa'));
+    await montar();
+    await abrir();
+    await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
+    await userEvent.type(screen.getByPlaceholderText('0'), '250');
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.transferSubmit' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Selecione uma etapa para lançar a venda no caixa')
+    );
+    expect(document.querySelector('.st-transfer-history')).not.toBeNull();
+  });
+
+  it('falha ao ler o histórico não impede a transferência', async () => {
+    // Banco sem a migração: a troca de dono ainda é o que interessa.
+    await montar({ trocas: new Error('500') });
+    await userEvent.click(within(linhaDoTicket('Ana')).getByText('satelliteTickets.transferAction'));
+    expect(await screen.findByText('satelliteTickets.historyEmpty')).toBeInTheDocument();
   });
 });
 

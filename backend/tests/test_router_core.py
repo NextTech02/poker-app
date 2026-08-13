@@ -20,6 +20,7 @@ from app.models.transaction import TransactionDetail
 from app.models.cash_register import (
     StageCashRegister, GeneralCashRegister, RakeRegister,
     SangriaTransaction, CashDashboard, StageCashSummary, SangriaResponse,
+    StageCashScopedSummary, StagePaymentBreakdown, PaymentMethodTotal,
 )
 from app.services.tournament_service import TournamentService as TS
 from app.services.tournament_player_service import TournamentPlayerService as TPS
@@ -351,6 +352,28 @@ class TestCaixa:
         stub(CRS, get_stage_cash=lambda sid: None,
              get_stage_pending_rake=lambda sid: 0)
         assert client.get(f"/cash/stage/{ETAPA}/pending-rake").json()["stage_balance"] == 0.0
+
+    def test_resumo_da_etapa(self, client, stub):
+        """A tela precisa separar o que e DESTA etapa do total do clube; sem
+        essa rota o operador le o caixa geral inteiro como se fosse da noite."""
+        stub(CRS, get_stage_cash_summary=lambda sid: StageCashScopedSummary(
+            stage_id=sid, current_balance=1000, total_sangrias=400, sangria_count=2,
+            rake_generated=140, rake_extracted=80, pending_rake=60, net_to_general=320))
+        r = client.get(f"/cash/stage/{ETAPA}/summary")
+        assert r.status_code == 200
+        assert float(r.json()["net_to_general"]) == 320.0
+        assert r.json()["sangria_count"] == 2
+
+    def test_entradas_por_metodo_de_pagamento(self, client, stub):
+        stub(CRS, get_stage_totals_by_payment_method=lambda sid: StagePaymentBreakdown(
+            stage_id=sid, total=450,
+            methods=[PaymentMethodTotal(code="pix", total=300, count=1),
+                     PaymentMethodTotal(code=None, total=150, count=2)]))
+        r = client.get(f"/cash/stage/{ETAPA}/payment-methods")
+        assert r.status_code == 200
+        assert float(r.json()["total"]) == 450.0
+        # metodo nao informado viaja como null, nao como "cash"
+        assert r.json()["methods"][1]["code"] is None
 
     def test_lista_todos_os_caixas_de_etapa(self, client, stub):
         stub(CRS, get_all_stage_cash=lambda: [StageCashSummary(

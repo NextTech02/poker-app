@@ -330,3 +330,42 @@ class TestEliminacoesEMesas:
             raise ValueError("Dia não encontrado")
         stub(TDS, get_or_create_broadcast_code=_estoura)
         assert client.get(f"/tournament-days/{DIA}/broadcast-code").status_code == 404
+
+
+class TestLogoDoClube:
+    """A logo do clube fica no canto direito do cabecalho do telao. O telao
+    le o dia SEM login, entao o que o dia devolve e exatamente o que a TV
+    do salao exibe."""
+
+    def test_salva_a_logo_do_clube(self, client, dia_valido, stub):
+        recebido = {}
+
+        def _atualiza(did, d):
+            recebido.update(d.model_dump(exclude_unset=True))
+            return _dia()
+
+        stub(TDS, update_tournament_day=_atualiza)
+        r = client.patch(f"/tournament-days/{DIA}", json={
+            "broadcast_club_logo_url": "https://clube.com/logo.png",
+            "broadcast_show_club_logo": False,
+            "broadcast_club_logo_size": 150,
+        })
+        assert r.status_code == 200
+        assert recebido["broadcast_club_logo_url"] == "https://clube.com/logo.png"
+        assert recebido["broadcast_show_club_logo"] is False
+        assert recebido["broadcast_club_logo_size"] == 150
+
+    @pytest.mark.parametrize("tamanho", [10, 999])
+    def test_tamanho_fora_da_faixa_da_422(self, client, dia_valido, tamanho):
+        """Fora de 50-300 a logo ou some ou cobre o relogio do salao."""
+        r = client.patch(f"/tournament-days/{DIA}",
+                         json={"broadcast_club_logo_size": tamanho})
+        assert r.status_code == 422
+
+    def test_dia_sem_as_colunas_novas_assume_os_padroes(self):
+        """Cliente que ainda nao rodou a migracao: o dia continua serializando,
+        com a logo ligada e sem imagem — ou seja, o telao de hoje."""
+        dia = _dia()
+        assert dia.broadcast_club_logo_url is None
+        assert dia.broadcast_show_club_logo is True
+        assert dia.broadcast_club_logo_size == 100

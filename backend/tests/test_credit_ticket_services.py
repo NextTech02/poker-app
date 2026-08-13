@@ -19,9 +19,10 @@ guardados dentro de `notes`), que precisa continuar devolvendo os campos
 certos nas duas situações.
 """
 import pytest
+from pydantic import ValidationError
 
 from app.models.player_credit import PlayerCreditCreate, CreditSettlementRequest
-from app.models.satellite_ticket import TicketCreate
+from app.models.satellite_ticket import TicketBulkCreate, TicketCreate, TicketTransfer
 from app.models.tournament_player import TournamentPlayerDetail
 from app.services import player_credit_service as credmod
 from app.services import satellite_ticket_service as tickmod
@@ -546,6 +547,113 @@ class TestCriacaoDeTicket:
             T.create_ticket(arg, AUTOR)
 
 
+class TestEmissaoEmLote:
+    """Fechamento de satélite: todos os classificados recebem a vaga do mesmo
+    dia de uma vez. Cada linha é uma entrada JÁ PAGA que entra no pool do
+    torneio-destino — errar o lote é errar dinheiro vezes o número de
+    jogadores."""
+
+    def _corpo(self, **kw):
+        base = {"player_ids": [JOGADOR], "target_tournament_id": TOUR,
+                "target_tournament_day_id": DIA, "won_at": "Satélite de quarta",
+                "funded_by": "Casa de Apostas"}
+        base.update(kw)
+        return TicketBulkCreate(**base)
+
+    def _tres_jogadores(self):
+        return [{"id": "p1", "name": "Ana", "nickname": "aninha"},
+                {"id": "p2", "name": "Beto", "nickname": None},
+                {"id": "p3", "name": "Caio", "nickname": None}]
+
+    def test_tres_jogadores_viram_tres_tickets_com_o_buy_in_do_dia(self, monkeypatch):
+        fake = _monta_ticket(monkeypatch, tickets=[], players=self._tres_jogadores())
+        r = T.create_tickets_bulk(self._corpo(player_ids=["p1", "p2", "p3"]), AUTOR)
+        assert len(r.created) == 3
+        assert {t.player_id for t in r.created} == {"p1", "p2", "p3"}
+        assert {t.ticket_value for t in r.created} == {300.0}
+        assert {t.status for t in r.created} == {"awarded"}
+        assert len(fake.store["satellite_tickets"]) == 3
+
+    def test_o_total_do_lote_e_o_que_o_financiador_vai_bancar(self, monkeypatch):
+        _monta_ticket(monkeypatch, tickets=[], players=self._tres_jogadores())
+        r = T.create_tickets_bulk(self._corpo(player_ids=["p1", "p2", "p3"]), AUTOR)
+        assert r.total_value == 900.0
+
+    def test_jogador_inexistente_nao_derruba_o_lote(self, monkeypatch):
+        """O operador precisa saber QUEM ficou de fora, sem perder os demais."""
+        fake = _monta_ticket(monkeypatch, tickets=[], players=self._tres_jogadores())
+        r = T.create_tickets_bulk(self._corpo(player_ids=["p1", "fantasma", "p2"]), AUTOR)
+        assert len(r.created) == 2
+        assert [(s.player_id, s.reason) for s in r.skipped] == [("fantasma", "jogador_nao_encontrado")]
+        assert len(fake.store["satellite_tickets"]) == 2
+
+    def test_mesmo_jogador_repetido_gera_um_ticket_so(self, monkeypatch):
+        """Selecionar duas vezes na tela é erro de dedo; emitir as duas vagas
+        dobraria o dinheiro no pool sem ninguém ter pedido."""
+        fake = _monta_ticket(monkeypatch, tickets=[], players=self._tres_jogadores())
+        r = T.create_tickets_bulk(self._corpo(player_ids=["p1", "p1"]), AUTOR)
+        assert len(r.created) == 1
+        assert [s.reason for s in r.skipped] == ["duplicado_no_lote"]
+        assert len(fake.store["satellite_tickets"]) == 1
+
+    def test_dia_de_outro_torneio_nao_emite_nada(self, monkeypatch):
+        fake = _monta_ticket(monkeypatch, tickets=[], players=self._tres_jogadores(),
+                             tournament_days=[{"id": DIA, "tournament_id": "outro",
+                                               "buy_in": 300, "day_name": "Dia Final"}])
+        arg = self._corpo(player_ids=["p1", "p2"])
+        with pytest.raises(ValueError, match="não pertence ao torneio alvo"):
+            T.create_tickets_bulk(arg, AUTOR)
+        assert fake.store["satellite_tickets"] == []
+
+    def test_torneio_alvo_inexistente(self, monkeypatch):
+        _monta_ticket(monkeypatch, tickets=[], tournaments=[])
+        arg = self._corpo()
+        with pytest.raises(ValueError, match="Torneio alvo"):
+            T.create_tickets_bulk(arg, AUTOR)
+
+    def test_dia_alvo_inexistente(self, monkeypatch):
+        _monta_ticket(monkeypatch, tickets=[], tournament_days=[])
+        arg = self._corpo()
+        with pytest.raises(ValueError, match="Dia do torneio"):
+            T.create_tickets_bulk(arg, AUTOR)
+
+    def test_nenhum_jogador_valido_recusa_o_lote(self, monkeypatch):
+        fake = _monta_ticket(monkeypatch, tickets=[], players=[])
+        arg = self._corpo(player_ids=["x1", "x2"])
+        with pytest.raises(ValueError, match="Nenhum jogador válido"):
+            T.create_tickets_bulk(arg, AUTOR)
+        assert fake.store["satellite_tickets"] == []
+
+    @pytest.mark.parametrize("ids", [[], [f"p{i}" for i in range(101)]])
+    def test_lote_vazio_ou_gigante_e_recusado_no_modelo(self, ids):
+        """Sem teto, um payload gigante viraria centenas de entradas pagas num
+        clique só."""
+        with pytest.raises(ValidationError):
+            TicketBulkCreate(player_ids=ids, target_tournament_id=TOUR,
+                             target_tournament_day_id=DIA, won_at="x", funded_by="y")
+
+    def test_banco_sem_as_colunas_novas_guarda_o_lote_inteiro_em_notas(self, monkeypatch):
+        """Insert em lote é tudo-ou-nada: sem o fallback, a coluna faltando
+        derrubaria as três linhas juntas num cliente pré-migração."""
+        fake = _monta_ticket(monkeypatch, tickets=[], players=self._tres_jogadores())
+        original = fake.table
+        tentativas = {"n": 0}
+
+        def _table(nome):
+            if nome == "satellite_tickets":
+                tentativas["n"] += 1
+                if tentativas["n"] == 1:
+                    raise Exception('column "funded_by" does not exist')
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        r = T.create_tickets_bulk(self._corpo(player_ids=["p1", "p2", "p3"]), AUTOR)
+        assert len(r.created) == 3
+        assert all(t.funded_by == "Casa de Apostas" for t in r.created)
+        assert all("Financiado por" in linha["notes"]
+                   for linha in fake.store["satellite_tickets"])
+
+
 class TestConsultaDeTickets:
     def test_busca_um_com_os_nomes(self, monkeypatch):
         _monta_ticket(monkeypatch)
@@ -590,6 +698,61 @@ class TestConsultaDeTickets:
     def test_lista_vazia_nao_consulta_nomes(self, monkeypatch):
         _monta_ticket(monkeypatch, tickets=[])
         assert T.get_all_tickets() == []
+
+    def test_filtra_por_jogador(self, monkeypatch):
+        _monta_ticket(monkeypatch, tickets=[
+            _ticket("t1", player=JOGADOR), _ticket("t2", player="outro-jogador")])
+        r = T.get_all_tickets(player_id=JOGADOR)
+        assert [t.id for t in r] == ["t1"]
+
+    def test_perfil_do_jogador_enxerga_ticket_de_QUALQUER_etapa(self, monkeypatch):
+        """O X-Stage-ID viaja em toda requisição. Se o recorte de etapa valesse
+        aqui, a vaga ganhada na etapa anterior sumiria justo da tela onde o
+        operador vai procurar por ela."""
+        fake = _monta_ticket(monkeypatch, tickets=[
+            dict(_ticket("t1"), stage_id="outra-etapa")])
+        chamadas = {"or_": 0}
+        original = fake.table
+
+        def _table(nome):
+            alvo = original(nome)
+            if nome != "satellite_tickets":
+                return alvo
+            or_original = alvo.or_
+
+            def _or(*a, **k):
+                chamadas["or_"] += 1
+                return or_original(*a, **k)
+
+            alvo.or_ = _or
+            return alvo
+
+        monkeypatch.setattr(fake, "table", _table)
+        r = T.get_all_tickets(stage_id=ETAPA, player_id=JOGADOR)
+        assert [t.id for t in r] == ["t1"]
+        assert chamadas["or_"] == 0
+
+    def test_sem_jogador_o_recorte_por_etapa_continua_valendo(self, monkeypatch):
+        fake = _monta_ticket(monkeypatch, tickets=[_ticket("t1")])
+        chamadas = {"or_": 0}
+        original = fake.table
+
+        def _table(nome):
+            alvo = original(nome)
+            if nome != "satellite_tickets":
+                return alvo
+            or_original = alvo.or_
+
+            def _or(*a, **k):
+                chamadas["or_"] += 1
+                return or_original(*a, **k)
+
+            alvo.or_ = _or
+            return alvo
+
+        monkeypatch.setattr(fake, "table", _table)
+        T.get_all_tickets(stage_id=ETAPA)
+        assert chamadas["or_"] == 1
 
 
 class TestResgateDeTicket:
@@ -687,6 +850,195 @@ class TestResgateDeTicket:
         _monta_ticket(monkeypatch, tickets=[_ticket(dia=None)])
         with pytest.raises(ValueError, match="dia alvo"):
             T.redeem_ticket("t1", None, AUTOR)
+
+
+class TestTransferenciaEVendaDeTicket:
+    """O jogador ganha a vaga e não pode jogar: passa (ou vende) para outro.
+
+    Duas coisas não podem se misturar aqui:
+    - **Quem BANCA o buy-in não muda.** `funded_by` é de quem o clube cobra a
+      entrada no torneio-destino; a venda é dinheiro pela vaga, outra conta.
+    - **Venda sem lançamento no caixa é dinheiro sumido.** Por isso a receita
+      entra pelo mesmo caminho das outras (other_revenues → caixa geral).
+    """
+
+    ORG = "33333333-3333-3333-3333-333333333333"
+    NOVO = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa9"
+
+    def _monta(self, monkeypatch, tickets=None, transferencias=None, **tabelas):
+        from app.services import expense_service as expmod
+
+        base = {
+            "satellite_tickets": tickets if tickets is not None else [_ticket()],
+            "satellite_ticket_transfers": transferencias if transferencias is not None else [],
+            "other_revenues": [],
+            "general_cash_register": [{"id": "gc1", "organization_id": self.ORG,
+                                       "current_balance": 0, "total_received": 0}],
+            "players": [{"id": JOGADOR, "name": "Fulano", "nickname": "fu"},
+                        {"id": self.NOVO, "name": "Sicrano", "nickname": None}],
+            "tournaments": [{"id": TOUR, "name": "Torneio"}],
+            "tournament_days": [{"id": DIA, "tournament_id": TOUR, "buy_in": 300,
+                                 "day_name": "Dia Final"}],
+        }
+        base.update(tabelas)
+        fake = FakeSupabase(base)
+        fake.rpcs["revenue_set_status"] = {"changed": True}
+        monkeypatch.setattr(tickmod, "supabase", fake)
+        monkeypatch.setattr(expmod, "supabase", fake)
+        return fake
+
+    def _corpo(self, **kw):
+        base = {"to_player_id": self.NOVO}
+        base.update(kw)
+        return TicketTransfer(**base)
+
+    def test_transferencia_troca_o_dono_e_preserva_o_lastro(self, monkeypatch):
+        fake = self._monta(monkeypatch)
+        T.transfer_ticket("t1", self._corpo(), AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        linha = fake.store["satellite_tickets"][0]
+        assert linha["player_id"] == self.NOVO
+        assert float(linha["ticket_value"]) == 300.0
+        assert linha["funded_by"] == "Casa de Apostas"
+        assert linha["won_at"] == "2026-06-01"
+
+    def test_transferencia_grava_o_historico(self, monkeypatch):
+        """Sem o histórico, ninguém explica depois por que o ticket que a Ana
+        ganhou apareceu no nome de outro jogador."""
+        fake = self._monta(monkeypatch)
+        T.transfer_ticket("t1", self._corpo(), AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        h = fake.store["satellite_ticket_transfers"]
+        assert len(h) == 1
+        assert h[0]["kind"] == "transfer"
+        assert float(h[0]["amount"]) == 0
+        assert h[0]["from_player_id"] == JOGADOR
+        assert h[0]["to_player_id"] == self.NOVO
+        assert h[0]["performed_by"] == AUTOR
+
+    def test_transferencia_de_graca_nao_gera_receita(self, monkeypatch):
+        fake = self._monta(monkeypatch)
+        T.transfer_ticket("t1", self._corpo(), AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        assert fake.store["other_revenues"] == []
+
+    def test_venda_lanca_a_receita_no_caixa_e_amarra_ao_historico(self, monkeypatch):
+        fake = self._monta(monkeypatch)
+        T.transfer_ticket("t1", self._corpo(amount=250, payment_method="pix"),
+                          AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        receita = fake.store["other_revenues"][0]
+        assert float(receita["amount"]) == 250.0
+        assert receita["stage_id"] == ETAPA
+        assert receita["payment_method"] == "pix"
+        # É a transição pelo RPC que credita o caixa geral de verdade.
+        assert [c[0] for c in fake.rpc_calls] == ["revenue_set_status"]
+        assert fake.rpc_calls[0][1]["p_status"] == "recebido"
+        h = fake.store["satellite_ticket_transfers"][0]
+        assert h["kind"] == "sale"
+        assert h["revenue_id"] == receita["id"]
+
+    def test_venda_sem_lancar_no_caixa_so_registra_a_troca(self, monkeypatch):
+        """O clube só anota que a vaga mudou de mão; o dinheiro ficou entre os
+        jogadores."""
+        fake = self._monta(monkeypatch)
+        T.transfer_ticket("t1", self._corpo(amount=250, register_in_cash=False),
+                          AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        assert fake.store["other_revenues"] == []
+        assert fake.store["satellite_ticket_transfers"][0]["kind"] == "sale"
+
+    def test_venda_sem_etapa_nao_grava_nada(self, monkeypatch):
+        """A receita mora na etapa (other_revenues.stage_id é NOT NULL);
+        gravar a troca sem o dinheiro deixaria a venda fora do DRE."""
+        fake = self._monta(monkeypatch, tickets=[dict(_ticket(), stage_id=None)])
+        arg = self._corpo(amount=250)
+        with pytest.raises(ValueError, match="etapa"):
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=None)
+        assert fake.store["satellite_ticket_transfers"] == []
+        assert fake.store["satellite_tickets"][0]["player_id"] == JOGADOR
+
+    def test_venda_usa_a_etapa_do_proprio_ticket_quando_nao_ha_header(self, monkeypatch):
+        fake = self._monta(monkeypatch)
+        T.transfer_ticket("t1", self._corpo(amount=100), AUTOR, org_id=self.ORG, stage_id=None)
+        assert fake.store["other_revenues"][0]["stage_id"] == ETAPA
+
+    @pytest.mark.parametrize("status", ["redeemed", "cancelled"])
+    def test_ticket_fora_do_estado_transferivel(self, monkeypatch, status):
+        """Resgatado já virou inscrição no dia: trocar o dono deixaria o
+        jogador antigo sentado na mesa sem ticket."""
+        fake = self._monta(monkeypatch, tickets=[_ticket(status=status)])
+        arg = self._corpo()
+        with pytest.raises(ValueError, match="não resgatados"):
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        assert fake.store["satellite_ticket_transfers"] == []
+
+    def test_transferir_para_o_dono_atual_e_recusado(self, monkeypatch):
+        self._monta(monkeypatch)
+        arg = self._corpo(to_player_id=JOGADOR)
+        with pytest.raises(ValueError, match="já pertence"):
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+
+    def test_destino_inexistente_e_recusado(self, monkeypatch):
+        self._monta(monkeypatch)
+        arg = self._corpo(to_player_id="fantasma")
+        with pytest.raises(ValueError, match="destino não encontrado"):
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+
+    def test_ticket_inexistente(self, monkeypatch):
+        self._monta(monkeypatch, tickets=[])
+        arg = self._corpo()
+        with pytest.raises(ValueError, match="não encontrado"):
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+
+    def test_ticket_legado_sem_dono_e_atribuido(self, monkeypatch):
+        """Ticket antigo sem jogador: é atribuição, não transferência — o
+        histórico registra origem vazia."""
+        fake = self._monta(monkeypatch, tickets=[_ticket(player=None)])
+        T.transfer_ticket("t1", self._corpo(), AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        assert fake.store["satellite_ticket_transfers"][0]["from_player_id"] is None
+        assert fake.store["satellite_tickets"][0]["player_id"] == self.NOVO
+
+    def test_falha_ao_gravar_o_historico_estorna_a_receita(self, monkeypatch):
+        """Receita sem histórico é caixa inflado por um lançamento que ninguém
+        consegue explicar."""
+        fake = self._monta(monkeypatch)
+        original = fake.table
+
+        def _table(nome):
+            if nome == "satellite_ticket_transfers":
+                raise Exception('relation "satellite_ticket_transfers" does not exist')
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        arg = self._corpo(amount=250)
+        with pytest.raises(ValueError, match="transferência"):
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        assert fake.store["other_revenues"] == []
+        assert fake.store["satellite_tickets"][0]["player_id"] == JOGADOR
+
+    def test_historico_vem_do_mais_recente_para_o_mais_antigo(self, monkeypatch):
+        self._monta(monkeypatch, transferencias=[
+            {"id": "h1", "ticket_id": "t1", "from_player_id": JOGADOR,
+             "to_player_id": self.NOVO, "kind": "transfer", "amount": 0,
+             "created_at": "2026-06-01T00:00:00Z"},
+            {"id": "h2", "ticket_id": "t1", "from_player_id": self.NOVO,
+             "to_player_id": JOGADOR, "kind": "sale", "amount": 150,
+             "created_at": "2026-06-05T00:00:00Z"},
+        ])
+        r = T.list_transfers("t1")
+        assert [h.id for h in r] == ["h2", "h1"]
+        assert r[0].from_player_name == "Sicrano"
+        assert r[0].to_player_name == "Fulano"
+
+    def test_historico_de_banco_sem_a_tabela_volta_vazio(self, monkeypatch):
+        """Cliente que ainda não rodou a migração não pode ver a tela de
+        tickets quebrar."""
+        fake = self._monta(monkeypatch)
+        original = fake.table
+
+        def _table(nome):
+            if nome == "satellite_ticket_transfers":
+                raise Exception('relation "satellite_ticket_transfers" does not exist')
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        assert T.list_transfers("t1") == []
 
 
 class TestCancelamentoDeTicket:

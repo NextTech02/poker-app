@@ -49,6 +49,7 @@ const PlayerDetail = () => {
   const [player, setPlayer] = useState(null);
   const [stats, setStats] = useState(null);
   const [history, setHistory] = useState([]);
+  const [tickets, setTickets] = useState([]);
   const [loyalty, setLoyalty] = useState(null);
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
   const [loyaltyBusy, setLoyaltyBusy] = useState(false);
@@ -59,16 +60,20 @@ const PlayerDetail = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pRes, sRes, hRes, cfgRes, loyRes] = await Promise.all([
+      const [pRes, sRes, hRes, tkRes, cfgRes, loyRes] = await Promise.all([
         api.get(`/players/${id}`),
         api.get('/players/statistics', { params: { player_id: id } }),
         api.get(`/players/${id}/history`),
+        // Tickets são acessórios ao perfil: quem só tem a permissão 'players'
+        // não pode ficar sem histórico por causa de um 403 aqui.
+        api.get(`/players/${id}/tickets`).catch(() => ({ data: [] })),
         api.get('/loyalty/config').catch(() => ({ data: { enabled: false } })),
         api.get(`/loyalty/players/${id}`).catch(() => ({ data: null })),
       ]);
       setPlayer(pRes.data);
       setStats((sRes.data && sRes.data[0]) || null);
       setHistory(hRes.data || []);
+      setTickets(tkRes.data || []);
       setLoyaltyEnabled(!!cfgRes.data?.enabled);
       setLoyalty(loyRes.data);
     } catch (err) {
@@ -160,6 +165,18 @@ const PlayerDetail = () => {
   const s = stats || {};
   const positive = (Number(s.net_profit) || 0) >= 0;
 
+  // 'awarded' (esquema atual) e 'available' (esquema antigo) são o mesmo estado:
+  // vaga na mão, ainda não usada.
+  const ticketDisponivel = (st) => st === 'awarded' || st === 'available';
+  const ticketsDisponiveis = tickets.filter((tk) => ticketDisponivel(tk.status)).length;
+
+  const rotuloTicket = (st) => {
+    if (ticketDisponivel(st)) return t('playerDetail.ticketStatusAvailable', 'Disponível');
+    if (st === 'redeemed') return t('playerDetail.ticketStatusRedeemed', 'Resgatado');
+    if (st === 'cancelled') return t('playerDetail.ticketStatusCancelled', 'Cancelado');
+    return st;
+  };
+
   const metricCards = [
     { key: 'tournaments', label: t('playerDetail.tournaments', 'Torneios'), value: s.tournaments_played ?? 0 },
     { key: 'entries', label: t('playerDetail.entries', 'Participações'), value: s.entries ?? 0 },
@@ -232,6 +249,58 @@ const PlayerDetail = () => {
                   {formatCurrency(s.net_profit || 0)}
                 </span>
               </div>
+            </div>
+
+            {/* ── Tickets do jogador (todas as etapas) ── */}
+            <div className="pd-history-card pd-tickets-card">
+              <div className="pd-history-header">
+                <h2>{t('playerDetail.ticketsTitle', 'Tickets')}</h2>
+                {/* O contador responde de imediato a pergunta do balcão: "esse
+                    jogador tem vaga para hoje?". */}
+                <span className="pd-history-count">
+                  {ticketsDisponiveis} {t('playerDetail.ticketsAvailable', 'disponíveis')}
+                </span>
+              </div>
+              {tickets.length === 0 ? (
+                <p className="pd-history-empty">{t('playerDetail.noTickets', 'Nenhum ticket.')}</p>
+              ) : (
+                <div className="pd-table-wrap">
+                  <table className="pd-table">
+                    <thead>
+                      <tr>
+                        <th>{t('playerDetail.colTicketTournament', 'Torneio')}</th>
+                        <th>{t('playerDetail.colTicketDay', 'Dia')}</th>
+                        <th className="pd-num">{t('playerDetail.colTicketValue', 'Valor')}</th>
+                        <th>{t('playerDetail.colTicketStatus', 'Situação')}</th>
+                        <th>{t('playerDetail.colTicketOrigin', 'Origem')}</th>
+                        <th>{t('playerDetail.colTicketFundedBy', 'Bancado por')}</th>
+                        <th>{t('playerDetail.colDate', 'Data')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tickets.map((tk) => (
+                        <tr key={tk.id} className={ticketDisponivel(tk.status) ? 'pd-ticket-live' : ''}>
+                          <td data-label={t('playerDetail.colTicketTournament', 'Torneio')}>
+                            {tk.target_tournament_name || '—'}
+                          </td>
+                          <td data-label={t('playerDetail.colTicketDay', 'Dia')}>{tk.target_day_name || '—'}</td>
+                          <td className="pd-num" data-label={t('playerDetail.colTicketValue', 'Valor')}>
+                            {formatCurrency(tk.ticket_value || 0)}
+                          </td>
+                          <td data-label={t('playerDetail.colTicketStatus', 'Situação')}>
+                            <span className={`pd-ticket-badge pd-ticket-badge--${ticketDisponivel(tk.status) ? 'live' : tk.status}`}>
+                              {rotuloTicket(tk.status)}
+                            </span>
+                          </td>
+                          <td data-label={t('playerDetail.colTicketOrigin', 'Origem')}>{tk.won_at || '—'}</td>
+                          <td data-label={t('playerDetail.colTicketFundedBy', 'Bancado por')}>{tk.funded_by || '—'}</td>
+                          <td data-label={t('playerDetail.colDate', 'Data')}>{fmtDate(tk.created_at, i18n.language)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* ── Fidelidade (só PRO/PREMIUM) ── */}

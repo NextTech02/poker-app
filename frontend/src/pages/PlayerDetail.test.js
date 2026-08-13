@@ -84,11 +84,20 @@ const HISTORICO = [
 
 const FIDELIDADE = { points: 1250, tier: 'gold' };
 
+const TICKETS = [
+  { id: 'tk1', target_tournament_name: 'Main Event', target_day_name: 'Dia Final',
+    ticket_value: 1000, status: 'awarded', won_at: 'Satélite de quarta',
+    funded_by: 'Clube', created_at: '2026-06-01T00:00:00Z' },
+  { id: 'tk2', target_tournament_name: 'Turbo', target_day_name: null,
+    ticket_value: 500, status: 'redeemed', won_at: null, funded_by: null,
+    created_at: '2026-05-20T00:00:00Z' },
+];
+
 let toast;
 
 const responder = ({
   jogador = JOGADOR, estatisticas = [ESTATISTICAS], historico = HISTORICO,
-  configFidelidade = { enabled: true }, fidelidade = FIDELIDADE,
+  tickets = TICKETS, configFidelidade = { enabled: true }, fidelidade = FIDELIDADE,
 } = {}) => {
   api.get.mockImplementation((url) => {
     if (url === '/players/p1') {
@@ -96,6 +105,9 @@ const responder = ({
     }
     if (url === '/players/statistics') return Promise.resolve({ data: estatisticas });
     if (url === '/players/p1/history') return Promise.resolve({ data: historico });
+    if (url === '/players/p1/tickets') {
+      return tickets instanceof Error ? Promise.reject(tickets) : Promise.resolve({ data: tickets });
+    }
     if (url === '/loyalty/config') {
       return configFidelidade instanceof Error
         ? Promise.reject(configFidelidade)
@@ -208,9 +220,13 @@ describe('números do jogador', () => {
 });
 
 describe('histórico de participações', () => {
+  // A tela tem DOIS cartões com a mesma estrutura (tickets e participações);
+  // sem recortar, os seletores caem no primeiro que aparece.
+  const cartao = () => document.querySelector('.pd-history-card:not(.pd-tickets-card)');
+
   it('lista cada participação com valores e posição', async () => {
     await montar();
-    const linha = Array.from(document.querySelectorAll('.pd-table tbody tr'))
+    const linha = Array.from(cartao().querySelectorAll('.pd-table tbody tr'))
       .find((tr) => tr.textContent.includes('Main Event'));
     expect(linha).toHaveTextContent('Dia 1A');
     expect(linha).toHaveTextContent('R$ 1500.00');
@@ -219,12 +235,12 @@ describe('histórico de participações', () => {
 
   it('participação sem torneio identificado mostra travessão', async () => {
     await montar();
-    expect(document.querySelector('.pd-table')).toHaveTextContent('—');
+    expect(cartao().querySelector('.pd-table')).toHaveTextContent('—');
   });
 
   it('a contagem de participações aparece no cabeçalho', async () => {
     await montar();
-    expect(document.querySelector('.pd-history-count')).toHaveTextContent('2');
+    expect(cartao().querySelector('.pd-history-count')).toHaveTextContent('2');
   });
 
   it('sem participação nenhuma explica isso', async () => {
@@ -235,6 +251,57 @@ describe('histórico de participações', () => {
   it('os gráficos recebem o histórico', async () => {
     await montar();
     expect(screen.getByTestId('graficos')).toBeInTheDocument();
+  });
+});
+
+describe('tickets do jogador', () => {
+  const cartao = () => document.querySelector('.pd-tickets-card');
+  const linha = (texto) =>
+    Array.from(cartao().querySelectorAll('tbody tr')).find((tr) => tr.textContent.includes(texto));
+
+  it('lista os tickets com destino, valor e origem', async () => {
+    await montar();
+    expect(linha('Main Event')).toHaveTextContent('Dia Final');
+    expect(linha('Main Event')).toHaveTextContent('R$ 1000.00');
+    expect(linha('Main Event')).toHaveTextContent('Satélite de quarta');
+  });
+
+  it('o contador destaca quantas vagas ainda estão na mão do jogador', async () => {
+    // É a pergunta do balcão: "esse jogador tem vaga para hoje?".
+    await montar();
+    expect(within(cartao()).getByText(/^1 /)).toBeInTheDocument();
+  });
+
+  it('ticket já resgatado aparece marcado como tal', async () => {
+    await montar();
+    expect(within(linha('Turbo')).getByText('Resgatado')).toBeInTheDocument();
+  });
+
+  it('ticket do esquema antigo ("available") conta como disponível', async () => {
+    // Tickets criados antes da renomeação ficaram como "available"; contá-los
+    // como indisponíveis diria ao operador que o jogador não tem vaga.
+    await montar({ tickets: [{ ...TICKETS[0], status: 'available' }] });
+    expect(within(cartao()).getByText('Disponível')).toBeInTheDocument();
+  });
+
+  it('campos que o ticket não tem viram travessão, não vazio', async () => {
+    await montar();
+    expect(within(linha('Turbo')).getAllByText('—').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('jogador sem ticket nenhum: mensagem, não um zero solto', async () => {
+    await montar({ tickets: [] });
+    expect(screen.getByText('Nenhum ticket.')).toBeInTheDocument();
+    expect(cartao().querySelector('tbody')).toBeNull();
+  });
+
+  it('falha ao buscar os tickets não derruba o perfil', async () => {
+    // O endpoint pode ganhar permissão própria; quem só tem 'players' ainda
+    // precisa ver o histórico.
+    await montar({ tickets: new Error('403') });
+    expect(document.querySelector('.pd-name')).toHaveTextContent('Ana Costa');
+    expect(screen.getByText('Nenhum ticket.')).toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });
 

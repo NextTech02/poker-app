@@ -3,18 +3,28 @@ import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import PlayerSelect from '../components/PlayerSelect';
+import PlayerMultiSelect from '../components/PlayerMultiSelect';
 import EmptyState from '../components/EmptyState';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePermissions } from '../contexts/PermissionContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useTranslation } from 'react-i18next';
 import './SatelliteTickets.css';
 
 const SatelliteTickets = () => {
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
+  const { isAdmin, hasPermission } = usePermissions();
+  const { activeMethods } = usePaymentMethods();
   const { t } = useTranslation();
+
+  // Emitir em lote é decisão de dono: um erro multiplica por dezenas de
+  // entradas já pagas. O backend também exige a permissão — aqui é só para
+  // não oferecer um botão que vai dar 403.
+  const podeLote = isAdmin || hasPermission('cashier_tickets.master');
 
   const fmt = (n) => formatCurrency(n ?? 0);
 
@@ -39,6 +49,17 @@ const SatelliteTickets = () => {
     won_at: '',
     funded_by: '',
   });
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkPlayerIds, setBulkPlayerIds] = useState([]);
+  const [creating, setCreating] = useState(false);
+
+  // Transferência / venda de ticket
+  const [transferTicket, setTransferTicket] = useState(null);
+  const [transferForm, setTransferForm] = useState({
+    to_player_id: '', amount: '', payment_method: '', register_in_cash: true, notes: '',
+  });
+  const [transferHistory, setTransferHistory] = useState([]);
+  const [transferring, setTransferring] = useState(false);
 
   // Redeem form — pick a ticket, then enter funding source
   const [availableTickets, setAvailableTickets] = useState([]);
@@ -89,21 +110,88 @@ const SatelliteTickets = () => {
   };
 
   // ── Create Ticket ──
+  const fecharCriacao = () => {
+    setShowCreateModal(false);
+    setCreateForm({ player_id: '', target_tournament_id: '', target_tournament_day_id: '', won_at: '', funded_by: '' });
+    setBulkPlayerIds([]);
+    setBulkMode(false);
+    setCreateDays([]);
+  };
+
   const handleCreateTicket = async (e) => {
     e.preventDefault();
+    setCreating(true);
     try {
-      await api.post('/satellite-tickets', createForm);
-      toast.success(t('satelliteTickets.toastCreated'));
-      setShowCreateModal(false);
-      setCreateForm({ player_id: '', target_tournament_id: '', target_tournament_day_id: '', won_at: '', funded_by: '' });
-      setCreateDays([]);
+      if (bulkMode) {
+        const { player_id, ...destino } = createForm;
+        const res = await api.post('/satellite-tickets/bulk', { ...destino, player_ids: bulkPlayerIds });
+        const criados = res.data?.created?.length || 0;
+        const ignorados = res.data?.skipped || [];
+        if (criados === 0) {
+          // Modal continua aberto: o operador precisa corrigir a seleção.
+          toast.error(t('satelliteTickets.bulkNoneCreated', 'Nenhum ticket foi emitido. Confira os jogadores selecionados.'));
+          return;
+        }
+        toast.success(t('satelliteTickets.bulkCreated', '{{count}} ticket(s) emitido(s).', { count: criados }));
+        if (ignorados.length > 0) {
+          toast.warning(t('satelliteTickets.bulkPartial', '{{count}} jogador(es) ficaram de fora do lote.', { count: ignorados.length }));
+        }
+      } else {
+        await api.post('/satellite-tickets', createForm);
+        toast.success(t('satelliteTickets.toastCreated'));
+      }
+      fecharCriacao();
       loadData();
     } catch (err) {
       toast.error(err.response?.data?.detail || t('satelliteTickets.toastCreateError'));
+    } finally {
+      setCreating(false);
     }
   };
 
   const selectedCreateDay = createDays.find(d => d.id === createForm.target_tournament_day_id);
+
+  // Valor total do lote = nº de jogadores × buy-in do dia. É o dinheiro que vai
+  // entrar no pool do torneio-destino bancado pelo financiador.
+  const bulkTotal = (selectedCreateDay?.buy_in || 0) * bulkPlayerIds.length;
+
+  // ── Transferir / Vender ──
+  const openTransferModal = async (ticket) => {
+    setTransferTicket(ticket);
+    setTransferForm({ to_player_id: '', amount: '', payment_method: '', register_in_cash: true, notes: '' });
+    setTransferHistory([]);
+    try {
+      const res = await api.get(`/satellite-tickets/${ticket.id}/transfers`);
+      setTransferHistory(res.data || []);
+    } catch (err) {
+      setTransferHistory([]);
+    }
+  };
+
+  const handleTransferTicket = async (e) => {
+    e.preventDefault();
+    if (!transferTicket) return;
+    const valor = Number(transferForm.amount) || 0;
+    setTransferring(true);
+    try {
+      await api.post(`/satellite-tickets/${transferTicket.id}/transfer`, {
+        to_player_id: transferForm.to_player_id,
+        amount: valor,
+        payment_method: transferForm.payment_method || null,
+        register_in_cash: valor > 0 ? transferForm.register_in_cash : false,
+        notes: transferForm.notes.trim() || null,
+      });
+      toast.success(valor > 0
+        ? t('satelliteTickets.toastSold', 'Ticket vendido e lançado no caixa.')
+        : t('satelliteTickets.toastTransferred', 'Ticket transferido.'));
+      setTransferTicket(null);
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || t('satelliteTickets.toastTransferError', 'Não foi possível transferir o ticket.'));
+    } finally {
+      setTransferring(false);
+    }
+  };
 
   // ── Redeem Ticket ──
   const openRedeemModal = async () => {
@@ -295,9 +383,14 @@ const SatelliteTickets = () => {
                       <td>{new Date(ticket.created_at).toLocaleDateString('pt-BR')}</td>
                       <td>
                         {isAwarded(ticket.status) && (
-                          <button className="st-action-btn st-action-btn--danger" onClick={() => handleCancelTicket(ticket.id)}>
-                            {t('satelliteTickets.cancelAction')}
-                          </button>
+                          <>
+                            <button className="st-action-btn" onClick={() => openTransferModal(ticket)}>
+                              {t('satelliteTickets.transferAction', 'Transferir/Vender')}
+                            </button>
+                            <button className="st-action-btn st-action-btn--danger" onClick={() => handleCancelTicket(ticket.id)}>
+                              {t('satelliteTickets.cancelAction')}
+                            </button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -310,21 +403,47 @@ const SatelliteTickets = () => {
 
         {/* Create Ticket Modal */}
         {showCreateModal && (
-          <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-overlay" onClick={fecharCriacao}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{t('satelliteTickets.createModalTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowCreateModal(false)} aria-label={t('common.close')}><span className="close-icon"></span></button>
+                <button className="close-btn" onClick={fecharCriacao} aria-label={t('common.close')}><span className="close-icon"></span></button>
               </div>
               <form onSubmit={handleCreateTicket}>
+                {podeLote && (
+                  <div className="st-bulk-toggle" role="group" aria-label={t('satelliteTickets.bulkToggle', 'Quantidade de jogadores')}>
+                    <button
+                      type="button"
+                      className={`st-bulk-tab ${!bulkMode ? 'is-active' : ''}`}
+                      onClick={() => setBulkMode(false)}
+                    >
+                      {t('satelliteTickets.bulkModeSingle', 'Um jogador')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`st-bulk-tab ${bulkMode ? 'is-active' : ''}`}
+                      onClick={() => setBulkMode(true)}
+                    >
+                      {t('satelliteTickets.bulkModeMultiple', 'Vários jogadores')}
+                    </button>
+                  </div>
+                )}
                 <div className="form-group">
                   <label>{t('satelliteTickets.playerLabel')}</label>
-                  <PlayerSelect
-                    value={createForm.player_id}
-                    onChange={(e) => setCreateForm(p => ({ ...p, player_id: e.target.value }))}
-                    required
-                    name="create_player_id"
-                  />
+                  {bulkMode ? (
+                    <PlayerMultiSelect
+                      values={bulkPlayerIds}
+                      onChange={setBulkPlayerIds}
+                      disabled={creating}
+                    />
+                  ) : (
+                    <PlayerSelect
+                      value={createForm.player_id}
+                      onChange={(e) => setCreateForm(p => ({ ...p, player_id: e.target.value }))}
+                      required
+                      name="create_player_id"
+                    />
+                  )}
                 </div>
                 <div className="form-group">
                   <label>{t('satelliteTickets.targetTournamentLabel')}</label>
@@ -368,6 +487,18 @@ const SatelliteTickets = () => {
                     <strong>{fmt(selectedCreateDay.buy_in)}</strong>
                   </div>
                 )}
+                {bulkMode && (
+                  <div className="st-info-box st-info-box--detail">
+                    <div>
+                      <span>{t('satelliteTickets.bulkSelected', 'Jogadores selecionados')}</span>
+                      <strong>{bulkPlayerIds.length}</strong>
+                    </div>
+                    <div>
+                      <span>{t('satelliteTickets.bulkTotal', 'Valor total do lote')}</span>
+                      <strong>{fmt(bulkTotal)}</strong>
+                    </div>
+                  </div>
+                )}
                 <div className="form-group">
                   <label>{t('satelliteTickets.wonAtLabel')}</label>
                   <input
@@ -393,18 +524,21 @@ const SatelliteTickets = () => {
                   <small className="form-hint">{t('satelliteTickets.fundedByHint')}</small>
                 </div>
                 <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)}>{t('satelliteTickets.cancelAction')}</Button>
+                  <Button type="button" variant="secondary" onClick={fecharCriacao}>{t('satelliteTickets.cancelAction')}</Button>
                   <Button
                     type="submit"
                     disabled={
-                      !createForm.player_id ||
+                      creating ||
+                      (bulkMode ? bulkPlayerIds.length === 0 : !createForm.player_id) ||
                       !createForm.target_tournament_id ||
                       !createForm.target_tournament_day_id ||
                       !createForm.won_at.trim() ||
                       !createForm.funded_by.trim()
                     }
                   >
-                    {t('satelliteTickets.submitCreate')}
+                    {bulkMode
+                      ? t('satelliteTickets.bulkSubmit', 'Emitir lote')
+                      : t('satelliteTickets.submitCreate')}
                   </Button>
                 </div>
               </form>
@@ -483,6 +617,116 @@ const SatelliteTickets = () => {
                     }
                   >
                     {t('satelliteTickets.submitRedeem')}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Transferir / Vender Ticket */}
+        {transferTicket && (
+          <div className="modal-overlay" onClick={() => !transferring && setTransferTicket(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{t('satelliteTickets.transferModalTitle', 'Transferir ou vender ticket')}</h2>
+                <button className="close-btn" onClick={() => setTransferTicket(null)} aria-label={t('common.close')}><span className="close-icon"></span></button>
+              </div>
+              <form onSubmit={handleTransferTicket}>
+                <div className="st-info-box st-info-box--detail">
+                  <div><span>{t('satelliteTickets.detailPlayer')}</span><strong>{transferTicket.player_name || '--'}</strong></div>
+                  <div><span>{t('satelliteTickets.detailTournament')}</span><strong>{transferTicket.target_tournament_name}</strong></div>
+                  <div><span>{t('satelliteTickets.detailValue')}</span><strong>{fmt(transferTicket.ticket_value)}</strong></div>
+                  <div><span>{t('satelliteTickets.detailFundedBy')}</span><strong>{transferTicket.funded_by || '--'}</strong></div>
+                </div>
+                {/* Quem banca o buy-in no torneio-destino NÃO muda com a venda:
+                    é outro dinheiro, e o resgate depende do financiador para o
+                    clube saber de quem cobrar a entrada. */}
+                <small className="form-hint">
+                  {t('satelliteTickets.transferFundedByHint', 'Quem banca o buy-in continua sendo o mesmo — a venda é o dinheiro pela vaga.')}
+                </small>
+
+                <div className="form-group">
+                  <label>{t('satelliteTickets.transferTo', 'Novo dono')}</label>
+                  <PlayerSelect
+                    value={transferForm.to_player_id}
+                    onChange={(e) => setTransferForm(p => ({ ...p, to_player_id: e.target.value }))}
+                    required
+                    name="transfer_to_player_id"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>{t('satelliteTickets.saleAmountLabel', 'Valor da venda')}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={transferForm.amount}
+                    onChange={(e) => setTransferForm(p => ({ ...p, amount: e.target.value }))}
+                    placeholder="0"
+                  />
+                  <small className="form-hint">{t('satelliteTickets.saleAmountHint', 'Deixe em 0 para transferência sem cobrança.')}</small>
+                </div>
+
+                {Number(transferForm.amount) > 0 && (
+                  <>
+                    <div className="form-group">
+                      <label>{t('satelliteTickets.paymentMethodLabel', 'Forma de pagamento')}</label>
+                      <select
+                        value={transferForm.payment_method}
+                        onChange={(e) => setTransferForm(p => ({ ...p, payment_method: e.target.value }))}
+                      >
+                        <option value="">{t('satelliteTickets.selectPaymentMethod', 'Selecione...')}</option>
+                        {(activeMethods || []).map(m => (
+                          <option key={m.id || m.code} value={m.code}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="st-check-label">
+                        <input
+                          type="checkbox"
+                          checked={transferForm.register_in_cash}
+                          onChange={(e) => setTransferForm(p => ({ ...p, register_in_cash: e.target.checked }))}
+                        />
+                        {t('satelliteTickets.registerInCash', 'Lançar no caixa geral')}
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                <div className="form-group">
+                  <label>{t('satelliteTickets.transferNotesLabel', 'Observação')}</label>
+                  <input
+                    type="text"
+                    value={transferForm.notes}
+                    onChange={(e) => setTransferForm(p => ({ ...p, notes: e.target.value }))}
+                    maxLength={300}
+                  />
+                </div>
+
+                <div className="st-transfer-history">
+                  <h3>{t('satelliteTickets.historyTitle', 'Histórico do ticket')}</h3>
+                  {transferHistory.length === 0 ? (
+                    <p className="st-no-tickets-msg">{t('satelliteTickets.historyEmpty', 'Este ticket nunca mudou de dono.')}</p>
+                  ) : (
+                    <ul className="st-history-list">
+                      {transferHistory.map(h => (
+                        <li key={h.id}>
+                          {h.from_player_name || '--'} → {h.to_player_name || '--'}
+                          {h.kind === 'sale' ? ` — ${fmt(h.amount)}` : ''}
+                          {' '}({new Date(h.created_at).toLocaleDateString('pt-BR')})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="modal-actions">
+                  <Button type="button" variant="secondary" onClick={() => setTransferTicket(null)}>{t('satelliteTickets.cancelAction')}</Button>
+                  <Button type="submit" disabled={transferring || !transferForm.to_player_id}>
+                    {t('satelliteTickets.transferSubmit', 'Confirmar')}
                   </Button>
                 </div>
               </form>

@@ -20,6 +20,10 @@ const ALL_PERMISSIONS = [
   { key: 'cashier', label: 'staff.perm.cashier' },
   { key: 'cashier_players', label: 'staff.perm.cashierPlayers' },
   { key: 'cashier_tickets', label: 'staff.perm.cashierTickets' },
+  // Emissão de ticket em LOTE. Fica separada de `cashier_tickets` porque um
+  // erro no lote multiplica o prejuízo por dezenas de entradas já pagas — é
+  // decisão de dono, não de operador de caixa.
+  { key: 'cashier_tickets.master', label: 'staff.perm.cashierTicketsMaster', fallback: 'Tickets em lote (master)' },
   { key: 'sangi', label: 'staff.perm.sangi' },
   { key: 'prizes', label: 'staff.perm.prizes' },
   { key: 'prizes_release', label: 'staff.perm.prizesRelease' },
@@ -732,7 +736,7 @@ const Funcionarios = () => {
                                 const found = ALL_PERMISSIONS.find((ap) => ap.key === p);
                                 return (
                                   <span key={p} className="func-perm-tag">
-                                    {found ? t(found.label) : p}
+                                    {found ? t(found.label, found.fallback) : p}
                                   </span>
                                 );
                               })
@@ -864,7 +868,7 @@ const Funcionarios = () => {
                           checked={groupForm.permissions.includes(perm.key)}
                           onChange={() => togglePermission(perm.key)}
                         />
-                        <span>{t(perm.label)}</span>
+                        <span>{t(perm.label, perm.fallback)}</span>
                       </label>
                     ))}
                   </div>

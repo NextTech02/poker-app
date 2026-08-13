@@ -31,6 +31,9 @@ const DEFAULT_SETTINGS = {
   broadcast_sidebar_label_color: '#9ca3af',
   broadcast_sidebar_value_color: '#5b5be8',
   broadcast_show_logo: true,
+  broadcast_club_logo_url: '',
+  broadcast_show_club_logo: true,
+  broadcast_club_logo_size: 100,
   broadcast_show_title: true,
   broadcast_show_prizepool: true,
   broadcast_show_level: true,
@@ -293,8 +296,17 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                   </h1>
                 )}
               </div>
-              {/* Spacer — right */}
-              <div style={{ minWidth: 250 }} />
+              {/* Logo do clube — right (mirrors .broadcast-club-logo) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 250 }}>
+                {S.broadcast_show_club_logo && S.broadcast_club_logo_url && (
+                  <img
+                    src={S.broadcast_club_logo_url}
+                    alt=""
+                    className="bs-preview-club-logo"
+                    style={{ height: 48 * ((S.broadcast_club_logo_size || 100) / 100), width: 'auto', objectFit: 'contain' }}
+                  />
+                )}
+              </div>
             </div>
 
             {/* ── Main: Break preview or normal ── */}
@@ -573,6 +585,9 @@ const BroadcastSettings = () => {
           broadcast_sidebar_label_color:   d.broadcast_sidebar_label_color   || DEFAULT_SETTINGS.broadcast_sidebar_label_color,
           broadcast_sidebar_value_color:   d.broadcast_sidebar_value_color   || DEFAULT_SETTINGS.broadcast_sidebar_value_color,
           broadcast_show_logo:       d.broadcast_show_logo       !== false,
+          broadcast_club_logo_url:   d.broadcast_club_logo_url   || '',
+          broadcast_show_club_logo:  d.broadcast_show_club_logo  !== false,
+          broadcast_club_logo_size:  d.broadcast_club_logo_size  || 100,
           broadcast_show_title:      d.broadcast_show_title      !== false,
           broadcast_show_prizepool:  d.broadcast_show_prizepool  !== false,
           broadcast_show_level:      d.broadcast_show_level      !== false,
@@ -643,6 +658,7 @@ const BroadcastSettings = () => {
       await api.patch(`/tournament-days/${dayId}`, {
         ...settings,
         broadcast_bg_image_url:       settings.broadcast_bg_image_url       || null,
+        broadcast_club_logo_url:      settings.broadcast_club_logo_url      || null,
         broadcast_display_name:       settings.broadcast_display_name       || null,
         broadcast_break_youtube_url:  settings.broadcast_break_youtube_url  || null,
         broadcast_break_bg_image_url: settings.broadcast_break_bg_image_url || null,
@@ -787,6 +803,53 @@ const BroadcastSettings = () => {
                   />
                 </div>
               </div>
+
+              {/* Logo do clube — canto direito do cabeçalho, acima do relógio */}
+              <div className="bs-field-full" style={{ marginTop: '0.25rem' }}>
+                <label className="bs-label">{t('broadcastSettings.clubLogo', 'Logo do clube')}</label>
+                <span className="bs-hint">{t('broadcastSettings.clubLogoHint', 'Aparece no canto direito do telão, acima do contador. Use PNG com fundo transparente: o cabeçalho é escuro.')}</span>
+                {settings.broadcast_club_logo_url ? (
+                  <div className="bs-img-preview-wrap">
+                    <img src={settings.broadcast_club_logo_url} alt="logo" className="bs-img-preview" />
+                    <button className="bs-img-remove" onClick={() => set('broadcast_club_logo_url', '')}>×</button>
+                  </div>
+                ) : (
+                  <label className="bs-upload-zone">
+                    <input
+                      type="file" accept="image/*" className="bs-hidden"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        // Teto menor que o do fundo (2MB): a imagem viaja em base64
+                        // dentro do JSON do dia, que o telão rebusca a cada 30s.
+                        if (file.size > 512 * 1024) { toast.warning(t('broadcastSettings.clubLogoMaxSize', 'A logo precisa ter até 512KB. Acima disso, prefira colar a URL da imagem.')); return; }
+                        const reader = new FileReader();
+                        reader.onloadend = () => set('broadcast_club_logo_url', reader.result);
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    <span className="bs-upload-plus">+</span>
+                    <span className="bs-upload-main">{t('broadcastSettings.clubLogoUpload', 'Enviar a logo do clube')}</span>
+                    <span className="bs-upload-sub">{t('broadcastSettings.clubLogoUploadHint', 'PNG com fundo transparente, até 512KB')}</span>
+                  </label>
+                )}
+                <div className="bs-url-row">
+                  <span className="bs-or-label">{t('broadcastSettings.clubLogoUrlLabel', 'ou cole a URL')}</span>
+                  <input
+                    type="text"
+                    value={settings.broadcast_club_logo_url?.startsWith('data:') ? '' : settings.broadcast_club_logo_url}
+                    onChange={(e) => set('broadcast_club_logo_url', e.target.value)}
+                    placeholder="https://..."
+                    disabled={settings.broadcast_club_logo_url?.startsWith('data:')}
+                    className="bs-input"
+                  />
+                </div>
+                <SliderField
+                  label={t('broadcastSettings.clubLogoSize', 'Tamanho da logo do clube')}
+                  settingsKey="broadcast_club_logo_size" min={50} max={300}
+                  settings={settings} onChange={set}
+                />
+              </div>
             </SectionCard>
 
             <SectionCard title={t('broadcastSettings.sectionPrizepool')}>
@@ -911,6 +974,7 @@ const BroadcastSettings = () => {
               <div className="bs-toggle-grid">
                 {[
                   { key: 'broadcast_show_logo',       labelKey: 'visLogo' },
+                  { key: 'broadcast_show_club_logo',  labelKey: 'visClubLogo', padrao: 'Logo do clube' },
                   { key: 'broadcast_show_title',      labelKey: 'visTitle' },
                   { key: 'broadcast_show_prizepool',  labelKey: 'visPrizepool' },
                   { key: 'broadcast_show_level',      labelKey: 'visLevel' },
@@ -924,13 +988,13 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_show_chipcount',  labelKey: 'visChipcount' },
                   { key: 'broadcast_show_average',    labelKey: 'visAverage' },
                   { key: 'broadcast_blind_alerts_enabled', labelKey: 'blindAlertsEnabled' },
-                ].map(({ key, labelKey }) => (
+                ].map(({ key, labelKey, padrao }) => (
                   <label key={key} className={`bs-toggle ${settings[key] ? 'on' : 'off'}`}>
                     <input type="checkbox" checked={settings[key]} onChange={(e) => set(key, e.target.checked)} />
                     <span className="bs-toggle-track">
                       <span className="bs-toggle-thumb" />
                     </span>
-                    <span className="bs-toggle-label">{t(`broadcastSettings.${labelKey}`)}</span>
+                    <span className="bs-toggle-label">{padrao ? t(`broadcastSettings.${labelKey}`, padrao) : t(`broadcastSettings.${labelKey}`)}</span>
                   </label>
                 ))}
               </div>

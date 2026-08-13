@@ -39,6 +39,20 @@ const extractYouTubeId = (url) => {
   return m ? m[1] : null;
 };
 
+// ── Logo do clube (canto direito do cabeçalho, logo acima do relógio) ────────
+// A div externa fica SEMPRE montada, mesmo sem imagem: é ela que reserva os
+// 250px que mantêm o título centralizado no telão do salão.
+const ClubLogoSlot = ({ settings }) => (
+  <div
+    className="broadcast-club-logo"
+    style={{ '--club-logo-scale': (settings.clubLogoSize || 100) / 100 }}
+  >
+    {settings.showClubLogo && settings.clubLogoUrl && (
+      <img src={settings.clubLogoUrl} alt="" className="broadcast-club-logo-img" />
+    )}
+  </div>
+);
+
 // ── Prize Sidebar (right column) ─────────────────────────────────────────────
 const PrizeSidebar = ({ prizes, prizeScale = 1, labels }) => {
   const { formatCurrency } = useCurrency();
@@ -604,6 +618,9 @@ const TournamentBroadcast = () => {
     displayName: bSource?.broadcast_display_name || null,
     fontSize: bSource?.broadcast_font_size || 100,
     showLogo: bSource?.broadcast_show_logo !== false,
+    clubLogoUrl: bSource?.broadcast_club_logo_url || null,
+    showClubLogo: bSource?.broadcast_show_club_logo !== false,
+    clubLogoSize: bSource?.broadcast_club_logo_size ?? 100,
     showTitle: bSource?.broadcast_show_title !== false,
     showPrizepool: bSource?.broadcast_show_prizepool !== false,
     showLevel: bSource?.broadcast_show_level !== false,
@@ -688,7 +705,7 @@ const TournamentBroadcast = () => {
           {broadcastSettings.showTitle && (
             <div className="broadcast-title"><h1 style={{ color: colors.title, backgroundImage: 'none', WebkitTextFillColor: colors.title }}>{displayName}</h1></div>
           )}
-          <div className="broadcast-header-spacer"></div>
+          <ClubLogoSlot settings={broadcastSettings} />
         </header>
         <div className="broadcast-main">
           <div className="broadcast-completed">
@@ -787,7 +804,7 @@ const TournamentBroadcast = () => {
             <h1 style={{ color: colors.title, backgroundImage: 'none', WebkitTextFillColor: colors.title }}>{displayName}</h1>
           </div>
         )}
-        <div className="broadcast-header-spacer"></div>
+        <ClubLogoSlot settings={broadcastSettings} />
       </header>
 
       {/* Break Screen — replaces entire main area when on break */}

@@ -414,7 +414,9 @@ describe('grupos de permissão', () => {
 
   it('grupo com todas as permissões é sinalizado como total', async () => {
     await montar({
-      grupos: [{ id: 'g9', name: 'Admin', permissions: Array.from({ length: 20 }, (_, i) => `p${i}`) }],
+      // O total acompanha ALL_PERMISSIONS da tela — hoje 21 chaves, com a
+      // emissão de ticket em lote ('cashier_tickets.master').
+      grupos: [{ id: 'g9', name: 'Admin', permissions: Array.from({ length: 21 }, (_, i) => `p${i}`) }],
     });
     await irGrupos();
     expect(screen.getByText('staff.allPermissions')).toBeInTheDocument();

@@ -125,8 +125,25 @@
   }
 }
 
-.broadcast-header-spacer {
+/* Logo do clube — canto direito do cabeçalho, logo acima do relógio.
+   Ocupa o lugar do antigo espaçador: mesmo sem imagem, os 250px continuam
+   reservados para o título ficar centralizado no telão. */
+.broadcast-club-logo {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   min-width: 250px;
+}
+
+/* Base 48px = a mesma altura da logo do AceBlind, então em 100% as duas ficam
+   do mesmo tamanho. O teto em vh impede que um clube afogue o relógio. */
+.broadcast-club-logo-img {
+  height: calc(48px * var(--club-logo-scale, 1));
+  max-height: 30vh;
+  max-width: 100%;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6));
 }
 
 /* Prizepool - Bottom Right Corner — sits above ticker, shifts left if right sidebar is on */
@@ -428,8 +445,11 @@
     padding: 20px;
   }
 
-  .broadcast-header-spacer {
-    display: none;
+  /* No celular o cabeçalho vira coluna: a logo do clube continua aparecendo,
+     só perde a reserva de largura que centralizava o título. */
+  .broadcast-club-logo {
+    min-width: 0;
+    justify-content: center;
   }
 
   .broadcast-title h1 {

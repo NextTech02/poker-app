@@ -276,6 +276,65 @@ const BlindManagement = () => {
     }
   };
 
+  // ── Limpar a estrutura inteira ────────────────────────────────────────────
+  // Refazer nível a nível uma estrutura errada consome o intervalo inteiro. Em
+  // troca, não há desfazer: por isso a confirmação sugere salvar como template
+  // antes, e um dia em andamento exige uma SEGUNDA confirmação (o telão fica
+  // sem blind na frente dos jogadores).
+  const handleClearStructure = async () => {
+    if (blinds.length === 0) return;
+
+    const ok = await confirm(
+      t(
+        'blinds.confirmClearMessage',
+        'Todos os {{count}} níveis (incluindo intervalos) serão apagados permanentemente e o relógio volta ao nível 1 com 00:00. Não há como desfazer — se quiser guardar esta estrutura, salve-a como modelo antes.',
+        { count: blinds.length }
+      ),
+      {
+        title: t('blinds.confirmClearTitle', 'Apagar a estrutura inteira?'),
+        variant: 'danger',
+        confirmText: t('blinds.clearStructure', 'Limpar estrutura'),
+      }
+    );
+    if (!ok) return;
+
+    // O dia rodando é o caso caro: quem confirma precisa saber que o telão
+    // fica em branco agora, não no próximo intervalo.
+    const emAndamento =
+      tournamentDay?.status === 'active' ||
+      Boolean(tournamentDay?.timer_started_at && !tournamentDay?.is_paused);
+
+    if (emAndamento) {
+      const ok2 = await confirm(
+        t(
+          'blinds.confirmClearRunning',
+          'Este dia está EM ANDAMENTO. O telão ficará sem blinds e o relógio será zerado imediatamente. Confirma mesmo assim?'
+        ),
+        {
+          title: t('blinds.confirmClearRunningTitle', 'O dia está rodando'),
+          variant: 'danger',
+          confirmText: t('blinds.clearStructure', 'Limpar estrutura'),
+        }
+      );
+      if (!ok2) return;
+    }
+
+    try {
+      await api.delete(`/tournament-days/${dayId}/blinds`, emAndamento ? { params: { force: true } } : undefined);
+      toast.success(t('blinds.structureCleared', 'Estrutura apagada.'));
+      loadData();
+    } catch (error) {
+      console.error('Error clearing structure:', error);
+      const detail = error.response?.data?.detail;
+      // 409 = o dia virou "em andamento" entre o carregamento da tela e o
+      // clique. Mostrar o motivo do servidor evita o operador achar que a
+      // limpeza funcionou.
+      const message =
+        typeof detail === 'string' ? detail : t('blinds.clearError', 'Não foi possível apagar a estrutura.');
+      toast.error(message);
+    }
+  };
+
   const openEditModal = (blind) => {
     setEditingBlind(blind);
     setFormData({
@@ -439,6 +498,9 @@ const BlindManagement = () => {
             </Button>
             <Button variant="warning" onClick={() => openAddModal(true)}>
               {t('blinds.addBreak')}
+            </Button>
+            <Button variant="danger" disabled={blinds.length === 0} onClick={handleClearStructure}>
+              {t('blinds.clearStructure', 'Limpar estrutura')}
             </Button>
             <Button variant="secondary" onClick={() => navigate(-1)}>
               {t('common.back')}

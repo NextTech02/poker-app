@@ -77,6 +77,10 @@ const RESUMO = {
   allocations: ALOCACOES,
 };
 
+// O recálculo automático apaga e recria TODAS as faixas, então fica bloqueado
+// quando alguma já foi paga. Este resumo é o cenário "ainda dá para recalcular".
+const SEM_PAGAS = { ...RESUMO, allocations: ALOCACOES.filter((a) => !a.paid) };
+
 const DIAS = [
   { id: 'd1', day_name: 'Dia 1A', day_type: 'qualifying', buy_in: 500 },
   { id: 'd2', day_name: 'Final', day_type: 'final', buy_in: 0 },
@@ -351,11 +355,21 @@ describe('premiação reservada', () => {
 });
 
 describe('posições configuradas', () => {
-  it('lista cada posição com o percentual do pool', async () => {
+  it('lista cada posição com o percentual do POOL PAGÁVEL', async () => {
+    // Base = 38500 (pool já descontada a reserva), a mesma do "Saldo
+    // restante". Sobre o pool bruto daria 50.0% e a tela contaria duas
+    // histórias diferentes sobre o mesmo prêmio.
     await montar();
     const linha = linhaDaPosicao('1°');
     expect(within(linha).getByText('R$ 20000.00')).toBeInTheDocument();
-    expect(within(linha).getByText('50.0%')).toBeInTheDocument();
+    expect(within(linha).getByText('51.95%')).toBeInTheDocument();
+  });
+
+  it('sem reserva configurada o percentual continua o de sempre', async () => {
+    // Não-regressão da troca de base: com payable == disponível, 20000 de
+    // 40000 seguem sendo 50%.
+    await montar({ resumo: { ...RESUMO, reserved_prize_percentage: 0, reserved_amount: 0, payable_pool: 40000 } });
+    expect(within(linhaDaPosicao('1°')).getByText('50.0%')).toBeInTheDocument();
   });
 
   it('o pódio recebe destaque próprio', async () => {
@@ -383,12 +397,27 @@ describe('posições configuradas', () => {
     await montar();
     const rodape = document.querySelector('tfoot');
     expect(rodape).toHaveTextContent('R$ 35000.00');
-    expect(rodape).toHaveTextContent('87.5%');
+    // 35000 de 38500 pagáveis
+    expect(rodape).toHaveTextContent('90.91%');
+  });
+
+  it('a soma acima de 100% do pool é sinalizada no rodapé', async () => {
+    // Prometer 110% do pool não falha ao configurar — falha na hora de pagar,
+    // e quem fica sem receber é a ÚLTIMA posição da mesa final.
+    await montar({
+      resumo: {
+        ...RESUMO,
+        allocations: [{ id: 'a1', position: 1, prize_amount: 42000, paid: false }],
+      },
+    });
+    const rodape = document.querySelector('tfoot');
+    expect(rodape.querySelector('.percent-total')).toHaveClass('negative');
+    expect(rodape).toHaveTextContent('premiacao.allocationExceeds');
   });
 
   it('pool zerado não vira divisão por zero', async () => {
-    await montar({ resumo: { ...RESUMO, available_prize_pool: 0 } });
-    expect(document.querySelector('tfoot')).toHaveTextContent('0%');
+    await montar({ resumo: { ...RESUMO, available_prize_pool: 0, payable_pool: 0 } });
+    expect(document.querySelector('tfoot')).toHaveTextContent('0.0%');
   });
 });
 
@@ -437,6 +466,78 @@ describe('edição do valor de uma posição', () => {
     await userEvent.click(within(linhaDaPosicao('1°')).getByText('R$ 20000.00'));
     await userEvent.click(within(linhaDaPosicao('1°')).getByText('OK'));
     expect(await screen.findByText('premiacao.updateError')).toBeInTheDocument();
+  });
+});
+
+describe('edição do percentual de uma posição', () => {
+  /* O operador do clube pensa em percentual ("o primeiro leva 30%"), mas o
+     que fica gravado — e o que o caixa entrega — é o valor em dinheiro. A
+     edição por percentual é só um modo de entrada: nada de percentual vai
+     para a API. */
+  const abrirPercentual = async (posicao, texto) => {
+    const linha = linhaDaPosicao(posicao);
+    await userEvent.click(within(linha).getByText(texto));
+    return linhaDaPosicao(posicao);
+  };
+
+  it('digitar o percentual grava o VALOR correspondente do pool pagável', async () => {
+    await montar();
+    const linha = await abrirPercentual('1°', '51.95%');
+    const campo = within(linha).getByRole('spinbutton');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '30');
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('OK'));
+    // 30% de 38500 pagáveis = 11550 — e o corpo não leva percentual nenhum.
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t1/prizes/a1', { prize_amount: 11550 })
+    );
+  });
+
+  it('mostra em dinheiro quanto o percentual digitado vale antes de salvar', async () => {
+    // Sem a prévia, o operador só descobre o valor depois de gravar.
+    await montar();
+    const linha = await abrirPercentual('1°', '51.95%');
+    const campo = within(linha).getByRole('spinbutton');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '10');
+    expect(within(linhaDaPosicao('1°')).getByText(/R\$ 3850\.00/)).toBeInTheDocument();
+  });
+
+  it('cancelar não grava nada e devolve o percentual original', async () => {
+    await montar();
+    const linha = await abrirPercentual('1°', '51.95%');
+    const campo = within(linha).getByRole('spinbutton');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '99');
+    await userEvent.click(linhaDaPosicao('1°').querySelector('.btn-cancel'));
+    expect(within(linhaDaPosicao('1°')).getByText('51.95%')).toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('percentual em branco não dispara gravação', async () => {
+    // parseFloat('') é NaN, que vira null no JSON e o backend recusa com um
+    // erro que não explica nada ao operador.
+    await montar();
+    const linha = await abrirPercentual('1°', '51.95%');
+    await userEvent.clear(within(linha).getByRole('spinbutton'));
+    await userEvent.click(within(linhaDaPosicao('1°')).getByText('OK'));
+    await waitFor(() => expect(api.patch).not.toHaveBeenCalled());
+  });
+
+  it('posição JÁ PAGA não abre a edição do percentual', async () => {
+    await montar();
+    await userEvent.click(within(linhaDaPosicao('2°')).getByText('25.97%'));
+    expect(within(linhaDaPosicao('2°')).queryByRole('spinbutton')).toBeNull();
+  });
+
+  it('prêmio do tipo VAGA não é editável nem por valor nem por percentual', async () => {
+    // A vaga vale o buy-in do dia alvo; mexer no valor aqui a desconfiguraria.
+    await montar();
+    const linha = linhaDaPosicao('3°');
+    await userEvent.click(within(linha).getByText('R$ 5000.00'));
+    expect(within(linhaDaPosicao('3°')).queryByRole('spinbutton')).toBeNull();
+    await userEvent.click(within(linhaDaPosicao('3°')).getByText('12.99%'));
+    expect(within(linhaDaPosicao('3°')).queryByRole('spinbutton')).toBeNull();
   });
 });
 
@@ -576,8 +677,8 @@ describe('cálculo automático da estrutura', () => {
     expect(toast.error).toHaveBeenCalledWith('premiacao.noEntries');
   });
 
-  it('pool zerado não gera estrutura', async () => {
-    await montar({ resumo: { ...RESUMO, available_prize_pool: 0 } });
+  it('pool pagável zerado não gera estrutura', async () => {
+    await montar({ resumo: { ...RESUMO, available_prize_pool: 0, payable_pool: 0 } });
     await abrir();
     expect(toast.error).toHaveBeenCalledWith('premiacao.prizepoolZero');
   });
@@ -587,8 +688,17 @@ describe('cálculo automático da estrutura', () => {
     await montar();
     await abrir();
     const previa = document.querySelector('.auto-calc-table-wrap');
-    expect(within(previa).getByText('65%')).toBeInTheDocument();
-    expect(within(previa).getByText('35%')).toBeInTheDocument();
+    expect(within(previa).getAllByRole('spinbutton').map((c) => c.value))
+      .toEqual(['65', '25025', '35', '13475']);
+  });
+
+  it('a estrutura é distribuída sobre o POOL PAGÁVEL', async () => {
+    // 65% de 38500 (e não de 40000): a reserva não pode ser prometida às
+    // posições, senão o pagamento da última trava por falta de pool.
+    await montar();
+    await abrir();
+    expect(within(document.querySelector('.auto-calc-table-wrap')).getAllByRole('spinbutton')[1])
+      .toHaveValue(25025);
   });
 
   it('avisa que as posições atuais serão substituídas', async () => {
@@ -606,22 +716,32 @@ describe('cálculo automático da estrutura', () => {
   });
 
   it('aplicar envia as posições em lote', async () => {
-    await montar();
+    await montar({ resumo: SEM_PAGAS });
     await abrir();
     await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const [url, corpo] = api.post.mock.calls[0];
     expect(url).toBe('/tournaments/t1/prizes/bulk');
     expect(corpo.allocations).toHaveLength(2);
-    expect(corpo.allocations[0]).toEqual({ position: 1, prize_amount: 26000 });
+    // 65% de 38500 pagáveis; o percentual NÃO vai no corpo.
+    expect(corpo.allocations[0]).toEqual({ position: 1, prize_amount: 25025 });
   });
 
   it('erro ao aplicar aparece com o motivo', async () => {
     api.post.mockRejectedValue({ response: { data: { detail: 'Torneio encerrado' } } });
-    await montar();
+    await montar({ resumo: SEM_PAGAS });
     await abrir();
     await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
     expect(await screen.findByText('Torneio encerrado')).toBeInTheDocument();
+  });
+
+  it('torneio com prêmio JÁ PAGO não deixa recalcular', async () => {
+    // Aplicar apaga TODAS as faixas e recria: a faixa paga perderia o registro
+    // do dinheiro que já saiu do caixa, e a conferência nunca mais fecharia.
+    await montar();
+    await abrir();
+    expect(screen.getByText('premiacao.autoBlockedByPaid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'premiacao.confirmAndApply' })).toBeDisabled();
   });
 
   it('cancelar fecha sem aplicar', async () => {
@@ -630,6 +750,104 @@ describe('cálculo automático da estrutura', () => {
     await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
     expect(document.querySelector('.auto-calc-modal')).toBeNull();
     expect(api.post).not.toHaveBeenCalled();
+  });
+
+  describe('ajuste da prévia antes de aplicar', () => {
+    /* A tabela fixa é uma SUGESTÃO. O clube corta uma posição, arredonda o
+       prêmio do primeiro, decide pagar menos gente — e nada disso pode exigir
+       aplicar primeiro e corrigir faixa por faixa depois. */
+    const previa = () => document.querySelector('.auto-calc-table-wrap');
+    const campos = () => within(previa()).getAllByRole('spinbutton');
+    const campoPct = (linha) => campos()[linha * 2];
+    const campoValor = (linha) => campos()[linha * 2 + 1];
+    const digitar = async (campo, texto) => {
+      await userEvent.clear(campo);
+      await userEvent.type(campo, texto);
+    };
+
+    it('mudar o percentual recalcula o valor SÓ daquela linha', async () => {
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await digitar(campoPct(0), '50');
+      expect(campoValor(0)).toHaveValue(19250);   // 50% de 38500
+      expect(campoValor(1)).toHaveValue(13475);   // a 2ª não é rebalanceada
+    });
+
+    it('mudar o valor recalcula o percentual exibido', async () => {
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await digitar(campoValor(0), '19250');
+      expect(campoPct(0)).toHaveValue(50);
+    });
+
+    it('aplicar envia os valores EDITADOS, sem percentual no corpo', async () => {
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await digitar(campoValor(0), '10000');
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
+      await waitFor(() => expect(api.post).toHaveBeenCalled());
+      const corpo = api.post.mock.calls[0][1];
+      expect(corpo.allocations[0]).toEqual({ position: 1, prize_amount: 10000 });
+    });
+
+    it('restaurar sugestão descarta as edições', async () => {
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await digitar(campoPct(0), '10');
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.restoreSuggestion' }));
+      expect(campoPct(0)).toHaveValue(65);
+      expect(campoValor(0)).toHaveValue(25025);
+    });
+
+    it('soma acima do pool pagável impede aplicar', async () => {
+      // Distribuir mais do que existe não falha aqui: falha na hora de pagar,
+      // e quem fica sem receber é a última posição da fila.
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await digitar(campoValor(0), '40000');
+      expect(document.querySelector('.auto-calc-over')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'premiacao.confirmAndApply' })).toBeDisabled();
+    });
+
+    it('sobrar dinheiro apenas avisa, sem travar', async () => {
+      // Pagar menos que o pool é decisão do clube (ex.: guardar para a etapa).
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await digitar(campoValor(0), '1000');
+      expect(document.querySelector('.auto-calc-leftover')).toHaveTextContent('R$ 24025.00');
+      expect(screen.getByRole('button', { name: 'premiacao.confirmAndApply' })).not.toBeDisabled();
+    });
+
+    it('campo em branco não vira prêmio NaN', async () => {
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await userEvent.clear(campoValor(0));
+      expect(screen.getByRole('button', { name: 'premiacao.confirmAndApply' })).toBeDisabled();
+    });
+
+    it('remover uma linha reduz as posições enviadas', async () => {
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      await userEvent.click(within(previa()).getAllByTitle('premiacao.removeTitle')[0]);
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
+      await waitFor(() => expect(api.post).toHaveBeenCalled());
+      const corpo = api.post.mock.calls[0][1];
+      expect(corpo.allocations).toEqual([{ position: 2, prize_amount: 13475 }]);
+    });
+
+    it('dá para acrescentar uma posição à prévia', async () => {
+      await montar({ resumo: SEM_PAGAS });
+      await abrir();
+      // Abre espaço no pool antes: a 3ª posição precisa caber no pagável.
+      await digitar(campoValor(0), '20000');
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.addPreviewRow' }));
+      await digitar(campoValor(2), '500');
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
+      await waitFor(() => expect(api.post).toHaveBeenCalled());
+      const corpo = api.post.mock.calls[0][1];
+      expect(corpo.allocations).toHaveLength(3);
+      expect(corpo.allocations[2]).toEqual({ position: 3, prize_amount: 500 });
+    });
   });
 });
 

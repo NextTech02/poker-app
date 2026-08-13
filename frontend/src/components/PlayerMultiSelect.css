@@ -1,0 +1,108 @@
+/* Seleção múltipla de jogadores (emissão de ticket em lote) */
+.pms-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.pms-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.pms-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.pms-chip-remove {
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.pms-chip-remove:hover {
+  color: var(--danger-color, #ef4444);
+}
+
+.pms-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.pms-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.pms-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pms-list {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--card-bg, var(--surface));
+  border: 1px solid var(--border-light, var(--border-color));
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.pms-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.pms-option:hover {
+  background: rgba(114, 51, 248, 0.12);
+}
+
+.pms-option.selected {
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.pms-check {
+  width: 1rem;
+  display: inline-block;
+}
+
+.pms-empty {
+  padding: 0.65rem 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}

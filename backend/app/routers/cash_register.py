@@ -12,6 +12,8 @@ from app.models.cash_register import (
     SangriaTransactionCreate,
     CashDashboard,
     StageCashSummary,
+    StageCashScopedSummary,
+    StagePaymentBreakdown,
     SangriaResponse
 )
 from app.services.cash_register_service import CashRegisterService
@@ -47,6 +49,27 @@ def get_stage_pending_rake(
     pending = CashRegisterService.get_stage_pending_rake(stage_id)
     balance = stage_cash.current_balance if stage_cash else 0
     return {"stage_id": stage_id, "pending_rake": float(pending), "stage_balance": float(balance)}
+
+
+@router.get("/stage/{stage_id}/summary", response_model=StageCashScopedSummary)
+def get_stage_cash_summary(
+    stage_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Fechamento desta etapa: quanto ela mandou ao caixa geral e o rake que
+    gerou/entregou. O saldo do caixa geral continua sendo da organização
+    inteira (/cash/general) — despesas e pagamentos entram nele sem etapa."""
+    return CashRegisterService.get_stage_cash_summary(stage_id)
+
+
+@router.get("/stage/{stage_id}/payment-methods", response_model=StagePaymentBreakdown)
+def get_stage_payment_methods(
+    stage_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Composição das ENTRADAS da etapa por método de pagamento — diz quanto do
+    caixa é dinheiro físico e quanto já entrou por PIX/cartão."""
+    return CashRegisterService.get_stage_totals_by_payment_method(stage_id)
 
 
 @router.get("/stage", response_model=List[StageCashSummary])

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -6,6 +6,9 @@ import EmptyState from '../components/EmptyState';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useStage } from '../contexts/StageContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { methodLabel } from '../utils/paymentMethodLabels';
 import { useTranslation } from 'react-i18next';
 import { offlineWrite } from '../offline/apiOffline';
 import { applySangria } from '../offline/domainRules';
@@ -16,9 +19,16 @@ const CaixaGeral = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
-  const [stages, setStages] = useState([]);
-  const [selectedStage, setSelectedStage] = useState('');
+  // A etapa é a do app (barra/sidebar), não um seletor só desta tela: dois
+  // seletores concorrentes faziam o operador sangrar a etapa errada — a tela
+  // mostrava uma e o header X-Stage-ID mandava outra.
+  const { selectedStage } = useStage();
+  const { methods: paymentMethods } = usePaymentMethods();
+  const stageId = selectedStage?.id || '';
+
   const [stageCash, setStageCash] = useState(null);
+  const [stageSummary, setStageSummary] = useState(null);
+  const [paymentBreakdown, setPaymentBreakdown] = useState(null);
   const [generalCash, setGeneralCash] = useState(null);
   const [rake, setRake] = useState(null);
   const [sangriaHistory, setSangriaHistory] = useState([]);
@@ -31,69 +41,61 @@ const CaixaGeral = () => {
     notes: ''
   });
 
-  const loadPendingRake = async (stageId) => {
+  const loadPendingRake = async (id) => {
     try {
-      const res = await api.get(`/cash/stage/${stageId}/pending-rake`);
+      const res = await api.get(`/cash/stage/${id}/pending-rake`);
       const pending = parseFloat(res.data?.pending_rake) || 0;
       setPendingRake(pending);
-      putEntity('pending_rake', { id: stageId, pending }); // hidrata p/ sangria offline
+      putEntity('pending_rake', { id, pending }); // hidrata p/ sangria offline
     } catch (e) {
       setPendingRake(0);
     }
   };
 
-  useEffect(() => {
-    loadStages();
-    loadGeneralData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (selectedStage) {
-      loadStageCash();
-      loadSangriaHistory();
-      loadPendingRake(selectedStage);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStage]);
-
-  const loadStages = async () => {
+  const loadStageCash = useCallback(async (id) => {
     try {
-      // ISSUE-008 fix: backend doesn't parse comma-separated status values,
-      // so the previous `?status=active,upcoming` silently filtered out most
-      // stages. Fetch all stages and filter out terminal ones client-side.
-      const response = await api.get('/stages');
-      const openStages = response.data.filter(
-        (s) => s.status !== 'completed' && s.status !== 'cancelled'
-      );
-      setStages(openStages);
-      if (openStages.length > 0 && !selectedStage) {
-        setSelectedStage(openStages[0].id);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar etapas:', error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        toast.error(t('generalCash.sessionExpired'));
-        window.location.href = '/login';
-      }
-    }
-  };
-
-  const loadStageCash = async () => {
-    if (!selectedStage) return;
-
-    try {
-      const response = await api.get(`/cash/stage/${selectedStage}`);
+      const response = await api.get(`/cash/stage/${id}`);
       setStageCash(response.data);
       // hidrata o caixa da etapa na réplica (chave = stage_id) p/ sangria offline
-      if (response.data) putEntity('stage_cash_register', { ...response.data, id: selectedStage });
+      if (response.data) putEntity('stage_cash_register', { ...response.data, id });
     } catch (error) {
       console.error('Erro ao carregar caixa da etapa:', error);
       setStageCash(null);
     }
-  };
+  }, []);
 
-  const loadGeneralData = async () => {
+  // Resumo da etapa: quanto ELA mandou pro caixa geral e o rake que gerou.
+  // Falhar aqui não pode apagar os outros cartões da tela.
+  const loadStageSummary = useCallback(async (id) => {
+    try {
+      const response = await api.get(`/cash/stage/${id}/summary`);
+      setStageSummary(response.data);
+    } catch (error) {
+      setStageSummary(null);
+    }
+  }, []);
+
+  // Composição das entradas por forma de pagamento: é o que diz quanto do
+  // caixa deve estar em espécie na gaveta antes de decidir o valor da sangria.
+  const loadPaymentBreakdown = useCallback(async (id) => {
+    try {
+      const response = await api.get(`/cash/stage/${id}/payment-methods`);
+      setPaymentBreakdown(response.data);
+    } catch (error) {
+      setPaymentBreakdown(null);
+    }
+  }, []);
+
+  const loadSangriaHistory = useCallback(async (id) => {
+    try {
+      const response = await api.get(`/cash/sangria/history?stage_id=${id}&limit=10`);
+      setSangriaHistory(response.data);
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+    }
+  }, []);
+
+  const loadGeneralData = useCallback(async () => {
     try {
       const [generalRes, rakeRes] = await Promise.all([
         api.get('/cash/general'),
@@ -108,23 +110,34 @@ const CaixaGeral = () => {
         window.location.href = '/login';
       }
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const loadSangriaHistory = async () => {
-    if (!selectedStage) return;
+  useEffect(() => {
+    loadGeneralData();
+  }, [loadGeneralData]);
 
-    try {
-      const response = await api.get(`/cash/sangria/history?stage_id=${selectedStage}&limit=10`);
-      setSangriaHistory(response.data);
-    } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
+  useEffect(() => {
+    if (!stageId) {
+      setStageCash(null);
+      setStageSummary(null);
+      setPaymentBreakdown(null);
+      setSangriaHistory([]);
+      setPendingRake(0);
+      return;
     }
-  };
+    loadStageCash(stageId);
+    loadStageSummary(stageId);
+    loadPaymentBreakdown(stageId);
+    loadSangriaHistory(stageId);
+    loadPendingRake(stageId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageId, loadStageCash, loadStageSummary, loadPaymentBreakdown, loadSangriaHistory]);
 
   const handleSangriaSubmit = async (e) => {
     e.preventDefault();
 
-    if (!stageCash || !selectedStage) {
+    if (!stageCash || !stageId) {
       toast.warning(t('generalCash.selectStageFirst'));
       return;
     }
@@ -141,10 +154,9 @@ const CaixaGeral = () => {
     }
 
     try {
-      const stage = stages.find(s => s.id === selectedStage);
       const sangriaData = {
-        stage_id: selectedStage,
-        stage_name: stage.name,
+        stage_id: stageId,
+        stage_name: selectedStage.name,
         amount: amount,
         // Rake é calculado no backend a partir dos rakes por transação; enviamos
         // o % efetivo apenas por compatibilidade do payload (o backend ignora).
@@ -156,7 +168,7 @@ const CaixaGeral = () => {
       const body = { ...sangriaData, client_mutation_id: cmid };
       const response = await offlineWrite({
         kind: 'sangria', method: 'post', url: '/cash/sangria', body,
-        clientMutationId: cmid, meta: { kind: 'sangria', stage: stage.name, amount },
+        clientMutationId: cmid, meta: { kind: 'sangria', stage: selectedStage.name, amount },
         synthetic: { message: t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar') },
         applyLocal: () => applySangria(body),
       });
@@ -171,10 +183,12 @@ const CaixaGeral = () => {
       setShowSangriaModal(false);
 
       // Reload all data
-      loadStageCash();
+      loadStageCash(stageId);
+      loadStageSummary(stageId);
+      loadPaymentBreakdown(stageId);
       loadGeneralData();
-      loadSangriaHistory();
-      loadPendingRake(selectedStage);
+      loadSangriaHistory(stageId);
+      loadPendingRake(stageId);
 
     } catch (error) {
       console.error('Erro ao realizar sangria:', error);
@@ -204,6 +218,36 @@ const CaixaGeral = () => {
     return { rakeAmount, netAmount, effectivePct };
   };
 
+  // Método sem cadastro (desativado/apagado) cai no próprio code: melhor um
+  // código cru do que uma linha sem nome no fechamento.
+  const rotuloMetodo = (code) => {
+    if (!code) return t('generalCash.paymentUnknown', 'Não informado');
+    const cadastrado = (paymentMethods || []).find((m) => m.code === code);
+    return methodLabel(t, cadastrado || { code });
+  };
+
+  const metodos = paymentBreakdown?.methods || [];
+
+  // Sem etapa (ou sem resumo) o número da etapa não existe. Mostrar zero seria
+  // mentira: diria que esta etapa não mandou nada ao caixa geral.
+  const valorDaEtapa = (campo) =>
+    stageId && stageSummary ? formatCurrency(stageSummary[campo]) : '--';
+
+  const listaDeMetodos = (
+    <div className="payment-breakdown">
+      {metodos.map((m) => (
+        <div className="payment-breakdown-item" key={m.code || '__sem_metodo'}>
+          <span>{rotuloMetodo(m.code)}</span>
+          <strong>{formatCurrency(m.total)}</strong>
+        </div>
+      ))}
+      <div className="payment-breakdown-item total">
+        <span>{t('generalCash.paymentMethodTotal', 'Total das entradas')}</span>
+        <strong>{formatCurrency(paymentBreakdown?.total)}</strong>
+      </div>
+    </div>
+  );
+
   return (
     <div className="app-container">
       <Sidebar />
@@ -215,25 +259,15 @@ const CaixaGeral = () => {
           </div>
         </div>
 
-        {/* Stage Selector */}
-        <Card className="stage-selector-card">
-          <div className="stage-selector">
-            <label htmlFor="stage-select">{t('generalCash.selectStageLabel')}</label>
-            <select
-              id="stage-select"
-              value={selectedStage}
-              onChange={(e) => setSelectedStage(e.target.value)}
-              className="stage-select-input"
-            >
-              <option value="">{t('generalCash.selectStageOption')}</option>
-              {stages.map(stage => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.name} - {stage.location}
-                </option>
-              ))}
-            </select>
-          </div>
-        </Card>
+        {!stageId && (
+          <EmptyState
+            icon={null}
+            title={t('generalCash.noStageSelected', 'Nenhuma etapa selecionada')}
+            subtitle={t('generalCash.noStageSelectedHint', 'O caixa é conferido etapa por etapa. Escolha a etapa em Etapas para ver o caixa do dia e sangrar.')}
+            ctaLabel={t('generalCash.goToStages', 'Ir para Etapas')}
+            onCta={() => { window.location.href = '/etapas'; }}
+          />
+        )}
 
         {/* Cash Overview */}
         <div className="stats-grid">
@@ -265,33 +299,70 @@ const CaixaGeral = () => {
             )}
           </Card>
 
-          {/* General Cash (Caixa Geral) */}
+          {/* Caixa Geral — o que ESTA etapa mandou, com o total do clube ao lado.
+              Não dá para decompor o saldo do caixa geral por etapa: despesas,
+              outras receitas e pagamentos de funcionários entram nele sem
+              guardar de que etapa vieram. Por isso os dois rótulos são
+              explícitos — sem eles o cliente acha que os números não fecham. */}
           <Card className="stat-card general-cash-card">
             <div className="stat-header">
-              <h3>{t('generalCash.generalCashTitle')}</h3>
+              <h3>{t('generalCash.sentToGeneralStage', 'Enviado ao caixa geral (esta etapa)')}</h3>
             </div>
-            {generalCash ? (
-              <div className="stat-amount">{formatCurrency(generalCash.current_balance)}</div>
-            ) : (
-              <div className="loading">{t('common.loading')}</div>
-            )}
+            <div className="stat-amount">{valorDaEtapa('net_to_general')}</div>
+            <div className="stat-details">
+              <div className="stat-detail-item">
+                <span>{t('generalCash.generalCashClubTotal', 'Caixa geral do clube (total)')}</span>
+                <span>{generalCash ? formatCurrency(generalCash.current_balance) : t('common.loading')}</span>
+              </div>
+              <div className="stat-detail-item">
+                <span>{t('generalCash.stageSangriaCount', 'Sangrias desta etapa')}</span>
+                <span>{stageId && stageSummary ? stageSummary.sangria_count : '--'}</span>
+              </div>
+            </div>
           </Card>
 
           {/* Rake */}
           <Card className="stat-card rake-card">
             <div className="stat-header">
-              <h3>{t('generalCash.accumulatedRake')}</h3>
+              <h3>{t('generalCash.rakeStage', 'Rake extraído (esta etapa)')}</h3>
             </div>
-            {rake ? (
-              <div className="stat-amount rake-amount">{formatCurrency(rake.total_rake)}</div>
-            ) : (
-              <div className="loading">{t('common.loading')}</div>
-            )}
+            <div className="stat-amount rake-amount">{valorDaEtapa('rake_extracted')}</div>
+            <div className="stat-details">
+              <div className="stat-detail-item">
+                <span>{t('generalCash.rakeGeneratedStage', 'Rake gerado nas entradas')}</span>
+                <span>{valorDaEtapa('rake_generated')}</span>
+              </div>
+              <div className="stat-detail-item">
+                <span>{t('generalCash.accumulatedRakeClub', 'Rake acumulado do clube')}</span>
+                <span>{rake ? formatCurrency(rake.total_rake) : t('common.loading')}</span>
+              </div>
+            </div>
           </Card>
         </div>
 
+        {/* Entradas por método de pagamento — o cliente confere o caixa sem
+            precisar abrir a sangria. */}
+        {stageId && (
+          <Card title={t('generalCash.byPaymentMethod', 'Entradas por forma de pagamento')}>
+            {metodos.length === 0 ? (
+              <EmptyState
+                icon={null}
+                title={t('generalCash.noPaymentBreakdown', 'Nenhuma entrada registrada nesta etapa')}
+                subtitle={t('generalCash.noPaymentBreakdownHint', 'Assim que houver buy-in, rebuy ou add-on, a composição aparece aqui.')}
+              />
+            ) : (
+              <>
+                {listaDeMetodos}
+                <p className="payment-breakdown-note">
+                  {t('generalCash.paymentBreakdownNote', 'São as ENTRADAS da etapa (bruto). O saldo do caixa já teve as sangrias descontadas, então os dois valores não coincidem depois da primeira sangria.')}
+                </p>
+              </>
+            )}
+          </Card>
+        )}
+
         {/* Sangria History */}
-        {selectedStage && (
+        {stageId && (
           <Card title={t('generalCash.sangriaHistory')}>
             {sangriaHistory.length === 0 ? (
               <EmptyState
@@ -344,7 +415,7 @@ const CaixaGeral = () => {
                 <div className="sangria-info">
                   <div className="info-item">
                     <span>{t('generalCash.stageLabel')}</span>
-                    <strong>{stages.find(s => s.id === selectedStage)?.name}</strong>
+                    <strong>{selectedStage?.name}</strong>
                   </div>
                   <div className="info-item">
                     <span>{t('generalCash.availableBalanceLabel')}</span>
@@ -375,6 +446,15 @@ const CaixaGeral = () => {
                   </div>
                   <small>{t('generalCash.rakeAutoHint', 'Calculado a partir do rake dos tipos de buy das entradas desta etapa.')}</small>
                 </div>
+
+                {/* Antes de escolher o valor, o operador precisa saber quanto do
+                    caixa é dinheiro na gaveta e quanto entrou por PIX/cartão. */}
+                {metodos.length > 0 && (
+                  <div className="sangria-payment-breakdown">
+                    <h4>{t('generalCash.byPaymentMethod', 'Entradas por forma de pagamento')}</h4>
+                    {listaDeMetodos}
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label htmlFor="notes">{t('generalCash.notesOptionalLabel')}</label>

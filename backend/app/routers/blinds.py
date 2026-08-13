@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List
 from uuid import UUID
 from datetime import datetime, timezone
 
 from ..auth.jwt import get_current_user
+from ..auth.permissions import require_permission
 from ..database import supabase
 from ..models.blind import BlindCreateRequest, BlindUpdate, BlindResponse
 
@@ -366,3 +367,79 @@ async def delete_blind_for_day(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting blind: {str(e)}"
         )
+
+
+@router.delete("/tournament-days/{tournament_day_id}/blinds", status_code=status.HTTP_200_OK)
+async def delete_all_blinds_for_day(
+    tournament_day_id: UUID,
+    force: bool = Query(False, description="Confirma a limpeza mesmo com o dia em andamento"),
+    current_user: dict = Depends(require_permission("blinds"))
+):
+    """Apaga a estrutura de blinds INTEIRA de um dia e devolve o relógio ao zero.
+
+    Refazer nível a nível uma estrutura cadastrada errada consome o intervalo
+    inteiro; por isso a limpeza em massa existe. Não há desfazer: quem quiser
+    guardar a estrutura antiga precisa salvá-la como template ANTES.
+    """
+
+    # Verify tournament day exists
+    day_response = supabase.table("tournament_days")\
+        .select("id, tournament_id, status, current_level, elapsed_time, is_paused, timer_started_at")\
+        .eq("id", str(tournament_day_id))\
+        .execute()
+
+    if not day_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament day not found"
+        )
+
+    day = day_response.data[0]
+
+    # Dia em andamento = mesa jogando. Apagar a estrutura aqui deixa o telão
+    # sem blind e o relógio em 00:00 na frente dos jogadores, então exige uma
+    # confirmação extra (?force=true) em vez de acontecer num clique só.
+    em_andamento = day.get("status") == "active" or bool(
+        day.get("timer_started_at") and not day.get("is_paused")
+    )
+    if em_andamento and not force:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "O dia está em andamento. Apagar a estrutura agora deixa o telão "
+                "sem blinds e zera o relógio. Repita com force=true para confirmar."
+            )
+        )
+
+    try:
+        response = supabase.table("blinds")\
+            .delete()\
+            .eq("tournament_day_id", str(tournament_day_id))\
+            .execute()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting blinds: {str(e)}"
+        )
+
+    deleted = len(response.data or [])
+
+    # Sem zerar o relógio, o dia seguiria com o tempo corrido de uma estrutura
+    # que não existe mais — e o primeiro nível recadastrado já nasceria
+    # "vencido". Só mexe no relógio se algo foi mesmo apagado, para um clique
+    # sobre estrutura vazia não virar um reset silencioso do cronômetro.
+    timer_reset = False
+    if deleted:
+        supabase.table("tournament_days")\
+            .update({
+                "current_level": 1,
+                "elapsed_time": 0,
+                "manual_time_adjustment": 0,
+                "is_paused": True,
+                "timer_started_at": None
+            })\
+            .eq("id", str(tournament_day_id))\
+            .execute()
+        timer_reset = True
+
+    return {"deleted": deleted, "timer_reset": timer_reset}

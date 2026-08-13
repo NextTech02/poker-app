@@ -207,6 +207,211 @@ class TestRakePendente:
         assert CashRegisterService.get_stage_pending_rake(STAGE) == Decimal("110.00")
 
 
+OUTRA_ETAPA = "22222222-2222-2222-2222-222222222222"
+
+
+def _sangria_row(id_, amount, rake, net, stage_id=STAGE):
+    return {
+        "id": id_, "stage_id": stage_id, "stage_name": "Etapa", "amount": amount,
+        "rake_percentage": "20.00", "rake_amount": rake, "net_amount": net,
+        "notes": None, "created_by": "u1",
+        "created_at": "2026-06-08T00:00:00Z", "updated_at": "2026-06-08T00:00:00Z",
+    }
+
+
+class TestResumoDaEtapa:
+    """O clube fecha etapa por etapa, mas o caixa geral e o rake acumulado sao
+    numeros da organizacao inteira. O resumo por etapa e o que separa 'quanto
+    ESTA etapa mandou pro caixa geral' de 'quanto tem no caixa geral' — sem
+    isso o operador le o total do clube achando que e o da noite dele."""
+
+    def _mundo_resumo(self):
+        tabelas = _mundo(saldo="1000.00")
+        tabelas["tournaments"] = [
+            {"id": "t1", "stage_id": STAGE},
+            {"id": "t9", "stage_id": OUTRA_ETAPA},
+        ]
+        tabelas["transactions"] = [
+            {"id": "x1", "tournament_id": "t1", "type": "buy_in", "amount": "500.00", "rake_amount": "100.00"},
+            {"id": "x2", "tournament_id": "t1", "type": "rebuy", "amount": "200.00", "rake_amount": "40.00"},
+            # premio pago sai do caixa: nao gera rake nem entra na conta
+            {"id": "x3", "tournament_id": "t1", "type": "prize", "amount": "300.00", "rake_amount": "999.00"},
+            # entrada de OUTRA etapa
+            {"id": "x4", "tournament_id": "t9", "type": "buy_in", "amount": "800.00", "rake_amount": "160.00"},
+        ]
+        tabelas["sangria_transactions"] = [
+            _sangria_row("s1", "300.00", "60.00", "240.00"),
+            _sangria_row("s2", "100.00", "20.00", "80.00"),
+            _sangria_row("s9", "999.00", "199.00", "800.00", stage_id=OUTRA_ETAPA),
+        ]
+        return tabelas
+
+    def test_soma_apenas_as_sangrias_desta_etapa(self, monkeypatch):
+        _fake(monkeypatch, self._mundo_resumo())
+        r = CashRegisterService.get_stage_cash_summary(STAGE)
+        assert r.total_sangrias == Decimal("400.00")
+        assert r.sangria_count == 2
+        assert r.rake_extracted == Decimal("80.00")
+        # 240 + 80: e o que ESTA etapa mandou para o caixa geral
+        assert r.net_to_general == Decimal("320.00")
+
+    def test_rake_gerado_ignora_premio_e_outras_etapas(self, monkeypatch):
+        _fake(monkeypatch, self._mundo_resumo())
+        r = CashRegisterService.get_stage_cash_summary(STAGE)
+        # 100 (buy_in) + 40 (rebuy); o premio e a etapa vizinha ficam de fora
+        assert r.rake_generated == Decimal("140.00")
+
+    def test_pendente_e_o_gerado_menos_o_extraido(self, monkeypatch):
+        _fake(monkeypatch, self._mundo_resumo())
+        r = CashRegisterService.get_stage_cash_summary(STAGE)
+        assert r.pending_rake == Decimal("60.00")
+
+    def test_pendente_nunca_fica_negativo(self, monkeypatch):
+        """Sangria manual antiga pode ter extraido mais rake do que as entradas
+        registram; um pendente negativo viraria rake NEGATIVO na proxima."""
+        tabelas = _mundo(saldo="1000.00")
+        tabelas["transactions"] = []
+        tabelas["sangria_transactions"] = [_sangria_row("s1", "500.00", "300.00", "200.00")]
+        _fake(monkeypatch, tabelas)
+        assert CashRegisterService.get_stage_cash_summary(STAGE).pending_rake == Decimal("0")
+
+    def test_traz_o_saldo_do_caixa_da_etapa(self, monkeypatch):
+        _fake(monkeypatch, self._mundo_resumo())
+        assert CashRegisterService.get_stage_cash_summary(STAGE).current_balance == Decimal("1000.00")
+
+    def test_etapa_sem_nada_devolve_zeros(self, monkeypatch):
+        tabelas = _mundo()
+        tabelas["stage_cash_register"] = []
+        tabelas["tournaments"] = []
+        _fake(monkeypatch, tabelas)
+        r = CashRegisterService.get_stage_cash_summary(STAGE)
+        assert r.current_balance == Decimal("0")
+        assert r.sangria_count == 0
+        assert r.net_to_general == Decimal("0")
+        assert r.rake_generated == Decimal("0")
+
+    def test_rpc_e_fallback_devolvem_o_mesmo(self, monkeypatch):
+        """A RPC existe so para poupar round-trip; se ela divergir do calculo em
+        Python, o mesmo caixa passa a mostrar numeros diferentes conforme a
+        migracao ter rodado ou nao."""
+        _fake(monkeypatch, self._mundo_resumo())
+        pelo_fallback = CashRegisterService.get_stage_cash_summary(STAGE)
+
+        fake = _fake(monkeypatch, self._mundo_resumo())
+        fake.rpcs = {"get_stage_cash_summary": [{
+            "total_sangrias": "400.00", "sangria_count": 2, "rake_extracted": "80.00",
+            "net_to_general": "320.00", "rake_generated": "140.00",
+        }]}
+        pela_rpc = CashRegisterService.get_stage_cash_summary(STAGE)
+
+        assert pela_rpc == pelo_fallback
+
+    def test_quando_existe_a_rpc_e_ela_que_responde(self, monkeypatch):
+        """Prova que o caminho da RPC e mesmo exercitado: com ela registrada, o
+        resultado tem que vir dela, nao da soma em Python."""
+        fake = _fake(monkeypatch, self._mundo_resumo())
+        fake.rpcs = {"get_stage_cash_summary": [{
+            "total_sangrias": "777.00", "sangria_count": 7, "rake_extracted": "7.00",
+            "net_to_general": "770.00", "rake_generated": "70.00",
+        }]}
+        r = CashRegisterService.get_stage_cash_summary(STAGE)
+        assert r.total_sangrias == Decimal("777.00")
+        assert r.sangria_count == 7
+        assert ("get_stage_cash_summary", {"p_stage_id": STAGE}) in fake.rpc_calls
+
+
+class TestEntradasPorMetodo:
+    """Quanto do caixa da etapa e dinheiro na gaveta e quanto ja entrou por
+    PIX/cartao. O trigger do caixa soma toda entrada independente do metodo,
+    entao sem essa quebra o operador confere a gaveta contra um numero que
+    inclui dinheiro que nunca passou por ela."""
+
+    def _mundo_metodos(self):
+        tabelas = _mundo()
+        tabelas["tournaments"] = [
+            {"id": "t1", "stage_id": STAGE},
+            {"id": "t9", "stage_id": OUTRA_ETAPA},
+        ]
+        tabelas["transactions"] = [
+            {"id": "x1", "tournament_id": "t1", "type": "buy_in", "amount": "100.00", "payment_method": "cash"},
+            {"id": "x2", "tournament_id": "t1", "type": "rebuy", "amount": "50.00", "payment_method": "cash"},
+            {"id": "x3", "tournament_id": "t1", "type": "addon", "amount": "300.00", "payment_method": "pix"},
+            {"id": "x4", "tournament_id": "t1", "type": "prize", "amount": "900.00", "payment_method": "cash"},
+            {"id": "x5", "tournament_id": "t9", "type": "buy_in", "amount": "700.00", "payment_method": "cash"},
+        ]
+        return tabelas
+
+    def test_agrupa_por_metodo_somando_e_contando(self, monkeypatch):
+        _fake(monkeypatch, self._mundo_metodos())
+        r = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+        por_code = {m.code: m for m in r.methods}
+        assert por_code["cash"].total == Decimal("150.00")
+        assert por_code["cash"].count == 2
+        assert por_code["pix"].total == Decimal("300.00")
+        assert r.total == Decimal("450.00")
+
+    def test_premio_pago_nao_entra(self, monkeypatch):
+        # Prêmio SAI do caixa; somá-lo como entrada dobraria o dinheiro contado.
+        _fake(monkeypatch, self._mundo_metodos())
+        r = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+        assert r.total == Decimal("450.00")
+
+    def test_entrada_de_outra_etapa_nao_entra(self, monkeypatch):
+        _fake(monkeypatch, self._mundo_metodos())
+        r = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+        assert all(m.total != Decimal("700.00") for m in r.methods)
+
+    def test_maior_valor_vem_primeiro(self, monkeypatch):
+        # É a ordem em que o operador confere: o balde grande primeiro.
+        _fake(monkeypatch, self._mundo_metodos())
+        r = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+        assert [m.code for m in r.methods] == ["pix", "cash"]
+
+    def test_metodo_nulo_fica_num_balde_proprio(self, monkeypatch):
+        """Entrada antiga, sem metodo gravado. Jogar em 'dinheiro' faria o
+        operador procurar na gaveta um valor que pode ter entrado por PIX."""
+        tabelas = self._mundo_metodos()
+        tabelas["transactions"].append(
+            {"id": "x6", "tournament_id": "t1", "type": "buy_in", "amount": "20.00", "payment_method": None}
+        )
+        _fake(monkeypatch, tabelas)
+        r = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+        por_code = {m.code: m for m in r.methods}
+        assert por_code[None].total == Decimal("20.00")
+        assert por_code["cash"].total == Decimal("150.00")
+
+    def test_etapa_sem_torneio_devolve_lista_vazia(self, monkeypatch):
+        tabelas = _mundo()
+        tabelas["tournaments"] = []
+        _fake(monkeypatch, tabelas)
+        r = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+        assert r.methods == []
+        assert r.total == Decimal("0")
+
+    def test_rpc_e_fallback_devolvem_o_mesmo(self, monkeypatch):
+        _fake(monkeypatch, self._mundo_metodos())
+        pelo_fallback = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+
+        fake = _fake(monkeypatch, self._mundo_metodos())
+        fake.rpcs = {"get_stage_totals_by_payment_method": [
+            {"payment_method": "pix", "total": "300.00", "entries": 1},
+            {"payment_method": "cash", "total": "150.00", "entries": 2},
+        ]}
+        pela_rpc = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+
+        assert pela_rpc == pelo_fallback
+
+    def test_quando_existe_a_rpc_e_ela_que_responde(self, monkeypatch):
+        fake = _fake(monkeypatch, self._mundo_metodos())
+        fake.rpcs = {"get_stage_totals_by_payment_method": [
+            {"payment_method": "yape", "total": "999.00", "entries": 3},
+        ]}
+        r = CashRegisterService.get_stage_totals_by_payment_method(STAGE)
+        assert [m.code for m in r.methods] == ["yape"]
+        assert r.total == Decimal("999.00")
+        assert ("get_stage_totals_by_payment_method", {"p_stage_id": STAGE}) in fake.rpc_calls
+
+
 class TestPainel:
     def test_reune_os_tres_saldos_e_o_historico(self, monkeypatch):
         tabelas = _mundo(saldo="800.00", geral="1200.00", rake="300.00")

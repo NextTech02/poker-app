@@ -907,11 +907,16 @@ class TournamentDayService:
 
         blinds = blinds_response.data
 
-        # If no day-specific blinds, get tournament blinds
+        # If no day-specific blinds, get tournament blinds.
+        # Só as linhas LEGADAS (sem dia), porque todo blind criado por dia
+        # também grava o tournament_id: sem esse recorte, um dia com a
+        # estrutura vazia passaria a exibir no telão os blinds de OUTRO dia do
+        # mesmo torneio — errado e sem ninguém perceber.
         if not blinds or len(blinds) == 0:
             blinds_response = supabase.table("blinds")\
                 .select("*")\
                 .eq("tournament_id", tournament_id)\
+                .is_("tournament_day_id", "null")\
                 .order("level")\
                 .execute()
             blinds = blinds_response.data

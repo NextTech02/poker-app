@@ -3,7 +3,7 @@ Cash Register Models
 Pydantic models for cash management system (stage cash, general cash, rake, and sangria)
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from decimal import Decimal
 
@@ -90,6 +90,52 @@ class CashDashboard(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class StageCashScopedSummary(BaseModel):
+    """Números do caixa restritos a UMA etapa.
+
+    O clube fecha etapa por etapa, mas `general_cash_register` é um saldo único
+    da organização: despesas, outras receitas e pagamentos de funcionários
+    mexem nele sem guardar de qual etapa vieram. Por isso aqui NÃO existe
+    "saldo do caixa geral da etapa" — existe `net_to_general`, o quanto esta
+    etapa mandou para lá via sangria. É o que o banco consegue provar.
+    """
+    stage_id: str
+    current_balance: Decimal = Field(default=Decimal('0.00'), description="Saldo atual do caixa da etapa")
+    total_sangrias: Decimal = Field(default=Decimal('0.00'), description="Bruto já sangrado nesta etapa")
+    sangria_count: int = Field(default=0, description="Quantas sangrias esta etapa teve")
+    rake_generated: Decimal = Field(default=Decimal('0.00'), description="Rake gerado pelas entradas desta etapa")
+    rake_extracted: Decimal = Field(default=Decimal('0.00'), description="Rake já extraído em sangrias desta etapa")
+    pending_rake: Decimal = Field(default=Decimal('0.00'), description="Rake gerado ainda não extraído")
+    net_to_general: Decimal = Field(default=Decimal('0.00'), description="Líquido que esta etapa mandou ao caixa geral")
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentMethodTotal(BaseModel):
+    """Total das entradas de um método de pagamento.
+
+    Só o CODE viaja: o rótulo mora em `payment_methods`, lido direto do
+    Supabase pelo frontend (métodos personalizados como Yape/Nequi são por
+    clube). `code` nulo = entrada antiga, gravada antes do método existir.
+    """
+    code: Optional[str] = Field(None, description="Código do método (null = não informado)")
+    total: Decimal = Field(default=Decimal('0.00'), description="Soma das entradas neste método")
+    count: int = Field(default=0, description="Quantidade de entradas")
+
+
+class StagePaymentBreakdown(BaseModel):
+    """Composição das ENTRADAS da etapa por método de pagamento.
+
+    Serve para o operador saber quanto do caixa é dinheiro físico e quanto já
+    entrou por PIX/cartão antes de decidir quanto sangrar. Não é o saldo: o
+    saldo já teve as sangrias descontadas.
+    """
+    stage_id: str
+    total: Decimal = Field(default=Decimal('0.00'), description="Soma de todas as entradas da etapa")
+    methods: List[PaymentMethodTotal] = Field(default=[], description="Um item por método, do maior para o menor")
 
 
 class StageCashSummary(BaseModel):

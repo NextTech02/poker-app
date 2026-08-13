@@ -288,6 +288,37 @@ class TestEdicaoEExclusao:
         assert r is not None
         assert fake.store["tournament_days"][0]["day_name"] == "Novo"
 
+    def test_grava_a_logo_do_clube_no_dia(self, monkeypatch):
+        """A logo do clube e configuracao POR DIA, como o resto do visual do
+        telao: cada dia da etapa pode ter a marca de um patrocinador."""
+        fake = _monta(monkeypatch)
+        S.update_tournament_day(D1, TournamentDayUpdate(
+            broadcast_club_logo_url="https://clube.com/logo.png",
+            broadcast_club_logo_size=150,
+        ))
+        salvo = fake.store["tournament_days"][0]
+        assert salvo["broadcast_club_logo_url"] == "https://clube.com/logo.png"
+        assert salvo["broadcast_club_logo_size"] == 150
+
+    def test_coluna_da_logo_ausente_nao_impede_salvar_o_resto(self, monkeypatch):
+        """Ate a migracao rodar, quem editar a transmissao nao pode perder as
+        outras alteracoes por causa da coluna nova."""
+        fake = _monta(monkeypatch)
+        original = fake.table
+        estados = {"primeira": True}
+
+        def _table(nome):
+            if nome == "tournament_days" and estados["primeira"]:
+                estados["primeira"] = False
+                raise Exception('column "broadcast_club_logo_url" does not exist')
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        r = S.update_tournament_day(D1, TournamentDayUpdate(
+            day_name="Novo", broadcast_club_logo_url="https://clube.com/logo.png"))
+        assert r is not None
+        assert fake.store["tournament_days"][0]["day_name"] == "Novo"
+
     def test_erro_que_nao_e_de_coluna_sobe(self, monkeypatch):
         fake = _monta(monkeypatch)
 
@@ -623,6 +654,17 @@ class TestBlindsDoDia:
 
     def test_sem_blinds_devolve_lista_vazia(self, monkeypatch):
         _monta(monkeypatch)
+        assert S._get_all_blinds(D1, TOUR) == []
+
+    def test_dia_vazio_NAO_herda_a_estrutura_de_outro_dia(self, monkeypatch):
+        """Todo blind criado por dia também grava o tournament_id. Se o
+        fallback por torneio não excluísse essas linhas, um dia com a estrutura
+        apagada passaria a mostrar no telão os blinds do dia vizinho — pior do
+        que ficar vazio, porque ninguém percebe."""
+        _monta(monkeypatch, blinds=[
+            {"id": "b2", "tournament_id": TOUR, "tournament_day_id": D2,
+             "level": 1, "duration": 42},
+        ])
         assert S._get_all_blinds(D1, TOUR) == []
 
 

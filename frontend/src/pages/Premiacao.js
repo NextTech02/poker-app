@@ -10,6 +10,13 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { currencySymbol } from '../utils/currencyUtils';
 import { calculatePayoutAllocations } from '../utils/payoutStructure';
+import {
+  amountFromPercentage,
+  percentageFromAmount,
+  sumAmounts,
+  formatPercentage,
+  isValidInput,
+} from '../utils/payoutEditing';
 import './Premiacao.css';
 
 const getPositionLabel = (position) => `${position}°`;
@@ -246,6 +253,9 @@ const Premiacao = () => {
   };
 
   const handleUpdateAllocation = async (allocationId, newAmount) => {
+    // Campo vazio virava NaN → null no JSON, e o backend respondia "No fields
+    // to update". O operador via um erro genérico sem saber que não digitou nada.
+    if (!isValidInput(newAmount)) return;
     try {
       setSaving(true);
       await api.patch(`/tournaments/${tournamentId}/prizes/${allocationId}`, {
@@ -271,12 +281,14 @@ const Premiacao = () => {
       toast.error(t('premiacao.noEntries'));
       return;
     }
-    if (availablePrizePool <= 0) {
+    // A estrutura é gerada sobre o pool PAGÁVEL: o que sobra depois da
+    // premiação reservada é o único dinheiro que o caixa pode entregar.
+    if (payablePool <= 0) {
       toast.error(t('premiacao.prizepoolZero'));
       return;
     }
 
-    const preview = calculatePayoutAllocations(entryCount, availablePrizePool);
+    const preview = calculatePayoutAllocations(entryCount, payablePool);
     if (preview.length === 0) {
       toast.error(t('premiacao.noStructureFound', { count: entryCount }));
       return;
@@ -287,13 +299,51 @@ const Premiacao = () => {
     setShowAutoModal(true);
   };
 
+  // A prévia é RASCUNHO: nada vai para o banco antes do "Confirmar e aplicar".
+  // Os campos guardam o TEXTO digitado (não o número) para o operador poder
+  // apagar e redigitar sem que a linha vire NaN no meio do caminho.
+  const setPreviewRow = (position, changes) =>
+    setAutoPreview((prev) => prev.map((a) => (a.position === position ? { ...a, ...changes } : a)));
+
+  const handlePreviewPercentage = (position, value) =>
+    setPreviewRow(position, {
+      percentage: value,
+      prize_amount: isValidInput(value) ? amountFromPercentage(value, payablePool) : '',
+    });
+
+  const handlePreviewAmount = (position, value) =>
+    setPreviewRow(position, {
+      prize_amount: value,
+      percentage: isValidInput(value)
+        ? formatPercentage(percentageFromAmount(value, payablePool))
+        : '',
+    });
+
+  // Só a linha tocada muda: rebalancear as outras sozinho surpreenderia quem
+  // acabou de digitar um número. A sobra aparece no rodapé do modal.
+  const handleRemovePreviewRow = (position) =>
+    setAutoPreview((prev) => prev.filter((a) => a.position !== position));
+
+  const handleAddPreviewRow = () =>
+    setAutoPreview((prev) => [
+      ...prev,
+      {
+        position: prev.length ? Math.max(...prev.map((a) => a.position)) + 1 : 1,
+        percentage: '0',
+        prize_amount: 0,
+      },
+    ]);
+
+  const handleRestoreSuggestion = () =>
+    setAutoPreview(calculatePayoutAllocations(autoEntryCount, payablePool));
+
   const handleConfirmAutoCalculate = async () => {
     try {
       setSaving(true);
       await api.post(`/tournaments/${tournamentId}/prizes/bulk`, {
         allocations: autoPreview.map(a => ({
           position: a.position,
-          prize_amount: a.prize_amount,
+          prize_amount: parseFloat(a.prize_amount),
         })),
       });
       setShowAutoModal(false);
@@ -409,6 +459,20 @@ const Premiacao = () => {
     ? parseFloat(prizeSummary.payable_pool)
     : availablePrizePool;
   const remainingBalance = payablePool - totalAllocated;
+  const allocatedPercentage = percentageFromAmount(totalAllocated, payablePool);
+  const paidCount = allocations.filter(a => a.paid).length;
+
+  // ── Prévia do cálculo automático (rascunho editável) ────────────────────
+  const autoTotal = sumAmounts(autoPreview);
+  const autoLeftover = payablePool - autoTotal;
+  // Tolerância de 1 centavo: arredondamento não pode travar a aplicação.
+  const autoOverPool = autoLeftover < -0.01;
+  const autoHasInvalid = autoPreview.some(a => !isValidInput(a.prize_amount));
+  // Distribuir mais do que o pool pagável é a única situação provadamente
+  // impagável (o pagamento recusa lá na frente e quem fica sem receber são as
+  // ÚLTIMAS posições). Sobrar dinheiro só avisa.
+  const autoBlocked =
+    autoOverPool || autoHasInvalid || autoPreview.length === 0 || paidCount > 0;
 
   const getNextPosition = () => {
     if (allocations.length === 0) return 1;
@@ -680,7 +744,15 @@ const Premiacao = () => {
                       <tr>
                         <th>{t('premiacao.position')}</th>
                         <th>{t('premiacao.prize')}</th>
-                        <th>{t('premiacao.percentOfPool')}</th>
+                        <th>
+                          {t('premiacao.percentOfPool')}
+                          {/* O pool cresce com late entries: sem dizer qual é a
+                              base, o operador não entende por que o % mudou
+                              sozinho depois de gravar o valor. */}
+                          <span className="percent-base-note">
+                            {t('premiacao.percentBaseNote', 'base: pool pagável')}
+                          </span>
+                        </th>
                         <th>{t('premiacao.actions')}</th>
                       </tr>
                     </thead>
@@ -689,7 +761,7 @@ const Premiacao = () => {
                         <ConfigAllocationRow
                           key={allocation.id}
                           allocation={allocation}
-                          availablePrizePool={availablePrizePool}
+                          poolBase={payablePool}
                           onUpdate={handleUpdateAllocation}
                           onDelete={handleDeleteAllocation}
                           saving={saving}
@@ -700,11 +772,12 @@ const Premiacao = () => {
                       <tr>
                         <td><strong>{t('premiacao.total')}</strong></td>
                         <td><strong>{formatCurrency(totalAllocated)}</strong></td>
-                        <td><strong>
-                          {availablePrizePool > 0
-                            ? ((totalAllocated / availablePrizePool) * 100).toFixed(1)
-                            : 0}%
-                        </strong></td>
+                        <td className={`percent-total ${allocatedPercentage > 100 ? 'negative' : ''}`}>
+                          <strong>{formatPercentage(allocatedPercentage)}%</strong>
+                          {allocatedPercentage > 100 && (
+                            <span className="pool-warning">{t('premiacao.allocationExceeds')}</span>
+                          )}
+                        </td>
                         <td></td>
                       </tr>
                     </tfoot>
@@ -1069,8 +1142,11 @@ const Premiacao = () => {
                   <span className="auto-calc-value">{autoEntryCount}</span>
                 </div>
                 <div className="auto-calc-stat">
-                  <span className="auto-calc-label">{t('premiacao.prizepoolAvailableShort')}</span>
-                  <span className="auto-calc-value">{formatCurrency(availablePrizePool)}</span>
+                  {/* A estrutura é distribuída sobre o pool PAGÁVEL: usar o
+                      bruto geraria uma premiação maior que o dinheiro que o
+                      caixa pode entregar em torneios com reserva. */}
+                  <span className="auto-calc-label">{t('premiacao.payablePoolShort', 'Pool pagável')}</span>
+                  <span className="auto-calc-value">{formatCurrency(payablePool)}</span>
                 </div>
                 <div className="auto-calc-stat">
                   <span className="auto-calc-label">{t('premiacao.awardedPositions')}</span>
@@ -1084,6 +1160,19 @@ const Premiacao = () => {
                 </div>
               )}
 
+              {/* Aplicar apaga TODAS as faixas e recria: uma faixa já paga
+                  perderia o registro do dinheiro que saiu do caixa. O backend
+                  recusa; aqui a gente nem deixa chegar lá. */}
+              {paidCount > 0 && (
+                <div className="auto-calc-warning auto-calc-blocked">
+                  {t('premiacao.autoBlockedByPaid', 'Há posições já pagas; o recálculo apagaria o registro do pagamento.')}
+                </div>
+              )}
+
+              <div className="auto-calc-hint">
+                {t('premiacao.autoEditHint', 'Ajuste o percentual ou o valor de cada posição antes de aplicar.')}
+              </div>
+
               <div className="auto-calc-table-wrap">
                 <table className="allocations-table">
                   <thead>
@@ -1091,6 +1180,7 @@ const Premiacao = () => {
                       <th>{t('premiacao.position')}</th>
                       <th>{t('premiacao.percentOfPool')}</th>
                       <th>{t('premiacao.value')}</th>
+                      <th>{t('premiacao.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1099,19 +1189,79 @@ const Premiacao = () => {
                         <td className="position-cell">
                           <span className="position-badge rank-other">{getPositionLabel(a.position)}</span>
                         </td>
-                        <td className="percentage-cell">{a.percentage}%</td>
-                        <td className="amount-cell">{formatCurrency(a.prize_amount)}</td>
+                        <td className="percentage-cell">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="preview-input preview-percent"
+                            aria-label={t('premiacao.percentOfPool')}
+                            value={a.percentage}
+                            onChange={(e) => handlePreviewPercentage(a.position, e.target.value)}
+                          />%
+                        </td>
+                        <td className="amount-cell">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="preview-input preview-amount"
+                            aria-label={t('premiacao.value')}
+                            value={a.prize_amount}
+                            onChange={(e) => handlePreviewAmount(a.position, e.target.value)}
+                          />
+                        </td>
+                        <td className="actions-cell">
+                          <button
+                            type="button"
+                            className="btn-small btn-delete"
+                            onClick={() => handleRemovePreviewRow(a.position)}
+                            title={t('premiacao.removeTitle')}
+                          >
+                            X
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td><strong>{t('premiacao.total')}</strong></td>
+                      <td className="percentage-cell">
+                        <strong>{formatPercentage(percentageFromAmount(autoTotal, payablePool))}%</strong>
+                      </td>
+                      <td className="amount-cell"><strong>{formatCurrency(autoTotal)}</strong></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
                 </table>
+              </div>
+
+              <div className={`auto-calc-totals ${autoOverPool ? 'negative' : ''}`}>
+                {autoOverPool ? (
+                  <span className="auto-calc-over">
+                    {t('premiacao.previewOverPool', 'Acima do pool pagável em')}{' '}
+                    {formatCurrency(-autoLeftover)}
+                  </span>
+                ) : (
+                  <span className="auto-calc-leftover">
+                    {t('premiacao.previewLeftover', 'Sobra do pool pagável:')}{' '}
+                    {formatCurrency(autoLeftover)}
+                  </span>
+                )}
               </div>
 
               <div className="modal-actions">
                 <Button type="button" variant="ghost" onClick={() => setShowAutoModal(false)}>
                   {t('common.cancel')}
                 </Button>
-                <Button onClick={handleConfirmAutoCalculate} disabled={saving}>
+                <Button type="button" variant="secondary" onClick={handleAddPreviewRow}>
+                  {t('premiacao.addPreviewRow', 'Adicionar posição')}
+                </Button>
+                <Button type="button" variant="secondary" onClick={handleRestoreSuggestion}>
+                  {t('premiacao.restoreSuggestion', 'Restaurar sugestão')}
+                </Button>
+                <Button onClick={handleConfirmAutoCalculate} disabled={saving || autoBlocked}>
                   {saving ? t('premiacao.applying') : t('premiacao.confirmAndApply')}
                 </Button>
               </div>
@@ -1145,25 +1295,45 @@ const Premiacao = () => {
 
 // ── Config Tab Row ───────────────────────────────────────────────────────────
 
-const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelete, saving }) => {
+const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving }) => {
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
-  const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(allocation.prize_amount);
+  // 'amount' | 'percent' | null — um campo por vez, para não gravar dois
+  // números conflitantes na mesma faixa.
+  const [editing, setEditing] = useState(null);
+  const [editValue, setEditValue] = useState('');
+
+  const percentage = percentageFromAmount(allocation.prize_amount, poolBase);
+
+  // A vaga vale o buy-in do dia alvo (o backend recalcula). Editar valor ou
+  // percentual aqui desconfiguraria a vaga sem avisar ninguém.
+  const isVaga = allocation.prize_type === 'vaga';
+  const canEdit = !allocation.paid && !isVaga;
+
+  // O estado era inicializado UMA vez e ficava velho quando o valor mudava por
+  // outro caminho (cálculo automático, outro operador). Agora ele é carregado
+  // na hora de abrir a edição.
+  const startEditing = (campo) => {
+    if (!canEdit) return;
+    setEditValue(campo === 'percent' ? formatPercentage(percentage) : String(allocation.prize_amount));
+    setEditing(campo);
+  };
 
   const handleSave = () => {
-    onUpdate(allocation.id, editValue);
-    setEditing(false);
+    if (!isValidInput(editValue)) return;
+    // O que vai para o banco é SEMPRE o valor em dinheiro; o percentual é só
+    // um modo de entrada e não é persistido.
+    onUpdate(
+      allocation.id,
+      editing === 'percent' ? amountFromPercentage(editValue, poolBase) : editValue
+    );
+    setEditing(null);
   };
 
   const handleCancel = () => {
-    setEditValue(allocation.prize_amount);
-    setEditing(false);
+    setEditValue('');
+    setEditing(null);
   };
-
-  const percentage = availablePrizePool > 0
-    ? ((parseFloat(allocation.prize_amount) / availablePrizePool) * 100).toFixed(1)
-    : 0;
 
   return (
     <tr className={allocation.paid ? 'paid-row' : ''}>
@@ -1172,7 +1342,7 @@ const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelet
         {allocation.paid && <span className="paid-inline-badge">{t('premiacao.statusPaid')}</span>}
       </td>
       <td className="amount-cell">
-        {editing ? (
+        {editing === 'amount' ? (
           <div className="inline-edit">
             <input
               type="number"
@@ -1182,19 +1352,48 @@ const ConfigAllocationRow = ({ allocation, availablePrizePool, onUpdate, onDelet
               onChange={(e) => setEditValue(e.target.value)}
               autoFocus
             />
-            <button className="btn-save" onClick={handleSave} disabled={saving}>OK</button>
+            <button className="btn-save" onClick={handleSave} disabled={saving || !isValidInput(editValue)}>OK</button>
             <button className="btn-cancel" onClick={handleCancel}>X</button>
           </div>
         ) : (
           <span
-            onClick={() => !allocation.paid && setEditing(true)}
-            className={`editable-value ${allocation.paid ? '' : 'clickable'}`}
+            onClick={() => startEditing('amount')}
+            className={`editable-value ${canEdit ? 'clickable' : ''}`}
           >
             {formatCurrency(allocation.prize_amount)}
           </span>
         )}
       </td>
-      <td className="percentage-cell">{percentage}%</td>
+      <td className="percentage-cell">
+        {editing === 'percent' ? (
+          <div className="inline-edit">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              autoFocus
+            />
+            {/* Prévia em dinheiro: o operador vê o que será gravado ANTES de
+                confirmar — é o valor, não o percentual, que o caixa paga. */}
+            <span className="percent-preview">
+              {t('premiacao.percentageResultingValue', 'vale')}{' '}
+              {formatCurrency(amountFromPercentage(editValue, poolBase))}
+            </span>
+            <button className="btn-save" onClick={handleSave} disabled={saving || !isValidInput(editValue)}>OK</button>
+            <button className="btn-cancel" onClick={handleCancel}>X</button>
+          </div>
+        ) : (
+          <span
+            onClick={() => startEditing('percent')}
+            className={`editable-value ${canEdit ? 'clickable' : ''}`}
+            title={canEdit ? t('premiacao.editPercentage', 'Editar o percentual da faixa') : undefined}
+          >
+            {formatPercentage(percentage)}%
+          </span>
+        )}
+      </td>
       <td className="actions-cell">
         <button
           className="btn-small btn-delete"

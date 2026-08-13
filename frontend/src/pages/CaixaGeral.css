@@ -458,3 +458,63 @@
   z-index: 2;
   box-shadow: 0 -8px 16px -8px rgba(0, 0, 0, 0.45);
 }
+
+/* Composição das entradas por forma de pagamento.
+   Aparece na tela e dentro do modal de sangria: é a leitura que diz quanto do
+   caixa deve estar em espécie na gaveta antes de decidir o valor a sangrar. */
+.payment-breakdown {
+  display: flex;
+  flex-direction: column;
+}
+
+.payment-breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.payment-breakdown-item span {
+  color: var(--text-secondary);
+}
+
+.payment-breakdown-item strong {
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.payment-breakdown-item.total {
+  border-bottom: none;
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+}
+
+.payment-breakdown-item.total span,
+.payment-breakdown-item.total strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.payment-breakdown-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.sangria-payment-breakdown {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.sangria-payment-breakdown h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}

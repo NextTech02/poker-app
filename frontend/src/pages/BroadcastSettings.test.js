@@ -235,6 +235,104 @@ describe('pré-visualização', () => {
   });
 });
 
+describe('logo do clube', () => {
+  /** A área de upload da logo, distinta da área da imagem de fundo. */
+  const zonaDaLogo = () =>
+    Array.from(document.querySelectorAll('.bs-upload-zone')).find((el) =>
+      el.textContent.includes('Enviar a logo do clube')
+    );
+
+  const arquivo = (bytes) =>
+    new File(['x'.repeat(bytes)], 'logo.png', { type: 'image/png' });
+
+  it('a logo escolhida é salva no dia', async () => {
+    await montar();
+    await userEvent.upload(zonaDaLogo().querySelector('input[type="file"]'), arquivo(10));
+    await waitFor(() =>
+      expect(document.querySelector('.bs-img-preview-wrap')).toBeInTheDocument()
+    );
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_club_logo_url).toContain('data:');
+  });
+
+  it('arquivo grande demais é recusado', async () => {
+    // A imagem viaja em base64 dentro do JSON do dia, que cada TV rebusca a
+    // cada 30s: uma logo pesada multiplica por telão ligado.
+    await montar();
+    await userEvent.upload(zonaDaLogo().querySelector('input[type="file"]'), arquivo(513 * 1024));
+    expect(toast.warning).toHaveBeenCalled();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_club_logo_url).toBeNull();
+  });
+
+  it('sem logo cadastrada o campo vai como NULO', async () => {
+    // String vazia gravaria um src="" no telão; nulo é "não tem logo".
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_club_logo_url).toBeNull();
+  });
+
+  it('a URL colada é salva como está', async () => {
+    await montar();
+    await userEvent.type(screen.getByPlaceholderText('https://...'), 'https://clube.com/logo.png');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_club_logo_url).toBe('https://clube.com/logo.png');
+  });
+
+  it('com logo enviada, o campo de URL fica bloqueado', async () => {
+    // Os dois caminhos gravam o mesmo campo; deixar os dois ativos faria o
+    // operador achar que apagou a logo sem ter apagado.
+    await montar({ dia: { ...DIA, broadcast_club_logo_url: 'data:image/png;base64,AAA' } });
+    expect(screen.getByPlaceholderText('https://...')).toBeDisabled();
+  });
+
+  it('o tamanho salvo no dia é preservado', async () => {
+    await montar({ dia: { ...DIA, broadcast_club_logo_size: 200 } });
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_club_logo_size).toBe(200);
+  });
+
+  it('dia antigo sem o campo mantém a logo LIGADA em 100%', async () => {
+    // Mesmo raciocínio dos demais show_*: nulo no banco não pode virar
+    // "desligado" ao abrir esta tela.
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_club_logo).toBe(true);
+    expect(enviado().broadcast_club_logo_size).toBe(100);
+  });
+
+  it('a logo pode ser desligada sem perder a imagem', async () => {
+    await montar({ dia: { ...DIA, broadcast_club_logo_url: 'https://clube.com/logo.png' } });
+    await alternar('Logo do clube');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_club_logo).toBe(false);
+    expect(enviado().broadcast_club_logo_url).toBe('https://clube.com/logo.png');
+  });
+
+  it('a prévia mostra a logo enviada', async () => {
+    // Sem isso o operador configura a logo, não a vê na prévia e acha que
+    // está quebrado.
+    await montar({ dia: { ...DIA, broadcast_club_logo_url: 'https://clube.com/logo.png' } });
+    expect(document.querySelector('.bs-preview-club-logo')).toHaveAttribute(
+      'src', 'https://clube.com/logo.png'
+    );
+  });
+
+  it('logo desligada some da prévia', async () => {
+    await montar({
+      dia: { ...DIA, broadcast_club_logo_url: 'https://clube.com/logo.png', broadcast_show_club_logo: false },
+    });
+    expect(document.querySelector('.bs-preview-club-logo')).toBeNull();
+  });
+});
+
 describe('código público da TV', () => {
   it('o código aparece para ser digitado na TV', async () => {
     await montar();

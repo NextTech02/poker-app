@@ -15,8 +15,23 @@ from app.models.cash_register import (
     SangriaTransactionCreate,
     CashDashboard,
     StageCashSummary,
+    StageCashScopedSummary,
+    PaymentMethodTotal,
+    StagePaymentBreakdown,
     SangriaResponse
 )
+
+
+# Só ENTRADA vira caixa. Prêmio pago (type='prize') sai do caixa e não pode ser
+# somado como se fosse dinheiro que entrou.
+ENTRY_TYPES = ["buy_in", "rebuy", "addon"]
+
+
+def _dec(valor) -> Decimal:
+    """Converte para Decimal tolerando None/''/número vindo do PostgREST."""
+    if valor in (None, ""):
+        return Decimal("0")
+    return Decimal(str(valor))
 
 
 class CashRegisterService:
@@ -85,6 +100,152 @@ class CashRegisterService:
 
         pending = entry_rake - sangria_rake
         return pending if pending > 0 else Decimal("0")
+
+    @staticmethod
+    def _stage_totals_fallback(stage_id: str) -> dict:
+        """Soma em Python o que a RPC somaria no banco (etapas antigas / RPC ausente)."""
+        sang = (
+            supabase.table("sangria_transactions")
+            .select("amount, rake_amount, net_amount")
+            .eq("stage_id", stage_id)
+            .execute()
+        )
+        sangrias = sang.data or []
+
+        total_sangrias = Decimal("0")
+        rake_extracted = Decimal("0")
+        net_to_general = Decimal("0")
+        for s in sangrias:
+            total_sangrias += _dec(s.get("amount"))
+            rake_extracted += _dec(s.get("rake_amount"))
+            net_to_general += _dec(s.get("net_amount"))
+
+        # transactions não tem stage_id: a etapa vem pelo torneio.
+        tours = supabase.table("tournaments").select("id").eq("stage_id", stage_id).execute()
+        tour_ids = [t["id"] for t in (tours.data or [])]
+
+        rake_generated = Decimal("0")
+        if tour_ids:
+            tx = (
+                supabase.table("transactions")
+                .select("rake_amount")
+                .in_("tournament_id", tour_ids)
+                .in_("type", ENTRY_TYPES)
+                .execute()
+            )
+            for t in (tx.data or []):
+                rake_generated += _dec(t.get("rake_amount"))
+
+        return {
+            "total_sangrias": total_sangrias,
+            "sangria_count": len(sangrias),
+            "rake_extracted": rake_extracted,
+            "net_to_general": net_to_general,
+            "rake_generated": rake_generated,
+        }
+
+    @staticmethod
+    def get_stage_cash_summary(stage_id: str) -> StageCashScopedSummary:
+        """
+        Fechamento DESTA etapa. O clube confere etapa por etapa, mas o caixa
+        geral é um saldo só da organização (despesas, outras receitas e
+        pagamentos de funcionários entram nele sem dizer de que etapa vieram).
+        Então o que dá para provar por etapa é o quanto ela MANDOU para o caixa
+        geral (net_to_general) e o rake que ela gerou/entregou — nunca um
+        "saldo do caixa geral da etapa", que não existe no banco.
+
+        Agregado no banco (1 round-trip via RPC); fallback ao fetch+soma.
+        """
+        totals = None
+        try:
+            r = supabase.rpc("get_stage_cash_summary", {"p_stage_id": stage_id}).execute()
+            data = r.data
+            if isinstance(data, list):
+                data = data[0] if data else None
+            if isinstance(data, dict):
+                totals = data
+        except Exception:
+            totals = None
+
+        if totals is None:
+            totals = CashRegisterService._stage_totals_fallback(stage_id)
+
+        rake_generated = _dec(totals.get("rake_generated"))
+        rake_extracted = _dec(totals.get("rake_extracted"))
+        # Mesma definição de get_stage_pending_rake, derivada dos números que já
+        # estão em mãos — chamar o método de novo custaria mais um round-trip
+        # para chegar ao mesmo valor.
+        pending = rake_generated - rake_extracted
+        if pending < 0:
+            pending = Decimal("0")
+
+        stage_cash = CashRegisterService.get_stage_cash(stage_id)
+
+        return StageCashScopedSummary(
+            stage_id=stage_id,
+            current_balance=stage_cash.current_balance if stage_cash else Decimal("0"),
+            total_sangrias=_dec(totals.get("total_sangrias")),
+            sangria_count=int(totals.get("sangria_count") or 0),
+            rake_generated=rake_generated,
+            rake_extracted=rake_extracted,
+            pending_rake=pending,
+            net_to_general=_dec(totals.get("net_to_general")),
+        )
+
+    @staticmethod
+    def get_stage_totals_by_payment_method(stage_id: str) -> StagePaymentBreakdown:
+        """
+        Quanto das ENTRADAS da etapa veio de cada método de pagamento.
+
+        O trigger do caixa da etapa soma buy-in/rebuy/addon independente do
+        método, então o saldo mistura dinheiro físico com PIX/cartão. Esta
+        quebra é o que diz ao operador quanto ele deve realmente achar na
+        gaveta antes de sangrar. Método nulo (entrada gravada antes do cadastro
+        de métodos) fica num balde próprio: jogá-lo em "dinheiro" inflaria a
+        conferência do caixa físico.
+
+        Agregado no banco (1 round-trip via RPC); fallback ao fetch+soma —
+        com muitas entradas na etapa, o fallback transfere todas as linhas.
+        """
+        linhas = None
+        try:
+            r = supabase.rpc("get_stage_totals_by_payment_method", {"p_stage_id": stage_id}).execute()
+            if isinstance(r.data, list):
+                linhas = [
+                    (row.get("payment_method") or None, _dec(row.get("total")), int(row.get("entries") or 0))
+                    for row in r.data
+                ]
+        except Exception:
+            linhas = None
+
+        if linhas is None:
+            tours = supabase.table("tournaments").select("id").eq("stage_id", stage_id).execute()
+            tour_ids = [t["id"] for t in (tours.data or [])]
+
+            somas: dict = {}
+            if tour_ids:
+                tx = (
+                    supabase.table("transactions")
+                    .select("payment_method, amount")
+                    .in_("tournament_id", tour_ids)
+                    .in_("type", ENTRY_TYPES)
+                    .execute()
+                )
+                for t in (tx.data or []):
+                    code = t.get("payment_method") or None
+                    total, count = somas.get(code, (Decimal("0"), 0))
+                    somas[code] = (total + _dec(t.get("amount")), count + 1)
+            linhas = [(code, total, count) for code, (total, count) in somas.items()]
+
+        # Maior primeiro: é a ordem em que o operador confere a gaveta.
+        linhas.sort(key=lambda item: (-item[1], item[0] or ""))
+
+        methods = [PaymentMethodTotal(code=code, total=total, count=count) for code, total, count in linhas]
+        return StagePaymentBreakdown(
+            stage_id=stage_id,
+            total=sum((m.total for m in methods), Decimal("0")),
+            methods=methods,
+        )
 
     @staticmethod
     def get_all_stage_cash() -> List[StageCashSummary]:

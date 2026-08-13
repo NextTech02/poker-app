@@ -50,6 +50,8 @@ const DIA = {
 
 const TORNEIO = { id: 't1', name: 'Main Event', status: 'active' };
 
+const LOGO = 'https://cdn.exemplo.com/clube.png';
+
 const BLINDS = [
   { level: 1, small_blind: 100, big_blind: 200, ante: 0, duration: 20 },
   { level: 2, small_blind: 200, big_blind: 400, ante: 200, duration: 20 },
@@ -370,8 +372,10 @@ describe('o que pode ser desligado', () => {
     ['broadcast_show_prizes', '.prize-ticker-bar'],
     ['broadcast_show_logo', '.broadcast-logo'],
     ['broadcast_show_title', '.broadcast-title'],
-  ])('%s desligado esconde %s', async (campo, seletor) => {
-    await montar({ dia: { ...DIA, [campo]: false } });
+    // A logo do clube só some se ELA existir: sem a URL o teste passaria à toa.
+    ['broadcast_show_club_logo', '.broadcast-club-logo-img', { broadcast_club_logo_url: LOGO }],
+  ])('%s desligado esconde %s', async (campo, seletor, extra = {}) => {
+    await montar({ dia: { ...DIA, ...extra, [campo]: false } });
     expect(document.querySelector(seletor)).toBeNull();
   });
 
@@ -407,6 +411,50 @@ describe('o que pode ser desligado', () => {
   it('em torneio sem dia, vale a configuração do torneio', async () => {
     await montar({ comoDia: false, torneio: { ...TORNEIO, broadcast_show_timer: false } }, null);
     expect(document.querySelector('.timer-display')).toBeNull();
+  });
+});
+
+describe('logo do clube', () => {
+  const logoDoClube = () => document.querySelector('.broadcast-club-logo-img');
+  const espacoDaLogo = () => document.querySelector('.broadcast-club-logo');
+
+  it('a logo configurada aparece no canto direito do cabeçalho', async () => {
+    // É a marca do clube no telão do salão, ao lado da nossa.
+    await montar({ dia: { ...DIA, broadcast_club_logo_url: LOGO } });
+    expect(logoDoClube()).toHaveAttribute('src', LOGO);
+    expect(document.querySelector('.broadcast-header')).toContainElement(logoDoClube());
+  });
+
+  it('sem logo cadastrada o espaço continua reservado', async () => {
+    // O espaço é o que mantém o título centralizado; se ele sumisse, o nome do
+    // torneio sairia do meio do telão.
+    await montar();
+    expect(logoDoClube()).toBeNull();
+    expect(espacoDaLogo()).toBeInTheDocument();
+  });
+
+  it('o tamanho escolhido vira escala no espaço da logo', async () => {
+    await montar({ dia: { ...DIA, broadcast_club_logo_url: LOGO, broadcast_club_logo_size: 200 } });
+    expect(espacoDaLogo().style.getPropertyValue('--club-logo-scale')).toBe('2');
+  });
+
+  it('sem tamanho salvo a logo fica no tamanho da nossa (100%)', async () => {
+    await montar({ dia: { ...DIA, broadcast_club_logo_url: LOGO } });
+    expect(espacoDaLogo().style.getPropertyValue('--club-logo-scale')).toBe('1');
+  });
+
+  it('dia antigo, sem nenhuma das colunas novas, não quebra o telão', async () => {
+    await montar({ dia: { id: 'x1', tournament_id: 't1', day_name: 'Dia 1A', status: 'active' } });
+    expect(logoDoClube()).toBeNull();
+    expect(document.querySelector('.timer-display')).toBeInTheDocument();
+  });
+
+  it('depois de encerrado a logo do clube continua no telão', async () => {
+    // O cabeçalho é duplicado no código; é aqui que se percebe se um dos dois
+    // ficou para trás.
+    await montar({ dia: { ...DIA, status: 'completed', broadcast_club_logo_url: LOGO } });
+    expect(document.querySelector('.broadcast-completed')).toBeInTheDocument();
+    expect(logoDoClube()).toHaveAttribute('src', LOGO);
   });
 });
 

@@ -556,6 +556,94 @@ describe('excluir nível', () => {
   });
 });
 
+describe('limpar a estrutura inteira', () => {
+  // O mock de t() devolve o texto padrão inline quando não há variáveis.
+  const limpar = () => userEvent.click(screen.getByRole('button', { name: 'Limpar estrutura' }));
+
+  const DIA_RODANDO = { ...DIA, status: 'active', is_paused: false, timer_started_at: '2026-06-08T10:00:00Z' };
+
+  it('apaga tudo depois da confirmação', async () => {
+    await montar();
+    await limpar();
+    await waitFor(() =>
+      expect(api.delete).toHaveBeenCalledWith('/tournament-days/d1/blinds', undefined)
+    );
+  });
+
+  it('a confirmação diz quantos níveis somem e que não há desfazer', async () => {
+    // Sem o número, o operador não percebe que o intervalo também vai junto.
+    await montar();
+    await limpar();
+    expect(confirmar).toHaveBeenCalledWith(
+      'blinds.confirmClearMessage:4',
+      expect.objectContaining({ variant: 'danger' })
+    );
+  });
+
+  it('cancelar não apaga nada', async () => {
+    confirmar.mockResolvedValue(false);
+    await montar();
+    await limpar();
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('recarrega a lista depois de apagar', async () => {
+    await montar();
+    const buscas = api.get.mock.calls.length;
+    await limpar();
+    await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(buscas));
+  });
+
+  it('estrutura vazia deixa o botão desligado', async () => {
+    await montar({ blinds: [] });
+    expect(screen.getByRole('button', { name: 'Limpar estrutura' })).toBeDisabled();
+  });
+
+  it('dia em andamento exige uma SEGUNDA confirmação', async () => {
+    // O telão fica em branco na frente dos jogadores; um clique só é pouco.
+    await montar({ dia: DIA_RODANDO });
+    await limpar();
+    await waitFor(() => expect(confirmar).toHaveBeenCalledTimes(2));
+    expect(confirmar.mock.calls[1][0]).toMatch(/EM ANDAMENTO/);
+  });
+
+  it('dia em andamento manda force para o servidor deixar passar', async () => {
+    await montar({ dia: DIA_RODANDO });
+    await limpar();
+    await waitFor(() =>
+      expect(api.delete).toHaveBeenCalledWith('/tournament-days/d1/blinds', { params: { force: true } })
+    );
+  });
+
+  it('recusar a segunda confirmação não apaga', async () => {
+    confirmar.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await montar({ dia: DIA_RODANDO });
+    await limpar();
+    await waitFor(() => expect(confirmar).toHaveBeenCalledTimes(2));
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('409 mostra o motivo do servidor e a tabela continua de pé', async () => {
+    // O dia virou "em andamento" entre abrir a tela e clicar; fingir sucesso
+    // faria o operador acreditar numa estrutura que ainda existe.
+    api.delete.mockRejectedValue(erroHttp(409, 'O dia está em andamento.'));
+    await montar();
+    await limpar();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('O dia está em andamento.'));
+    expect(linhas().length).toBe(4);
+  });
+
+  it('erro sem motivo cai numa frase clara', async () => {
+    api.delete.mockRejectedValue(new Error('500'));
+    await montar();
+    await limpar();
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Não foi possível apagar a estrutura.')
+    );
+  });
+});
+
 describe('modelos de estrutura', () => {
   const abrir = () => userEvent.click(screen.getByRole('button', { name: 'blinds.loadTemplate' }));
 

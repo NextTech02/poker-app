@@ -162,3 +162,58 @@
     justify-content: flex-end;
   }
 }
+
+/* Alternador "um jogador / vários" — só aparece para o master do clube */
+.st-bulk-toggle {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.st-bulk-tab {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.st-bulk-tab.is-active {
+  background: var(--brand-green, #22c55e);
+  color: #08210f;
+  font-weight: 600;
+}
+
+.st-check-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.st-transfer-history {
+  margin: 1rem 0;
+}
+
+.st-transfer-history h3 {
+  font-size: 0.9rem;
+  margin: 0 0 0.4rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.st-history-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.88rem;
+}
+
+.st-history-list li {
+  margin-bottom: 0.25rem;
+}

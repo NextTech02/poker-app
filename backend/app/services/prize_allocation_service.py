@@ -681,8 +681,59 @@ class PrizeAllocationService:
         tournament_id: UUID,
         allocations: list[PrizeAllocationCreate]
     ) -> list[PrizeAllocationResponse]:
-        """Create multiple prize allocations at once, replacing existing ones"""
-        PrizeAllocationService.get_tournament_info(tournament_id)
+        """Create multiple prize allocations at once, replacing existing ones.
+
+        Duas travas moram aqui porque a operação é ATÔMICA e destrutiva (apaga
+        todas as faixas do torneio e recria). No ajuste manual, faixa a faixa,
+        o operador passa e volta de 100% naturalmente e a sinalização visual
+        basta; aqui não há meio-termo: ou o lote inteiro fecha, ou não entra.
+        """
+        tournament_info = PrizeAllocationService.get_tournament_info(tournament_id)
+
+        existing = supabase.table("prize_allocations")\
+            .select("position, paid")\
+            .eq("tournament_id", str(tournament_id))\
+            .execute()
+
+        # Apagar uma faixa JÁ PAGA sumiria com o registro do dinheiro que saiu
+        # do caixa geral — a conferência do caixa nunca mais fecharia.
+        pagas = sorted(
+            r.get("position") for r in (existing.data or []) if r.get("paid")
+        )
+        if pagas:
+            posicoes = ", ".join(f"{p}º" for p in pagas)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Não é possível recalcular a premiação: a premiação "
+                       f"das posições {posicoes} já foi paga. Ajuste as faixas "
+                       f"restantes uma a uma."
+            )
+
+        # ── Limite: o pool PAGÁVEL (já descontada a premiação reservada) ──
+        # Distribuir acima disso não falha agora: falha lá na frente, no
+        # pagamento, e quem fica sem receber são as ÚLTIMAS posições.
+        # O cálculo é feito UMA vez, reaproveitando o torneio já carregado.
+        total_solicitado = sum(
+            Decimal(str(a.prize_amount or 0)) for a in allocations
+        )
+        if total_solicitado > 0:
+            guaranteed_prize = Decimal(str(tournament_info.get("guaranteed_prize") or 0))
+            total_entries, rake_percentage, _ = \
+                PrizeAllocationService.calculate_total_entries(tournament_id)
+            player_pool = total_entries * (Decimal("100") - rake_percentage) / Decimal("100")
+            reserved_pct = Decimal(str(tournament_info.get("reserved_prize_percentage") or 0))
+            reserved_amount = total_entries * reserved_pct / Decimal("100")
+            payable_pool = guaranteed_prize + player_pool - reserved_amount
+
+            # Tolerância de 1 centavo: diferença de arredondamento não pode
+            # derrubar a requisição.
+            if total_solicitado - payable_pool > Decimal("0.01"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Premiação excede o prize pool pagável do torneio. "
+                           f"Disponivel: R$ {float(payable_pool):.2f}, "
+                           f"Solicitado: R$ {float(total_solicitado):.2f}"
+                )
 
         supabase.table("prize_allocations")\
             .delete()\

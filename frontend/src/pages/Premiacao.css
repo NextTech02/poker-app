@@ -600,6 +600,28 @@
 /* ── Status / Action cells ── */
 .percentage-cell { color: var(--text-secondary); font-size: 0.875rem; }
 
+/* Percentual editável: mesma linguagem da célula de valor. */
+.percentage-cell .inline-edit input { width: 90px; }
+
+.percent-preview {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.percent-base-note {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+/* Soma dos percentuais acima de 100%: o mesmo vermelho do saldo estourado. */
+.percent-total.negative { color: #ef4444; }
+.percent-total .pool-warning { display: block; }
+
 .player-cell { color: #c9d5e0; }
 .player-assigned { color: var(--text); font-weight: 600; }
 .not-assigned { color: var(--text-muted); font-style: italic; font-size: 0.875rem; }
@@ -1166,6 +1188,43 @@
 .auto-calc-table-wrap .allocations-table {
   margin: 0;
 }
+
+/* Prévia editável do cálculo automático */
+.auto-calc-blocked {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+.auto-calc-hint {
+  margin: 0.75rem 1.5rem 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.preview-input {
+  width: 90px;
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--surface);
+  border-radius: 6px;
+  background: #141c26;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.preview-input:focus {
+  outline: none;
+  border-color: var(--brand-gold);
+}
+
+.auto-calc-totals {
+  padding: 0.75rem 1.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.auto-calc-totals.negative { color: #ef4444; }
 
 /* Reserved card: PERCENTUAL + DESTINO side by side to save vertical space */
 .reserved-fields-row {

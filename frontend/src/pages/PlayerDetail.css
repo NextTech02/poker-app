@@ -196,3 +196,35 @@
   gap: 0.6rem;
   margin-top: 1.1rem;
 }
+
+/* ── Tickets do jogador ─────────────────────────────────────────────────── */
+.pd-tickets-card {
+  margin-bottom: 1.25rem;
+}
+
+.pd-ticket-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+/* A vaga ainda na mão do jogador é a informação que muda a conversa no
+   balcão — por isso é a única destacada. */
+.pd-ticket-badge--live {
+  color: var(--brand-green, #22c55e);
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.pd-ticket-badge--redeemed {
+  color: var(--text-secondary, #94a3b8);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.pd-ticket-badge--cancelled {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.35);
+}

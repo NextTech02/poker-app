@@ -101,6 +101,11 @@ class TournamentDayBase(BaseModel):
     broadcast_sidebar_label_color: str = Field(default='#9ca3af')
     broadcast_sidebar_value_color: str = Field(default='#d4af37')
     broadcast_show_logo: bool = Field(default=True)
+    # Logo DO CLUBE (canto direito do cabeçalho). É separada da logo do AceBlind,
+    # à esquerda: o clube quer a marca dele no telão do salão sem perder a nossa.
+    broadcast_club_logo_url: Optional[str] = Field(default=None, description="data: URL do upload ou URL externa da logo do clube")
+    broadcast_show_club_logo: bool = Field(default=True)
+    broadcast_club_logo_size: int = Field(default=100, ge=50, le=300, description="Tamanho da logo do clube em %, base 48px")
     broadcast_show_title: bool = Field(default=True)
     broadcast_show_prizepool: bool = Field(default=True)
     broadcast_show_level: bool = Field(default=True)
@@ -190,6 +195,9 @@ class TournamentDayUpdate(BaseModel):
     broadcast_sidebar_label_color: Optional[str] = None
     broadcast_sidebar_value_color: Optional[str] = None
     broadcast_show_logo: Optional[bool] = None
+    broadcast_club_logo_url: Optional[str] = None
+    broadcast_show_club_logo: Optional[bool] = None
+    broadcast_club_logo_size: Optional[int] = Field(None, ge=50, le=300)
     broadcast_show_title: Optional[bool] = None
     broadcast_show_prizepool: Optional[bool] = None
     broadcast_show_level: Optional[bool] = None
