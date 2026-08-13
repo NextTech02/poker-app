@@ -260,8 +260,12 @@ class TestOperacoesAtomicas:
             raise Exception("FIDELIDADE: Pontos insuficientes\nCONTEXT: PL/pgSQL ...")
 
         fake.rpcs = {rpc: _estoura}
+        # O `getattr` é resolvido ANTES do `with`: um método inexistente
+        # levantaria AttributeError dentro do bloco e o teste passaria pelo
+        # motivo errado.
+        chamada = getattr(L, metodo)
         with pytest.raises(ValueError, match="Pontos insuficientes"):
-            getattr(L, metodo)(*args)
+            chamada(*args)
 
     def test_rpc_sem_retorno_devolve_dicionario_vazio(self, monkeypatch):
         fake = _monta_fidelidade(monkeypatch)
