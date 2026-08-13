@@ -15,6 +15,17 @@ from app.dependencies import get_stage_id_optional
 router = APIRouter(prefix="/player-credits", tags=["player-credits"])
 
 
+def _id_do_usuario(user: dict) -> str:
+    """Id do usuário autenticado.
+
+    `get_current_user` devolve o PAYLOAD do JWT do Supabase, onde o id do
+    usuário vem em `sub` — não em `id`. Ler a chave `id` direto levantava
+    KeyError, que virava 500 em toda escrita de crédito: conceder, acertar
+    com o patrocinador e cancelar. Nenhum crédito jamais foi criado.
+    """
+    return user.get("sub") or user.get("id")
+
+
 # ================================================
 # Credit Management
 # ================================================
@@ -22,7 +33,7 @@ router = APIRouter(prefix="/player-credits", tags=["player-credits"])
 @router.post("", response_model=PlayerCreditResponse)
 def grant_credit(data: PlayerCreditCreate, user=Depends(get_current_user)):
     try:
-        return PlayerCreditService.grant_credit(data, user["id"])
+        return PlayerCreditService.grant_credit(data, _id_do_usuario(user))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -59,7 +70,7 @@ def settle_credit(
     user=Depends(get_current_user),
 ):
     try:
-        return PlayerCreditService.settle_sponsor_payment(credit_id, data, user["id"])
+        return PlayerCreditService.settle_sponsor_payment(credit_id, data, _id_do_usuario(user))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -67,7 +78,7 @@ def settle_credit(
 @router.post("/{credit_id}/cancel", response_model=PlayerCreditResponse)
 def cancel_credit(credit_id: str, user=Depends(get_current_user)):
     try:
-        return PlayerCreditService.cancel_credit(credit_id, user["id"])
+        return PlayerCreditService.cancel_credit(credit_id, _id_do_usuario(user))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
