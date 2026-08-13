@@ -120,8 +120,9 @@ class TestConsignmentService:
             "players": [{"id": "p1", "name": "Fulano"}],
         }
         monkeypatch.setattr(chip_consignment_service, "supabase", FakeSupabase(tables))
+        arg = SaleCreate(amount=200, buyer_player_id="p1")
         with pytest.raises(HTTPException) as exc:
-            ChipConsignmentService.register_sale("c1", SaleCreate(amount=200, buyer_player_id="p1"), sold_by="u")
+            ChipConsignmentService.register_sale("c1", arg, sold_by="u")
         assert exc.value.status_code == 400
 
     def test_sangi_cannot_sell_on_others_consignment(self, monkeypatch):
@@ -134,9 +135,10 @@ class TestConsignmentService:
             "players": [{"id": "p1", "name": "Fulano"}],
         }
         monkeypatch.setattr(chip_consignment_service, "supabase", FakeSupabase(tables))
+        arg = SaleCreate(amount=10, buyer_player_id="p1")
         with pytest.raises(HTTPException) as exc:
             ChipConsignmentService.register_sale(
-                "c1", SaleCreate(amount=10, buyer_player_id="p1"),
+                "c1", arg,
                 sold_by="u", acting_auth_user_id="u", restrict_to_self=True,
             )
         assert exc.value.status_code == 403

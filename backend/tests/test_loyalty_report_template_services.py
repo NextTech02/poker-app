@@ -86,7 +86,8 @@ class TestPlanoEConfiguracao:
         fake = _monta_fidelidade(monkeypatch)
         fake.rpcs = {"org_plan_code": "pro", "org_has_loyalty": False}
         r = L.get_config(ORG)
-        assert r["available"] is True and r["enabled"] is False
+        assert r["available"] is True
+        assert r["enabled"] is False
 
     def test_rpc_de_habilitacao_ausente_conta_como_desligado(self, monkeypatch):
         """Fail-closed: sem conseguir confirmar, não libera."""
@@ -563,7 +564,9 @@ class TestRelatorioDoTorneio:
     def test_torneio_sem_dias_nem_premios(self, monkeypatch, resumo_de_premio):
         _monta_relatorio(monkeypatch)
         r = R.get_tournament_report(TOUR)
-        assert r.days == [] and r.prizes == [] and r.total_players == 0
+        assert r.days == []
+        assert r.prizes == []
+        assert r.total_players == 0
 
 
 class TestRelatorioPorPeriodo:
@@ -721,7 +724,8 @@ class TestGeracaoDeNiveis:
         """60min de intervalo com níveis de 15min = pausa depois de 4 níveis."""
         blinds = B._generate_blinds(_modelo(), DIA, TOUR, num_levels=8)
         pausas = [i for i, b in enumerate(blinds) if b["is_break"]]
-        assert pausas and blinds[pausas[0] - 1]["is_break"] is False
+        assert pausas
+        assert blinds[pausas[0] - 1]["is_break"] is False
         assert blinds[pausas[0]]["duration"] == 10
 
     def test_sem_intervalo_configurado_nao_gera_pausa(self, monkeypatch):

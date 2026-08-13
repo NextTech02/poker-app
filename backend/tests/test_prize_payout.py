@@ -155,9 +155,10 @@ class TestCriacaoDeAlocacao:
         """Duas alocacoes na mesma posicao dividiriam o premio de forma
         ambigua na hora de pagar."""
         _monta(monkeypatch)
+        arg = PrizeAllocationCreate(position=1, prize_amount=100)
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.create_allocation(
-                TOUR, PrizeAllocationCreate(position=1, prize_amount=100)
+                TOUR, arg
             )
         assert "already has a prize allocation" in e.value.detail
 
@@ -171,9 +172,10 @@ class TestCriacaoDeAlocacao:
 
     def test_torneio_inexistente_e_recusado(self, monkeypatch):
         _monta(monkeypatch, tabelas={"tournaments": []})
+        arg = PrizeAllocationCreate(position=3, prize_amount=100)
         with pytest.raises(HTTPException):
             PrizeAllocationService.create_allocation(
-                TOUR, PrizeAllocationCreate(position=3, prize_amount=100)
+                TOUR, arg
             )
 
 
@@ -260,9 +262,10 @@ class TestEdicaoDeAlocacao:
 
     def test_inexistente_da_404(self, monkeypatch):
         _monta(monkeypatch, tabelas={"prize_allocations": []})
+        arg = PrizeAllocationUpdate(prize_amount=10)
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.update_allocation(
-                TOUR, ALLOC, PrizeAllocationUpdate(prize_amount=10)
+                TOUR, ALLOC, arg
             )
         assert e.value.status_code == 404
 
@@ -281,8 +284,9 @@ class TestPremioReservado:
         reserva sem destino definido."""
         from decimal import Decimal
         _monta(monkeypatch)
+        arg = Decimal("10")
         with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.update_reserved_config(TOUR, Decimal("10"), "qualquer")
+            PrizeAllocationService.update_reserved_config(TOUR, arg, "qualquer")
         assert "reserved_purpose" in e.value.detail
 
     def test_finalidade_vazia_e_aceita(self, monkeypatch):
@@ -328,9 +332,10 @@ class TestEdicaoDetalhada:
         fake = _monta(monkeypatch)
         fake.store["prize_allocations"].append(outra)
 
+        arg = PrizeAllocationUpdate(position=2)
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.update_allocation(
-                TOUR, ALLOC, PrizeAllocationUpdate(position=2)
+                TOUR, ALLOC, arg
             )
         assert "already has a prize allocation" in e.value.detail
 
@@ -386,17 +391,19 @@ class TestPremioTipoVaga:
 
     def test_vaga_sem_dia_alvo_e_recusada(self, monkeypatch):
         _monta(monkeypatch)
-        with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.create_allocation(TOUR, PrizeAllocationCreate(
+        arg = PrizeAllocationCreate(
                 position=6, prize_amount=0, prize_type="vaga",
-            ))
+            )
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.create_allocation(TOUR, arg)
         assert "dia alvo" in e.value.detail
 
     def test_dia_alvo_inexistente_da_404(self, monkeypatch):
         _monta(monkeypatch)
-        with pytest.raises(HTTPException) as e:
-            PrizeAllocationService.create_allocation(TOUR, PrizeAllocationCreate(
+        arg = PrizeAllocationCreate(
                 position=7, prize_amount=0, prize_type="vaga",
                 vaga_target_day_id="00000000-0000-0000-0000-0000000000ff",
-            ))
+            )
+        with pytest.raises(HTTPException) as e:
+            PrizeAllocationService.create_allocation(TOUR, arg)
         assert e.value.status_code == 404

@@ -92,16 +92,18 @@ class TestConcessaoDeCredito:
 
     def test_jogador_inexistente(self, monkeypatch):
         _monta_credito(monkeypatch, creditos=[], players=[])
+        arg = PlayerCreditCreate(
+                player_id=JOGADOR, sponsor_id=PATRO, amount=100)
         with pytest.raises(ValueError, match="Jogador não encontrado"):
-            C.grant_credit(PlayerCreditCreate(
-                player_id=JOGADOR, sponsor_id=PATRO, amount=100), AUTOR)
+            C.grant_credit(arg, AUTOR)
 
     def test_patrocinador_inexistente(self, monkeypatch):
         """Crédito sem patrocinador não tem de quem cobrar depois."""
         _monta_credito(monkeypatch, creditos=[], sponsors=[])
+        arg = PlayerCreditCreate(
+                player_id=JOGADOR, sponsor_id=PATRO, amount=100)
         with pytest.raises(ValueError, match="Patrocinador não encontrado"):
-            C.grant_credit(PlayerCreditCreate(
-                player_id=JOGADOR, sponsor_id=PATRO, amount=100), AUTOR)
+            C.grant_credit(arg, AUTOR)
 
 
 class TestConsultaDeCreditos:
@@ -311,8 +313,9 @@ class TestAcertoECancelamento:
 
     def test_acerto_de_credito_inexistente(self, monkeypatch):
         _monta_credito(monkeypatch, creditos=[])
+        arg = CreditSettlementRequest(amount=1)
         with pytest.raises(ValueError, match="não encontrado"):
-            C.settle_sponsor_payment("c1", CreditSettlementRequest(amount=1), AUTOR)
+            C.settle_sponsor_payment("c1", arg, AUTOR)
 
     def test_cancela_credito_intocado(self, monkeypatch):
         fake = _monta_credito(monkeypatch)

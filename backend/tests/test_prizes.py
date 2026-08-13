@@ -123,10 +123,11 @@ class TestAtualizacaoDaFaixa:
 
     def test_faixa_inexistente_da_404(self, monkeypatch):
         self._monta(monkeypatch)
+        arg = self._update(prize_amount=10)
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.update_allocation(
                 TOURNAMENT_UUID, "00000000-0000-0000-0000-0000000000ff",
-                self._update(prize_amount=10))
+                arg)
         assert exc.value.status_code == 404
 
     def test_corpo_vazio_e_recusado(self, monkeypatch):

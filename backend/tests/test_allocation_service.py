@@ -376,8 +376,9 @@ class TestConsultasEMovimentacao:
     def test_mover_para_assento_ocupado(self, monkeypatch):
         _monta(monkeypatch, mesas=[_mesa(M1, 1, ocupados=2)],
                alocacoes=[_aloc("a1", M1, 1, P1), _aloc("a2", M1, 5, P2)])
+        arg = SeatAllocationUpdate(seat_number=5)
         with pytest.raises(ValueError, match="already occupied"):
-            S.update_allocation("a1", SeatAllocationUpdate(seat_number=5))
+            S.update_allocation("a1", arg)
 
     def test_salvar_no_mesmo_assento_e_permitido(self, monkeypatch):
         """A checagem precisa ignorar a própria linha, senão salvar sem mexer
@@ -387,8 +388,9 @@ class TestConsultasEMovimentacao:
 
     def test_atualizar_inexistente(self, monkeypatch):
         _monta(monkeypatch)
+        arg = SeatAllocationUpdate(seat_number=1)
         with pytest.raises(ValueError, match="Allocation not found"):
-            S.update_allocation("nao-existe", SeatAllocationUpdate(seat_number=1))
+            S.update_allocation("nao-existe", arg)
 
     def test_remover_devolve_o_lugar_para_a_mesa(self, monkeypatch):
         fake = _monta(monkeypatch, mesas=[_mesa(M1, 1, ocupados=1)],

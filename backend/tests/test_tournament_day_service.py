@@ -206,7 +206,8 @@ class TestCriacaoELeitura:
     def test_dia_sem_torneio_embutido_nao_quebra(self, monkeypatch):
         _monta(monkeypatch, tournament_days=[_dia(D1, tournaments=None)])
         dia, etapa = S.get_day_with_stage(D1)
-        assert dia is not None and etapa is None
+        assert dia is not None
+        assert etapa is None
 
 
 class TestResumoPorDia:
@@ -219,7 +220,8 @@ class TestResumoPorDia:
             "created_at": "2026-06-08T00:00:00Z",
         }]
         r = S.get_tournament_day_summary(TOUR)
-        assert len(r) == 1 and r[0].registered_players == 3
+        assert len(r) == 1
+        assert r[0].registered_players == 3
 
     def test_sem_a_rpc_cai_no_caminho_em_lote(self, monkeypatch):
         """A RPC pode não estar no banco de um cliente que ainda não migrou;
@@ -293,8 +295,9 @@ class TestEdicaoEExclusao:
             raise Exception("connection reset by peer")
 
         monkeypatch.setattr(fake, "table", _table)
+        arg = TournamentDayUpdate(day_name="X")
         with pytest.raises(Exception, match="connection reset"):
-            S.update_tournament_day(D1, TournamentDayUpdate(day_name="X"))
+            S.update_tournament_day(D1, arg)
 
     def test_apaga(self, monkeypatch):
         fake = _monta(monkeypatch)
@@ -315,7 +318,8 @@ class TestSobreviventesEAvanco:
         _monta(monkeypatch, tournament_players=[
             _jogador(D1, status="active"), _jogador(D1, status="eliminated", buy=2)])
         r = S.get_survivors(D1)
-        assert len(r) == 1 and r[0]["status"] == "active"
+        assert len(r) == 1
+        assert r[0]["status"] == "active"
 
     def _dia_classificatorio(self, **kw):
         base = dict(day_type="qualifying", qualifies_to_day_id=FINAL,

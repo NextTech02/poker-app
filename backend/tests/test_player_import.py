@@ -113,7 +113,9 @@ class TestCamposObrigatorios:
         campo e o registro cai de novo na proxima importacao."""
         _, rejeitados = S._preparar([_linha(email="", phone="", mobile="", document_number="")])
         motivo = rejeitados[0]["reason"]
-        assert "e-mail" in motivo and "telefone" in motivo and "documento" in motivo
+        assert "e-mail" in motivo
+        assert "telefone" in motivo
+        assert "documento" in motivo
 
     def test_registro_sem_nome_ainda_e_identificavel(self):
         _, rejeitados = S._preparar([_linha(name="", source_id="286")])
