@@ -697,15 +697,23 @@ class PrizeAllocationService:
 
         # Apagar uma faixa JÁ PAGA sumiria com o registro do dinheiro que saiu
         # do caixa geral — a conferência do caixa nunca mais fecharia.
+        # A trava continua valendo para QUALQUER faixa paga, mas a `position`
+        # nula sai antes do sorted: comparar None com int estoura TypeError e o
+        # operador levaria um 500 genérico no lugar do aviso que diz quais
+        # faixas já foram pagas — e tentaria de novo achando que foi instabilidade.
+        linhas_pagas = [r for r in (existing.data or []) if r.get("paid")]
         pagas = sorted(
-            r.get("position") for r in (existing.data or []) if r.get("paid")
+            r.get("position") for r in linhas_pagas if r.get("position") is not None
         )
-        if pagas:
-            posicoes = ", ".join(f"{p}º" for p in pagas)
+        if linhas_pagas:
+            alvo = (
+                f"das posições {', '.join(f'{p}º' for p in pagas)}"
+                if pagas else "de faixas deste torneio"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Não é possível recalcular a premiação: a premiação "
-                       f"das posições {posicoes} já foi paga. Ajuste as faixas "
+                       f"{alvo} já foi paga. Ajuste as faixas "
                        f"restantes uma a uma."
             )
 

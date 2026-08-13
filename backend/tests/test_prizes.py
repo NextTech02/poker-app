@@ -302,6 +302,39 @@ class TestBulkDaPremiacao:
         assert "2º" in exc.value.detail
         assert len(fake.store["prize_allocations"]) == 1
 
+    def test_faixa_paga_sem_posicao_ainda_recusa_com_400(self, monkeypatch):
+        """Faixa paga com `position` nula (importação antiga, linha corrompida).
+
+        Ordenar None junto com int estourava TypeError e o operador recebia um
+        500 sem explicação — ele reclicava achando que foi instabilidade, em vez
+        de ler que existe prêmio já pago e ajustar as faixas uma a uma.
+        """
+        fake = self._monta(monkeypatch, faixas=[
+            {"id": ALLOC_UUID, "tournament_id": TOURNAMENT_UUID, "position": None,
+             "prize_amount": 100, "paid": True},
+            {"id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+             "tournament_id": TOURNAMENT_UUID, "position": 2,
+             "prize_amount": 100, "paid": True},
+        ])
+        with pytest.raises(HTTPException) as exc:
+            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, self._lote(500))
+        assert exc.value.status_code == 400
+        assert "2º" in exc.value.detail
+        # E nada foi apagado: as duas faixas pagas continuam lá.
+        assert len(fake.store["prize_allocations"]) == 2
+
+    def test_unica_faixa_paga_sem_posicao_continua_travando_o_lote(self, monkeypatch):
+        """Só a posição some da mensagem; a trava não pode sumir junto, senão o
+        bulk apaga o registro do prêmio que já saiu do caixa geral."""
+        fake = self._monta(monkeypatch, faixas=[{
+            "id": ALLOC_UUID, "tournament_id": TOURNAMENT_UUID, "position": None,
+            "prize_amount": 100, "paid": True,
+        }])
+        with pytest.raises(HTTPException) as exc:
+            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, self._lote(500))
+        assert exc.value.status_code == 400
+        assert len(fake.store["prize_allocations"]) == 1
+
     def test_faixa_nao_paga_nao_impede(self, monkeypatch):
         fake = self._monta(monkeypatch, faixas=[{
             "id": ALLOC_UUID, "tournament_id": TOURNAMENT_UUID, "position": 2,

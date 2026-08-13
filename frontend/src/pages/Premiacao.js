@@ -351,7 +351,12 @@ const Premiacao = () => {
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : t('premiacao.autoApplyError'));
+      // Toast, não o banner da página: o modal do cálculo continua aberto por
+      // cima e o banner ficaria ATRÁS dele. As recusas do servidor (soma acima
+      // do pool pagável, torneio com faixa já paga) são justamente as que o
+      // operador precisa ler para corrigir os valores antes de tentar de novo —
+      // sem retorno visível ele reclica achando que o botão travou.
+      toast.error(typeof detail === 'string' ? detail : t('premiacao.autoApplyError'));
     } finally {
       setSaving(false);
     }
@@ -1310,6 +1315,19 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
   const isVaga = allocation.prize_type === 'vaga';
   const canEdit = !allocation.paid && !isVaga;
 
+  // Clicar num campo bloqueado e nada acontecer faz o operador achar que a tela
+  // travou (antes da vaga, essa faixa era editável). O motivo vai no title dos
+  // dois campos e num selo ao lado do valor, para ele saber que o número está
+  // certo e vem do dia alvo.
+  const motivoBloqueio = isVaga
+    ? t(
+        'premiacao.vagaNotEditable',
+        'Esta faixa é uma vaga: vale o buy-in do dia alvo e é calculada pelo sistema.'
+      )
+    : allocation.paid
+      ? t('premiacao.cannotEditPaid', 'Faixa já paga: o valor não pode mais ser alterado.')
+      : null;
+
   // O estado era inicializado UMA vez e ficava velho quando o valor mudava por
   // outro caminho (cálculo automático, outro operador). Agora ele é carregado
   // na hora de abrir a edição.
@@ -1359,8 +1377,14 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
           <span
             onClick={() => startEditing('amount')}
             className={`editable-value ${canEdit ? 'clickable' : ''}`}
+            title={motivoBloqueio || t('premiacao.editAmount', 'Editar o valor da faixa')}
           >
             {formatCurrency(allocation.prize_amount)}
+            {isVaga && (
+              <span className="vaga-inline-badge" title={motivoBloqueio}>
+                {t('premiacao.vagaBadge', 'vaga')}
+              </span>
+            )}
           </span>
         )}
       </td>
@@ -1388,7 +1412,7 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
           <span
             onClick={() => startEditing('percent')}
             className={`editable-value ${canEdit ? 'clickable' : ''}`}
-            title={canEdit ? t('premiacao.editPercentage', 'Editar o percentual da faixa') : undefined}
+            title={motivoBloqueio || t('premiacao.editPercentage', 'Editar o percentual da faixa')}
           >
             {formatPercentage(percentage)}%
           </span>

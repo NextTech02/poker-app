@@ -41,6 +41,11 @@ jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/PaymentMethodsContext', () => ({ usePaymentMethods: jest.fn() }));
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
 jest.mock('react-i18next', () => {
   const t = (chave, segundo, terceiro) => {
     const vars = segundo && typeof segundo === 'object' ? segundo : terceiro;
@@ -165,6 +170,15 @@ describe('a etapa vem do app, não de um seletor próprio', () => {
     expect(screen.getByText('Ir para Etapas')).toBeInTheDocument();
     const urls = api.get.mock.calls.map((c) => c[0]);
     expect(urls.some((u) => u.startsWith('/cash/stage/'))).toBe(false);
+  });
+
+  it('o atalho para Etapas navega pelo Router, sem recarregar a SPA', async () => {
+    /* Era `window.location.href`: o app inteiro reinicia, o estado carregado
+       se perde e o tablet do caixa pisca uma tela branca no meio do evento. */
+    await montar({ etapa: null });
+    await userEvent.click(await screen.findByText('Ir para Etapas'));
+    expect(mockNavigate).toHaveBeenCalledWith('/etapas');
+    expect(window.location.href).not.toContain('/etapas');
   });
 
   it('sem etapa selecionada o cartão do caixa do dia explica', async () => {

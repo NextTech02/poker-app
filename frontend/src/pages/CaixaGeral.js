@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -17,6 +18,7 @@ import './CaixaGeral.css';
 
 const CaixaGeral = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   // A etapa é a do app (barra/sidebar), não um seletor só desta tela: dois
@@ -265,7 +267,10 @@ const CaixaGeral = () => {
             title={t('generalCash.noStageSelected', 'Nenhuma etapa selecionada')}
             subtitle={t('generalCash.noStageSelectedHint', 'O caixa é conferido etapa por etapa. Escolha a etapa em Etapas para ver o caixa do dia e sangrar.')}
             ctaLabel={t('generalCash.goToStages', 'Ir para Etapas')}
-            onCta={() => { window.location.href = '/etapas'; }}
+            // Navegação do Router, não window.location: recarregar a SPA inteira
+            // derruba a etapa selecionada e o cache já carregado, e no tablet do
+            // caixa isso é uma tela branca de vários segundos no meio do evento.
+            onCta={() => navigate('/etapas')}
           />
         )}
 

@@ -346,6 +346,22 @@ describe('emitir em lote (só master)', () => {
     expect(screen.getByLabelText('jogador')).toBeInTheDocument();
   });
 
+  it('quem tem só a permissão de funcionários TAMBÉM vê o modo lote', async () => {
+    /* O backend aceita 'cashier_tickets.master' OU 'employees' (MASTER_PERMS
+       em routers/satellite_tickets.py) — 'employees' é o que o grupo Admin já
+       tem antes do backfill da migração. Exigindo só o 'master' aqui, o dono
+       podia chamar a API mas não enxergava o botão na tela. */
+    usePermissions.mockReturnValue({
+      isAdmin: false,
+      hasPermission: (p) => p === 'employees',
+    });
+    await montar();
+    await abrir();
+    expect(
+      screen.getByRole('button', { name: 'satelliteTickets.bulkModeMultiple' })
+    ).toBeInTheDocument();
+  });
+
   it('o master escolhe entre um e vários jogadores', async () => {
     comoMaster();
     await montar();

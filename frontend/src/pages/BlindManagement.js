@@ -332,6 +332,13 @@ const BlindManagement = () => {
       const message =
         typeof detail === 'string' ? detail : t('blinds.clearError', 'Não foi possível apagar a estrutura.');
       toast.error(message);
+      // Sem recarregar, `emAndamento` continua falso (foi calculado no load da
+      // tela) e o próximo clique manda a mesma requisição SEM force: o operador
+      // fica preso no mesmo 409 até dar F5. Recarregar traz o dia já como
+      // ativo, e aí a segunda confirmação aparece e a limpeza passa.
+      if (error.response?.status === 409) {
+        loadData();
+      }
     }
   };
 

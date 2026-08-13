@@ -523,6 +523,23 @@
   border: 1px solid var(--surface);
 }
 
+/* Selo da faixa "vaga": avisa que o valor é calculado pelo sistema (buy-in do
+   dia alvo) e por isso o clique para editar não abre nada. */
+.vaga-inline-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  font-weight: 800;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  cursor: help;
+}
+
 .paid-inline-badge {
   display: inline-block;
   margin-left: 0.5rem;

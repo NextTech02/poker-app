@@ -24,7 +24,15 @@ const SatelliteTickets = () => {
   // Emitir em lote é decisão de dono: um erro multiplica por dezenas de
   // entradas já pagas. O backend também exige a permissão — aqui é só para
   // não oferecer um botão que vai dar 403.
-  const podeLote = isAdmin || hasPermission('cashier_tickets.master');
+  // A lista precisa ser a MESMA do backend (MASTER_PERMS em
+  // routers/satellite_tickets.py): 'employees' entra porque é o que o grupo
+  // Admin já tem antes do backfill da migração. Exigir só 'cashier_tickets.master'
+  // aqui escondia o botão de quem tem permissão de verdade — o dono ficava sem
+  // conseguir emitir o lote pela tela.
+  const podeLote =
+    isAdmin ||
+    hasPermission('cashier_tickets.master') ||
+    hasPermission('employees');
 
   const fmt = (n) => formatCurrency(n ?? 0);
 

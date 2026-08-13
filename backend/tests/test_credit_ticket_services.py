@@ -994,6 +994,22 @@ class TestTransferenciaEVendaDeTicket:
         assert fake.store["satellite_ticket_transfers"][0]["from_player_id"] is None
         assert fake.store["satellite_tickets"][0]["player_id"] == self.NOVO
 
+    def test_a_receita_da_venda_NAO_e_amarrada_ao_torneio_destino(self, monkeypatch):
+        """O dinheiro entra no caixa da etapa em que o caixa está operando, mas
+        o torneio-destino da vaga costuma ser de OUTRA etapa.
+
+        Gravar os dois na mesma linha deixaria etapa e torneio discordando: o
+        DRE filtra por etapa E torneio juntos, então a venda sumiria do DRE do
+        torneio-destino e ainda seria contada como receita dele em qualquer
+        relatório agrupado só por torneio.
+        """
+        fake = self._monta(monkeypatch)
+        T.transfer_ticket("t1", self._corpo(amount=250), AUTOR,
+                          org_id=self.ORG, stage_id=ETAPA)
+        receita = fake.store["other_revenues"][0]
+        assert receita["stage_id"] == ETAPA
+        assert receita.get("tournament_id") is None
+
     def test_falha_ao_gravar_o_historico_estorna_a_receita(self, monkeypatch):
         """Receita sem histórico é caixa inflado por um lançamento que ninguém
         consegue explicar."""
@@ -1009,6 +1025,51 @@ class TestTransferenciaEVendaDeTicket:
         arg = self._corpo(amount=250)
         with pytest.raises(ValueError, match="transferência"):
             T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        assert fake.store["other_revenues"] == []
+        assert fake.store["satellite_tickets"][0]["player_id"] == JOGADOR
+
+    def test_tabela_ausente_sugere_a_migracao(self, monkeypatch):
+        """Único caso em que mandar rodar a migração é o conselho certo."""
+        fake = self._monta(monkeypatch)
+        original = fake.table
+
+        def _table(nome):
+            if nome == "satellite_ticket_transfers":
+                raise Exception(
+                    'relation "satellite_ticket_transfers" does not exist')
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        arg = self._corpo(amount=250)
+        with pytest.raises(ValueError, match="migração"):
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+
+    @pytest.mark.parametrize("falha", [
+        'insert or update on table "satellite_ticket_transfers" violates '
+        'foreign key constraint "satellite_ticket_transfers_ticket_id_fkey"',
+        'new row violates row-level security policy for table '
+        '"satellite_ticket_transfers"',
+        "Connection aborted: timed out",
+    ])
+    def test_outras_falhas_mostram_o_motivo_real(self, monkeypatch, falha):
+        """Em produção a migração JÁ está aplicada: culpar a migração em toda
+        falha manda o suporte investigar o lugar errado enquanto o caixa está
+        parado com o jogador na frente."""
+        fake = self._monta(monkeypatch)
+        original = fake.table
+
+        def _table(nome):
+            if nome == "satellite_ticket_transfers":
+                raise Exception(falha)
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        arg = self._corpo(amount=250)
+        with pytest.raises(ValueError) as exc:
+            T.transfer_ticket("t1", arg, AUTOR, org_id=self.ORG, stage_id=ETAPA)
+        assert "migração" not in str(exc.value)
+        assert falha in str(exc.value)
+        # O estorno da receita continua valendo em qualquer motivo de falha.
         assert fake.store["other_revenues"] == []
         assert fake.store["satellite_tickets"][0]["player_id"] == JOGADOR
 

@@ -634,6 +634,40 @@ describe('limpar a estrutura inteira', () => {
     expect(linhas().length).toBe(4);
   });
 
+  it('depois do 409 o segundo clique já vai com force, sem precisar de F5', async () => {
+    /* O `emAndamento` sai do estado carregado quando a tela abriu. Se o dia
+       começou depois disso, o 409 volta e o estado continua velho: o operador
+       clica de novo, manda a MESMA requisição sem force e leva o mesmo 409,
+       em loop, até recarregar a página — com o telão sem blinds. Recarregar
+       no catch traz o dia já ativo e a segunda confirmação aparece. */
+    const RODANDO = { ...DIA_RODANDO, day_name: 'Dia 1A (rodando)' };
+    api.delete.mockRejectedValueOnce(erroHttp(409, 'O dia está em andamento.'));
+    await montar();                    // a tela abriu com o dia ainda parado
+    responder({ dia: RODANDO });       // no servidor, o dia já começou
+    await limpar();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('O dia está em andamento.'));
+    // O recarregamento do catch trouxe o dia ativo para a tela.
+    expect(await screen.findByText(/Dia 1A \(rodando\)/)).toBeInTheDocument();
+
+    confirmar.mockClear();
+    await limpar();
+    await waitFor(() => expect(confirmar).toHaveBeenCalledTimes(2));
+    expect(api.delete).toHaveBeenLastCalledWith(
+      '/tournament-days/d1/blinds', { params: { force: true } }
+    );
+  });
+
+  it('erro que não é 409 não recarrega a tela por cima do operador', async () => {
+    // Recarregar em qualquer falha descartaria uma edição em andamento sem
+    // motivo: só a corrida do dia ativo justifica refazer a carga.
+    api.delete.mockRejectedValue(erroHttp(500, 'Falha interna'));
+    await montar();
+    const buscas = api.get.mock.calls.length;
+    await limpar();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Falha interna'));
+    expect(api.get.mock.calls.length).toBe(buscas);
+  });
+
   it('erro sem motivo cai numa frase clara', async () => {
     api.delete.mockRejectedValue(new Error('500'));
     await montar();

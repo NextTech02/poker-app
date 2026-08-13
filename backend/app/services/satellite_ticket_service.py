@@ -13,6 +13,31 @@ from app.models.satellite_ticket import (
 )
 
 
+# Só existe UM cenário em que faz sentido mandar o clube rodar a migração: a
+# tabela de histórico não existe naquele banco. Qualquer outra falha (FK, RLS,
+# rede) precisa chegar ao suporte com o motivo real, senão a investigação
+# começa por uma migração que já está aplicada.
+_SINAIS_DE_TABELA_AUSENTE = (
+    "undefined_table",
+    "42p01",
+    "does not exist",
+    "não existe",
+    "could not find the table",
+)
+
+
+def _falta_a_tabela_de_transferencias(erro: Exception) -> bool:
+    partes = [str(erro)]
+    for atributo in ("code", "message", "details", "hint"):
+        valor = getattr(erro, atributo, None)
+        if valor:
+            partes.append(str(valor))
+    blob = " ".join(partes).lower()
+    if "satellite_ticket_transfers" not in blob and "42p01" not in blob:
+        return False
+    return any(sinal in blob for sinal in _SINAIS_DE_TABELA_AUSENTE)
+
+
 class SatelliteTicketService:
 
     # ================================================
@@ -457,9 +482,17 @@ class SatelliteTicketService:
         if lanca_no_caixa:
             from app.services.expense_service import ExpenseService
 
+            # SEM torneio de propósito. O dinheiro da venda entra no caixa da
+            # etapa em que o caixa está operando (`etapa`), enquanto o
+            # torneio-destino da vaga quase sempre pertence a OUTRA etapa.
+            # Amarrar a receita ao torneio-destino deixaria a linha com etapa e
+            # torneio de etapas diferentes: o DRE filtra por etapa E por torneio
+            # juntos (ExpenseService.summarize_revenues), então a venda sumiria
+            # do DRE do torneio-destino e ainda apareceria como receita "dele"
+            # em qualquer relatório que agrupe só por torneio. A venda da vaga é
+            # faturamento da ETAPA, não entrada do torneio-destino.
             receita = ExpenseService.create_revenue(org_id, {
                 "stage_id": etapa,
-                "tournament_id": t.get("target_tournament_id"),
                 "source": "Ticket",
                 "description": f"Venda de ticket para {destino.data[0].get('name')}",
                 "amount": valor,
@@ -484,7 +517,7 @@ class SatelliteTicketService:
         }
         try:
             supabase.table("satellite_ticket_transfers").insert(registro).execute()
-        except Exception:
+        except Exception as erro:
             # Sem histórico ninguém explica de onde veio o dinheiro. Estorna a
             # receita em vez de deixar o caixa inflado por um lançamento órfão.
             if revenue_id and org_id:
@@ -493,9 +526,18 @@ class SatelliteTicketService:
                     ExpenseService.delete_revenue(org_id, revenue_id)
                 except Exception:
                     pass
+            # Culpar a migração em QUALQUER falha manda o suporte procurar no
+            # lugar errado: em produção a tabela já existe, e o que costuma
+            # quebrar aqui é FK inválida, RLS ou rede. Só sugere a migração
+            # quando a tabela realmente não existe; no resto, mostra o motivo
+            # real para quem estiver com o caixa parado.
+            if _falta_a_tabela_de_transferencias(erro):
+                raise ValueError(
+                    "Não foi possível registrar a transferência do ticket. "
+                    "Verifique se a migração de transferência de tickets já foi aplicada."
+                )
             raise ValueError(
-                "Não foi possível registrar a transferência do ticket. "
-                "Verifique se a migração de transferência de tickets já foi aplicada."
+                f"Não foi possível registrar a transferência do ticket: {erro}"
             )
 
         supabase.table("satellite_tickets").update({

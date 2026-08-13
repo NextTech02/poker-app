@@ -539,6 +539,20 @@ describe('edição do percentual de uma posição', () => {
     await userEvent.click(within(linhaDaPosicao('3°')).getByText('12.99%'));
     expect(within(linhaDaPosicao('3°')).queryByRole('spinbutton')).toBeNull();
   });
+
+  it('a VAGA explica por que não abre, em vez de só ignorar o clique', async () => {
+    /* Essa faixa já foi editável. Bloquear sem nenhum retorno faz o operador
+       clicar, clicar de novo e concluir que a tela travou — sem saber que o
+       valor está certo e vem do buy-in do dia alvo. */
+    await montar();
+    const linha = linhaDaPosicao('3°');
+    const valor = within(linha).getByText('R$ 5000.00').closest('.editable-value');
+    expect(valor).toHaveAttribute('title', 'premiacao.vagaNotEditable');
+    expect(within(linha).getByText('12.99%'))
+      .toHaveAttribute('title', 'premiacao.vagaNotEditable');
+    // E um selo ao lado do valor, para não depender de parar o mouse em cima.
+    expect(within(linha).getByText('premiacao.vagaBadge')).toBeInTheDocument();
+  });
 });
 
 describe('remoção de posição', () => {
@@ -727,12 +741,28 @@ describe('cálculo automático da estrutura', () => {
     expect(corpo.allocations[0]).toEqual({ position: 1, prize_amount: 25025 });
   });
 
-  it('erro ao aplicar aparece com o motivo', async () => {
+  it('erro ao aplicar aparece com o motivo POR CIMA do modal', async () => {
+    /* A recusa vinha para o banner da página, que fica ATRÁS do modal aberto:
+       o operador clicava em aplicar, o botão piscava e nada acontecia — e ele
+       reclicava. As duas recusas do servidor (soma acima do pool pagável,
+       torneio com faixa já paga) são justamente as que ele precisa ler para
+       corrigir os valores. */
     api.post.mockRejectedValue({ response: { data: { detail: 'Torneio encerrado' } } });
     await montar({ resumo: SEM_PAGAS });
     await abrir();
     await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
-    expect(await screen.findByText('Torneio encerrado')).toBeInTheDocument();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Torneio encerrado'));
+    // E o modal continua aberto com os valores digitados, para ele ajustar.
+    expect(document.querySelector('.auto-calc-modal')).not.toBeNull();
+  });
+
+  it('erro sem motivo legível cai numa mensagem padrão, também em toast', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: [{ msg: 'x' }] } } });
+    await montar({ resumo: SEM_PAGAS });
+    await abrir();
+    await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('premiacao.autoApplyError'));
   });
 
   it('torneio com prêmio JÁ PAGO não deixa recalcular', async () => {
