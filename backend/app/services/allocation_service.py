@@ -3,6 +3,14 @@ from app.database import supabase
 from app.models.seat_allocation import SeatAllocation, SeatAllocationCreate, SeatAllocationUpdate, SeatAllocationWithDetails
 import random
 
+# Sorteio de lugar usa a entropia do sistema operacional (os.urandom), não o
+# Mersenne Twister do `random` global. O gerador padrão é determinístico: quem
+# observar assentos sorteados suficientes consegue prever os próximos, e
+# posição na mesa vale dinheiro (sentar à esquerda de um jogador é vantagem
+# real). Com SystemRandom o sorteio não é reproduzível nem previsível, e o
+# custo é irrelevante — são poucas dezenas de sorteios por noite.
+_sorteio = random.SystemRandom()
+
 
 class AllocationService:
     @staticmethod
@@ -82,7 +90,7 @@ class AllocationService:
         if not available_seats:
             raise ValueError("No available seats at selected table")
 
-        seat_number = random.choice(available_seats)
+        seat_number = _sorteio.choice(available_seats)
 
         # Create allocation
         allocation_data = {
@@ -164,7 +172,7 @@ class AllocationService:
         available = [i for i in range(1, best_table["seats"] + 1) if i not in taken]
 
         if mode == "random_balanced":
-            seat_number = random.choice(available)
+            seat_number = _sorteio.choice(available)
         else:
             seat_number = available[0]  # lowest available seat
 
@@ -390,7 +398,7 @@ class AllocationService:
                 if table_counts[tid] < t["seats"]:
                     available = [s for s in range(1, t["seats"] + 1) if s not in occupied_seats_map[tid]]
                     if available:
-                        seat = random.choice(available) if randomize_seat else available[0]
+                        seat = _sorteio.choice(available) if randomize_seat else available[0]
                         pending.append({
                             "tournament_id": tournament_id,
                             "tournament_day_id": day_id,

@@ -29,6 +29,17 @@ const CashboxBanner = ({ onStateChange }) => {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!modal) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape' && !submitting) setModal(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [modal, submitting]);
+
   const report = useCallback(
     (cb) => {
       if (onStateChange) onStateChange(cb);
@@ -176,8 +187,12 @@ const CashboxBanner = ({ onStateChange }) => {
 
       {/* Modal abrir */}
       {modal === 'open' && (
-        <div className="modal-overlay" onClick={() => !submitting && setModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget && !submitting) setModal(null); }}
+        >
+          <div className="modal" role="dialog" aria-modal="true" aria-label={t('cashbox.openCashbox')}>
             <div className="modal-header">
               <h2>{t('cashbox.openCashbox')}</h2>
               <button className="close-btn" onClick={() => setModal(null)} aria-label={t('common.close')}>
@@ -224,8 +239,12 @@ const CashboxBanner = ({ onStateChange }) => {
 
       {/* Modal fechar */}
       {modal === 'close' && (
-        <div className="modal-overlay" onClick={() => !submitting && setModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget && !submitting) setModal(null); }}
+        >
+          <div className="modal" role="dialog" aria-modal="true" aria-label={t('cashbox.closeCashbox')}>
             <div className="modal-header">
               <h2>{t('cashbox.closeCashbox')}</h2>
               <button className="close-btn" onClick={() => setModal(null)} aria-label={t('common.close')}>

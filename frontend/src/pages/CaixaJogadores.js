@@ -9,6 +9,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useTranslation } from 'react-i18next';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './CaixaJogadores.css';
 
 const CaixaJogadores = () => {
@@ -37,6 +38,10 @@ const CaixaJogadores = () => {
   // Modals
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [showSponsorModal, setShowSponsorModal] = useState(false);
+
+  // Esc fecha os modais — é o equivalente de teclado ao clique no fundo escuro.
+  useEscapeKey(showCreditModal, () => setShowCreditModal(false));
+  useEscapeKey(showSponsorModal, () => setShowSponsorModal(false));
   const [creditForm, setCreditForm] = useState({
     sponsor_id: '',
     amount: '',
@@ -444,8 +449,8 @@ const CaixaJogadores = () => {
 
         {/* Grant Credit Modal */}
         {showCreditModal && (
-          <div className="modal-overlay" onClick={() => setShowCreditModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowCreditModal(false); }}>
+            <div className="modal" role="dialog" aria-modal="true" aria-label={t('playerCash.grantCreditTitle')}>
               <div className="modal-header">
                 <h2>{t('playerCash.grantCreditTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowCreditModal(false)} aria-label={t('common.close')}>
@@ -513,8 +518,8 @@ const CaixaJogadores = () => {
 
         {/* Sponsor Modal */}
         {showSponsorModal && (
-          <div className="modal-overlay" onClick={() => setShowSponsorModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowSponsorModal(false); }}>
+            <div className="modal" role="dialog" aria-modal="true" aria-label={t('playerCash.registerSponsorTitle')}>
               <div className="modal-header">
                 <h2>{t('playerCash.registerSponsorTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowSponsorModal(false)} aria-label={t('common.close')}>

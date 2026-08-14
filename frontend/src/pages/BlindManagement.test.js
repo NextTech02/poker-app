@@ -215,13 +215,23 @@ describe('edição direta na célula', () => {
 
   it('clicar no valor abre a edição', async () => {
     await montar();
-    await userEvent.click(within(celula(linhas()[0], 1)).getByText('100'));
+    await userEvent.click(within(celula(linhas()[0], 1)).getByRole('button', { name: '100' }));
+    expect(document.querySelector('.inline-edit-input')).toHaveValue(100);
+  });
+
+  it('a célula abre a edição pelo teclado, sem mouse', async () => {
+    /* Montar a estrutura de blinds no Tab/Enter era impossível enquanto o valor
+       era um <span> com onClick. */
+    await montar();
+    const valor = within(celula(linhas()[0], 1)).getByRole('button', { name: '100' });
+    valor.focus();
+    await userEvent.keyboard('{Enter}');
     expect(document.querySelector('.inline-edit-input')).toHaveValue(100);
   });
 
   it('Enter grava o novo valor', async () => {
     await montar();
-    await userEvent.click(within(celula(linhas()[0], 1)).getByText('100'));
+    await userEvent.click(within(celula(linhas()[0], 1)).getByRole('button', { name: '100' }));
     const campo = document.querySelector('.inline-edit-input');
     await userEvent.clear(campo);
     await userEvent.type(campo, '150{Enter}');
@@ -235,7 +245,7 @@ describe('edição direta na célula', () => {
 
   it('Escape desiste sem gravar', async () => {
     await montar();
-    await userEvent.click(within(celula(linhas()[0], 1)).getByText('100'));
+    await userEvent.click(within(celula(linhas()[0], 1)).getByRole('button', { name: '100' }));
     const campo = document.querySelector('.inline-edit-input');
     await userEvent.clear(campo);
     await userEvent.type(campo, '999{Escape}');
@@ -246,7 +256,7 @@ describe('edição direta na célula', () => {
   it('sair do campo sem mudar nada não grava', async () => {
     // Clicar e desistir acontece o tempo todo; gravar à toa poluiria o log.
     await montar();
-    await userEvent.click(within(celula(linhas()[0], 1)).getByText('100'));
+    await userEvent.click(within(celula(linhas()[0], 1)).getByRole('button', { name: '100' }));
     fireEvent.blur(document.querySelector('.inline-edit-input'));
     await waitFor(() => expect(document.querySelector('.inline-edit-input')).toBeNull());
     expect(api.patch).not.toHaveBeenCalled();
@@ -255,7 +265,7 @@ describe('edição direta na célula', () => {
   it('valor negativo vira zero, não negativo', async () => {
     // Blind negativo não existe; deixar passar quebraria o cálculo do stack.
     await montar();
-    await userEvent.click(within(celula(linhas()[0], 3)).getByText('0'));
+    await userEvent.click(within(celula(linhas()[0], 3)).getByRole('button', { name: '0' }));
     const campo = document.querySelector('.inline-edit-input');
     await userEvent.clear(campo);
     await userEvent.type(campo, '-50{Enter}');
@@ -265,7 +275,7 @@ describe('edição direta na célula', () => {
 
   it('texto sem número vira zero', async () => {
     await montar();
-    await userEvent.click(within(celula(linhas()[0], 1)).getByText('100'));
+    await userEvent.click(within(celula(linhas()[0], 1)).getByRole('button', { name: '100' }));
     const campo = document.querySelector('.inline-edit-input');
     await userEvent.clear(campo);
     await userEvent.type(campo, '{Enter}');
@@ -281,14 +291,14 @@ describe('edição direta na célula', () => {
     // Um intervalo com "100/200" apareceria no telão como se fosse um nível.
     await montar();
     const intervalo = linhas()[2];
-    await userEvent.click(within(celula(intervalo, 4)).getByText('10 min'));
+    await userEvent.click(within(celula(intervalo, 4)).getByRole('button', { name: '10 min' }));
     expect(document.querySelector('.inline-edit-input')).toBeInTheDocument();
   });
 
   it('gravar um intervalo zera os valores de blind', async () => {
     await montar();
     const intervalo = linhas()[2];
-    await userEvent.click(within(celula(intervalo, 4)).getByText('10 min'));
+    await userEvent.click(within(celula(intervalo, 4)).getByRole('button', { name: '10 min' }));
     const campo = document.querySelector('.inline-edit-input');
     await userEvent.clear(campo);
     await userEvent.type(campo, '15{Enter}');
@@ -302,7 +312,7 @@ describe('edição direta na célula', () => {
   it('erro ao gravar mostra o motivo do servidor', async () => {
     api.patch.mockRejectedValue(erroHttp(409, 'Nível em uso'));
     await montar();
-    await userEvent.click(within(celula(linhas()[0], 1)).getByText('100'));
+    await userEvent.click(within(celula(linhas()[0], 1)).getByRole('button', { name: '100' }));
     const campo = document.querySelector('.inline-edit-input');
     await userEvent.clear(campo);
     await userEvent.type(campo, '150{Enter}');
@@ -431,6 +441,15 @@ describe('adicionar nível', () => {
     await abrir();
     await userEvent.click(screen.getAllByRole('button', { name: 'blinds.addBlind' }).slice(-1)[0]);
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Nível duplicado'));
+  });
+
+  it('Esc fecha o modal sem criar', async () => {
+    // Fechar clicando no fundo é gesto de mouse; no teclado a saída é o Esc.
+    await montar();
+    await abrir();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(document.querySelector('.modal')).toBeNull());
+    expect(api.post).not.toHaveBeenCalled();
   });
 
   it('cancelar fecha sem criar', async () => {

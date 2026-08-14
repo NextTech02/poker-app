@@ -37,6 +37,18 @@ const Players = () => {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!showModal) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') setShowModal(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showModal]);
+
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -360,8 +372,12 @@ const Players = () => {
 
         {/* ── Modal ── */}
         {showModal && (
-          <div className="pl-modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="pl-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="pl-modal-overlay"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+          >
+            <div className="pl-modal" role="dialog" aria-modal="true">
               <div className="pl-modal-header">
                 <div className="pl-modal-title-group">
                   <div className="pl-modal-icon">

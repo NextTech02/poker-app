@@ -36,6 +36,17 @@ export default function RevenuesManager() {
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
 
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!showForm) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape' && !busy) setShowForm(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showForm, busy]);
+
   useEffect(() => {
     Promise.all([
       api.get('/stages').catch(() => ({ data: [] })),
@@ -275,8 +286,12 @@ export default function RevenuesManager() {
       )}
 
       {showForm && (
-        <div className="exp-modal-overlay" onClick={() => !busy && setShowForm(false)}>
-          <div className="exp-modal" onClick={(ev) => ev.stopPropagation()}>
+        <div
+          className="exp-modal-overlay"
+          role="presentation"
+          onClick={(ev) => { if (ev.target === ev.currentTarget && !busy) setShowForm(false); }}
+        >
+          <div className="exp-modal" role="dialog" aria-modal="true">
             <h2>{editing ? t('revenues.editTitle', 'Editar receita') : t('revenues.new', 'Nova receita')}</h2>
             <form onSubmit={submit}>
               <div className="exp-field">

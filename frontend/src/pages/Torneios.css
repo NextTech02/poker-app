@@ -331,6 +331,21 @@
   cursor: pointer;
 }
 
+/* Link esticado: cobre o card inteiro para manter o clique em qualquer ponto,
+   sem precisar de onClick numa <div> que o teclado não alcança. */
+.tr-card-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* Os botões do rodapé ficam acima do link esticado. */
+.tr-card-footer .tr-btn-edit,
+.tr-card-footer .tr-btn-delete {
+  position: relative;
+  z-index: 1;
+}
+
 .tr-card-cta:hover {
   color: #86efac;
   text-decoration: underline;
@@ -507,7 +522,14 @@
 }
 
 /* Toggle Card */
+/* Virou <button role="switch"> por acessibilidade; estes resets mantêm o visual de card. */
 .tr-toggle-card {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
   display: flex;
   align-items: center;
   justify-content: space-between;

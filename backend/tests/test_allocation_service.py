@@ -17,7 +17,12 @@ Os três modos:
 
 O lote monta TUDO em memória e grava com um insert só; antes era um insert
 por jogador. Com 200 inscritos isso era 200 idas ao banco.
+
+O sorteio de assento usa `random.SystemRandom` (entropia do sistema
+operacional), não o `random` global: veja `TestFonteDoSorteio`.
 """
+import random
+
 import pytest
 
 from app.models.seat_allocation import SeatAllocationUpdate
@@ -337,6 +342,104 @@ class TestAlocacaoEmLote:
         fake = _monta(monkeypatch, mesas=[_mesa(M1, 1, ocupados=0)])
         S._sync_table_counts(fake.store["tournament_tables"], {M1: 0})
         assert _mesa_de(fake, M1)["occupied_seats"] == 0
+
+
+class TestFonteDoSorteio:
+    """De onde vem o acaso do sorteio de lugar.
+
+    Posição na mesa vale dinheiro — sentar à esquerda de um jogador
+    específico é vantagem real, e jogador de clube reclama de sorteio. O
+    `random` global do Python é o Mersenne Twister: quem observar saídas
+    suficientes prevê as próximas e, com a semente, reproduz a noite inteira.
+    Aqui o sorteio usa `SystemRandom`, que lê a entropia do sistema
+    operacional e não tem estado que dê para semear.
+    """
+
+    def test_usa_o_gerador_do_sistema_operacional(self):
+        assert isinstance(mod._sorteio, random.SystemRandom)
+
+    def test_nao_passa_pelo_random_global(self, monkeypatch):
+        """Se o sorteio caísse no `random` global, esta armadilha estouraria."""
+        def armadilha(*_args, **_kwargs):
+            raise AssertionError("sorteio caiu no Mersenne Twister global")
+
+        monkeypatch.setattr(random, "choice", armadilha)
+        fake = _monta(monkeypatch, mesas=[_mesa(M1, 1, lugares=4)])
+        S.auto_allocate_player_for_day(TOUR, DIA, P1, mode="random_balanced")
+        assert len(fake.store["seat_allocations"]) == 1
+
+    def test_semear_o_random_nao_reproduz_a_mesa(self, monkeypatch):
+        """A mesma semente tem que dar salões diferentes.
+
+        É o que o clube precisa poder afirmar: ninguém reproduz o sorteio de
+        ontem para saber onde vai sentar hoje.
+        """
+        def uma_rodada():
+            fake = _monta(monkeypatch,
+                          mesas=[_mesa(M1, 1, lugares=9), _mesa(M2, 2, lugares=9)],
+                          inscritos=[_inscrito(f"p{i}") for i in range(18)])
+            S.bulk_allocate_players(TOUR, DIA, "random_balanced")
+            return [(a["table_id"], a["seat_number"]) for a in fake.store["seat_allocations"]]
+
+        random.seed(20260814)
+        primeira = uma_rodada()
+        random.seed(20260814)
+        segunda = uma_rodada()
+        assert primeira != segunda
+
+    def test_sorteio_cobre_os_lugares_ao_longo_das_rodadas(self, monkeypatch):
+        """Sorteio que sempre cai no mesmo assento não é sorteio.
+
+        Em 40 rodadas de uma mesa de 9, o primeiro a chegar precisa ter
+        sentado em mais de um lugar.
+        """
+        primeiros = set()
+        for _ in range(40):
+            fake = _monta(monkeypatch, mesas=[_mesa(M1, 1, lugares=9)])
+            S.auto_allocate_player_for_day(TOUR, DIA, P1, mode="random_balanced")
+            primeiros.add(fake.store["seat_allocations"][0]["seat_number"])
+        assert len(primeiros) > 1
+
+
+class TestDistribuicaoDoSorteio:
+    """Trocar o gerador não pode mexer em quem senta onde: as mesas continuam
+    equilibradas e nenhum lugar sai duas vezes."""
+
+    def test_lote_sorteado_mantem_as_mesas_equilibradas(self, monkeypatch):
+        """27 jogadores em 3 mesas de 9 têm que virar 9 + 9 + 9. Mesa com
+        menos gente paga menos blinds por rodada — desequilíbrio é vantagem."""
+        fake = _monta(monkeypatch,
+                      mesas=[_mesa(M1, 1, lugares=9), _mesa(M2, 2, lugares=9),
+                             _mesa(M3, 3, lugares=9)],
+                      inscritos=[_inscrito(f"p{i}") for i in range(27)])
+        S.bulk_allocate_players(TOUR, DIA, "random_balanced")
+        por_mesa = {}
+        for a in fake.store["seat_allocations"]:
+            por_mesa.setdefault(a["table_id"], []).append(a["seat_number"])
+        assert sorted(len(v) for v in por_mesa.values()) == [9, 9, 9]
+
+    def test_nenhum_lugar_sai_duas_vezes(self, monkeypatch):
+        """Dois jogadores no mesmo assento é o erro que para a mesa no salão.
+        Repetido 30 vezes porque o sorteio muda a cada rodada."""
+        for _ in range(30):
+            fake = _monta(monkeypatch,
+                          mesas=[_mesa(M1, 1, lugares=6), _mesa(M2, 2, lugares=6)],
+                          inscritos=[_inscrito(f"p{i}") for i in range(12)])
+            S.bulk_allocate_players(TOUR, DIA, "random_balanced")
+            por_mesa = {}
+            for a in fake.store["seat_allocations"]:
+                por_mesa.setdefault(a["table_id"], []).append(a["seat_number"])
+            for assentos in por_mesa.values():
+                assert sorted(assentos) == [1, 2, 3, 4, 5, 6]
+
+    def test_sorteio_nao_invade_assento_ja_ocupado(self, monkeypatch):
+        """Com a mesa quase cheia, o sorteado só pode ser um dos livres."""
+        for _ in range(30):
+            fake = _monta(monkeypatch, mesas=[_mesa(M1, 1, lugares=9, ocupados=7)],
+                          alocacoes=[_aloc(f"a{i}", M1, i, f"px{i}") for i in (1, 2, 3, 5, 6, 8, 9)])
+            S.auto_allocate_player_for_day(TOUR, DIA, P1, mode="random_balanced")
+            nova = [a for a in fake.store["seat_allocations"] if a["player_id"] == P1][0]
+            assert nova["seat_number"] in (4, 7)
 
 
 class TestConsultasEMovimentacao:

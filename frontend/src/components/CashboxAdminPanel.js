@@ -50,6 +50,19 @@ const CashboxAdminPanel = () => {
   const [newStaffId, setNewStaffId] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!modal && !createOpen) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key !== 'Escape') return;
+      if (modal && !submitting) setModal(null);
+      if (createOpen && !creating) setCreateOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [modal, createOpen, submitting, creating]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -299,8 +312,12 @@ const CashboxAdminPanel = () => {
     </Card>
 
       {modal && (
-        <div className="modal-overlay" onClick={() => !submitting && setModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget && !submitting) setModal(null); }}
+        >
+          <div className="modal" role="dialog" aria-modal="true" aria-label={t(ACTION_CONFIG[modal.kind].titleKey)}>
             <div className="modal-header">
               <h2>
                 {t(ACTION_CONFIG[modal.kind].titleKey)}
@@ -387,8 +404,12 @@ const CashboxAdminPanel = () => {
       )}
 
       {createOpen && (
-        <div className="modal-overlay" onClick={() => !creating && setCreateOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget && !creating) setCreateOpen(false); }}
+        >
+          <div className="modal" role="dialog" aria-modal="true" aria-label={t('cashbox.newCashbox')}>
             <div className="modal-header">
               <h2>{t('cashbox.newCashbox')}</h2>
               <button className="close-btn" onClick={() => setCreateOpen(false)} aria-label={t('common.close')}>

@@ -94,6 +94,9 @@
   cursor: pointer;
   transition: all 0.18s;
   user-select: none;
+  /* É um <button> (copiar o código pelo teclado); herda a tipografia do topo. */
+  font: inherit;
+  color: inherit;
 }
 
 .bs-tv-code:hover {

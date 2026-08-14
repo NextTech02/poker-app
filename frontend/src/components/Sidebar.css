@@ -91,6 +91,17 @@
   border-left: 3px solid transparent;
 }
 
+/* O cabeçalho de grupo do menu é um <button> (alcançável por Tab/Enter). Zera o
+   visual padrão do botão para ficar idêntico aos links .nav-item. */
+button.nav-item {
+  width: 100%;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  font: inherit;
+  text-align: left;
+}
+
 .nav-item::before {
   content: '';
   position: absolute;

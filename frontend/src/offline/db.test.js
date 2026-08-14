@@ -71,6 +71,37 @@ describe('uuid', () => {
     expect(uuid()).toMatch(/^[0-9a-f]{8}-/i);
     global.crypto.randomUUID = original;
   });
+
+  it('o fallback tambem e criptografico, nao Math.random', () => {
+    // O id é a chave primária da fila de mutações: duas operações com o mesmo
+    // id significam uma venda sobrescrevendo a outra. Por isso o caminho sem
+    // randomUUID usa getRandomValues, e não o gerador previsível da linguagem.
+    const originalUUID = global.crypto.randomUUID;
+    const originalRandom = Math.random;
+    global.crypto.randomUUID = undefined;
+    Math.random = () => {
+      throw new Error('uuid nao pode depender de Math.random');
+    };
+    try {
+      expect(uuid()).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      );
+    } finally {
+      Math.random = originalRandom;
+      global.crypto.randomUUID = originalUUID;
+    }
+  });
+
+  it('o fallback gera ids distintos', () => {
+    const original = global.crypto.randomUUID;
+    global.crypto.randomUUID = undefined;
+    try {
+      const ids = new Set(Array.from({ length: 200 }, uuid));
+      expect(ids.size).toBe(200);
+    } finally {
+      global.crypto.randomUUID = original;
+    }
+  });
 });
 
 describe('meta', () => {

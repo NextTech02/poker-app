@@ -696,7 +696,8 @@ const BroadcastSettings = () => {
           </div>
           <div className="bs-topbar-right">
             {tvCode && (
-              <div
+              <button
+                type="button"
                 className="bs-tv-code"
                 onClick={copyTvCode}
                 title={t('broadcastSettings.tvCodeHint', 'Na TV, acesse {{url}} e digite este código', { url: `${window.location.origin}/tv` })}
@@ -704,7 +705,7 @@ const BroadcastSettings = () => {
                 <span className="bs-tv-code-label">{t('broadcastSettings.tvCode', 'Código TV')}</span>
                 <span className="bs-tv-code-value">{tvCode}</span>
                 <span className="bs-tv-code-copy">{tvCopied ? t('broadcastSettings.tvCodeCopied', 'copiado!') : t('broadcastSettings.tvCodeCopy', 'copiar')}</span>
-              </div>
+              </button>
             )}
             <button className="bs-btn-preview" onClick={() => window.open(`/broadcast/${dayId}`, '_blank')}>
               &#9654; {t('broadcastSettings.openLive')}

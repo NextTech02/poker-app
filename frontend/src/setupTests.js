@@ -9,10 +9,17 @@ if (typeof global.structuredClone !== 'function') {
     valor === undefined ? undefined : JSON.parse(JSON.stringify(valor));
 }
 
-// O jsdom expõe `crypto` sem `randomUUID` em algumas versões; o código de
-// produção já tem fallback, mas os testes precisam de um valor utilizável.
+// O jsdom expõe `crypto` sem `randomUUID` (e, nesta versão, sem
+// `getRandomValues`). Isso é buraco do jsdom, não do navegador: todo alvo que
+// o projeto suporta tem `getRandomValues`, e o código offline conta com ele
+// para gerar id de fila sem usar Math.random. Emprestamos o WebCrypto do Node.
 if (typeof global.crypto === 'undefined') {
   global.crypto = {};
+}
+if (typeof global.crypto.getRandomValues !== 'function') {
+  // eslint-disable-next-line global-require
+  const { webcrypto } = require('crypto');
+  global.crypto.getRandomValues = (buffer) => webcrypto.getRandomValues(buffer);
 }
 
 // TextEncoder/TextDecoder não existem no jsdom. A importação de jogadores

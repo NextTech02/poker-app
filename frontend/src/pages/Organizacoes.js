@@ -10,6 +10,7 @@ import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { CURRENCIES } from '../utils/currencyUtils';
 import { currentOrgId, enterOrg } from '../utils/orgScope';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Organizacoes.css';
 
 /**
@@ -45,6 +46,10 @@ const Organizacoes = () => {
   // Modal de mudança de plano.
   const [planModal, setPlanModal] = useState(null); // { org, plan_code, max_users_override }
   const [savingPlan, setSavingPlan] = useState(false);
+
+  // Esc fecha os modais — é o equivalente de teclado ao clique no fundo escuro.
+  useEscapeKey(showForm && !saving, () => setShowForm(false));
+  useEscapeKey(!!planModal && !savingPlan, () => setPlanModal(null));
 
   const load = useCallback(async () => {
     try {
@@ -456,8 +461,8 @@ const Organizacoes = () => {
         </Card>
 
         {showForm && (
-          <div className="org-modal-overlay" onClick={() => !saving && setShowForm(false)}>
-            <div className="org-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="org-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !saving) setShowForm(false); }}>
+            <div className="org-modal" role="dialog" aria-modal="true" aria-label={t('organizations.new', 'Nova Organização')}>
               <h2>{t('organizations.new', 'Nova Organização')}</h2>
               <p className="org-modal-hint">
                 {t('organizations.inviteHint', 'O administrador receberá um convite por e-mail para definir a própria senha.')}
@@ -530,8 +535,8 @@ const Organizacoes = () => {
         {planModal && (() => {
           const p = (plans.find((x) => x.code === planModal.plan_code)) || {};
           return (
-            <div className="org-modal-overlay" onClick={() => !savingPlan && setPlanModal(null)}>
-              <div className="org-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="org-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !savingPlan) setPlanModal(null); }}>
+              <div className="org-modal" role="dialog" aria-modal="true" aria-label={t('organizations.changePlanTitle', 'Alterar plano')}>
                 <h2>{t('organizations.changePlanTitle', 'Alterar plano')}</h2>
                 <p className="org-modal-hint">
                   {t('organizations.changePlanHint', 'Muda o plano de "{{name}}". Não remove dados existentes — apenas ajusta os limites daqui pra frente.', { name: planModal.org.name })}

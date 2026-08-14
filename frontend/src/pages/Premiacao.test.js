@@ -424,7 +424,7 @@ describe('posições configuradas', () => {
 describe('edição do valor de uma posição', () => {
   it('clicar no valor abre a edição e salvar envia', async () => {
     await montar();
-    await userEvent.click(within(linhaDaPosicao('1°')).getByText('R$ 20000.00'));
+    await userEvent.click(within(linhaDaPosicao('1°')).getByRole('button', { name: 'R$ 20000.00' }));
     const campo = within(linhaDaPosicao('1°')).getByRole('spinbutton');
     await userEvent.clear(campo);
     await userEvent.type(campo, '21000');
@@ -437,7 +437,7 @@ describe('edição do valor de uma posição', () => {
   it('cancelar devolve o valor original', async () => {
     await montar();
     const linha = linhaDaPosicao('1°');
-    await userEvent.click(within(linha).getByText('R$ 20000.00'));
+    await userEvent.click(within(linha).getByRole('button', { name: 'R$ 20000.00' }));
     const campo = within(linha).getByRole('spinbutton');
     await userEvent.clear(campo);
     await userEvent.type(campo, '999');
@@ -446,6 +446,16 @@ describe('edição do valor de uma posição', () => {
     await userEvent.click(linha.querySelector('.btn-cancel'));
     expect(within(linhaDaPosicao('1°')).getByText('R$ 20000.00')).toBeInTheDocument();
     expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('o valor abre a edição pelo teclado, sem mouse', async () => {
+    /* O operador de premiação trabalha de Tab e Enter. Enquanto o valor era um
+       <div> com onClick, essa edição simplesmente não existia para ele. */
+    await montar();
+    const valor = within(linhaDaPosicao('1°')).getByRole('button', { name: 'R$ 20000.00' });
+    valor.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(within(linhaDaPosicao('1°')).getByRole('spinbutton')).toBeInTheDocument();
   });
 
   it('posição JÁ PAGA não pode ser editada', async () => {
@@ -463,7 +473,7 @@ describe('edição do valor de uma posição', () => {
   it('falha ao salvar avisa', async () => {
     api.patch.mockRejectedValue(new Error('500'));
     await montar();
-    await userEvent.click(within(linhaDaPosicao('1°')).getByText('R$ 20000.00'));
+    await userEvent.click(within(linhaDaPosicao('1°')).getByRole('button', { name: 'R$ 20000.00' }));
     await userEvent.click(within(linhaDaPosicao('1°')).getByText('OK'));
     expect(await screen.findByText('premiacao.updateError')).toBeInTheDocument();
   });
@@ -476,7 +486,7 @@ describe('edição do percentual de uma posição', () => {
      para a API. */
   const abrirPercentual = async (posicao, texto) => {
     const linha = linhaDaPosicao(posicao);
-    await userEvent.click(within(linha).getByText(texto));
+    await userEvent.click(within(linha).getByRole('button', { name: texto }));
     return linhaDaPosicao(posicao);
   };
 
@@ -670,6 +680,15 @@ describe('nova posição', () => {
     await abrir();
     await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
     expect(document.querySelector('.modal')).toBeNull();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('Esc fecha o modal sem criar', async () => {
+    // Clicar no fundo é gesto de mouse; no teclado a saída é o Esc.
+    await montar();
+    await abrir();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(document.querySelector('.modal')).toBeNull());
     expect(api.post).not.toHaveBeenCalled();
   });
 });

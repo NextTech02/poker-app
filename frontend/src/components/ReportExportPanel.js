@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
@@ -55,6 +55,17 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     expenses: true,
     revenues: true,
   });
+
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape' && !busy) setOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, busy]);
 
   const toggle = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }));
 
@@ -326,8 +337,12 @@ const ReportExportPanel = ({ summary, dateRange }) => {
       </button>
 
       {open && (
-        <div className="rex-overlay" onClick={() => !busy && setOpen(false)}>
-          <div className="rex-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div
+          className="rex-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget && !busy) setOpen(false); }}
+        >
+          <div className="rex-modal" role="dialog" aria-modal="true">
             <div className="rex-head">
               <div>
                 <h3>{t('reports.export.title', 'Exportar relatórios')}</h3>

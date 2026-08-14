@@ -25,6 +25,18 @@ const TournamentControl = () => {
   // ele quem decide a hora de encerrar o registro tardio.
   const [showSalesBlock, setShowSalesBlock] = useState(false);
   const [blockReason, setBlockReason] = useState('');
+
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!showSalesBlock) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') setShowSalesBlock(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showSalesBlock]);
+
   // Mesma condição do servidor (CashboxService.can_admin, exigido em
   // routers/tournament_days.py e routers/stages.py). Com 'financial' na lista,
   // o botão aparecia para quem o backend recusa: o usuário clicava em "Encerrar
@@ -252,8 +264,12 @@ const TournamentControl = () => {
           )}
 
           {showSalesBlock && (
-            <div className="modal-overlay" onClick={() => setShowSalesBlock(false)}>
-              <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="modal-overlay"
+              role="presentation"
+              onClick={(e) => { if (e.target === e.currentTarget) setShowSalesBlock(false); }}
+            >
+              <div className="modal" role="dialog" aria-modal="true">
                 <div className="modal-header">
                   <h2>{t('sales.blockDay', 'Encerrar vendas')}</h2>
                 </div>

@@ -55,6 +55,18 @@ const PlayerDetail = () => {
   const [loyaltyBusy, setLoyaltyBusy] = useState(false);
   const [giftingCredit, setGiftingCredit] = useState(null); // crédito sendo presenteado
   const [giftTarget, setGiftTarget] = useState('');
+
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!giftingCredit) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') !loyaltyBusy && setGiftingCredit(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [giftingCredit, loyaltyBusy]);
+
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -321,8 +333,12 @@ const PlayerDetail = () => {
             )}
 
             {giftingCredit && (
-              <div className="pd-gift-overlay" onClick={() => !loyaltyBusy && setGiftingCredit(null)}>
-                <div className="pd-gift-modal" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="pd-gift-overlay"
+                role="presentation"
+                onClick={(e) => { if (e.target === e.currentTarget && !loyaltyBusy) setGiftingCredit(null); }}
+              >
+                <div className="pd-gift-modal" role="dialog" aria-modal="true">
                   <h3>{t('loyalty.giftTitle', 'Presentear crédito')}</h3>
                   <p className="pd-gift-hint">
                     {t('loyalty.giftHint', 'Presenteie {{amount}} de crédito para outro jogador (ex.: um novo indicado).', {

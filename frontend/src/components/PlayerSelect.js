@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useId, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import './PlayerSelect.css';
@@ -18,9 +18,12 @@ const PlayerSelect = ({ value, onChange, required = false, name = 'player_id' })
   const wrapRef = useRef(null);
   // Ids estaveis para ligar o input (combobox) a lista e a opcao destacada,
   // para o leitor de tela anunciar que a lista abriu e qual jogador esta ativo.
-  const idRef = useRef(`player-select-${Math.random().toString(36).slice(2, 9)}`);
-  const listId = `${idRef.current}-list`;
-  const optionId = (i) => `${idRef.current}-opt-${i}`;
+  // `useId` do React garante unicidade por instancia sem sortear nada — com
+  // sorteio, dois PlayerSelect na mesma tela (o caso da Caixa) podiam cair no
+  // mesmo id e o aria-controls apontar para a lista do outro campo.
+  const baseId = useId();
+  const listId = `${baseId}-list`;
+  const optionId = (i) => `${baseId}-opt-${i}`;
 
   useEffect(() => {
     loadPlayers();

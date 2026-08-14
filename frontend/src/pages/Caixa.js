@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
@@ -17,11 +17,19 @@ import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { methodLabel } from '../utils/paymentMethodLabels';
 import { usePolling } from '../hooks/usePolling';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
 import { applyRegister, applyRebuy, applyAddon } from '../offline/domainRules';
 import { uuid, putEntities, getEntity, getAllByTable } from '../offline/db';
 import { isOnline } from '../offline/connectivity';
 import './Caixa.css';
+
+// Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
+// `onClick={stopPropagation}` que ficava no conteúdo do modal — aquele era um
+// clique sem equivalente de teclado, e o fundo em si não é um controle.
+const aoClicarNoFundo = (aoFechar) => (evento) => {
+  if (evento.target === evento.currentTarget) aoFechar();
+};
 
 const Caixa = () => {
   const { t } = useTranslation();
@@ -94,6 +102,17 @@ const Caixa = () => {
   const diaSelecionado = tournamentDays.find((d) => d.id === formData.tournament_day_id);
   const salesBlockedDay = !!diaSelecionado?.sales_blocked;
   const podeCancelar = isAdmin || hasPermission('cashbox.admin');
+
+  // Esc fecha o modal aberto. O caixa do clube trabalha de Tab e Enter, com as
+  // duas mãos ocupadas: fechar só clicando no fundo deixava ele preso.
+  const fecharVenda = useCallback(() => setShowModal(false), []);
+  const fecharCancelamento = useCallback(() => setCancelling(null), []);
+  const fecharTrocaDeMetodo = useCallback(() => setChangingMethod(null), []);
+  const fecharTicket = () => { setShowTicketModal(false); loadData(); };
+  useEscapeKey(showModal, fecharVenda);
+  useEscapeKey(!!cancelling, fecharCancelamento);
+  useEscapeKey(!!changingMethod, fecharTrocaDeMetodo);
+  useEscapeKey(showTicketModal, fecharTicket);
 
   useEffect(() => {
     loadData();
@@ -1059,8 +1078,8 @@ const Caixa = () => {
         </Card>
 
         {showModal && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharVenda)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>{t('cashRegister.newTransaction')}</h2>
                 <button className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>
@@ -1260,8 +1279,8 @@ const Caixa = () => {
         {/* Cancelamento: o motivo é obrigatório porque é ele que explica a
             diferença no fechamento do caixa no fim da noite. */}
         {cancelling && (
-          <div className="modal-overlay" onClick={() => setCancelling(null)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharCancelamento)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>
                   {estornoIncompleto(cancelling)
@@ -1348,8 +1367,8 @@ const Caixa = () => {
 
         {/* Troca da forma de pagamento: só o rótulo, nenhum valor se move. */}
         {changingMethod && (
-          <div className="modal-overlay" onClick={() => setChangingMethod(null)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharTrocaDeMetodo)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>{t('cashRegister.changePaymentMethod', 'Trocar pagamento')}</h2>
                 <button className="close-btn" onClick={() => setChangingMethod(null)} aria-label={t('common.close')}>
@@ -1386,8 +1405,8 @@ const Caixa = () => {
         )}
 
         {showTicketModal && allocationData && (
-          <div className="modal-overlay" onClick={() => { setShowTicketModal(false); loadData(); }}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharTicket)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>
                   {allocationData.is_reprint

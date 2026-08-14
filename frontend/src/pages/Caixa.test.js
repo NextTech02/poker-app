@@ -1118,6 +1118,16 @@ describe('fechamento do formulário', () => {
     expect(screen.queryByLabelText('cashRegister.tournament')).toBeNull();
   });
 
+  it('Esc fecha sem lançar nada', async () => {
+    /* O caixa do clube opera de Tab e Enter, com as duas mãos ocupadas: se a
+       única saída fosse o clique no fundo, ele ficaria preso no modal. */
+    await montar();
+    await abrirModal();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByLabelText('cashRegister.tournament')).toBeNull());
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
   it('clicar dentro do formulário NÃO fecha', async () => {
     // Um clique no meio do preenchimento não pode perder o que já foi digitado.
     await montar();

@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './ManualAllocation.css';
 
 const ManualAllocation = () => {
@@ -22,6 +23,10 @@ const ManualAllocation = () => {
   const [showTicket, setShowTicket] = useState(null);
   const [showTableModal, setShowTableModal] = useState(false);
   const [newTableSeats, setNewTableSeats] = useState(9);
+
+  // Esc fecha os modais — é o equivalente de teclado ao clique no fundo escuro.
+  useEscapeKey(!!showTicket, () => setShowTicket(null));
+  useEscapeKey(showTableModal, () => setShowTableModal(false));
 
   /**
    * Índices das alocações, montados UMA vez por atualização da lista.
@@ -350,11 +355,11 @@ const ManualAllocation = () => {
         </div>
 
         {showTicket && (
-          <div className="ticket-modal-overlay" onClick={() => setShowTicket(null)}>
-            <div className="ticket-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="ticket-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowTicket(null); }}>
+            <div className="ticket-modal" role="dialog" aria-modal="true" aria-label={t('manualAllocation.playerAllocatedSuccess')}>
               <div className="ticket-modal-header">
                 <h3>{t('manualAllocation.playerAllocatedSuccess')}</h3>
-                <button className="close-btn" onClick={() => setShowTicket(null)}>
+                <button type="button" className="close-btn" onClick={() => setShowTicket(null)} aria-label={t('common.close', 'Fechar')}>
                   ✕
                 </button>
               </div>
@@ -410,11 +415,11 @@ const ManualAllocation = () => {
         </div>
 
         {showTableModal && (
-          <div className="modal-overlay" onClick={() => setShowTableModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowTableModal(false); }}>
+            <div className="modal" role="dialog" aria-modal="true" aria-label={t('manualAllocation.manageTables')}>
               <div className="modal-header">
                 <h2>{t('manualAllocation.manageTables')}</h2>
-                <button className="close-btn" onClick={() => setShowTableModal(false)}>
+                <button type="button" className="close-btn" onClick={() => setShowTableModal(false)} aria-label={t('common.close', 'Fechar')}>
                   ✕
                 </button>
               </div>

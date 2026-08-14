@@ -10,6 +10,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { supabase } from '../config/supabase';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Funcionarios.css';
 
 const ALL_PERMISSIONS = [
@@ -62,6 +63,10 @@ const Funcionarios = () => {
   const [editingGroup, setEditingGroup] = useState(null);
   const [groupForm, setGroupForm] = useState({ name: '', description: '', permissions: [] });
   const [groupSaving, setGroupSaving] = useState(false);
+
+  // Esc fecha os modais — é o equivalente de teclado ao clique no fundo escuro.
+  useEscapeKey(showStaffModal, () => setShowStaffModal(false));
+  useEscapeKey(showGroupModal, () => setShowGroupModal(false));
 
   // Pagamentos (staff payments) tab — scoped to the selected stage
   const [payments, setPayments] = useState({}); // staff_id -> { id, amount, status, paid_at }
@@ -768,11 +773,11 @@ const Funcionarios = () => {
 
         {/* ── Staff Create Modal ── */}
         {showStaffModal && (
-          <div className="modal-overlay" onClick={() => setShowStaffModal(false)}>
-            <div className="modal func-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowStaffModal(false); }}>
+            <div className="modal func-modal" role="dialog" aria-modal="true" aria-label={t('staff.inviteEmployee', 'Convidar funcionário')}>
               <div className="modal-header">
                 <h2>{t('staff.inviteEmployee', 'Convidar funcionário')}</h2>
-                <button className="modal-close" onClick={() => setShowStaffModal(false)}>×</button>
+                <button type="button" className="modal-close" onClick={() => setShowStaffModal(false)} aria-label={t('common.close', 'Fechar')}>×</button>
               </div>
               <div className="modal-body">
                 <p className="func-invite-hint">
@@ -816,11 +821,11 @@ const Funcionarios = () => {
 
         {/* ── Group Create/Edit Modal ── */}
         {showGroupModal && (
-          <div className="modal-overlay" onClick={() => setShowGroupModal(false)}>
-            <div className="modal func-modal func-modal--wide" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowGroupModal(false); }}>
+            <div className="modal func-modal func-modal--wide" role="dialog" aria-modal="true" aria-label={editingGroup ? t('staff.editGroup') : t('staff.newGroup')}>
               <div className="modal-header">
                 <h2>{editingGroup ? t('staff.editGroup') : t('staff.newGroup')}</h2>
-                <button className="modal-close" onClick={() => setShowGroupModal(false)}>×</button>
+                <button type="button" className="modal-close" onClick={() => setShowGroupModal(false)} aria-label={t('common.close', 'Fechar')}>×</button>
               </div>
               <div className="modal-body">
                 <div className="form-group">

@@ -561,7 +561,14 @@
   font-size: 1rem;
 }
 
+/* Quando é editável vira <button> (foco e Enter); o reset mantém o visual de
+   texto que a célula sempre teve. */
 .editable-value {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   transition: background-color 0.15s;

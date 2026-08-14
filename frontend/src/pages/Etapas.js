@@ -22,6 +22,18 @@ const Etapas = () => {
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!showModal) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') setShowModal(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showModal]);
+
   const [editingStage, setEditingStage] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -414,8 +426,12 @@ const Etapas = () => {
         )}
 
         {showModal && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-overlay"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+          >
+            <div className="modal" role="dialog" aria-modal="true">
               <div className="modal-header">
                 <h2>{editingStage ? t('common.edit') + ' ' + t('stages.title').slice(0, -1) : t('stages.newStage')}</h2>
                 <button className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>

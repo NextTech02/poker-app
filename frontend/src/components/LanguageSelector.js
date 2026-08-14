@@ -53,7 +53,7 @@ const LanguageSelector = ({ dropDirection = 'down' }) => {
         className="language-selector-btn"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
-        aria-haspopup="listbox"
+        aria-haspopup="true"
       >
         <Flag cc={currentLanguage.cc} />
         <span className="language-code">{currentLanguage.code.split('-')[0].toUpperCase()}</span>
@@ -61,17 +61,18 @@ const LanguageSelector = ({ dropDirection = 'down' }) => {
       </button>
 
       {isOpen && (
-        <ul className={`language-dropdown ${dropDirection === 'up' ? 'language-dropdown--up' : ''}`} role="listbox">
+        <ul className={`language-dropdown ${dropDirection === 'up' ? 'language-dropdown--up' : ''}`}>
           {languages.map((lang) => (
-            <li
-              key={lang.code}
-              className={`language-option ${lang.code === i18n.language ? 'selected' : ''}`}
-              onClick={() => changeLanguage(lang.code)}
-              role="option"
-              aria-selected={lang.code === i18n.language}
-            >
-              <Flag cc={lang.cc} />
-              <span className="language-name">{lang.name}</span>
+            <li key={lang.code}>
+              <button
+                type="button"
+                className={`language-option ${lang.code === i18n.language ? 'selected' : ''}`}
+                onClick={() => changeLanguage(lang.code)}
+                aria-current={lang.code === i18n.language}
+              >
+                <Flag cc={lang.cc} />
+                <span className="language-name">{lang.name}</span>
+              </button>
             </li>
           ))}
         </ul>

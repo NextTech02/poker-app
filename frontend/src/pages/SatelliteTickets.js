@@ -12,6 +12,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useTranslation } from 'react-i18next';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './SatelliteTickets.css';
 
 const SatelliteTickets = () => {
@@ -125,6 +126,11 @@ const SatelliteTickets = () => {
     setBulkMode(false);
     setCreateDays([]);
   };
+
+  // Esc fecha os modais — é o equivalente de teclado ao clique no fundo escuro.
+  useEscapeKey(showCreateModal, fecharCriacao);
+  useEscapeKey(showRedeemModal, () => setShowRedeemModal(false));
+  useEscapeKey(!!transferTicket && !transferring, () => setTransferTicket(null));
 
   const handleCreateTicket = async (e) => {
     e.preventDefault();
@@ -411,8 +417,8 @@ const SatelliteTickets = () => {
 
         {/* Create Ticket Modal */}
         {showCreateModal && (
-          <div className="modal-overlay" onClick={fecharCriacao}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) fecharCriacao(); }}>
+            <div className="modal" role="dialog" aria-modal="true" aria-label={t('satelliteTickets.createModalTitle')}>
               <div className="modal-header">
                 <h2>{t('satelliteTickets.createModalTitle')}</h2>
                 <button className="close-btn" onClick={fecharCriacao} aria-label={t('common.close')}><span className="close-icon"></span></button>
@@ -556,8 +562,8 @@ const SatelliteTickets = () => {
 
         {/* Redeem Ticket Modal */}
         {showRedeemModal && (
-          <div className="modal-overlay" onClick={() => setShowRedeemModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowRedeemModal(false); }}>
+            <div className="modal" role="dialog" aria-modal="true" aria-label={t('satelliteTickets.redeemModalTitle')}>
               <div className="modal-header">
                 <h2>{t('satelliteTickets.redeemModalTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowRedeemModal(false)} aria-label={t('common.close')}><span className="close-icon"></span></button>
@@ -634,8 +640,12 @@ const SatelliteTickets = () => {
 
         {/* Transferir / Vender Ticket */}
         {transferTicket && (
-          <div className="modal-overlay" onClick={() => !transferring && setTransferTicket(null)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-overlay"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget && !transferring) setTransferTicket(null); }}
+          >
+            <div className="modal" role="dialog" aria-modal="true" aria-label={t('satelliteTickets.transferModalTitle', 'Transferir ou vender ticket')}>
               <div className="modal-header">
                 <h2>{t('satelliteTickets.transferModalTitle', 'Transferir ou vender ticket')}</h2>
                 <button className="close-btn" onClick={() => setTransferTicket(null)} aria-label={t('common.close')}><span className="close-icon"></span></button>

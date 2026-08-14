@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
@@ -142,6 +142,16 @@ const PlayerImportModal = ({ onClose, onImported }) => {
   const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState('');
 
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape' && !ocupado) onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [ocupado, onClose]);
+
   const escolher = useCallback(async (file) => {
     if (!file) return;
     setErro('');
@@ -190,8 +200,12 @@ const PlayerImportModal = ({ onClose, onImported }) => {
   const pendencias = (previa?.lista_rejeitados || []).concat(resultado?.lista_rejeitados || []);
 
   return (
-    <div className="pim-overlay" onClick={() => !ocupado && onClose()}>
-      <div className="pim-modal" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="pim-overlay"
+      role="presentation"
+      onClick={(e) => { if (e.target === e.currentTarget && !ocupado) onClose(); }}
+    >
+      <div className="pim-modal" role="dialog" aria-modal="true" aria-label={t('playerImport.title', 'Importar jogadores')}>
 
         <div className="pim-head">
           <h2>{t('playerImport.title', 'Importar jogadores')}</h2>

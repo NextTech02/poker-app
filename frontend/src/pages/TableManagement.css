@@ -622,10 +622,16 @@
   gap: 8px;
 }
 
+/* É um <button> (precisa de foco/Enter), então zera o visual padrão do botão
+   para a aparência do cartão continuar exatamente a mesma. */
 .tm-mode-card {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
   padding: 12px;
   background: #0d1520;
   border: 1.5px solid #1e2d45;

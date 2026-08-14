@@ -253,11 +253,19 @@ describe('criar torneio simples', () => {
     await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
     expect(api.post).not.toHaveBeenCalled();
   });
+
+  it('Esc fecha o modal — quem opera só pelo teclado não fica preso nele', async () => {
+    await montar();
+    await abrirNovo();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });
 
 describe('criar torneio com classificatórios', () => {
   const ligarQualificatorias = async () =>
-    userEvent.click(document.querySelector('.tr-toggle-card'));
+    userEvent.click(screen.getByRole('switch'));
 
   const criarComQuali = async (ajustes = async () => {}) => {
     await abrirNovo();

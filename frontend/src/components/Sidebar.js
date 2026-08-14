@@ -43,6 +43,17 @@ const Sidebar = () => {
     }
   }, [location.pathname, isMobile]);
 
+  // Acessibilidade: o fundo escuro do menu mobile fecha no clique, mas quem usa
+  // só o teclado precisa do Esc.
+  useEffect(() => {
+    if (!isOpen || !isMobile) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isMobile]);
+
   // Sync collapsed state to document for main-content margin
   useEffect(() => {
     if (!isMobile) {
@@ -217,7 +228,7 @@ const Sidebar = () => {
 
       {/* Overlay for mobile */}
       {isMobile && isOpen && (
-        <div className="sidebar-overlay" onClick={() => setIsOpen(false)} />
+        <div className="sidebar-overlay" role="presentation" onClick={() => setIsOpen(false)} />
       )}
 
       {/* Sidebar */}
@@ -259,15 +270,16 @@ const Sidebar = () => {
               const groupActive = item.children.some(c => isPathActive(c.path));
               return (
                 <div className="nav-item-group" key={item.groupKey}>
-                  <div
+                  <button
+                    type="button"
                     className={`nav-item ${groupActive ? 'active' : ''}`}
                     onClick={() => toggleGroup(item.groupKey)}
-                    style={{ cursor: 'pointer' }}
+                    aria-expanded={open}
                   >
                     <span className={`nav-icon ${item.icon}`}></span>
                     <span className="nav-label">{t(item.labelKey)}</span>
                     <span className={`nav-arrow ${open ? 'expanded' : ''}`}>▼</span>
-                  </div>
+                  </button>
                   {open && (
                     <div className="sub-menu">
                       {item.children.map((child) => (

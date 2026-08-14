@@ -35,6 +35,18 @@ const CaixaGeral = () => {
   const [rake, setRake] = useState(null);
   const [sangriaHistory, setSangriaHistory] = useState([]);
   const [showSangriaModal, setShowSangriaModal] = useState(false);
+
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!showSangriaModal) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') setShowSangriaModal(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showSangriaModal]);
+
   // Fase 2: o rake da sangria é automático (soma dos rakes por transação ainda
   // não sangrados). pendingRake = rake pendente da etapa.
   const [pendingRake, setPendingRake] = useState(0);
@@ -408,8 +420,12 @@ const CaixaGeral = () => {
 
         {/* Sangria Modal */}
         {showSangriaModal && stageCash && (
-          <div className="modal-overlay" onClick={() => setShowSangriaModal(false)}>
-            <div className="modal sangria-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-overlay"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowSangriaModal(false); }}
+          >
+            <div className="modal sangria-modal" role="dialog" aria-modal="true">
               <div className="modal-header">
                 <h2>{t('generalCash.performSangria')}</h2>
                 <button className="close-btn" onClick={() => setShowSangriaModal(false)} aria-label={t('common.close')}>

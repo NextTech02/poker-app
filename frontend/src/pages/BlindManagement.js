@@ -8,7 +8,15 @@ import Breadcrumb from '../components/Breadcrumb';
 import EmptyState from '../components/EmptyState';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './BlindManagement.css';
+
+// Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
+// `onClick={stopPropagation}` que ficava no conteúdo do modal — aquele era um
+// clique sem equivalente de teclado, e o fundo em si não é um controle.
+const aoClicarNoFundo = (aoFechar) => (evento) => {
+  if (evento.target === evento.currentTarget) aoFechar();
+};
 
 const BlindManagement = () => {
   const { toast, confirm } = useToast();
@@ -31,6 +39,15 @@ const BlindManagement = () => {
   // Template states
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+
+  // Esc fecha o modal aberto: o clique no fundo é gesto de mouse, e quem monta
+  // a estrutura de blinds pelo teclado precisa da mesma saída.
+  const fecharAdd = useCallback(() => setShowAddModal(false), []);
+  const fecharEdit = useCallback(() => setShowEditModal(false), []);
+  const fecharTemplates = useCallback(() => setShowTemplateModal(false), []);
+  useEscapeKey(showAddModal, fecharAdd);
+  useEscapeKey(showEditModal, fecharEdit);
+  useEscapeKey(showTemplateModal, fecharTemplates);
   const [formData, setFormData] = useState({
     level: '',
     small_blind: '',
@@ -554,14 +571,20 @@ const BlindManagement = () => {
                           />
                         );
                       }
+                      // Célula que não pode ser editada é só texto — sem clique,
+                      // sem parada do Tab.
+                      if (!canEdit) return <span>{display}</span>;
+                      // É um botão de verdade: abre a edição no Enter/Espaço,
+                      // não só no clique.
                       return (
-                        <span
-                          className={canEdit ? 'inline-editable' : ''}
-                          onClick={canEdit ? () => startEdit(blind, field) : undefined}
-                          title={canEdit ? t('blinds.clickToEdit', 'Clique para editar') : undefined}
+                        <button
+                          type="button"
+                          className="inline-editable"
+                          onClick={() => startEdit(blind, field)}
+                          title={t('blinds.clickToEdit', 'Clique para editar')}
                         >
                           {display}
-                        </span>
+                        </button>
                       );
                     };
                     return (
@@ -625,8 +648,8 @@ const BlindManagement = () => {
 
         {/* Add Blind/Break Modal */}
         {showAddModal && (
-          <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharAdd)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>{formData.is_break ? t('blinds.addBreak') : t('blinds.addBlind')}</h2>
                 <button className="close-btn" onClick={() => setShowAddModal(false)} aria-label={t('common.close')}>
@@ -770,8 +793,8 @@ const BlindManagement = () => {
 
         {/* Edit Blind/Break Modal */}
         {showEditModal && (
-          <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharEdit)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>{formData.is_break ? t('blinds.editBreak') : t('blinds.editBlind')}</h2>
                 <button className="close-btn" onClick={() => setShowEditModal(false)} aria-label={t('common.close')}>
@@ -882,8 +905,8 @@ const BlindManagement = () => {
 
         {/* Template Selection Modal */}
         {showTemplateModal && (
-          <div className="modal-overlay" onClick={() => setShowTemplateModal(false)}>
-            <div className="modal template-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharTemplates)}>
+            <div className="modal template-modal">
               <div className="modal-header">
                 <h2>{t('blinds.loadTemplate')}</h2>
                 <button className="close-btn" onClick={() => setShowTemplateModal(false)} aria-label={t('common.close')}>

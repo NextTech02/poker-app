@@ -70,6 +70,19 @@ export default function ExpensesManager() {
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
 
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!showForm && !attachFor) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key !== 'Escape') return;
+      if (showForm && !busy) setShowForm(false);
+      if (attachFor && !uploading) setAttachFor(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showForm, attachFor, busy, uploading]);
+
   // Listas auxiliares (uma vez).
   useEffect(() => {
     Promise.all([
@@ -454,8 +467,12 @@ export default function ExpensesManager() {
 
       {/* Formulário */}
       {showForm && (
-        <div className="exp-modal-overlay" onClick={() => !busy && setShowForm(false)}>
-          <div className="exp-modal" onClick={(ev) => ev.stopPropagation()}>
+        <div
+          className="exp-modal-overlay"
+          role="presentation"
+          onClick={(ev) => { if (ev.target === ev.currentTarget && !busy) setShowForm(false); }}
+        >
+          <div className="exp-modal" role="dialog" aria-modal="true">
             <h2>{editing ? t('expenses.editTitle', 'Editar despesa') : t('expenses.new', 'Nova despesa')}</h2>
 
             {/* Modelos recorrentes: preenchem o formulário em um clique. */}
@@ -597,8 +614,12 @@ export default function ExpensesManager() {
 
       {/* Comprovantes: nota fiscal, recibo, foto do pagamento */}
       {attachFor && (
-        <div className="exp-modal-overlay" onClick={() => !uploading && setAttachFor(null)}>
-          <div className="exp-modal" onClick={(ev) => ev.stopPropagation()}>
+        <div
+          className="exp-modal-overlay"
+          role="presentation"
+          onClick={(ev) => { if (ev.target === ev.currentTarget && !uploading) setAttachFor(null); }}
+        >
+          <div className="exp-modal" role="dialog" aria-modal="true">
             <h2>{t('expenses.attachments', 'Comprovantes')}</h2>
             <p className="exp-attach-sub">{attachFor.description}</p>
 

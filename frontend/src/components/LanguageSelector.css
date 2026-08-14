@@ -46,7 +46,6 @@
   position: absolute;
   top: 100%;
   left: 0;
-  margin-top: 0.5rem;
   min-width: 160px;
   background: var(--secondary-bg, #1e1e2e);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -54,6 +53,9 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   list-style: none;
   padding: 0.5rem 0;
+  /* reset do <ul>; anulava o `margin-top: 0.5rem` que estava declarado antes
+     (shorthand vence a longhand), entao o menu nunca teve o respiro de 0.5rem.
+     A longhand morta foi removida para o CSS dizer o que a tela ja mostra. */
   margin: 0;
   z-index: 1000;
   animation: fadeIn 0.15s ease;
@@ -70,6 +72,8 @@
   }
 }
 
+/* Cada idioma é um <button> (alcançável por Tab/Enter). O reset abaixo mantém o
+   visual idêntico ao que era quando o item do menu era um <li> com onClick. */
 .language-option {
   display: flex;
   align-items: center;
@@ -77,6 +81,12 @@
   padding: 0.6rem 1rem;
   cursor: pointer;
   transition: background 0.15s ease;
+  width: 100%;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
 .language-option:hover {

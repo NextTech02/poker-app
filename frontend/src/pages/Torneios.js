@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import EmptyState from '../components/EmptyState';
@@ -12,11 +12,11 @@ import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { currencySymbol } from '../utils/currencyUtils';
 import { usePolling } from '../hooks/usePolling';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Torneios.css';
 
 const Torneios = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { toast, confirm } = useToast();
   const { selectedStage } = useStage();
   const { currency } = useCurrency();
@@ -310,8 +310,11 @@ const Torneios = () => {
             <div className="tr-grid">
               {tournaments.map((tournament) => {
                 const entries = tournament.total_entries || 0;
+                // O card inteiro continua clicável pelo link "Ver detalhes" esticado sobre ele
+                // (ver .tr-card-cta::after no CSS); assim o teclado alcança a navegação pelo
+                // próprio link, em vez de uma <div> com onClick que o Tab nunca visita.
                 return (
-                  <div key={tournament.id} className="tr-card" onClick={() => navigate(`/torneios/${tournament.id}`)}>
+                  <div key={tournament.id} className="tr-card">
                     <div className="tr-card-accent" />
 
                     <div className="tr-card-body">
@@ -343,10 +346,11 @@ const Torneios = () => {
                       </div>
                     </div>
 
-                    <div className="tr-card-footer" onClick={(e) => e.stopPropagation()}>
+                    <div className="tr-card-footer">
                       <button
+                        type="button"
                         className="tr-btn-edit"
-                        onClick={(e) => { e.stopPropagation(); openEditModal(tournament); }}
+                        onClick={() => openEditModal(tournament)}
                       >
                         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
                           <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -354,8 +358,9 @@ const Torneios = () => {
                         {t('common.edit', 'Editar')}
                       </button>
                       <button
+                        type="button"
                         className="tr-btn-delete"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(tournament.id); }}
+                        onClick={() => handleDelete(tournament.id)}
                       >
                         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
                           <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -365,7 +370,6 @@ const Torneios = () => {
                       <Link
                         to={`/relatorios/torneio/${tournament.id}`}
                         className="tr-btn-edit"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
                           <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
@@ -375,7 +379,7 @@ const Torneios = () => {
                       <Link
                         to={`/torneios/${tournament.id}`}
                         className="tr-card-cta"
-                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`${t('tournaments.viewDetails', 'Ver detalhes')} — ${tournament.name}`}
                       >
                         {t('tournaments.viewDetails', 'Ver detalhes')}
                         <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
@@ -434,9 +438,17 @@ const Torneios = () => {
 };
 
 /* ── Shared Modal — A7: inline error + loading state ── */
-const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], blindTemplates = [], currency, t, isEditing }) => (
-  <div className="tr-modal-overlay" onClick={onClose}>
-    <div className="tr-modal" onClick={(e) => e.stopPropagation()}>
+const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], blindTemplates = [], currency, t, isEditing }) => {
+  // O backdrop fecha no clique (mouse); no teclado o equivalente é o Esc.
+  useEscapeKey(!submitting, onClose);
+
+  return (
+  <div
+    className="tr-modal-overlay"
+    role="presentation"
+    onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+  >
+    <div className="tr-modal" role="dialog" aria-modal="true" aria-label={title}>
       <div className="tr-modal-header">
         <div className="tr-modal-title-group">
           <div className="tr-modal-icon">
@@ -446,7 +458,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
           </div>
           <h2>{title}</h2>
         </div>
-        <button className="tr-modal-close" onClick={onClose} disabled={submitting}>
+        <button type="button" className="tr-modal-close" onClick={onClose} disabled={submitting} aria-label={t('common.close', 'Fechar')}>
           <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
@@ -488,9 +500,13 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
           </select>
         </div>
 
-        <div
+        <button
+          type="button"
+          role="switch"
+          aria-checked={!!formData.has_qualifying}
+          disabled={submitting}
           className={`tr-toggle-card ${formData.has_qualifying ? 'active' : ''}`}
-          onClick={submitting ? undefined : onToggleQualifying}
+          onClick={onToggleQualifying}
         >
           <div className="tr-toggle-text">
             <span className="tr-toggle-title">{t ? t('tournaments.qualifyingToggle') : 'Com Dias Classificatórios'}</span>
@@ -499,7 +515,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
           <div className={`tr-toggle-switch ${formData.has_qualifying ? 'on' : ''}`}>
             <div className="tr-toggle-knob" />
           </div>
-        </div>
+        </button>
 
         {!isEditing && formData.has_qualifying && (
           <>
@@ -628,6 +644,7 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
       </form>
     </div>
   </div>
-);
+  );
+};
 
 export default Torneios;

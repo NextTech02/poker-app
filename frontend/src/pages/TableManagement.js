@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePolling } from '../hooks/usePolling';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -7,6 +8,13 @@ import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './TableManagement.css';
+
+// Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
+// `onClick={stopPropagation}` que ficava no conteúdo do modal — aquele era um
+// clique sem caminho de teclado, e o fundo em si não é um controle.
+const aoClicarNoFundo = (aoFechar) => (evento) => {
+  if (evento.target === evento.currentTarget) aoFechar();
+};
 
 const TableManagement = () => {
   const { t } = useTranslation();
@@ -29,6 +37,15 @@ const TableManagement = () => {
   const [showTicket, setShowTicket] = useState(null);
   const [showAddTableModal, setShowAddTableModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+
+  // Esc fecha o modal aberto — o clique no fundo é gesto de mouse, e quem opera
+  // a mesa só pelo teclado precisa de uma saída equivalente.
+  const fecharTicket = useCallback(() => setShowTicket(null), []);
+  const fecharAddTable = useCallback(() => setShowAddTableModal(false), []);
+  const fecharBulk = useCallback(() => setShowBulkModal(false), []);
+  useEscapeKey(!!showTicket, fecharTicket);
+  useEscapeKey(showAddTableModal, fecharAddTable);
+  useEscapeKey(showBulkModal, fecharBulk);
 
   // Add table form
   const [newTableSeats, setNewTableSeats] = useState(9);
@@ -449,8 +466,8 @@ const TableManagement = () => {
 
         {/* ── Ticket Modal ── */}
         {showTicket && (
-          <div className="tm-modal-overlay" onClick={() => setShowTicket(null)}>
-            <div className="tm-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="tm-modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharTicket)}>
+            <div className="tm-modal">
               <div className="tm-modal-header">
                 <h3>{showTicket.is_alternate ? t('tableManagement.ticketAlternate') : t('tableManagement.playerAllocated')}</h3>
                 <button className="tm-close-btn" onClick={() => setShowTicket(null)}>✕</button>
@@ -462,8 +479,8 @@ const TableManagement = () => {
 
         {/* ── Add Table Modal ── */}
         {showAddTableModal && (
-          <div className="tm-modal-overlay" onClick={() => setShowAddTableModal(false)}>
-            <div className="tm-modal tm-modal-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="tm-modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharAddTable)}>
+            <div className="tm-modal tm-modal-sm">
               <div className="tm-modal-header">
                 <h3>{t('tableManagement.addTablesModalTitle')}</h3>
                 <button className="tm-close-btn" onClick={() => setShowAddTableModal(false)}>✕</button>
@@ -500,8 +517,8 @@ const TableManagement = () => {
 
         {/* ── Bulk Allocation Modal ── */}
         {showBulkModal && (
-          <div className="tm-modal-overlay" onClick={() => setShowBulkModal(false)}>
-            <div className="tm-modal tm-modal-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="tm-modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharBulk)}>
+            <div className="tm-modal tm-modal-sm">
               <div className="tm-modal-header">
                 <h3>{t('tableManagement.bulkModalTitle')}</h3>
                 <button className="tm-close-btn" onClick={() => setShowBulkModal(false)}>✕</button>
@@ -518,9 +535,11 @@ const TableManagement = () => {
                       { value: 'balanced', label: t('tableManagement.modeBalancedLabel'), desc: t('tableManagement.modeBalancedDesc') },
                       { value: 'random_balanced', label: t('tableManagement.modeRandomBalancedLabel'), desc: t('tableManagement.modeRandomBalancedDesc') },
                     ].map((opt) => (
-                      <div
+                      <button
                         key={opt.value}
+                        type="button"
                         className={`tm-mode-card ${bulkMode === opt.value ? 'selected' : ''}`}
+                        aria-pressed={bulkMode === opt.value}
                         onClick={() => setBulkMode(opt.value)}
                       >
                         <div className="tm-mode-radio">
@@ -530,7 +549,7 @@ const TableManagement = () => {
                           <div className="tm-mode-name">{opt.label}</div>
                           <div className="tm-mode-desc">{opt.desc}</div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>

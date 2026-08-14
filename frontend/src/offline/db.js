@@ -49,15 +49,29 @@ export const getDB = () => {
   return _dbPromise;
 };
 
-// ── uuid (crypto.randomUUID em contexto seguro; fallback simples) ──────────────
+// ── uuid (crypto.randomUUID em contexto seguro; fallback via WebCrypto) ───────
+//
+// O id NAO e decorativo: ele e a chave primaria da fila de mutacoes e viaja
+// junto no replay. Duas operacoes com o mesmo id significam uma venda
+// sobrescrevendo a outra — dinheiro do salao que some. Por isso os dois
+// caminhos usam gerador criptografico, nunca Math.random.
 export const uuid = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  // Fallback RFC4122 v4 (suficiente para chave local)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  // `randomUUID` so existe em contexto seguro; num clube que acessa o app por
+  // http na rede local ele nao esta la. Ja `getRandomValues` funciona tambem
+  // fora de contexto seguro, entao o fallback continua sendo CSPRNG.
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // versao 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variante RFC4122
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10, 16).join(''),
+  ].join('-');
 };
 
 // ── meta ───────────────────────────────────────────────────────────────────────

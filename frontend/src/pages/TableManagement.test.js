@@ -484,8 +484,27 @@ describe('distribuição em lote', () => {
   it('escolher outro modo troca a seleção', async () => {
     await montar();
     await abrir();
-    await userEvent.click(document.querySelectorAll('.tm-mode-card')[0]);
-    expect(document.querySelectorAll('.tm-mode-card')[0]).toHaveClass('selected');
+    const opcoes = screen.getAllByRole('button', { name: /modeSequentialLabel|modeBalancedLabel|modeRandomBalancedLabel/ });
+    await userEvent.click(opcoes[0]);
+    expect(opcoes[0]).toHaveClass('selected');
+    expect(opcoes[0]).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('dá para escolher o modo só pelo teclado', async () => {
+    // Cada cartão era um <div> com onClick: o Tab passava reto por todos.
+    await montar();
+    await abrir();
+    const opcoes = screen.getAllByRole('button', { name: /modeSequentialLabel|modeBalancedLabel|modeRandomBalancedLabel/ });
+    opcoes[0].focus();
+    await userEvent.keyboard('{Enter}');
+    expect(opcoes[0]).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Esc fecha o modal de distribuição', async () => {
+    await montar();
+    await abrir();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(document.querySelector('.tm-mode-card')).toBeNull());
   });
 
   it('salvar o modo o persiste no dia, sem alocar ninguém', async () => {

@@ -33,6 +33,17 @@ const BlindTemplates = () => {
   const [levels, setLevels] = useState([]);
   const [saving, setSaving] = useState(false);
 
+  // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do modal.
+  useEffect(() => {
+    if (!showEditor) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') !saving && setShowEditor(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showEditor, saving]);
+
   useEffect(() => {
     loadTemplates();
   }, []);
@@ -215,8 +226,12 @@ const BlindTemplates = () => {
       )}
 
       {showEditor && (
-        <div className="bt-overlay" onClick={() => !saving && setShowEditor(false)}>
-          <div className="bt-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="bt-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget && !saving) setShowEditor(false); }}
+        >
+          <div className="bt-modal" role="dialog" aria-modal="true">
             <div className="bt-modal-head">
               <h2>
                 {editingId

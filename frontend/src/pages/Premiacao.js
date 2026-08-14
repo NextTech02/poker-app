@@ -17,7 +17,15 @@ import {
   formatPercentage,
   isValidInput,
 } from '../utils/payoutEditing';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Premiacao.css';
+
+// Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
+// `onClick={stopPropagation}` que ficava no conteúdo do modal — aquele era um
+// clique sem equivalente de teclado, e o fundo em si não é um controle.
+const aoClicarNoFundo = (aoFechar) => (evento) => {
+  if (evento.target === evento.currentTarget) aoFechar();
+};
 
 const getPositionLabel = (position) => `${position}°`;
 
@@ -90,6 +98,17 @@ const Premiacao = () => {
 
   // Auto-calculate modal
   const [showAutoModal, setShowAutoModal] = useState(false);
+
+  // Esc fecha o modal aberto — sem isso, quem opera só pelo teclado só sai
+  // caçando o X com o mouse.
+  const fecharAdicionar = useCallback(() => setShowAddModal(false), []);
+  const fecharPagamento = useCallback(() => setShowPayoutModal(false), []);
+  const fecharAuto = useCallback(() => setShowAutoModal(false), []);
+  const fecharComprovante = useCallback(() => setShowVoucherModal(false), []);
+  useEscapeKey(showAddModal, fecharAdicionar);
+  useEscapeKey(showPayoutModal, fecharPagamento);
+  useEscapeKey(showAutoModal, fecharAuto);
+  useEscapeKey(showVoucherModal, fecharComprovante);
   const [autoPreview, setAutoPreview] = useState([]);
   const [autoEntryCount, setAutoEntryCount] = useState(0);
 
@@ -921,8 +940,8 @@ const Premiacao = () => {
 
         {/* ── Modal: Add Allocation ──────────────────────────────────────── */}
         {showAddModal && (
-          <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharAdicionar)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>{t('premiacao.addPrizeModalTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowAddModal(false)}>
@@ -995,8 +1014,8 @@ const Premiacao = () => {
 
         {/* ── Modal: Payout ─────────────────────────────────────────────── */}
         {showPayoutModal && payoutAllocation && (
-          <div className="modal-overlay" onClick={() => setShowPayoutModal(false)}>
-            <div className="modal payout-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharPagamento)}>
+            <div className="modal payout-modal">
               <div className="modal-header">
                 <h2>{t('premiacao.registerPayment')}</h2>
                 <button className="close-btn" onClick={() => setShowPayoutModal(false)}>
@@ -1134,8 +1153,8 @@ const Premiacao = () => {
 
         {/* ── Modal: Auto Calculate ──────────────────────────────────────── */}
         {showAutoModal && (
-          <div className="modal-overlay" onClick={() => setShowAutoModal(false)}>
-            <div className="modal auto-calc-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharAuto)}>
+            <div className="modal auto-calc-modal">
               <div className="modal-header">
                 <h2>{t('premiacao.autoCalcModalTitle')}</h2>
                 <button className="close-btn" onClick={() => setShowAutoModal(false)}>✕</button>
@@ -1276,8 +1295,8 @@ const Premiacao = () => {
 
         {/* ── Modal: Voucher ─────────────────────────────────────────────── */}
         {showVoucherModal && voucherData && (
-          <div className="modal-overlay" onClick={() => setShowVoucherModal(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharComprovante)}>
+            <div className="modal">
               <div className="modal-header">
                 <h2>{t('premiacao.paymentVoucher')}</h2>
                 <button className="close-btn" onClick={() => setShowVoucherModal(false)}>
@@ -1299,6 +1318,23 @@ const Premiacao = () => {
 };
 
 // ── Config Tab Row ───────────────────────────────────────────────────────────
+
+/**
+ * Valor da faixa clicável para editar. Quando dá para editar é um <button> de
+ * verdade — foco, Enter e Espaço vêm de graça, e quem opera só pelo teclado
+ * alcança a edição. Travado (faixa paga ou vaga), volta a ser só texto, para o
+ * Tab não parar num campo que não faz nada.
+ */
+const ValorEditavel = ({ podeEditar, aoEditar, titulo, children }) => {
+  if (!podeEditar) {
+    return <span className="editable-value" title={titulo}>{children}</span>;
+  }
+  return (
+    <button type="button" className="editable-value clickable" onClick={aoEditar} title={titulo}>
+      {children}
+    </button>
+  );
+};
 
 const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving }) => {
   const { t } = useTranslation();
@@ -1374,10 +1410,10 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
             <button className="btn-cancel" onClick={handleCancel}>X</button>
           </div>
         ) : (
-          <span
-            onClick={() => startEditing('amount')}
-            className={`editable-value ${canEdit ? 'clickable' : ''}`}
-            title={motivoBloqueio || t('premiacao.editAmount', 'Editar o valor da faixa')}
+          <ValorEditavel
+            podeEditar={canEdit}
+            aoEditar={() => startEditing('amount')}
+            titulo={motivoBloqueio || t('premiacao.editAmount', 'Editar o valor da faixa')}
           >
             {formatCurrency(allocation.prize_amount)}
             {isVaga && (
@@ -1385,7 +1421,7 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
                 {t('premiacao.vagaBadge', 'vaga')}
               </span>
             )}
-          </span>
+          </ValorEditavel>
         )}
       </td>
       <td className="percentage-cell">
@@ -1409,13 +1445,13 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
             <button className="btn-cancel" onClick={handleCancel}>X</button>
           </div>
         ) : (
-          <span
-            onClick={() => startEditing('percent')}
-            className={`editable-value ${canEdit ? 'clickable' : ''}`}
-            title={motivoBloqueio || t('premiacao.editPercentage', 'Editar o percentual da faixa')}
+          <ValorEditavel
+            podeEditar={canEdit}
+            aoEditar={() => startEditing('percent')}
+            titulo={motivoBloqueio || t('premiacao.editPercentage', 'Editar o percentual da faixa')}
           >
             {formatPercentage(percentage)}%
-          </span>
+          </ValorEditavel>
         )}
       </td>
       <td className="actions-cell">

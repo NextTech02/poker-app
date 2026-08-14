@@ -174,29 +174,31 @@ describe('LanguageSelector', () => {
 
   it('começa fechado', () => {
     render(<LanguageSelector />);
-    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByRole('list')).toBeNull();
     expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
   });
 
+  // Cada idioma é um <button> dentro da lista: quem navega por Tab/Enter
+  // alcança a troca de idioma sem precisar do mouse.
   it('abre a lista dos três idiomas', async () => {
     render(<LanguageSelector />);
     await userEvent.click(screen.getByRole('button'));
-    expect(screen.getAllByRole('option')).toHaveLength(3);
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
   });
 
   it('marca o idioma ativo como selecionado', async () => {
     render(<LanguageSelector />);
     await userEvent.click(screen.getByRole('button'));
-    const ativo = screen.getByRole('option', { selected: true });
+    const ativo = screen.getByRole('button', { current: true });
     expect(ativo).toHaveTextContent('Português');
   });
 
   it('trocar de idioma aplica e fecha a lista', async () => {
     render(<LanguageSelector />);
     await userEvent.click(screen.getByRole('button'));
-    await userEvent.click(screen.getByRole('option', { name: /English/ }));
+    await userEvent.click(screen.getByRole('button', { name: /English/ }));
     expect(mockTrocarIdioma).toHaveBeenCalledWith('en-US');
-    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByRole('list')).toBeNull();
   });
 
   it('clicar fora fecha a lista', async () => {
@@ -209,9 +211,9 @@ describe('LanguageSelector', () => {
       </div>
     );
     await userEvent.click(screen.getByRole('button', { name: /PT/ }));
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(screen.getByRole('list')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'fora' }));
-    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByRole('list')).toBeNull();
   });
 
   it('a direção da abertura é configurável', async () => {

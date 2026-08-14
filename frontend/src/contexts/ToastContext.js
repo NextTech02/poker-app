@@ -129,6 +129,17 @@ export const ToastProvider = ({ children }) => {
     });
   }, []);
 
+  // Acessibilidade: o fundo escuro cancela no clique, mas quem usa só o teclado
+  // precisa do Esc para sair do diálogo.
+  useEffect(() => {
+    if (!confirmDialog) return undefined;
+    const onKeyDown = (ev) => {
+      if (ev.key === 'Escape') confirmDialog.onCancel();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [confirmDialog]);
+
   // Register toast emitter so api.js interceptor can use it outside React
   useEffect(() => {
     registerToast(toastApi);
@@ -166,8 +177,12 @@ export const ToastProvider = ({ children }) => {
 
       {/* Confirm dialog */}
       {confirmDialog && (
-        <div className="confirm-overlay" onClick={confirmDialog.onCancel}>
-          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="confirm-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget) confirmDialog.onCancel(); }}
+        >
+          <div className="confirm-dialog" role="alertdialog" aria-modal="true" aria-label={confirmDialog.title}>
             <div className="confirm-dialog-title">{confirmDialog.title}</div>
             <div className="confirm-dialog-message">{confirmDialog.message}</div>
             <div className="confirm-dialog-actions">
