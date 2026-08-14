@@ -111,8 +111,7 @@
 }
 
 /* === Inputs === */
-.tournament-day-form-page .form-group input,
-.tournament-day-form-page .form-group select {
+.tournament-day-form-page .form-group input {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
@@ -122,13 +121,11 @@
   transition: all 0.2s ease;
 }
 
-.tournament-day-form-page .form-group input:hover,
-.tournament-day-form-page .form-group select:hover {
+.tournament-day-form-page .form-group input:hover {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.tournament-day-form-page .form-group input:focus,
-.tournament-day-form-page .form-group select:focus {
+.tournament-day-form-page .form-group input:focus {
   outline: none;
   border-color: var(--accent-color, var(--brand-green));
   background: rgba(255, 255, 255, 0.08);
@@ -139,18 +136,14 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+/* Visual, chevron, foco e lista escura vêm do padrão global
+   (styles/index.css); aqui fica a altura compacta deste formulário. */
 .tournament-day-form-page .form-group select {
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23ffffff' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  padding-right: 2rem;
-}
-
-.tournament-day-form-page .form-group select option {
-  background: #1a1a2e;
-  color: #fff;
+  border-radius: 6px;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 0.75rem;
+  font-size: 0.95rem;
 }
 
 /* === Hints === */

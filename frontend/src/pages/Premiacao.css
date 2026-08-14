@@ -23,30 +23,16 @@
   color: var(--text-secondary);
 }
 
+/* Destino da premiação reservada (Ranking / Staff). Fundo, borda, chevron,
+   foco e lista escura vêm do padrão global (styles/index.css) — este era o
+   campo do print, o único da tela que ainda saía com a cara do sistema. */
 .reserved-purpose-select {
   width: 100%;
-  padding: 0.625rem 0.875rem;
-  border-radius: 8px;
-  background: #141c26;
-  color: var(--text);
-  border: 1.5px solid var(--surface);
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  padding-left: 0.875rem;
   font-size: 0.95rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.reserved-purpose-select:focus {
-  outline: none;
-  border-color: #14b8a6;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
-}
-/* Listas de options no tema escuro (o `color-scheme: dark` global cuida da
-   legibilidade; aqui só reforçamos as cores). Antes forçava branco (#fff),
-   o que vazava para TODOS os modais do site (não era escopado). */
-.reserved-purpose-select option,
-.modal .form-group select option {
-  color: var(--text-primary, #e0eaf4);
-  background: var(--secondary-bg, #0e1620);
 }
 
 /* Reserved card: teal accent on the % input (overrides the gold default) */
@@ -1093,8 +1079,7 @@
   letter-spacing: 0.07em;
 }
 
-.form-group input,
-.form-group select {
+.form-group input {
   width: 100%;
   padding: 0.75rem 1rem;
   border: 1.5px solid var(--surface);
@@ -1106,21 +1091,23 @@
   box-sizing: border-box;
 }
 
-.form-group input:focus,
-.form-group select:focus {
+.form-group input:focus {
   outline: none;
   border-color: var(--brand-gold);
   box-shadow: 0 0 0 3px rgba(91, 91, 232, 0.1);
 }
 
+/* O select saiu daqui: `.form-group select` sem escopo de página valia para o
+   site inteiro (o CSS do CRA é um bundle só) e brigava com a cópia idêntica
+   do Caixa — qual vencia dependia da ordem de import. Agora o visual é um só,
+   global; sobra a medida do formulário desta tela. */
 .form-group select {
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%236b7f90'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.875rem center;
-  padding-right: 2.5rem;
+  width: 100%;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  padding-left: 1rem;
+  font-size: 0.95rem;
+  box-sizing: border-box;
 }
 
 .form-group small {

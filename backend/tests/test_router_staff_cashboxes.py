@@ -215,6 +215,45 @@ class TestFuncionarios:
         stub(SS, resend_invite=_estoura)
         assert client.post(f"/staff/{STAFF}/resend-invite").status_code == 400
 
+    def test_cancelar_convite_e_rota_propria_da_desativacao(self, client, stub):
+        """A tela chamava o DELETE /{id}, que apenas DESATIVA. Como o convite já
+        nasce inativo, o clique não mudava nada e a pessoa ficava presa em
+        "convite pendente" para sempre."""
+        chamou = {}
+
+        def _cancela(sid, org):
+            chamou["org"] = org
+            return {"cancelled": True, "email": "fulano@clube.com"}
+
+        stub(SS, cancel_invite=_cancela,
+             delete_staff=lambda sid: pytest.fail("cancelar convite não pode cair na desativação"))
+        r = client.delete(f"/staff/{STAFF}/invite")
+        assert r.json()["cancelled"] is True
+        assert chamou["org"] == client.usuario["organization_id"]
+
+    def test_cancelar_o_que_nao_e_convite_da_400(self, client, stub):
+        def _estoura(sid, org):
+            raise ValueError("já faz parte da equipe")
+        stub(SS, cancel_invite=_estoura)
+        assert client.delete(f"/staff/{STAFF}/invite").status_code == 400
+
+    def test_efetiva_o_convite_pendente(self, client, stub):
+        """Sem esta rota, um convite só virava membro se a própria pessoa
+        entrasse no sistema para responder — e o admin ficava sem saída."""
+        stub(SS, confirm_invite=lambda sid, org: _funcionario(status="accepted"))
+        r = client.post(f"/staff/{STAFF}/confirm-invite")
+        assert r.json()["invite_status"] == "accepted"
+
+    def test_efetivar_recusado_pela_regra_da_400(self, client, stub):
+        def _estoura(sid, org):
+            raise ValueError("O plano atual não permite mais usuários ativos.")
+        stub(SS, confirm_invite=_estoura)
+        assert client.post(f"/staff/{STAFF}/confirm-invite").status_code == 400
+
+    def test_efetivar_inexistente_da_404(self, client, stub):
+        stub(SS, confirm_invite=lambda sid, org: None)
+        assert client.post(f"/staff/{STAFF}/confirm-invite").status_code == 404
+
 
 class TestCaixasLeitura:
     def test_lista_os_caixas(self, client, stub):

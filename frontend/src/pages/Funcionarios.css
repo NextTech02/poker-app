@@ -38,21 +38,16 @@
   opacity: 0.5;
 }
 
-/* Inline group select */
+/* Troca de grupo direto na linha da tabela. Cores, chevron e foco vêm do
+   padrão global (styles/index.css); aqui só o tamanho compacto que cabe na
+   célula — inclusive o espaço à direita para o chevron não cobrir o texto. */
 .func-group-select {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #e5e7eb;
-  padding: 0.35rem 0.5rem;
+  padding: 0.35rem 1.6rem 0.35rem 0.5rem;
   border-radius: 6px;
   font-size: 0.85rem;
-  cursor: pointer;
   min-width: 120px;
-}
-
-.func-group-select:focus {
-  outline: none;
-  border-color: var(--info);
+  background-position: right 0.45rem center;
+  background-size: 0.7rem;
 }
 
 /* Status badge */

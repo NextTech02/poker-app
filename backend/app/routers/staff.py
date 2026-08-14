@@ -99,6 +99,38 @@ def remove_staff(staff_id: str, user=_manage_staff):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.delete("/{staff_id}/invite")
+def cancel_invite(staff_id: str, user=_manage_staff):
+    """Cancela o convite: o vínculo some e o e-mail volta a poder ser convidado.
+
+    Rota própria porque a tela chamava o DELETE /{staff_id}, que apenas
+    DESATIVA. Um convite já nasce inativo, então aquele clique não mudava nada
+    visível e a pessoa ficava presa em "convite pendente" para sempre.
+    """
+    try:
+        return StaffService.cancel_invite(staff_id, user.get("organization_id"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{staff_id}/confirm-invite", response_model=StaffResponse)
+def confirm_invite(staff_id: str, user=_manage_staff):
+    """Efetiva o convite pendente sem esperar a pessoa responder.
+
+    Um convite para quem JÁ tem conta só virava 'accepted' se a própria pessoa
+    entrasse no sistema e clicasse. Quem nunca entrava ficava presa, e o admin
+    não tinha saída pela tela. Quem efetiva é o admin do clube, que já cadastra
+    funcionário do zero — não há poder novo aqui.
+    """
+    try:
+        result = StaffService.confirm_invite(staff_id, user.get("organization_id"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not result:
+        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+    return result
+
+
 @router.post("/{staff_id}/resend-invite")
 def resend_invite(staff_id: str, user=_manage_staff):
     """Manda outro link para quem ainda não concluiu o cadastro.

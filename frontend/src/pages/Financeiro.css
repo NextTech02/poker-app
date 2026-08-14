@@ -235,18 +235,13 @@
   letter-spacing: 0.04em;
   color: var(--text-secondary);
 }
+/* Pintura e foco vêm do padrão global (styles/index.css). A moeda é setting
+   global do sistema — o campo fica largo pra caber o nome inteiro. */
 .fn-currency-select {
-  padding: 0.5rem 0.75rem;
-  background: var(--surface);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 0.75rem;
   font-size: 0.9rem;
   font-weight: 600;
-  cursor: pointer;
   min-width: 190px;
-}
-.fn-currency-select:focus {
-  outline: none;
-  border-color: var(--brand-green);
 }

@@ -135,8 +135,7 @@
   font-weight: 600;
   color: var(--text-secondary, #8aa0b0);
 }
-.exp-field input,
-.exp-field select {
+.exp-field input {
   width: 100%;
   padding: 0.65rem 0.8rem;
   background: var(--secondary-bg, #0e1620);
@@ -146,10 +145,18 @@
   font-size: 0.9rem;
   box-sizing: border-box;
 }
-.exp-field input:focus,
-.exp-field select:focus { outline: none; border-color: var(--accent-color, #7233f8); }
-.exp-field input:disabled,
-.exp-field select:disabled { opacity: 0.6; cursor: not-allowed; }
+/* Pintura, foco e :disabled do select vêm do padrão global (styles/index.css).
+   Aqui só a medida que casa com os inputs de despesa ao lado. */
+.exp-field select {
+  width: 100%;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  padding-left: 0.8rem;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+.exp-field input:focus { outline: none; border-color: var(--accent-color, #7233f8); }
+.exp-field input:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .exp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
 

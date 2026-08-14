@@ -16,9 +16,7 @@
   align-items: center;
 }
 .bty-add input,
-.bty-add select,
-.bty-table input,
-.bty-table select {
+.bty-table input {
   padding: 0.6rem 0.75rem;
   background: var(--secondary-bg, #16212e);
   border: 1px solid var(--border-color, #243443);
@@ -26,10 +24,16 @@
   color: var(--text-primary, #e6edf3);
   font-size: 0.9rem;
 }
+/* Os selects seguem o padrão global (styles/index.css); aqui só a altura
+   acompanha a dos inputs desta linha de cadastro. */
+.bty-add select,
+.bty-table select {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  font-size: 0.9rem;
+}
 .bty-add input:focus,
-.bty-add select:focus,
-.bty-table input:focus,
-.bty-table select:focus { outline: none; border-color: var(--brand-green, #7233f8); }
+.bty-table input:focus { outline: none; border-color: var(--brand-green, #7233f8); }
 .bty-in-name { flex: 1; min-width: 180px; }
 .bty-in-num { width: 110px; }
 .bty-add select { min-width: 130px; }

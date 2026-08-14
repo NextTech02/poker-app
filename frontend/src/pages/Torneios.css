@@ -473,18 +473,18 @@
 
 .tr-field input::placeholder { color: #2a3d50; }
 
+/* Pintura, chevron e foco vêm do padrão global (styles/index.css). O antigo
+   `option { color:#111; background:#fff }` saiu junto: aquilo era o remendo
+   para a lista nativa, que o navegador desenhava clara; hoje o
+   `color-scheme: dark` global faz o próprio navegador desenhá-la escura. */
 .tr-field select {
-  background: #071018;
-  border: 1px solid var(--surface);
-  border-radius: 8px;
-  padding: 0.7rem 0.9rem;
-  color: var(--text);
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+  padding-left: 0.9rem;
   font-size: 0.9rem;
   width: 100%;
   box-sizing: border-box;
 }
-/* Native option list renders on white — force dark text so it's legible */
-.tr-field select option { color: #111; background: #fff; }
 
 .tr-field input:focus {
   outline: none;
@@ -513,10 +513,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 0.9rem 1rem;
 }
-.tr-qual-grid .tr-field select {
-  -webkit-appearance: none;
-  appearance: none;
-}
+/* `appearance: none` já vem do padrão global — esta exceção deixou de existir. */
 @media (max-width: 520px) {
   .tr-qual-grid { grid-template-columns: 1fr; }
 }

@@ -449,38 +449,13 @@
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
-/* Level Select Dropdown */
+/* Escolha do nível de blind. Pintura, chevron, foco e lista escura vêm do
+   padrão global (styles/index.css) — este bloco tinha cinza-azulado #2d3748 e
+   foco lilás #667eea de uma paleta antiga, que não é a da marca. */
 .level-select {
   width: 100%;
-  padding: 0.875rem 1rem;
-  border: 2px solid #4a5568;
-  border-radius: 8px;
-  font-size: 1rem;
-  color: #ffffff;
-  background: #2d3748;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0aec0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  padding-right: 2.5rem;
-}
-
-.level-select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
-}
-
-.level-select:hover {
-  border-color: #667eea;
-}
-
-.level-select option {
-  background: #2d3748;
-  color: #ffffff;
-  padding: 0.5rem;
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
 }
 
 /* Template Modal Styles */

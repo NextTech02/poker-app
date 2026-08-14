@@ -14,26 +14,28 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+/* Cores, borda, chevron e foco vêm do padrão global (styles/index.css).
+   O `outline: none` daqui foi removido: trocar de organização é uma ação de
+   risco e precisa ser visível para quem navega no Tab. */
 .org-switcher-select {
   width: 100%;
-  padding: 0.45rem 0.55rem;
-  background: #0e1620;
-  border: 1px solid rgba(114, 51, 248, 0.35);
+  padding: 0.45rem 1.7rem 0.45rem 0.55rem; /* direita = espaço do chevron */
   border-radius: 7px;
-  color: #fff;
   font-size: 0.82rem;
   font-weight: 600;
-  outline: none;
-  cursor: pointer;
   box-sizing: border-box;
   text-overflow: ellipsis;
+  background-position: right 0.45rem center;
+  background-size: 0.7rem;
 }
 
-.org-switcher-select:focus { border-color: #7233f8; }
-.org-switcher-select:disabled { opacity: 0.6; cursor: wait; }
+/* Enquanto troca de org o clique não vale — o cursor avisa antes. */
+.org-switcher-select:disabled { cursor: wait; }
 
 .org-switcher.collapsed { padding: 8px 6px; }
 .org-switcher.collapsed .org-switcher-select {
   font-size: 0.7rem;
-  padding: 0.35rem 0.25rem;
+  padding: 0.35rem 1.2rem 0.35rem 0.25rem;
+  background-position: right 0.3rem center;
+  background-size: 0.6rem;
 }

@@ -67,11 +67,15 @@ jest.mock('react-i18next', () => {
   return { useTranslation: () => traducao };
 });
 
+// Davi reproduz o caso relatado: convite pendente fica `active: false` no
+// banco de proposito (quem nao aceitou nao ocupa vaga do plano). Era isso que
+// fazia a tela mostrar "convite pendente" E "desativado" na mesma linha, e
+// escondia a pessoa atras do filtro de desativados.
 const EQUIPE = [
   { id: 's1', name: 'Ana', email: 'ana@clube.com', active: true, permission_group_id: 'g1' },
   { id: 's2', name: 'Beto', email: 'beto@clube.com', active: false, permission_group_id: null },
   { id: 's3', name: 'Carla', email: 'carla@clube.com', active: true, invite_status: 'awaiting_signup' },
-  { id: 's4', name: 'Davi', email: 'davi@clube.com', active: true, invite_status: 'pending' },
+  { id: 's4', name: 'Davi', email: 'davi@clube.com', active: false, invite_status: 'pending' },
 ];
 
 const GRUPOS = [
@@ -183,12 +187,69 @@ describe('estados de convite', () => {
     expect(within(linha).queryByText('staff.deactivate')).toBeNull();
   });
 
-  it('quem já tinha conta e não aceitou só pode ter o convite cancelado', async () => {
+  it('quem já tinha conta e não aceitou pode ser efetivado ou ter o convite cancelado', async () => {
     await montar();
     const linha = linhaDe('Davi');
     expect(within(linha).getByText('Convite pendente')).toBeInTheDocument();
+    expect(within(linha).getByText('Efetivar')).toBeInTheDocument();
     expect(within(linha).getByText('Cancelar convite')).toBeInTheDocument();
     expect(within(linha).queryByText('Reenviar')).toBeNull();
+  });
+
+  it('convite pendente aparece SEM precisar do filtro de desativados', async () => {
+    // O relato: "está cadastrado mas aparece como convite pendente e como
+    // desativado". A linha nasce `active: false`, então caía no filtro e sumia
+    // da lista — o admin não achava a pessoa para resolver nada.
+    await montar();
+    expect(linhaDe('Davi')).toBeDefined();
+  });
+
+  it('convite pendente não é contado nem pintado como desativado', async () => {
+    // Dois sinais contraditórios na mesma linha (cinza de desativado + selo de
+    // pendente) é o que deixava o admin sem saber o que fazer.
+    await montar();
+    const filtro = screen.getByRole('button', { name: /Desativados/ });
+    expect(within(filtro).getByText('1')).toBeInTheDocument(); // só o Beto
+    expect(linhaDe('Davi')).not.toHaveClass('func-row-inactive');
+  });
+
+  it('convite não recebe "Ativar"/"Desativar" — quem manda é o status do convite', async () => {
+    await montar();
+    const linha = linhaDe('Davi');
+    expect(within(linha).queryByText('staff.activate')).toBeNull();
+    expect(within(linha).queryByText('staff.deactivate')).toBeNull();
+  });
+
+  it('efetivar transforma o convite em membro da equipe', async () => {
+    // Antes, "pending" só virava "accepted" se a própria pessoa entrasse no
+    // sistema e respondesse — quem nunca entrava ficava presa para sempre.
+    await montar();
+    await userEvent.click(within(linhaDe('Davi')).getByText('Efetivar'));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/staff/s4/confirm-invite'));
+    expect(toast.success).toHaveBeenCalledWith('staff.effectivated:Davi');
+  });
+
+  it('efetivar pede confirmação e recusar não efetiva', async () => {
+    confirmar.mockResolvedValue(false);
+    await montar();
+    await userEvent.click(within(linhaDe('Davi')).getByText('Efetivar'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('limite do plano ao efetivar aparece com o motivo do servidor', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'O plano atual não permite mais usuários ativos.' } } });
+    await montar();
+    await userEvent.click(within(linhaDe('Davi')).getByText('Efetivar'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('O plano atual não permite mais usuários ativos.')
+    );
+  });
+
+  it('quem aguarda cadastro não pode ser efetivado — falta a senha', async () => {
+    // Marcar como membro não a faria entrar; o caminho lá é reenviar o link.
+    await montar();
+    expect(within(linhaDe('Carla')).queryByText('Efetivar')).toBeNull();
   });
 
   it('quem já entrou aparece como ativo e pode ser desativado', async () => {
@@ -213,14 +274,38 @@ describe('estados de convite', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Limite de envios'));
   });
 
-  it('cancelar convite pede confirmação', async () => {
+  it('cancelar convite chama a rota do CONVITE, não a que apenas desativa', async () => {
+    // O bug relatado: a tela chamava DELETE /staff/{id}, que só desativa. Como
+    // o convite já nasce inativo, o clique não mudava nada e a pessoa ficava
+    // presa em "convite pendente" para sempre.
     await montar();
     await userEvent.click(within(linhaDe('Davi')).getByText('Cancelar convite'));
     expect(confirmar).toHaveBeenCalledWith(
       'staff.confirmCancelInvite:davi@clube.com',
       expect.objectContaining({ variant: 'danger' })
     );
-    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/staff/s4'));
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/staff/s4/invite'));
+    expect(api.delete).not.toHaveBeenCalledWith('/staff/s4');
+  });
+
+  it('cancelado, a lista é recarregada — a linha some de verdade', async () => {
+    await montar();
+    api.get.mockImplementation((url) => {
+      if (url === '/staff') return Promise.resolve({ data: EQUIPE.filter((s) => s.id !== 's4') });
+      if (url === '/staff/groups') return Promise.resolve({ data: GRUPOS });
+      return Promise.resolve({ data: [] });
+    });
+    await userEvent.click(within(linhaDe('Davi')).getByText('Cancelar convite'));
+    await waitFor(() => expect(linhaDe('Davi')).toBeUndefined());
+  });
+
+  it('falha ao cancelar mostra o motivo do servidor', async () => {
+    api.delete.mockRejectedValue({ response: { data: { detail: 'Este funcionário já movimentou caixa.' } } });
+    await montar();
+    await userEvent.click(within(linhaDe('Davi')).getByText('Cancelar convite'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Este funcionário já movimentou caixa.')
+    );
   });
 
   it('recusar a confirmação não cancela', async () => {

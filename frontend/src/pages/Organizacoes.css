@@ -248,8 +248,7 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-.org-field input,
-.org-field select {
+.org-field input {
   width: 100%;
   padding: 0.65rem 0.8rem;
   background: #0e1620;
@@ -261,8 +260,19 @@
   outline: none;
 }
 
-.org-field input:focus,
-.org-field select:focus { border-color: #7233f8; }
+/* Pintura e foco do select vêm do padrão global (styles/index.css). O
+   `outline: none` foi retirado daqui: criar/editar organização é ação de
+   admin e precisa de foco visível no Tab. */
+.org-field select {
+  width: 100%;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  padding-left: 0.8rem;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.org-field input:focus { border-color: #7233f8; }
 
 .org-error {
   display: block;

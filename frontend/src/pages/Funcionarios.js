@@ -40,6 +40,13 @@ const ALL_PERMISSIONS = [
   { key: 'employees', label: 'staff.perm.employees' },
 ];
 
+// Convite não é o mesmo que funcionário desativado — e a tela tratava os dois
+// pelo mesmo `active`. Um convite pendente fica `active = false` de propósito
+// (quem não aceitou não ocupa vaga do plano), então a pessoa saía cinza, com o
+// selo "Convite pendente" e escondida atrás do filtro "Desativados", onde
+// ninguém ia procurar. Aqui o convite passa a ser um estado próprio.
+const ehConvite = (s) => s.invite_status === 'pending' || s.invite_status === 'awaiting_signup';
+
 const Funcionarios = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
@@ -323,11 +330,39 @@ const Funcionarios = () => {
     );
     if (!ok) return;
     try {
-      await api.delete(`/staff/${staff.id}`);
-      notify(t('staff.inviteCancelled', 'Convite cancelado.'), 'success');
+      // Rota do CONVITE, não o DELETE do funcionário: aquele só desativa, e um
+      // convite já nasce inativo — o clique não mudava nada e a pessoa ficava
+      // presa em "convite pendente" para sempre.
+      await api.delete(`/staff/${staff.id}/invite`);
+      // Chave nova (a antiga dizia só "Convite cancelado."): o admin precisa
+      // saber que o e-mail ficou livre, senão não tenta convidar de novo.
+      notify(t('staff.inviteCancelledFree',
+               'Convite cancelado. Este e-mail pode ser convidado de novo.'), 'success');
       loadData();
     } catch (err) {
       notify(err.response?.data?.detail || t('staff.errCancelInvite', 'Não foi possível cancelar o convite.'));
+    }
+  };
+
+  // Efetivar: o admin resolve o convite sem depender da pessoa entrar no
+  // sistema para responder. Quem convida é o dono do clube, que já cadastra
+  // funcionário do zero — efetivar não dá poder que ele não tenha.
+  const handleConfirmInvite = async (staff) => {
+    const ok = await confirm(
+      t('staff.confirmEffectivate',
+        'Efetivar {{email}} como funcionário deste clube? O acesso vale na hora, sem esperar a resposta ao convite.',
+        { email: staff.email }),
+      { title: t('staff.effectivate', 'Efetivar'),
+        confirmText: t('staff.effectivate', 'Efetivar') }
+    );
+    if (!ok) return;
+    try {
+      await api.post(`/staff/${staff.id}/confirm-invite`);
+      notify(t('staff.effectivated', '{{name}} agora faz parte da equipe.',
+               { name: staff.name || staff.email }), 'success');
+      loadData();
+    } catch (err) {
+      notify(err.response?.data?.detail || t('staff.errEffectivate', 'Não foi possível efetivar o convite.'));
     }
   };
 
@@ -423,6 +458,13 @@ const Funcionarios = () => {
     }
   };
 
+  // Desativado é só quem já foi membro e saiu. Convite (pendente ou aguardando
+  // cadastro) fica SEMPRE visível: é uma pendência do admin, não um arquivo
+  // morto — era justamente por cair no filtro de desativados que a pessoa
+  // "sumia" da lista e o problema ficava sem dono.
+  const desativados = staffList.filter((s) => !s.active && !ehConvite(s));
+  const visiveis = staffList.filter((s) => verInativos || s.active || ehConvite(s));
+
   // Derived values for the Pagamentos tab
   const activeStaff = staffList.filter((s) => s.active);
   const totalPaid = Object.values(payments).reduce(
@@ -485,8 +527,10 @@ const Funcionarios = () => {
               <div className="table-responsive">
                 {/* Quem tem lançamento financeiro não pode ser apagado sem
                     reescrever os livros. Esconder os desativados resolve a
-                    poluição da lista sem perder o histórico. */}
-                {staffList.some((x) => !x.active) && (
+                    poluição da lista sem perder o histórico. Convite pendente
+                    NÃO entra aqui: ele exige uma decisão do admin e precisa
+                    estar visível. */}
+                {desativados.length > 0 && (
                   <div className="func-barra-filtro">
                     {/* Botão de alternância, não caixa de seleção: o gesto é
                         "ligar/desligar uma visão", e o estado precisa ser
@@ -508,9 +552,7 @@ const Funcionarios = () => {
                         )}
                       </svg>
                       {t('staff.inactiveFilter', 'Desativados')}
-                      <span className="func-chip-num">
-                        {staffList.filter((x) => !x.active).length}
-                      </span>
+                      <span className="func-chip-num">{desativados.length}</span>
                     </button>
                   </div>
                 )}
@@ -525,8 +567,8 @@ const Funcionarios = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {staffList.filter((s) => verInativos || s.active).map((s) => (
-                      <tr key={s.id} className={!s.active ? 'func-row-inactive' : ''}>
+                    {visiveis.map((s) => (
+                      <tr key={s.id} className={!s.active && !ehConvite(s) ? 'func-row-inactive' : ''}>
                         <td>{s.name}</td>
                         <td>{s.email}</td>
                         <td>
@@ -542,7 +584,11 @@ const Funcionarios = () => {
                           </select>
                         </td>
                         <td>
-                          {/* Dois estados de convite, com causas diferentes:
+                          {/* UM status por linha, sempre. Antes, um convite
+                              pendente aparecia como "Convite pendente" e ao
+                              mesmo tempo cinza de desativado — o admin lia
+                              "cadastrado, porém desativado, porém pendente" e
+                              não sabia o que fazer.
                               'pending'         = já tinha conta, falta aceitar;
                               'awaiting_signup' = conta nova, falta definir a senha. */}
                           {s.invite_status === 'pending' ? (
@@ -565,9 +611,10 @@ const Funcionarios = () => {
                           {/* Contêiner flex: botões irmãos soltos na célula não
                               têm como receber espaçamento entre si. */}
                           <div className="func-acoes-linha">
-                          {/* Num convite pendente, "Ativar" forçaria a entrada de
-                              alguém que ainda não aceitou. O que cabe é desfazer
-                              o convite. */}
+                          {/* Cada estado com a ação que o resolve. "Ativar" não
+                              cabe em convite: quem manda no vínculo é o
+                              invite_status, e mexer no active deixaria a linha
+                              ativa E pendente ao mesmo tempo. */}
                           {s.invite_status === 'awaiting_signup' ? (
                             <>
                               <button
@@ -587,13 +634,28 @@ const Funcionarios = () => {
                               </button>
                             </>
                           ) : s.invite_status === 'pending' ? (
-                            <button
-                              type="button"
-                              className="func-action-btn func-action-btn--danger"
-                              onClick={() => handleCancelInvite(s)}
-                            >
-                              {t('staff.cancelInvite', 'Cancelar convite')}
-                            </button>
+                            <>
+                              {/* Saída do admin quando a pessoa não responde:
+                                  antes o convite só virava membro se ela mesma
+                                  entrasse e clicasse — quem não entrava ficava
+                                  presa nesse estado sem nenhuma saída. */}
+                              <button
+                                type="button"
+                                className="func-action-btn func-action-btn--success"
+                                onClick={() => handleConfirmInvite(s)}
+                                title={t('staff.effectivateHint',
+                                         'Entra na equipe agora, sem esperar a resposta ao convite')}
+                              >
+                                {t('staff.effectivate', 'Efetivar')}
+                              </button>
+                              <button
+                                type="button"
+                                className="func-action-btn func-action-btn--danger"
+                                onClick={() => handleCancelInvite(s)}
+                              >
+                                {t('staff.cancelInvite', 'Cancelar convite')}
+                              </button>
+                            </>
                           ) : (
                             <>
                               <button

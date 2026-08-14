@@ -182,14 +182,7 @@ class StaffService:
             # não pode ser jogada dentro do clube sem saber: o vínculo nasce
             # PENDENTE e ela aceita ou recusa ao entrar no sistema.
             ja_tem_conta = True
-            found = httpx.get(
-                f"{base}/auth/v1/admin/users",
-                headers=headers, params={"page": 1, "per_page": 200}, timeout=20,
-            )
-            for u in (found.json().get("users") or []):
-                if (u.get("email") or "").lower() == data.email.lower():
-                    auth_user_id = u.get("id")
-                    break
+            auth_user_id = StaffService._localiza_conta_por_email(base, headers, data.email)
             if not auth_user_id:
                 raise ValueError("Já existe uma conta com este e-mail.")
         else:
@@ -296,6 +289,202 @@ class StaffService:
             permission_group_name=group_name,
             permissions=permissions,
         )
+
+    @staticmethod
+    def _localiza_conta_por_email(base: str, headers: dict, email: str) -> Optional[str]:
+        """Procura a conta de acesso que JÁ existe com este e-mail.
+
+        Pagina de verdade. A busca lia só a primeira página (200 contas), então
+        num projeto maior o convite a alguém antigo morria em "Já existe uma
+        conta com este e-mail" — sem nenhuma saída pela tela. Isso vale
+        justamente para RECONVIDAR quem já foi convidado antes, que é o caminho
+        de saída de um convite cancelado.
+        """
+        import httpx
+
+        alvo = (email or "").lower()
+        por_pagina = 200
+        for pagina in range(1, 11):  # teto de 2.000 contas: evita varredura infinita
+            try:
+                r = httpx.get(
+                    f"{base}/auth/v1/admin/users",
+                    headers=headers,
+                    params={"page": pagina, "per_page": por_pagina},
+                    timeout=20,
+                )
+                usuarios = (r.json().get("users") or []) if r.status_code < 400 else []
+            except Exception:
+                return None
+            for u in usuarios:
+                if (u.get("email") or "").lower() == alvo:
+                    return u.get("id")
+            if len(usuarios) < por_pagina:
+                return None  # acabou a lista
+        return None
+
+    @staticmethod
+    def cancel_invite(staff_id: str, organization_id: str = None) -> dict:
+        """Cancela um convite: a linha SAI da tabela de verdade.
+
+        A tela chamava o DELETE genérico, que apenas DESATIVA. Como o convite
+        de quem já tem conta nasce inativo, o clique não mudava nada visível e
+        o `invite_status` seguia "pendente" para sempre — a pessoa ficava presa
+        num estado sem saída, e a chave única (auth_user_id, organization_id)
+        ainda travava um novo convite para o mesmo e-mail.
+
+        Membro efetivo NÃO passa por aqui: desativar alguém achando que estava
+        cancelando um convite é exatamente a confusão que causou o problema.
+        """
+        alvo = supabase.table("staff").select(
+            "id, email, active, invite_status, auth_user_id, organization_id"
+        ).eq("id", staff_id).execute()
+        if not alvo.data:
+            raise ValueError("Funcionário não encontrado.")
+        linha = alvo.data[0]
+
+        if organization_id and linha.get("organization_id") != organization_id:
+            raise ValueError("Funcionário não encontrado.")
+
+        estado = linha.get("invite_status")
+        if estado not in ("pending", "awaiting_signup"):
+            raise ValueError(
+                "Esta pessoa já faz parte da equipe — não há convite a cancelar. "
+                "Use Desativar ou Excluir."
+            )
+
+        StaffService._guard_no_open_cashbox(staff_id)
+        StaffService._apaga_caixas_vazios(staff_id)
+
+        r = supabase.table("staff").delete().eq("id", staff_id).execute()
+        if not (r.data or []):
+            raise ValueError("Não foi possível cancelar o convite.")
+
+        # Cadastro nunca concluído: a conta de acesso também sai. Deixá-la
+        # criaria uma armadilha — no próximo convite o e-mail já existiria e a
+        # pessoa cairia no fluxo de "aceitar convite", que exige entrar no
+        # sistema... com uma senha que ela nunca chegou a definir.
+        # Convite 'pending' é o contrário: a conta é de alguém que já trabalha
+        # em outro clube e não pode ser tocada.
+        conta_removida = False
+        if estado == "awaiting_signup" and linha.get("auth_user_id"):
+            try:
+                import httpx
+                base = settings.supabase_url.rstrip("/")
+                d = httpx.delete(
+                    f"{base}/auth/v1/admin/users/{linha['auth_user_id']}",
+                    headers={
+                        "apikey": settings.supabase_service_key,
+                        "Authorization": f"Bearer {settings.supabase_service_key}",
+                    },
+                    timeout=15,
+                )
+                conta_removida = d.status_code < 300
+            except Exception:
+                pass  # o vínculo já saiu; a conta órfã é tratável depois
+
+        return {
+            "cancelled": True,
+            "email": linha.get("email"),
+            "invite_status": estado,
+            "account_removed": conta_removida,
+        }
+
+    @staticmethod
+    def _apaga_caixas_vazios(staff_id: str) -> None:
+        """Tira os caixas VAZIOS do funcionário antes de apagar o vínculo.
+
+        `cashboxes.staff_id` é ON DELETE RESTRICT e todo convidado com
+        permissão de caixa recebe um caixa por etapa automaticamente, ainda no
+        convite. Sem apagá-los antes, o Postgres RECUSA a exclusão e o
+        cancelamento morre num erro genérico — é o segundo motivo pelo qual um
+        convite ficava preso em "pendente".
+
+        Caixa COM movimento não é apagado: aí a pessoa operou dinheiro, o caso
+        deixou de ser convite e vira exclusão de funcionário, que preserva os
+        livros.
+        """
+        caixas = supabase.table("cashboxes").select("id").eq("staff_id", staff_id).execute()
+        ids = [c["id"] for c in (caixas.data or [])]
+        if not ids:
+            return
+
+        sessoes = supabase.table("cashbox_sessions").select("id") \
+            .in_("cashbox_id", ids).limit(1).execute()
+        movimentos = supabase.table("cashbox_transactions").select("id") \
+            .in_("cashbox_id", ids).limit(1).execute()
+        if (sessoes.data or []) or (movimentos.data or []):
+            raise ValueError(
+                "Este funcionário já movimentou caixa. Use Excluir, que preserva o histórico."
+            )
+
+        supabase.table("cashboxes").delete().in_("id", ids).execute()
+
+    @staticmethod
+    def confirm_invite(staff_id: str, organization_id: str = None) -> Optional[StaffResponse]:
+        """Efetiva o convite pelo ADMIN: o vínculo vira membro de fato.
+
+        Sem isto, um convite 'pending' só podia virar 'accepted' se a própria
+        pessoa entrasse no sistema e respondesse o modal. Quem foi convidada e
+        não entra (ou trabalha só no outro clube) ficava presa nesse estado, e
+        o admin não tinha NENHUMA saída pela tela.
+
+        Não cria poder novo: quem convida é o admin do clube, que já cadastra
+        funcionário do zero e escolhe o grupo de permissão. A pessoa continua
+        podendo ser desativada ou excluída depois.
+
+        Só vale para 'pending' (conta que já existe, com senha). 'awaiting_signup'
+        é outro caso: a pessoa ainda não definiu senha, e marcá-la como membro
+        não a faria entrar — o caminho lá é reenviar o convite.
+        """
+        alvo = supabase.table("staff").select(
+            "id, name, email, invite_status, organization_id"
+        ).eq("id", staff_id).execute()
+        if not alvo.data:
+            raise ValueError("Funcionário não encontrado.")
+        linha = alvo.data[0]
+
+        if organization_id and linha.get("organization_id") != organization_id:
+            raise ValueError("Funcionário não encontrado.")
+
+        estado = linha.get("invite_status")
+        if estado == "accepted":
+            raise ValueError("Esta pessoa já faz parte da equipe deste clube.")
+        if estado == "awaiting_signup":
+            raise ValueError(
+                "Esta pessoa ainda não definiu a senha. Use Reenviar para mandar "
+                "outro link de cadastro."
+            )
+
+        # O gatilho do plano dispara AQUI (false -> true): a vaga é cobrada de
+        # quem de fato entrou, igual ao aceite pela própria pessoa.
+        try:
+            r = supabase.table("staff").update({
+                "active": True,
+                "invite_status": "accepted",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", staff_id).execute()
+        except Exception as exc:
+            if "PLANO_LIMITE" in str(exc):
+                raise ValueError(
+                    "O plano atual não permite mais usuários ativos. "
+                    "Altere o plano para efetivar este convite."
+                )
+            raise ValueError("Não foi possível efetivar o convite.")
+        if not (r.data or []):
+            raise ValueError("Não foi possível efetivar o convite.")
+
+        efetivado = StaffService.get_staff(staff_id)
+
+        # Mesmo tratamento do cadastro direto: quem opera caixa precisa ter o
+        # caixa criado nas etapas ativas, senão não consegue trabalhar hoje.
+        if efetivado and _has_cashbox_permission(efetivado.permissions):
+            from app.services.cashbox_service import CashboxService
+            try:
+                CashboxService.auto_create_for_staff(staff_id)
+            except Exception:
+                pass  # best-effort: não bloqueia a efetivação
+
+        return efetivado
 
     @staticmethod
     def remove_from_org(staff_id: str, organization_id: str) -> dict:
@@ -467,12 +656,14 @@ class StaffService:
     def delete_staff(staff_id: str) -> bool:
         """Desativa o funcionário (a conta de acesso continua existindo).
 
-        Exceção: convite ainda PENDENTE é apagado de verdade. Desativar não
-        serviria — a linha continuaria marcada como pendente e o convite seguiria
-        aparecendo para o convidado, além de travar a chave única
-        (auth_user_id, organization_id) e impedir um novo convite depois.
-        Convite pendente não tem histórico (nem caixa, nem pagamento), então
-        remover é seguro.
+        Exceção: convite ainda não respondido é CANCELADO (a linha sai), porque
+        desativar não serviria — a linha continuaria marcada como pendente, o
+        convite seguiria aparecendo para o convidado e a chave única
+        (auth_user_id, organization_id) impediria um novo convite depois.
+
+        A regra do cancelamento mora em `cancel_invite`, que é o que a tela
+        chama. Aqui só se delega: duas cópias da mesma regra foi como o
+        cancelamento acabou divergindo do que a tela prometia.
         """
         StaffService._guard_no_open_cashbox(staff_id)
 
@@ -483,27 +674,8 @@ class StaffService:
         estado = linha.get("invite_status")
 
         if estado in ("pending", "awaiting_signup"):
-            r = supabase.table("staff").delete().eq("id", staff_id).execute()
-
-            # Cadastro nunca concluído: a conta de acesso também sai. Deixá-la
-            # criaria uma armadilha — no próximo convite o e-mail já existiria e
-            # a pessoa cairia no fluxo de "aceitar convite", que exige entrar no
-            # sistema... com uma senha que ela nunca chegou a definir.
-            if estado == "awaiting_signup" and linha.get("auth_user_id"):
-                try:
-                    import httpx
-                    base = settings.supabase_url.rstrip("/")
-                    httpx.delete(
-                        f"{base}/auth/v1/admin/users/{linha['auth_user_id']}",
-                        headers={
-                            "apikey": settings.supabase_service_key,
-                            "Authorization": f"Bearer {settings.supabase_service_key}",
-                        },
-                        timeout=15,
-                    )
-                except Exception:
-                    pass  # o vínculo já saiu; a conta órfã é tratável depois
-            return len(r.data or []) > 0
+            StaffService.cancel_invite(staff_id)
+            return True
 
         response = supabase.table("staff").update({
             "active": False,

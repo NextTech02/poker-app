@@ -16,21 +16,12 @@
   white-space: nowrap;
 }
 
+/* Visual e foco vêm do padrão global (styles/index.css); aqui só a medida. */
 .day-select {
   flex: 1;
   max-width: 300px;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 1rem;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.day-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
 }
 
 .day-status-badge {
