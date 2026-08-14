@@ -1,4 +1,5 @@
 from app.database import supabase
+from app.services.transaction_filters import ler_transacoes_ativas
 from datetime import datetime
 import logging
 
@@ -22,13 +23,12 @@ class DashboardService:
             return []
 
     @staticmethod
-    def _safe_sum(query) -> float:
-        """Execute a revenue query and safely sum the 'amount' column."""
+    def _sum_amount(linhas) -> float:
+        """Soma 'amount' de linhas já lidas (a leitura já filtrou canceladas)."""
         try:
-            res = query.execute()
-            return sum(float(row["amount"]) for row in (res.data or []))
+            return sum(float(row["amount"]) for row in (linhas or []))
         except Exception:
-            logger.exception("[DashboardService] Revenue query failed")
+            logger.exception("[DashboardService] Revenue sum failed")
             return 0.0
 
     @staticmethod
@@ -111,22 +111,30 @@ class DashboardService:
 
             # ── 4. Total revenue ───────────────────────────────────────────
             # Limit to 5000 rows as a safety net — avoids fetching entire table
-            revenue_q = supabase.table("transactions").select("amount").limit(5000)
-            if tournament_ids:
-                revenue_q = revenue_q.in_("tournament_id", tournament_ids)
-            total_revenue = DashboardService._safe_sum(revenue_q)
+            # Venda cancelada não é receita: o dinheiro voltou para o jogador.
+            def _revenue_q(cols):
+                q = supabase.table("transactions").select(cols).limit(5000)
+                return q.in_("tournament_id", tournament_ids) if tournament_ids else q
+
+            total_revenue = DashboardService._sum_amount(
+                ler_transacoes_ativas(_revenue_q, "amount")
+            )
 
             # ── 5. Today's revenue ─────────────────────────────────────────
             today = datetime.now().date().isoformat()
-            today_q = (
-                supabase.table("transactions")
-                .select("amount")
-                .gte("created_at", today)
-                .limit(5000)
+
+            def _today_q(cols):
+                q = (
+                    supabase.table("transactions")
+                    .select(cols)
+                    .gte("created_at", today)
+                    .limit(5000)
+                )
+                return q.in_("tournament_id", tournament_ids) if tournament_ids else q
+
+            today_revenue = DashboardService._sum_amount(
+                ler_transacoes_ativas(_today_q, "amount")
             )
-            if tournament_ids:
-                today_q = today_q.in_("tournament_id", tournament_ids)
-            today_revenue = DashboardService._safe_sum(today_q)
 
             return {
                 "activeTournaments": active_count,

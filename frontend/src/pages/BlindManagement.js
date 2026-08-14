@@ -22,7 +22,6 @@ const BlindManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBlind, setEditingBlind] = useState(null);
-  const [isBreakMode, setIsBreakMode] = useState(false);
   // Inline edit (click a value to edit) + drag-to-reorder
   const [editCell, setEditCell] = useState(null); // { id, field }
   const [editVal, setEditVal] = useState('');
@@ -77,7 +76,7 @@ const BlindManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [dayId]);
+  }, [dayId, t, toast]);
 
   useEffect(() => {
     loadData();
@@ -114,7 +113,6 @@ const BlindManagement = () => {
 
       await api.post(`/tournament-days/${dayId}/blinds`, data);
       setShowAddModal(false);
-      setIsBreakMode(false);
       setFormData({
         level: '',
         small_blind: '',
@@ -361,7 +359,6 @@ const BlindManagement = () => {
     // Auto-suggest blinds based on last non-break level
     const lastBlind = blinds.filter(b => !b.is_break).slice(-1)[0];
 
-    setIsBreakMode(asBreak);
     setFormData({
       level: nextLevel,
       small_blind: asBreak ? 0 : (lastBlind ? lastBlind.small_blind * 2 : ''),

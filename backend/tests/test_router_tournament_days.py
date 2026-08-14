@@ -202,6 +202,41 @@ class TestQualificacao:
         assert r.status_code == 200
         assert r.json()["updated_count"] == 2
 
+    @pytest.mark.parametrize("fichas", [0, -5])
+    def test_lote_recusa_ficha_zerada_ou_negativa(self, client, dia_valido, fichas):
+        """Stack 0 ou negativo nao existe na mesa, e esse numero vira o stack
+        inicial do jogador no dia final — tem que morrer na porta de entrada."""
+        r = client.post(f"/tournament-days/{DIA}/bulk-update-chips", json={
+            "updates": [{"player_id": "p1", "chip_count": fichas}]})
+        assert r.status_code == 422
+
+    @pytest.mark.parametrize("fichas", [0, -5])
+    def test_ficha_de_um_jogador_recusa_zero_ou_negativo(self, client, dia_valido, fichas):
+        r = client.patch(f"/tournament-days/{DIA}/player-chips/p1?chip_count={fichas}")
+        assert r.status_code == 422
+
+    def test_avanco_sem_fichas_registradas_da_400_com_o_motivo(self, client, dia_valido, stub):
+        """O operador precisa ler que faltam fichas — e nao um 'erro' generico —
+        para saber que o conserto e a tela de fichas dos classificados."""
+        def _estoura(did):
+            raise ValueError("Registre as fichas de todos os classificados antes de avançar (2 de 5 sem fichas registradas)")
+        stub(TDS, advance_qualifiers=_estoura)
+        r = client.post(f"/tournament-days/{DIA}/advance-qualifiers")
+        assert r.status_code == 400
+        assert "fichas" in r.json()["detail"]
+
+    def test_avanco_devolve_quem_passou_e_com_quantas_fichas(self, client, dia_valido, stub):
+        stub(TDS, advance_qualifiers=lambda did: {
+            "advanced_count": 2, "final_day_id": "d-final",
+            "final_day_name": "Final", "total_chips": 60500, "total_entries": 5,
+            "players": [{"player_id": "p1", "player_name": "Ana", "chips": 42000},
+                        {"player_id": "p2", "player_name": "Bruno", "chips": 18500}],
+        })
+        r = client.post(f"/tournament-days/{DIA}/advance-qualifiers")
+        assert r.status_code == 200
+        assert r.json()["total_chips"] == 60500
+        assert r.json()["players"][0]["player_name"] == "Ana"
+
 
 class TestEstatisticas:
     def test_estatisticas_do_dia(self, client, dia_valido, stub):
@@ -369,3 +404,137 @@ class TestLogoDoClube:
         assert dia.broadcast_club_logo_url is None
         assert dia.broadcast_show_club_logo is True
         assert dia.broadcast_club_logo_size == 100
+
+
+class TestBloqueioDeVendas:
+    """Quem liga e desliga a venda e o diretor, nunca o operador de balcao —
+    e justamente do `cashier` que se esta tirando a permissao de vender."""
+
+    def test_admin_bloqueia_o_dia_com_motivo(self, client, dia_valido, stub):
+        from app.services.cashbox_service import CashboxService
+        from app.services.sales_block_service import SalesBlockService
+
+        recebido = {}
+        stub(CashboxService, can_admin=lambda uid: True)
+
+        def _bloquear(day_id, blocked, reason, user_id):
+            recebido.update(day_id=day_id, blocked=blocked, reason=reason, user_id=user_id)
+            return {"success": True, "sales_blocked": blocked, "sales_blocked_reason": reason}
+
+        stub(SalesBlockService, set_day_block=_bloquear)
+
+        r = client.post(f"/tournament-days/{DIA}/sales-block",
+                        json={"blocked": True, "reason": "registro tardio encerrado"})
+        assert r.status_code == 200
+        assert r.json()["sales_blocked"] is True
+        assert recebido["reason"] == "registro tardio encerrado"
+        # Quem bloqueou fica registrado: e o que explica a venda recusada.
+        assert recebido["user_id"] == "88888888-8888-8888-8888-888888888888"
+
+    def test_sem_permissao_de_admin_da_403(self, client, dia_valido, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: False)
+        r = client.post(f"/tournament-days/{DIA}/sales-block", json={"blocked": True})
+        assert r.status_code == 403
+
+    def test_dia_de_outra_etapa_da_403(self, client, stub):
+        """O X-Stage-ID vem do cliente: sem esta checagem, um admin com a etapa
+        A aberta travaria a venda da etapa B."""
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(TDS, get_tournament_day=lambda did: _dia())
+        stub(TS, get_tournament=lambda tid: _torneio(stage_id=OUTRA_ETAPA))
+        r = client.post(f"/tournament-days/{DIA}/sales-block",
+                        json={"blocked": True}, headers={"X-Stage-ID": ETAPA})
+        assert r.status_code == 403
+
+    def test_dia_inexistente_da_404(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(TDS, get_tournament_day=lambda did: None)
+        r = client.post("/tournament-days/nao-existe/sales-block", json={"blocked": True})
+        assert r.status_code == 404
+
+    def test_migracao_pendente_vira_400_e_nao_500(self, client, dia_valido, stub):
+        """Sem a coluna no banco, o admin precisa de uma mensagem que explique —
+        um 500 faz ele achar que o sistema caiu no meio do evento."""
+        from app.services.cashbox_service import CashboxService
+        from app.services.sales_block_service import SalesBlockService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+
+        def _explode(*a, **k):
+            raise ValueError("Bloqueio de vendas indisponível: a migração do banco ainda não foi aplicada.")
+
+        stub(SalesBlockService, set_day_block=_explode)
+        r = client.post(f"/tournament-days/{DIA}/sales-block", json={"blocked": True})
+        assert r.status_code == 400
+        assert "migração" in r.json()["detail"]
+
+    def test_o_patch_generico_nao_e_porta_lateral_para_liberar_vendas(self, client, dia_valido, stub):
+        """PATCH /tournament-days/{id} exige apenas estar logado. Se ele
+        aceitasse `sales_blocked`, o proprio operador de caixa — de quem se esta
+        tirando a permissao de vender — se reliberaria com uma chamada direta a'
+        API, e a trava do diretor viraria decorativa."""
+        recebido = {}
+
+        def _atualiza(did, d):
+            recebido.update(d.model_dump(exclude_unset=True))
+            return _dia()
+
+        stub(TDS, update_tournament_day=_atualiza)
+        r = client.patch(f"/tournament-days/{DIA}", json={
+            "day_name": "Dia 1A",
+            "sales_blocked": False,
+            "sales_blocked_reason": "liberado por mim mesmo",
+        })
+        assert r.status_code == 200
+        assert recebido == {"day_name": "Dia 1A"}
+
+    def test_desbloquear_e_explicito_e_nao_um_toggle(self, client, dia_valido, stub):
+        """Com dois admins na tela, um toggle acabaria RELIBERANDO a venda que
+        o outro acabou de bloquear."""
+        from app.services.cashbox_service import CashboxService
+        from app.services.sales_block_service import SalesBlockService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(SalesBlockService, set_day_block=lambda d, b, r_, u: {
+            "success": True, "sales_blocked": b, "sales_blocked_reason": None})
+        r = client.post(f"/tournament-days/{DIA}/sales-block", json={"blocked": False})
+        assert r.json()["sales_blocked"] is False
+
+
+class TestBloqueioDeVendasDaEtapa:
+    def test_admin_bloqueia_a_etapa_inteira(self, client, stub):
+        """Chave-mestra: fecha a venda em todos os dias de uma vez."""
+        from app.services.cashbox_service import CashboxService
+        from app.services.sales_block_service import SalesBlockService
+        from app.services.stage_service import StageService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(StageService, get_stage=lambda sid: {"id": sid})
+        stub(SalesBlockService, set_stage_block=lambda s, b, r_, u: {
+            "success": True, "sales_blocked": b, "sales_blocked_reason": r_})
+        r = client.post(f"/stages/{ETAPA}/sales-block",
+                        json={"blocked": True, "reason": "evento encerrado"})
+        assert r.status_code == 200
+        assert r.json()["sales_blocked"] is True
+
+    def test_sem_permissao_da_403(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: False)
+        r = client.post(f"/stages/{ETAPA}/sales-block", json={"blocked": True})
+        assert r.status_code == 403
+
+    def test_etapa_inexistente_da_404(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+        from app.services.stage_service import StageService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(StageService, get_stage=lambda sid: None)
+        r = client.post(f"/stages/{ETAPA}/sales-block", json={"blocked": True})
+        assert r.status_code == 404

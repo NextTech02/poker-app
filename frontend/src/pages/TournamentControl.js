@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import { useTimerSync, formatTime, formatTimeHuman } from '../hooks/useTimerSync';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { usePermissions } from '../contexts/PermissionContext';
 import { offlineWrite } from '../offline/apiOffline';
 import { uuid } from '../offline/db';
 import './TournamentControl.css';
@@ -15,10 +16,21 @@ const TournamentControl = () => {
   const { dayId } = useParams();
   const { t } = useTranslation();
 
-  const { confirm } = useToast();
+  const { confirm, toast } = useToast();
+  const { isAdmin, hasPermission } = usePermissions();
   const [day, setDay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bulkCount, setBulkCount] = useState('');
+  // Bloqueio de vendas do dia: é aqui que o diretor está durante o evento, e é
+  // ele quem decide a hora de encerrar o registro tardio.
+  const [showSalesBlock, setShowSalesBlock] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  // Mesma condição do servidor (CashboxService.can_admin, exigido em
+  // routers/tournament_days.py e routers/stages.py). Com 'financial' na lista,
+  // o botão aparecia para quem o backend recusa: o usuário clicava em "Encerrar
+  // vendas" no meio do evento, levava "Sem permissão para bloquear vendas" e
+  // ficava sem saber se a trava valeu ou não.
+  const podeBloquear = isAdmin || hasPermission('cashbox.admin');
 
   // SINGLE SOURCE OF TRUTH - enriched timer from backend
   const {
@@ -149,6 +161,36 @@ const TournamentControl = () => {
     }
   };
 
+  // Liga/desliga a venda de entradas do dia. Explícito (blocked: true/false) e
+  // não um toggle: com dois admins na tela, um toggle acabaria reliberando a
+  // venda que o outro acabou de encerrar.
+  const enviarBloqueio = async (blocked, reason) => {
+    try {
+      await api.post(`/tournament-days/${dayId}/sales-block`, { blocked, reason: reason || null });
+      setShowSalesBlock(false);
+      setBlockReason('');
+      loadData();
+      toast.success(
+        blocked
+          ? t('sales.blockedDone', 'Vendas encerradas para este dia')
+          : t('sales.unblockedDone', 'Vendas liberadas para este dia')
+      );
+    } catch (error) {
+      toast.error(
+        error.userMessage || error.response?.data?.detail
+        || t('sales.blockError', 'Não foi possível alterar o bloqueio de vendas')
+      );
+    }
+  };
+
+  const handleUnblockSales = async () => {
+    const ok = await confirm(
+      t('sales.confirmUnblock', 'Liberar novamente a venda de entradas deste dia?')
+    );
+    if (!ok) return;
+    enviarBloqueio(false);
+  };
+
   const handleBulkEliminate = async () => {
     const num = parseInt(bulkCount);
     if (!num || num <= 0) return;
@@ -187,8 +229,59 @@ const TournamentControl = () => {
               <span className={`status-badge ${day?.status}`}>
                 {t(`common.${day?.status}`)}
               </span>
+              {podeBloquear && (
+                day?.sales_blocked ? (
+                  <Button variant="secondary" onClick={handleUnblockSales}>
+                    {t('sales.unblockDay', 'Liberar vendas')}
+                  </Button>
+                ) : (
+                  <Button variant="danger" onClick={() => setShowSalesBlock(true)}>
+                    {t('sales.blockDay', 'Encerrar vendas')}
+                  </Button>
+                )
+              )}
             </div>
           </div>
+
+          {/* O operador do Caixa precisa saber POR QUE parou de vender. */}
+          {day?.sales_blocked && (
+            <Card className="control-stat-card">
+              <div className="stat-label">{t('sales.blocked', 'Vendas encerradas')}</div>
+              <div className="stat-sub">{day.sales_blocked_reason || '—'}</div>
+            </Card>
+          )}
+
+          {showSalesBlock && (
+            <div className="modal-overlay" onClick={() => setShowSalesBlock(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h2>{t('sales.blockDay', 'Encerrar vendas')}</h2>
+                </div>
+                <div className="modal-body">
+                  <div className="form-group">
+                    <label htmlFor="sales_block_reason">
+                      {t('sales.blockReason', 'Motivo (aparece para o operador do Caixa)')}
+                    </label>
+                    <input
+                      id="sales_block_reason"
+                      type="text"
+                      value={blockReason}
+                      onChange={(e) => setBlockReason(e.target.value)}
+                      placeholder={t('sales.blockReasonPlaceholder', 'Ex.: registro tardio encerrado')}
+                    />
+                  </div>
+                </div>
+                <div className="modal-actions">
+                  <Button variant="secondary" onClick={() => setShowSalesBlock(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button variant="danger" onClick={() => enviarBloqueio(true, blockReason.trim())}>
+                    {t('sales.confirmBlock', 'Encerrar vendas')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Timer Display */}
           <Card className="timer-card">

@@ -18,7 +18,6 @@ const CashboxDemonstrativo = () => {
   const { toast } = useToast();
   const { selectedStage } = useStage();
   const { formatCurrency } = useCurrency();
-  const fmt = formatCurrency;
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

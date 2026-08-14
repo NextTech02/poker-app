@@ -46,8 +46,11 @@ const TournamentDayForm = () => {
 
   const isEditing = !!dayId;
 
+  // loadData e recriada a cada render; incluir na lista de dependencias causaria
+  // refetch infinito. So os ids da rota devem disparar o recarregamento.
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId, dayId]);
 
   const loadData = async () => {

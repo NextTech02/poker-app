@@ -23,12 +23,14 @@ import api from '../config/api';
 import { offlineWrite } from '../offline/apiOffline';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { useToast } from '../contexts/ToastContext';
+import { usePermissions } from '../contexts/PermissionContext';
 
-jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn() } }));
+jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() } }));
 jest.mock('../offline/apiOffline', () => ({ offlineWrite: jest.fn() }));
 jest.mock('../offline/db', () => ({ uuid: () => 'mut-fixa' }));
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
+jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
 jest.mock('../hooks/useTimerSync', () => ({
   useTimerSync: jest.fn(),
   formatTime: (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`,
@@ -48,6 +50,7 @@ const DIA = { id: 'dia-1', day_name: 'Dia 1A', status: 'active' };
 
 let relogio;
 let confirmar;
+let toast;
 
 const estadoRelogio = (extra = {}) => ({
   current_blind: { small_blind: 100, big_blind: 200, ante: 0, is_break: false },
@@ -80,8 +83,11 @@ const comando = (acao) =>
 beforeEach(() => {
   jest.useRealTimers();
   confirmar = jest.fn().mockResolvedValue(true);
-  useToast.mockReturnValue({ confirm: confirmar });
+  toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
+  useToast.mockReturnValue({ confirm: confirmar, toast });
+  usePermissions.mockReturnValue({ isAdmin: true, hasPermission: () => true });
   api.get.mockResolvedValue({ data: DIA });
+  api.post.mockResolvedValue({ data: { success: true } });
   offlineWrite.mockResolvedValue({ data: { ok: true } });
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -292,5 +298,89 @@ describe('contador de eliminados', () => {
       day_id: 'dia-1',
       action: 'next-level',
     });
+  });
+});
+
+
+describe('bloqueio de vendas do dia', () => {
+  /** O dia é a trava fina: encerrar o Dia 1A não pode parar o 1B da mesma
+   *  etapa. Quem decide a hora é o diretor, e ele está NESTA tela. */
+  const montarComDia = async (dia) => {
+    api.get.mockResolvedValue({ data: { ...DIA, ...dia } });
+    await montar();
+  };
+
+  it('encerra a venda do dia com o motivo digitado', async () => {
+    // O motivo aparece para o operador do Caixa; sem ele a venda recusada vira
+    // chamado de suporte no meio do evento.
+    await montar();
+    await userEvent.click(screen.getByText('sales.blockDay'));
+    await userEvent.type(screen.getByLabelText('sales.blockReason'), 'registro tardio encerrado');
+    await userEvent.click(screen.getByText('sales.confirmBlock'));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournament-days/dia-1/sales-block', {
+        blocked: true,
+        reason: 'registro tardio encerrado',
+      })
+    );
+  });
+
+  it('motivo em branco vira nulo, e não string vazia', async () => {
+    await montar();
+    await userEvent.click(screen.getByText('sales.blockDay'));
+    await userEvent.click(screen.getByText('sales.confirmBlock'));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournament-days/dia-1/sales-block', {
+        blocked: true, reason: null,
+      })
+    );
+  });
+
+  it('dia bloqueado mostra o motivo e oferece liberar', async () => {
+    await montarComDia({ sales_blocked: true, sales_blocked_reason: 'mesas fechadas' });
+    expect(screen.getByText('mesas fechadas')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('sales.unblockDay'));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournament-days/dia-1/sales-block', {
+        blocked: false, reason: null,
+      })
+    );
+  });
+
+  it('desistir da confirmação não libera a venda', async () => {
+    confirmar.mockResolvedValue(false);
+    await montarComDia({ sales_blocked: true });
+    await userEvent.click(screen.getByText('sales.unblockDay'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('quem não administra caixa nem vê o botão', async () => {
+    // É justamente do operador que se está tirando a permissão de vender.
+    usePermissions.mockReturnValue({ isAdmin: false, hasPermission: () => false });
+    await montar();
+    expect(screen.queryByText('sales.blockDay')).toBeNull();
+  });
+
+  it('só o perfil financeiro não basta — o servidor exige caixa', async () => {
+    // O backend exige CashboxService.can_admin. Com 'financial' liberando o
+    // botão, o usuário clicava, levava "Sem permissão para bloquear vendas" e
+    // ficava sem saber se a trava valeu — no meio do evento vira telefonema.
+    usePermissions.mockReturnValue({
+      isAdmin: false,
+      hasPermission: (p) => p === 'financial',
+    });
+    await montar();
+    expect(screen.queryByText('sales.blockDay')).toBeNull();
+  });
+
+  it('erro do servidor é mostrado ao diretor', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'Sem permissão para bloquear vendas' } } });
+    await montar();
+    await userEvent.click(screen.getByText('sales.blockDay'));
+    await userEvent.click(screen.getByText('sales.confirmBlock'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Sem permissão para bloquear vendas')
+    );
   });
 });

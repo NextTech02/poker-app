@@ -349,7 +349,7 @@ describe('Excel', () => {
     });
     const nome = espiaoXlsx.abas[0].nome;
     expect(nome.length).toBeLessThanOrEqual(31);
-    expect(nome).not.toMatch(/[:\/?*[\]]/);
+    expect(nome).not.toMatch(/[:/?*[\]]/);
   });
 
   it('seção sem título ainda vira uma aba nomeada', async () => {

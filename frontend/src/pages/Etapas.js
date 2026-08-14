@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
@@ -8,13 +7,18 @@ import { SkeletonTableRow } from '../components/SkeletonLoader';
 import { useStage } from '../contexts/StageContext';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { usePermissions } from '../contexts/PermissionContext';
 import './Etapas.css';
 
 const Etapas = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { selectedStage, selectStage } = useStage();
   const { toast, confirm } = useToast();
+  const { isAdmin, hasPermission } = usePermissions();
+  // Mesma condição do servidor (CashboxService.can_admin): é do operador de
+  // caixa que se está tirando a permissão de vender, então não é ele quem
+  // destrava.
+  const podeBloquear = isAdmin || hasPermission('cashbox.admin');
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -78,6 +82,34 @@ const Etapas = () => {
         error.response?.data?.detail ||
         t('stages.saveError');
       toast.error(typeof msg === 'string' ? msg : t('stages.saveError'));
+    }
+  };
+
+  // Liga/desliga a venda em toda a etapa. Explícito (blocked: true/false) e não
+  // um toggle no servidor: com dois admins na tela, um toggle acabaria
+  // reliberando a venda que o outro acabou de encerrar.
+  const handleToggleSalesBlock = async (stage) => {
+    const bloquear = !stage.sales_blocked;
+    const ok = await confirm(
+      bloquear
+        ? t('sales.confirmBlockStage', 'Encerrar a venda de entradas em TODOS os dias desta etapa?')
+        : t('sales.confirmUnblockStage', 'Liberar novamente a venda de entradas desta etapa?'),
+      bloquear ? { variant: 'danger' } : {}
+    );
+    if (!ok) return;
+    try {
+      await api.post(`/stages/${stage.id}/sales-block`, { blocked: bloquear, reason: null });
+      toast.success(
+        bloquear
+          ? t('sales.blockedDone', 'Vendas encerradas para esta etapa')
+          : t('sales.unblockedDone', 'Vendas liberadas para esta etapa')
+      );
+      loadStages();
+    } catch (error) {
+      toast.error(
+        error.userMessage || error.response?.data?.detail
+        || t('sales.blockError', 'Não foi possível alterar o bloqueio de vendas')
+      );
     }
   };
 
@@ -287,6 +319,23 @@ const Etapas = () => {
                           >
                             {t('common.edit')}
                           </Button>
+                          {/* Chave-mestra: encerra a venda em TODOS os dias da
+                              etapa de uma vez ("fecha tudo agora"). Só para
+                              quem o backend deixa (CashboxService.can_admin em
+                              routers/stages.py): mostrar a quem não pode faz o
+                              usuário clicar, levar 403 e ficar sem saber se as
+                              vendas pararam. */}
+                          {podeBloquear && (
+                            <Button
+                              variant={stage.sales_blocked ? 'success' : 'danger'}
+                              size="small"
+                              onClick={() => handleToggleSalesBlock(stage)}
+                            >
+                              {stage.sales_blocked
+                                ? t('sales.unblockStage', 'Liberar vendas')
+                                : t('sales.blockStage', 'Encerrar vendas')}
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

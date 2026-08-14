@@ -16,6 +16,11 @@ const PlayerSelect = ({ value, onChange, required = false, name = 'player_id' })
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
   const wrapRef = useRef(null);
+  // Ids estaveis para ligar o input (combobox) a lista e a opcao destacada,
+  // para o leitor de tela anunciar que a lista abriu e qual jogador esta ativo.
+  const idRef = useRef(`player-select-${Math.random().toString(36).slice(2, 9)}`);
+  const listId = `${idRef.current}-list`;
+  const optionId = (i) => `${idRef.current}-opt-${i}`;
 
   useEffect(() => {
     loadPlayers();
@@ -91,18 +96,23 @@ const PlayerSelect = ({ value, onChange, required = false, name = 'player_id' })
         onKeyDown={onKeyDown}
         disabled={loading}
         autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
         aria-expanded={open}
+        aria-controls={listId}
+        aria-activedescendant={open && filtered[highlight] ? optionId(highlight) : undefined}
         aria-required={required}
       />
       <span className="player-select-caret">▾</span>
       {open && (
-        <ul className="player-select-list" role="listbox">
+        <ul className="player-select-list" role="listbox" id={listId}>
           {filtered.length === 0 ? (
             <li className="player-select-empty">{t('players.noResults', 'Nenhum jogador encontrado')}</li>
           ) : (
             filtered.map((p, i) => (
               <li
                 key={p.id}
+                id={optionId(i)}
                 role="option"
                 aria-selected={p.id === value}
                 className={`player-select-option ${p.id === value ? 'selected' : ''} ${i === highlight ? 'active' : ''}`}

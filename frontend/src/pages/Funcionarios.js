@@ -71,8 +71,11 @@ const Funcionarios = () => {
   const [payLoading, setPayLoading] = useState(false);
   const [payBusy, setPayBusy] = useState(null); // staff_id currently being paid/reversed
 
+  // loadData e uma funcao comum, recriada a cada render: incluir na lista de
+  // dependencias causaria refetch infinito. Roda so na montagem, de proposito.
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load staff payments + budget when entering the Pagamentos tab (or switching stage)

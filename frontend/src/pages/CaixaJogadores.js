@@ -94,7 +94,7 @@ const CaixaJogadores = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, toast, t]);
 
   useEffect(() => {
     if (selectedPlayerId) {

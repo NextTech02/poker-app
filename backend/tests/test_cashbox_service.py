@@ -46,9 +46,13 @@ def _caixa(id_=CAIXA, status="closed", saldo=0.0, sessao=None, staff=STAFF):
             "created_at": "2026-06-08T00:00:00Z"}
 
 
-def _sessao(id_=SESSAO, inicial=200.0, fechada=None, contado=None, diff=None):
+def _sessao(id_=SESSAO, inicial=200.0, fechada=None, contado=None, diff=None,
+            esperado=None):
+    """Sessão de caixa. `esperado` é o que o fechamento gravou como saldo
+    esperado — o número contra o qual o operador foi conferido."""
     return {"id": id_, "cashbox_id": CAIXA, "opened_at": "2026-06-08T10:00:00Z",
             "opened_by": AUTH, "initial_balance": inicial, "closed_at": fechada,
+            "expected_final_balance": esperado,
             "actual_final_balance": contado, "difference": diff,
             "created_at": "2026-06-08T10:00:00Z"}
 
@@ -642,3 +646,283 @@ class TestDemonstrativo:
             {}, [])
         assert r.actual_balance is None
         assert r.difference is None
+
+
+class TestEstornoDeVendaCancelada:
+    """O ESTORNO de uma venda cancelada nao pode ser confundido com o AJUSTE de
+    fechamento.
+
+    'adjustment' significa "diferenca entre o esperado e o contado", e por isso o
+    relatorio o exclui de proposito do saldo esperado. O estorno e dinheiro que
+    saiu da gaveta de verdade: contado como ajuste, a venda de R$ 100 continuava
+    somando no esperado e a devolucao era descartada da conta — o relatorio
+    acusava o operador de faltar R$ 100 que o ADMIN devolveu ao jogador.
+    """
+
+    def _com_estorno(self, monkeypatch, tipo):
+        estorno = _mov(tipo, 100.0, sinal=-100.0)
+        estorno["transaction_id"] = "tx-1"      # so o estorno referencia a venda
+        return _monta(
+            monkeypatch,
+            cashboxes=[_caixa(status="open", saldo=200.0, sessao=SESSAO)],
+            cashbox_sessions=[_sessao(inicial=200.0)],
+            cashbox_transactions=[_mov("supply", 200.0), _mov("buy_in", 100.0), estorno],
+        )
+
+    @pytest.mark.parametrize("tipo", ["refund", "adjustment"])
+    def test_estorno_conta_no_saldo_esperado(self, monkeypatch, tipo):
+        """Vale para o tipo proprio ('refund') e para o 'adjustment' com
+        transaction_id gravado pelo backend anterior a ele."""
+        self._com_estorno(monkeypatch, tipo)
+        s = S.get_demonstrativo().sessions[0]
+
+        # Gaveta: 200 de abertura + 100 do buy-in - 100 devolvidos = 200.
+        assert s.expected_balance == 200.0
+        assert s.difference == 0.0        # o operador nao deve nada
+        assert s.total_refunds == 100.0
+        assert s.total_adjustments == 0.0
+
+    def test_ajuste_de_fechamento_continua_fora_do_esperado(self, monkeypatch):
+        """O ajuste de contagem nao tem transaction_id — e ele que precisa
+        continuar saindo da conta, senao o furo se esconde sozinho."""
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=280.0, sessao=SESSAO)],
+               cashbox_sessions=[_sessao(inicial=200.0)],
+               cashbox_transactions=[_mov("supply", 200.0), _mov("buy_in", 100.0),
+                                     _mov("adjustment", 20.0, sinal=-20.0)])
+        s = S.get_demonstrativo().sessions[0]
+        assert s.expected_balance == 300.0
+        assert s.total_adjustments == -20.0
+        assert s.total_refunds == 0.0
+
+    def test_resumo_do_caixa_tambem_desconta_o_estorno(self, monkeypatch):
+        estorno = _mov("refund", 100.0)
+        estorno["transaction_id"] = "tx-1"
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=200.0, sessao=SESSAO)],
+               cashbox_sessions=[_sessao(inicial=200.0)],
+               cashbox_transactions=[_mov("buy_in", 100.0), estorno])
+        r = S.get_summary(CAIXA)
+        assert r.total_refunds == 100.0
+        assert r.refund_count == 1
+        assert r.total_adjustments == 0.0
+        # 200 de abertura + 100 do buy-in - 100 devolvidos.
+        assert r.expected_balance == 200.0
+
+    def test_o_demonstrativo_pede_o_vinculo_com_a_venda(self, monkeypatch):
+        """O fake ignora a lista de colunas, mas o PostgREST nao: o que nao e
+        pedido nao vem. Sem `transaction_id` na consulta, o estorno gravado como
+        'adjustment' volta a ser confundido com o ajuste de fechamento."""
+        fake = self._com_estorno(monkeypatch, "adjustment")
+        colunas = []
+        original = fake.table
+
+        def _espia(nome):
+            q = original(nome)
+            if nome == "cashbox_transactions":
+                selecionar = q.select
+
+                def _select(*a, **k):
+                    colunas.append(a[0] if a else "")
+                    return selecionar(*a, **k)
+
+                q.select = _select
+            return q
+
+        monkeypatch.setattr(fake, "table", _espia)
+        S.get_demonstrativo()
+        assert colunas and all("transaction_id" in c for c in colunas)
+
+
+class TestEstornoDepoisDoFechamento:
+    """O estorno cai na sessão que registrou a VENDA — e essa sessão costuma
+    estar FECHADA, porque o admin cancela no dia seguinte.
+
+    Fechamento é documento: o operador contou a gaveta, assinou e foi embora.
+    Se o esperado passa a ser recalculado com o estorno novo enquanto o contado
+    e a diferença continuam gravados na linha da sessão, o relatório se
+    contradiz — `contado - esperado` deixa de dar `diferença` — e quem confere
+    vê três números sem saber qual vale. O estorno posterior fica FORA do
+    fechamento e aparece à parte: o dinheiro saiu do caixa geral pela mão do
+    admin, não da gaveta do operador naquela noite.
+    """
+
+    FECHAMENTO = "2026-06-08T20:00:00Z"
+
+    def _estorno(self, quando, tipo="refund", valor=100.0):
+        e = _mov(tipo, valor, sinal=-valor)
+        e["id"] = f"mov-estorno-{quando}"
+        e["transaction_id"] = "tx-1"        # só o estorno referencia a venda
+        e["created_at"] = quando
+        return e
+
+    def _noite(self, monkeypatch, estorno, esperado=300.0, contado=300.0, diff=0.0):
+        """Noite típica: abre com 200, vende um buy-in de 100, fecha contando
+        300 — sem sobra nem falta."""
+        return _monta(
+            monkeypatch,
+            cashboxes=[_caixa(status="closed", saldo=200.0)],
+            cashbox_sessions=[_sessao(inicial=200.0, fechada=self.FECHAMENTO,
+                                      esperado=esperado, contado=contado, diff=diff)],
+            cashbox_transactions=[_mov("supply", 200.0), _mov("buy_in", 100.0), estorno],
+        )
+
+    @pytest.mark.parametrize("tipo", ["refund", "adjustment"])
+    def test_o_fechamento_continua_fechando_sozinho(self, monkeypatch, tipo):
+        """A conta do relatório tem de bater: contado - esperado = diferença.
+
+        Vale para o tipo próprio ('refund') e para o 'adjustment' com
+        transaction_id que o backend grava enquanto a migração não roda.
+        """
+        self._noite(monkeypatch, self._estorno("2026-06-09T15:00:00Z", tipo=tipo))
+        s = S.get_demonstrativo().sessions[0]
+
+        assert s.expected_balance == 300.0    # o do fechamento, não recalculado
+        assert s.actual_balance == 300.0
+        assert s.difference == 0.0
+        assert round(s.actual_balance - s.expected_balance, 2) == s.difference
+
+    def test_o_estorno_posterior_aparece_identificado(self, monkeypatch):
+        """Ficar fora do fechamento não pode virar sumir do relatório: o
+        conferente precisa ver que aquela noite teve devolução depois."""
+        self._noite(monkeypatch, self._estorno("2026-06-09T15:00:00Z"))
+        s = S.get_demonstrativo().sessions[0]
+
+        assert s.total_refunds_after_close == 100.0
+        assert s.refund_after_close_count == 1
+        assert s.total_refunds == 0.0         # não entrou no fechamento
+        assert s.refund_count == 0
+
+    def test_estorno_do_mesmo_expediente_continua_no_esperado(self, monkeypatch):
+        """Cancelamento feito com o caixa ainda aberto: o dinheiro saiu da
+        gaveta ANTES da contagem, então tem de estar no esperado do
+        fechamento — senão o operador aparece com 100 sobrando."""
+        self._noite(
+            monkeypatch,
+            self._estorno("2026-06-08T18:00:00Z"),   # duas horas antes de fechar
+            esperado=200.0, contado=200.0, diff=0.0,
+        )
+        s = S.get_demonstrativo().sessions[0]
+
+        assert s.total_refunds == 100.0
+        assert s.refund_count == 1
+        assert s.total_refunds_after_close == 0.0
+        assert s.expected_balance == 200.0
+        assert round(s.actual_balance - s.expected_balance, 2) == s.difference
+
+    def test_sessao_antiga_sem_esperado_gravado_reconstitui_o_fechamento(self, monkeypatch):
+        """Sessão anterior à coluna `expected_final_balance`: o esperado é
+        recalculado, mas SEM o estorno posterior — senão volta a não bater com
+        a diferença gravada."""
+        r = S._compute_session_report(
+            _sessao(inicial=200.0, fechada=self.FECHAMENTO, contado=300.0, diff=0.0),
+            {},
+            [_mov("supply", 200.0), _mov("buy_in", 100.0),
+             self._estorno("2026-06-09T15:00:00Z")],
+        )
+        assert r.expected_balance == 300.0
+        assert round(r.actual_balance - r.expected_balance, 2) == r.difference
+        assert r.total_refunds_after_close == 100.0
+
+    def test_sessao_aberta_nao_tem_estorno_posterior(self, monkeypatch):
+        """Sem fechamento não há "depois do fechamento": tudo conta no
+        esperado, que é conferido contra o saldo vivo do caixa."""
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=200.0, sessao=SESSAO)],
+               cashbox_sessions=[_sessao(inicial=200.0)],
+               cashbox_transactions=[_mov("supply", 200.0), _mov("buy_in", 100.0),
+                                     self._estorno("2026-06-09T15:00:00Z")])
+        s = S.get_demonstrativo().sessions[0]
+        assert s.total_refunds == 100.0
+        assert s.total_refunds_after_close == 0.0
+        assert s.expected_balance == 200.0
+        assert s.difference == 0.0
+
+    def test_lancamento_sem_data_nao_quebra_o_fechamento(self, monkeypatch):
+        """Estorno sem `created_at` (linha antiga, ou consulta que esqueceu a
+        coluna) numa sessão já fechada: na dúvida ele fica onde sempre esteve,
+        e o fechamento continua sendo o que foi gravado. É a segunda trava do
+        mesmo problema — o esperado da sessão fechada NUNCA é recalculado por
+        um lançamento que apareceu depois."""
+        estorno = self._estorno("2026-06-09T15:00:00Z")
+        del estorno["created_at"]
+        r = S._compute_session_report(
+            _sessao(inicial=200.0, fechada=self.FECHAMENTO, esperado=300.0,
+                    contado=300.0, diff=0.0),
+            {},
+            [_mov("supply", 200.0), _mov("buy_in", 100.0), estorno],
+        )
+        assert r.expected_balance == 300.0    # o do fechamento
+        assert round(r.actual_balance - r.expected_balance, 2) == r.difference
+        assert r.total_refunds == 100.0       # continua visível no relatório
+
+    def test_ajuste_de_fechamento_nao_e_confundido_com_estorno_posterior(self, monkeypatch):
+        """O ajuste de contagem é gravado instantes ANTES do carimbo de
+        fechamento, mas o relógio do banco pode datá-lo depois. Ele não tem
+        transaction_id, então nunca entra na regra do estorno — continua sendo
+        o ajuste que sai do esperado."""
+        ajuste = _mov("adjustment", 20.0, sinal=-20.0)
+        ajuste["created_at"] = "2026-06-08T20:00:01Z"   # 1s depois do fechamento
+        r = S._compute_session_report(
+            _sessao(inicial=200.0, fechada=self.FECHAMENTO, contado=280.0, diff=-20.0),
+            {},
+            [_mov("supply", 200.0), _mov("buy_in", 100.0), ajuste],
+        )
+        assert r.total_adjustments == -20.0
+        assert r.total_refunds_after_close == 0.0
+        assert r.expected_balance == 300.0
+
+    def test_totais_gerais_separam_o_estorno_posterior(self, monkeypatch):
+        self._noite(monkeypatch, self._estorno("2026-06-09T15:00:00Z"))
+        r = S.get_demonstrativo()
+        assert r.grand_refunds_after_close == 100.0
+        assert r.grand_refunds == 0.0
+        # O consolidado do rodapé também precisa fechar.
+        assert round(r.grand_actual - r.grand_expected, 2) == r.grand_difference
+
+    def test_o_demonstrativo_pede_a_data_do_lancamento(self, monkeypatch):
+        """O fake ignora a lista de colunas, mas o PostgREST não: sem
+        `created_at` na consulta não há como separar o estorno posterior do
+        que aconteceu durante a sessão."""
+        fake = self._noite(monkeypatch, self._estorno("2026-06-09T15:00:00Z"))
+        colunas = []
+        original = fake.table
+
+        def _espia(nome):
+            q = original(nome)
+            if nome == "cashbox_transactions":
+                selecionar = q.select
+
+                def _select(*a, **k):
+                    colunas.append(a[0] if a else "")
+                    return selecionar(*a, **k)
+
+                q.select = _select
+            return q
+
+        monkeypatch.setattr(fake, "table", _espia)
+        S.get_demonstrativo()
+        assert colunas and all("created_at" in c for c in colunas)
+
+
+class TestLeituraDeInstante:
+    """`_instante` só existe para responder "foi antes ou depois do
+    fechamento?". Formato ruim não pode derrubar o relatório de caixa."""
+
+    def test_le_o_formato_do_postgres(self):
+        assert mod._instante("2026-06-08T20:00:00Z") == \
+            mod._instante("2026-06-08T20:00:00+00:00")
+
+    def test_le_com_fracao_de_segundo(self):
+        a = mod._instante("2026-06-08T20:00:00.123456+00:00")
+        b = mod._instante("2026-06-08T20:00:00+00:00")
+        assert a > b
+
+    def test_sem_fuso_assume_utc(self):
+        """Comparar um datetime com fuso e outro sem estoura em Python."""
+        assert mod._instante("2026-06-08T20:00:00") == \
+            mod._instante("2026-06-08T20:00:00Z")
+
+    @pytest.mark.parametrize("valor", [None, "", "ontem à noite", 0])
+    def test_valor_ilegivel_nao_estoura(self, valor):
+        assert mod._instante(valor) is None

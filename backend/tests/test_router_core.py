@@ -26,6 +26,7 @@ from app.services.tournament_service import TournamentService as TS
 from app.services.tournament_player_service import TournamentPlayerService as TPS
 from app.services.transaction_service import TransactionService as TrS
 from app.services.cash_register_service import CashRegisterService as CRS
+from app.services.sales_block_service import SalesBlockService as SBS
 
 from tests.conftest import FakeSupabase
 
@@ -273,6 +274,46 @@ class TestTransacoes:
         return {"tournament_id": TOUR, "player_id": JOGADOR,
                 "type": "buy_in", "amount": 100}
 
+    @pytest.fixture(autouse=True)
+    def _sem_bloqueio(self, stub):
+        """A trava de vendas tem testes proprios; aqui ela sai do caminho para
+        os testes de rota nao dependerem do banco."""
+        stub(SBS, assert_day_sales_allowed=lambda *a, **k: None)
+
+    def test_venda_bloqueada_no_dia_da_400_e_nao_chega_ao_service(self, client, stub):
+        """A rota generica tambem move caixa, prize pool e fidelidade pelos
+        triggers: com o Dia 1A encerrado, deixar a venda entrar por aqui e' o
+        diretor achar que fechou o registro tardio e o dinheiro continuar
+        entrando por fora."""
+        def _barra(tournament_id, player_id, tipo, tournament_day_id=None):
+            raise ValueError("Vendas bloqueadas para este dia: registro tardio encerrado")
+
+        chamou = {"service": False}
+
+        def _nao_deveria(t, uid):
+            chamou["service"] = True
+            return _transacao()
+
+        stub(SBS, assert_day_sales_allowed=_barra)
+        stub(TrS, create_transaction=_nao_deveria)
+        r = client.post("/transactions", json=self._corpo())
+        assert r.status_code == 400
+        assert "registro tardio encerrado" in r.json()["detail"]
+        assert chamou["service"] is False
+
+    def test_a_rota_pergunta_pelo_dia_da_venda(self, client, stub):
+        """Sem o par (torneio, jogador) nao ha' como descobrir o DIA — e sem o
+        dia so' a chave-mestra da etapa valeria."""
+        recebido = {}
+
+        def _registrar(tournament_id, player_id, tipo, tournament_day_id=None):
+            recebido.update(torneio=tournament_id, jogador=player_id, tipo=tipo)
+
+        stub(SBS, assert_day_sales_allowed=_registrar)
+        stub(TrS, create_transaction=lambda t, uid: _transacao())
+        assert client.post("/transactions", json=self._corpo()).status_code == 201
+        assert recebido == {"torneio": TOUR, "jogador": JOGADOR, "tipo": "buy_in"}
+
     def test_cria(self, client, stub):
         stub(TrS, create_transaction=lambda t, uid: _transacao())
         assert client.post("/transactions", json=self._corpo()).status_code == 201
@@ -449,3 +490,133 @@ class TestCaixa:
             general_cash=GeneralCashRegister(id="gc1", created_at="2026-06-08T00:00:00Z"),
             rake=RakeRegister(id="rk1", created_at="2026-06-08T00:00:00Z")))
         assert client.get("/cash/dashboard").status_code == 200
+
+
+class TestCancelamentoDeVenda:
+    """Cancelar mexe no caixa da etapa, no caixa do operador, na bolsa de
+    premios e no rake da sangria. Nao e operacao de balcao."""
+
+    OPERADOR = "88888888-8888-8888-8888-888888888888"
+
+    def _venda_crua(self, **kw):
+        base = {"id": "tx1", "tournament_id": TOUR, "player_id": JOGADOR,
+                "type": "buy_in", "amount": 100, "created_by": self.OPERADOR,
+                "status": "active", "created_at": "2026-06-08T00:00:00Z"}
+        base.update(kw)
+        return base
+
+    def test_admin_cancela_com_motivo(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        recebido = {}
+        stub(CashboxService, can_admin=lambda uid: True)
+
+        def _cancelar(tid, uid, reason):
+            recebido.update(tid=tid, uid=uid, reason=reason)
+            return _transacao()
+
+        stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(),
+             cancel_transaction=_cancelar)
+        r = client.post("/transactions/tx1/cancel", json={"reason": "cobrei em duplicidade"})
+        assert r.status_code == 200
+        assert recebido["reason"] == "cobrei em duplicidade"
+        assert recebido["uid"] == self.OPERADOR
+
+    def test_operador_sem_admin_recebe_403(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: False)
+        r = client.post("/transactions/tx1/cancel", json={"reason": "erro"})
+        assert r.status_code == 403
+
+    def test_motivo_vazio_e_recusado(self, client, stub):
+        """O motivo e o que explica a diferenca no fechamento do caixa."""
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        r = client.post("/transactions/tx1/cancel", json={"reason": ""})
+        assert r.status_code == 422
+
+    def test_venda_de_outra_etapa_da_403(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(TrS, get_raw_transaction=lambda tid: self._venda_crua())
+        stub(TS, get_tournament=lambda tid: _torneio(stage_id=OUTRA_ETAPA))
+        r = client.post("/transactions/tx1/cancel", json={"reason": "erro"},
+                        headers={"X-Stage-ID": ETAPA})
+        assert r.status_code == 403
+
+    def test_venda_inexistente_da_404(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(TrS, get_raw_transaction=lambda tid: None)
+        r = client.post("/transactions/tx1/cancel", json={"reason": "erro"})
+        assert r.status_code == 404
+
+    def test_regra_de_negocio_vira_400(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+
+        def _estoura(tid, uid, reason):
+            raise ValueError("Venda paga com crédito ou ticket ainda não pode ser cancelada")
+
+        stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(),
+             cancel_transaction=_estoura)
+        r = client.post("/transactions/tx1/cancel", json={"reason": "erro"})
+        assert r.status_code == 400
+        assert "crédito" in r.json()["detail"]
+
+
+class TestTrocaDeFormaDePagamentoHTTP:
+    OPERADOR = "88888888-8888-8888-8888-888888888888"
+
+    def _venda_crua(self, **kw):
+        base = {"id": "tx1", "tournament_id": TOUR, "player_id": JOGADOR,
+                "type": "buy_in", "amount": 100, "created_by": self.OPERADOR,
+                "status": "active", "created_at": "2026-06-08T00:00:00Z"}
+        base.update(kw)
+        return base
+
+    def test_o_proprio_operador_corrige_sem_ser_admin(self, client, stub):
+        """'Recebi no PIX, marquei dinheiro' e correcao de balcao: nao move
+        dinheiro nenhum, entao nao precisa de admin."""
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: False)
+        stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(),
+             update_payment_method=lambda tid, pm, notes=None: _transacao())
+        r = client.patch("/transactions/tx1/payment-method", json={"payment_method": "pix"})
+        assert r.status_code == 200
+
+    def test_venda_de_outro_operador_exige_admin(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: False)
+        stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(created_by="outro"))
+        r = client.patch("/transactions/tx1/payment-method", json={"payment_method": "pix"})
+        assert r.status_code == 403
+
+    def test_admin_corrige_a_venda_de_qualquer_um(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+        stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(created_by="outro"),
+             update_payment_method=lambda tid, pm, notes=None: _transacao())
+        r = client.patch("/transactions/tx1/payment-method", json={"payment_method": "pix"})
+        assert r.status_code == 200
+
+    def test_venda_cancelada_vira_400(self, client, stub):
+        from app.services.cashbox_service import CashboxService
+
+        stub(CashboxService, can_admin=lambda uid: True)
+
+        def _estoura(tid, pm, notes=None):
+            raise ValueError("Venda cancelada não pode ser alterada")
+
+        stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(),
+             update_payment_method=_estoura)
+        r = client.patch("/transactions/tx1/payment-method", json={"payment_method": "pix"})
+        assert r.status_code == 400

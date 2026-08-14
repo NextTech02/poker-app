@@ -31,8 +31,8 @@ const JOGADORES = [
 const montar = async (props = {}) => {
   const aoMudar = jest.fn();
   render(<PlayerSelect onChange={aoMudar} {...props} />);
-  await waitFor(() => expect(screen.getByRole('textbox')).not.toBeDisabled());
-  return { aoMudar, campo: screen.getByRole('textbox') };
+  await waitFor(() => expect(screen.getByRole('combobox')).not.toBeDisabled());
+  return { aoMudar, campo: screen.getByRole('combobox') };
 };
 
 beforeEach(() => {
@@ -51,7 +51,7 @@ describe('carga', () => {
   it('fica desabilitado enquanto carrega', () => {
     api.get.mockReturnValue(new Promise(() => {}));
     render(<PlayerSelect onChange={jest.fn()} />);
-    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('combobox')).toBeDisabled();
   });
 
   it('falha ao carregar deixa o campo utilizável e vazio', async () => {
@@ -73,17 +73,17 @@ describe('carga', () => {
 describe('exibição do escolhido', () => {
   it('mostra nome e apelido do jogador selecionado', async () => {
     await montar({ value: 'p1' });
-    expect(screen.getByRole('textbox')).toHaveValue('Ana Souza (aninha)');
+    expect(screen.getByRole('combobox')).toHaveValue('Ana Souza (aninha)');
   });
 
   it('jogador sem apelido mostra só o nome', async () => {
     await montar({ value: 'p2' });
-    expect(screen.getByRole('textbox')).toHaveValue('Bruno Lima');
+    expect(screen.getByRole('combobox')).toHaveValue('Bruno Lima');
   });
 
   it('sem escolha o campo fica vazio', async () => {
     await montar();
-    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(screen.getByRole('combobox')).toHaveValue('');
   });
 
   it('focar esvazia o campo para a próxima busca', async () => {
@@ -171,8 +171,8 @@ describe('seleção', () => {
         <span data-testid="fora">fora</span>
       </div>
     );
-    await waitFor(() => expect(screen.getByRole('textbox')).not.toBeDisabled());
-    await userEvent.click(screen.getByRole('textbox'));
+    await waitFor(() => expect(screen.getByRole('combobox')).not.toBeDisabled());
+    await userEvent.click(screen.getByRole('combobox'));
     expect(screen.getByRole('listbox')).toBeInTheDocument();
     await userEvent.click(screen.getByTestId('fora'));
     expect(screen.queryByRole('listbox')).toBeNull();
@@ -266,6 +266,6 @@ describe('acessibilidade', () => {
 
   it('propaga a obrigatoriedade', async () => {
     await montar({ required: true });
-    expect(screen.getByRole('textbox')).toHaveAttribute('aria-required', 'true');
+    expect(screen.getByRole('combobox')).toHaveAttribute('aria-required', 'true');
   });
 });

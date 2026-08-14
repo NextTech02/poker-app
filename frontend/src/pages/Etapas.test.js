@@ -20,6 +20,7 @@ import Etapas from './Etapas';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
+import { usePermissions } from '../contexts/PermissionContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -28,6 +29,7 @@ jest.mock('../config/api', () => ({
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
+jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn(),
@@ -87,6 +89,7 @@ beforeEach(() => {
   confirmar = jest.fn().mockResolvedValue(true);
   selecionarEtapa = jest.fn();
   useToast.mockReturnValue({ toast, confirm: confirmar });
+  usePermissions.mockReturnValue({ isAdmin: true, hasPermission: () => true });
   api.post.mockResolvedValue({ data: {} });
   api.patch.mockResolvedValue({ data: {} });
   api.delete.mockResolvedValue({ data: {} });
@@ -337,5 +340,66 @@ describe('editar etapa', () => {
     await editar('Etapa Rio');
     await userEvent.click(screen.getByRole('button', { name: 'common.delete' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('stages.deleteError'));
+  });
+});
+
+
+describe('bloqueio de vendas da etapa', () => {
+  /** A tabela e os cartões do celular renderizam a mesma etapa: o primeiro
+   *  botão é o da linha da tabela. */
+  const botao = (nome) => screen.getAllByRole('button', { name: nome })[0];
+
+  it('encerra a venda em toda a etapa depois de confirmar', async () => {
+    await montar();
+    await userEvent.click(botao('Encerrar vendas'));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/stages/e1/sales-block', { blocked: true, reason: null })
+    );
+  });
+
+  it('desistir da confirmação não encerra nada', async () => {
+    // Encerrar a venda no meio do evento por um clique errado deixaria a fila
+    // do caixa parada sem ninguém entender por quê.
+    confirmar.mockResolvedValue(false);
+    await montar();
+    await userEvent.click(botao('Encerrar vendas'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('etapa bloqueada oferece liberar de volta', async () => {
+    await montar({ etapas: [{ ...ETAPAS[0], sales_blocked: true }] });
+    await userEvent.click(botao('Liberar vendas'));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/stages/e1/sales-block', { blocked: false, reason: null })
+    );
+  });
+
+  it('erro do servidor é mostrado', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'Sem permissão para bloquear vendas' } } });
+    await montar();
+    await userEvent.click(botao('Encerrar vendas'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Sem permissão para bloquear vendas')
+    );
+  });
+
+  it('quem não administra caixa nem vê o botão', async () => {
+    // O backend exige CashboxService.can_admin. Mostrar o botão a quem ele
+    // recusa faz o usuário clicar no meio do evento, levar "Sem permissão para
+    // bloquear vendas" e ficar sem saber se as vendas pararam ou não.
+    usePermissions.mockReturnValue({ isAdmin: false, hasPermission: () => false });
+    await montar();
+    expect(screen.queryByRole('button', { name: 'Encerrar vendas' })).toBeNull();
+  });
+
+  it('quem só tem o financeiro também não vê', async () => {
+    // 'financial' NÃO é permissão de caixa: o servidor recusa.
+    usePermissions.mockReturnValue({
+      isAdmin: false,
+      hasPermission: (p) => p === 'financial',
+    });
+    await montar();
+    expect(screen.queryByRole('button', { name: 'Encerrar vendas' })).toBeNull();
   });
 });

@@ -69,7 +69,8 @@ const DIAS = [
 let toast;
 let confirmar;
 
-const responder = ({ torneio = TORNEIO, dias = DIAS, codigo = { code: 'ABC123' } } = {}) => {
+const responder = ({ torneio = TORNEIO, dias = DIAS, codigo = { code: 'ABC123' },
+                     sobreviventes = [] } = {}) => {
   api.get.mockImplementation((url) => {
     if (url === '/tournaments/t1') {
       return torneio instanceof Error ? Promise.reject(torneio) : Promise.resolve({ data: torneio });
@@ -78,6 +79,8 @@ const responder = ({ torneio = TORNEIO, dias = DIAS, codigo = { code: 'ABC123' }
     if (url.endsWith('/broadcast-code')) {
       return codigo instanceof Error ? Promise.reject(codigo) : Promise.resolve({ data: codigo });
     }
+    // Prévia do avanço: quantos classificados e quantas fichas vão passar.
+    if (url.endsWith('/survivors')) return Promise.resolve({ data: sobreviventes });
     return Promise.resolve({ data: [] });
   });
 };
@@ -374,6 +377,98 @@ describe('torneio com classificatórios', () => {
     await montar({ torneio: COM_QUALI, dias: DIAS_QUALI });
     await userEvent.click(acao('Classificatório 1', 'tournamentDays.advanceQualifiers'));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Dia final já iniciado'));
+  });
+
+  it('a confirmação antecipa quantos passam e com quantas fichas', async () => {
+    // Última chance de perceber que faltou registrar a ficha de alguém: depois
+    // do avanço os stacks já estão criados no dia final.
+    await montar({ torneio: COM_QUALI, dias: DIAS_QUALI, sobreviventes: [
+      { player_id: 'p1', final_chip_count: 42000 },
+      { player_id: 'p2', final_chip_count: 18000 },
+    ] });
+    await userEvent.click(acao('Classificatório 1', 'tournamentDays.advanceQualifiers'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(confirmar.mock.calls[0][0]).toContain('2');
+    expect(confirmar.mock.calls[0][0]).toContain(Number(60000).toLocaleString());
+  });
+
+  it('avança mesmo se a prévia de sobreviventes falhar', async () => {
+    // A prévia é informação extra; bloquear o avanço por causa dela deixaria o
+    // torneio parado por um detalhe cosmético.
+    api.get.mockImplementation((url) => {
+      if (url === '/tournaments/t1') return Promise.resolve({ data: COM_QUALI });
+      if (url === '/tournament-days/tournament/t1') return Promise.resolve({ data: DIAS_QUALI });
+      if (url.endsWith('/survivors')) return Promise.reject(new Error('500'));
+      return Promise.resolve({ data: [] });
+    });
+    render(<MemoryRouter><TournamentDetail /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+    await userEvent.click(acao('Classificatório 1', 'tournamentDays.advanceQualifiers'));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournament-days/q1/advance-qualifiers')
+    );
+  });
+
+  it('bloqueio por fichas não registradas oferece o atalho para a tela de fichas', async () => {
+    // Sem o atalho o operador fica repetindo o mesmo botão sem entender que o
+    // conserto é em outra tela.
+    const e = new Error('400');
+    e.response = { data: { detail: 'Registre as fichas de todos os classificados antes de avançar' } };
+    api.post.mockRejectedValue(e);
+    await montar({ torneio: COM_QUALI, dias: DIAS_QUALI });
+    await userEvent.click(acao('Classificatório 1', 'tournamentDays.advanceQualifiers'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+      'Registre as fichas de todos os classificados antes de avançar'));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/torneios/dia/q1/fichas'));
+  });
+
+  it('recusar o atalho não navega para lugar nenhum', async () => {
+    const e = new Error('400');
+    e.response = { data: { detail: 'Registre as fichas de todos os classificados' } };
+    api.post.mockRejectedValue(e);
+    confirmar.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await montar({ torneio: COM_QUALI, dias: DIAS_QUALI });
+    await userEvent.click(acao('Classificatório 1', 'tournamentDays.advanceQualifiers'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(mockNavigate).not.toHaveBeenCalledWith('/torneios/dia/q1/fichas');
+  });
+});
+
+describe('fichas dos classificados', () => {
+  const COM_QUALI = { ...TORNEIO, has_qualifying: true };
+  const QUALI = { ...DIA_BASE, id: 'q1', day_name: 'Classificatório 1',
+    day_type: 'qualifying', qualifies_to_day_id: 'f1' };
+  const ROTULO = 'Fichas dos Classificados';
+
+  it.each([['active'], ['completed']])(
+    'o botão aparece no classificatório %s — as fichas são digitadas na última mão ou logo depois',
+    async (status) => {
+      await montar({ torneio: COM_QUALI, dias: [{ ...QUALI, status }] });
+      expect(acao('Classificatório 1', ROTULO)).toBeInTheDocument();
+    });
+
+  it('classificatório sem dia final vinculado não oferece a tela', async () => {
+    // Sem destino, as fichas não viajam para lugar nenhum.
+    await montar({ torneio: COM_QUALI, dias: [
+      { ...QUALI, status: 'completed', qualifies_to_day_id: null }] });
+    expect(
+      within(cartaoDoDia('Classificatório 1')).queryByRole('button', { name: ROTULO })
+    ).toBeNull();
+  });
+
+  it('dia comum e dia final não têm classificados para contar', async () => {
+    await montar({ torneio: COM_QUALI, dias: [
+      { ...DIA_BASE, id: 'f1', day_name: 'Dia Final', status: 'active', day_type: 'final' },
+      { ...DIA_BASE, id: 'd9', day_name: 'Dia 1A', status: 'active', day_type: 'regular' },
+    ] });
+    expect(within(cartaoDoDia('Dia Final')).queryByRole('button', { name: ROTULO })).toBeNull();
+    expect(within(cartaoDoDia('Dia 1A')).queryByRole('button', { name: ROTULO })).toBeNull();
+  });
+
+  it('o botão leva à tela de fichas daquele dia', async () => {
+    await montar({ torneio: COM_QUALI, dias: [{ ...QUALI, status: 'completed' }] });
+    await userEvent.click(acao('Classificatório 1', ROTULO));
+    expect(mockNavigate).toHaveBeenCalledWith('/torneios/dia/q1/fichas');
   });
 });
 

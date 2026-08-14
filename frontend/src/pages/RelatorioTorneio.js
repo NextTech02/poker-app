@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
@@ -17,7 +17,6 @@ const Stat = ({ label, value, hint }) => (
 
 const RelatorioTorneio = () => {
   const { tournamentId } = useParams();
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const [report, setReport] = useState(null);

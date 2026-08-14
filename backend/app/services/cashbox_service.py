@@ -22,7 +22,9 @@ LEGACY_ADMIN_PERMISSIONS = ("financial", "general_cash", "employees")
 
 # Signed-amount sign by movement type
 _INFLOW_TYPES = {"buy_in", "rebuy", "addon", "supply"}
-_OUTFLOW_TYPES = {"prize", "sangria"}
+# `refund` é o estorno de uma venda cancelada: o dinheiro SAI da gaveta e volta
+# para o jogador, igual a um prêmio pago.
+_OUTFLOW_TYPES = {"prize", "sangria", "refund"}
 
 
 def _signed(amount: float, tx_type: str) -> float:
@@ -31,6 +33,64 @@ def _signed(amount: float, tx_type: str) -> float:
     if tx_type in _OUTFLOW_TYPES:
         return -abs(amount)
     return amount  # adjustment: caller decides the sign via `amount` itself
+
+
+def _eh_estorno(tx: dict) -> bool:
+    """True para o lançamento que DEVOLVE o dinheiro de uma venda cancelada.
+
+    Ele aparece de duas formas na base:
+      - `type='refund'` — o tipo próprio criado junto com o cancelamento de
+        venda (database_migration_cancel_sale.sql);
+      - `type='adjustment'` COM `transaction_id` preenchido — como o backend
+        gravava antes desse tipo existir, e como ele volta a gravar se, no dia
+        do deploy, a migração ainda não tiver sido aplicada.
+
+    O ajuste de FECHAMENTO (diferença entre o esperado e o contado) NUNCA tem
+    transaction_id, e é o único que precisa ficar de fora do saldo esperado.
+    Tratar os dois como a mesma coisa é o que fazia o relatório da sessão
+    acusar o operador de furto por um cancelamento feito pelo admin: a venda
+    continuava somando no esperado e a devolução era descartada da conta.
+    """
+    if tx.get("type") == "refund":
+        return True
+    return tx.get("type") == "adjustment" and tx.get("transaction_id") is not None
+
+
+def _instante(valor) -> Optional[datetime]:
+    """Lê o timestamp que vem do Postgres como datetime com fuso.
+
+    Serve só para responder uma pergunta: o lançamento entrou antes ou depois
+    do fechamento da sessão? Quando o valor não vem (linha antiga, consulta que
+    não pediu a coluna) devolve None e quem chama trata como "não dá para
+    afirmar que foi depois" — o relatório fica como sempre foi.
+    """
+    if not valor:
+        return None
+    if isinstance(valor, datetime):
+        dt = valor
+    else:
+        texto = str(valor).strip().replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(texto)
+        except ValueError:
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _estorno_apos_fechamento(tx: dict, fechada_em: Optional[datetime]) -> bool:
+    """True para o estorno que entrou no ledger DEPOIS do caixa ser fechado.
+
+    Só o estorno é datado desse jeito: todo o resto (suprimento, sangria,
+    venda, prêmio, ajuste de contagem) exige caixa ABERTO, então nunca cai numa
+    sessão fechada. O estorno cai, porque ele é amarrado à sessão que registrou
+    a VENDA — e o admin costuma cancelar a venda no dia seguinte.
+    """
+    if fechada_em is None:
+        return False
+    quando = _instante(tx.get("created_at"))
+    return quando is not None and quando > fechada_em
 
 
 class CashboxService:
@@ -560,6 +620,10 @@ class CashboxService:
             elif t_type == "prize":
                 agg.total_prizes_paid += amt
                 agg.prize_count += 1
+            elif _eh_estorno(t):
+                # Venda cancelada: o dinheiro saiu da gaveta de verdade.
+                agg.total_refunds += abs(float(t["signed_amount"]))
+                agg.refund_count += 1
             elif t_type == "adjustment":
                 agg.total_adjustments += float(t["signed_amount"])
 
@@ -571,6 +635,10 @@ class CashboxService:
             + agg.total_rebuys
             + agg.total_addons
             - agg.total_prizes_paid
+            # O estorno tem de descer do esperado: a venda cancelada continua
+            # somada em total_buy_ins/rebuys/addons (a linha da venda segue no
+            # ledger, que é append-only) e o dinheiro já voltou para o jogador.
+            - agg.total_refunds
             + agg.total_adjustments,
             2,
         )
@@ -646,8 +714,13 @@ class CashboxService:
         # 3. Transactions grouped by session (single query)
         session_ids = [s["id"] for s in sessions]
         tx_by_session: dict = {}
+        # `transaction_id` vem junto de propósito: é ele que separa o estorno de
+        # uma venda cancelada do ajuste de contagem do fechamento (_eh_estorno).
+        # `created_at` também: é por ele que se sabe se o estorno entrou antes
+        # ou depois do fechamento da sessão (o de depois não altera o
+        # fechamento — ver _compute_session_report).
         txs = supabase.table("cashbox_transactions").select(
-            "session_id, type, amount, signed_amount"
+            "session_id, type, amount, signed_amount, transaction_id, created_at"
         ).in_("session_id", session_ids).execute().data or []
         for tx in txs:
             tx_by_session.setdefault(tx["session_id"], []).append(tx)
@@ -681,6 +754,8 @@ class CashboxService:
             out.grand_sangria += report.total_sangria
             out.grand_buy_ins += report.total_buy_ins + report.total_rebuys + report.total_addons
             out.grand_prizes += report.total_prizes_paid
+            out.grand_refunds += report.total_refunds
+            out.grand_refunds_after_close += report.total_refunds_after_close
             out.grand_adjustments += report.total_adjustments
             out.grand_expected += report.expected_balance
             if report.actual_balance is not None:
@@ -691,8 +766,9 @@ class CashboxService:
                 out.open_session_count += 1
 
         for field in ("grand_initial", "grand_supply", "grand_sangria", "grand_buy_ins",
-                      "grand_prizes", "grand_adjustments", "grand_expected",
-                      "grand_actual", "grand_difference"):
+                      "grand_prizes", "grand_refunds", "grand_refunds_after_close",
+                      "grand_adjustments",
+                      "grand_expected", "grand_actual", "grand_difference"):
             setattr(out, field, round(getattr(out, field), 2))
 
         return out
@@ -714,15 +790,42 @@ class CashboxService:
           - additional supplies = total supply - opening balance
           - expected = SUM(signed) EXCLUDING adjustments  (== expected_final_balance)
           - difference = actual counted - expected         (== session.difference)
+
+        Só o ajuste de FECHAMENTO sai do esperado. O estorno de venda cancelada
+        (`refund`, ou o `adjustment` com transaction_id gravado pelo backend
+        antigo) é dinheiro que saiu da gaveta e PERMANECE no esperado — ver
+        _eh_estorno.
+
+        SESSÃO FECHADA É RESULTADO CONGELADO. O operador contou a gaveta,
+        assinou o fechamento e foi embora; aquilo virou documento. Como o
+        estorno de uma venda cancelada é amarrado à sessão que registrou a
+        VENDA, ele cai numa sessão já fechada quando o admin cancela no dia
+        seguinte — e recalcular o esperado com ele derrubava o esperado sem
+        mexer no contado nem na diferença, que ficam gravados na linha da
+        sessão. O conferente via `contado - esperado != diferença`: três
+        números que não fecham e nenhuma pista de qual valia. Agora o estorno
+        posterior fica FORA da conta do fechamento e aparece à parte
+        (total_refunds_after_close), que é a verdade da operação: aquele
+        dinheiro saiu do caixa geral pela mão do admin, não da gaveta do
+        operador naquela noite.
         """
         cashbox = cashbox or {}
         initial = float(session.get("initial_balance") or 0)
         is_open = session.get("closed_at") is None
+        fechada_em = None if is_open else _instante(session.get("closed_at"))
 
         supply = sangria = buy_ins = rebuys = addons = prizes = adjustments = 0.0
-        buy_in_count = rebuy_count = addon_count = prize_count = 0
+        refunds = refunds_after = 0.0
+        buy_in_count = rebuy_count = addon_count = prize_count = refund_count = 0
+        refund_after_count = 0
         signed_total = 0.0
         for tx in transactions:
+            if _eh_estorno(tx) and _estorno_apos_fechamento(tx, fechada_em):
+                # Fica fora de signed_total: o fechamento desta sessão já
+                # aconteceu e não muda retroativamente.
+                refunds_after += abs(float(tx["signed_amount"]))
+                refund_after_count += 1
+                continue
             amt = float(tx["amount"])
             signed_total += float(tx["signed_amount"])
             ttype = tx["type"]
@@ -738,6 +841,8 @@ class CashboxService:
                 addons += amt; addon_count += 1
             elif ttype == "prize":
                 prizes += amt; prize_count += 1
+            elif _eh_estorno(tx):
+                refunds += abs(float(tx["signed_amount"])); refund_count += 1
             elif ttype == "adjustment":
                 adjustments += float(tx["signed_amount"])
 
@@ -750,6 +855,13 @@ class CashboxService:
             actual = float(cashbox.get("current_balance") or 0)
             difference = round(actual - expected, 2)
         else:
+            # O esperado do fechamento é o que ficou gravado na sessão — é o
+            # número contra o qual o operador foi conferido. Recalcular daria
+            # um valor que não bate com a diferença gravada. Sessão antiga sem
+            # o campo cai no cálculo, que é a melhor reconstituição possível.
+            congelado = session.get("expected_final_balance")
+            if congelado is not None:
+                expected = round(float(congelado), 2)
             actual = (
                 float(session["actual_final_balance"])
                 if session.get("actual_final_balance") is not None
@@ -778,6 +890,10 @@ class CashboxService:
             addon_count=addon_count,
             total_prizes_paid=prizes,
             prize_count=prize_count,
+            total_refunds=round(refunds, 2),
+            refund_count=refund_count,
+            total_refunds_after_close=round(refunds_after, 2),
+            refund_after_close_count=refund_after_count,
             total_adjustments=adjustments,
             expected_balance=expected,
             actual_balance=actual,

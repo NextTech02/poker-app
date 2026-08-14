@@ -20,7 +20,6 @@ const TournamentDetail = () => {
   const [tournament, setTournament] = useState(null);
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [dayTvCodes, setDayTvCodes] = useState({}); // { [dayId]: code }
   const [openTvDay, setOpenTvDay] = useState(null); // qual dia está com o card do código aberto
   const { toast, confirm } = useToast();
@@ -53,15 +52,19 @@ const TournamentDetail = () => {
       setTournament(tournamentRes.data);
       setDays(daysRes.data);
     } catch (err) {
+      // O estado de erro nunca era exibido na tela; o interceptor global do axios
+      // ja avisa o usuario. Aqui so registramos no console.
       console.error('Error loading tournament:', err);
-      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
   };
 
+  // loadTournamentData e recriada a cada render; incluir na lista de dependencias
+  // causaria refetch infinito. So a troca de torneio deve recarregar.
   useEffect(() => {
     loadTournamentData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleCreateDay = () => {
@@ -214,12 +217,33 @@ const TournamentDetail = () => {
     return linkedDay ? linkedDay.day_name : null;
   };
 
+  const handleChipCount = (dayId) => {
+    navigate(`/torneios/dia/${dayId}/fichas`);
+  };
+
   const handleAdvanceQualifiers = async (dayId) => {
     const day = days.find(d => d.id === dayId);
     if (!day) return;
 
     const linkedDayName = getLinkedDayName(day.qualifies_to_day_id);
-    const ok = await confirm(`${t('tournamentDays.advanceQualifiers')} ${linkedDayName}?`);
+
+    // Prévia do que vai acontecer: quantos passam e com quanto no total. É a
+    // última chance de perceber que faltou registrar a ficha de alguém — depois
+    // do avanço, os stacks já estão criados no dia final.
+    let previa = '';
+    try {
+      const survivorsRes = await api.get(`/tournament-days/${dayId}/survivors`);
+      const sobreviventes = survivorsRes.data || [];
+      const totalFichas = sobreviventes.reduce(
+        (soma, s) => soma + Number(s.final_chip_count || 0), 0
+      );
+      previa = ` (${sobreviventes.length} ${t('tournamentDays.survivors', 'Classificados').toLowerCase()}, ${totalFichas.toLocaleString()} ${t('tournamentDays.chipsWord', 'fichas')})`;
+    } catch (e) {
+      // Sem a prévia dá para seguir: ela é informação extra, não pré-requisito.
+      console.error('Error loading survivors preview:', e);
+    }
+
+    const ok = await confirm(`${t('tournamentDays.advanceQualifiers')} ${linkedDayName}?${previa}`);
     if (!ok) return;
 
     try {
@@ -230,6 +254,15 @@ const TournamentDetail = () => {
       console.error('Error advancing qualifiers:', err);
       const errorMessage = err.response?.data?.detail || t('common.error');
       toast.error(errorMessage);
+      // Esse 400 tem conserto numa tela específica; levar o operador até ela
+      // evita que ele fique repetindo o mesmo botão sem entender o bloqueio.
+      if (/fichas/i.test(errorMessage)) {
+        const irParaFichas = await confirm(
+          t('tournamentDays.goToChipCount', 'Quer abrir agora a tela de fichas dos classificados?'),
+          { confirmText: t('tournamentDays.chipCountTitle', 'Fichas dos Classificados') }
+        );
+        if (irParaFichas) handleChipCount(dayId);
+      }
     }
   };
 
@@ -293,6 +326,20 @@ const TournamentDetail = () => {
                 {t('tournamentDays.finishDay')}
               </Button>
             </>
+          )}
+          {/* As fichas são digitadas com o dia ainda ativo (na última mão) ou
+              logo depois de encerrado — por isso o botão existe nos dois
+              estados. Vem ANTES de "Avançar Classificados" porque o avanço
+              agora exige as fichas registradas. */}
+          {day.day_type === 'qualifying' && day.qualifies_to_day_id &&
+            (day.status === 'active' || day.status === 'completed') && (
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => handleChipCount(day.id)}
+            >
+              {t('tournamentDays.chipCountTitle', 'Fichas dos Classificados')}
+            </Button>
           )}
           {day.status === 'completed' && (
             <>

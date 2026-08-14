@@ -70,17 +70,6 @@ const maskDocument = (docNumber) => {
   return '*'.repeat(clean.length - 4) + clean.slice(-4);
 };
 
-// Pad a label-value pair for monospace receipt layout
-const padRow = (label, value, width = 26) => {
-  const labelStr = String(label);
-  const valueStr = String(value);
-  const dots = Math.max(1, width - labelStr.length - valueStr.length);
-  return `${labelStr}${' '.repeat(dots)}${valueStr}`;
-};
-
-const DIVIDER_HEAVY = '================================';
-const DIVIDER_LIGHT = '--------------------------------';
-
 const PrizeVoucher = ({ payout }) => {
   const { i18n } = useTranslation();
   const { formatCurrency } = useCurrency();

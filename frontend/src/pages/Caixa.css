@@ -221,3 +221,85 @@
   color: var(--warning);
   font-size: 0.8rem;
 }
+
+/* ── Vendas encerradas / sem tipo de buy ───────────────────────────────────
+   Faixa de aviso no topo. O operador precisa entender NA HORA por que o botão
+   de lançar está desabilitado — senão vira chamado de suporte no meio do
+   evento. */
+.cx-warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  background: rgba(234, 179, 8, 0.08);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.cx-warning-link {
+  color: var(--brand-green);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* ── Venda cancelada no extrato ────────────────────────────────────────────
+   Riscada e apagada: continua visível (auditoria) mas não pode ser confundida
+   com dinheiro que está na gaveta. */
+.cx-row-cancelled td {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.cx-badge-cancelled {
+  margin-left: 0.4rem;
+  text-decoration: none;
+}
+
+.cx-cancel-btn {
+  color: var(--danger, #ef4444);
+}
+
+/* ── Estorno pela metade (status 'cancelling') ─────────────────────────────
+   Diferente da cancelada: esta linha PEDE ação. A barra âmbar à esquerda faz
+   o admin achá-la no meio do extrato sem ler linha por linha. */
+.cx-row-cancelling td:first-child {
+  border-left: 3px solid var(--warning, #eab308);
+}
+
+.cx-cancelling-hint {
+  display: inline-block;
+  margin-right: 0.5rem;
+  color: var(--warning, #eab308);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+/* ── Avisos do estorno ─────────────────────────────────────────────────────
+   Tarefas manuais de dinheiro (caixa geral, rake, crédito do jogador). Ficam
+   num painel de leitura, não num toast: cada item vira trabalho de alguém. */
+.cx-avisos {
+  border: 1px solid var(--warning, #eab308);
+}
+
+.cx-avisos-intro {
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.cx-avisos-lista {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.cx-avisos-lista li {
+  padding-left: 0.15rem;
+}

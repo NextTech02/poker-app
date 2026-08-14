@@ -206,6 +206,30 @@ class TestRakePendente:
         # 140 de rake nas entradas - 30 ja extraidos = 110
         assert CashRegisterService.get_stage_pending_rake(STAGE) == Decimal("110.00")
 
+    def test_venda_cancelada_nao_gera_rake_a_extrair(self, monkeypatch):
+        """Extrair rake de uma entrada estornada seria tirar do caixa uma parte
+        de dinheiro que ja voltou para o jogador."""
+        tabelas = _mundo()
+        tabelas["transactions"] = [
+            {"id": "t1", "tournament_id": "t1", "type": "buy_in",
+             "amount": "500.00", "rake_amount": "100.00", "status": "active"},
+            {"id": "t2", "tournament_id": "t1", "type": "rebuy",
+             "amount": "200.00", "rake_amount": "40.00", "status": "cancelled"},
+        ]
+        _fake(monkeypatch, tabelas)
+        assert CashRegisterService.get_stage_pending_rake(STAGE) == Decimal("100.00")
+
+    def test_entrada_antiga_sem_status_continua_contando(self, monkeypatch):
+        """Antes da migracao a coluna nao existe: o rake tem de sair igual ao
+        de hoje, senao o clube deixa de extrair a propria receita."""
+        tabelas = _mundo()
+        tabelas["transactions"] = [
+            {"id": "t1", "tournament_id": "t1", "type": "buy_in",
+             "amount": "500.00", "rake_amount": "100.00"},
+        ]
+        _fake(monkeypatch, tabelas)
+        assert CashRegisterService.get_stage_pending_rake(STAGE) == Decimal("100.00")
+
 
 OUTRA_ETAPA = "22222222-2222-2222-2222-222222222222"
 

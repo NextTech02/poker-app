@@ -30,6 +30,14 @@ class Stage(StageBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+    # Chave-mestra de bloqueio de vendas: quando ligada, nenhum dia da etapa
+    # vende. Declarada só aqui (e não em StageBase) para que a CRIAÇÃO da etapa
+    # não tente gravar a coluna enquanto a migração não tiver rodado.
+    sales_blocked: bool = False
+    sales_blocked_reason: Optional[str] = None
+    sales_blocked_at: Optional[datetime] = None
+    sales_blocked_by: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -45,6 +53,11 @@ class StageSummary(BaseModel):
     status: str
     tournament_count: int = 0
     created_at: datetime
+    # Chega de graça: a RPC devolve a linha inteira da etapa e a consulta de
+    # reserva usa select("*"). Sem a coluna (migração pendente) fica False, que
+    # é o comportamento de hoje.
+    sales_blocked: bool = False
+    sales_blocked_reason: Optional[str] = None
 
     class Config:
         from_attributes = True

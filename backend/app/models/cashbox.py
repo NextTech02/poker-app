@@ -17,6 +17,12 @@ class CashboxTransactionType(str, Enum):
     prize = "prize"
     supply = "supply"
     sangria = "sangria"
+    # Devolução de uma venda cancelada. TIPO PRÓPRIO de propósito: 'adjustment'
+    # já significa "diferença de contagem do fechamento" e por isso é EXCLUÍDO
+    # do saldo esperado do relatório de sessão. Lançar o estorno como
+    # 'adjustment' fazia o relatório acusar o operador de faltar dinheiro que o
+    # admin devolveu ao jogador.
+    refund = "refund"
     adjustment = "adjustment"
 
 
@@ -142,6 +148,10 @@ class CashboxSummary(BaseModel):
     addon_count: int = 0
     total_prizes_paid: float = 0.0
     prize_count: int = 0
+    # Vendas canceladas (dinheiro devolvido ao jogador). Saída REAL da gaveta —
+    # entra no saldo esperado, ao contrário de total_adjustments.
+    total_refunds: float = 0.0
+    refund_count: int = 0
     total_adjustments: float = 0.0
     expected_balance: float = 0.0
     current_balance: float = 0.0
@@ -183,6 +193,16 @@ class CashboxSessionReport(BaseModel):
     addon_count: int = 0
     total_prizes_paid: float = 0.0
     prize_count: int = 0
+    # Estornos de vendas canceladas ocorridos DENTRO da sessão: saída real da
+    # gaveta, ENTRA no esperado.
+    total_refunds: float = 0.0
+    refund_count: int = 0
+    # Estornos lançados DEPOIS do fechamento (o admin cancelou a venda no dia
+    # seguinte). Não mexem no fechamento — que já foi conferido e assinado —,
+    # aparecem à parte para o conferente saber que aquela noite teve devolução
+    # posterior e que o dinheiro saiu do caixa geral, não da gaveta.
+    total_refunds_after_close: float = 0.0
+    refund_after_close_count: int = 0
     total_adjustments: float = 0.0
     expected_balance: float = 0.0
     actual_balance: Optional[float] = None   # counted (closed) or live balance (open)
@@ -198,6 +218,10 @@ class CashboxDemonstrativo(BaseModel):
     grand_sangria: float = 0.0
     grand_buy_ins: float = 0.0
     grand_prizes: float = 0.0
+    grand_refunds: float = 0.0
+    # Devoluções lançadas depois do fechamento das sessões do período — fora
+    # de grand_expected/grand_difference de propósito.
+    grand_refunds_after_close: float = 0.0
     grand_adjustments: float = 0.0
     grand_expected: float = 0.0
     grand_actual: float = 0.0

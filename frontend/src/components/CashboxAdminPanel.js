@@ -26,7 +26,6 @@ const CashboxAdminPanel = () => {
   const { toast } = useToast();
   const { selectedStage } = useStage();
   const { formatCurrency } = useCurrency();
-  const fmt = formatCurrency;
 
   const [cashboxes, setCashboxes] = useState([]);
   const [loading, setLoading] = useState(true);

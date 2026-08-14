@@ -40,6 +40,7 @@ const TournamentDayForm = lazy(() => import('./pages/TournamentDayForm'));
 const BlindTemplates = lazy(() => import('./pages/BlindTemplates'));
 const BroadcastSettings = lazy(() => import('./pages/BroadcastSettings'));
 const TournamentDayStats = lazy(() => import('./pages/TournamentDayStats'));
+const FichasClassificados = lazy(() => import('./pages/FichasClassificados'));
 const TournamentControl = lazy(() => import('./pages/TournamentControl'));
 const TVCode = lazy(() => import('./pages/TVCode'));
 const SyncConflicts = lazy(() => import('./pages/SyncConflicts'));
@@ -200,6 +201,14 @@ function AppRoutes() {
         element={
           <PrivateRoute permission="tournaments">
             <TournamentDayStats />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/torneios/dia/:dayId/fichas"
+        element={
+          <PrivateRoute permission="tournaments">
+            <FichasClassificados />
           </PrivateRoute>
         }
       />

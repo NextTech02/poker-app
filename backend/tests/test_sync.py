@@ -267,9 +267,17 @@ class TestDemaisOperacoes:
         class _TP:
             id = "tp-servidor"
 
-        monkeypatch.setattr(TournamentPlayerService, "register_player",
-                            staticmethod(lambda dados, user_id: _TP()))
+        recebido = {}
+
+        def _registrar(dados, user_id, skip_sales_block=False):
+            recebido["skip"] = skip_sales_block
+            return _TP()
+
+        monkeypatch.setattr(TournamentPlayerService, "register_player", staticmethod(_registrar))
         corpo = {"tournament_id": "22222222-2222-2222-2222-222222222222",
                  "player_id": "44444444-4444-4444-4444-444444444444"}
         r = SyncService.apply_op(_op("register", "cm-reg", corpo), "u1", ORG)
         assert r["serverId"] == "tp-servidor"
+        # A venda ja aconteceu em tempo real, antes de o diretor bloquear: o
+        # replay nao pode rejeitar dinheiro que ja esta na gaveta do operador.
+        assert recebido["skip"] is True

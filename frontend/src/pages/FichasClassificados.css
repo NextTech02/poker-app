@@ -1,0 +1,150 @@
+/* Fichas dos Classificados — uma linha por sobrevivente, digitada na mesa.
+   O layout prioriza o campo de fichas: é o único que o operador toca. */
+
+.fc-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.fc-aviso p {
+  margin: 0;
+  color: var(--text-warning, #f59e0b);
+}
+
+.fc-busca {
+  width: 100%;
+  max-width: 360px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: var(--bg-input, #131c26);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  border-radius: 8px;
+  color: var(--text-primary, #e0eaf4);
+}
+
+.fc-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fc-linha {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) auto auto minmax(150px, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-secondary, #1e2d3d);
+  border-radius: 8px;
+}
+
+.fc-linha-erro {
+  border-color: var(--danger-color, #ef4444);
+}
+
+.fc-jogador {
+  display: flex;
+  flex-direction: column;
+}
+
+.fc-nome {
+  color: var(--text-primary, #e0eaf4);
+  font-weight: 600;
+}
+
+.fc-apelido,
+.fc-entradas,
+.fc-rotulo {
+  color: var(--text-secondary, #8aa0b0);
+  font-size: 0.8rem;
+}
+
+.fc-entradas {
+  display: flex;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.fc-teoricas {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+}
+
+.fc-teoricas .fc-valor {
+  color: var(--text-tertiary, #5a7080);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fc-input {
+  padding: 8px 10px;
+  background: var(--bg-input, #131c26);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  border-radius: 8px;
+  color: var(--text-primary, #e0eaf4);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-input-erro {
+  border-color: var(--danger-color, #ef4444);
+}
+
+.fc-erro-inline {
+  color: var(--danger-color, #ef4444);
+  font-size: 0.75rem;
+}
+
+.fc-sem-resultado {
+  color: var(--text-secondary, #8aa0b0);
+  padding: 12px 0;
+}
+
+.fc-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-secondary, #1e2d3d);
+}
+
+.fc-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.fc-resumo strong {
+  color: var(--text-primary, #e0eaf4);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-alerta {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-warning, #f59e0b);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .fc-linha {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .fc-teoricas {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+  }
+}

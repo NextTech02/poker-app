@@ -1,10 +1,21 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../config/supabase';
+import { getAllByTable } from '../offline/db';
 import { useStage } from './StageContext';
 
 const BuyTypesContext = createContext({});
 
 export const useBuyTypes = () => useContext(BuyTypesContext);
+
+/** Últimos tipos vistos desta etapa, guardados na réplica offline. */
+const lerDaReplica = async (stageId) => {
+  try {
+    const linhas = await getAllByTable('buy_types');
+    return (linhas || []).filter((b) => b && b.stage_id === stageId);
+  } catch (e) {
+    return [];
+  }
+};
 
 // Tipos de buy são por ETAPA: a lista acompanha a etapa selecionada.
 export const BuyTypesProvider = ({ children }) => {
@@ -13,24 +24,42 @@ export const BuyTypesProvider = ({ children }) => {
 
   const [buyTypes, setBuyTypes] = useState([]);
   const [loading, setLoading] = useState(false);
+  // DE ONDE veio a lista atual. Lista vazia não é uma informação só: pode ser
+  // "a etapa não cadastrou nenhum tipo" (o Caixa avisa e vende pela categoria)
+  // ou "a consulta não voltou" (sem rede, sessão expirada, RLS) — e nesse
+  // segundo caso travar a venda pararia o clube achando que falta cadastro.
+  //   'servidor' = veio do banco  |  'replica' = último visto, offline
+  //   'erro'     = não deu para saber  |  null = sem etapa / ainda carregando
+  const [origem, setOrigem] = useState(null);
 
   const reload = useCallback(async () => {
     if (!stageId) {
       setBuyTypes([]);
+      setOrigem(null);
       return;
     }
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('buy_types')
         .select('*')
         .eq('stage_id', stageId)
         .order('category', { ascending: true })
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
+      // O supabase-js NÃO lança em erro de RLS/sessão: devolve `error` com
+      // `data` nulo. Sem esta linha, uma sessão expirada virava "nenhum tipo
+      // cadastrado" em silêncio.
+      if (error) throw error;
       setBuyTypes(data || []);
+      setOrigem('servidor');
     } catch (e) {
-      /* não logado / offline */
+      // Sem rede a consulta falha — justamente o cenário em que o modo offline
+      // do Caixa precisa continuar vendendo. A réplica local tem os tipos
+      // gravados enquanto havia conexão.
+      const locais = await lerDaReplica(stageId);
+      setBuyTypes(locais);
+      setOrigem(locais.length ? 'replica' : 'erro');
     } finally {
       setLoading(false);
     }
@@ -93,6 +122,10 @@ export const BuyTypesProvider = ({ children }) => {
         buyTypes,
         activeBuyTypes,
         loading,
+        origem,
+        // Só com a lista confirmada pelo servidor dá para afirmar "esta etapa
+        // não tem nenhum tipo cadastrado".
+        tiposCarregados: origem === 'servidor',
         reload,
         byId,
         createBuyType,

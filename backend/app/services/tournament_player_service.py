@@ -2,12 +2,46 @@ from typing import List, Optional
 from app.database import supabase
 from app.services.tournament_day_service import _chipcount_cache
 from app.services.cashbox_service import CashboxService
+from app.services.sales_block_service import SalesBlockService, seguir_sem_a_trava
 from app.models.tournament_player import (
     TournamentPlayerCreate,
     TournamentPlayerUpdate,
     TournamentPlayer,
     TournamentPlayerDetail
 )
+
+_EMBED_DO_DIA = "tournament_days!tournament_players_tournament_day_id_fkey"
+# Colunas da trava lidas JUNTO do dia. Recompra e add-on já leem o dia embutido
+# no inscrito; trazer a trava no mesmo join poupa UMA ida ao banco em cada uma —
+# e recompra é o que mais roda no balcão numa noite de torneio.
+_COLUNAS_DA_TRAVA = "sales_blocked, sales_blocked_reason"
+
+
+def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
+    """Lê o inscrito com o dia embutido, incluindo as colunas da trava.
+
+    Enquanto a migração da trava não roda naquele banco (o deploy não é atômico
+    com ela), citar as colunas faria a consulta falhar e a recompra pararia de
+    funcionar — por isso a leitura é REFEITA sem elas.
+
+    A repetição é para QUALQUER falha, de propósito: é um SELECT, repetir não
+    cobra nada de ninguém, e se a segunda leitura passar a venda segue sem a
+    trava do dia — a mesma escolha de `seguir_sem_a_trava`. Filtrar pelo texto
+    do erro só criaria um jeito novo de a recompra parar no balcão.
+    """
+    def _buscar(colunas: str):
+        return (
+            supabase.table("tournament_players")
+            .select(f"*, {_EMBED_DO_DIA}({colunas})")
+            .eq("id", tournament_player_id)
+            .execute()
+        )
+
+    try:
+        return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}")
+    except Exception as exc:
+        seguir_sem_a_trava(exc, f"dia embutido do inscrito {tournament_player_id}")
+        return _buscar(colunas_do_dia)
 
 
 class TournamentPlayerService:
@@ -34,7 +68,7 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def register_player(registration_data: TournamentPlayerCreate, user_id: str) -> TournamentPlayerDetail:
+    def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False) -> TournamentPlayerDetail:
         """Register a player for a tournament day"""
         client_id = registration_data.client_id
         client_mutation_id = registration_data.client_mutation_id
@@ -65,6 +99,15 @@ class TournamentPlayerService:
         if not day.data:
             raise ValueError("Tournament day not found")
         day_info = day.data[0]
+
+        # Vendas bloqueadas pelo diretor? O dia já está em mãos, então só a
+        # etapa custa uma consulta a mais.
+        if not skip_sales_block:
+            SalesBlockService.assert_sales_allowed(
+                registration_data.tournament_id,
+                registration_data.tournament_day_id,
+                day_row=day_info,
+            )
 
         # Use day-specific values
         buy_in = float(day_info["buy_in"])
@@ -180,10 +223,14 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False) -> TournamentPlayer:
         """Add a rebuy for a tournament player"""
         # Get tournament player info with tournament_day data
-        tp_response = supabase.table("tournament_players").select("*, tournament_days!tournament_players_tournament_day_id_fkey(rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, blind_duration, start_time, updated_at, created_at)").eq("id", tournament_player_id).execute()
+        tp_response = _ler_inscrito_com_o_dia(
+            tournament_player_id,
+            "rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, "
+            "blind_duration, start_time, updated_at, created_at",
+        )
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 
@@ -198,6 +245,14 @@ class TournamentPlayerService:
 
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
+        if not skip_sales_block:
+            # O dia já veio embutido na leitura acima — passar `day_row` evita
+            # reler `tournament_days` só para saber se está bloqueado.
+            SalesBlockService.assert_sales_allowed(
+                tp["tournament_id"],
+                tp.get("tournament_day_id"),
+                day_row=tp.get("tournament_days"),
+            )
         day_info = tp.get("tournament_days", {}) or {}
         # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).
         buy_type = TournamentPlayerService._get_buy_type(buy_type_id)
@@ -279,10 +334,12 @@ class TournamentPlayerService:
         return TournamentPlayer(**response.data[0])
 
     @staticmethod
-    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None) -> TournamentPlayer:
+    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_sales_block: bool = False) -> TournamentPlayer:
         """Add an add-on for a tournament player"""
         # Get tournament player info with tournament_day data
-        tp_response = supabase.table("tournament_players").select("*, tournament_days!tournament_players_tournament_day_id_fkey(addon_amount, addon_chips, rake_percentage)").eq("id", tournament_player_id).execute()
+        tp_response = _ler_inscrito_com_o_dia(
+            tournament_player_id, "addon_amount, addon_chips, rake_percentage"
+        )
         if not tp_response.data:
             raise ValueError("Tournament player not found")
 
@@ -296,6 +353,13 @@ class TournamentPlayerService:
 
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
+        if not skip_sales_block:
+            # Mesmo motivo do rebuy: o dia embutido poupa uma consulta.
+            SalesBlockService.assert_sales_allowed(
+                tp["tournament_id"],
+                tp.get("tournament_day_id"),
+                day_row=tp.get("tournament_days"),
+            )
         day_info = tp.get("tournament_days", {}) or {}
         # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).
         buy_type = TournamentPlayerService._get_buy_type(buy_type_id)

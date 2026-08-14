@@ -352,15 +352,29 @@ class TestSobreviventesEAvanco:
         assert len(r) == 1
         assert r[0]["status"] == "active"
 
+    def test_inscricao_estornada_nao_e_sobrevivente(self, monkeypatch):
+        """Cancelar a venda devolveu o dinheiro ao jogador. Trata-lo como
+        sobrevivente o levaria ao dia final com stack, ocupando vaga e
+        disputando a premiacao de quem pagou."""
+        _monta(monkeypatch, tournament_players=[
+            _jogador(D1, status="active"), _jogador(D1, status="cancelled", buy=2)])
+        r = S.get_survivors(D1)
+        assert [p["status"] for p in r] == ["active"]
+
     def _dia_classificatorio(self, **kw):
         base = dict(day_type="qualifying", qualifies_to_day_id=FINAL,
                     registered_players=10, eliminations_count=3, prize_pool=1000)
         base.update(kw)
         return _dia(D1, **base)
 
-    def test_avanca_os_sobreviventes_e_carrega_o_premio(self, monkeypatch):
-        """Sobreviventes = inscritos − eliminados. O prêmio do dia
-        classificatório vai junto: quem se classificou já pagou por ele."""
+    def test_avanca_pelo_contador_quando_o_banco_nao_tem_a_coluna_de_fichas(self, monkeypatch):
+        """Caminho antigo: sobreviventes = inscritos − eliminados.
+
+        Vale para o banco ainda não migrado (nenhuma linha traz
+        `final_chip_count`). O deploy do código não é atômico com a migração, e
+        travar o avanço nessa janela pararia o clube no meio do torneio. O
+        prêmio do classificatório vai junto: quem se classificou já pagou por
+        ele."""
         fake = _monta(monkeypatch,
                       tournament_days=[self._dia_classificatorio(),
                                        _dia(FINAL, day_type="final", prize_pool=500,
@@ -404,6 +418,214 @@ class TestSobreviventesEAvanco:
         _monta(monkeypatch, tournament_days=[])
         with pytest.raises(ValueError, match="não encontrado"):
             S.advance_qualifiers(D1)
+
+    def test_clube_que_elimina_pelo_contador_nao_precisa_das_fichas(self, monkeypatch):
+        """Clube que registra jogador a jogador MAS controla a eliminacao pelo
+        contador generico do dia: os 90 inscritos continuam 'active' na lista,
+        embora 87 tenham sido eliminados.
+
+        Exigir o stack de todos ali cobraria fichas de quem saiu ha' horas e
+        travaria o avanco no meio do evento ('87 de 90 sem fichas registradas'),
+        sem o dia final abrir. Sem evidencia do fluxo por jogador, vale o
+        contador."""
+        jogadores = [
+            _jogador(D1, player_id=f"p{i}", id=f"tp{i}", final_chip_count=None)
+            for i in range(90)
+        ]
+        fake = _monta(
+            monkeypatch,
+            tournament_days=[
+                self._dia_classificatorio(registered_players=90, eliminations_count=87),
+                _dia(FINAL, day_type="final", registered_players=0, day_number=9),
+            ],
+            tournament_players=jogadores,
+        )
+        r = S.advance_qualifiers(D1)
+        assert r["advanced_count"] == 3
+        # Caminho por contador: nenhuma linha nova no dia final.
+        assert not [p for p in fake.store["tournament_players"]
+                    if p["tournament_day_id"] == FINAL]
+
+    def test_contador_batendo_com_a_lista_ainda_exige_as_fichas(self, monkeypatch):
+        """Quando as eliminacoes FORAM lancadas jogador a jogador (o contador
+        bate com a lista), o clube usa o fluxo por jogador: avancar sem as
+        fichas levaria todo mundo a' final com stack zerado."""
+        _monta(
+            monkeypatch,
+            tournament_days=[
+                self._dia_classificatorio(registered_players=10, eliminations_count=8),
+                _dia(FINAL, day_type="final", day_number=9),
+            ],
+            tournament_players=[
+                _jogador(D1, player_id="p1", id="tp1", final_chip_count=None),
+                _jogador(D1, player_id="p2", id="tp2", final_chip_count=None),
+            ],
+        )
+        with pytest.raises(ValueError, match="Registre as fichas"):
+            S.advance_qualifiers(D1)
+
+
+class TestAvancoComFichasReais:
+    """Avanço jogador a jogador: cada classificado vira uma linha do dia final
+    com o stack que ele contou na mesa.
+
+    É o que faz a ficha viajar. Sem essas linhas o dia final não tem de onde
+    tirar chipcount, e o telão do dia final acaba mostrando número de outro dia.
+    """
+
+    def _dia_classificatorio(self, **kw):
+        base = dict(day_type="qualifying", qualifies_to_day_id=FINAL,
+                    registered_players=10, eliminations_count=3, prize_pool=1000)
+        base.update(kw)
+        return _dia(D1, **base)
+
+    def _monta_avanco(self, monkeypatch, jogadores, **dias_kw):
+        return _monta(
+            monkeypatch,
+            tournament_days=[self._dia_classificatorio(**dias_kw),
+                             _dia(FINAL, day_type="final", prize_pool=500,
+                                  registered_players=2, total_entries=0, day_number=9)],
+            tournament_players=jogadores,
+        )
+
+    def _sobrevivente(self, player_id, fichas, nome="Fulano", **kw):
+        return _jogador(D1, player_id=player_id, id=f"tp-{player_id}",
+                        final_chip_count=fichas, players={"name": nome}, **kw)
+
+    def test_cria_uma_linha_no_dia_final_com_o_stack_real(self, monkeypatch):
+        fake = self._monta_avanco(monkeypatch, [
+            self._sobrevivente("p1", 42000, "Ana"),
+            self._sobrevivente("p2", 18500, "Bruno"),
+        ])
+        r = S.advance_qualifiers(D1)
+        assert r["advanced_count"] == 2
+        na_final = [p for p in fake.store["tournament_players"]
+                    if p["tournament_day_id"] == FINAL]
+        assert sorted(p["total_chips"] for p in na_final) == [18500, 42000]
+
+    def test_marca_a_origem_da_classificacao(self, monkeypatch):
+        """Sem is_qualified_entry/qualified_from_day_id, o relatório do dia
+        final conta o classificado como buy-in direto."""
+        fake = self._monta_avanco(monkeypatch, [self._sobrevivente("p1", 42000)])
+        S.advance_qualifiers(D1)
+        linha = [p for p in fake.store["tournament_players"]
+                 if p["tournament_day_id"] == FINAL][0]
+        assert linha["is_qualified_entry"] is True
+        assert linha["qualified_from_day_id"] == D1
+
+    def test_classificado_nao_paga_buy_in_de_novo(self, monkeypatch):
+        """buy_in_count=0 mantém o financeiro do dia final limpo — a entrada já
+        foi cobrada no classificatório."""
+        fake = self._monta_avanco(monkeypatch, [self._sobrevivente("p1", 42000)])
+        S.advance_qualifiers(D1)
+        linha = [p for p in fake.store["tournament_players"]
+                 if p["tournament_day_id"] == FINAL][0]
+        assert linha["buy_in_count"] == 0
+        assert linha["total_buy_in_amount"] == 0
+        assert linha["status"] == "active"
+
+    def test_sem_fichas_registradas_nao_avanca(self, monkeypatch):
+        """Avançar antes de contar as fichas levaria todo mundo para a final com
+        stack zerado — e não há como descobrir depois quanto cada um tinha."""
+        self._monta_avanco(monkeypatch, [
+            self._sobrevivente("p1", 42000),
+            self._sobrevivente("p2", None),
+        ])
+        with pytest.raises(ValueError, match="Registre as fichas"):
+            S.advance_qualifiers(D1)
+
+    def test_ficha_zerada_conta_como_nao_registrada(self, monkeypatch):
+        """Zero fichas não é um stack: quem chegou a zero foi eliminado."""
+        self._monta_avanco(monkeypatch, [self._sobrevivente("p1", 0)])
+        with pytest.raises(ValueError, match="Registre as fichas"):
+            S.advance_qualifiers(D1)
+
+    def test_nada_e_gravado_quando_falta_ficha(self, monkeypatch):
+        """A validação vem ANTES do insert: meio avanço deixaria o dia final com
+        parte dos classificados e nenhuma forma de saber quem falta."""
+        fake = self._monta_avanco(monkeypatch, [
+            self._sobrevivente("p1", 42000),
+            self._sobrevivente("p2", None),
+        ])
+        with pytest.raises(ValueError):
+            S.advance_qualifiers(D1)
+        assert not [p for p in fake.store["tournament_players"]
+                    if p["tournament_day_id"] == FINAL]
+
+    def test_avancar_duas_vezes_nao_duplica_nem_soma_o_premio_de_novo(self, monkeypatch):
+        """O operador clica duas vezes; o dia final não pode ganhar jogadores
+        fantasmas nem premiação dobrada."""
+        fake = self._monta_avanco(monkeypatch, [self._sobrevivente("p1", 42000)])
+        S.advance_qualifiers(D1)
+        segundo = S.advance_qualifiers(D1)
+        assert segundo["advanced_count"] == 0
+        na_final = [p for p in fake.store["tournament_players"]
+                    if p["tournament_day_id"] == FINAL]
+        assert len(na_final) == 1
+        final = [d for d in fake.store["tournament_days"] if d["id"] == FINAL][0]
+        assert final["prize_pool"] == 1500
+
+    def test_nao_soma_inscritos_na_mao(self, monkeypatch):
+        """O trigger update_tournament_player_count já soma 1 por linha inserida
+        no banco real. Somar aqui também mostraria o DOBRO de inscritos no dia
+        final — por isso registered_players não entra no update."""
+        fake = self._monta_avanco(monkeypatch, [self._sobrevivente("p1", 42000)])
+        S.advance_qualifiers(D1)
+        final = [d for d in fake.store["tournament_days"] if d["id"] == FINAL][0]
+        assert final["registered_players"] == 2  # o fake não tem trigger
+
+    def test_devolve_as_fichas_reais_e_quem_avancou(self, monkeypatch):
+        """O toast do operador precisa dizer quem passou e com quanto — este é o
+        número que a mesa confere na abertura do dia final."""
+        self._monta_avanco(monkeypatch, [
+            self._sobrevivente("p1", 42000, "Ana"),
+            self._sobrevivente("p2", 18500, "Bruno"),
+        ])
+        r = S.advance_qualifiers(D1)
+        assert r["total_chips"] == 60500
+        assert sorted(p["player_name"] for p in r["players"]) == ["Ana", "Bruno"]
+        assert {p["player_id"]: p["chips"] for p in r["players"]} == {
+            "p1": 42000, "p2": 18500}
+
+    def test_carrega_o_premio_do_classificatorio(self, monkeypatch):
+        fake = self._monta_avanco(monkeypatch, [self._sobrevivente("p1", 42000)])
+        S.advance_qualifiers(D1)
+        final = [d for d in fake.store["tournament_days"] if d["id"] == FINAL][0]
+        assert final["prize_pool"] == 1500
+
+    def test_eliminado_nao_avanca(self, monkeypatch):
+        """Só quem sobreviveu leva fichas para a final."""
+        fake = self._monta_avanco(monkeypatch, [
+            self._sobrevivente("p1", 42000),
+            self._sobrevivente("p2", 9000, status="eliminated"),
+        ])
+        r = S.advance_qualifiers(D1)
+        assert r["advanced_count"] == 1
+        na_final = [p for p in fake.store["tournament_players"]
+                    if p["tournament_day_id"] == FINAL]
+        assert na_final[0]["player_id"] == "p1"
+
+    def test_quem_ja_comprou_entrada_na_final_nao_ganha_linha_dobrada(self, monkeypatch):
+        """Jogador que fez buy-in direto no dia final e também se classificou:
+        uma linha só, senão ele aparece duas vezes na mesa."""
+        fake = self._monta_avanco(monkeypatch, [
+            self._sobrevivente("p1", 42000),
+            _jogador(FINAL, player_id="p1", id="tp-final-p1"),
+        ])
+        r = S.advance_qualifiers(D1)
+        assert r["advanced_count"] == 0
+        assert len([p for p in fake.store["tournament_players"]
+                    if p["tournament_day_id"] == FINAL]) == 1
+
+    def test_limpa_o_cache_de_agregados_dos_dois_dias(self, monkeypatch):
+        """A TV lê o chipcount de um cache de 60s; sem limpar, o dia final
+        apareceria vazio logo depois do avanço."""
+        self._monta_avanco(monkeypatch, [self._sobrevivente("p1", 42000)])
+        mod._chipcount_cache[FINAL] = (9e12, 0, 0)
+        mod._chipcount_cache[D1] = (9e12, 999, 9)
+        S.advance_qualifiers(D1)
+        assert FINAL not in mod._chipcount_cache
+        assert D1 not in mod._chipcount_cache
 
 
 class TestFichasFinais:

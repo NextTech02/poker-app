@@ -73,6 +73,7 @@ class TournamentDayBase(BaseModel):
     # Table lock
     tables_locked: bool = Field(default=False, description="When true, new buy-ins skip auto-allocation (players become alternates)")
 
+
     # Currency
     currency: str = Field(default='BRL', description="Currency code used in this day (BRL, USD, EUR, etc.)")
 
@@ -169,6 +170,11 @@ class TournamentDayUpdate(BaseModel):
     allocation_type: Optional[AllocationType] = None
     allocation_mode: Optional[str] = Field(None, description="Auto-allocation algorithm: balanced, sequential, or random_balanced")
     tables_locked: Optional[bool] = None
+    # sales_blocked/sales_blocked_reason NÃO entram aqui de propósito: o PATCH
+    # do dia só exige estar logado, e é justamente do operador de caixa que se
+    # está tirando a permissão de vender — aceitar o campo por esta porta
+    # lateral deixaria ele mesmo se reliberar. O toggle tem rota própria
+    # (POST /tournament-days/{id}/sales-block), que exige CashboxService.can_admin.
     currency: Optional[str] = None
     tournament_date: Optional[datetime] = None
     day_type: Optional[DayType] = None
@@ -252,6 +258,15 @@ class TournamentDay(TournamentDayBase):
 
     # Elimination counter
     eliminations_count: int = 0
+
+    # Bloqueio de vendas do DIA (trava operacional fina: encerrou o Dia 1A e o
+    # 1B da mesma etapa continua vendendo). Declarado só aqui, e não em
+    # TournamentDayBase, para que a CRIAÇÃO do dia não tente gravar a coluna
+    # enquanto a migração não tiver rodado. Default False = nada bloqueado.
+    sales_blocked: bool = False
+    sales_blocked_reason: Optional[str] = None
+    sales_blocked_at: Optional[datetime] = None
+    sales_blocked_by: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -572,6 +572,22 @@ class TestRelatorioDoTorneio:
         assert r.prizes == []
         assert r.total_players == 0
 
+    def test_inscricao_com_buy_in_cancelado_nao_conta_como_jogador(
+        self, monkeypatch, resumo_de_premio
+    ):
+        """Estornar o buy-in zera os VALORES da inscrição, mas a linha continua
+        na base por auditoria. Contar a linha faz o relatório do clube mostrar
+        um jogador que não sentou à mesa — e o perfil dele exibir um torneio que
+        não disputou."""
+        cancelado = self._inscrito(DIA, "p2", buy=0)
+        cancelado["status"] = "cancelled"
+        _monta_relatorio(monkeypatch,
+                         tournament_days=[self._dia()],
+                         tournament_players=[self._inscrito(DIA, "p1"), cancelado])
+        r = R.get_tournament_report(TOUR)
+        assert r.total_players == 1
+        assert r.days[0].players == 1
+
 
 class TestRelatorioPorPeriodo:
     def test_usa_a_rpc_de_totais(self, monkeypatch):

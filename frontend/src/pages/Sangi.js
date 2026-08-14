@@ -144,7 +144,7 @@ const ManagerView = ({ toast, confirm }) => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => { load(); }, [load]);
 

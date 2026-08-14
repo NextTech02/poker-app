@@ -94,7 +94,12 @@ class SyncService:
                 out.update(status="applied")
                 return out
             if kind == "register":
-                tp = TournamentPlayerService.register_player(TournamentPlayerCreate(**p), user_id)
+                # skip_sales_block: a venda aconteceu em tempo real, ANTES de o
+                # diretor bloquear. Rejeitá-la agora perderia dinheiro que já
+                # está na gaveta do operador — mesma razão do skip_level_gate.
+                tp = TournamentPlayerService.register_player(
+                    TournamentPlayerCreate(**p), user_id, skip_sales_block=True
+                )
                 out.update(status="applied", serverId=tp.id)
             elif kind == "rebuy":
                 TournamentPlayerService.add_rebuy(
@@ -104,6 +109,7 @@ class SyncService:
                     buy_type_id=p.get("buy_type_id"),
                     client_mutation_id=p.get("client_mutation_id") or cmid,
                     skip_level_gate=True,  # offline: feito em tempo real; não re-gatear no sync
+                    skip_sales_block=True,
                 )
                 out.update(status="applied")
             elif kind == "addon":
@@ -113,6 +119,7 @@ class SyncService:
                     payment_method=p.get("payment_method", "cash"),
                     buy_type_id=p.get("buy_type_id"),
                     client_mutation_id=p.get("client_mutation_id") or cmid,
+                    skip_sales_block=True,
                 )
                 out.update(status="applied")
             elif kind == "eliminate":

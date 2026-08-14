@@ -9,6 +9,7 @@ from app.models.player_credit import (
     PlayerBalanceSummary,
     PlayerStatementEntry,
 )
+from app.services.transaction_filters import sem_canceladas
 
 
 class PlayerCreditService:
@@ -422,7 +423,9 @@ class PlayerCreditService:
 
             tx_response = query.order("created_at", desc=True).execute()
 
-            for tx in (tx_response.data or []):
+            # Venda cancelada não entra no extrato financeiro do jogador: ela
+            # foi estornada, e mostrá-la faria o total gasto dele não bater.
+            for tx in sem_canceladas(tx_response.data or []):
                 t = tx.pop("tournaments", {}) or {}
                 entries.append(PlayerStatementEntry(
                     id=tx["id"],

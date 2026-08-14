@@ -9,6 +9,7 @@ from app.models.report import (
     TournamentDayReport,
     TournamentPrizeRow,
 )
+from app.services.transaction_filters import ler_transacoes_ativas
 
 
 class ReportService:
@@ -43,10 +44,18 @@ class ReportService:
         tps_by_day: dict = {}
         if day_ids:
             all_tp_resp = supabase.table("tournament_players")\
-                .select("tournament_day_id, player_id, buy_in_count, rebuy_count, addon_count, total_buy_in_amount, total_rebuy_amount, total_addon_amount")\
+                .select("tournament_day_id, player_id, status, buy_in_count, rebuy_count, addon_count, total_buy_in_amount, total_rebuy_amount, total_addon_amount")\
                 .in_("tournament_day_id", day_ids)\
                 .execute()
             for p in (all_tp_resp.data or []):
+                # Inscrição com o buy-in cancelado não disputou o dia: a linha
+                # fica na base por auditoria, mas contá-la faz o relatório
+                # mostrar um jogador a mais do que sentou à mesa — e o perfil do
+                # jogador exibir um torneio que ele não jogou. Os valores dela
+                # já foram zerados no estorno; é a EXISTÊNCIA da linha que ainda
+                # contava.
+                if (p.get("status") or "") == "cancelled":
+                    continue
                 tps_by_day.setdefault(p.get("tournament_day_id"), []).append(p)
 
         day_reports = []
@@ -83,12 +92,17 @@ class ReportService:
             ))
 
         # ── Revenue from transactions ──
-        tx_resp = supabase.table("transactions")\
-            .select("amount, type")\
-            .eq("tournament_id", tournament_id)\
-            .in_("type", ["buy_in", "rebuy", "addon"])\
-            .execute()
-        total_revenue = sum(float(x["amount"]) for x in (tx_resp.data or []))
+        # Entrada cancelada não é receita do torneio.
+        linhas_tx = ler_transacoes_ativas(
+            lambda cols: (
+                supabase.table("transactions")
+                .select(cols)
+                .eq("tournament_id", tournament_id)
+                .in_("type", ["buy_in", "rebuy", "addon"])
+            ),
+            "amount, type",
+        )
+        total_revenue = sum(float(x["amount"]) for x in linhas_tx)
 
         # ── Prize pool + reserved (reuse PrizeAllocationService) ──
         from app.services.prize_allocation_service import PrizeAllocationService
@@ -184,12 +198,15 @@ class ReportService:
                 total_addons = int(row.get("total_addons") or 0)
                 avg_buy_in = float(row.get("avg_buy_in") or 0)
         except Exception:
-            q = supabase.table("transactions").select("type, amount")
-            if start_date:
-                q = q.gte("created_at", start_date)
-            if end_param:
-                q = q.lte("created_at", end_param)
-            transactions = q.execute().data or []
+            def _monta(cols):
+                q = supabase.table("transactions").select(cols)
+                if start_date:
+                    q = q.gte("created_at", start_date)
+                if end_param:
+                    q = q.lte("created_at", end_param)
+                return q
+
+            transactions = ler_transacoes_ativas(_monta, "type, amount")
             total_revenue = sum(float(t["amount"]) for t in transactions if t["type"] in ["buy_in", "rebuy", "addon"])
             total_buy_ins = sum(1 for t in transactions if t["type"] == "buy_in")
             total_rebuys = sum(1 for t in transactions if t["type"] == "rebuy")

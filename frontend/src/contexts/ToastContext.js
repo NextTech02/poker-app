@@ -101,14 +101,7 @@ export const ToastProvider = ({ children }) => {
     return id;
   }, [aplicar, removeToast]);
 
-  const toast = useCallback({
-    success: (message, options) => addToast('success', message, options),
-    error: (message, options) => addToast('error', message, options),
-    warning: (message, options) => addToast('warning', message, options),
-    info: (message, options) => addToast('info', message, options),
-  }, [addToast]);
-
-  // Fix: useCallback doesn't work with object literal
+  // useCallback nao funciona com objeto literal, entao a API vai como objeto simples.
   const toastApi = {
     success: (message, options) => addToast('success', message, options),
     error: (message, options) => addToast('error', message, options),

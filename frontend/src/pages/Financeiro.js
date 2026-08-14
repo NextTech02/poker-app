@@ -6,7 +6,7 @@ import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import CashboxAdminPanel from '../components/CashboxAdminPanel';
 import CashboxDemonstrativo from '../components/CashboxDemonstrativo';
-import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
+import { SkeletonStatCard } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';

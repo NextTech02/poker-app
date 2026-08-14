@@ -20,8 +20,11 @@ const TournamentDayStats = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // loadStats e recriada a cada render; incluir na lista de dependencias causaria
+  // refetch infinito. So a troca de dia deve disparar o recarregamento.
   useEffect(() => {
     loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayId]);
 
   const loadStats = async () => {

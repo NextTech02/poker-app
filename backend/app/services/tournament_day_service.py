@@ -21,6 +21,12 @@ from app.models.tournament_day import (
     TournamentDayStatus
 )
 
+# Status que tiram o jogador do dia: eliminado na mesa, ou com a inscrição
+# ESTORNADA (cancelamento de venda — o dinheiro voltou para ele). Nos dois casos
+# ele não é sobrevivente: não avança para a final nem entra na contagem de
+# classificados que o diretor usa para montar as mesas.
+STATUS_FORA_DO_DIA = ("eliminated", "cancelled")
+
 
 class TournamentDayService:
     # ── Código público de exibição (TV) — POR DIA ───────────────────────────────
@@ -350,25 +356,62 @@ class TournamentDayService:
 
     @staticmethod
     def get_survivors(day_id: str) -> List[dict]:
-        """Get all non-eliminated players from a day (survivors)"""
+        """Jogadores do dia que ainda estão vivos (sobreviventes).
+
+        Fora 'eliminated', fica de fora 'cancelled': a inscrição estornada
+        devolveu o dinheiro ao jogador. Tratá-lo como sobrevivente o levaria ao
+        dia final com stack, ocupando vaga e disputando a premiação — e ainda
+        obrigaria o operador a digitar as fichas de alguém que não está no
+        evento. Dois `neq` em vez de `not_.in_` porque é o mesmo filtro para o
+        PostgREST e não depende de embed.
+        """
         response = supabase.table("tournament_players")\
             .select("*, players(name, nickname)")\
             .eq("tournament_day_id", day_id)\
             .neq("status", "eliminated")\
+            .neq("status", "cancelled")\
             .execute()
 
         return response.data if response.data else []
 
     @staticmethod
+    def _entradas_do_dia(day) -> tuple:
+        """Entradas e fichas TEÓRICAS concedidas no dia (buy-in/rebuy/add-on).
+
+        É o número que o clube usa quando não conta ficha por jogador: serve de
+        referência e alimenta o caminho antigo do avanço.
+        Devolve (total_chips_teorico, total_entries).
+        """
+        players_response = supabase.table("tournament_players")\
+            .select("buy_in_count, rebuy_count, addon_count")\
+            .eq("tournament_day_id", day.id)\
+            .execute()
+
+        total_chips = 0
+        total_entries = 0
+        for p in (players_response.data or []):
+            buy_ins = p.get("buy_in_count", 0) or 0
+            rebuys = p.get("rebuy_count", 0) or 0
+            addons = p.get("addon_count", 0) or 0
+            total_chips += buy_ins * (day.starting_chips or 0)
+            total_chips += rebuys * (day.rebuy_chips or 0)
+            total_chips += addons * (day.addon_chips or 0)
+            total_entries += buy_ins + rebuys
+        return total_chips, total_entries
+
+    @staticmethod
     def advance_qualifiers(qualifying_day_id: str) -> dict:
         """
-        Advance survivors from a qualifying day to the final day.
-        Uses the generic elimination counter - no individual player tracking needed.
+        Avança os sobreviventes de um dia classificatório para o dia final.
 
-        Updates the final day with:
-        - Number of surviving players (registered - eliminations)
-        - Total chip count from all entries in the qualifying day
-        - Prize pool carried over from the qualifying day
+        Caminho principal (há jogadores registrados um a um no dia): cria a
+        linha de cada classificado dentro do dia final, com o stack REAL que ele
+        levou da mesa (final_chip_count). É isso que faz o telão e o controle do
+        dia final terem de onde tirar o chipcount — sem essas linhas, o dia
+        final existe só como contador.
+
+        Caminho antigo (nenhum jogador individual no dia): mantém a soma de
+        contadores, para o clube que opera só com o contador de eliminações.
         """
         # Get the qualifying day
         qualifying_day = TournamentDayService.get_tournament_day(qualifying_day_id)
@@ -386,7 +429,55 @@ class TournamentDayService:
         if not final_day:
             raise ValueError("Dia final não encontrado")
 
-        # Calculate survivors using generic elimination counter
+        sobreviventes = TournamentDayService.get_survivors(qualifying_day_id)
+        # A coluna final_chip_count pode não existir num banco ainda não migrado.
+        # Nesse caso NENHUMA linha traz a chave, e exigir as fichas travaria o
+        # avanço de quem já opera hoje — então cai no caminho antigo.
+        tem_coluna_de_fichas = any("final_chip_count" in s for s in sobreviventes)
+
+        # Ter linhas de jogador NÃO significa que o clube controla a eliminação
+        # jogador a jogador: muitos registram cada entrada no Caixa mas marcam a
+        # saída no CONTADOR genérico do dia. Nesses dias todo inscrito continua
+        # 'active', e exigir o stack de "todos os sobreviventes" cobraria fichas
+        # de gente eliminada há horas — o avanço travaria no meio do evento
+        # ("87 de 90 sem fichas registradas") e o dia final não abriria.
+        # Por isso o caminho por jogador só vale com EVIDÊNCIA desse fluxo:
+        #   * alguém já teve as fichas contadas na tela de classificados, OU
+        #   * o contador de eliminações bate com a lista (as eliminações foram
+        #     mesmo lançadas jogador a jogador).
+        alguma_ficha_contada = any(
+            s.get("final_chip_count") is not None for s in sobreviventes
+        )
+        contador_bate = (
+            TournamentDayService._sobreviventes_pelo_contador(qualifying_day)
+            == len(sobreviventes)
+        )
+        usa_fluxo_por_jogador = alguma_ficha_contada or contador_bate
+
+        if sobreviventes and tem_coluna_de_fichas and usa_fluxo_por_jogador:
+            return TournamentDayService._avancar_por_jogador(
+                qualifying_day, final_day, sobreviventes
+            )
+
+        return TournamentDayService._avancar_por_contador(qualifying_day, final_day)
+
+    @staticmethod
+    def _sobreviventes_pelo_contador(day) -> int:
+        """Quantos sobreviventes o CONTADOR genérico do dia diz que existem."""
+        return max(
+            0,
+            (day.registered_players or 0)
+            - (getattr(day, "eliminations_count", 0) or 0),
+        )
+
+    @staticmethod
+    def _avancar_por_contador(qualifying_day, final_day) -> dict:
+        """Avanço pelo contador genérico de eliminações (sem jogador a jogador).
+
+        Aqui nenhuma linha é criada no dia final, então nenhum trigger de banco
+        mexe em registered_players — por isso este caminho ainda soma o contador
+        na mão.
+        """
         eliminations_count = qualifying_day.eliminations_count if hasattr(qualifying_day, 'eliminations_count') and qualifying_day.eliminations_count else 0
         registered = qualifying_day.registered_players or 0
         survivors_count = max(0, registered - eliminations_count)
@@ -394,24 +485,7 @@ class TournamentDayService:
         if survivors_count <= 0:
             raise ValueError("Nenhum sobrevivente para avançar (todos eliminados)")
 
-        # Calculate total chips in play from qualifying day entries
-        # Get entry counts from tournament_players
-        players_response = supabase.table("tournament_players")\
-            .select("buy_in_count, rebuy_count, addon_count")\
-            .eq("tournament_day_id", qualifying_day_id)\
-            .execute()
-
-        total_chips = 0
-        total_entries = 0
-        if players_response.data:
-            for p in players_response.data:
-                buy_ins = p.get("buy_in_count", 0) or 0
-                rebuys = p.get("rebuy_count", 0) or 0
-                addons = p.get("addon_count", 0) or 0
-                total_chips += buy_ins * (qualifying_day.starting_chips or 0)
-                total_chips += rebuys * (qualifying_day.rebuy_chips or 0)
-                total_chips += addons * (qualifying_day.addon_chips or 0)
-                total_entries += buy_ins + rebuys
+        total_chips, total_entries = TournamentDayService._entradas_do_dia(qualifying_day)
 
         # Carry over prize pool
         qualifying_prize_pool = qualifying_day.prize_pool or 0
@@ -419,7 +493,6 @@ class TournamentDayService:
         final_registered = final_day.registered_players or 0
         final_entries = final_day.total_entries or 0
 
-        # Update final day: add survivors count, entries, and prize pool
         supabase.table("tournament_days")\
             .update({
                 "registered_players": final_registered + survivors_count,
@@ -429,6 +502,8 @@ class TournamentDayService:
             .eq("id", final_day.id)\
             .execute()
 
+        _chipcount_cache.pop(final_day.id, None)
+
         return {
             "advanced_count": survivors_count,
             "final_day_id": final_day.id,
@@ -436,6 +511,113 @@ class TournamentDayService:
             "total_chips": total_chips,
             "total_entries": total_entries,
             "players": [],
+        }
+
+    @staticmethod
+    def _avancar_por_jogador(qualifying_day, final_day, sobreviventes: List[dict]) -> dict:
+        """Cria no dia final uma linha por classificado, carregando o stack real."""
+        # O contador genérico de eliminações e a lista por jogador podem
+        # discordar (alguém eliminado no contador mas sem status atualizado, ou
+        # vice-versa). Quem manda é a lista por jogador — mas a divergência vira
+        # log, porque é o sintoma de contador de eliminações mal operado.
+        pelo_contador = TournamentDayService._sobreviventes_pelo_contador(qualifying_day)
+        if pelo_contador != len(sobreviventes):
+            logger.warning(
+                "advance_qualifiers dia %s: contador diz %s sobreviventes, "
+                "lista por jogador diz %s — vale a lista por jogador",
+                qualifying_day.id, pelo_contador, len(sobreviventes),
+            )
+
+        sem_fichas = [
+            s for s in sobreviventes
+            if not s.get("final_chip_count") or int(s["final_chip_count"]) <= 0
+        ]
+        if sem_fichas:
+            # Avançar sem as fichas contadas produziria um dia final com stacks
+            # zerados — o erro tem que aparecer ANTES de criar as linhas.
+            raise ValueError(
+                f"Registre as fichas de todos os classificados antes de avançar "
+                f"({len(sem_fichas)} de {len(sobreviventes)} sem fichas registradas)"
+            )
+
+        # Idempotência: quem já tem linha no dia final não entra de novo. Filtra
+        # por jogador (e não só pelo dia de origem) porque um clique repetido em
+        # "Avançar" e um buy-in direto na final produziriam a mesma duplicata.
+        ja_no_dia_final = set()
+        existentes = supabase.table("tournament_players")\
+            .select("player_id")\
+            .eq("tournament_day_id", final_day.id)\
+            .execute()
+        for r in (existentes.data or []):
+            if r.get("player_id"):
+                ja_no_dia_final.add(r["player_id"])
+
+        linhas = []
+        avancados = []
+        for s in sobreviventes:
+            player_id = s.get("player_id")
+            if not player_id or player_id in ja_no_dia_final:
+                continue
+            fichas = int(s["final_chip_count"])
+            linhas.append({
+                "tournament_id": final_day.tournament_id,
+                "tournament_day_id": final_day.id,
+                "player_id": player_id,
+                # Classificado não paga entrada de novo: buy_in_count=0 mantém o
+                # financeiro do dia final limpo (a entrada já foi cobrada no
+                # classificatório).
+                "buy_in_count": 0,
+                "total_buy_in_amount": 0,
+                "rebuy_count": 0,
+                "addon_count": 0,
+                "total_chips": fichas,
+                "status": "active",
+                "is_qualified_entry": True,
+                "qualified_from_day_id": qualifying_day.id,
+            })
+            avancados.append({
+                "player_id": player_id,
+                "player_name": (s.get("players") or {}).get("name"),
+                "chips": fichas,
+            })
+
+        _, total_entries = TournamentDayService._entradas_do_dia(qualifying_day)
+
+        # Lido ANTES do insert de propósito: no banco, o trigger de prize_pool
+        # dispara a cada linha nova e recalcula o prêmio do dia final a partir
+        # das transações dele — o que apagaria o valor herdado do
+        # classificatório se fôssemos reler depois.
+        qualifying_prize_pool = qualifying_day.prize_pool or 0
+        final_prize_pool = final_day.prize_pool or 0
+        final_entries = final_day.total_entries or 0
+
+        if linhas:
+            supabase.table("tournament_players").insert(linhas).execute()
+
+            # registered_players NÃO entra aqui: o trigger
+            # update_tournament_player_count já soma 1 por linha inserida.
+            # Somar de novo mostraria o dobro de inscritos no dia final.
+            supabase.table("tournament_days")\
+                .update({
+                    "total_entries": final_entries + total_entries,
+                    "prize_pool": final_prize_pool + qualifying_prize_pool,
+                })\
+                .eq("id", final_day.id)\
+                .execute()
+
+        # A TV lê o chipcount de um cache de 60s; sem limpar, o dia final
+        # apareceria vazio na tela depois do avanço.
+        _chipcount_cache.pop(final_day.id, None)
+        _chipcount_cache.pop(qualifying_day.id, None)
+
+        return {
+            "advanced_count": len(avancados),
+            "final_day_id": final_day.id,
+            "final_day_name": final_day.day_name,
+            # Fichas REAIS que entram na final, não a soma teórica concedida.
+            "total_chips": sum(a["chips"] for a in avancados),
+            "total_entries": total_entries,
+            "players": avancados,
         }
 
     @staticmethod
@@ -538,7 +720,7 @@ class TournamentDayService:
             day_addon_amount = sum(float(p.get("total_addon_amount", 0) or 0) for p in players)
 
             eliminated = len([p for p in players if p.get("status") == "eliminated"])
-            qualified = len([p for p in players if p.get("status") != "eliminated"])
+            qualified = len([p for p in players if p.get("status") not in STATUS_FORA_DO_DIA])
 
             day_stats = QualifyingDayStats(
                 day_id=q_day["id"],
@@ -644,7 +826,7 @@ class TournamentDayService:
         addon_amount = sum(float(p.get("total_addon_amount", 0) or 0) for p in players)
 
         eliminated = len([p for p in players if p.get("status") == "eliminated"])
-        qualified = len([p for p in players if p.get("status") != "eliminated"])
+        qualified = len([p for p in players if p.get("status") not in STATUS_FORA_DO_DIA])
 
         return QualifyingDayStats(
             day_id=day_id,

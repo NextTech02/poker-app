@@ -129,7 +129,7 @@ const Premiacao = () => {
     } finally {
       setLoading(false);
     }
-  }, [tournamentId]);
+  }, [tournamentId, t]);
 
   useEffect(() => {
     loadData();

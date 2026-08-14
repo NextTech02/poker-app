@@ -14,8 +14,10 @@ import { render, screen, act, waitFor } from '@testing-library/react';
 import { BuyTypesProvider, useBuyTypes } from './BuyTypesContext';
 import { useStage } from './StageContext';
 import { supabase } from '../config/supabase';
+import { getAllByTable } from '../offline/db';
 
 jest.mock('./StageContext', () => ({ useStage: jest.fn() }));
+jest.mock('../offline/db', () => ({ getAllByTable: jest.fn(async () => []) }));
 jest.mock('../config/supabase', () => {
   const cadeia = {};
   ['from', 'select', 'eq', 'order', 'insert', 'update', 'delete'].forEach((m) => {
@@ -59,6 +61,7 @@ const montar = async (esperado = TIPOS.length) => {
 
 beforeEach(() => {
   api = null;
+  getAllByTable.mockResolvedValue([]);
   useStage.mockReturnValue({ selectedStage: { id: ETAPA } });
   ['from', 'select', 'eq', 'insert', 'update', 'delete'].forEach((m) => {
     supabase[m].mockImplementation(() => supabase);
@@ -86,6 +89,8 @@ describe('escopo por etapa', () => {
     responder(null);
     await montar(0);
     expect(api.buyTypes).toEqual([]);
+    // Veio do servidor: aí sim dá para afirmar "esta etapa não cadastrou nada".
+    expect(api.tiposCarregados).toBe(true);
   });
 
   it('falha de rede mantém a tela utilizável', async () => {
@@ -95,6 +100,70 @@ describe('escopo por etapa', () => {
     render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
     await waitFor(() => expect(api.loading).toBe(false));
     expect(api.buyTypes).toEqual([]);
+  });
+});
+
+describe('quando a consulta não volta', () => {
+  /**
+   * Lista vazia por falha NÃO é "nenhum tipo cadastrado". O Caixa usa essa
+   * diferença para decidir entre avisar o cadastro faltando e apenas vender
+   * pela categoria — confundir os dois deixa o operador sem vender no meio do
+   * evento, mandado cadastrar o que já existe.
+   */
+  const falharAConsulta = (erro = new Error('Failed to fetch')) => {
+    supabase.order.mockImplementation(() => ({
+      order: () => ({ order: () => Promise.reject(erro) }),
+    }));
+  };
+
+  it('offline, cai para os últimos tipos vistos na réplica local', async () => {
+    // É o que faz o modo offline do Caixa continuar vendendo com o rake certo.
+    getAllByTable.mockResolvedValue(TIPOS);
+    falharAConsulta();
+    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
+    await waitFor(() => expect(api.loading).toBe(false));
+    expect(api.buyTypes.map((b) => b.id)).toEqual(['b1', 'b2']);
+    expect(api.origem).toBe('replica');
+    expect(api.tiposCarregados).toBe(false);
+  });
+
+  it('a réplica é filtrada pela etapa', async () => {
+    // Tipo de outro circuito aplicaria o rake do evento errado.
+    getAllByTable.mockResolvedValue([
+      ...TIPOS,
+      { id: 'b9', stage_id: 'outra', name: 'Outro', category: 'buy_in', active: true },
+    ]);
+    falharAConsulta();
+    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
+    await waitFor(() => expect(api.loading).toBe(false));
+    expect(api.buyTypes.map((b) => b.id)).toEqual(['b1', 'b2']);
+  });
+
+  it('sem réplica, a origem é erro — e não "cadastro vazio"', async () => {
+    falharAConsulta();
+    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
+    await waitFor(() => expect(api.loading).toBe(false));
+    expect(api.origem).toBe('erro');
+    expect(api.tiposCarregados).toBe(false);
+  });
+
+  it('erro de RLS/sessão não passa por resposta vazia', async () => {
+    // O supabase-js NÃO lança nesse caso: devolve { data: null, error }. Sem
+    // olhar o `error`, uma sessão expirada virava "nenhum tipo cadastrado".
+    getAllByTable.mockResolvedValue(TIPOS);
+    let restantes = 3;
+    supabase.order.mockImplementation(() => {
+      restantes -= 1;
+      if (restantes === 0) {
+        restantes = 3;
+        return Promise.resolve({ data: null, error: { message: 'JWT expired' } });
+      }
+      return supabase;
+    });
+    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
+    await waitFor(() => expect(api.loading).toBe(false));
+    expect(api.tiposCarregados).toBe(false);
+    expect(api.buyTypes.map((b) => b.id)).toEqual(['b1', 'b2']);
   });
 });
 

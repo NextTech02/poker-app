@@ -10,6 +10,7 @@ from ..models.prize_allocation import (
     PrizePayoutRequest,
     PrizeSummary
 )
+from app.services.transaction_filters import ler_transacoes_ativas
 
 
 class PrizeAllocationService:
@@ -92,12 +93,18 @@ class PrizeAllocationService:
                 total = Decimal(str(r.data[0].get("total") or 0))
                 total_rake = Decimal(str(r.data[0].get("total_rake") or 0))
         except Exception:
-            transactions_response = supabase.table("transactions")\
-                .select("amount, rake_amount")\
-                .eq("tournament_id", str(tournament_id))\
-                .in_("type", ["buy_in", "rebuy", "addon"])\
-                .execute()
-            for t in (transactions_response.data or []):
+            # Entrada cancelada sai da bolsa de prêmios: premiar com ela seria
+            # pagar prêmio com dinheiro que voltou para o jogador.
+            linhas = ler_transacoes_ativas(
+                lambda cols: (
+                    supabase.table("transactions")
+                    .select(cols)
+                    .eq("tournament_id", str(tournament_id))
+                    .in_("type", ["buy_in", "rebuy", "addon"])
+                ),
+                "amount, rake_amount",
+            )
+            for t in linhas:
                 total += Decimal(str(t.get("amount") or 0))
                 total_rake += Decimal(str(t.get("rake_amount") or 0))
 

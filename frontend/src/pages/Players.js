@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
-import Button from '../components/Button';
 import { SkeletonPlayersTable } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { cachedGet, invalidateCache } from '../utils/apiCache';

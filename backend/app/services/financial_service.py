@@ -9,6 +9,7 @@ from app.models.financial import (
     ExpenseCategoryTotal,
 )
 from app.services.expense_service import ExpenseService
+from app.services.transaction_filters import sem_canceladas
 
 
 class FinancialService:
@@ -71,7 +72,13 @@ class FinancialService:
             end_dt = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
             query = query.lte("created_at", end_dt.isoformat())
 
-        transactions_data = query.order("created_at", desc=True).execute().data or []
+        # Venda cancelada sai do DRE inteiro (receita, extrato e por torneio):
+        # o dinheiro foi devolvido, então contá-la mostraria um lucro que o
+        # clube não teve. A consulta usa select("*"), então o filtro é aqui em
+        # Python — assim continua funcionando antes da migração da coluna.
+        transactions_data = sem_canceladas(
+            query.order("created_at", desc=True).execute().data or []
+        )
 
         # ── 2. Revenue breakdown ──
         buy_in_total = 0.0

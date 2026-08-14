@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.models.tournament_day import (
     TournamentDayCreate,
     TournamentDayUpdate,
@@ -18,9 +18,19 @@ from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
 
 
+class SalesBlockToggle(BaseModel):
+    """Explícito, nunca toggle: com dois admins na tela ao mesmo tempo, um
+    toggle acabaria RELIBERANDO as vendas que o outro acabou de bloquear."""
+    blocked: bool
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
 class ChipUpdate(BaseModel):
     player_id: str
-    chip_count: int
+    # ge=1: ficha zerada ou negativa nao existe na mesa — quem tem 0 fichas foi
+    # eliminado, e o avanco para o dia final usa esse numero como stack inicial.
+    # Aceitar 0 mandaria o classificado para a final sem fichas.
+    chip_count: int = Field(ge=1)
 
 
 class BulkChipUpdate(BaseModel):
@@ -316,9 +326,16 @@ def advance_qualifiers(
     stage_id: Optional[str] = Depends(get_stage_id_optional)
 ):
     """
-    Advance all surviving players from a qualifying day to its linked final day.
-    Creates entries in the final day with is_qualified_entry=True (no buy-in).
-    Players maintain their chip count from the qualifying day.
+    Avanca os sobreviventes de um dia classificatorio para o dia final vinculado.
+
+    Quando o dia tem jogadores registrados um a um, cria a linha de cada
+    classificado no dia final com is_qualified_entry=True, sem buy-in, e
+    total_chips = final_chip_count (o stack contado na mesa). Nesse caminho, as
+    fichas de TODOS os sobreviventes precisam estar registradas — senao devolve
+    400 pedindo que o operador preencha a tela de fichas antes.
+
+    Clubes que operam so com o contador generico de eliminacoes (nenhum jogador
+    individual no dia) continuam no comportamento antigo: soma de contadores.
     """
     # Validate day exists
     existing_day = TournamentDayService.get_tournament_day(day_id)
@@ -350,7 +367,7 @@ def advance_qualifiers(
 def update_player_chips(
     day_id: str,
     player_id: str,
-    chip_count: int,
+    chip_count: int = Query(ge=1),
     current_user: dict = Depends(get_current_user),
     stage_id: Optional[str] = Depends(get_stage_id_optional)
 ):
@@ -718,6 +735,46 @@ def adjust_eliminations(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.post("/{day_id}/sales-block")
+def set_day_sales_block(
+    day_id: str,
+    data: SalesBlockToggle,
+    current_user: dict = Depends(get_current_user),
+    stage_id: Optional[str] = Depends(get_stage_id_optional)
+):
+    """Liga/desliga a venda de entradas neste dia.
+
+    Só admin de caixa: é justamente do operador (`cashier`) que se está tirando
+    a permissão de vender, então ele não pode ser quem destrava.
+    """
+    from app.services.cashbox_service import CashboxService
+    from app.services.sales_block_service import SalesBlockService
+
+    user_id = current_user.get("sub")
+    if not CashboxService.can_admin(user_id):
+        raise HTTPException(status_code=403, detail="Sem permissão para bloquear vendas")
+
+    existing_day = TournamentDayService.get_tournament_day(day_id)
+    if not existing_day:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament day not found"
+        )
+
+    if stage_id:
+        tournament = TournamentService.get_tournament(existing_day.tournament_id)
+        if tournament and tournament.stage_id != stage_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Tournament day does not belong to the selected stage"
+            )
+
+    try:
+        return SalesBlockService.set_day_block(day_id, data.blocked, data.reason, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{day_id}/tables-lock")

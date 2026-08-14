@@ -170,12 +170,10 @@ class TestNuncaEstourar:
         monkeypatch.setattr(fake, "table", explode)
         assert S._get_stage_tournament_ids(ETAPA) == []
 
-    def test_consulta_de_soma_que_falha_vira_zero(self, monkeypatch):
-        class QueryQuebrada:
-            def execute(self):
-                raise RuntimeError("timeout")
-
-        assert S._safe_sum(QueryQuebrada()) == 0.0
+    def test_soma_com_linha_corrompida_vira_zero(self, monkeypatch):
+        # A soma passou a receber as linhas já lidas (a leitura filtra as vendas
+        # canceladas). Uma linha sem 'amount' não pode derrubar a tela inicial.
+        assert S._sum_amount([{"amount": 10}, {"sem_amount": 1}]) == 0.0
 
     def test_consulta_de_contagem_que_falha_vira_zero(self, monkeypatch):
         class QueryQuebrada:

@@ -20,6 +20,7 @@ from app.models.cash_register import (
     StagePaymentBreakdown,
     SangriaResponse
 )
+from app.services.transaction_filters import ler_transacoes_ativas
 
 
 # Só ENTRADA vira caixa. Prêmio pago (type='prize') sai do caixa e não pode ser
@@ -78,14 +79,18 @@ class CashRegisterService:
 
         entry_rake = Decimal("0")
         if tour_ids:
-            tx = (
-                supabase.table("transactions")
-                .select("rake_amount")
-                .in_("tournament_id", tour_ids)
-                .in_("type", ["buy_in", "rebuy", "addon"])
-                .execute()
+            # Venda cancelada não gera rake: extrair rake dela seria tirar do
+            # caixa uma parte de dinheiro que voltou para o jogador.
+            linhas = ler_transacoes_ativas(
+                lambda cols: (
+                    supabase.table("transactions")
+                    .select(cols)
+                    .in_("tournament_id", tour_ids)
+                    .in_("type", ["buy_in", "rebuy", "addon"])
+                ),
+                "rake_amount",
             )
-            for t in (tx.data or []):
+            for t in linhas:
                 entry_rake += Decimal(str(t.get("rake_amount") or 0))
 
         sang = (
@@ -126,14 +131,16 @@ class CashRegisterService:
 
         rake_generated = Decimal("0")
         if tour_ids:
-            tx = (
-                supabase.table("transactions")
-                .select("rake_amount")
-                .in_("tournament_id", tour_ids)
-                .in_("type", ENTRY_TYPES)
-                .execute()
+            linhas = ler_transacoes_ativas(
+                lambda cols: (
+                    supabase.table("transactions")
+                    .select(cols)
+                    .in_("tournament_id", tour_ids)
+                    .in_("type", ENTRY_TYPES)
+                ),
+                "rake_amount",
             )
-            for t in (tx.data or []):
+            for t in linhas:
                 rake_generated += _dec(t.get("rake_amount"))
 
         return {
@@ -224,14 +231,18 @@ class CashRegisterService:
 
             somas: dict = {}
             if tour_ids:
-                tx = (
-                    supabase.table("transactions")
-                    .select("payment_method, amount")
-                    .in_("tournament_id", tour_ids)
-                    .in_("type", ENTRY_TYPES)
-                    .execute()
+                # A venda cancelada saiu da gaveta junto com o dinheiro
+                # devolvido; mantê-la aqui inflaria a conferência por método.
+                linhas = ler_transacoes_ativas(
+                    lambda cols: (
+                        supabase.table("transactions")
+                        .select(cols)
+                        .in_("tournament_id", tour_ids)
+                        .in_("type", ENTRY_TYPES)
+                    ),
+                    "payment_method, amount",
                 )
-                for t in (tx.data or []):
+                for t in linhas:
                     code = t.get("payment_method") or None
                     total, count = somas.get(code, (Decimal("0"), 0))
                     somas[code] = (total + _dec(t.get("amount")), count + 1)

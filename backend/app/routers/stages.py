@@ -1,10 +1,42 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
+from pydantic import BaseModel, Field
 from app.models.stage import StageCreate, StageUpdate, Stage, StageSummary
 from app.services.stage_service import StageService
+from app.services.cashbox_service import CashboxService
+from app.services.sales_block_service import SalesBlockService
 from app.auth.jwt import get_current_user
 
 router = APIRouter(prefix="/stages", tags=["stages"])
+
+
+class SalesBlockToggle(BaseModel):
+    """Chave-mestra: bloqueia a venda em TODOS os dias da etapa de uma vez."""
+    blocked: bool
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+@router.post("/{stage_id}/sales-block")
+def set_stage_sales_block(
+    stage_id: str,
+    data: SalesBlockToggle,
+    current_user: dict = Depends(get_current_user),
+):
+    """Liga/desliga a venda em toda a etapa ("fecha tudo agora").
+
+    Só admin de caixa — ver o endpoint equivalente por dia.
+    """
+    user_id = current_user.get("sub")
+    if not CashboxService.can_admin(user_id):
+        raise HTTPException(status_code=403, detail="Sem permissão para bloquear vendas")
+
+    if not StageService.get_stage(stage_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage not found")
+
+    try:
+        return SalesBlockService.set_stage_block(stage_id, data.blocked, data.reason, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("", response_model=Stage, status_code=status.HTTP_201_CREATED)
