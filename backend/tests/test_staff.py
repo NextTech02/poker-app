@@ -310,12 +310,26 @@ class TestEfetivacaoPeloAdmin:
             StaffService.confirm_invite(STAFF, ORG)
 
 
-class TestReconviteDoMesmoEmail:
-    """Depois de cancelar, o mesmo e-mail precisa poder ser convidado de novo."""
+class TestEstadoDoConviteDependeDoVinculo:
+    """Quem entra pendente e quem entra direto -- e por que.
 
-    def _finge_auth(self, monkeypatch, paginas):
-        """Simula o Supabase: /invite recusa e-mail existente (422) e a lista
-        de contas do auth vem PAGINADA."""
+    O BUG: o estado era decidido pela pergunta "existe conta no auth com este
+    e-mail?". Qualquer conta antiga, sobrada de um cadastro que nunca virou
+    vinculo, caia em "convite pendente" -- um pedido de consentimento sem
+    ninguem para consentir. E como Excluir NAO apaga a conta do auth, recriar
+    o funcionario reencontrava a mesma conta e devolvia o mesmo estado: um
+    laco fechado, sem saida pela tela.
+
+    A pergunta certa e sobre o VINCULO: "esta pessoa ja e membro de OUTRA
+    organizacao?".
+    """
+
+    def _finge_auth(self, monkeypatch, paginas, criar=None):
+        """Simula o Supabase Auth.
+
+        Por padrao /invite recusa o e-mail existente (422) e a lista de contas
+        vem PAGINADA. Com `criar`, /invite ACEITA e devolve a conta nova.
+        """
         import httpx
 
         class _Resp:
@@ -327,7 +341,10 @@ class TestReconviteDoMesmoEmail:
             def json(self):
                 return self._corpo
 
-        monkeypatch.setattr(httpx, "post", lambda url, **k: _Resp(422, {"msg": "já existe"}))
+        if criar:
+            monkeypatch.setattr(httpx, "post", lambda url, **k: _Resp(200, {"id": criar}))
+        else:
+            monkeypatch.setattr(httpx, "post", lambda url, **k: _Resp(422, {"msg": "já existe"}))
 
         def _get(url, **k):
             pagina = (k.get("params") or {}).get("page", 1)
@@ -335,17 +352,126 @@ class TestReconviteDoMesmoEmail:
 
         monkeypatch.setattr(httpx, "get", _get)
 
-    def test_conta_que_ja_existe_entra_como_convite_pendente(self, monkeypatch):
-        """Ela nao refaz cadastro, mas tambem nao e jogada dentro do clube sem
-        saber: o vinculo nasce pendente e inativo."""
-        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "fulano@clube.com"}]])
-        fake = _monta(monkeypatch)
-        StaffService.create_staff(
-            StaffCreate(email="fulano@clube.com"), created_by=AUTH, organization_id=ORG
+    def _convida(self, email="fulano@clube.com", org=ORG):
+        return StaffService.create_staff(
+            StaffCreate(email=email), created_by=AUTH, organization_id=org
         )
+
+    # ── quem E de outro clube: consentimento ──
+
+    def test_vinculo_ativo_em_outro_clube_entra_como_convite_pendente(self, monkeypatch):
+        """Ela nao refaz cadastro, mas tambem nao e jogada dentro do clube sem
+        saber: o vinculo nasce pendente e inativo, e ela aceita ou recusa."""
+        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "fulano@clube.com"}]])
+        fake = _monta(monkeypatch, {"staff": [
+            _funcionario(id_="s-outro", org="outra-org", status="accepted", ativo=True),
+        ]})
+        self._convida()
+        nova = [s for s in fake.store["staff"] if s["id"] != "s-outro"][0]
+        assert nova["invite_status"] == "pending"
+        assert nova["active"] is False
+
+    def test_vinculo_inativo_em_outro_clube_tambem_pede_consentimento(self, monkeypatch):
+        """Desativado la ainda e uma PESSOA de outro clube, nao uma conta orfa:
+        a linha existe porque alguem a contratou, e desativacao costuma ser
+        temporaria (a readmissao e um caminho previsto). Pedir consentimento a
+        toa custa um clique; pular o consentimento coloca a pessoa dentro do
+        clube sem desfazer."""
+        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "fulano@clube.com"}]])
+        fake = _monta(monkeypatch, {"staff": [
+            _funcionario(id_="s-outro", org="outra-org", status="accepted", ativo=False),
+        ]})
+        self._convida()
+        nova = [s for s in fake.store["staff"] if s["id"] != "s-outro"][0]
+        assert nova["invite_status"] == "pending"
+        assert nova["active"] is False
+
+    def test_outro_clube_e_enxergado_mesmo_com_o_rls_do_usuario(self, monkeypatch):
+        """O client padrao roda COMO O USUARIO e o RLS so mostra a propria
+        organizacao. Perguntando por ele, "e de outro clube?" seria sempre
+        "nao" -- e todo mundo entraria direto. A checagem precisa do client
+        que ignora RLS."""
+        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "fulano@clube.com"}]])
+        # Duas visoes do mesmo banco: o usuario NAO ve a outra organizacao.
+        do_usuario = FakeSupabase({"staff": [], "cashboxes": [],
+                                   "cashbox_sessions": [], "cashbox_transactions": []})
+        do_admin = FakeSupabase({
+            "staff": [_funcionario(id_="s-outro", org="outra-org")],
+            "organizations": [{"id": ORG, "name": "NextHub", "status": "active"}],
+        })
+        monkeypatch.setattr(staff_service, "supabase", do_usuario)
+        monkeypatch.setattr(staff_service, "supabase_admin", do_admin)
+
+        self._convida()
+        assert do_usuario.store["staff"][0]["invite_status"] == "pending"
+
+    # ── quem NAO e de clube nenhum: entra direto ──
+
+    def test_conta_orfa_entra_direto_como_membro(self, monkeypatch):
+        """A conta existe no auth mas nao serve a nenhuma organizacao: nao ha
+        de quem pedir consentimento. Deixa-la "pendente" era pedir permissao a
+        ninguem e travar a pessoa fora do clube -- o Auth Hook so emite o claim
+        de organizacao com vinculo ATIVO."""
+        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "orfa@nexthub.com"}]])
+        fake = _monta(monkeypatch)
+        criado = self._convida(email="orfa@nexthub.com")
         linha = fake.store["staff"][0]
-        assert linha["invite_status"] == "pending"
-        assert linha["active"] is False
+        assert linha["invite_status"] == "accepted"
+        assert linha["active"] is True
+        assert criado.invite_status == "accepted"
+
+    def test_convidar_de_novo_depois_de_excluir_nao_reabre_o_laco(self, monkeypatch):
+        """O caso relatado, ponta a ponta: convidar -> excluir -> convidar de
+        novo. Excluir NAO apaga a conta do auth, entao o segundo convite
+        reencontra a mesma conta -- e precisa dar no mesmo resultado do
+        primeiro, senao o usuario repete a acao para sempre."""
+        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "orfa@nexthub.com"}]])
+        fake = _monta(monkeypatch)
+
+        primeiro = self._convida(email="orfa@nexthub.com")
+        assert primeiro.invite_status == "accepted"
+
+        # "Excluir": o vinculo sai da tabela; a conta do auth continua viva
+        # (por isso o /invite segue respondendo 422 no proximo convite).
+        fake.store["staff"].clear()
+
+        segundo = self._convida(email="orfa@nexthub.com")
+        assert segundo.invite_status == "accepted"
+        assert segundo.active is True
+
+    def test_conta_nova_nasce_ativa_aguardando_cadastro(self, monkeypatch):
+        """Proposital: o Auth Hook exige vinculo ATIVO para emitir o claim de
+        organizacao. Nascendo inativa, a pessoa nem concluiria o cadastro pelo
+        link do e-mail. Quem a segura fora da equipe e o status."""
+        self._finge_auth(monkeypatch, [[]], criar="conta-nova")
+        fake = _monta(monkeypatch)
+        self._convida(email="novo@clube.com")
+        linha = fake.store["staff"][0]
+        assert linha["invite_status"] == "awaiting_signup"
+        assert linha["active"] is True
+
+    # ── readmissao no PROPRIO clube ──
+
+    def test_readmissao_de_desativado_do_proprio_clube_volta_como_membro(self, monkeypatch):
+        """Quem foi desativado AQUI e reconvidado AQUI nao tem terceiro a
+        consultar: o convite partiu do proprio clube."""
+        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "fulano@clube.com"}]])
+        fake = _monta(monkeypatch, {"staff": [_funcionario(ativo=False, status="accepted")]})
+        self._convida()
+        assert len(fake.store["staff"]) == 1  # reaproveita a linha, nao duplica
+        assert fake.store["staff"][0]["active"] is True
+        assert fake.store["staff"][0]["invite_status"] == "accepted"
+
+    def test_readmissao_de_quem_trabalha_em_outro_clube_continua_pendente(self, monkeypatch):
+        self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "fulano@clube.com"}]])
+        fake = _monta(monkeypatch, {"staff": [
+            _funcionario(ativo=False, status="accepted"),
+            _funcionario(id_="s-outro", org="outra-org", ativo=True),
+        ]})
+        self._convida()
+        readmitido = [s for s in fake.store["staff"] if s["id"] == STAFF][0]
+        assert readmitido["invite_status"] == "pending"
+        assert readmitido["active"] is False
 
     def test_conta_fora_da_primeira_pagina_ainda_e_encontrada(self, monkeypatch):
         """A busca lia so a primeira pagina (200 contas). Passando disso,

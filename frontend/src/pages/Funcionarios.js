@@ -271,8 +271,19 @@ const Funcionarios = () => {
       // o convite. O admin não escolhe a senha de ninguém.
       const payload = { email };
       if (staffForm.permission_group_id) payload.permission_group_id = staffForm.permission_group_id;
-      await api.post('/staff', payload);
-      notify(t('staff.inviteSent', 'Convite enviado para {{email}}.', { email }), 'success');
+      const { data } = await api.post('/staff', payload);
+      // Quem já tinha conta e não trabalha em outro clube entra na hora: o
+      // servidor não manda e-mail nenhum nesse caso, então anunciar "convite
+      // enviado" faria o admin esperar por uma mensagem que nunca chega — e
+      // duvidar da tela, que já mostra a pessoa como membro ativo.
+      notify(
+        data?.invite_status === 'accepted'
+          ? t('staff.joinedDirectly',
+              '{{email}} já tinha conta e entrou direto na equipe — é só pedir para entrar no sistema.',
+              { email })
+          : t('staff.inviteSent', 'Convite enviado para {{email}}.', { email }),
+        'success'
+      );
       setShowStaffModal(false);
       loadData();
     } catch (err) {

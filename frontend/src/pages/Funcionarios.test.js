@@ -356,6 +356,20 @@ describe('convidar alguém', () => {
     expect(toast.success).toHaveBeenCalledWith('staff.inviteSent:novo@clube.com');
   });
 
+  it('quem entra direto não é anunciado como "convite enviado"', async () => {
+    // Conta que já existia e não é de outro clube vira membro na hora, e o
+    // servidor não dispara e-mail nenhum. Dizer "convite enviado" faria o
+    // admin esperar por uma mensagem que nunca chega.
+    api.post.mockResolvedValue({ data: { id: 's9', invite_status: 'accepted', active: true } });
+    await montar();
+    await abrir();
+    await userEvent.type(screen.getByPlaceholderText('email@exemplo.com'), 'orfa@nexthub.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar convite' }));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('staff.joinedDirectly:orfa@nexthub.com')
+    );
+  });
+
   it('sem grupo o convite vai só com o e-mail', async () => {
     await montar();
     await abrir();

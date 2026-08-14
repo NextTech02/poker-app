@@ -100,6 +100,12 @@ class StaffService:
         `organization_name` nos metadados é o que marca a conta como criada por
         convite — o app usa isso (com `onboarded_at`) para exigir o cadastro
         antes de liberar o sistema. Sem esse campo, o convidado entraria direto.
+
+        O estado em que o vínculo nasce é decidido por UMA pergunta: "esta
+        pessoa já é membro de outra organização?" (ver
+        `_e_de_outra_organizacao`) — e não por "já existe conta com este
+        e-mail?", que era a pergunta antiga e prendia contas órfãs num convite
+        pendente para sempre.
         """
         import httpx
 
@@ -152,7 +158,6 @@ class StaffService:
 
         auth_user_id = None
         criamos_o_usuario = False
-        ja_tem_conta = False
         try:
             resp = httpx.post(
                 f"{base}/auth/v1/invite",
@@ -177,11 +182,10 @@ class StaffService:
                 "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente de novo."
             )
         elif resp.status_code in (409, 422):
-            # Já existe conta com este e-mail — alguém que trabalha em outro
-            # clube. Ela NÃO refaz cadastro (já tem nome e senha), mas também
-            # não pode ser jogada dentro do clube sem saber: o vínculo nasce
-            # PENDENTE e ela aceita ou recusa ao entrar no sistema.
-            ja_tem_conta = True
+            # Já existe conta com este e-mail. Isso sozinho NÃO diz de quem ela
+            # é: pode ser de alguém que trabalha em outro clube, ou uma conta
+            # órfã de um cadastro antigo. Quem decide o estado do vínculo é a
+            # checagem de vínculo logo abaixo, não este código HTTP.
             auth_user_id = StaffService._localiza_conta_por_email(base, headers, data.email)
             if not auth_user_id:
                 raise ValueError("Já existe uma conta com este e-mail.")
@@ -202,11 +206,24 @@ class StaffService:
         # e-mail — a lista fica legível e a tela de cadastro sobrescreve depois.
         nome = (data.name or "").strip() or data.email.split("@")[0]
 
+        # A PERGUNTA QUE DECIDE O ESTADO DO VÍNCULO.
+        #
+        # Antes era "existe conta no auth com este e-mail?" — e isso mandava
+        # para 'pending' qualquer pessoa que já tivesse logado alguma vez,
+        # inclusive uma conta ÓRFÃ sobrada de um cadastro antigo. O convite
+        # ficava eternamente pendente, sem consentimento nenhum a proteger, e
+        # excluir + convidar de novo reencontrava a mesma conta: um laço
+        # fechado, sem saída pela tela.
+        #
+        # O 'pending' existe para PEDIR CONSENTIMENTO de quem já é de OUTRO
+        # clube — ninguém pode ser jogado dentro de uma organização sem saber.
+        # Então a pergunta certa é sobre o VÍNCULO, não sobre a conta.
+        de_outro_clube = StaffService._e_de_outra_organizacao(auth_user_id, organization_id)
+
         # Já houve vínculo com este clube? A chave única (auth_user_id,
         # organization_id) impede uma segunda linha, então um funcionário
         # desativado nunca poderia ser readmitido — o cadastro morria com
-        # "e-mail já cadastrado". Aqui o vínculo antigo volta como convite
-        # pendente, e a pessoa decide de novo.
+        # "e-mail já cadastrado".
         if organization_id:
             try:
                 antigo = (
@@ -222,26 +239,63 @@ class StaffService:
                 linha = antigo.data[0]
                 if linha.get("active"):
                     raise ValueError("Esta pessoa já faz parte da equipe deste clube.")
-                supabase.table("staff").update({
-                    "invite_status": "pending",
+                # Readmissão segue o MESMO critério do convite novo: quem não
+                # trabalha em outro clube volta direto como membro (o convite
+                # partiu deste clube, não há terceiro a consultar); quem
+                # trabalha volta como convite pendente e responde.
+                volta = {
+                    "invite_status": "pending" if de_outro_clube else "accepted",
                     "permission_group_id": data.permission_group_id,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
-                }).eq("id", linha["id"]).execute()
-                return StaffService.get_staff(linha["id"])
+                }
+                if not de_outro_clube:
+                    volta["active"] = True
+                try:
+                    supabase.table("staff").update(volta).eq("id", linha["id"]).execute()
+                except Exception as exc:
+                    # O gatilho do plano dispara na virada false -> true.
+                    if "PLANO_LIMITE" in str(exc):
+                        raise ValueError(
+                            "O plano atual não permite mais usuários ativos. "
+                            "Altere o plano para readmitir esta pessoa."
+                        )
+                    raise ValueError("Não foi possível readmitir o funcionário.")
 
-        # Conta que JÁ existe: fica 'pending' e inativa até aceitar ou recusar.
-        # Conta NOVA: fica 'awaiting_signup' — convite enviado, cadastro ainda
-        # não concluído. Precisa nascer ATIVA porque o Auth Hook exige vínculo
-        # ativo para emitir o claim de organização, e sem ele a pessoa não
-        # conseguiria nem terminar o cadastro pelo link do e-mail. O status é o
-        # que impede a lista de mostrá-la como membro efetivo.
+                readmitido = StaffService.get_staff(linha["id"])
+                # Voltou como membro: precisa dos caixas das etapas ativas,
+                # senão não consegue trabalhar hoje (mesmo tratamento do
+                # cadastro direto e da efetivação pelo admin).
+                if readmitido and readmitido.active and _has_cashbox_permission(readmitido.permissions):
+                    from app.services.cashbox_service import CashboxService
+                    try:
+                        CashboxService.auto_create_for_staff(linha["id"])
+                    except Exception:
+                        pass  # best-effort: não bloqueia a readmissão
+                return readmitido
+
+        # Três estados, três motivos distintos:
+        #
+        # - de OUTRO clube  -> 'pending' + inativo: o vínculo só vale depois que
+        #   a própria pessoa aceitar (OrgInviteModal) ou o admin efetivar.
+        # - conta NOVA      -> 'awaiting_signup' + ATIVO: o Auth Hook exige
+        #   vínculo ativo para emitir o claim de organização; sem ele a pessoa
+        #   não conclui nem o cadastro pelo link do e-mail. O status é o que
+        #   impede a lista de mostrá-la como membro efetivo.
+        # - conta que existe mas não serve a nenhum clube (órfã) -> membro
+        #   efetivo direto: não há de quem pedir consentimento, e deixá-la
+        #   'pending' era exatamente o laço relatado. Ela já tem nome e senha,
+        #   então basta entrar — não há cadastro a concluir.
         insert_data = {
             "auth_user_id": auth_user_id,
             "name": nome,
             "email": data.email,
             "permission_group_id": data.permission_group_id,
-            "active": not ja_tem_conta,
-            "invite_status": "pending" if ja_tem_conta else "awaiting_signup",
+            "active": not de_outro_clube,
+            "invite_status": (
+                "pending" if de_outro_clube
+                else "awaiting_signup" if criamos_o_usuario
+                else "accepted"
+            ),
             "created_by": created_by,
         }
 
@@ -289,6 +343,47 @@ class StaffService:
             permission_group_name=group_name,
             permissions=permissions,
         )
+
+    @staticmethod
+    def _e_de_outra_organizacao(auth_user_id: str, organization_id: str = None) -> bool:
+        """Esta pessoa já é membro de ALGUM outro clube?
+
+        É a pergunta que autoriza o fluxo de consentimento. Ter conta no auth
+        não responde nada: uma conta pode ser órfã, sobrada de um cadastro que
+        nunca virou vínculo, e é dela que ninguém precisa pedir permissão.
+
+        VÍNCULO INATIVO EM OUTRO CLUBE TAMBÉM CONTA como "é de outro clube":
+        - a linha só existe porque alguém a contratou — é uma pessoa real, com
+          senha própria, não uma conta órfã. Desativação costuma ser
+          temporária (afastamento, suspensão), tanto que a readmissão é um
+          caminho previsto aqui mesmo;
+        - os erros não custam o mesmo. Pedir consentimento à toa custa um
+          clique ("Efetivar convite"); pular o consentimento indevidamente
+          coloca a pessoa dentro do clube, com permissões, sem desfazer.
+
+        Usa `supabase_admin` de propósito: o client padrão roda COMO O USUÁRIO
+        e o RLS só deixa ele enxergar a própria organização — a consulta
+        voltaria vazia para todo mundo e a pergunta seria sempre respondida
+        com "não".
+        """
+        if not auth_user_id:
+            return False
+        try:
+            q = (
+                supabase_admin.table("staff")
+                .select("id, organization_id, active")
+                .eq("auth_user_id", auth_user_id)
+            )
+            if organization_id:
+                q = q.neq("organization_id", organization_id)
+            r = q.limit(1).execute()
+        except Exception:
+            # Sem resposta do banco, escolhe o lado que não pode ser desfeito:
+            # pede o consentimento. Hoje 'pending' tem saída pela tela
+            # (Efetivar / Cancelar), então errar para este lado não prende
+            # mais ninguém.
+            return True
+        return bool(r.data)
 
     @staticmethod
     def _localiza_conta_por_email(base: str, headers: dict, email: str) -> Optional[str]:
@@ -363,8 +458,11 @@ class StaffService:
         # criaria uma armadilha — no próximo convite o e-mail já existiria e a
         # pessoa cairia no fluxo de "aceitar convite", que exige entrar no
         # sistema... com uma senha que ela nunca chegou a definir.
-        # Convite 'pending' é o contrário: a conta é de alguém que já trabalha
-        # em outro clube e não pode ser tocada.
+        # Convite 'pending' é o contrário: desde `_e_de_outra_organizacao`,
+        # 'pending' só nasce para quem TEM vínculo em outro clube — apagar a
+        # conta derrubaria o acesso dela lá. (Antes, 'pending' também pegava
+        # conta órfã; era essa conta preservada que fechava o laço no
+        # reconvite.)
         conta_removida = False
         if estado == "awaiting_signup" and linha.get("auth_user_id"):
             try:
