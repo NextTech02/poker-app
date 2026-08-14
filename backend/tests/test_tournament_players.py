@@ -238,9 +238,10 @@ class TestBloqueioDeVendas:
         dia["sales_blocked"] = True
         dia["sales_blocked_reason"] = "registro tardio encerrado"
         fake = _monta(monkeypatch, dia=dia)
+        inscricao = _inscricao()   # preparo fora do raises: só o servico sob teste dentro
 
         with pytest.raises(ValueError, match="registro tardio encerrado"):
-            TournamentPlayerService.register_player(_inscricao(), "u1")
+            TournamentPlayerService.register_player(inscricao, "u1")
 
         # Nada de meio-termo: nem inscricao, nem transacao.
         assert fake.store["tournament_players"] == []
@@ -268,8 +269,9 @@ class TestBloqueioDeVendas:
                 "stages": {"sales_blocked": True, "sales_blocked_reason": "evento encerrado"},
             }],
         })
+        inscricao = _inscricao()   # preparo fora do raises: só o servico sob teste dentro
         with pytest.raises(ValueError, match="evento encerrado"):
-            TournamentPlayerService.register_player(_inscricao(), "u1")
+            TournamentPlayerService.register_player(inscricao, "u1")
         assert fake.store["transactions"] == []
 
     def test_sem_bloqueio_a_venda_segue_normal(self, monkeypatch):

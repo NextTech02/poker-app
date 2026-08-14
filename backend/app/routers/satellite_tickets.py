@@ -30,7 +30,18 @@ MASTER_PERMS = ("cashier_tickets.master", "employees")
 
 # ── Create Ticket ──
 
-@router.post("", response_model=TicketResponse)
+@router.post(
+    "",
+    response_model=TicketResponse,
+    responses={
+        400: {
+            "description": (
+                "Não dá para emitir o ticket: torneio alvo, dia alvo ou jogador não "
+                "encontrado, ou o dia informado não pertence ao torneio alvo."
+            )
+        },
+    },
+)
 def create_ticket(data: TicketCreate, user=Depends(require_permission(*TICKET_PERMS))):
     try:
         return SatelliteTicketService.create_ticket(data, user.get("id") or user["sub"])
@@ -113,7 +124,20 @@ def redeem_ticket(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{ticket_id}/transfer", response_model=TicketResponse)
+@router.post(
+    "/{ticket_id}/transfer",
+    response_model=TicketResponse,
+    responses={
+        400: {
+            "description": (
+                "Transferência recusada: ticket não encontrado, já resgatado, jogador "
+                "de destino não informado/inexistente ou igual ao dono atual. Quando é "
+                "venda (amount > 0), também 400 se não houver etapa selecionada ou "
+                "organização vinculada para lançar a venda no caixa."
+            )
+        },
+    },
+)
 def transfer_ticket(
     ticket_id: str,
     data: TicketTransfer,

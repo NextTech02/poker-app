@@ -15,7 +15,7 @@
 
 /** Número finito ou `null` — string vazia e NaN não podem virar dinheiro. */
 const numero = (valor) => {
-  const n = typeof valor === 'number' ? valor : parseFloat(valor);
+  const n = typeof valor === 'number' ? valor : Number.parseFloat(valor);
   return Number.isFinite(n) ? n : null;
 };
 

@@ -812,7 +812,7 @@ const BroadcastSettings = () => {
                 {settings.broadcast_club_logo_url ? (
                   <div className="bs-img-preview-wrap">
                     <img src={settings.broadcast_club_logo_url} alt="logo" className="bs-img-preview" />
-                    <button className="bs-img-remove" onClick={() => set('broadcast_club_logo_url', '')}>×</button>
+                    <button type="button" className="bs-img-remove" onClick={() => set('broadcast_club_logo_url', '')}>×</button>
                   </div>
                 ) : (
                   <label className="bs-upload-zone">

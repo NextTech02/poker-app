@@ -38,6 +38,30 @@ def _falta_a_tabela_de_transferencias(erro: Exception) -> bool:
     return any(sinal in blob for sinal in _SINAIS_DE_TABELA_AUSENTE)
 
 
+def _o_banco_recusou_a_coluna(col: str, msg: str, rows: List[dict]) -> bool:
+    """A coluna aparece no erro do insert E está sendo enviada nas linhas."""
+    return col in msg and any(col in r for r in rows)
+
+
+def _tirar_coluna_guardando_o_texto(col: str, rows: List[dict], note_lines: List[List[str]]) -> None:
+    """Remove a coluna de cada linha e guarda o valor como texto para `notes`."""
+    for i, row in enumerate(rows):
+        val = row.pop(col, None)
+        if val:
+            prefix = "Ganho em" if col == "won_at" else "Financiado por"
+            note_lines[i].append(f"{prefix}: {val}")
+
+
+def _gravar_textos_em_notes(rows: List[dict], note_lines: List[List[str]]) -> None:
+    """Junta os textos guardados na coluna `notes`, sem perder o que já havia."""
+    for i, row in enumerate(rows):
+        if not note_lines[i]:
+            continue
+        existing = (row.get("notes") or "").strip()
+        merged = " | ".join(note_lines[i])
+        row["notes"] = f"{existing} | {merged}".strip(" |") if existing else merged
+
+
 class SatelliteTicketService:
 
     # ================================================
@@ -48,22 +72,9 @@ class SatelliteTicketService:
     def create_ticket(data: TicketCreate, user_id: str) -> TicketResponse:
         """Create a ticket already bound to a player, a target tournament and
         a target tournament day. The value is derived from the day's buy_in."""
-        # Validate target tournament
-        target = supabase.table("tournaments").select("name") \
-            .eq("id", data.target_tournament_id).execute()
-        if not target.data:
-            raise ValueError("Torneio alvo não encontrado")
-
-        # Validate target day belongs to the tournament and pull its buy-in
-        day = supabase.table("tournament_days") \
-            .select("buy_in, day_name, tournament_id") \
-            .eq("id", data.target_tournament_day_id).execute()
-        if not day.data:
-            raise ValueError("Dia do torneio não encontrado")
-        if day.data[0]["tournament_id"] != data.target_tournament_id:
-            raise ValueError("O dia selecionado não pertence ao torneio alvo")
-        ticket_value = float(day.data[0]["buy_in"] or 0)
-        target_day_name = day.data[0].get("day_name")
+        # Validate target tournament and target day (day carries the buy-in)
+        target_name, ticket_value, target_day_name = \
+            SatelliteTicketService._validar_destino_da_vaga(data)
 
         # Validate player
         player = supabase.table("players").select("name, nickname") \
@@ -75,10 +86,7 @@ class SatelliteTicketService:
         # `database_migration_ticket_simplified.sql` migration runs in prod.
         # Auto-fill it with a derived label so the simplified flow works
         # before/after the migration.
-        derived_label_parts = [target.data[0]["name"]]
-        if target_day_name:
-            derived_label_parts.append(target_day_name)
-        derived_label = " — ".join(derived_label_parts)
+        derived_label = SatelliteTicketService._rotulo_legado_do_satelite(target_name, target_day_name)
 
         won_at_clean = (data.won_at or "").strip()
         funded_by_clean = (data.funded_by or "").strip()
@@ -98,16 +106,13 @@ class SatelliteTicketService:
 
         item = SatelliteTicketService._insert_tickets([insert_data])[0]
         # Surface the original values even if they were stashed into notes
-        if not item.get("won_at"):
-            item["won_at"] = won_at_clean or None
-        if not item.get("funded_by"):
-            item["funded_by"] = funded_by_clean or None
+        SatelliteTicketService._repor_origem_e_financiador(item, won_at_clean, funded_by_clean)
 
         return TicketResponse(
             **item,
             player_name=player.data[0].get("name"),
             player_nickname=player.data[0].get("nickname"),
-            target_tournament_name=target.data[0]["name"],
+            target_tournament_name=target_name,
             target_day_name=target_day_name,
         )
 
@@ -128,39 +133,21 @@ class SatelliteTicketService:
             stripped = False
             note_lines: List[List[str]] = [[] for _ in rows]
             for col in ("won_at", "funded_by"):
-                if col not in msg or not any(col in r for r in rows):
+                if not _o_banco_recusou_a_coluna(col, msg, rows):
                     continue
                 stripped = True
-                for i, row in enumerate(rows):
-                    val = row.pop(col, None)
-                    if val:
-                        prefix = "Ganho em" if col == "won_at" else "Financiado por"
-                        note_lines[i].append(f"{prefix}: {val}")
+                _tirar_coluna_guardando_o_texto(col, rows, note_lines)
             if not stripped:
                 raise
-            for i, row in enumerate(rows):
-                if not note_lines[i]:
-                    continue
-                existing = (row.get("notes") or "").strip()
-                merged = " | ".join(note_lines[i])
-                row["notes"] = f"{existing} | {merged}".strip(" |") if existing else merged
+            _gravar_textos_em_notes(rows, note_lines)
             return supabase.table("satellite_tickets").insert(rows).execute().data or []
 
-    # ================================================
-    # Bulk Create — restrito ao "master" do clube
-    # ================================================
-
     @staticmethod
-    def create_tickets_bulk(data: TicketBulkCreate, user_id: str) -> TicketBulkResult:
-        """Emite a MESMA vaga (torneio + dia) para vários jogadores de uma vez.
+    def _validar_destino_da_vaga(data):
+        """Confere torneio e dia de destino e devolve (nome do torneio, valor, nome do dia).
 
-        É o fechamento de um satélite: todos os classificados recebem a entrada
-        do dia-destino. O destino é validado UMA vez e os jogadores são buscados
-        numa consulta só — com 100 jogadores, validar um a um seriam 200 idas ao
-        banco remoto.
-
-        Jogador inexistente ou repetido no payload não derruba o lote: ele volta
-        em `skipped` para o operador resolver na mão, e os demais são emitidos.
+        O valor da vaga é o buy-in do DIA — é a entrada que o ticket paga lá na
+        frente. Serve tanto para a emissão avulsa quanto para o lote.
         """
         target = supabase.table("tournaments").select("name") \
             .eq("id", data.target_tournament_id).execute()
@@ -176,15 +163,39 @@ class SatelliteTicketService:
             raise ValueError("O dia selecionado não pertence ao torneio alvo")
         ticket_value = float(day.data[0]["buy_in"] or 0)
         target_day_name = day.data[0].get("day_name")
+        return target.data[0]["name"], ticket_value, target_day_name
 
+    @staticmethod
+    def _rotulo_legado_do_satelite(target_name: str, target_day_name: Optional[str]) -> str:
+        """Texto para a coluna legada `satellite_name` (torneio — dia)."""
+        derived_label_parts = [target_name]
+        if target_day_name:
+            derived_label_parts.append(target_day_name)
+        return " — ".join(derived_label_parts)
+
+    @staticmethod
+    def _repor_origem_e_financiador(item: dict, won_at_clean: str, funded_by_clean: str) -> None:
+        """Mostra os valores originais mesmo quando foram parar em `notes`."""
+        if not item.get("won_at"):
+            item["won_at"] = won_at_clean or None
+        if not item.get("funded_by"):
+            item["funded_by"] = funded_by_clean or None
+
+    @staticmethod
+    def _separar_jogadores_do_lote(player_ids: List[str]):
+        """Separa quem recebe vaga de quem fica de fora, devolvendo
+        (válidos, jogadores por id, ignorados).
+
+        Jogador repetido no payload é erro de seleção na tela, não intenção de
+        dar duas vagas — emitir as duas seria dinheiro dobrado no pool sem
+        ninguém ter pedido. Os jogadores são buscados numa consulta só: com 100
+        jogadores, validar um a um seriam 200 idas ao banco remoto.
+        """
         skipped: List[TicketBulkSkipped] = []
 
-        # Mesmo jogador duas vezes no payload é erro de seleção na tela, não
-        # intenção de dar duas vagas — emitir as duas seria dinheiro dobrado no
-        # pool sem ninguém ter pedido.
         vistos = set()
         ordenados: List[str] = []
-        for pid in data.player_ids:
+        for pid in player_ids:
             if pid in vistos:
                 skipped.append(TicketBulkSkipped(player_id=pid, reason="duplicado_no_lote"))
                 continue
@@ -202,13 +213,34 @@ class SatelliteTicketService:
             else:
                 skipped.append(TicketBulkSkipped(player_id=pid, reason="jogador_nao_encontrado"))
 
+        return validos, por_id, skipped
+
+    # ================================================
+    # Bulk Create — restrito ao "master" do clube
+    # ================================================
+
+    @staticmethod
+    def create_tickets_bulk(data: TicketBulkCreate, user_id: str) -> TicketBulkResult:
+        """Emite a MESMA vaga (torneio + dia) para vários jogadores de uma vez.
+
+        É o fechamento de um satélite: todos os classificados recebem a entrada
+        do dia-destino. O destino é validado UMA vez e os jogadores são buscados
+        numa consulta só — com 100 jogadores, validar um a um seriam 200 idas ao
+        banco remoto.
+
+        Jogador inexistente ou repetido no payload não derruba o lote: ele volta
+        em `skipped` para o operador resolver na mão, e os demais são emitidos.
+        """
+        target_name, ticket_value, target_day_name = \
+            SatelliteTicketService._validar_destino_da_vaga(data)
+
+        validos, por_id, skipped = \
+            SatelliteTicketService._separar_jogadores_do_lote(data.player_ids)
+
         if not validos:
             raise ValueError("Nenhum jogador válido no lote")
 
-        derived_label_parts = [target.data[0]["name"]]
-        if target_day_name:
-            derived_label_parts.append(target_day_name)
-        derived_label = " — ".join(derived_label_parts)
+        derived_label = SatelliteTicketService._rotulo_legado_do_satelite(target_name, target_day_name)
 
         won_at_clean = (data.won_at or "").strip()
         funded_by_clean = (data.funded_by or "").strip()
@@ -230,16 +262,13 @@ class SatelliteTicketService:
 
         criados = []
         for item in criados_raw:
-            if not item.get("won_at"):
-                item["won_at"] = won_at_clean or None
-            if not item.get("funded_by"):
-                item["funded_by"] = funded_by_clean or None
+            SatelliteTicketService._repor_origem_e_financiador(item, won_at_clean, funded_by_clean)
             jogador = por_id.get(item.get("player_id"), {})
             criados.append(TicketResponse(
                 **item,
                 player_name=jogador.get("name"),
                 player_nickname=jogador.get("nickname"),
-                target_tournament_name=target.data[0]["name"],
+                target_tournament_name=target_name,
                 target_day_name=target_day_name,
             ))
 
@@ -429,20 +458,8 @@ class SatelliteTicketService:
     # ================================================
 
     @staticmethod
-    def transfer_ticket(
-        ticket_id: str,
-        data: TicketTransfer,
-        user_id: str,
-        org_id: Optional[str] = None,
-        stage_id: Optional[str] = None,
-    ) -> TicketResponse:
-        """Passa o ticket para outro jogador — de graça ou vendido.
-
-        O ticket só troca de `player_id`: `ticket_value`, `won_at` e `funded_by`
-        ficam como estão. Quem BANCA o buy-in no torneio-destino não muda por
-        causa da venda — é outro dinheiro, e o resgate depende do financiador
-        original para o clube saber de quem cobrar a entrada.
-        """
+    def _conferir_troca_de_dono(ticket_id: str, data: TicketTransfer):
+        """Valida o ticket e o novo dono; devolve (ticket, id do destino, nome do destino)."""
         ticket = supabase.table("satellite_tickets").select("*") \
             .eq("id", ticket_id).execute()
         if not ticket.data:
@@ -463,58 +480,66 @@ class SatelliteTicketService:
         if not destino.data:
             raise ValueError("Jogador de destino não encontrado")
 
+        return t, destino_id, destino.data[0].get("name")
+
+    @staticmethod
+    def _decidir_como_lancar_a_venda(data: TicketTransfer, t: dict, stage_id: Optional[str], org_id: Optional[str]):
+        """Diz se a troca é venda ou doação e em que etapa o dinheiro entra.
+
+        Devolve (valor, tipo, lança no caixa?, etapa). A receita mora na etapa
+        (other_revenues.stage_id é NOT NULL). Sem etapa, gravar a troca sem o
+        dinheiro deixaria a venda invisível no DRE — melhor recusar e pedir a
+        etapa.
+        """
         valor = float(data.amount or 0)
         tipo = "sale" if valor > 0 else "transfer"
         lanca_no_caixa = tipo == "sale" and bool(data.register_in_cash)
 
-        # A receita mora na etapa (other_revenues.stage_id é NOT NULL). Sem
-        # etapa, gravar a troca sem o dinheiro deixaria a venda invisível no
-        # DRE — melhor recusar e pedir a etapa.
         etapa = stage_id or t.get("stage_id")
         if lanca_no_caixa and not etapa:
             raise ValueError("Selecione uma etapa para lançar a venda no caixa")
         if lanca_no_caixa and not org_id:
             raise ValueError("Sua conta não está vinculada a nenhuma organização.")
 
-        observacao = (data.notes or "").strip() or None
+        return valor, tipo, lanca_no_caixa, etapa
 
-        revenue_id = None
-        if lanca_no_caixa:
-            from app.services.expense_service import ExpenseService
+    @staticmethod
+    def _lancar_receita_da_venda(
+        org_id: str,
+        etapa: str,
+        nome_do_destino: Optional[str],
+        valor: float,
+        payment_method: Optional[str],
+        observacao: Optional[str],
+        user_id: str,
+    ) -> Optional[str]:
+        """Entra o dinheiro da venda no caixa da etapa e devolve o id da receita."""
+        from app.services.expense_service import ExpenseService
 
-            # SEM torneio de propósito. O dinheiro da venda entra no caixa da
-            # etapa em que o caixa está operando (`etapa`), enquanto o
-            # torneio-destino da vaga quase sempre pertence a OUTRA etapa.
-            # Amarrar a receita ao torneio-destino deixaria a linha com etapa e
-            # torneio de etapas diferentes: o DRE filtra por etapa E por torneio
-            # juntos (ExpenseService.summarize_revenues), então a venda sumiria
-            # do DRE do torneio-destino e ainda apareceria como receita "dele"
-            # em qualquer relatório que agrupe só por torneio. A venda da vaga é
-            # faturamento da ETAPA, não entrada do torneio-destino.
-            receita = ExpenseService.create_revenue(org_id, {
-                "stage_id": etapa,
-                "source": "Ticket",
-                "description": f"Venda de ticket para {destino.data[0].get('name')}",
-                "amount": valor,
-                "status": "recebido",
-                "payment_method": data.payment_method,
-                "to_cash": True,
-                "notes": observacao,
-            }, user_id)
-            revenue_id = (receita or {}).get("id")
-
-        registro = {
-            "ticket_id": ticket_id,
-            "from_player_id": t.get("player_id"),
-            "to_player_id": destino_id,
-            "kind": tipo,
-            "amount": valor,
-            "payment_method": data.payment_method,
+        # SEM torneio de propósito. O dinheiro da venda entra no caixa da
+        # etapa em que o caixa está operando (`etapa`), enquanto o
+        # torneio-destino da vaga quase sempre pertence a OUTRA etapa.
+        # Amarrar a receita ao torneio-destino deixaria a linha com etapa e
+        # torneio de etapas diferentes: o DRE filtra por etapa E por torneio
+        # juntos (ExpenseService.summarize_revenues), então a venda sumiria
+        # do DRE do torneio-destino e ainda apareceria como receita "dele"
+        # em qualquer relatório que agrupe só por torneio. A venda da vaga é
+        # faturamento da ETAPA, não entrada do torneio-destino.
+        receita = ExpenseService.create_revenue(org_id, {
             "stage_id": etapa,
-            "revenue_id": revenue_id,
+            "source": "Ticket",
+            "description": f"Venda de ticket para {nome_do_destino}",
+            "amount": valor,
+            "status": "recebido",
+            "payment_method": payment_method,
+            "to_cash": True,
             "notes": observacao,
-            "performed_by": user_id,
-        }
+        }, user_id)
+        return (receita or {}).get("id")
+
+    @staticmethod
+    def _registrar_troca_no_historico(registro: dict, revenue_id: Optional[str], org_id: Optional[str]) -> None:
+        """Grava a linha do histórico; se falhar, estorna a receita já lançada."""
         try:
             supabase.table("satellite_ticket_transfers").insert(registro).execute()
         except Exception as erro:
@@ -539,6 +564,49 @@ class SatelliteTicketService:
             raise ValueError(
                 f"Não foi possível registrar a transferência do ticket: {erro}"
             )
+
+    @staticmethod
+    def transfer_ticket(
+        ticket_id: str,
+        data: TicketTransfer,
+        user_id: str,
+        org_id: Optional[str] = None,
+        stage_id: Optional[str] = None,
+    ) -> TicketResponse:
+        """Passa o ticket para outro jogador — de graça ou vendido.
+
+        O ticket só troca de `player_id`: `ticket_value`, `won_at` e `funded_by`
+        ficam como estão. Quem BANCA o buy-in no torneio-destino não muda por
+        causa da venda — é outro dinheiro, e o resgate depende do financiador
+        original para o clube saber de quem cobrar a entrada.
+        """
+        t, destino_id, nome_do_destino = \
+            SatelliteTicketService._conferir_troca_de_dono(ticket_id, data)
+
+        valor, tipo, lanca_no_caixa, etapa = \
+            SatelliteTicketService._decidir_como_lancar_a_venda(data, t, stage_id, org_id)
+
+        observacao = (data.notes or "").strip() or None
+
+        revenue_id = None
+        if lanca_no_caixa:
+            revenue_id = SatelliteTicketService._lancar_receita_da_venda(
+                org_id, etapa, nome_do_destino, valor, data.payment_method, observacao, user_id
+            )
+
+        registro = {
+            "ticket_id": ticket_id,
+            "from_player_id": t.get("player_id"),
+            "to_player_id": destino_id,
+            "kind": tipo,
+            "amount": valor,
+            "payment_method": data.payment_method,
+            "stage_id": etapa,
+            "revenue_id": revenue_id,
+            "notes": observacao,
+            "performed_by": user_id,
+        }
+        SatelliteTicketService._registrar_troca_no_historico(registro, revenue_id, org_id)
 
         supabase.table("satellite_tickets").update({
             "player_id": destino_id,

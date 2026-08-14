@@ -731,7 +731,10 @@ class TestEstornoDeVendaCancelada:
 
         monkeypatch.setattr(fake, "table", _espia)
         S.get_demonstrativo()
-        assert colunas and all("transaction_id" in c for c in colunas)
+        # Separado em duas: "nao consultou nada" e "consultou sem a coluna" sao
+        # defeitos diferentes, e o pytest precisa dizer qual dos dois quebrou.
+        assert colunas, "nenhum select em cashbox_transactions foi observado"
+        assert all("transaction_id" in c for c in colunas)
 
 
 class TestEstornoDepoisDoFechamento:
@@ -902,7 +905,10 @@ class TestEstornoDepoisDoFechamento:
 
         monkeypatch.setattr(fake, "table", _espia)
         S.get_demonstrativo()
-        assert colunas and all("created_at" in c for c in colunas)
+        # Separado em duas: "nao consultou nada" e "consultou sem a coluna" sao
+        # defeitos diferentes, e o pytest precisa dizer qual dos dois quebrou.
+        assert colunas, "nenhum select em cashbox_transactions foi observado"
+        assert all("created_at" in c for c in colunas)
 
 
 class TestLeituraDeInstante:

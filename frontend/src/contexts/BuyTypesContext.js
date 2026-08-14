@@ -57,6 +57,9 @@ export const BuyTypesProvider = ({ children }) => {
       // Sem rede a consulta falha — justamente o cenário em que o modo offline
       // do Caixa precisa continuar vendendo. A réplica local tem os tipos
       // gravados enquanto havia conexão.
+      // O erro precisa aparecer no console: engolido, uma falha de rede/sessão
+      // virava "esta etapa não tem tipo de buy cadastrado" na tela do Caixa.
+      console.error(`[BuyTypes] falha ao carregar tipos de buy da etapa ${stageId}; usando réplica local:`, e);
       const locais = await lerDaReplica(stageId);
       setBuyTypes(locais);
       setOrigem(locais.length ? 'replica' : 'erro');

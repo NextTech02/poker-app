@@ -362,7 +362,7 @@ const Premiacao = () => {
       await api.post(`/tournaments/${tournamentId}/prizes/bulk`, {
         allocations: autoPreview.map(a => ({
           position: a.position,
-          prize_amount: parseFloat(a.prize_amount),
+          prize_amount: Number.parseFloat(a.prize_amount),
         })),
       });
       setShowAutoModal(false);
@@ -1406,8 +1406,8 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
               onChange={(e) => setEditValue(e.target.value)}
               autoFocus
             />
-            <button className="btn-save" onClick={handleSave} disabled={saving || !isValidInput(editValue)}>OK</button>
-            <button className="btn-cancel" onClick={handleCancel}>X</button>
+            <button type="button" className="btn-save" onClick={handleSave} disabled={saving || !isValidInput(editValue)}>OK</button>
+            <button type="button" className="btn-cancel" onClick={handleCancel}>X</button>
           </div>
         ) : (
           <ValorEditavel
@@ -1441,8 +1441,8 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
               {t('premiacao.percentageResultingValue', 'vale')}{' '}
               {formatCurrency(amountFromPercentage(editValue, poolBase))}
             </span>
-            <button className="btn-save" onClick={handleSave} disabled={saving || !isValidInput(editValue)}>OK</button>
-            <button className="btn-cancel" onClick={handleCancel}>X</button>
+            <button type="button" className="btn-save" onClick={handleSave} disabled={saving || !isValidInput(editValue)}>OK</button>
+            <button type="button" className="btn-cancel" onClick={handleCancel}>X</button>
           </div>
         ) : (
           <ValorEditavel

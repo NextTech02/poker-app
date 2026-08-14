@@ -68,28 +68,19 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False) -> TournamentPlayerDetail:
-        """Register a player for a tournament day"""
-        client_id = registration_data.client_id
-        client_mutation_id = registration_data.client_mutation_id
+    def _inscricao_ja_registrada(client_id: Optional[str]) -> Optional[TournamentPlayerDetail]:
+        """Replay offline: se este tournament_player já existe (mesmo client_id),
+        devolve-o — sem re-executar validação de cashbox/duplicidade."""
+        if not client_id:
+            return None
+        dup = supabase.table("tournament_players").select("*").eq("client_id", client_id).execute()
+        if not dup.data:
+            return None
+        return TournamentPlayerService._detail_from_tp(dup.data[0])
 
-        # Idempotência (replay offline): se este tournament_player já existe (mesmo
-        # client_id), devolve-o sem re-executar — sem validar cashbox/duplicidade.
-        if client_id:
-            dup = supabase.table("tournament_players").select("*").eq("client_id", client_id).execute()
-            if dup.data:
-                return TournamentPlayerService._detail_from_tp(dup.data[0])
-
-        # Block when the operator has no open cashbox (super-admins bypass)
-        CashboxService.require_open_cashbox_for_tournament(user_id, registration_data.tournament_id)
-
-        # Get tournament details (only name, as other fields are in tournament_days)
-        tournament = supabase.table("tournaments").select("name").eq("id", registration_data.tournament_id).execute()
-        if not tournament.data:
-            raise ValueError("Tournament not found")
-
-        tournament_info = tournament.data[0]
-
+    @staticmethod
+    def _carregar_dia_da_inscricao(registration_data: TournamentPlayerCreate, skip_sales_block: bool) -> dict:
+        """Lê o dia da inscrição e recusa a venda se o diretor tiver bloqueado."""
         # tournament_day_id is required for registration
         if not registration_data.tournament_day_id:
             raise ValueError("É necessário selecionar um dia do torneio para inscrição")
@@ -109,9 +100,11 @@ class TournamentPlayerService:
                 day_row=day_info,
             )
 
-        # Use day-specific values
-        buy_in = float(day_info["buy_in"])
-        starting_chips = day_info["starting_chips"]
+        return day_info
+
+    @staticmethod
+    def _conferir_lotacao_e_duplicidade(registration_data: TournamentPlayerCreate, day_info: dict) -> None:
+        """Dia cheio ou jogador já inscrito nele barram a inscrição."""
         max_players = day_info["max_players"]
         registered_players = day_info.get("registered_players", 0)
 
@@ -123,6 +116,140 @@ class TournamentPlayerService:
         existing = supabase.table("tournament_players").select("id").eq("tournament_day_id", registration_data.tournament_day_id).eq("player_id", registration_data.player_id).execute()
         if existing.data:
             raise ValueError("Jogador já está registrado neste dia do torneio")
+
+    @staticmethod
+    def _aplicar_forma_de_pagamento(registration_data: TournamentPlayerCreate, buy_in_amount: float, user_id: str):
+        """Consome o pagamento da entrada e devolve (origem, ticket, valor cobrado)."""
+        payment_source = registration_data.payment_source or "cash"
+        ticket_id = None
+
+        # Ticket payment: free buy-in via satellite ticket
+        if payment_source == "ticket":
+            ticket_id = registration_data.ticket_id
+            # Ticket validation/consumption is handled by SatelliteTicketService.redeem_ticket
+            # which calls this method. We just record amount as 0 for cash register.
+            buy_in_amount = 0
+
+        elif payment_source in ("credit", "mixed"):
+            from app.services.player_credit_service import PlayerCreditService
+
+            available = PlayerCreditService.get_player_available_credit(registration_data.player_id)
+            if available <= 0:
+                raise ValueError("Jogador não possui crédito disponível")
+
+            credit_result = PlayerCreditService.use_credit(
+                player_id=registration_data.player_id,
+                amount=buy_in_amount,
+                tournament_id=registration_data.tournament_id,
+                tournament_day_id=registration_data.tournament_day_id,
+                entry_type="buy_in",
+                user_id=user_id,
+            )
+
+            if credit_result["cash_remaining"] <= 0:
+                payment_source = "credit"
+            else:
+                payment_source = "mixed"
+
+        return payment_source, ticket_id, buy_in_amount
+
+    @staticmethod
+    def _venda_ja_registrada(tp: dict, client_mutation_id: Optional[str]) -> Optional[TournamentPlayer]:
+        """Replay offline: se a transação desta venda já existe (mesmo
+        client_mutation_id), não re-incrementa contadores — devolve o tp atual."""
+        if not client_mutation_id:
+            return None
+        dup = supabase.table("transactions").select("id").eq("client_id", client_mutation_id).execute()
+        if not dup.data:
+            return None
+        return TournamentPlayer(**{k: v for k, v in tp.items() if k != "tournament_days"})
+
+    @staticmethod
+    def _pagar_com_credito(tp: dict, valor: float, tipo_de_entrada: str, payment_source: str, user_id: str) -> str:
+        """Consome o crédito do jogador e devolve a origem final do pagamento.
+
+        "credit" quando o crédito cobriu tudo, "mixed" quando ainda sobrou
+        dinheiro a receber no balcão.
+        """
+        if payment_source in ("credit", "mixed") and valor > 0:
+            from app.services.player_credit_service import PlayerCreditService
+
+            available = PlayerCreditService.get_player_available_credit(tp["player_id"])
+            if available <= 0:
+                raise ValueError("Jogador não possui crédito disponível")
+
+            credit_result = PlayerCreditService.use_credit(
+                player_id=tp["player_id"],
+                amount=valor,
+                tournament_id=tp["tournament_id"],
+                tournament_day_id=tp.get("tournament_day_id"),
+                entry_type=tipo_de_entrada,
+                user_id=user_id,
+            )
+            return "credit" if credit_result["cash_remaining"] <= 0 else "mixed"
+        return payment_source
+
+    @staticmethod
+    def _nivel_de_blind_pelo_relogio(day_info: dict) -> Optional[int]:
+        """Em que nível o dia está agora, contado do início pelo tempo de blind."""
+        from datetime import datetime
+        blind_duration = day_info.get("blind_duration") or 15
+        start_time_str = day_info.get("start_time") or day_info.get("updated_at") or day_info.get("created_at")
+        if not start_time_str:
+            return None
+        start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+        now = datetime.now(start_time.tzinfo)
+        elapsed_seconds = (now - start_time).total_seconds()
+        blind_duration_seconds = blind_duration * 60
+        return int(elapsed_seconds // blind_duration_seconds) + 1
+
+    @staticmethod
+    def _recusar_rebuy_fora_do_nivel(day_info: dict, current_blind_level: Optional[int], skip_level_gate: bool) -> None:
+        """Rebuy só vale até o nível-limite do dia; sem limite configurado, vale sempre.
+
+        No replay OFFLINE (skip_level_gate=True) NÃO recomputamos pelo tempo de agora — o
+        operador fez o rebuy em tempo real quando ainda era permitido; recomputar no sync
+        (mais tarde) rejeitaria injustamente.
+        """
+        if skip_level_gate:
+            return
+        rebuy_level_limit = day_info.get("rebuy_level_limit")
+        if rebuy_level_limit is None:
+            return
+        if current_blind_level is None:
+            current_blind_level = TournamentPlayerService._nivel_de_blind_pelo_relogio(day_info)
+        if current_blind_level is not None and current_blind_level > rebuy_level_limit:
+            raise ValueError(f"Rebuys não são mais permitidos. Limite: nível {rebuy_level_limit}, Atual: nível {current_blind_level}")
+
+    @staticmethod
+    def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False) -> TournamentPlayerDetail:
+        """Register a player for a tournament day"""
+        client_id = registration_data.client_id
+        client_mutation_id = registration_data.client_mutation_id
+
+        # Idempotência (replay offline): se este tournament_player já existe (mesmo
+        # client_id), devolve-o sem re-executar — sem validar cashbox/duplicidade.
+        ja_inscrito = TournamentPlayerService._inscricao_ja_registrada(client_id)
+        if ja_inscrito is not None:
+            return ja_inscrito
+
+        # Block when the operator has no open cashbox (super-admins bypass)
+        CashboxService.require_open_cashbox_for_tournament(user_id, registration_data.tournament_id)
+
+        # Get tournament details (only name, as other fields are in tournament_days)
+        tournament = supabase.table("tournaments").select("name").eq("id", registration_data.tournament_id).execute()
+        if not tournament.data:
+            raise ValueError("Tournament not found")
+
+        tournament_info = tournament.data[0]
+
+        day_info = TournamentPlayerService._carregar_dia_da_inscricao(registration_data, skip_sales_block)
+
+        # Use day-specific values
+        buy_in = float(day_info["buy_in"])
+        starting_chips = day_info["starting_chips"]
+
+        TournamentPlayerService._conferir_lotacao_e_duplicidade(registration_data, day_info)
 
         # O VALOR da entrada vem sempre da configuração do DIA (fonte única).
         # O tipo de buy (por etapa), quando informado, define apenas o RAKE;
@@ -159,36 +286,8 @@ class TournamentPlayerService:
         # Note: registered_players count is updated automatically by database trigger
 
         # Handle payment source
-        payment_source = registration_data.payment_source or "cash"
-        ticket_id = None
-
-        # Ticket payment: free buy-in via satellite ticket
-        if payment_source == "ticket":
-            ticket_id = registration_data.ticket_id
-            # Ticket validation/consumption is handled by SatelliteTicketService.redeem_ticket
-            # which calls this method. We just record amount as 0 for cash register.
-            buy_in_amount = 0
-
-        elif payment_source in ("credit", "mixed"):
-            from app.services.player_credit_service import PlayerCreditService
-
-            available = PlayerCreditService.get_player_available_credit(registration_data.player_id)
-            if available <= 0:
-                raise ValueError("Jogador não possui crédito disponível")
-
-            credit_result = PlayerCreditService.use_credit(
-                player_id=registration_data.player_id,
-                amount=buy_in_amount,
-                tournament_id=registration_data.tournament_id,
-                tournament_day_id=registration_data.tournament_day_id,
-                entry_type="buy_in",
-                user_id=user_id,
-            )
-
-            if credit_result["cash_remaining"] <= 0:
-                payment_source = "credit"
-            else:
-                payment_source = "mixed"
+        payment_source, ticket_id, buy_in_amount = \
+            TournamentPlayerService._aplicar_forma_de_pagamento(registration_data, buy_in_amount, user_id)
 
         # Create transaction record
         transaction_data = {
@@ -238,10 +337,9 @@ class TournamentPlayerService:
 
         # Idempotência (replay offline): se a transação deste rebuy já existe
         # (mesmo client_mutation_id), não re-incrementa contadores — devolve o tp atual.
-        if client_mutation_id:
-            dup = supabase.table("transactions").select("id").eq("client_id", client_mutation_id).execute()
-            if dup.data:
-                return TournamentPlayer(**{k: v for k, v in tp.items() if k != "tournament_days"})
+        ja_registrado = TournamentPlayerService._venda_ja_registrada(tp, client_mutation_id)
+        if ja_registrado is not None:
+            return ja_registrado
 
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
@@ -259,27 +357,10 @@ class TournamentPlayerService:
         rebuy_amount = float(day_info.get("rebuy_amount") or 0)
         rake_pct = float(buy_type["rake_percentage"]) if buy_type else float(day_info.get("rake_percentage") or 0)
         rebuy_chips = day_info.get("rebuy_chips") or 10000
-        rebuy_level_limit = day_info.get("rebuy_level_limit")
 
-        # Calculate current blind level if not provided. No replay OFFLINE
-        # (skip_level_gate=True) NÃO recomputamos pelo tempo de agora — o operador fez
-        # o rebuy em tempo real quando ainda era permitido; recomputar no sync (mais
-        # tarde) rejeitaria injustamente.
-        if not skip_level_gate and current_blind_level is None and rebuy_level_limit is not None:
-            from datetime import datetime
-            blind_duration = day_info.get("blind_duration") or 15
-            start_time_str = day_info.get("start_time") or day_info.get("updated_at") or day_info.get("created_at")
-            if start_time_str:
-                start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
-                now = datetime.now(start_time.tzinfo)
-                elapsed_seconds = (now - start_time).total_seconds()
-                blind_duration_seconds = blind_duration * 60
-                current_blind_level = int(elapsed_seconds // blind_duration_seconds) + 1
-
-        # Check if rebuys are still allowed based on blind level
-        if not skip_level_gate and rebuy_level_limit is not None and current_blind_level is not None:
-            if current_blind_level > rebuy_level_limit:
-                raise ValueError(f"Rebuys não são mais permitidos. Limite: nível {rebuy_level_limit}, Atual: nível {current_blind_level}")
+        # Check if rebuys are still allowed based on blind level (o nível atual é
+        # calculado pelo relógio do dia quando o caixa não informa).
+        TournamentPlayerService._recusar_rebuy_fora_do_nivel(day_info, current_blind_level, skip_level_gate)
 
         # Update tournament player - if eliminated, reactivate them
         updated_data = {
@@ -295,23 +376,9 @@ class TournamentPlayerService:
         _chipcount_cache.pop(tp.get("tournament_day_id"), None)
 
         # Handle credit payment for rebuy
-        actual_payment_source = payment_source
-        if payment_source in ("credit", "mixed") and rebuy_amount > 0:
-            from app.services.player_credit_service import PlayerCreditService
-
-            available = PlayerCreditService.get_player_available_credit(tp["player_id"])
-            if available <= 0:
-                raise ValueError("Jogador não possui crédito disponível")
-
-            credit_result = PlayerCreditService.use_credit(
-                player_id=tp["player_id"],
-                amount=rebuy_amount,
-                tournament_id=tp["tournament_id"],
-                tournament_day_id=tp.get("tournament_day_id"),
-                entry_type="rebuy",
-                user_id=user_id,
-            )
-            actual_payment_source = "credit" if credit_result["cash_remaining"] <= 0 else "mixed"
+        actual_payment_source = TournamentPlayerService._pagar_com_credito(
+            tp, rebuy_amount, "rebuy", payment_source, user_id
+        )
 
         # Create transaction
         transaction_data = {
@@ -346,10 +413,9 @@ class TournamentPlayerService:
         tp = tp_response.data[0]
 
         # Idempotência (replay offline): addon já aplicado? devolve o tp atual.
-        if client_mutation_id:
-            dup = supabase.table("transactions").select("id").eq("client_id", client_mutation_id).execute()
-            if dup.data:
-                return TournamentPlayer(**{k: v for k, v in tp.items() if k != "tournament_days"})
+        ja_registrado = TournamentPlayerService._venda_ja_registrada(tp, client_mutation_id)
+        if ja_registrado is not None:
+            return ja_registrado
 
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, tp["tournament_id"])
@@ -380,23 +446,9 @@ class TournamentPlayerService:
         _chipcount_cache.pop(tp.get("tournament_day_id"), None)
 
         # Handle credit payment for addon
-        actual_payment_source = payment_source
-        if payment_source in ("credit", "mixed") and addon_amount > 0:
-            from app.services.player_credit_service import PlayerCreditService
-
-            available = PlayerCreditService.get_player_available_credit(tp["player_id"])
-            if available <= 0:
-                raise ValueError("Jogador não possui crédito disponível")
-
-            credit_result = PlayerCreditService.use_credit(
-                player_id=tp["player_id"],
-                amount=addon_amount,
-                tournament_id=tp["tournament_id"],
-                tournament_day_id=tp.get("tournament_day_id"),
-                entry_type="addon",
-                user_id=user_id,
-            )
-            actual_payment_source = "credit" if credit_result["cash_remaining"] <= 0 else "mixed"
+        actual_payment_source = TournamentPlayerService._pagar_com_credito(
+            tp, addon_amount, "addon", payment_source, user_id
+        )
 
         # Create transaction
         transaction_data = {

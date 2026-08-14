@@ -141,6 +141,7 @@ const Caixa = () => {
       setStageBlock(res.data || null);
     } catch (error) {
       // Sem a informação, não bloqueia nada: o servidor ainda recusa a venda.
+      console.warn(`[Caixa] falha ao ler o bloqueio de vendas da etapa ${id}:`, error);
       setStageBlock(null);
     }
   };
@@ -1287,7 +1288,7 @@ const Caixa = () => {
                     ? t('cashRegister.finishCancel', 'Concluir estorno')
                     : t('cashRegister.cancelSale', 'Cancelar venda')}
                 </h2>
-                <button className="close-btn" onClick={() => setCancelling(null)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setCancelling(null)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -1371,7 +1372,7 @@ const Caixa = () => {
             <div className="modal">
               <div className="modal-header">
                 <h2>{t('cashRegister.changePaymentMethod', 'Trocar pagamento')}</h2>
-                <button className="close-btn" onClick={() => setChangingMethod(null)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setChangingMethod(null)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

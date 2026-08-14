@@ -246,8 +246,9 @@ class TestBulkDaPremiacao:
 
     def test_soma_acima_do_pool_pagavel_e_recusada(self, monkeypatch):
         fake = self._monta(monkeypatch)
+        lote = self._lote(700, 400)   # preparo fora do raises: só o serviço sob teste dentro
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, self._lote(700, 400))
+            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
         # A mensagem precisa dizer quanto cabe; só "recusado" não ajuda o caixa.
         assert "900.00" in exc.value.detail
@@ -262,8 +263,9 @@ class TestBulkDaPremiacao:
         staff; distribuí-la nas posições faria o pagamento travar na última.
         """
         self._monta(monkeypatch)
+        lote = self._lote(950)   # preparo fora do raises: só o serviço sob teste dentro
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, self._lote(950))
+            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
         assert "pagável" in exc.value.detail
 
@@ -296,8 +298,9 @@ class TestBulkDaPremiacao:
             "id": ALLOC_UUID, "tournament_id": TOURNAMENT_UUID, "position": 2,
             "prize_amount": 100, "paid": True,
         }])
+        lote = self._lote(500)   # preparo fora do raises: só o serviço sob teste dentro
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, self._lote(500))
+            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
         assert "2º" in exc.value.detail
         assert len(fake.store["prize_allocations"]) == 1
@@ -316,8 +319,9 @@ class TestBulkDaPremiacao:
              "tournament_id": TOURNAMENT_UUID, "position": 2,
              "prize_amount": 100, "paid": True},
         ])
+        lote = self._lote(500)   # preparo fora do raises: só o serviço sob teste dentro
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, self._lote(500))
+            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
         assert "2º" in exc.value.detail
         # E nada foi apagado: as duas faixas pagas continuam lá.
@@ -330,8 +334,9 @@ class TestBulkDaPremiacao:
             "id": ALLOC_UUID, "tournament_id": TOURNAMENT_UUID, "position": None,
             "prize_amount": 100, "paid": True,
         }])
+        lote = self._lote(500)   # preparo fora do raises: só o serviço sob teste dentro
         with pytest.raises(HTTPException) as exc:
-            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, self._lote(500))
+            PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
         assert len(fake.store["prize_allocations"]) == 1
 

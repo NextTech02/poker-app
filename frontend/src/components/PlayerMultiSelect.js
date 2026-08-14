@@ -40,7 +40,10 @@ const PlayerMultiSelect = ({ values = [], onChange, disabled = false }) => {
   }, []);
 
   const norm = (s) => (s || '').toString().toLowerCase();
-  const label = (p) => `${p.name}${p.nickname ? ` (${p.nickname})` : ''}`;
+  // Apelido entre parênteses só quando existe; montado fora do template para
+  // não aninhar literais.
+  const apelido = (p) => (p.nickname ? ` (${p.nickname})` : '');
+  const label = (p) => `${p.name}${apelido(p)}`;
 
   const q = norm(query).trim();
   const filtered = q

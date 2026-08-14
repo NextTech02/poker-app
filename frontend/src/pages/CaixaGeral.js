@@ -85,6 +85,7 @@ const CaixaGeral = () => {
       const response = await api.get(`/cash/stage/${id}/summary`);
       setStageSummary(response.data);
     } catch (error) {
+      console.error(`[CaixaGeral] falha ao carregar o resumo da etapa ${id}:`, error);
       setStageSummary(null);
     }
   }, []);
@@ -96,6 +97,7 @@ const CaixaGeral = () => {
       const response = await api.get(`/cash/stage/${id}/payment-methods`);
       setPaymentBreakdown(response.data);
     } catch (error) {
+      console.error(`[CaixaGeral] falha ao carregar a composição por forma de pagamento da etapa ${id}:`, error);
       setPaymentBreakdown(null);
     }
   }, []);

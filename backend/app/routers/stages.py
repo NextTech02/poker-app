@@ -16,7 +16,20 @@ class SalesBlockToggle(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=500)
 
 
-@router.post("/{stage_id}/sales-block")
+@router.post(
+    "/{stage_id}/sales-block",
+    responses={
+        400: {
+            "description": (
+                "Não foi possível gravar o bloqueio: a migração do banco que cria as "
+                "colunas de bloqueio ainda não foi aplicada, ou a etapa sumiu no meio "
+                "da atualização."
+            )
+        },
+        403: {"description": "Só quem administra o caixa pode bloquear ou liberar vendas."},
+        404: {"description": "Etapa não encontrada."},
+    },
+)
 def set_stage_sales_block(
     stage_id: str,
     data: SalesBlockToggle,

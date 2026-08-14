@@ -15,6 +15,123 @@ import { useTranslation } from 'react-i18next';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './SatelliteTickets.css';
 
+const isAwarded = (status) => status === 'awarded' || status === 'available';
+
+const renderPlayer = (ticket) => {
+  if (!ticket.player_name) return <span className="st-unassigned">--</span>;
+  return (
+    <>
+      {ticket.player_name}
+      {ticket.player_nickname && <span className="player-nickname"> ({ticket.player_nickname})</span>}
+    </>
+  );
+};
+
+const getStatusBadge = (status, t) => {
+  const map = {
+    awarded: { label: t('satelliteTickets.badgeAvailable'), cls: 'st-status--available' },
+    available: { label: t('satelliteTickets.badgeAvailable'), cls: 'st-status--available' },
+    redeemed: { label: t('satelliteTickets.badgeRedeemed'), cls: 'st-status--redeemed' },
+    cancelled: { label: t('satelliteTickets.badgeCancelled'), cls: 'st-status--cancelled' },
+  };
+  const s = map[status] || { label: status, cls: '' };
+  return <span className={`st-status-badge ${s.cls}`}>{s.label}</span>;
+};
+
+// Os três contadores do topo — esqueleto enquanto carrega, nada se o resumo não veio.
+const ResumoDeTickets = ({ loading, summary, t }) => {
+  if (loading) {
+    return <><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></>;
+  }
+  if (!summary) return null;
+  return (
+    <>
+      <Card className="stat-card">
+        <div className="stat-info">
+          <h3 className="st-stat-available">{summary.total_available}</h3>
+          <p>{t('satelliteTickets.statsAvailable')}</p>
+        </div>
+      </Card>
+      <Card className="stat-card">
+        <div className="stat-info">
+          <h3 className="st-stat-redeemed">{summary.total_redeemed}</h3>
+          <p>{t('satelliteTickets.statsRedeemed')}</p>
+        </div>
+      </Card>
+      <Card className="stat-card">
+        <div className="stat-info">
+          <h3>{summary.total_cancelled}</h3>
+          <p>{t('satelliteTickets.statsCancelled')}</p>
+        </div>
+      </Card>
+    </>
+  );
+};
+
+// A lista de tickets: esqueleto enquanto carrega, explicação quando não há nenhum.
+const TabelaDeTickets = ({ loading, tickets, t, fmt, onTransferir, onCancelar }) => {
+  if (loading) {
+    return (
+      <table className="transactions-table">
+        <thead><tr><th>{t('satelliteTickets.colPlayer')}</th><th>{t('satelliteTickets.colTargetTournament')}</th><th>{t('satelliteTickets.colDay')}</th><th>{t('satelliteTickets.colValue')}</th><th>{t('satelliteTickets.colStatus')}</th><th>{t('satelliteTickets.colOrigin')}</th><th>{t('satelliteTickets.colFundedBy')}</th><th>{t('satelliteTickets.colDate')}</th><th>{t('satelliteTickets.colActions')}</th></tr></thead>
+        <tbody><SkeletonTableRow cols={9} /><SkeletonTableRow cols={9} /><SkeletonTableRow cols={9} /></tbody>
+      </table>
+    );
+  }
+  if (tickets.length === 0) {
+    return <EmptyState icon={null} title={t('satelliteTickets.emptyTitle')} subtitle={t('satelliteTickets.emptySubtitle')} />;
+  }
+  return (
+    <div className="table-container">
+      <table className="transactions-table">
+        <thead>
+          <tr>
+            <th>{t('satelliteTickets.colPlayer')}</th>
+            <th>{t('satelliteTickets.colTargetTournament')}</th>
+            <th>{t('satelliteTickets.colDay')}</th>
+            <th>{t('satelliteTickets.colValue')}</th>
+            <th>{t('satelliteTickets.colStatus')}</th>
+            <th>{t('satelliteTickets.colOrigin')}</th>
+            <th>{t('satelliteTickets.colFundedBy')}</th>
+            <th>{t('satelliteTickets.colDate')}</th>
+            <th>{t('satelliteTickets.colActions')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tickets.map((ticket) => (
+            <tr key={ticket.id}>
+              <td>{renderPlayer(ticket)}</td>
+              <td>{ticket.target_tournament_name}</td>
+              <td>{ticket.target_day_name || <span className="st-unassigned">--</span>}</td>
+              <td>{fmt(ticket.ticket_value)}</td>
+              <td>{getStatusBadge(ticket.status, t)}</td>
+              <td>
+                {ticket.won_at || <span className="st-unassigned">--</span>}
+              </td>
+              <td>
+                {ticket.funded_by || <span className="st-unassigned">--</span>}
+              </td>
+              <td>{new Date(ticket.created_at).toLocaleDateString('pt-BR')}</td>
+              <td>
+                {isAwarded(ticket.status) && (
+                  <>
+                    <button className="st-action-btn" onClick={() => onTransferir(ticket)}>
+                      {t('satelliteTickets.transferAction', 'Transferir/Vender')}
+                    </button>
+                    <button className="st-action-btn st-action-btn--danger" onClick={() => onCancelar(ticket.id)}>
+                      {t('satelliteTickets.cancelAction')}
+                    </button>
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 const SatelliteTickets = () => {
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
@@ -253,29 +370,6 @@ const SatelliteTickets = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    const map = {
-      awarded: { label: t('satelliteTickets.badgeAvailable'), cls: 'st-status--available' },
-      available: { label: t('satelliteTickets.badgeAvailable'), cls: 'st-status--available' },
-      redeemed: { label: t('satelliteTickets.badgeRedeemed'), cls: 'st-status--redeemed' },
-      cancelled: { label: t('satelliteTickets.badgeCancelled'), cls: 'st-status--cancelled' },
-    };
-    const s = map[status] || { label: status, cls: '' };
-    return <span className={`st-status-badge ${s.cls}`}>{s.label}</span>;
-  };
-
-  const isAwarded = (status) => status === 'awarded' || status === 'available';
-
-  const renderPlayer = (ticket) => {
-    if (!ticket.player_name) return <span className="st-unassigned">--</span>;
-    return (
-      <>
-        {ticket.player_name}
-        {ticket.player_nickname && <span className="player-nickname"> ({ticket.player_nickname})</span>}
-      </>
-    );
-  };
-
   return (
     <div className="app-container">
       <Sidebar />
@@ -301,30 +395,7 @@ const SatelliteTickets = () => {
 
         {/* Summary */}
         <div className="stats-grid">
-          {loading ? (
-            <><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></>
-          ) : summary ? (
-            <>
-              <Card className="stat-card">
-                <div className="stat-info">
-                  <h3 className="st-stat-available">{summary.total_available}</h3>
-                  <p>{t('satelliteTickets.statsAvailable')}</p>
-                </div>
-              </Card>
-              <Card className="stat-card">
-                <div className="stat-info">
-                  <h3 className="st-stat-redeemed">{summary.total_redeemed}</h3>
-                  <p>{t('satelliteTickets.statsRedeemed')}</p>
-                </div>
-              </Card>
-              <Card className="stat-card">
-                <div className="stat-info">
-                  <h3>{summary.total_cancelled}</h3>
-                  <p>{t('satelliteTickets.statsCancelled')}</p>
-                </div>
-              </Card>
-            </>
-          ) : null}
+          <ResumoDeTickets loading={loading} summary={summary} t={t} />
         </div>
 
         {/* Filters */}
@@ -357,62 +428,14 @@ const SatelliteTickets = () => {
 
         {/* Tickets Table */}
         <Card title={t('satelliteTickets.ticketsCardTitle')}>
-          {loading ? (
-            <table className="transactions-table">
-              <thead><tr><th>{t('satelliteTickets.colPlayer')}</th><th>{t('satelliteTickets.colTargetTournament')}</th><th>{t('satelliteTickets.colDay')}</th><th>{t('satelliteTickets.colValue')}</th><th>{t('satelliteTickets.colStatus')}</th><th>{t('satelliteTickets.colOrigin')}</th><th>{t('satelliteTickets.colFundedBy')}</th><th>{t('satelliteTickets.colDate')}</th><th>{t('satelliteTickets.colActions')}</th></tr></thead>
-              <tbody><SkeletonTableRow cols={9} /><SkeletonTableRow cols={9} /><SkeletonTableRow cols={9} /></tbody>
-            </table>
-          ) : tickets.length === 0 ? (
-            <EmptyState icon={null} title={t('satelliteTickets.emptyTitle')} subtitle={t('satelliteTickets.emptySubtitle')} />
-          ) : (
-            <div className="table-container">
-              <table className="transactions-table">
-                <thead>
-                  <tr>
-                    <th>{t('satelliteTickets.colPlayer')}</th>
-                    <th>{t('satelliteTickets.colTargetTournament')}</th>
-                    <th>{t('satelliteTickets.colDay')}</th>
-                    <th>{t('satelliteTickets.colValue')}</th>
-                    <th>{t('satelliteTickets.colStatus')}</th>
-                    <th>{t('satelliteTickets.colOrigin')}</th>
-                    <th>{t('satelliteTickets.colFundedBy')}</th>
-                    <th>{t('satelliteTickets.colDate')}</th>
-                    <th>{t('satelliteTickets.colActions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tickets.map((ticket) => (
-                    <tr key={ticket.id}>
-                      <td>{renderPlayer(ticket)}</td>
-                      <td>{ticket.target_tournament_name}</td>
-                      <td>{ticket.target_day_name || <span className="st-unassigned">--</span>}</td>
-                      <td>{fmt(ticket.ticket_value)}</td>
-                      <td>{getStatusBadge(ticket.status)}</td>
-                      <td>
-                        {ticket.won_at || <span className="st-unassigned">--</span>}
-                      </td>
-                      <td>
-                        {ticket.funded_by || <span className="st-unassigned">--</span>}
-                      </td>
-                      <td>{new Date(ticket.created_at).toLocaleDateString('pt-BR')}</td>
-                      <td>
-                        {isAwarded(ticket.status) && (
-                          <>
-                            <button className="st-action-btn" onClick={() => openTransferModal(ticket)}>
-                              {t('satelliteTickets.transferAction', 'Transferir/Vender')}
-                            </button>
-                            <button className="st-action-btn st-action-btn--danger" onClick={() => handleCancelTicket(ticket.id)}>
-                              {t('satelliteTickets.cancelAction')}
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <TabelaDeTickets
+            loading={loading}
+            tickets={tickets}
+            t={t}
+            fmt={fmt}
+            onTransferir={openTransferModal}
+            onCancelar={handleCancelTicket}
+          />
         </Card>
 
         {/* Create Ticket Modal */}

@@ -118,7 +118,25 @@ def _validar_escopo_da_etapa(transaction_id: str, stage_id: Optional[str]) -> di
     return tx
 
 
-@router.post("/{transaction_id}/cancel", response_model=TransactionDetail)
+@router.post(
+    "/{transaction_id}/cancel",
+    response_model=TransactionDetail,
+    responses={
+        400: {
+            "description": (
+                "Venda não estornável: só entradas (buy-in, rebuy e add-on) podem ser "
+                "canceladas, e a venda não pode já estar cancelada."
+            )
+        },
+        403: {
+            "description": (
+                "Só quem administra o caixa pode cancelar vendas; também 403 quando a "
+                "transação pertence a outra etapa que não a do header X-Stage-ID."
+            )
+        },
+        404: {"description": "Transação não encontrada."},
+    },
+)
 def cancel_transaction(
     transaction_id: str,
     data: TransactionCancel,
@@ -141,7 +159,21 @@ def cancel_transaction(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.patch("/{transaction_id}/payment-method", response_model=TransactionDetail)
+@router.patch(
+    "/{transaction_id}/payment-method",
+    response_model=TransactionDetail,
+    responses={
+        400: {"description": "Venda já cancelada: a forma de pagamento não pode mais ser alterada."},
+        403: {
+            "description": (
+                "Só o operador que registrou a venda ou um admin de caixa pode trocar a "
+                "forma de pagamento; também 403 quando a transação pertence a outra "
+                "etapa que não a do header X-Stage-ID."
+            )
+        },
+        404: {"description": "Transação não encontrada."},
+    },
+)
 def update_transaction_payment_method(
     transaction_id: str,
     data: TransactionPaymentMethodUpdate,

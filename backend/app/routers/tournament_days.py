@@ -737,7 +737,25 @@ def adjust_eliminations(
         )
 
 
-@router.post("/{day_id}/sales-block")
+@router.post(
+    "/{day_id}/sales-block",
+    responses={
+        400: {
+            "description": (
+                "Não foi possível gravar o bloqueio: a migração do banco que cria as "
+                "colunas de bloqueio ainda não foi aplicada, ou o dia sumiu no meio "
+                "da atualização."
+            )
+        },
+        403: {
+            "description": (
+                "Só quem administra o caixa pode bloquear ou liberar vendas; também "
+                "403 quando o dia pertence a outra etapa que não a do header X-Stage-ID."
+            )
+        },
+        404: {"description": "Dia de torneio não encontrado."},
+    },
+)
 def set_day_sales_block(
     day_id: str,
     data: SalesBlockToggle,

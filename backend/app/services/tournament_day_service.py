@@ -514,6 +514,24 @@ class TournamentDayService:
         }
 
     @staticmethod
+    def _jogadores_ja_no_dia_final(final_day_id) -> set:
+        """Quem já tem linha no dia final — não pode entrar de novo.
+
+        Filtra por jogador (e não só pelo dia de origem) porque um clique
+        repetido em "Avançar" e um buy-in direto na final produziriam a mesma
+        duplicata.
+        """
+        ja_no_dia_final = set()
+        existentes = supabase.table("tournament_players")\
+            .select("player_id")\
+            .eq("tournament_day_id", final_day_id)\
+            .execute()
+        for r in (existentes.data or []):
+            if r.get("player_id"):
+                ja_no_dia_final.add(r["player_id"])
+        return ja_no_dia_final
+
+    @staticmethod
     def _avancar_por_jogador(qualifying_day, final_day, sobreviventes: List[dict]) -> dict:
         """Cria no dia final uma linha por classificado, carregando o stack real."""
         # O contador genérico de eliminações e a lista por jogador podem
@@ -540,17 +558,8 @@ class TournamentDayService:
                 f"({len(sem_fichas)} de {len(sobreviventes)} sem fichas registradas)"
             )
 
-        # Idempotência: quem já tem linha no dia final não entra de novo. Filtra
-        # por jogador (e não só pelo dia de origem) porque um clique repetido em
-        # "Avançar" e um buy-in direto na final produziriam a mesma duplicata.
-        ja_no_dia_final = set()
-        existentes = supabase.table("tournament_players")\
-            .select("player_id")\
-            .eq("tournament_day_id", final_day.id)\
-            .execute()
-        for r in (existentes.data or []):
-            if r.get("player_id"):
-                ja_no_dia_final.add(r["player_id"])
+        # Idempotência: quem já tem linha no dia final não entra de novo.
+        ja_no_dia_final = TournamentDayService._jogadores_ja_no_dia_final(final_day.id)
 
         linhas = []
         avancados = []
