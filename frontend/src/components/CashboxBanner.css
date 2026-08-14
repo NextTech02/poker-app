@@ -51,9 +51,12 @@
   color: #422006;
 }
 
+/* --text-tertiary aqui e' FUNDO, nao texto: com o token clareado o texto
+   claro deixaria de contrastar, entao a pill passa a tinta escura como as
+   irmas acima (7,0:1). */
 .cashbox-banner__pill--archived {
   background: var(--text-tertiary);
-  color: #f9fafb;
+  color: #0a0f17;
 }
 
 .cashbox-banner__info {

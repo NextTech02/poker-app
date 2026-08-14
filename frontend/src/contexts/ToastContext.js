@@ -163,7 +163,7 @@ export const ToastProvider = ({ children }) => {
                 {t.title && <div className="toast-title">{t.title}</div>}
                 <div className="toast-message">{t.message}</div>
               </div>
-              <button className="toast-close" onClick={() => removeToast(t.id)}>
+              <button type="button" className="toast-close" onClick={() => removeToast(t.id)}>
                 &times;
               </button>
               <div
@@ -186,13 +186,13 @@ export const ToastProvider = ({ children }) => {
             <div className="confirm-dialog-title">{confirmDialog.title}</div>
             <div className="confirm-dialog-message">{confirmDialog.message}</div>
             <div className="confirm-dialog-actions">
-              <button
+              <button type="button"
                 className="confirm-btn confirm-btn-cancel"
                 onClick={confirmDialog.onCancel}
               >
                 {confirmDialog.cancelText}
               </button>
-              <button
+              <button type="button"
                 className={`confirm-btn ${confirmDialog.variant === 'danger' ? 'confirm-btn-danger' : 'confirm-btn-confirm'}`}
                 onClick={confirmDialog.onConfirm}
               >

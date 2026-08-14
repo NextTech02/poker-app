@@ -115,10 +115,10 @@ const TabelaDeTickets = ({ loading, tickets, t, fmt, onTransferir, onCancelar })
               <td>
                 {isAwarded(ticket.status) && (
                   <>
-                    <button className="st-action-btn" onClick={() => onTransferir(ticket)}>
+                    <button type="button" className="st-action-btn" onClick={() => onTransferir(ticket)}>
                       {t('satelliteTickets.transferAction', 'Transferir/Vender')}
                     </button>
-                    <button className="st-action-btn st-action-btn--danger" onClick={() => onCancelar(ticket.id)}>
+                    <button type="button" className="st-action-btn st-action-btn--danger" onClick={() => onCancelar(ticket.id)}>
                       {t('satelliteTickets.cancelAction')}
                     </button>
                   </>
@@ -332,6 +332,10 @@ const SatelliteTickets = () => {
       const res = await api.get('/satellite-tickets/available');
       setAvailableTickets(res.data || []);
     } catch (err) {
+      // A tela segue aberta com a lista vazia, mas o erro precisa aparecer em
+      // algum lugar: sem isso, "nenhum ticket disponível" e "a busca falhou"
+      // ficam indistinguíveis para quem está operando.
+      console.error('Erro ao carregar tickets disponíveis para resgate:', err);
       setAvailableTickets([]);
     }
   };
@@ -444,7 +448,7 @@ const SatelliteTickets = () => {
             <div className="modal" role="dialog" aria-modal="true" aria-label={t('satelliteTickets.createModalTitle')}>
               <div className="modal-header">
                 <h2>{t('satelliteTickets.createModalTitle')}</h2>
-                <button className="close-btn" onClick={fecharCriacao} aria-label={t('common.close')}><span className="close-icon"></span></button>
+                <button type="button" className="close-btn" onClick={fecharCriacao} aria-label={t('common.close')}><span className="close-icon"></span></button>
               </div>
               <form onSubmit={handleCreateTicket}>
                 {podeLote && (
@@ -589,7 +593,7 @@ const SatelliteTickets = () => {
             <div className="modal" role="dialog" aria-modal="true" aria-label={t('satelliteTickets.redeemModalTitle')}>
               <div className="modal-header">
                 <h2>{t('satelliteTickets.redeemModalTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowRedeemModal(false)} aria-label={t('common.close')}><span className="close-icon"></span></button>
+                <button type="button" className="close-btn" onClick={() => setShowRedeemModal(false)} aria-label={t('common.close')}><span className="close-icon"></span></button>
               </div>
               <form onSubmit={handleRedeemTicket}>
                 {availableTickets.length === 0 ? (
@@ -671,7 +675,7 @@ const SatelliteTickets = () => {
             <div className="modal" role="dialog" aria-modal="true" aria-label={t('satelliteTickets.transferModalTitle', 'Transferir ou vender ticket')}>
               <div className="modal-header">
                 <h2>{t('satelliteTickets.transferModalTitle', 'Transferir ou vender ticket')}</h2>
-                <button className="close-btn" onClick={() => setTransferTicket(null)} aria-label={t('common.close')}><span className="close-icon"></span></button>
+                <button type="button" className="close-btn" onClick={() => setTransferTicket(null)} aria-label={t('common.close')}><span className="close-icon"></span></button>
               </div>
               <form onSubmit={handleTransferTicket}>
                 <div className="st-info-box st-info-box--detail">

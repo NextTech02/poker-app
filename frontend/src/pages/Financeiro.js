@@ -175,42 +175,49 @@ const Financeiro = () => {
         {/* Sub-abas */}
         <div className="fn-tabs">
           <button
+            type="button"
             className={`fn-tab ${tab === 'dre' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('dre')}
           >
             {t('cashbox.tabDre')}
           </button>
           <button
+            type="button"
             className={`fn-tab ${tab === 'caixas' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('caixas')}
           >
             {t('cashbox.tabCashboxes')}
           </button>
           <button
+            type="button"
             className={`fn-tab ${tab === 'demonstrativo' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('demonstrativo')}
           >
             {t('cashbox.tabDemonstrativo')}
           </button>
           <button
+            type="button"
             className={`fn-tab ${tab === 'despesas' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('despesas')}
           >
             {t('financial.expensesTab', 'Despesas')}
           </button>
           <button
+            type="button"
             className={`fn-tab ${tab === 'receitas' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('receitas')}
           >
             {t('financial.revenuesTab', 'Outras receitas')}
           </button>
           <button
+            type="button"
             className={`fn-tab ${tab === 'metodos' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('metodos')}
           >
             {t('financial.paymentMethodsTab', 'Métodos de Pagamento')}
           </button>
           <button
+            type="button"
             className={`fn-tab ${tab === 'buytypes' ? 'fn-tab--active' : ''}`}
             onClick={() => setTab('buytypes')}
           >

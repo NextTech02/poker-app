@@ -666,17 +666,32 @@ tbody td {
   --accent-hover: #9a70f9;
   --accent-active: #5b21e0;
 
-  /* Text Hierarchy - Enhanced readability */
+  /* Text Hierarchy - Enhanced readability
+     Contraste (WCAG 1.4.3): os tons abaixo foram calibrados para >= 4,5:1
+     contra o fundo mais claro do tema escuro (--card-bg #1e2d3d). Como o tema
+     e' unico e escuro, mudar qualquer um deles muda a leitura de todas as telas.
+     --text-quaternary e --text-disabled ficam de fora de proposito:
+     quaternary nao e' usado em lugar nenhum hoje e disabled e' isento pela WCAG
+     (controle desabilitado) — clarea-lo faria o desabilitado parecer ativo. */
   --text-primary: #e0eaf4;
   --text-secondary: #8aa0b0;
-  --text-tertiary: #5a7080;
+  --text-tertiary: #8b9fad;   /* era #5a7080 (2,40:1) -> 4,52:1 */
   --text-quaternary: #4b5563;
   --text-disabled: #374151;
-  --text-gold: #5b5be8;
-  --text-success: #9a70f9;
-  --text-danger: #ef4444;
+  --text-gold: #9393f0;       /* era #5b5be8 (2,42:1) -> 4,52:1 */
+  --text-success: #ab88fa;    /* era #9a70f9 (3,57:1) -> 4,50:1 */
+  --text-danger: #f37676;     /* era #ef4444 (3,29:1) -> 4,52:1 */
   --text-warning: #f59e0b;
-  --text-info: #3b82f6;
+  --text-info: #649cf8;       /* era #3b82f6 (3,37:1) -> 4,51:1 */
+
+  /* Texto de "chip"/badge sobre fundo TRANSLUCIDO.
+     O tint (rgba de 10-20%) clareia o fundo antes do texto compor, entao os
+     --text-* acima, calibrados no limite dos 4,5:1, nao sobram margem aqui.
+     Estes tons ficam >= 4,5:1 mesmo sobre o tint aplicado em --card-bg-hover. */
+  --badge-text-danger: #f19191;
+  --badge-text-info: #7cbde8;
+  --badge-text-accent: #c79cfa;
+  --badge-text-neutral: #b1bcc4;
 
   /* Border & Dividers - Subtle definition */
   --border-primary: #2a3a4d;

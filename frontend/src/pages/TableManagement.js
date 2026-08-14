@@ -322,12 +322,14 @@ const TableManagement = () => {
           <div className="tm-table-meta">
             <span className="tm-occupancy">{occupied}/{table.seats}</span>
             <button
+              type="button"
               className={`tm-btn-icon ${isInactive ? 'btn-green' : 'btn-orange'}`}
               title={isInactive ? t('tableManagement.reactivateTable') : t('tableManagement.closeTable')}
               onClick={() => handleToggleTableStatus(table)}
             >{isInactive ? t('tableManagement.activate') : t('tableManagement.close')}</button>
             {occupied === 0 && (
               <button
+                type="button"
                 className="tm-btn-icon btn-red"
                 title={t('tableManagement.removeTable')}
                 onClick={() => handleRemoveTable(table)}
@@ -375,19 +377,20 @@ const TableManagement = () => {
           </div>
           <div className="tm-header-actions">
             <button
+              type="button"
               className={`tm-btn-lock ${tablesLocked ? 'locked' : 'unlocked'}`}
               onClick={handleToggleLock}
               title={tablesLocked ? t('tableManagement.tablesLockedTooltip') : t('tableManagement.tablesOpenTooltip')}
             >
               {tablesLocked ? t('tableManagement.tablesLocked') : t('tableManagement.tablesOpen')}
             </button>
-            <button className="tm-btn-secondary" onClick={() => setShowBulkModal(true)}>
+            <button type="button" className="tm-btn-secondary" onClick={() => setShowBulkModal(true)}>
               {t('tableManagement.bulkAllocate')}
             </button>
-            <button className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
+            <button type="button" className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
               {t('tableManagement.addTable')}
             </button>
-            <button className="tm-btn-back" onClick={() => navigate(-1)}>
+            <button type="button" className="tm-btn-back" onClick={() => navigate(-1)}>
               {t('tableManagement.back')}
             </button>
           </div>
@@ -433,6 +436,7 @@ const TableManagement = () => {
                     </div>
                     {tablesLocked && (
                       <button
+                        type="button"
                         className="tm-btn-print-alt"
                         title={t('tableManagement.printAlternateTicket')}
                         onClick={() => handleShowAlternateTicket(p)}
@@ -452,7 +456,7 @@ const TableManagement = () => {
             {tables.length === 0 ? (
               <div className="tm-no-tables">
                 <p>{t('tableManagement.noTablesRegistered')}</p>
-                <button className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
+                <button type="button" className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
                   {t('tableManagement.addFirstTable')}
                 </button>
               </div>
@@ -470,7 +474,7 @@ const TableManagement = () => {
             <div className="tm-modal">
               <div className="tm-modal-header">
                 <h3>{showTicket.is_alternate ? t('tableManagement.ticketAlternate') : t('tableManagement.playerAllocated')}</h3>
-                <button className="tm-close-btn" onClick={() => setShowTicket(null)}>✕</button>
+                <button type="button" className="tm-close-btn" onClick={() => setShowTicket(null)}>✕</button>
               </div>
               <SeatTicket allocation={showTicket} />
             </div>
@@ -483,7 +487,7 @@ const TableManagement = () => {
             <div className="tm-modal tm-modal-sm">
               <div className="tm-modal-header">
                 <h3>{t('tableManagement.addTablesModalTitle')}</h3>
-                <button className="tm-close-btn" onClick={() => setShowAddTableModal(false)}>✕</button>
+                <button type="button" className="tm-close-btn" onClick={() => setShowAddTableModal(false)}>✕</button>
               </div>
               <div className="tm-modal-body">
                 <div className="tm-form-row">
@@ -506,8 +510,8 @@ const TableManagement = () => {
                 </div>
               </div>
               <div className="tm-modal-actions">
-                <button className="tm-btn-secondary" onClick={() => setShowAddTableModal(false)}>{t('common.cancel')}</button>
-                <button className="tm-btn-primary" onClick={handleAddTables}>
+                <button type="button" className="tm-btn-secondary" onClick={() => setShowAddTableModal(false)}>{t('common.cancel')}</button>
+                <button type="button" className="tm-btn-primary" onClick={handleAddTables}>
                   {newTableCount > 1 ? t('tableManagement.addTablesButtonMulti', { count: newTableCount }) : t('tableManagement.addTablesButtonSingle')}
                 </button>
               </div>
@@ -521,7 +525,7 @@ const TableManagement = () => {
             <div className="tm-modal tm-modal-sm">
               <div className="tm-modal-header">
                 <h3>{t('tableManagement.bulkModalTitle')}</h3>
-                <button className="tm-close-btn" onClick={() => setShowBulkModal(false)}>✕</button>
+                <button type="button" className="tm-close-btn" onClick={() => setShowBulkModal(false)}>✕</button>
               </div>
               <div className="tm-modal-body">
                 <p className="tm-hint-text">
@@ -555,8 +559,9 @@ const TableManagement = () => {
                 </div>
               </div>
               <div className="tm-modal-actions">
-                <button className="tm-btn-secondary" onClick={() => setShowBulkModal(false)}>{t('common.cancel')}</button>
+                <button type="button" className="tm-btn-secondary" onClick={() => setShowBulkModal(false)}>{t('common.cancel')}</button>
                 <button
+                  type="button"
                   className="tm-btn-outline"
                   onClick={handleSaveMode}
                   disabled={bulkLoading}
@@ -565,6 +570,7 @@ const TableManagement = () => {
                   {t('tableManagement.setMode')}
                 </button>
                 <button
+                  type="button"
                   className="tm-btn-primary"
                   onClick={handleBulkAllocate}
                   disabled={bulkLoading || unallocated.length === 0}

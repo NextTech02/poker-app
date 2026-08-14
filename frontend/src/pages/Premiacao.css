@@ -512,7 +512,8 @@
 /* 3rd — bronze */
 .position-badge.rank-3 {
   background: linear-gradient(135deg, rgba(184, 115, 51, 0.2) 0%, rgba(184, 115, 51, 0.08) 100%);
-  color: #cd7f32;
+  /* #cd7f32 sobre o proprio tint dava 3,54:1; este bronze mais claro da' 5,10:1 */
+  color: #e0a458;
   border: 1px solid rgba(184, 115, 51, 0.35);
 }
 
@@ -998,7 +999,8 @@
   border-radius: 6px;
   padding: 0.75rem 1rem;
   font-size: 0.8rem;
-  color: #8a7040;
+  /* ocre escuro sobre fundo escuro dava 2,83:1 */
+  color: var(--text-gold, #9393f0);
   margin-bottom: 0.5rem;
   line-height: 1.55;
 }

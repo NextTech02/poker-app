@@ -23,11 +23,13 @@
 
 .offline-banner--sync {
   background: linear-gradient(90deg, #7233f8, #5b21e0);
-  color: #06210f;
+  /* tinta escura sobre o roxo dava 2,88:1 na ponta clara do gradiente */
+  color: var(--text-primary, #e0eaf4);
 }
 
 .offline-banner--conflict {
-  background: linear-gradient(90deg, #ef4444, #b91c1c);
+  /* o #ef4444 da ponta clara so' dava 3,76:1 com texto branco; #dc2626 da' 4,83:1 */
+  background: linear-gradient(90deg, #dc2626, #b91c1c);
   color: #fff;
   text-decoration: none;
   cursor: pointer;
@@ -50,8 +52,9 @@
 .offline-banner__spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(6, 33, 15, 0.35);
-  border-top-color: #06210f;
+  /* acompanha a tinta clara do banner --sync (a escura ficava em 2,88:1) */
+  border: 2px solid rgba(224, 234, 244, 0.35);
+  border-top-color: var(--text-primary, #e0eaf4);
   border-radius: 50%;
   animation: offline-spin 0.7s linear infinite;
 }

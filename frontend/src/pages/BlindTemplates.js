@@ -181,7 +181,7 @@ const BlindTemplates = () => {
               </p>
             </div>
           </div>
-          <button className="bt-btn-new" onClick={openNew}>
+          <button type="button" className="bt-btn-new" onClick={openNew}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
             </svg>
@@ -213,10 +213,10 @@ const BlindTemplates = () => {
               </div>
               {tpl.description && <p className="bt-card-desc">{tpl.description}</p>}
               <div className="bt-card-actions">
-                <button className="bt-btn-edit" onClick={() => openEdit(tpl)}>
+                <button type="button" className="bt-btn-edit" onClick={() => openEdit(tpl)}>
                   {t('common.edit', 'Editar')}
                 </button>
-                <button className="bt-btn-delete" onClick={() => handleDelete(tpl)}>
+                <button type="button" className="bt-btn-delete" onClick={() => handleDelete(tpl)}>
                   {t('common.delete', 'Excluir')}
                 </button>
               </div>
@@ -238,7 +238,7 @@ const BlindTemplates = () => {
                   ? t('blindTemplates.editTitle', 'Editar template')
                   : t('blindTemplates.newTitle', 'Novo template de blinds')}
               </h2>
-              <button className="bt-close" onClick={() => setShowEditor(false)} aria-label={t('common.close', 'Fechar')}>
+              <button type="button" className="bt-close" onClick={() => setShowEditor(false)} aria-label={t('common.close', 'Fechar')}>
                 ×
               </button>
             </div>

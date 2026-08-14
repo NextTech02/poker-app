@@ -46,7 +46,7 @@ const SelectedStageBar = () => {
             )}
           </div>
         </div>
-        <button
+        <button type="button"
           className="clear-stage-btn"
           onClick={clearStage}
           title={t('stageBar.deselectTitle')}

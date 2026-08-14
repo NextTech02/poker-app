@@ -36,7 +36,9 @@
 
 .bty-btn-add {
   background: var(--brand-green, #7233f8);
-  color: #04210f;
+  /* tinta escura sobre o roxo da marca dava 2,88:1; --text-primary da' 4,87:1
+     e e' o mesmo par usado pelo .btn-primary do design system */
+  color: var(--text-primary, #e0eaf4);
   border: none;
   border-radius: 8px;
   padding: 0.6rem 1.1rem;
@@ -130,7 +132,7 @@
   border: none;
   margin-left: 0.4rem;
 }
-.bty-btn-save { background: var(--brand-green, #7233f8); color: #04210f; }
+.bty-btn-save { background: var(--brand-green, #7233f8); color: var(--text-primary, #e0eaf4); }
 .bty-btn-cancel { background: transparent; border: 1px solid var(--border-color, #243443); color: var(--text-secondary, #9fb3c8); }
 
 /* Toggle switch */

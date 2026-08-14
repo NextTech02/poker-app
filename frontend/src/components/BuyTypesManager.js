@@ -157,8 +157,8 @@ const BuyTypesManager = () => {
                         onChange={(e) => setEditForm({ ...editForm, rake_percentage: e.target.value })} />
                     </td>
                     <td colSpan={2} className="bty-edit-actions">
-                      <button className="bty-btn-save" onClick={() => saveEdit(b)}>{t('common.save', 'Salvar')}</button>
-                      <button className="bty-btn-cancel" onClick={() => setEditingId(null)}>{t('common.cancel', 'Cancelar')}</button>
+                      <button type="button" className="bty-btn-save" onClick={() => saveEdit(b)}>{t('common.save', 'Salvar')}</button>
+                      <button type="button" className="bty-btn-cancel" onClick={() => setEditingId(null)}>{t('common.cancel', 'Cancelar')}</button>
                     </td>
                   </tr>
                 ) : (
@@ -173,8 +173,8 @@ const BuyTypesManager = () => {
                       </label>
                     </td>
                     <td className="bty-actions">
-                      <button className="bty-btn-edit" onClick={() => startEdit(b)}>{t('common.edit', 'Editar')}</button>
-                      <button className="bty-btn-del" onClick={() => handleDelete(b)} title={t('common.delete', 'Excluir')}>×</button>
+                      <button type="button" className="bty-btn-edit" onClick={() => startEdit(b)}>{t('common.edit', 'Editar')}</button>
+                      <button type="button" className="bty-btn-del" onClick={() => handleDelete(b)} title={t('common.delete', 'Excluir')}>×</button>
                     </td>
                   </tr>
                 )

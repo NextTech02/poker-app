@@ -209,7 +209,7 @@ const PlayerImportModal = ({ onClose, onImported }) => {
 
         <div className="pim-head">
           <h2>{t('playerImport.title', 'Importar jogadores')}</h2>
-          <button className="pim-x" onClick={onClose} disabled={ocupado}
+          <button type="button" className="pim-x" onClick={onClose} disabled={ocupado}
                   aria-label={t('common.close', 'Fechar')}>×</button>
         </div>
 

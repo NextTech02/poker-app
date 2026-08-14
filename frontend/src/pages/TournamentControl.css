@@ -42,7 +42,8 @@
 
 .status-badge.completed {
   background: rgba(108, 117, 125, 0.2);
-  color: #6c757d;
+  /* #6c757d sobre o proprio tint dava 2,43:1 */
+  color: var(--badge-text-neutral, #b1bcc4);
 }
 
 /* Timer Card */

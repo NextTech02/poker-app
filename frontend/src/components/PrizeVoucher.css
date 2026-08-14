@@ -185,7 +185,9 @@
   width: 100%;
   max-width: 320px;
   padding: 0.875rem;
-  background: linear-gradient(135deg, #1aa870 0%, #138a57 100%);
+  /* verdes originais davam 3,05:1 (ponta clara) com texto branco;
+     escurecidos ficam em 5,37:1 e 7,21:1 */
+  background: linear-gradient(135deg, #0f7a4e 0%, #0c6440 100%);
   border: none;
   border-radius: 8px;
   color: #ffffff;

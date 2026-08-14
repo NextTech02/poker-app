@@ -126,7 +126,7 @@ const PaymentMethodsManager = () => {
                         maxLength={60}
                       />
                     ) : (
-                      <button className="pm-label-btn" onClick={() => startEdit(m)} title={t('common.edit', 'Editar')}>
+                      <button type="button" className="pm-label-btn" onClick={() => startEdit(m)} title={t('common.edit', 'Editar')}>
                         {m.label}
                       </button>
                     )}
@@ -139,7 +139,7 @@ const PaymentMethodsManager = () => {
                     </label>
                   </td>
                   <td className="pm-actions">
-                    <button className="pm-btn-del" onClick={() => handleDelete(m)} title={t('common.delete', 'Excluir')}>
+                    <button type="button" className="pm-btn-del" onClick={() => handleDelete(m)} title={t('common.delete', 'Excluir')}>
                       ×
                     </button>
                   </td>

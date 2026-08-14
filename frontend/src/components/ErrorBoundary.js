@@ -49,7 +49,7 @@ class ErrorBoundary extends React.Component {
               {i18n.t('offline.screenNeedsNetDesc',
                 'Esta tela ainda não foi carregada offline. Abra-a uma vez com internet, ou volte para uma tela já usada.')}
             </p>
-            <button className="eb-btn" onClick={() => window.history.back()}>
+            <button type="button" className="eb-btn" onClick={() => window.history.back()}>
               {i18n.t('common.back', 'Voltar')}
             </button>
           </div>
@@ -64,7 +64,7 @@ class ErrorBoundary extends React.Component {
           <p className="eb-subtitle">
             {this.props.subtitle || 'Ocorreu um erro inesperado. Tente novamente.'}
           </p>
-          <button className="eb-btn" onClick={this.handleRetry}>
+          <button type="button" className="eb-btn" onClick={this.handleRetry}>
             {i18n.t('common.retry', 'Tentar novamente')}
           </button>
         </div>

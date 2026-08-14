@@ -268,6 +268,7 @@ const ManualAllocation = () => {
               {allocation.players?.name || t('manualAllocation.defaultPlayer')}
             </div>
             <button
+              type="button"
               className="btn-remove-allocation"
               onClick={() => handleEliminatePlayer(allocation)}
               title={t('manualAllocation.eliminatePlayer')}
@@ -302,6 +303,7 @@ const ManualAllocation = () => {
             </span>
             {canRemove && (
               <button
+                type="button"
                 className="btn-remove-table"
                 onClick={() => handleRemoveTable(table.id, table.table_number)}
                 title={t('manualAllocation.removeTable')}
@@ -345,10 +347,10 @@ const ManualAllocation = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn-secondary" onClick={() => setShowTableModal(true)}>
+            <button type="button" className="btn-secondary" onClick={() => setShowTableModal(true)}>
               {t('manualAllocation.manageTables')}
             </button>
-            <button className="btn-back" onClick={() => navigate('/torneios')}>
+            <button type="button" className="btn-back" onClick={() => navigate('/torneios')}>
               {t('common.back')}
             </button>
           </div>
@@ -438,6 +440,7 @@ const ManualAllocation = () => {
                       style={{ width: '80px', padding: '8px' }}
                     />
                     <button
+                      type="button"
                       className="btn-primary"
                       onClick={handleAddTable}
                       style={{ padding: '8px 16px' }}
@@ -475,6 +478,7 @@ const ManualAllocation = () => {
                             </div>
                             {canRemove ? (
                               <button
+                                type="button"
                                 onClick={() => handleRemoveTable(table.id, table.table_number)}
                                 style={{
                                   padding: '6px 12px',
@@ -500,7 +504,7 @@ const ManualAllocation = () => {
                 </div>
               </div>
               <div className="modal-actions">
-                <button className="btn-secondary" onClick={() => setShowTableModal(false)}>
+                <button type="button" className="btn-secondary" onClick={() => setShowTableModal(false)}>
                   {t('common.close')}
                 </button>
               </div>

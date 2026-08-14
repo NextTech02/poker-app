@@ -8,6 +8,10 @@ from ..auth.permissions import require_permission
 from ..database import supabase
 from ..models.blind import BlindCreateRequest, BlindUpdate, BlindResponse
 
+# Mensagem 404 de dia de torneio inexistente. Centralizada para que todas as
+# rotas de blinds respondam exatamente o mesmo texto ao frontend.
+DIA_DE_TORNEIO_NAO_ENCONTRADO = "Tournament day not found"
+
 router = APIRouter(tags=["blinds"])
 
 
@@ -203,7 +207,7 @@ async def get_tournament_day_blinds(
     if not day_response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
+            detail=DIA_DE_TORNEIO_NAO_ENCONTRADO
         )
 
     # Get blinds ordered by level
@@ -229,7 +233,7 @@ async def create_blind_for_day(
     if not day_response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
+            detail=DIA_DE_TORNEIO_NAO_ENCONTRADO
         )
 
     # Add tournament_day_id from URL to the blind data
@@ -391,7 +395,7 @@ async def delete_all_blinds_for_day(
     if not day_response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
+            detail=DIA_DE_TORNEIO_NAO_ENCONTRADO
         )
 
     day = day_response.data[0]

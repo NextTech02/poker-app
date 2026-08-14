@@ -105,10 +105,10 @@ const TournamentRankings = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn-secondary" onClick={handleRecalculate}>
+            <button type="button" className="btn-secondary" onClick={handleRecalculate}>
               {t('tournamentRankings.recalculate')}
             </button>
-            <button className="btn-back" onClick={() => navigate('/torneios')}>
+            <button type="button" className="btn-back" onClick={() => navigate('/torneios')}>
               {t('common.back')}
             </button>
           </div>

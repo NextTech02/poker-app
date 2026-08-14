@@ -195,7 +195,7 @@ const CashboxBanner = ({ onStateChange }) => {
           <div className="modal" role="dialog" aria-modal="true" aria-label={t('cashbox.openCashbox')}>
             <div className="modal-header">
               <h2>{t('cashbox.openCashbox')}</h2>
-              <button className="close-btn" onClick={() => setModal(null)} aria-label={t('common.close')}>
+              <button type="button" className="close-btn" onClick={() => setModal(null)} aria-label={t('common.close')}>
                 <span className="close-icon"></span>
               </button>
             </div>
@@ -247,7 +247,7 @@ const CashboxBanner = ({ onStateChange }) => {
           <div className="modal" role="dialog" aria-modal="true" aria-label={t('cashbox.closeCashbox')}>
             <div className="modal-header">
               <h2>{t('cashbox.closeCashbox')}</h2>
-              <button className="close-btn" onClick={() => setModal(null)} aria-label={t('common.close')}>
+              <button type="button" className="close-btn" onClick={() => setModal(null)} aria-label={t('common.close')}>
                 <span className="close-icon"></span>
               </button>
             </div>

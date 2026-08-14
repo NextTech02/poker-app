@@ -566,25 +566,28 @@ const Premiacao = () => {
         {error && (
           <div className="error-banner">
             {error}
-            <button onClick={() => setError(null)}>✕</button>
+            <button type="button" onClick={() => setError(null)}>✕</button>
           </div>
         )}
 
         {/* Tabs */}
         <div className="prem-tabs">
           <button
+            type="button"
             className={`prem-tab ${activeTab === 'config' ? 'active' : ''}`}
             onClick={() => setActiveTab('config')}
           >
             {t('premiacao.tabConfig')}
           </button>
           <button
+            type="button"
             className={`prem-tab ${activeTab === 'reservada' ? 'active' : ''}`}
             onClick={() => setActiveTab('reservada')}
           >
             {t('premiacao.reservedPrize')}
           </button>
           <button
+            type="button"
             className={`prem-tab ${activeTab === 'pagamentos' ? 'active' : ''}`}
             onClick={() => setActiveTab('pagamentos')}
           >
@@ -594,6 +597,7 @@ const Premiacao = () => {
             )}
           </button>
           <button
+            type="button"
             className={`prem-tab ${activeTab === 'liberacao' ? 'active' : ''}`}
             onClick={() => setActiveTab('liberacao')}
           >
@@ -944,7 +948,7 @@ const Premiacao = () => {
             <div className="modal">
               <div className="modal-header">
                 <h2>{t('premiacao.addPrizeModalTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowAddModal(false)}>
+                <button type="button" className="close-btn" onClick={() => setShowAddModal(false)}>
                   ✕
                 </button>
               </div>
@@ -1018,7 +1022,7 @@ const Premiacao = () => {
             <div className="modal payout-modal">
               <div className="modal-header">
                 <h2>{t('premiacao.registerPayment')}</h2>
-                <button className="close-btn" onClick={() => setShowPayoutModal(false)}>
+                <button type="button" className="close-btn" onClick={() => setShowPayoutModal(false)}>
                   ✕
                 </button>
               </div>
@@ -1157,7 +1161,7 @@ const Premiacao = () => {
             <div className="modal auto-calc-modal">
               <div className="modal-header">
                 <h2>{t('premiacao.autoCalcModalTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowAutoModal(false)}>✕</button>
+                <button type="button" className="close-btn" onClick={() => setShowAutoModal(false)}>✕</button>
               </div>
 
               <div className="auto-calc-summary">
@@ -1299,7 +1303,7 @@ const Premiacao = () => {
             <div className="modal">
               <div className="modal-header">
                 <h2>{t('premiacao.paymentVoucher')}</h2>
-                <button className="close-btn" onClick={() => setShowVoucherModal(false)}>
+                <button type="button" className="close-btn" onClick={() => setShowVoucherModal(false)}>
                   ✕
                 </button>
               </div>
@@ -1355,14 +1359,22 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
   // travou (antes da vaga, essa faixa era editável). O motivo vai no title dos
   // dois campos e num selo ao lado do valor, para ele saber que o número está
   // certo e vem do dia alvo.
-  const motivoBloqueio = isVaga
-    ? t(
+  // Ternário aninhado aqui era leitura fácil de errar num valor de prêmio; a
+  // decisão virou função nomeada, com um caso por vez e na ordem de prioridade:
+  // vaga trava por natureza, faixa paga trava por já ter saído dinheiro.
+  const descreverMotivoDeBloqueio = () => {
+    if (isVaga) {
+      return t(
         'premiacao.vagaNotEditable',
         'Esta faixa é uma vaga: vale o buy-in do dia alvo e é calculada pelo sistema.'
-      )
-    : allocation.paid
-      ? t('premiacao.cannotEditPaid', 'Faixa já paga: o valor não pode mais ser alterado.')
-      : null;
+      );
+    }
+    if (allocation.paid) {
+      return t('premiacao.cannotEditPaid', 'Faixa já paga: o valor não pode mais ser alterado.');
+    }
+    return null;
+  };
+  const motivoBloqueio = descreverMotivoDeBloqueio();
 
   // O estado era inicializado UMA vez e ficava velho quando o valor mudava por
   // outro caminho (cálculo automático, outro operador). Agora ele é carregado
@@ -1456,6 +1468,7 @@ const ConfigAllocationRow = ({ allocation, poolBase, onUpdate, onDelete, saving 
       </td>
       <td className="actions-cell">
         <button
+          type="button"
           className="btn-small btn-delete"
           onClick={() => onDelete(allocation.id)}
           disabled={saving || allocation.paid}
@@ -1495,11 +1508,11 @@ const PayoutRow = ({ allocation, onPay, onViewVoucher }) => {
       </td>
       <td className="actions-cell">
         {allocation.paid ? (
-          <button className="btn-small btn-view" onClick={() => onViewVoucher(allocation)}>
+          <button type="button" className="btn-small btn-view" onClick={() => onViewVoucher(allocation)}>
             {t('premiacao.voucher')}
           </button>
         ) : (
-          <button className="btn-small btn-pay" onClick={onPay}>
+          <button type="button" className="btn-small btn-pay" onClick={onPay}>
             {t('premiacao.pay')}
           </button>
         )}

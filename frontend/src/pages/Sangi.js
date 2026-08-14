@@ -251,11 +251,11 @@ const ManagerView = ({ toast, confirm }) => {
                   </td>
                   <td>{c.divergence == null ? '—' : formatCurrency(c.divergence)}</td>
                   <td className="sangi-actions">
-                    <button className="sangi-link" onClick={() => openDetail(c.id)}>
+                    <button type="button" className="sangi-link" onClick={() => openDetail(c.id)}>
                       {expanded?.id === c.id ? t('sangi.closeDetail') : t('sangi.viewSales')}
                     </button>
                     {c.status === 'open' && (
-                      <button className="sangi-link danger" onClick={() => reconcile(c.id)}>{t('sangi.reconcileAction')}</button>
+                      <button type="button" className="sangi-link danger" onClick={() => reconcile(c.id)}>{t('sangi.reconcileAction')}</button>
                     )}
                   </td>
                 </tr>

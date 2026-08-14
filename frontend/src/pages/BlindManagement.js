@@ -612,6 +612,7 @@ const BlindManagement = () => {
                         <td>
                           <div className="action-buttons">
                             <button
+                              type="button"
                               className="btn-small btn-edit"
                               onClick={() => openEditModal(blind)}
                               title={t('common.edit')}
@@ -619,6 +620,7 @@ const BlindManagement = () => {
                               {t('common.edit')}
                             </button>
                             <button
+                              type="button"
                               className="btn-small btn-delete"
                               onClick={() => handleDeleteBlind(blind.id)}
                               title={t('common.delete')}
@@ -652,7 +654,7 @@ const BlindManagement = () => {
             <div className="modal">
               <div className="modal-header">
                 <h2>{formData.is_break ? t('blinds.addBreak') : t('blinds.addBlind')}</h2>
-                <button className="close-btn" onClick={() => setShowAddModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowAddModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -797,7 +799,7 @@ const BlindManagement = () => {
             <div className="modal">
               <div className="modal-header">
                 <h2>{formData.is_break ? t('blinds.editBreak') : t('blinds.editBlind')}</h2>
-                <button className="close-btn" onClick={() => setShowEditModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowEditModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -909,7 +911,7 @@ const BlindManagement = () => {
             <div className="modal template-modal">
               <div className="modal-header">
                 <h2>{t('blinds.loadTemplate')}</h2>
-                <button className="close-btn" onClick={() => setShowTemplateModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowTemplateModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

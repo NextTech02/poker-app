@@ -23,6 +23,11 @@ PASSO_CAIXA_ETAPA = "caixa_etapa"
 PASSO_CAIXA_OPERADOR = "caixa_operador"
 PASSO_FIDELIDADE = "fidelidade"
 
+# Colunas do jogador lidas junto de uma transação. Vive numa constante porque as
+# telas de caixa e de relatório mostram nome E apelido: mudar a lista num lugar
+# e esquecer nos outros faria uma tela exibir o apelido e a outra não.
+COLUNAS_JOGADOR = "name, nickname"
+
 
 class TransactionService:
     @staticmethod
@@ -61,7 +66,7 @@ class TransactionService:
 
         # Get related info
         tournament = supabase.table("tournaments").select("name").eq("id", data["tournament_id"]).execute()
-        player = supabase.table("players").select("name, nickname").eq("id", data["player_id"]).execute()
+        player = supabase.table("players").select(COLUNAS_JOGADOR).eq("id", data["player_id"]).execute()
 
         tournament_name = tournament.data[0]["name"] if tournament.data else ""
         player_info = player.data[0] if player.data else {}
@@ -1053,7 +1058,7 @@ class TransactionService:
         """Monta o TransactionDetail buscando os nomes de torneio e jogador."""
         limpa = {k: v for k, v in tx.items() if k not in ("tournaments", "players")}
         tournament = supabase.table("tournaments").select("name").eq("id", tx["tournament_id"]).execute()
-        player = supabase.table("players").select("name, nickname").eq("id", tx["player_id"]).execute()
+        player = supabase.table("players").select(COLUNAS_JOGADOR).eq("id", tx["player_id"]).execute()
         pinfo = player.data[0] if player.data else {}
         return TransactionDetail(
             **limpa,
@@ -1137,7 +1142,7 @@ class TransactionService:
 
         # The player is fixed for this query — fetch their info ONCE instead of
         # re-querying the same row inside the loop (was N identical queries).
-        player = supabase.table("players").select("name, nickname").eq("id", player_id).execute()
+        player = supabase.table("players").select(COLUNAS_JOGADOR).eq("id", player_id).execute()
         player_info = player.data[0] if player.data else {}
 
         transactions = []

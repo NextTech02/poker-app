@@ -246,18 +246,21 @@ const EliminacaoJogadores = () => {
                   <label>{t('elimination.filterByStatus')}:</label>
                   <div className="filter-buttons">
                     <button
+                      type="button"
                       className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
                       onClick={() => setStatusFilter('active')}
                     >
                       {t('elimination.activeOnly')} ({activePlayers})
                     </button>
                     <button
+                      type="button"
                       className={`filter-btn ${statusFilter === 'eliminated' ? 'active' : ''}`}
                       onClick={() => setStatusFilter('eliminated')}
                     >
                       {t('elimination.eliminatedOnly')} ({eliminatedPlayers})
                     </button>
                     <button
+                      type="button"
                       className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
                       onClick={() => setStatusFilter('all')}
                     >

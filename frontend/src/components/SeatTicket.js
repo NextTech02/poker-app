@@ -304,7 +304,7 @@ const SeatTicket = ({ allocation, onPrint }) => {
         </div>
       </div>
 
-      <button className="btn-print-ticket" onClick={handlePrint}>
+      <button type="button" className="btn-print-ticket" onClick={handlePrint}>
         {t.btn_print}
       </button>
     </div>

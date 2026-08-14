@@ -181,7 +181,8 @@
 
 .badge-info {
   background-color: rgba(52, 152, 219, 0.2);
-  color: #3498db;
+  /* #3498db sobre o proprio tint dava 3,32:1 */
+  color: var(--badge-text-info, #7cbde8);
 }
 
 .badge-success {
@@ -191,12 +192,14 @@
 
 .badge-secondary {
   background-color: rgba(149, 165, 166, 0.2);
-  color: #95a5a6;
+  /* #95a5a6 sobre o proprio tint dava 3,85:1 */
+  color: var(--badge-text-neutral, #b1bcc4);
 }
 
 .badge-danger {
   background-color: rgba(231, 76, 60, 0.2);
-  color: #e74c3c;
+  /* #e74c3c sobre o proprio tint dava 3,05:1 */
+  color: var(--badge-text-danger, #f19191);
 }
 
 .badge-selected {

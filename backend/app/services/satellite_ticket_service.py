@@ -17,6 +17,9 @@ from app.models.satellite_ticket import (
 # tabela de histórico não existe naquele banco. Qualquer outra falha (FK, RLS,
 # rede) precisa chegar ao suporte com o motivo real, senão a investigação
 # começa por uma migração que já está aplicada.
+# Erro levantado quando o ticket informado não existe (ou não pertence à etapa).
+TICKET_NAO_ENCONTRADO = "Ticket não encontrado"
+
 _SINAIS_DE_TABELA_AUSENTE = (
     "undefined_table",
     "42p01",
@@ -359,7 +362,7 @@ class SatelliteTicketService:
         field existed at creation time."""
         ticket = supabase.table("satellite_tickets").select("*").eq("id", ticket_id).execute()
         if not ticket.data:
-            raise ValueError("Ticket não encontrado")
+            raise ValueError(TICKET_NAO_ENCONTRADO)
 
         t = ticket.data[0]
 
@@ -438,7 +441,7 @@ class SatelliteTicketService:
         ticket = supabase.table("satellite_tickets").select("*, players(name, nickname)") \
             .eq("id", ticket_id).execute()
         if not ticket.data:
-            raise ValueError("Ticket não encontrado")
+            raise ValueError(TICKET_NAO_ENCONTRADO)
 
         t = ticket.data[0]
         if t["status"] not in ("awarded", "available"):
@@ -463,7 +466,7 @@ class SatelliteTicketService:
         ticket = supabase.table("satellite_tickets").select("*") \
             .eq("id", ticket_id).execute()
         if not ticket.data:
-            raise ValueError("Ticket não encontrado")
+            raise ValueError(TICKET_NAO_ENCONTRADO)
 
         t = ticket.data[0]
         if t["status"] not in ("awarded", "available"):

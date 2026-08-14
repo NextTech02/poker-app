@@ -224,7 +224,7 @@ const PlayerDetail = () => {
         ) : !player ? (
           <div className="pd-empty">
             <h3>{t('playerDetail.notFound', 'Jogador não encontrado')}</h3>
-            <button className="pd-btn-back" onClick={() => navigate('/jogadores')}>
+            <button type="button" className="pd-btn-back" onClick={() => navigate('/jogadores')}>
               {t('playerDetail.back', 'Voltar')}
             </button>
           </div>
@@ -352,7 +352,7 @@ const PlayerDetail = () => {
                     excludeId={id}
                   />
                   <div className="pd-gift-actions">
-                    <button className="pd-btn-back" onClick={() => setGiftingCredit(null)} disabled={loyaltyBusy}>
+                    <button type="button" className="pd-btn-back" onClick={() => setGiftingCredit(null)} disabled={loyaltyBusy}>
                       {t('common.cancel', 'Cancelar')}
                     </button>
                     <button className="plc-btn" onClick={confirmGift} disabled={loyaltyBusy || !giftTarget} type="button">

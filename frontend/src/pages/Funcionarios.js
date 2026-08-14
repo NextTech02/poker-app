@@ -452,18 +452,21 @@ const Funcionarios = () => {
         {/* Tabs */}
         <div className="func-tabs">
           <button
+            type="button"
             className={`func-tab ${activeTab === 'staff' ? 'active' : ''}`}
             onClick={() => setActiveTab('staff')}
           >
             {t('staff.tabStaff')}
           </button>
           <button
+            type="button"
             className={`func-tab ${activeTab === 'groups' ? 'active' : ''}`}
             onClick={() => setActiveTab('groups')}
           >
             {t('staff.tabGroups')}
           </button>
           <button
+            type="button"
             className={`func-tab ${activeTab === 'pagamentos' ? 'active' : ''}`}
             onClick={() => setActiveTab('pagamentos')}
           >
@@ -568,6 +571,7 @@ const Funcionarios = () => {
                           {s.invite_status === 'awaiting_signup' ? (
                             <>
                               <button
+                                type="button"
                                 className="func-action-btn func-action-btn--success"
                                 onClick={() => handleResendInvite(s)}
                                 title={t('staff.resendHint', 'Os links do e-mail expiram; envie outro')}
@@ -575,6 +579,7 @@ const Funcionarios = () => {
                                 {t('staff.resendInvite', 'Reenviar')}
                               </button>
                               <button
+                                type="button"
                                 className="func-action-btn func-action-btn--danger"
                                 onClick={() => handleCancelInvite(s)}
                               >
@@ -583,6 +588,7 @@ const Funcionarios = () => {
                             </>
                           ) : s.invite_status === 'pending' ? (
                             <button
+                              type="button"
                               className="func-action-btn func-action-btn--danger"
                               onClick={() => handleCancelInvite(s)}
                             >
@@ -591,12 +597,14 @@ const Funcionarios = () => {
                           ) : (
                             <>
                               <button
+                                type="button"
                                 className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
                                 onClick={() => handleToggleActive(s)}
                               >
                                 {s.active ? t('staff.deactivate') : t('staff.activate')}
                               </button>
                               <button
+                                type="button"
                                 className="func-action-btn func-action-btn--danger"
                                 onClick={() => handleRemoveStaff(s)}
                                 title={t('staff.removeHint', 'Tira do clube; apaga a conta se ela não estiver em outro')}
@@ -689,11 +697,11 @@ const Funcionarios = () => {
                               </td>
                               <td>
                                 {isPaid ? (
-                                  <button className="func-action-btn func-action-btn--danger" disabled={busy} onClick={() => handleReverse(s.id)}>
+                                  <button type="button" className="func-action-btn func-action-btn--danger" disabled={busy} onClick={() => handleReverse(s.id)}>
                                     {busy ? '...' : t('staff.reverse')}
                                   </button>
                                 ) : (
-                                  <button className="func-action-btn func-action-btn--success" disabled={busy} onClick={() => handlePay(s.id)}>
+                                  <button type="button" className="func-action-btn func-action-btn--success" disabled={busy} onClick={() => handlePay(s.id)}>
                                     {busy ? '...' : t('staff.pay')}
                                   </button>
                                 )}
@@ -758,8 +766,8 @@ const Funcionarios = () => {
                         </td>
                         <td>
                           <div className="func-actions">
-                            <button className="func-action-btn" onClick={() => openEditGroup(g)}>{t('common.edit')}</button>
-                            <button className="func-action-btn func-action-btn--danger" onClick={() => handleDeleteGroup(g)}>{t('common.remove')}</button>
+                            <button type="button" className="func-action-btn" onClick={() => openEditGroup(g)}>{t('common.edit')}</button>
+                            <button type="button" className="func-action-btn func-action-btn--danger" onClick={() => handleDeleteGroup(g)}>{t('common.remove')}</button>
                           </div>
                         </td>
                       </tr>

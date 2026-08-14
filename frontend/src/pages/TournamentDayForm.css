@@ -186,7 +186,8 @@
   border: 1px solid rgba(231, 76, 60, 0.25);
   border-radius: 6px;
   padding: 0.75rem 1rem;
-  color: #ef5350;
+  /* #ef5350 sobre o proprio tint dava 3,62:1 */
+  color: var(--badge-text-danger, #f19191);
   margin-bottom: 1rem;
   font-size: 0.85rem;
 }
@@ -310,7 +311,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #ef5350;
+  /* branco sobre #ef5350 dava 3,49:1; #c62828 da' 5,62:1 */
+  background: #c62828;
   color: #fff;
   border: none;
   cursor: pointer;

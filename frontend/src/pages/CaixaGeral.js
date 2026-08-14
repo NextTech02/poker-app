@@ -430,7 +430,7 @@ const CaixaGeral = () => {
             <div className="modal sangria-modal" role="dialog" aria-modal="true">
               <div className="modal-header">
                 <h2>{t('generalCash.performSangria')}</h2>
-                <button className="close-btn" onClick={() => setShowSangriaModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowSangriaModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

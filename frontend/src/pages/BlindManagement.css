@@ -134,7 +134,9 @@
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
+  /* pastilha clara sobre o header roxo deixava o X branco em 2,72:1;
+     com a pastilha escurecendo o fundo o par vai a 5,94:1 */
+  background: rgba(0, 0, 0, 0.25);
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
@@ -150,7 +152,7 @@
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.4);
   transform: rotate(90deg);
 }
 
@@ -221,8 +223,10 @@
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: #718096;
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  /* sobrou do tema claro antigo: caixa branca com texto cinza (3,83:1)
+     dentro de uma tela escura. Passa a usar as superficies do tema (5,98:1) */
+  color: var(--text-tertiary, #8b9fad);
+  background: var(--tertiary-bg, #16202e);
   border-radius: 12px;
   margin: 2rem 0;
 }
@@ -425,7 +429,8 @@
 }
 
 .btn-edit {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* o indigo claro dava 3,66:1 com texto branco; escurecido vai a 6,29:1 */
+  background: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%);
   color: white;
 }
 
@@ -547,7 +552,8 @@
 
 .template-meta span {
   font-size: 0.8rem;
-  color: #718096;
+  /* #718096 sobre o veu claro dava 3,54:1 */
+  color: var(--text-tertiary, #8b9fad);
   background: rgba(255, 255, 255, 0.05);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;

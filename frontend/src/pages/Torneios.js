@@ -266,6 +266,7 @@ const Torneios = () => {
             </div>
           </div>
           <button
+            type="button"
             className="tr-btn-new"
             onClick={openNewModal}
             disabled={!hasStage}

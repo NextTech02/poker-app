@@ -104,10 +104,12 @@
   border-color: #5b21e0;
 }
 
+/* o par tinta escura sobre o roxo #7233f8 do .bs-tv-code dava 2,88:1
+   (o Sonar nao pegou porque o fundo vem do elemento pai) */
 .bs-tv-code-label {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #06210f;
+  color: var(--text-primary, #e0eaf4);
   letter-spacing: 0.2px;
 }
 
@@ -115,7 +117,7 @@
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 3px;
-  color: #06210f;
+  color: var(--text-primary, #e0eaf4);
   font-family: 'Courier New', monospace;
 }
 
@@ -510,7 +512,8 @@
   top: -7px; right: -7px;
   width: 20px; height: 20px;
   border-radius: 50%;
-  background: #ef5350;
+  /* branco sobre #ef5350 dava 3,49:1; #c62828 da' 5,62:1 */
+  background: #c62828;
   color: #fff;
   border: none;
   cursor: pointer;
@@ -653,7 +656,8 @@
   border-radius: 6px;
   border: 1px solid rgba(255,255,255,0.15);
   background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.5);
+  /* 0.5 dava 4,47:1 no fundo da pagina; 0.6 da' 6,20:1 */
+  color: rgba(255,255,255,0.6);
   font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
@@ -684,7 +688,8 @@
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.45);
+  /* 0.45 dava 3,83:1 no fundo da pagina; 0.6 da' 6,37:1 */
+  color: rgba(255,255,255,0.6);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;

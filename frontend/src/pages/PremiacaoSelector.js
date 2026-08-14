@@ -107,6 +107,7 @@ const PremiacaoSelector = () => {
               const date = formatDate(t.created_at);
               return (
                 <button
+                  type="button"
                   key={t.id}
                   className="psel-card"
                   style={{ '--accent-from': accent.from, '--accent-to': accent.to }}

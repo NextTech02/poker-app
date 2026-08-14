@@ -7,6 +7,9 @@ from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService
 from app.auth.jwt import get_current_user
 
+# Mensagem 404 de etapa inexistente, igual em todas as rotas de etapa.
+ETAPA_NAO_ENCONTRADA = "Stage not found"
+
 router = APIRouter(prefix="/stages", tags=["stages"])
 
 
@@ -44,7 +47,7 @@ def set_stage_sales_block(
         raise HTTPException(status_code=403, detail="Sem permissão para bloquear vendas")
 
     if not StageService.get_stage(stage_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ETAPA_NAO_ENCONTRADA)
 
     try:
         return SalesBlockService.set_stage_block(stage_id, data.blocked, data.reason, user_id)
@@ -80,7 +83,7 @@ def get_stage(
     if not stage:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Stage not found"
+            detail=ETAPA_NAO_ENCONTRADA
         )
     return stage
 
@@ -96,7 +99,7 @@ def update_stage(
     if not updated_stage:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Stage not found"
+            detail=ETAPA_NAO_ENCONTRADA
         )
     return updated_stage
 
@@ -111,6 +114,6 @@ def delete_stage(
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Stage not found"
+            detail=ETAPA_NAO_ENCONTRADA
         )
     return None

@@ -58,7 +58,7 @@ const RelatorioTorneio = () => {
                   {report.is_satellite && <span> · {t('tournamentReport.satellite')}</span>}
                 </div>
               </div>
-              <button className="rt-print-btn" onClick={() => window.print()}>{t('tournamentReport.printPdf')}</button>
+              <button type="button" className="rt-print-btn" onClick={() => window.print()}>{t('tournamentReport.printPdf')}</button>
             </div>
 
             <h3 className="rt-section-title">{t('tournamentReport.participation')}</h3>

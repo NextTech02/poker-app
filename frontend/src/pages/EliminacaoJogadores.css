@@ -43,7 +43,8 @@
 
 .day-status-badge.pending {
   background: rgba(108, 117, 125, 0.2);
-  color: #6c757d;
+  /* #6c757d sobre o proprio tint dava 3,37:1 */
+  color: var(--badge-text-neutral, #b1bcc4);
 }
 
 .day-status-badge.active {
@@ -53,12 +54,14 @@
 
 .day-status-badge.completed {
   background: rgba(0, 123, 255, 0.2);
-  color: #007bff;
+  /* #007bff sobre o proprio tint dava 3,88:1 */
+  color: var(--badge-text-info, #7cbde8);
 }
 
 .day-status-badge.cancelled {
   background: rgba(220, 53, 69, 0.2);
-  color: #dc3545;
+  /* #dc3545 sobre o proprio tint dava 3,60:1 */
+  color: var(--badge-text-danger, #f19191);
 }
 
 /* Stats */
@@ -239,7 +242,8 @@
 
 .player-status-badge.eliminated {
   background: rgba(220, 53, 69, 0.2);
-  color: #dc3545;
+  /* #dc3545 sobre o proprio tint dava 2,69:1 dentro do card */
+  color: var(--badge-text-danger, #f19191);
 }
 
 .player-status-badge.winner {

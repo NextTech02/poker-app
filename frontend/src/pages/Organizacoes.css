@@ -61,9 +61,10 @@
   font-weight: 700;
   text-transform: uppercase;
 }
-.org-badge.active    { background: rgba(114, 51, 248, 0.15);  color: #7233f8; }
+/* as cores cheias sobre o proprio tint davam 2,16:1 (roxo) e 3,30:1 (vermelho) */
+.org-badge.active    { background: rgba(114, 51, 248, 0.15);  color: var(--badge-text-accent, #c79cfa); }
 .org-badge.suspended { background: rgba(234, 179, 8, 0.15);  color: #eab308; }
-.org-badge.cancelled { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+.org-badge.cancelled { background: rgba(239, 68, 68, 0.15);  color: var(--badge-text-danger, #f19191); }
 
 /* ── Plano / uso ── */
 .org-plan-badge {
@@ -77,9 +78,10 @@
   background: rgba(255, 255, 255, 0.08);
   color: #cbd5e1;
 }
-.org-plan-badge.plan-free     { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+/* #94a3b8 dava 4,20:1 e #9a70f9 dava 3,63:1 sobre os proprios tints */
+.org-plan-badge.plan-free     { background: rgba(148, 163, 184, 0.15); color: var(--badge-text-neutral, #b1bcc4); }
 .org-plan-badge.plan-standard { background: rgba(56, 189, 248, 0.15);  color: #38bdf8; }
-.org-plan-badge.plan-pro      { background: rgba(114, 51, 248, 0.18);  color: #9a70f9; }
+.org-plan-badge.plan-pro      { background: rgba(114, 51, 248, 0.18);  color: var(--badge-text-accent, #c79cfa); }
 .org-plan-badge.plan-premium  { background: rgba(201, 154, 58, 0.18);  color: #d9b45f; }
 
 .org-trial {
@@ -101,7 +103,8 @@
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.05);
 }
-.org-usage.at-limit { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
+/* #ef4444 sobre o proprio tint dava 3,37:1 */
+.org-usage.at-limit { color: var(--badge-text-danger, #f19191); background: rgba(239, 68, 68, 0.12); }
 
 .org-plan-hint {
   display: block;
@@ -188,7 +191,8 @@
   text-transform: uppercase;
 }
 .org-staff-badge.active   { background: rgba(16, 185, 129, 0.15); color: #10b981; }
-.org-staff-badge.inactive { background: rgba(239, 68, 68, 0.15);  color: #ef4444; }
+/* #ef4444 sobre o proprio tint dava 3,59:1 */
+.org-staff-badge.inactive { background: rgba(239, 68, 68, 0.15);  color: var(--badge-text-danger, #f19191); }
 
 /* No mobile, a media query base transforma td em block; preservar a tabela
    aninhada de funcionários como tabela de verdade. */

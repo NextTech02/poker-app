@@ -54,7 +54,8 @@
 .sangi-detail-row > td { padding: 0 10px 10px; }
 
 .sangi-badge { padding: 3px 8px; border-radius: 6px; font-size: 12px; }
-.sangi-badge.open { background: rgba(52, 152, 219, 0.18); color: #3498db; }
+/* #3498db sobre o proprio tint dava 3,42:1 */
+.sangi-badge.open { background: rgba(52, 152, 219, 0.18); color: var(--badge-text-info, #7cbde8); }
 .sangi-badge.reconciled { background: rgba(114, 51, 248, 0.16); color: var(--brand-green); }
 
 .sangi-actions { display: flex; gap: 10px; }

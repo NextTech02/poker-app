@@ -300,7 +300,7 @@ const PrizeVoucher = ({ payout }) => {
 
       </div>
 
-      <button className="pv-btn-print" onClick={handlePrint}>
+      <button type="button" className="pv-btn-print" onClick={handlePrint}>
         {t.btn_print}
       </button>
     </div>

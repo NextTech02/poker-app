@@ -379,10 +379,12 @@
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: #95a5a6;
-  background: #f8f9fa;
+  /* sobrou do tema claro antigo: caixa branca com cinza (2,43:1) dentro de
+     uma tela escura. Passa a usar as superficies do tema (5,98:1) */
+  color: var(--text-tertiary, #8b9fad);
+  background: var(--tertiary-bg, #16202e);
   border-radius: 12px;
-  border: 2px dashed #dee2e6;
+  border: 2px dashed var(--border-primary, #2a3a4d);
 }
 
 .empty-state p {

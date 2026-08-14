@@ -707,10 +707,10 @@ const BroadcastSettings = () => {
                 <span className="bs-tv-code-copy">{tvCopied ? t('broadcastSettings.tvCodeCopied', 'copiado!') : t('broadcastSettings.tvCodeCopy', 'copiar')}</span>
               </button>
             )}
-            <button className="bs-btn-preview" onClick={() => window.open(`/broadcast/${dayId}`, '_blank')}>
+            <button type="button" className="bs-btn-preview" onClick={() => window.open(`/broadcast/${dayId}`, '_blank')}>
               &#9654; {t('broadcastSettings.openLive')}
             </button>
-            <button className="bs-btn-back" onClick={() => navigate(`/torneios/${tournamentId}`)}>
+            <button type="button" className="bs-btn-back" onClick={() => navigate(`/torneios/${tournamentId}`)}>
               {t('common.back')}
             </button>
           </div>
@@ -726,6 +726,7 @@ const BroadcastSettings = () => {
               {previewBreak ? t('broadcastSettings.previewBreak') : t('broadcastSettings.previewLive')}
             </span>
             <button
+              type="button"
               className={`bs-preview-mode-btn ${previewBreak ? 'active' : ''}`}
               onClick={() => setPreviewBreak(b => !b)}
               title={previewBreak ? t('broadcastSettings.previewSwitchBlinds') : t('broadcastSettings.previewSwitchBreak')}
@@ -772,7 +773,7 @@ const BroadcastSettings = () => {
                 {settings.broadcast_bg_image_url ? (
                   <div className="bs-img-preview-wrap">
                     <img src={settings.broadcast_bg_image_url} alt="bg" className="bs-img-preview" />
-                    <button className="bs-img-remove" onClick={() => set('broadcast_bg_image_url', '')}>×</button>
+                    <button type="button" className="bs-img-remove" onClick={() => set('broadcast_bg_image_url', '')}>×</button>
                   </div>
                 ) : (
                   <label className="bs-upload-zone">
@@ -868,6 +869,7 @@ const BroadcastSettings = () => {
                   {['bottom', 'sidebar'].map(opt => (
                     <button
                       key={opt}
+                      type="button"
                       className={`bs-layout-opt ${settings.broadcast_prizes_layout === opt ? 'active' : ''}`}
                       onClick={() => set('broadcast_prizes_layout', opt)}
                     >
@@ -891,6 +893,7 @@ const BroadcastSettings = () => {
                   {['split', 'fullscreen', 'overlay'].map(opt => (
                     <button
                       key={opt}
+                      type="button"
                       className={`bs-layout-opt ${settings.broadcast_break_layout === opt ? 'active' : ''}`}
                       onClick={() => set('broadcast_break_layout', opt)}
                     >
@@ -1016,10 +1019,10 @@ const BroadcastSettings = () => {
             </SectionCard>
 
             <div className="bs-actions">
-              <button className="bs-btn-cancel" onClick={() => navigate(`/torneios/${tournamentId}`)}>
+              <button type="button" className="bs-btn-cancel" onClick={() => navigate(`/torneios/${tournamentId}`)}>
                 {t('common.cancel')}
               </button>
-              <button className="bs-btn-save" onClick={handleSave} disabled={submitting}>
+              <button type="button" className="bs-btn-save" onClick={handleSave} disabled={submitting}>
                 {submitting ? (
                   <><span className="bs-save-spinner" /> {t('broadcastSettings.saving')}</>
                 ) : (

@@ -323,6 +323,7 @@ const CaixaJogadores = () => {
                           <td>
                             {c.status === 'active' && c.used_amount === 0 && (
                               <button
+                                type="button"
                                 className="cj-action-btn cj-action-btn--danger"
                                 onClick={() => handleCancelCredit(c.id)}
                                 title={t('playerCash.cancelCreditTitle')}
@@ -453,7 +454,7 @@ const CaixaJogadores = () => {
             <div className="modal" role="dialog" aria-modal="true" aria-label={t('playerCash.grantCreditTitle')}>
               <div className="modal-header">
                 <h2>{t('playerCash.grantCreditTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowCreditModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowCreditModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -522,7 +523,7 @@ const CaixaJogadores = () => {
             <div className="modal" role="dialog" aria-modal="true" aria-label={t('playerCash.registerSponsorTitle')}>
               <div className="modal-header">
                 <h2>{t('playerCash.registerSponsorTitle')}</h2>
-                <button className="close-btn" onClick={() => setShowSponsorModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowSponsorModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

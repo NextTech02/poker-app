@@ -46,7 +46,8 @@
   align-items: center;
   gap: 0.5rem;
   background: var(--brand-green, #7233f8);
-  color: #04210f;
+  /* tinta escura sobre o roxo da marca dava 2,88:1; --text-primary da' 4,87:1 */
+  color: var(--text-primary, #e0eaf4);
   border: none;
   border-radius: 8px;
   padding: 0.6rem 1.1rem;
@@ -310,7 +311,7 @@
 .bt-btn-cancel:hover { color: var(--text-primary, #e6edf3); }
 .bt-btn-save {
   background: var(--brand-green, #7233f8);
-  color: #04210f;
+  color: var(--text-primary, #e0eaf4);
 }
 .bt-btn-save:hover:not(:disabled) { filter: brightness(1.08); }
 .bt-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }

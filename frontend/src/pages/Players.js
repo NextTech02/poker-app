@@ -186,14 +186,14 @@ const Players = () => {
             </div>
           </div>
           <div className="pl-head-actions">
-            <button className="pl-btn-import" onClick={() => setShowImport(true)}
+            <button type="button" className="pl-btn-import" onClick={() => setShowImport(true)}
                     title={t('playerImport.buttonHint', 'Trazer a base de jogadores de outro sistema')}>
               <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
                 <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67 2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
               </svg>
               {t('playerImport.button', 'Importar')}
             </button>
-            <button className="pl-btn-new" onClick={openNewModal}>
+            <button type="button" className="pl-btn-new" onClick={openNewModal}>
               <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
@@ -215,7 +215,7 @@ const Players = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {searchTerm && (
-            <button className="pl-search-clear" onClick={() => setSearchTerm('')}>
+            <button type="button" className="pl-search-clear" onClick={() => setSearchTerm('')}>
               <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
@@ -236,7 +236,7 @@ const Players = () => {
             <h3>{searchTerm ? t('players.noResults') : t('players.noPlayers')}</h3>
             <p>{searchTerm ? `${t('players.noResultsHint')} "${searchTerm}"` : t('players.noPlayersHint')}</p>
             {!searchTerm && (
-              <button className="pl-btn-new" onClick={openNewModal}>
+              <button type="button" className="pl-btn-new" onClick={openNewModal}>
                 <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
                   <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                 </svg>
@@ -330,6 +330,7 @@ const Players = () => {
                         <td className="pl-cell-actions">
                           <div className="pl-actions">
                             <button
+                              type="button"
                               className="pl-btn-icon pl-btn-history"
                               onClick={() => navigate(`/jogadores/${player.id}`)}
                               title={t('players.viewHistory', 'Ver histórico')}
@@ -340,6 +341,7 @@ const Players = () => {
                               {t('players.history', 'Histórico')}
                             </button>
                             <button
+                              type="button"
                               className="pl-btn-icon pl-btn-edit"
                               onClick={() => handleEdit(player)}
                               title={t('players.editPlayer')}
@@ -350,6 +352,7 @@ const Players = () => {
                               {t('common.edit', 'Editar')}
                             </button>
                             <button
+                              type="button"
                               className="pl-btn-icon pl-btn-delete"
                               onClick={() => handleDelete(player.id)}
                               title={t('players.deletePlayer')}
@@ -387,7 +390,7 @@ const Players = () => {
                   </div>
                   <h2>{editingPlayer ? t('players.editPlayer') : t('players.newPlayer')}</h2>
                 </div>
-                <button className="pl-modal-close" onClick={() => setShowModal(false)}>
+                <button type="button" className="pl-modal-close" onClick={() => setShowModal(false)}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                   </svg>

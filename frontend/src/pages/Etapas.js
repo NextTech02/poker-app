@@ -231,7 +231,7 @@ const Etapas = () => {
               <p className="et-subtitle">{t('stages.subtitle', 'Gerenciar etapas do circuito')}</p>
             </div>
           </div>
-          <button className="et-btn-new" onClick={openNewModal}>
+          <button type="button" className="et-btn-new" onClick={openNewModal}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
@@ -434,7 +434,7 @@ const Etapas = () => {
             <div className="modal" role="dialog" aria-modal="true">
               <div className="modal-header">
                 <h2>{editingStage ? t('common.edit') + ' ' + t('stages.title').slice(0, -1) : t('stages.newStage')}</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

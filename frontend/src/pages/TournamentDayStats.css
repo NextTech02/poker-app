@@ -55,7 +55,8 @@
 
 .status-badge.completed {
   background: rgba(99, 102, 241, 0.12);
-  color: #818cf8;
+  /* #818cf8 sobre o proprio tint dava 4,14:1; #a5b4fc mantem o indigo em 6,20:1 */
+  color: #a5b4fc;
   border: 1px solid rgba(99, 102, 241, 0.25);
 }
 

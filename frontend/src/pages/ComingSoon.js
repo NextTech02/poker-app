@@ -25,7 +25,7 @@ const ComingSoon = ({ variant = 'comingSoon' }) => {
           <div className="cs-icon">{icon}</div>
           <h1 className="cs-title">{title}</h1>
           <p className="cs-subtitle">{subtitle}</p>
-          <button className="cs-btn" onClick={() => navigate('/')}>
+          <button type="button" className="cs-btn" onClick={() => navigate('/')}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
               <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
             </svg>

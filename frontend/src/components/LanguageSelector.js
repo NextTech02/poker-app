@@ -49,7 +49,7 @@ const LanguageSelector = ({ dropDirection = 'down' }) => {
 
   return (
     <div className="language-selector" ref={dropdownRef}>
-      <button
+      <button type="button"
         className="language-selector-btn"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}

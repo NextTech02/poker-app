@@ -104,7 +104,8 @@
 
 .tm-btn-lock.locked:hover {
   background: #ff9800;
-  color: #fff;
+  /* branco sobre o ambar dava 2,16:1; a tinta escura da' 6,83:1 */
+  color: #3d2200;
 }
 
 .tm-btn-primary {
@@ -480,7 +481,8 @@
 .tm-btn-elim {
   background: rgba(244, 67, 54, 0.15);
   border: 1px solid rgba(244, 67, 54, 0.3);
-  color: #f44336;
+  /* #f44336 sobre o proprio tint dava 3,37:1 */
+  color: var(--badge-text-danger, #f19191);
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.65rem;

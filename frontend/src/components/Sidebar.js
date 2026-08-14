@@ -206,7 +206,7 @@ const Sidebar = () => {
       {/* Mobile Header Bar */}
       {isMobile && (
         <header className="mobile-header">
-          <button
+          <button type="button"
             className={`hamburger-btn ${isOpen ? 'active' : ''}`}
             onClick={toggleSidebar}
             aria-label={t('sidebar.toggleMenu')}
@@ -251,7 +251,7 @@ const Sidebar = () => {
 
         {/* Collapse toggle button (desktop only) */}
         {!isMobile && (
-          <button
+          <button type="button"
             className="sidebar-collapse-btn"
             onClick={toggleCollapse}
             title={isCollapsed ? t('sidebar.expand', 'Expandir') : t('sidebar.collapse', 'Recolher')}
@@ -314,7 +314,7 @@ const Sidebar = () => {
 
         <div className="sidebar-footer">
           <LanguageSelector dropDirection="up" />
-          <button onClick={handleLogout} className="logout-btn">
+          <button type="button" onClick={handleLogout} className="logout-btn">
             <span className="nav-icon">logout</span>
             <span className="nav-label">{t('sidebar.logout')}</span>
           </button>

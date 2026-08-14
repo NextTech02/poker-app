@@ -1083,7 +1083,7 @@ const Caixa = () => {
             <div className="modal">
               <div className="modal-header">
                 <h2>{t('cashRegister.newTransaction')}</h2>
-                <button className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => setShowModal(false)} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -1416,7 +1416,7 @@ const Caixa = () => {
                       ? t('cashRegister.registeredAsAlternate')
                       : t('cashRegister.registeredAndAllocated')}
                 </h2>
-                <button className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>

@@ -59,7 +59,8 @@
   padding: 14px;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #06210f;
+  /* tinta escura sobre o roxo dava 2,88:1 na ponta clara do gradiente */
+  color: var(--text-primary, #e0eaf4);
   background: linear-gradient(90deg, #7233f8, #5b21e0);
   border: none;
   border-radius: 10px;
