@@ -19,7 +19,7 @@
 }
 
 .cj-stat-highlight {
-  color: var(--info) !important;
+  color: var(--text-info) !important;
 }
 
 .cj-stat-warning {
@@ -37,7 +37,7 @@
 }
 
 .cj-amount-negative {
-  color: var(--danger);
+  color: var(--text-danger);
 }
 
 .cj-amount-warning {
@@ -63,7 +63,7 @@
 
 .cj-status--used {
   background: rgba(59, 130, 246, 0.15);
-  color: var(--info);
+  color: var(--badge-text-info);
 }
 
 .cj-status--settled {
@@ -73,7 +73,7 @@
 
 .cj-status--cancelled {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--badge-text-danger);
 }
 
 /* Action buttons */
@@ -93,7 +93,7 @@
 }
 
 .cj-action-btn--danger {
-  color: var(--danger);
+  color: var(--badge-text-danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
@@ -140,7 +140,7 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
-  color: var(--info);
+  color: var(--badge-text-info);
   font-size: 1.25rem;
   cursor: pointer;
   display: flex;
@@ -156,7 +156,7 @@
 /* Transaction type badges */
 .badge-credit {
   background: rgba(59, 130, 246, 0.15);
-  color: var(--info);
+  color: var(--badge-text-info);
 }
 
 .badge-credit-used {
@@ -167,7 +167,7 @@
 
 .badge-deduction {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--badge-text-danger);
 }
 
 .badge-sponsor {

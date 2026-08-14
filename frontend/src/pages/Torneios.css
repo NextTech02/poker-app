@@ -204,7 +204,7 @@
 .tr-card-icon svg {
   width: 20px;
   height: 20px;
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
 }
 
 .tr-card-info {
@@ -245,7 +245,7 @@
 .tr-status--active  { background: rgba(114,51,248,0.12);  color: var(--brand-green); }
 .tr-status--pending { background: rgba(234,179,8,0.12);   color: var(--warning-yellow); }
 .tr-status--done    { background: rgba(100,116,139,0.12); color: #94a3b8; }
-.tr-status--cancelled { background: rgba(239,68,68,0.12); color: var(--danger); }
+.tr-status--cancelled { background: rgba(239,68,68,0.12); color: var(--badge-text-danger); }
 
 .tr-badge-qualifying {
   display: inline-flex;
@@ -408,7 +408,7 @@
 .tr-modal-icon svg {
   width: 18px;
   height: 18px;
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
 }
 
 .tr-modal-header h2 {

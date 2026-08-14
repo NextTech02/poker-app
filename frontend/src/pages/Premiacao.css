@@ -215,13 +215,18 @@
 .prem-tab:hover { color: #c9d5e0; }
 
 .prem-tab.active {
-  color: var(--brand-gold);
+  /* De proposito dois tokens diferentes: texto precisa de 4,5:1 (--text-gold),
+     a borda nao precisa e fica no tom saturado da marca (--brand-gold).
+     Nao "unifique" os dois — ver o bloco de tokens em styles/index.css. */
+  color: var(--text-gold);
   border-bottom-color: var(--brand-gold);
 }
 
 .tab-badge {
+  /* --brand-gold aqui e' FUNDO (por isso continua no tom saturado).
+     A tinta por cima e' que muda: #0a0e13 sobre #5b5be8 dava 3,78:1. */
   background: var(--brand-gold);
-  color: #0a0e13;
+  color: #fff;
   font-size: 0.68rem;
   font-weight: 800;
   padding: 0.1rem 0.45rem;
@@ -342,7 +347,7 @@
 .input-with-prefix .prefix {
   padding: 0.625rem 0.875rem;
   background: rgba(91, 91, 232, 0.08);
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   font-weight: 700;
   font-size: 0.9rem;
   border-right: 1px solid var(--surface);
@@ -412,7 +417,7 @@
 
 .pool-item.available  .pool-value { color: var(--success-light); }
 .pool-item.allocated  .pool-value { color: var(--info-light); }
-.pool-item.remaining  .pool-value { color: var(--brand-gold); }
+.pool-item.remaining  .pool-value { color: var(--text-gold); }
 .pool-item.remaining.negative .pool-value { color: var(--danger-light); }
 
 .pool-warning {
@@ -474,7 +479,7 @@
 .allocations-table tfoot td {
   padding: 1rem 1.25rem;
   border-bottom: none;
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   font-weight: 700;
   font-size: 0.95rem;
 }
@@ -498,7 +503,7 @@
 /* 1st — gold */
 .position-badge.rank-1 {
   background: linear-gradient(135deg, rgba(91, 91, 232, 0.2) 0%, rgba(91, 91, 232, 0.08) 100%);
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   border: 1px solid rgba(91, 91, 232, 0.35);
 }
 
@@ -671,7 +676,7 @@
 
 .status-badge.pending {
   background: rgba(91, 91, 232, 0.12);
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   border: 1px solid rgba(91, 91, 232, 0.25);
 }
 
@@ -796,7 +801,7 @@
 .payout-prize-value {
   font-size: 1.75rem;
   font-weight: 800;
-  color: var(--brand-gold);
+  color: var(--text-gold);
   letter-spacing: -0.02em;
   text-shadow: 0 2px 12px rgba(91, 91, 232, 0.3);
 }
@@ -831,7 +836,7 @@
 }
 
 .payout-warn {
-  color: var(--danger);
+  color: var(--text-danger);
   font-weight: 700;
 }
 
@@ -964,7 +969,7 @@
 
 /* Selected state */
 .radio-option:has(input:checked) {
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   background: rgba(91, 91, 232, 0.08);
   border-color: rgba(91, 91, 232, 0.3);
 }
@@ -973,7 +978,7 @@
   content: '✓';
   font-size: 0.72rem;
   font-weight: 900;
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   background: rgba(91, 91, 232, 0.15);
   border-color: rgba(91, 91, 232, 0.5);
   display: flex;
@@ -1008,7 +1013,7 @@
 .payout-doc-note::before {
   content: 'ℹ';
   font-size: 0.9rem;
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   flex-shrink: 0;
   margin-top: 0.05rem;
   opacity: 0.7;
@@ -1190,7 +1195,7 @@
 .auto-calc-value {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
 }
 
 .auto-calc-warning {

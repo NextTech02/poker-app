@@ -33,7 +33,7 @@
 }
 
 .fn-stat-result {
-  color: var(--info) !important;
+  color: var(--text-info) !important;
 }
 
 .fn-stat-rake {
@@ -109,7 +109,7 @@
 }
 
 .fn-dre-negative {
-  color: var(--danger);
+  color: var(--text-danger);
 }
 
 /* Table value colors */
@@ -119,7 +119,7 @@
 }
 
 .fn-negative {
-  color: var(--danger);
+  color: var(--text-danger);
   font-weight: 600;
 }
 
@@ -141,7 +141,7 @@
 
 .fn-badge--rebuy {
   background: rgba(59, 130, 246, 0.15);
-  color: var(--info);
+  color: var(--badge-text-info);
 }
 
 .fn-badge--addon {

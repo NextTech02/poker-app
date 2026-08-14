@@ -72,7 +72,7 @@
 }
 .pd-finance-value { font-size: 1.5rem; font-weight: 700; color: var(--text); }
 .pd-positive { color: var(--brand-green); }
-.pd-negative { color: var(--danger); }
+.pd-negative { color: var(--text-danger); }
 
 /* ── Grade de métricas ── */
 .pd-grid {

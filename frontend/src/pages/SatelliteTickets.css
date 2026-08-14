@@ -11,7 +11,7 @@
 }
 
 .st-stat-redeemed {
-  color: var(--info) !important;
+  color: var(--text-info) !important;
 }
 
 /* Section spacing */
@@ -37,12 +37,12 @@
 
 .st-status--redeemed {
   background: rgba(59, 130, 246, 0.15);
-  color: var(--info);
+  color: var(--badge-text-info);
 }
 
 .st-status--cancelled {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--badge-text-danger);
 }
 
 /* Unassigned player */
@@ -68,7 +68,7 @@
 }
 
 .st-action-btn--danger {
-  color: var(--danger);
+  color: var(--badge-text-danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 

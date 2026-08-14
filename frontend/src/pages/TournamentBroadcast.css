@@ -566,7 +566,8 @@
 
 .prizes-header {
   font-size: 14px;
-  color: var(--gold-accent, var(--brand-gold));
+  /* texto pequeno: --gold-accent (#5b5be8) dava 3,45:1 no fundo do telao */
+  color: var(--text-gold);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -615,7 +616,8 @@
 }
 
 .prize-row:nth-child(1) .prize-position {
-  color: var(--gold-accent, var(--brand-gold));
+  /* 14px: precisa de 4,5:1, e --gold-accent so' entregava 3,45:1 */
+  color: var(--text-gold);
 }
 
 .prize-row:nth-child(2) .prize-position {
@@ -634,7 +636,8 @@
 }
 
 .prize-row:nth-child(1) .prize-value {
-  color: var(--gold-accent, var(--brand-gold));
+  /* 18px bold ainda e' "texto normal" pra WCAG (limite 18,66px) -> 4,5:1 */
+  color: var(--text-gold);
   text-shadow: 0 0 10px rgba(91, 91, 232, 0.3);
 }
 
@@ -748,7 +751,7 @@
 }
 
 .prize-ticker-dot {
-  color: var(--brand-gold);
+  color: var(--text-gold);
   font-size: 8px;
   opacity: 0.6;
   margin-left: 0.5rem;

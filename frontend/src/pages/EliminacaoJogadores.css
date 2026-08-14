@@ -248,7 +248,7 @@
 
 .player-status-badge.winner {
   background: rgba(91, 91, 232, 0.2);
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
 }
 
 .player-nickname {

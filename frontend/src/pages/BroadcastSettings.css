@@ -52,7 +52,7 @@
   border-radius: 8px;
   border: 1px solid rgba(91, 91, 232, 0.5);
   background: rgba(91, 91, 232, 0.08);
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -673,7 +673,7 @@
 .bs-preview-mode-btn.active {
   background: rgba(91,91,232,0.12);
   border-color: rgba(91,91,232,0.5);
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
 }
 
 /* ── Layout selector (split / fullscreen / overlay) ── */
@@ -705,7 +705,7 @@
 .bs-layout-opt.active {
   border-color: rgba(91,91,232,0.55);
   background: rgba(91,91,232,0.1);
-  color: var(--brand-gold);
+  color: var(--badge-text-gold);
 }
 
 /* ═══════════════════════════════════════════════════════════════

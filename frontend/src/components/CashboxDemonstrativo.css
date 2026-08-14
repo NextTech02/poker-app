@@ -23,7 +23,7 @@
 }
 
 .cb-demo__bad {
-  color: var(--danger);
+  color: var(--text-danger);
   font-weight: 700;
 }
 

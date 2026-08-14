@@ -26,7 +26,10 @@
 }
 
 .func-tab.active {
-  color: var(--info);
+  /* De proposito dois tokens diferentes: texto precisa de 4,5:1 (--text-info),
+     a borda nao precisa e fica no tom saturado da marca (--info).
+     Nao "unifique" os dois — ver o bloco de tokens em styles/index.css. */
+  color: var(--text-info);
   border-bottom-color: var(--info);
 }
 
@@ -81,7 +84,7 @@
 
 .func-status--inactive {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--badge-text-danger);
 }
 
 /* Barra do filtro: alinhada à direita para não competir com o cabeçalho da
@@ -177,7 +180,7 @@
 }
 
 .func-action-btn--danger {
-  color: var(--danger);
+  color: var(--badge-text-danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 

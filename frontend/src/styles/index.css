@@ -692,6 +692,7 @@ tbody td {
   --badge-text-info: #7cbde8;
   --badge-text-accent: #c79cfa;
   --badge-text-neutral: #b1bcc4;
+  --badge-text-gold: #a5a5f4;  /* mesmo matiz de --brand-gold (240deg), 4,67:1 no pior tint (gold .20) */
 
   /* Border & Dividers - Subtle definition */
   --border-primary: #2a3a4d;
@@ -823,6 +824,25 @@ tbody td {
 /* ============================================================
    Canonical brand tokens — single source of truth for screens.
    Migrate hardcoded hex to these so screens can't drift apart.
+
+   ATENCAO — estes sao tokens de PREENCHIMENTO (fundo, borda, gradiente),
+   NAO de texto. Sao os tons saturados da marca: bonitos como fundo com
+   tinta clara por cima, mas reprovam em 4,5:1 quando viram cor de TEXTO
+   sobre os fundos escuros do tema (--brand-gold 2,42:1, --danger 3,29:1,
+   --info 3,37:1 sobre --card-bg-hover).
+
+   Por isso a cor de texto mora em tokens separados, la em cima:
+     --brand-gold  (fundo/borda)  ->  --text-gold   / --badge-text-gold
+     --danger      (fundo/borda)  ->  --text-danger / --badge-text-danger
+     --info        (fundo/borda)  ->  --text-info   / --badge-text-info
+   Use --text-* sobre superficie lisa e --badge-text-* quando houver tint
+   translucido por baixo (o tint clareia o fundo e come a margem).
+
+   NAO clareie os valores abaixo para "consertar" contraste de texto: eles
+   sao usados como fundo (.tab-badge, .tr-toggle-switch.on, checkbox marcado)
+   e como borda/gradiente, onde clarear estraga o par com a tinta de cima.
+   Conserte no ponto de uso, trocando `color:` para o token de texto.
+   --warning fica de fora: ja passa (6,53:1) como texto.
    ============================================================ */
 :root {
   --brand-green: #7233f8;
