@@ -74,14 +74,20 @@ const PaymentMethodsManager = () => {
         {t('paymentMethods.intro', 'Configure as formas de pagamento aceitas. Os métodos ativos aparecem no Caixa ao registrar transações.')}
       </p>
 
+      {/* Rótulo acima do campo, mesmo padrão de Despesas/Receitas (.exp-field),
+          com htmlFor/id para o leitor de tela anunciar e o clique focar. */}
       <form className="pm-add" onSubmit={handleAdd}>
-        <input
-          type="text"
-          value={newLabel}
-          onChange={(e) => setNewLabel(e.target.value)}
-          placeholder={t('paymentMethods.namePlaceholder', 'Nome do método (ex.: Yape, Nequi, Cartão)')}
-          maxLength={60}
-        />
+        <div className="pm-field pm-field--name">
+          <label htmlFor="pm-new-name">{t('paymentMethods.name', 'Nome')}</label>
+          <input
+            id="pm-new-name"
+            type="text"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder={t('paymentMethods.namePlaceholderShort', 'ex.: Yape, Nequi, Cartão')}
+            maxLength={60}
+          />
+        </div>
         <button type="submit" className="pm-btn-add" disabled={busy || !newLabel.trim()}>
           + {t('paymentMethods.add', 'Adicionar')}
         </button>
@@ -113,9 +119,12 @@ const PaymentMethodsManager = () => {
                         <span className="pm-builtin-tag">{t('paymentMethods.builtin', 'padrão')}</span>
                       </span>
                     ) : editingId === m.id ? (
+                      // Edição inline: a coluna "Nome" já rotula visualmente;
+                      // o aria-label cobre quem ouve a célula sem o cabeçalho.
                       <input
                         className="pm-edit-input"
                         autoFocus
+                        aria-label={`${t('paymentMethods.name', 'Nome')} — ${m.label}`}
                         value={editLabel}
                         onChange={(e) => setEditLabel(e.target.value)}
                         onBlur={() => commitEdit(m)}
@@ -134,7 +143,9 @@ const PaymentMethodsManager = () => {
                   <td><code className="pm-code">{m.code}</code></td>
                   <td>
                     <label className="pm-switch">
-                      <input type="checkbox" checked={m.active} onChange={() => toggleActive(m)} />
+                      <input type="checkbox" checked={m.active}
+                        aria-label={`${t('paymentMethods.active', 'Ativo')} — ${methodLabel(t, m)}`}
+                        onChange={() => toggleActive(m)} />
                       <span className="pm-slider" />
                     </label>
                   </td>

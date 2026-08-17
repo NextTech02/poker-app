@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
+import Icon from '../components/Icon';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import PlayerSelect from '../components/PlayerSelect';
@@ -219,9 +220,7 @@ const CaixaJogadores = () => {
         <div className="cx-header">
           <div className="cx-header-left">
             <div className="cx-header-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
+              <Icon name="users" />
             </div>
             <div>
               <h1 className="cx-title">{t('playerCash.title')}</h1>

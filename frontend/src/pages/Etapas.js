@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
+import Icon from '../components/Icon';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import { SkeletonTableRow } from '../components/SkeletonLoader';
@@ -222,9 +223,7 @@ const Etapas = () => {
         <div className="et-header">
           <div className="et-header-left">
             <div className="et-header-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
-              </svg>
+              <Icon name="calendar" />
             </div>
             <div>
               <h1 className="et-title">{t('stages.title', 'Etapas')}</h1>

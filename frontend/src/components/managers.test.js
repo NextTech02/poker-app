@@ -97,6 +97,13 @@ describe('PaymentMethodsManager', () => {
     expect(toast.success).toHaveBeenCalled();
   });
 
+  it('o campo de novo método tem rótulo associado', () => {
+    // Sem associação (htmlFor/id) o rótulo é só enfeite: o leitor de tela não
+    // anuncia o campo e o clique no texto não foca.
+    montar();
+    expect(screen.getByLabelText('Nome')).toBe(screen.getByRole('textbox'));
+  });
+
   it('o botão de adicionar fica travado sem nome', () => {
     // Um método sem rótulo não teria como ser reconhecido no dropdown.
     montar();
@@ -246,8 +253,10 @@ describe('BuyTypesManager', () => {
 
   it('adiciona um tipo com rake próprio', async () => {
     const api = montar();
-    await userEvent.type(screen.getByPlaceholderText(/Nome/), 'Buy-in VIP');
-    const rake = screen.getByRole('spinbutton');
+    // Busca pelo RÓTULO (não pelo placeholder): é o rótulo que o operador e o
+    // leitor de tela usam, e ele não desaparece quando o campo é preenchido.
+    await userEvent.type(screen.getByLabelText('Nome'), 'Buy-in VIP');
+    const rake = screen.getByLabelText('Rake (%)');
     await userEvent.clear(rake);
     await userEvent.type(rake, '10');
     await userEvent.click(screen.getByRole('button', { name: /Adicionar/ }));
@@ -258,6 +267,25 @@ describe('BuyTypesManager', () => {
     );
   });
 
+  it('os três campos do cadastro têm rótulo associado', () => {
+    // O "20" sem rótulo era lido como valor da entrada em reais; o rótulo
+    // precisa dizer que é PORCENTAGEM.
+    montar();
+    expect(screen.getByLabelText('Nome').tagName).toBe('INPUT');
+    expect(screen.getByLabelText('Categoria').tagName).toBe('SELECT');
+    expect(screen.getByLabelText('Rake (%)')).toBe(screen.getByRole('spinbutton'));
+  });
+
+  it('os campos de edição inline são anunciados pelo leitor de tela', async () => {
+    // Na tabela o cabeçalho da coluna já rotula visualmente; o aria-label é o
+    // que resta para quem ouve a célula fora do contexto do cabeçalho.
+    montar();
+    await userEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
+    expect(screen.getByLabelText('Nome — Buy-in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Categoria — Buy-in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Rake (%) — Buy-in')).toBeInTheDocument();
+  });
+
   it('o botão fica travado sem nome', () => {
     montar();
     expect(screen.getByRole('button', { name: /Adicionar/ })).toBeDisabled();
@@ -265,7 +293,7 @@ describe('BuyTypesManager', () => {
 
   it('falha ao criar avisa e libera o formulário', async () => {
     montar({ createBuyType: jest.fn().mockRejectedValue(new Error('erro')) });
-    await userEvent.type(screen.getByPlaceholderText(/Nome/), 'X');
+    await userEvent.type(screen.getByLabelText('Nome'), 'X');
     await userEvent.click(screen.getByRole('button', { name: /Adicionar/ }));
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     await waitFor(() =>

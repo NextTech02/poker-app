@@ -13,8 +13,31 @@
   gap: 0.6rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
-  align-items: center;
+  /* com rótulo acima, os campos crescem para cima: alinhar pela base mantém
+     o botão na mesma linha dos inputs */
+  align-items: flex-end;
 }
+
+/* Campo rotulado — mesma medida do .exp-field de Despesas/Receitas */
+.bty-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bty-field label {
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary, #8aa0b0);
+}
+.bty-field input,
+.bty-field select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.bty-field--name { flex: 1 1 180px; }
+.bty-field--cat { flex: 0 1 150px; }
+.bty-field--num { flex: 0 0 110px; }
 .bty-add input,
 .bty-table input {
   padding: 0.6rem 0.75rem;
@@ -34,9 +57,19 @@
 }
 .bty-add input:focus,
 .bty-table input:focus { outline: none; border-color: var(--brand-green, #7233f8); }
-.bty-in-name { flex: 1; min-width: 180px; }
-.bty-in-num { width: 110px; }
-.bty-add select { min-width: 130px; }
+/* Larguras da tabela (edição inline). No formulário quem manda é o .bty-field,
+   por isso o min-width fica fora dele — senão estouraria a tela estreita. */
+.bty-table .bty-in-name { min-width: 140px; }
+.bty-table .bty-in-num { width: 110px; }
+
+@media (max-width: 560px) {
+  /* Uma coluna no celular: rótulo em cima, campo abaixo, botão de largura cheia */
+  .bty-add { flex-direction: column; align-items: stretch; }
+  .bty-field--name,
+  .bty-field--cat,
+  .bty-field--num { flex: 1 1 auto; width: 100%; }
+  .bty-btn-add { width: 100%; }
+}
 
 .bty-btn-add {
   background: var(--brand-green, #7233f8);

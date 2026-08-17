@@ -58,6 +58,12 @@ const JOGADORES = [
 
 let toast;
 let confirmar;
+// Instância própria do user-event com `delay: null`. O padrão espera um
+// macrotask entre CADA tecla; este arquivo preenche 5 campos por teste (~55
+// teclas), o que sozinho consumia ~1,1s dos 5s de timeout — e estourava quando
+// a suíte inteira roda em paralelo e disputa CPU. `delay: null` tira só a
+// espera artificial: os eventos de teclado continuam sendo disparados um a um.
+let ue;
 
 const responder = ({ lista = JOGADORES, busca = JOGADORES } = {}) => {
   cachedGet.mockImplementation(() =>
@@ -79,22 +85,23 @@ const linhaDe = (nome) =>
     within(tr).queryByText(nome)
   );
 
-const abrirNovo = () => userEvent.click(screen.getByRole('button', { name: /players.newPlayer/ }));
+const abrirNovo = () => ue.click(screen.getByRole('button', { name: /players.newPlayer/ }));
 
 const preencher = async ({
   nome = 'Carlos Dias', email = 'carlos@x.com', telefone = '11777',
   nacionalidade = 'Brasil', documento = '999',
 } = {}) => {
-  if (nome) await userEvent.type(screen.getByLabelText(/players.fullName/), nome);
-  if (email) await userEvent.type(screen.getByLabelText(/players.email/), email);
-  if (telefone) await userEvent.type(screen.getByLabelText(/players.phone/), telefone);
-  if (nacionalidade) await userEvent.type(screen.getByLabelText(/players.nationality/), nacionalidade);
-  if (documento) await userEvent.type(screen.getByLabelText(/players.documentNumber/), documento);
+  if (nome) await ue.type(screen.getByLabelText(/players.fullName/), nome);
+  if (email) await ue.type(screen.getByLabelText(/players.email/), email);
+  if (telefone) await ue.type(screen.getByLabelText(/players.phone/), telefone);
+  if (nacionalidade) await ue.type(screen.getByLabelText(/players.nationality/), nacionalidade);
+  if (documento) await ue.type(screen.getByLabelText(/players.documentNumber/), documento);
 };
 
-const salvar = () => userEvent.click(document.querySelector('.pl-modal button[type="submit"]'));
+const salvar = () => ue.click(document.querySelector('.pl-modal button[type="submit"]'));
 
 beforeEach(() => {
+  ue = userEvent.setup({ delay: null });
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
   confirmar = jest.fn().mockResolvedValue(true);
   useToast.mockReturnValue({ toast, confirm: confirmar });
@@ -179,7 +186,7 @@ describe('busca', () => {
   it('buscar NÃO usa cache: a consulta é dinâmica', async () => {
     // Servir cache aqui devolveria o resultado da busca anterior.
     await montar();
-    await userEvent.type(screen.getByPlaceholderText('players.searchPlaceholder'), 'ana');
+    await ue.type(screen.getByPlaceholderText('players.searchPlaceholder'), 'ana');
     await waitFor(() =>
       expect(api.get).toHaveBeenCalledWith('/players', { params: { search: 'ana' } })
     );
@@ -188,17 +195,17 @@ describe('busca', () => {
   it('sem resultado a tela cita o termo procurado', async () => {
     // "Nenhum jogador" faria o operador achar que a base está vazia.
     await montar({ busca: [] });
-    await userEvent.type(screen.getByPlaceholderText('players.searchPlaceholder'), 'zzz');
+    await ue.type(screen.getByPlaceholderText('players.searchPlaceholder'), 'zzz');
     await waitFor(() => expect(document.querySelector('.pl-empty')).toBeInTheDocument());
     expect(screen.getByText(/zzz/)).toBeInTheDocument();
   });
 
   it('limpar a busca volta para a lista cacheada', async () => {
     await montar();
-    await userEvent.type(screen.getByPlaceholderText('players.searchPlaceholder'), 'ana');
+    await ue.type(screen.getByPlaceholderText('players.searchPlaceholder'), 'ana');
     await waitFor(() => expect(api.get).toHaveBeenCalled());
     const antes = cachedGet.mock.calls.length;
-    await userEvent.click(document.querySelector('.pl-search-clear'));
+    await ue.click(document.querySelector('.pl-search-clear'));
     await waitFor(() => expect(cachedGet.mock.calls.length).toBeGreaterThan(antes));
   });
 });
@@ -260,7 +267,7 @@ describe('cadastrar jogador', () => {
   it('fechar sem salvar não cria nada', async () => {
     await montar();
     await abrirNovo();
-    await userEvent.click(document.querySelector('.pl-modal-close'));
+    await ue.click(document.querySelector('.pl-modal-close'));
     expect(offlineWrite).not.toHaveBeenCalled();
   });
 });
@@ -268,7 +275,7 @@ describe('cadastrar jogador', () => {
 describe('editar jogador', () => {
   const editar = async (nome) => {
     await waitFor(() => expect(linhaDe(nome)).toBeDefined());
-    await userEvent.click(within(linhaDe(nome)).getByTitle('players.editPlayer'));
+    await ue.click(within(linhaDe(nome)).getByTitle('players.editPlayer'));
   };
 
   it('abre com os dados atuais', async () => {
@@ -289,8 +296,8 @@ describe('editar jogador', () => {
     await montar();
     await editar('Beto Silva');
     const nome = screen.getByLabelText(/players.fullName/);
-    await userEvent.clear(nome);
-    await userEvent.type(nome, 'Beto S. Silva');
+    await ue.clear(nome);
+    await ue.type(nome, 'Beto S. Silva');
     await salvar();
     await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
     const op = offlineWrite.mock.calls[0][0];
@@ -320,7 +327,7 @@ describe('editar jogador', () => {
 describe('excluir jogador', () => {
   const excluir = async (nome) => {
     await waitFor(() => expect(linhaDe(nome)).toBeDefined());
-    await userEvent.click(within(linhaDe(nome)).getByTitle('players.deletePlayer'));
+    await ue.click(within(linhaDe(nome)).getByTitle('players.deletePlayer'));
   };
 
   it('pede confirmação de perigo', async () => {
@@ -353,7 +360,7 @@ describe('histórico e importação', () => {
   it('o nome do jogador leva ao histórico dele', async () => {
     await montar();
     await waitFor(() => expect(linhaDe('Beto Silva')).toBeDefined());
-    await userEvent.click(within(linhaDe('Beto Silva')).getByText('Beto Silva'));
+    await ue.click(within(linhaDe('Beto Silva')).getByText('Beto Silva'));
     expect(mockNavigate).toHaveBeenCalledWith('/jogadores/p1');
   });
 
@@ -364,22 +371,22 @@ describe('histórico e importação', () => {
     await waitFor(() => expect(linhaDe('Beto Silva')).toBeDefined());
     const celula = linhaDe('Beto Silva').querySelector('.pl-player-cell-link');
     celula.focus();
-    await userEvent.keyboard('{Enter}');
+    await ue.keyboard('{Enter}');
     expect(mockNavigate).toHaveBeenCalledWith('/jogadores/p1');
   });
 
   it('a importação abre sob demanda', async () => {
     // O componente é carregado só quando pedido (code-splitting).
     await montar();
-    await userEvent.click(screen.getByRole('button', { name: /Importar/ }));
+    await ue.click(screen.getByRole('button', { name: /Importar/ }));
     expect(await screen.findByTestId('importacao')).toBeInTheDocument();
   });
 
   it('fechar a importação a remove da tela', async () => {
     await montar();
-    await userEvent.click(screen.getByRole('button', { name: /Importar/ }));
+    await ue.click(screen.getByRole('button', { name: /Importar/ }));
     await screen.findByTestId('importacao');
-    await userEvent.click(screen.getByText('fechar'));
+    await ue.click(screen.getByText('fechar'));
     await waitFor(() => expect(screen.queryByTestId('importacao')).toBeNull());
   });
 });
