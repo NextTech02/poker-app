@@ -409,3 +409,28 @@
     gap: 0.35rem;
   }
 }
+
+/* ── Datas da etapa: aviso e erro dentro do modal ──────────────────────────
+   O operador precisa ler o motivo AO LADO do campo que ele tem de corrigir;
+   um toast some sozinho e deixa o formulário parecendo quebrado. */
+.et-aviso-data {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning-color);
+  border: 1px solid var(--warning-500);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.et-erro-data {
+  margin: -0.35rem 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border: 1px solid var(--danger-500);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}

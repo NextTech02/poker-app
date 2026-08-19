@@ -109,6 +109,40 @@ class Tournament(TournamentBase):
         from_attributes = True
 
 
+class TournamentDeleteImpact(BaseModel):
+    """O que a exclusão do torneio DESTRÓI, com número em cima.
+
+    Todas as FKs que apontam para `tournaments` são ON DELETE CASCADE: apagar
+    um torneio leva junto `transactions`, `tournament_players`,
+    `prize_allocations`, `tournament_days`, `blinds`, `seat_allocations` e
+    `tournament_tables`. Some a venda, o dinheiro recebido e o registro de quem
+    pagou — e o caixa da etapa NÃO é estornado (os gatilhos são só de INSERT),
+    então o saldo continua apontando dinheiro cuja origem foi apagada e a etapa
+    deixa de fechar.
+
+    Este resumo existe para a confirmação dizer "12 entradas, 8 jogadores,
+    R$ 2.400" ANTES do clique, em vez do "tem certeza?" genérico de hoje.
+    """
+    tournament_id: str
+    tournament_name: str
+    days: int = 0
+    # Inscrições que somem da base (linhas de tournament_players).
+    players: int = 0
+    # Quantas delas pagaram alguma coisa — é o que caracteriza dinheiro em cima.
+    paying_players: int = 0
+    # Vendas de entrada (buy-in/rebuy/add-on) que ainda valem dinheiro.
+    entries: int = 0
+    entries_amount: float = 0
+    # Premiação já paga: dinheiro que SAIU do caixa.
+    prizes: int = 0
+    prizes_amount: float = 0
+    # Vendas já estornadas: o dinheiro voltou, sobrou o histórico.
+    cancelled_entries: int = 0
+    # True = tem dinheiro em cima; a exclusão é RECUSADA (409), e o caminho
+    # passa a ser cancelar as vendas no Caixa (estorno acerta o caixa) antes.
+    blocked: bool = False
+
+
 class TournamentSummary(BaseModel):
     """Tournament summary with aggregated statistics from all days"""
     id: str

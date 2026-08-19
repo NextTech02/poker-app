@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../config/api';
 import { supabase } from '../config/supabase';
+import { isOnline as redeOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 
 /**
  * Shared hook for timer synchronization between Control Panel and Broadcast Screen.
@@ -19,13 +20,34 @@ import { supabase } from '../config/supabase';
  *
  * Supports OFFLINE MODE: when the server is unreachable and `blinds` array is
  * provided, the hook auto-advances levels locally using the cached blind structure.
+ * Além do fim de nível automático, `applyLocalCommand` aplica na TELA um comando
+ * do operador (virar blind, ajustar tempo, reiniciar) que não conseguiu chegar ao
+ * servidor — a fila offline reexecuta depois. Sem isso o relógio do telão ficava
+ * ignorando o clique até a rede voltar, que é a pior hora para a mesa duvidar do
+ * relógio.
  *
  * @param {string} dayId - Tournament day ID
  * @param {Array} blinds - Optional sorted blind structure for offline fallback
- * @returns {Object} { timerState, refetch, triggerRefetch, applyOptimistic, error, isLoading }
+ * @returns {Object} { timerState, refetch, triggerRefetch, applyOptimistic, applyLocalCommand, isOffline, error, isLoading }
  */
 
 const REANCHOR_DRIFT = 2.5; // segundos de divergência que forçam re-ancoragem (snap)
+
+// Por quanto tempo a tela segura o nível aplicado localmente enquanto o servidor
+// ainda responde o nível ANTIGO (o comando está na fila de sincronização). Sem
+// essa trava o telão "pisca" de volta para o blind anterior por alguns segundos
+// assim que a internet volta — exatamente na frente da mesa.
+const OPTIMISTIC_LEVEL_HOLD_MS = 15000;
+
+// Quantas falhas SEGUIDAS do poll DESTE relógio ligam o modo local. O sinal
+// global de conectividade não liga o modo local sozinho — ele só ANTECIPA a
+// decisão quando este relógio já falhou pelo menos uma vez. Motivo: uma
+// requisição de outra tela marcando a rede como offline colocaria este telão
+// para avançar de nível por conta própria enquanto /timer responde normal, e
+// dois telões avançando sozinhos mostram HORAS DIFERENTES na mesma sala. Um
+// relógio parado todo mundo percebe; dois discordando vira discussão na mesa.
+const FALHAS_PARA_MODO_LOCAL = 2;
+const FALHAS_PARA_MODO_LOCAL_COM_SINAL_GLOBAL = 1;
 
 // Pure helpers (module scope so they're stable and dependency-free).
 //
@@ -78,6 +100,7 @@ export const useTimerSync = (dayId, blinds = null) => {
   const [timerState, setTimerState] = useState(null); // server metadata (blinds, players, is_paused, level…)
   const [renderTick, setRenderTick] = useState(0);     // forces the smooth countdown to recompute
   const [error, setError] = useState(null);
+  const [isOffline, setIsOffline] = useState(false);   // aviso visível: o relógio está rodando local
 
   const timerStateRef = useRef(null);
   const consecutiveFailsRef = useRef(0);
@@ -89,70 +112,175 @@ export const useTimerSync = (dayId, blinds = null) => {
   const anchorRef = useRef(null);             // { at, paused, level, remaining, breakRemaining }
   const lastEndFetchRef = useRef(0);          // throttle do fetch de fim-de-nível
   const channelRef = useRef(null);            // canal Realtime (p/ enviar comandos broadcast)
+  const optimisticLevelRef = useRef(null);    // { level, until } nível aplicado localmente
 
   // Keep refs in sync with state
   useEffect(() => { timerStateRef.current = timerState; }, [timerState]);
   useEffect(() => { blindsRef.current = blinds; }, [blinds]);
 
-  // Offline fallback: advance to next level using cached blinds
-  const advanceLocally = useCallback(() => {
-    const currentBlinds = blindsRef.current;
+  // Modo offline num lugar só: o ref é lido pelo ticker (sem re-render) e o state
+  // acende o aviso na tela. O operador PRECISA ver que está sem rede — um relógio
+  // que não obedece, sem explicação, vira "o sistema quebrou" no meio do torneio.
+  const marcarOffline = useCallback((offline) => {
+    if (isOfflineRef.current === offline) return;
+    isOfflineRef.current = offline;
+    setIsOffline(offline);
+  }, []);
+
+  // Decide o modo local pela EVIDÊNCIA DESTE relógio (falhas do nosso próprio
+  // poll). O sinal global só baixa o limiar de 2 para 1 falha: ele complementa
+  // a evidência local, nunca a substitui. A saída do modo local continua sendo
+  // um fetch bem-sucedido deste relógio.
+  const avaliarModoLocal = useCallback(() => {
+    const limite = redeOnline()
+      ? FALHAS_PARA_MODO_LOCAL
+      : FALHAS_PARA_MODO_LOCAL_COM_SINAL_GLOBAL;
+    if (consecutiveFailsRef.current >= limite) marcarOffline(true);
+  }, [marcarOffline]);
+
+  // Monta localmente o estado de um nível VIZINHO, sem servidor (+1 próximo,
+  // -1 anterior). Usado no fim do nível offline e quando o operador muda o blind
+  // à mão sem internet. Devolve true se conseguiu mudar.
+  //
+  // `segurarNivel` só vale para o COMANDO do operador: aí existe uma escrita na
+  // fila e o servidor ainda vai responder o nível antigo por um tempo. A virada
+  // automática de fim de nível não segura nada — ali o servidor é a verdade e
+  // deve poder corrigir a tela assim que a rede voltar.
+  const shiftLevelLocally = useCallback((delta, segurarNivel = false) => {
     const currentState = timerStateRef.current;
-    if (!currentBlinds || currentBlinds.length === 0 || !currentState) return;
+    if (!currentState) return false;
 
+    const currentBlinds = blindsRef.current;
     const currentLevel = currentState.current_level;
-    const currentIndex = currentBlinds.findIndex(b => b.level === currentLevel);
+    const temEstrutura = Array.isArray(currentBlinds) && currentBlinds.length > 0;
+    const currentIndex = temEstrutura
+      ? currentBlinds.findIndex(b => b.level === currentLevel)
+      : -1;
+    const targetIndex = currentIndex + delta;
 
-    // Last level or not found — stay at 00:00
-    if (currentIndex === -1 || currentIndex >= currentBlinds.length - 1) return;
-
-    const nextBlind = currentBlinds[currentIndex + 1];
-    const afterNextBlind = currentIndex + 2 < currentBlinds.length
-      ? currentBlinds[currentIndex + 2]
-      : null;
-
-    // Find next break by scanning forward from new level
+    let alvo = null;
+    let depoisDoAlvo = null;
     let nextBreakInfo = null;
-    let timeUntilBreak = nextBlind.duration * 60;
-    for (let i = currentIndex + 2; i < currentBlinds.length; i++) {
-      if (currentBlinds[i].is_break) {
-        nextBreakInfo = {
-          level: currentBlinds[i].level,
-          duration: currentBlinds[i].duration * 60,
-          time_until_break: timeUntilBreak
-        };
-        break;
+
+    if (currentIndex !== -1 && targetIndex >= 0 && targetIndex < currentBlinds.length) {
+      alvo = currentBlinds[targetIndex];
+      depoisDoAlvo = targetIndex + 1 < currentBlinds.length ? currentBlinds[targetIndex + 1] : null;
+
+      // Find next break by scanning forward from new level
+      let timeUntilBreak = alvo.duration * 60;
+      for (let i = targetIndex + 1; i < currentBlinds.length; i++) {
+        if (currentBlinds[i].is_break) {
+          nextBreakInfo = {
+            level: currentBlinds[i].level,
+            duration: currentBlinds[i].duration * 60,
+            time_until_break: timeUntilBreak
+          };
+          break;
+        }
+        timeUntilBreak += currentBlinds[i].duration * 60;
       }
-      timeUntilBreak += currentBlinds[i].duration * 60;
+    } else if (delta === 1 && currentState.next_blind
+      && typeof currentState.next_blind.duration === 'number') {
+      // Sem a estrutura em cache ainda dá para avançar UM nível: o próprio estado
+      // enriquecido já traz o próximo blind. O que vem depois dele é desconhecido.
+      alvo = currentState.next_blind;
+      const agora = anchorNow(anchorRef.current);
+      if (agora.breakRemaining != null) {
+        // Pular o resto do nível também aproxima o intervalo na mesma medida.
+        nextBreakInfo = {
+          ...(currentState.next_break || {}),
+          time_until_break: Math.max(0, agora.breakRemaining - (agora.remaining || 0)),
+        };
+      }
+    } else {
+      return false; // sem dados para o nível vizinho — melhor não inventar na tela
     }
 
     // Synthesize new timerState matching the server response shape
     const newState = {
       ...currentState,
-      current_level: nextBlind.level,
-      time_remaining_current_level: nextBlind.duration * 60,
+      current_level: typeof alvo.level === 'number' ? alvo.level : currentLevel + delta,
+      time_remaining_current_level: alvo.duration * 60,
+      // Os instantes ABSOLUTOS vieram do servidor para o nível ANTIGO. Herdá-los
+      // faria a âncora ler um fim já vencido e o telão travar em 00:00 no nível
+      // novo — o "relógio travado" que o cliente viu ao mudar o blind sem rede.
+      current_level_ends_at: null,
+      next_break_starts_at: null,
       current_blind: {
-        level: nextBlind.level,
-        small_blind: nextBlind.small_blind,
-        big_blind: nextBlind.big_blind,
-        ante: nextBlind.ante || 0,
-        duration: nextBlind.duration,
-        is_break: nextBlind.is_break || false,
+        level: alvo.level,
+        small_blind: alvo.small_blind,
+        big_blind: alvo.big_blind,
+        ante: alvo.ante || 0,
+        duration: alvo.duration,
+        is_break: alvo.is_break || false,
       },
-      next_blind: afterNextBlind ? {
-        level: afterNextBlind.level,
-        small_blind: afterNextBlind.small_blind,
-        big_blind: afterNextBlind.big_blind,
-        ante: afterNextBlind.ante || 0,
-        duration: afterNextBlind.duration,
-        is_break: afterNextBlind.is_break || false,
+      next_blind: depoisDoAlvo ? {
+        level: depoisDoAlvo.level,
+        small_blind: depoisDoAlvo.small_blind,
+        big_blind: depoisDoAlvo.big_blind,
+        ante: depoisDoAlvo.ante || 0,
+        duration: depoisDoAlvo.duration,
+        is_break: depoisDoAlvo.is_break || false,
       } : null,
       next_break: nextBreakInfo,
     };
 
     anchorRef.current = anchorFromData(newState);
+    if (segurarNivel) {
+      optimisticLevelRef.current = {
+        level: newState.current_level,
+        until: Date.now() + OPTIMISTIC_LEVEL_HOLD_MS,
+      };
+    }
     setTimerState(newState);
+    return true;
   }, []);
+
+  // Aplica na TELA um comando que não chegou ao servidor (sem rede). A fila
+  // offline reexecuta quando a conexão voltar; até lá o telão mostra o que o
+  // operador mandou, em vez de ignorar o clique em silêncio.
+  const applyLocalCommand = useCallback((action, extra = {}) => {
+    const currentState = timerStateRef.current;
+    if (!currentState) return false;
+
+    if (action === 'next-level') return shiftLevelLocally(1, true);
+    if (action === 'prev-level') return shiftLevelLocally(-1, true);
+
+    const agora = anchorNow(anchorRef.current);
+    const restanteAtual = agora.remaining != null
+      ? agora.remaining
+      : (typeof currentState.time_remaining_current_level === 'number'
+        ? currentState.time_remaining_current_level : 0);
+
+    let novoRestante = null;
+    if (action === 'adjust' && typeof extra.seconds === 'number') {
+      novoRestante = Math.max(0, restanteAtual + extra.seconds);
+    } else if (action === 'reset') {
+      const duracao = currentState.current_blind?.duration;
+      if (typeof duracao !== 'number') return false;
+      novoRestante = duracao * 60;
+    } else {
+      return false; // comando desconhecido — deixa para o servidor
+    }
+
+    // O intervalo anda junto: adiar/adiantar o nível adia/adianta o break.
+    const deslocamento = novoRestante - restanteAtual;
+    anchorRef.current = {
+      at: Date.now(),
+      paused: !!currentState.is_paused,
+      level: currentState.current_level,
+      remaining: novoRestante,
+      breakRemaining: agora.breakRemaining == null
+        ? null : Math.max(0, agora.breakRemaining + deslocamento),
+    };
+    setTimerState((prev) => (prev ? {
+      ...prev,
+      time_remaining_current_level: novoRestante,
+      current_level_ends_at: null,
+      next_break_starts_at: null,
+    } : prev));
+    return true;
+  }, [shiftLevelLocally]);
 
   // Atualização OTIMISTA: reflete um comando (play/pause) na hora, sem esperar o
   // round-trip. Re-ancora sem salto. Se `patch.remaining` vier (valor COMPARTILHADO
@@ -226,12 +354,35 @@ export const useTimerSync = (dayId, blinds = null) => {
 
       // Successful fetch — reset offline tracking
       consecutiveFailsRef.current = 0;
-      isOfflineRef.current = false;
+      marcarOffline(false);
+
+      // Trava do nível local: o operador mudou o blind sem rede e o comando ficou
+      // na fila; até o servidor reexecutá-lo ele ainda responde o nível ANTIGO.
+      // Sem isto a tela voltaria ao blind anterior por alguns segundos.
+      let manterNivelLocal = false;
+      const hold = optimisticLevelRef.current;
+      if (hold) {
+        const local = timerStateRef.current;
+        if (Date.now() > hold.until || data.current_level === hold.level || !local) {
+          optimisticLevelRef.current = null;
+        } else {
+          manterNivelLocal = true;
+          data.current_level = local.current_level;
+          data.current_blind = local.current_blind;
+          data.next_blind = local.next_blind;
+          data.next_break = local.next_break;
+          data.time_remaining_current_level = local.time_remaining_current_level;
+          data.current_level_ends_at = null;
+          data.next_break_starts_at = null;
+        }
+      }
 
       const a = anchorRef.current;
       const paused = !!data.is_paused;
       const hasAbs = !paused && typeof data.current_level_ends_at === 'number';
-      if (hasAbs) {
+      if (manterNivelLocal) {
+        // âncora local preservada: o servidor ainda não sabe do comando
+      } else if (hasAbs) {
         // Absoluto: valor estável e IDÊNTICO entre telas — adota sempre. Não causa
         // jitter porque endsAt é constante enquanto nível/elapsed não mudam.
         anchorRef.current = anchorFromData(data);
@@ -257,9 +408,7 @@ export const useTimerSync = (dayId, blinds = null) => {
       return data;
     } catch (err) {
       consecutiveFailsRef.current += 1;
-      if (consecutiveFailsRef.current >= 2) {
-        isOfflineRef.current = true;
-      }
+      avaliarModoLocal();
       if (!timerStateRef.current && !blindsRef.current) {
         setError(err.message);
       }
@@ -403,7 +552,7 @@ export const useTimerSync = (dayId, blinds = null) => {
       if (remaining <= 0) {
         // Fim do nível: avança local (offline) ou busca o próximo (throttled).
         if (isOfflineRef.current && blindsRef.current?.length > 0) {
-          advanceLocally();
+          shiftLevelLocally(1);
         } else {
           const now = Date.now();
           if (!inFlightRef.current && now - lastEndFetchRef.current > 1500) {
@@ -426,7 +575,20 @@ export const useTimerSync = (dayId, blinds = null) => {
     return () => { stopped = true; if (timeoutId) clearTimeout(timeoutId); };
   // Restart SÓ em pause/nível — nunca por atualização de valor (evita o jitter).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timerState?.is_paused, timerState?.current_level, advanceLocally, fetchStatus]);
+  }, [timerState?.is_paused, timerState?.current_level, shiftLevelLocally, fetchStatus]);
+
+  // O sinal global de conectividade (heartbeat/axios) chega antes do nosso poll
+  // falhar duas vezes. Ele é usado só para ANTECIPAR a decisão: reavalia o modo
+  // local, que continua exigindo pelo menos uma falha DESTE relógio. Se /timer
+  // responde normalmente, este relógio segue no servidor — é o que impede dois
+  // telões de divergirem por causa de uma requisição alheia.
+  useEffect(() => {
+    avaliarModoLocal();
+    return assinarConectividade(() => {
+      avaliarModoLocal();
+      // A volta só é confirmada por um fetch bem-sucedido deste relógio.
+    });
+  }, [avaliarModoLocal]);
 
   // Resync when page becomes visible again
   useEffect(() => {
@@ -478,7 +640,9 @@ export const useTimerSync = (dayId, blinds = null) => {
     refetch: fetchStatus,
     triggerRefetch,
     applyOptimistic,
+    applyLocalCommand,
     broadcastCommand,
+    isOffline,
     error,
     isLoading: !timerState && !error
   };

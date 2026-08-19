@@ -20,7 +20,7 @@ const Torneios = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
   const { selectedStage } = useStage();
-  const { currency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
   const hasStage = !!selectedStage?.id;
 
   const [tournaments, setTournaments] = useState([]);
@@ -215,8 +215,68 @@ const Torneios = () => {
     setShowEditModal(true);
   };
 
-  const handleDelete = async (id) => {
-    const ok = await confirm(t('tournaments.confirmDelete'), {
+  // Texto da recusa: repete os NÚMEROS, porque é o tamanho do que está em jogo
+  // que faz o operador entender por que o sistema não deixa apagar.
+  const textoDoBloqueio = (impacto) =>
+    t(
+      'tournaments.deleteBlocked',
+      'Este torneio não pode ser excluído: tem {{entries}} entrada(s) vendida(s) somando {{amount}}, {{players}} jogador(es) pago(s) e {{prizes}} pagamento(s) de premiação. Excluir apagaria a venda, o dinheiro recebido e o registro de quem pagou — e o caixa da etapa NÃO seria estornado. Cancele as vendas no Caixa (o estorno devolve o dinheiro e acerta o caixa) antes de excluir.',
+      {
+        entries: impacto.entries || 0,
+        amount: formatCurrency(impacto.entries_amount || 0),
+        players: impacto.paying_players || 0,
+        prizes: impacto.prizes || 0,
+      }
+    );
+
+  // Confirmação com números reais. Sem eles, "tem certeza?" não diz se o
+  // torneio está vazio ou se leva junto o histórico de uma noite inteira.
+  const textoDaConfirmacao = (nome, impacto) => {
+    if (!impacto) return t('tournaments.confirmDelete');
+    if (!impacto.days && !impacto.players && !impacto.cancelled_entries) {
+      return t(
+        'tournaments.confirmDeleteEmpty',
+        'Excluir o torneio "{{name}}"? Ele não tem nenhum dia, inscrição ou venda registrada.',
+        { name: nome }
+      );
+    }
+    return t(
+      'tournaments.confirmDeleteImpact',
+      'Excluir o torneio "{{name}}"? Serão apagados em cascata: {{days}} dia(s), {{players}} inscrição(ões) e {{cancelled}} venda(s) já cancelada(s). Não há como desfazer.',
+      {
+        name: nome,
+        days: impacto.days || 0,
+        players: impacto.players || 0,
+        cancelled: impacto.cancelled_entries || 0,
+      }
+    );
+  };
+
+  const handleDelete = async (id, nome) => {
+    // Mede o estrago ANTES de perguntar. Apagar um torneio é ON DELETE CASCADE
+    // em tudo: vendas, inscrições, dias, premiação e assentos somem junto — e o
+    // caixa da etapa não é estornado, então o saldo passa a apontar dinheiro
+    // sem origem e a etapa deixa de fechar.
+    let impacto = null;
+    try {
+      const res = await api.get(`/tournaments/${id}/delete-impact`);
+      impacto = res?.data || null;
+    } catch {
+      // Backend ainda sem o endpoint (o deploy não é atômico) ou rede caída:
+      // seguimos com a confirmação genérica. Quem RECUSA de verdade é o
+      // servidor — a tela só antecipa a informação.
+      impacto = null;
+    }
+
+    if (impacto?.blocked) {
+      toast.error(textoDoBloqueio(impacto), {
+        title: t('tournaments.deleteBlockedTitle', 'Torneio com movimento financeiro'),
+        duration: 14000,
+      });
+      return;
+    }
+
+    const ok = await confirm(textoDaConfirmacao(nome, impacto), {
       variant: 'danger', confirmText: t('common.delete'),
     });
     if (!ok) return;
@@ -224,7 +284,17 @@ const Torneios = () => {
       await api.delete(`/tournaments/${id}`);
       invalidateCache('/tournaments'); // B3
       loadTournaments();
-    } catch {
+    } catch (err) {
+      // 409 = o servidor recusou por movimento financeiro. Pode acontecer mesmo
+      // depois de um impacto liberado: outro operador vendeu no meio do caminho.
+      if (err?.response?.status === 409) {
+        const impactoDaRecusa = err.response?.data?.detail?.impact;
+        toast.error(
+          impactoDaRecusa ? textoDoBloqueio(impactoDaRecusa) : err.userMessage,
+          { title: t('tournaments.deleteBlockedTitle', 'Torneio com movimento financeiro'), duration: 14000 }
+        );
+        return;
+      }
       toast.error(t('tournaments.deleteError'));
     }
   };
@@ -360,7 +430,7 @@ const Torneios = () => {
                       <button
                         type="button"
                         className="tr-btn-delete"
-                        onClick={() => handleDelete(tournament.id)}
+                        onClick={() => handleDelete(tournament.id, tournament.name)}
                       >
                         <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
                           <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>

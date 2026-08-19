@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
+import Breadcrumb from '../components/Breadcrumb';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { useTimerSync, formatTime, formatTimeHuman } from '../hooks/useTimerSync';
@@ -21,6 +22,9 @@ const TournamentControl = () => {
   const [day, setDay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bulkCount, setBulkCount] = useState('');
+  // Estrutura de blinds em cache: é ela que deixa o relógio virar de nível
+  // sozinho quando a internet cai no meio do torneio.
+  const [blinds, setBlinds] = useState([]);
   // Bloqueio de vendas do dia: é aqui que o diretor está durante o evento, e é
   // ele quem decide a hora de encerrar o registro tardio.
   const [showSalesBlock, setShowSalesBlock] = useState(false);
@@ -49,9 +53,11 @@ const TournamentControl = () => {
     timerState,
     triggerRefetch: refetchTimer,
     applyOptimistic,
+    applyLocalCommand,
     broadcastCommand,
+    isOffline,
     isLoading: timerLoading,
-  } = useTimerSync(dayId);
+  } = useTimerSync(dayId, blinds);
 
   // Load day info
   const loadData = useCallback(async () => {
@@ -68,6 +74,20 @@ const TournamentControl = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Carrega a estrutura de blinds em separado: se ela falhar, a tela do relógio
+  // (que é o que o salão está vendo) não pode ficar presa em "carregando".
+  useEffect(() => {
+    let vivo = true;
+    api.get(`/tournament-days/${dayId}/blinds`, { _silentError: true })
+      .then((res) => {
+        if (vivo && Array.isArray(res?.data)) {
+          setBlinds([...res.data].sort((a, b) => a.level - b.level));
+        }
+      })
+      .catch(() => { /* sem estrutura em cache o relógio ainda funciona online */ });
+    return () => { vivo = false; };
+  }, [dayId]);
 
   // Play/pause: a UI otimista vira o relógio na HORA a cada clique. O comando de
   // rede usa debounce LEADING-EDGE: o primeiro toque é enviado IMEDIATAMENTE (para
@@ -126,14 +146,29 @@ const TournamentControl = () => {
 
   // Comando de timer com fallback offline: enfileira (o display já usa o relógio
   // ancorado local). body carrega day_id+action p/ o /sync/batch reexecutar.
-  const timerCmd = (action, extra = {}) =>
-    offlineWrite({
+  //
+  // Quando `offlineWrite` devolve offline:true o comando NÃO chegou ao servidor —
+  // ficou na fila. Nesse caso aplicamos a mudança nesta tela na hora e avisamos o
+  // operador. Sem isso acontecia o que o cliente relatou: mudar o blind sem
+  // internet e o relógio do telão simplesmente travar, sem ninguém entender por
+  // quê, até a rede voltar. Decidimos pelo EFEITO (a escrita foi enfileirada) e
+  // não por um marcador de conectividade, que pode estar atrasado.
+  const timerCmd = async (action, extra = {}) => {
+    const res = await offlineWrite({
       kind: 'timer', method: 'post',
       url: `/tournament-days/${dayId}/timer/${action}`,
       body: { day_id: dayId, action, ...extra },
       clientMutationId: uuid(),
       synthetic: { ok: true },
     });
+    if (res?.offline) {
+      const aplicado = applyLocalCommand(action, extra);
+      toast.warning(aplicado
+        ? t('control.offlineApplied', 'Sem conexão: alteração aplicada só nesta tela e enviada quando a internet voltar')
+        : t('control.offlineQueued', 'Sem conexão: comando na fila; a tela atualiza quando a internet voltar'));
+    }
+    return res;
+  };
 
   const handleNextLevel = async () => {
     try { await timerCmd('next-level'); refetchTimer(); }
@@ -234,6 +269,19 @@ const TournamentControl = () => {
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
+        {/* Sem isto o operador entrava na tela de controle e não tinha saída a
+            não ser o menu lateral. Mesma trilha das outras telas do torneio. */}
+        <Breadcrumb items={[
+          { label: t('common.home'), to: '/' },
+          { label: t('tournaments.title'), to: '/torneios' },
+          ...(day?.tournament_id
+            ? [{
+              label: day.tournament_name || t('control.breadcrumbTournament', 'Torneio'),
+              to: `/torneios/${day.tournament_id}`,
+            }]
+            : []),
+          { label: t('control.breadcrumbControl', 'Controle') },
+        ]} />
         <div className="tournament-control">
           <div className="control-header">
             <h1>{day?.day_name}</h1>
@@ -302,6 +350,13 @@ const TournamentControl = () => {
           {/* Timer Display */}
           <Card className="timer-card">
             <div className="timer-display">
+              {/* O relógio continua rodando ancorado localmente. Dizer isso é o
+                  que separa "está sem internet" de "o sistema travou". */}
+              {isOffline && (
+                <div className="timer-offline-badge" role="status">
+                  {t('control.offlineClock', 'Sem conexão — relógio rodando nesta tela')}
+                </div>
+              )}
               {isBreak ? (
                 <div className="timer-break-indicator">
                   <div className="break-label-control">{t('control.break')}</div>

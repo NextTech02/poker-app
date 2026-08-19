@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { TIPOS_DOCUMENTO, TIPOS_LEGADO } from '../utils/documentos';
 import './PrizeVoucher.css';
 
 const LANGS = {
@@ -57,11 +58,33 @@ const LANGS = {
   },
 };
 
+// Rótulo do documento no comprovante.
+//
+// A lista de tipos aceitos é UMA só: o catálogo de utils/documentos.js. Este
+// mapa não inventa tipos — ele apenas ENCURTA o rótulo para o papel ("CPF" em
+// vez de "CPF (Brasil)") e traduz para o idioma do ganhador, porque o
+// comprovante tem tabela de idiomas própria (não usa i18next).
+//
+// O que garante que ninguém veja "cpf: 529..." de novo é a linha de fallback
+// em `rotuloDocumento`: tipo que exista no catálogo e não esteja encurtado aqui
+// sai com o rótulo do catálogo — texto de gente, nunca o nome do campo do
+// banco. O teste "todo tipo do catálogo tem rótulo curto" fecha a porta antes.
 const DOC_LABELS = {
+  cpf: { pt: 'CPF', es: 'CPF', en: 'CPF' },
+  dni: { pt: 'DNI', es: 'DNI', en: 'DNI' },
+  cedula: { pt: 'Cédula', es: 'Cédula', en: 'Cédula' },
   passport: { pt: 'Passaporte', es: 'Pasaporte', en: 'Passport' },
-  national_id: { pt: 'Identidade', es: 'Cédula', en: 'National ID' },
   driver_license: { pt: 'CNH', es: 'Licencia', en: "Driver's License" },
+  national_id: { pt: 'Identidade', es: 'Cédula', en: 'National ID' },
 };
+
+const CATALOGO_POR_VALOR = Object.fromEntries(
+  [...TIPOS_DOCUMENTO, ...TIPOS_LEGADO].map((tipo) => [tipo.valor, tipo])
+);
+
+const rotuloDocumento = (tipo, lang) => (
+  DOC_LABELS[tipo]?.[lang] || CATALOGO_POR_VALOR[tipo]?.rotulo || tipo
+);
 
 const maskDocument = (docNumber) => {
   if (!docNumber) return '—';
@@ -82,7 +105,7 @@ const PrizeVoucher = ({ payout }) => {
   const timeStr = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
   const docLabel = payout.document_type
-    ? (DOC_LABELS[payout.document_type]?.[langCode] || payout.document_type)
+    ? rotuloDocumento(payout.document_type, langCode)
     : '';
 
   const docDisplay = docLabel

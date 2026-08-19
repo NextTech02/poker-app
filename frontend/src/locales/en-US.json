@@ -166,7 +166,8 @@
     "active": "Active",
     "empty": "No methods registered.",
     "builtin": "default",
-    "builtinHint": "Default method (translates automatically with the language)"
+    "builtinHint": "Default method (translates automatically with the language)",
+    "namePlaceholderShort": "e.g. Yape, Nequi, Card"
   },
   "buyTypes": {
     "intro": "Buy types for this stage. Each type sets the rake — the entry amount comes from the tournament setup. Used at the Cashier.",
@@ -182,7 +183,9 @@
     "amount": "Amount",
     "rake": "Rake %",
     "active": "Active",
-    "empty": "No types registered for this stage."
+    "empty": "No types registered for this stage.",
+    "namePlaceholderShort": "e.g. VIP buy-in",
+    "rakeLabel": "Rake (%)"
   },
   "blindTemplates": {
     "pageTitle": "Blind Templates",
@@ -265,7 +268,11 @@
     "qualifyingBlindsPartial": "Days created, but the blind structure could not be applied. Apply it manually in the Blinds screen.",
     "tabTournaments": "Tournaments",
     "tabBlindTemplates": "Blind Templates",
-    "qualifyingValuesLabel": "Values applied to all qualifying days"
+    "qualifyingValuesLabel": "Values applied to all qualifying days",
+    "confirmDeleteEmpty": "Delete tournament \"{{name}}\"? It has no days, registrations or sales recorded.",
+    "confirmDeleteImpact": "Delete tournament \"{{name}}\"? This cascade-deletes: {{days}} day(s), {{players}} registration(s) and {{cancelled}} already-cancelled sale(s). There is no undo.",
+    "deleteBlocked": "This tournament cannot be deleted: it has {{entries}} entry(ies) sold totalling {{amount}}, {{players}} paid player(s) and {{prizes}} prize payout(s). Deleting would erase the sale, the money taken in and the record of who paid — and the stage cash would NOT be refunded. Cancel the sales in the Cashier (the refund gives the money back and squares the cash) before deleting.",
+    "deleteBlockedTitle": "Tournament with financial activity"
   },
   "tournamentDays": {
     "restarted": "Day restarted.",
@@ -320,7 +327,10 @@
     "noSurvivorsHint": "While every player is eliminated (or none has been registered), there are no chips to record.",
     "notAQualifyingDay": "This day is not a qualifying day: there are no qualifiers to record chips for.",
     "noFinalDayLinked": "This qualifying day does not point to a final day yet. Link the final day before advancing the qualifiers.",
-    "allSurvivorsNeedChips": "Advancing to the final day is only unlocked once every qualifier has their chips recorded."
+    "allSurvivorsNeedChips": "Advancing to the final day is only unlocked once every qualifier has their chips recorded.",
+    "confirmDeleteImpact": "Delete day \"{{name}}\"? This cascade-deletes {{players}} registration(s), {{cancelled}} already-cancelled sale(s), plus the day's blinds and tables. There is no undo.",
+    "deleteBlocked": "This day cannot be deleted: it has {{entries}} entry(ies) sold totalling {{amount}} and {{players}} paid player(s). Deleting would erase the sale and the record of who paid without refunding the stage cash. Cancel the sales in the Cashier before deleting.",
+    "deleteBlockedTitle": "Day with financial activity"
   },
   "loyalty": {
     "title": "Loyalty",
@@ -465,7 +475,13 @@
     "docIdentity": "ID",
     "docPassport": "Passport",
     "docCnh": "Driver's License",
-    "name": "Name"
+    "name": "Name",
+    "firstName": "First name",
+    "firstNamePlaceholder": "José",
+    "firstNameRequired": "Enter the player's first name.",
+    "lastName": "Last name",
+    "lastNamePlaceholder": "Pinto Faria",
+    "legacyDocHint": "Legacy record: pick the country's document type when you can."
   },
   "elimination": {
     "title": "Eliminate Players",
@@ -593,7 +609,16 @@
     "finishCancel": "Finish reversal",
     "confirmFinishCancel": "Finish the reversal",
     "cancelResumeConfirm": "This reversal stopped halfway: the sale has already left every total, but some step was not undone. Confirming resumes ONLY what is missing — nothing is debited twice.",
-    "cancelResumeReason": "Resuming the interrupted reversal"
+    "cancelResumeReason": "Resuming the interrupted reversal",
+    "noTablesTitle": "No tables registered",
+    "noTablesHint": "This day has no active table. The sale can go through, but the player will leave with an ALTERNATE ticket — register the tables under Tables so the seat prints on the ticket.",
+    "registeredNoTables": "Registered — no tables set up",
+    "tablesLockedTitle": "Tables locked",
+    "tablesLockedHint": "Tables are locked: anyone entering now goes to the alternates queue. The alternate ticket is correct.",
+    "tablesUnknownTitle": "No connection",
+    "tablesUnknownHint": "Without internet the tables cannot be checked. The sale is stored and the seat is assigned on sync.",
+    "ticketNoTablesHint": "No table is registered for this day: the player did not enter the alternates queue. Register the tables under Tables and seat the player.",
+    "ticketOfflineHint": "Sale stored offline: the seat is assigned on sync."
   },
   "cashbox": {
     "myCashbox": "My Cashbox",
@@ -700,7 +725,19 @@
     "deleteError": "Error deleting stage.",
     "periodStart": "Start",
     "periodEnd": "End",
-    "statusActiveShort": "Active"
+    "statusActiveShort": "Active",
+    "archive": "Archive",
+    "archiveError": "Could not archive the stage",
+    "archiveInstead": "Archive the stage instead? It gets out of the way and nothing is deleted.",
+    "archivedSuccess": "Stage archived",
+    "confirmDeleteIrreversible": "This cannot be undone.",
+    "confirmDeleteWhat": "Deleting this stage permanently erases:",
+    "deleteBlocked": "This stage has financial activity and cannot be deleted:",
+    "endBeforeStart": "The end date cannot be earlier than the start date",
+    "impactInCash": "in cash",
+    "impactTournaments": "tournaments will be left without a stage.",
+    "legacyNoStartDate": "This stage was created without a start date. Enter the date to be able to save.",
+    "startDateRequired": "Enter the stage start date"
   },
   "reports": {
     "export": {
@@ -896,7 +933,12 @@
     "confirmEliminate": "Are you sure you want to eliminate this player?",
     "players": "Players",
     "reset": "Reset",
-    "confirmReset": "Are you sure you want to reset the timer?"
+    "confirmReset": "Are you sure you want to reset the timer?",
+    "breadcrumbControl": "Control",
+    "breadcrumbTournament": "Tournament",
+    "offlineApplied": "No connection: change applied on this screen only and sent when the internet is back",
+    "offlineClock": "No connection — clock running on this screen",
+    "offlineQueued": "No connection: command queued; the screen updates when the internet is back"
   },
   "comingSoon": {
     "title": "Coming Soon",
@@ -968,6 +1010,7 @@
     "colorSidebarLabels": "Sidebar Labels",
     "colorSidebarValues": "Sidebar Values",
     "visLogo": "Logo",
+    "visClubLogo": "Club logo",
     "visTitle": "Title",
     "visPrizepool": "Prizepool",
     "visLevel": "Level",
@@ -1152,7 +1195,12 @@
     "addPreviewRow": "Add position",
     "restoreSuggestion": "Restore suggestion",
     "previewLeftover": "Payable pool left over:",
-    "previewOverPool": "Over the payable pool by"
+    "previewOverPool": "Over the payable pool by",
+    "balancesLoadError": "Could not load the tournament and cash balances. Check them before handing over the money.",
+    "docNoPlayerBlock": "No player in this tournament has that document — check the number before handing over the prize.",
+    "docRegisteredInvalid": "Document on file is off-standard — the receipt still prints, but check the player's record:",
+    "docRequired": "Enter the document number of the person receiving the prize.",
+    "payoutNotReleasedWarn": "This prize has not been released yet: the payment will be refused. Release it on the Release tab before handing over the money."
   },
   "generalCash": {
     "sessionExpired": "Session expired. Please log in again.",
@@ -1740,7 +1788,14 @@
     "inactiveFilter": "Deactivated",
     "showInactiveHint": "Show deactivated employees",
     "hideInactiveHint": "Hide deactivated employees",
-    "name": "Name"
+    "name": "Name",
+    "confirmEffectivate": "Make {{email}} a staff member of this club? Access takes effect immediately, without waiting for the invite to be answered.",
+    "effectivate": "Activate",
+    "effectivateHint": "Joins the team now, without waiting for the invite to be answered",
+    "effectivated": "{{name}} is now part of the team.",
+    "errEffectivate": "Could not activate the invite.",
+    "inviteCancelledFree": "Invite cancelled. This e-mail can be invited again.",
+    "joinedDirectly": "{{email}} already had an account and joined the team directly — just ask them to sign in."
   },
   "stageBar": {
     "selectedStage": "Selected Stage:",
@@ -2202,5 +2257,26 @@
     "blockedDone": "Sales closed for this stage",
     "unblockedDone": "Sales reopened for this stage",
     "blockError": "Could not change the sales block"
+  },
+  "documents": {
+    "typeCpf": "CPF (Brazil)",
+    "typeDni": "DNI (Peru)",
+    "typeCedula": "Cédula de Ciudadanía (Colombia)",
+    "typePassport": "Passport",
+    "typeDriverLicense": "Driver's license",
+    "typeLegacyNationalId": "ID document (legacy record)",
+    "typeCpfShort": "CPF",
+    "typeDniShort": "DNI",
+    "typeCedulaShort": "Cédula",
+    "errorRequired": "Enter the document number.",
+    "errorUnknownType": "Select the document type.",
+    "errorRepeated": "A document with all identical characters is not accepted — check the number.",
+    "errorSequential": "A sequential document (12345678) is not accepted — check the number.",
+    "errorCpfLength": "The CPF must have 11 digits.",
+    "errorCpfInvalid": "The CPF entered is not valid — check the digits.",
+    "errorDniLength": "The Peruvian DNI must have 8 digits.",
+    "errorCedulaLength": "The Colombian cédula must have 6 to 10 digits.",
+    "errorPassportLength": "The passport must have 6 to 12 characters (letters and numbers).",
+    "errorDriverLicenseLength": "The driver's license must have 5 to 20 characters."
   }
 }

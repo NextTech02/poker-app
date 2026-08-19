@@ -6,28 +6,39 @@ válido, o que já existe, o que cabe no plano) acontece aqui, porque o cliente
 não é fonte confiável para nada disso.
 
 Regra combinada com o usuário: importa apenas o registro COMPLETO. Quem estiver
-sem e-mail, telefone ou documento é devolvido numa lista com o motivo, para o
-clube corrigir na origem e reimportar — reimportar é seguro, o que já entrou é
-pulado.
+sem e-mail, telefone ou documento — ou com documento que não passa na régua de
+app/utils/documentos.py, a MESMA da API — é devolvido numa lista com o motivo,
+para o clube corrigir na origem e reimportar; reimportar é seguro, o que já
+entrou é pulado. A régua vale aqui também porque a planilha era a porta por
+onde o documento inválido entrava em lote, criando jogador que depois ninguém
+conseguia editar.
 """
 from typing import Dict, List, Optional, Tuple
 import re
 import unicodedata
 
 from app.database.supabase_client import supabase
+from app.utils.documentos import (
+    erro_de_tipo_recusado,
+    tipo_para_banco_antigo,
+    validar_documento,
+)
 
 
 # ── Normalizações ────────────────────────────────────────────────────────────
 
-# O Poker Web usa nomes livres de documento; o nosso banco tem CHECK com três
-# valores. RG/CPF/cédula são todos documento nacional de identidade.
+# O Poker Web usa nomes livres de documento. Quando a planilha diz QUAL é o
+# documento, vale o tipo do país (cpf/dni/cedula) — é o que dá regra de verdade
+# para a validação lá embaixo. Rótulo genérico (RG, CNPJ, INE, "identidad")
+# continua no tipo legado: não dá para saber o formato, então não dá para
+# validar.
 _DOC_MAP = {
     "rg": "national_id",
-    "cpf": "national_id",
+    "cpf": "cpf",
     "cnpj": "national_id",
-    "cedula": "national_id",
-    "cedula de ciudadania": "national_id",
-    "dni": "national_id",
+    "cedula": "cedula",
+    "cedula de ciudadania": "cedula",
+    "dni": "dni",
     "ine": "national_id",
     "identidad": "national_id",
     "national_id": "national_id",
@@ -141,6 +152,19 @@ class PlayerImportService:
                 faltando.append("documento")
             elif not doc_tipo:
                 faltando.append(f"tipo de documento não reconhecido ({_limpo(linha.get('document_type'))})")
+            else:
+                # A MESMA régua da API (app/utils/documentos.py). Sem isto a
+                # planilha era a porta por onde o documento inválido entrava em
+                # lote — e o jogador nascia impossível de corrigir, porque
+                # qualquer edição do cadastro esbarrava na validação. Linha com
+                # documento ruim vai para a lista de rejeitados com o motivo,
+                # que é a regra já combinada: o clube corrige na origem e
+                # reimporta (reimportar é seguro, o que já entrou é pulado).
+                doc = validar_documento(doc_tipo, doc_num)
+                if doc.valido:
+                    doc_num = doc.normalizado
+                else:
+                    faltando.append(f"documento inválido: {doc.motivo}")
 
             if faltando:
                 rejeitados.append({
@@ -326,7 +350,7 @@ class PlayerImportService:
                     um = {k: v for k, v in p.items() if k not in ("_doc_key", "source_id")}
                     um["organization_id"] = organization_id
                     try:
-                        supabase.table("players").insert(um).execute()
+                        PlayerImportService._inserir_um(um)
                         inseridos += 1
                     except Exception as exc:
                         falhas.append({
@@ -335,6 +359,23 @@ class PlayerImportService:
                             "reason": PlayerImportService._motivo(exc),
                         })
         return inseridos, falhas
+
+    @staticmethod
+    def _inserir_um(linha: Dict) -> None:
+        """Grava UM jogador tolerando o banco sem a migração dos tipos.
+
+        Enquanto db/migrations/database_migration_document_types.sql não roda, o
+        CHECK só aceita passport/national_id/driver_license. Em vez de perder a
+        linha, ela entra com o tipo legado: o NÚMERO do documento é o que vale
+        no recibo, e a tela já convida a escolher o tipo do país depois.
+        """
+        try:
+            supabase.table("players").insert(linha).execute()
+        except Exception as exc:
+            legado = tipo_para_banco_antigo(linha.get("document_type"))
+            if not (legado and erro_de_tipo_recusado(exc)):
+                raise
+            supabase.table("players").insert({**linha, "document_type": legado}).execute()
 
     @staticmethod
     def _motivo(exc: Exception) -> str:

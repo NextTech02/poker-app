@@ -6,6 +6,7 @@ from app.models.tournament_day import (
     TournamentDayUpdate,
     TournamentDay,
     TournamentDaySummary,
+    TournamentDayDeleteImpact,
     QualifyingDayStats,
     FinalDayAggregatedStats,
     TimerAdjustment,
@@ -13,7 +14,10 @@ from app.models.tournament_day import (
     EliminationCountAdjust
 )
 from app.services.tournament_day_service import TournamentDayService
-from app.services.tournament_service import TournamentService
+from app.services.tournament_service import (
+    TournamentService,
+    MovimentoFinanceiroImpedeExclusao,
+)
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
 
@@ -256,7 +260,53 @@ def update_tournament_day(
     return day
 
 
-@router.delete("/{day_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.get("/{day_id}/delete-impact", response_model=TournamentDayDeleteImpact)
+def get_tournament_day_delete_impact(
+    day_id: str,
+    current_user: dict = Depends(get_current_user),
+    stage_id: Optional[str] = Depends(get_stage_id_optional)
+):
+    """O que a exclusão deste dia destruiria, com números reais.
+
+    A tela chama isto antes de perguntar "tem certeza?" — o dia também é pai de
+    inscrição e de venda."""
+    existing_day = TournamentDayService.get_tournament_day(day_id)
+    if not existing_day:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament day not found"
+        )
+
+    if stage_id:
+        tournament = TournamentService.get_tournament(existing_day.tournament_id)
+        if tournament and tournament.stage_id != stage_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Tournament day does not belong to the selected stage"
+            )
+
+    impacto = TournamentDayService.get_delete_impact(day_id)
+    if impacto is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament day not found"
+        )
+    return impacto
+
+
+@router.delete(
+    "/{day_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        409: {
+            "description": (
+                "O dia tem movimento financeiro (entradas vendidas, jogador pago "
+                "ou premiação paga) e a exclusão foi recusada. O corpo traz "
+                "`impact` com os números do que seria destruído."
+            )
+        },
+    },
+)
 def delete_tournament_day(
     day_id: str,
     current_user: dict = Depends(get_current_user),
@@ -265,6 +315,9 @@ def delete_tournament_day(
     """
     Delete a tournament day.
     If X-Stage-ID header is present, validates that the day's tournament belongs to that stage.
+
+    Dia com dinheiro em cima é RECUSADO no servidor: a tela só oferece o botão
+    em dia 'pending', mas isso não alcança quem chama a API direto.
     """
     # Validate day exists and belongs to stage if stage_id is provided
     existing_day = TournamentDayService.get_tournament_day(day_id)
@@ -282,7 +335,16 @@ def delete_tournament_day(
                 detail="Tournament day does not belong to the selected stage"
             )
 
-    success = TournamentDayService.delete_tournament_day(day_id)
+    try:
+        success = TournamentDayService.delete_tournament_day(day_id)
+    except MovimentoFinanceiroImpedeExclusao as recusa:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": recusa.mensagem,
+                "impact": recusa.impacto.model_dump(),
+            },
+        )
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

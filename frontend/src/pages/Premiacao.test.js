@@ -17,7 +17,7 @@
  * O comprovante é emitido no ato e pode ser revisto depois — é o papel que
  * prova que aquele dinheiro saiu para aquela pessoa.
  */
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Premiacao from './Premiacao';
@@ -1160,5 +1160,229 @@ describe('pagamento', () => {
     await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
     await waitFor(() => expect(screen.queryByText('premiacao.registerPayment')).toBeNull());
     expect(api.post).not.toHaveBeenCalled();
+  });
+
+  // ── A TELA NUNCA FICA MUDA ────────────────────────────────────────────
+  // Relato do dono do clube: "na hora de confirmar não acontece nada". Todo
+  // caminho que interrompe o pagamento tem de dizer o que aconteceu — senão o
+  // operador reclica com o campeão esperando o dinheiro no balcão.
+  describe('confirmar sempre responde alguma coisa', () => {
+    const confirmar = () =>
+      userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+    const campoDoc = () => screen.getByPlaceholderText('premiacao.docNumberPlaceholder');
+
+    it('confirmar sem documento diz qual campo falta e devolve o foco a ele', async () => {
+      // Antes: `return` seco. O operador clicava e a tela não respondia nada.
+      await montar();
+      await abrirPagamento();
+      await confirmar();
+      expect(await screen.findByText('premiacao.docRequired')).toBeInTheDocument();
+      expect(campoDoc()).toHaveFocus();
+      expect(campoDoc()).toHaveAttribute('aria-invalid', 'true');
+      expect(api.post).not.toHaveBeenCalled();
+    });
+
+    it('confirmar com documento que não é de ninguém explica o bloqueio', async () => {
+      // Pagar depende de saber QUEM está recebendo; sem isso o pagamento para,
+      // mas agora dizendo por quê.
+      await montar();
+      await abrirPagamento();
+      await userEvent.type(campoDoc(), '99887766');
+      await confirmar();
+      expect(await screen.findByText('premiacao.docNoPlayerBlock')).toBeInTheDocument();
+      expect(campoDoc()).toHaveFocus();
+      expect(api.post).not.toHaveBeenCalled();
+    });
+
+    it('a recusa do servidor aparece DENTRO do modal, com o motivo dele', async () => {
+      // O backend recusa por saldo do caixa geral, pool estourado, prêmio não
+      // liberado. Esse texto ia para o banner da página, que fica ATRÁS do
+      // modal aberto: o servidor explicava e ninguém lia.
+      api.post.mockRejectedValue({
+        response: { data: { detail: 'Saldo insuficiente no caixa geral.' } },
+      });
+      await montar();
+      await abrirPagamento();
+      await userEvent.type(campoDoc(), '12345678-9');
+      await esperarResolvido();
+      await confirmar();
+      const dentro = (await screen.findByText('premiacao.registerPayment')).closest('.modal');
+      await waitFor(() =>
+        expect(within(dentro).getByText('Saldo insuficiente no caixa geral.')).toBeInTheDocument()
+      );
+      // e o modal continua aberto para o operador corrigir
+      expect(screen.getByRole('button', { name: 'premiacao.confirmPayment' })).toBeInTheDocument();
+    });
+
+    it('erro sem resposta do servidor (queda de rede) também aparece no modal', async () => {
+      api.post.mockRejectedValue(new Error('Network Error'));
+      await montar();
+      await abrirPagamento();
+      await userEvent.type(campoDoc(), '12345678-9');
+      await esperarResolvido();
+      await confirmar();
+      const dentro = (await screen.findByText('premiacao.registerPayment')).closest('.modal');
+      await waitFor(() =>
+        expect(within(dentro).getByText('premiacao.paymentError')).toBeInTheDocument()
+      );
+    });
+
+    it('depois de uma recusa, mexer no documento limpa o erro velho', async () => {
+      api.post.mockRejectedValue({ response: { data: { detail: 'Prêmio não liberado' } } });
+      await montar();
+      await abrirPagamento();
+      await userEvent.type(campoDoc(), '12345678-9');
+      await esperarResolvido();
+      await confirmar();
+      await screen.findByText('Prêmio não liberado');
+      await userEvent.type(campoDoc(), '0');
+      await waitFor(() => expect(screen.queryByText('Prêmio não liberado')).toBeNull());
+    });
+
+    it('a tela destrava depois do erro: dá para tentar de novo', async () => {
+      // Estado de "processando" que não volta deixa o botão morto e o prêmio
+      // sem pagar.
+      api.post.mockRejectedValueOnce({ response: { data: { detail: 'Instável' } } });
+      await montar();
+      await abrirPagamento();
+      await userEvent.type(campoDoc(), '12345678-9');
+      await esperarResolvido();
+      await confirmar();
+      await screen.findByText('Instável');
+      api.post.mockResolvedValue({ data: { player_name: 'Ana' } });
+      await confirmar();
+      await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+      expect(toast.success).toHaveBeenCalledWith('premiacao.paymentSuccess');
+    });
+
+    it('falha ao carregar os saldos avisa em vez de abrir o modal sem números', async () => {
+      await montar({ pool: new Error('500') });
+      await abrirPagamento();
+      expect(screen.getByText('premiacao.balancesLoadError')).toBeInTheDocument();
+    });
+  });
+
+  describe('nunca pagar duas vezes', () => {
+    const enviarDuasVezes = async () => {
+      const form = document.querySelector('.payout-modal form');
+      // Dois envios no MESMO ciclo do React (clique duplo de verdade): os dois
+      // handlers rodam antes de qualquer re-render, então uma trava por estado
+      // deixaria os dois passarem.
+      await act(async () => {
+        fireEvent.submit(form);
+        fireEvent.submit(form);
+      });
+    };
+
+    it('clique duplo em confirmar paga UMA vez só', async () => {
+      // Pagar o mesmo prêmio duas vezes é dinheiro que sai do caixa e não volta.
+      let liberar;
+      api.post.mockReturnValue(new Promise((resolve) => { liberar = resolve; }));
+      await montar();
+      await abrirPagamento();
+      await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+      await esperarResolvido();
+      await enviarDuasVezes();
+      expect(api.post).toHaveBeenCalledTimes(1);
+      await act(async () => { liberar({ data: { player_name: 'Ana' } }); });
+    });
+
+    it('enquanto processa, o botão fica travado', async () => {
+      api.post.mockReturnValue(new Promise(() => {}));
+      await montar();
+      await abrirPagamento();
+      await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+      await esperarResolvido();
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+      const botao = await screen.findByRole('button', { name: 'premiacao.processing' });
+      expect(botao).toBeDisabled();
+    });
+  });
+
+  describe('prêmio ainda não liberado', () => {
+    // O servidor só paga prêmio liberado. Sem aviso, o operador conta as notas,
+    // confirma e leva uma recusa que não esperava — com o jogador na frente.
+    const NAO_LIBERADO = {
+      ...RESUMO,
+      allocations: [{ id: 'a7', position: 4, prize_amount: 1000, released: false, paid: false }],
+    };
+
+    it('avisa antes de o operador contar o dinheiro', async () => {
+      await montar({ resumo: NAO_LIBERADO });
+      await abrirPagamento('4°');
+      expect(screen.getByText('premiacao.payoutNotReleasedWarn')).toBeInTheDocument();
+    });
+
+    it('backend antigo, sem o campo released, não gera alarme falso', async () => {
+      // Deploy não é atômico: enquanto o backend velho não responde o campo,
+      // avisar sempre treinaria o operador a ignorar o aviso.
+      await montar({
+        resumo: { ...RESUMO, allocations: [{ id: 'a7', position: 4, prize_amount: 1000, paid: false }] },
+      });
+      await abrirPagamento('4°');
+      expect(screen.queryByText('premiacao.payoutNotReleasedWarn')).toBeNull();
+    });
+  });
+
+  describe('documento do recibo', () => {
+    // O documento impresso no comprovante é a prova de quem levou o dinheiro.
+    const DOC_PODRE = [
+      { id: 'p1', name: 'Ana', document_type: 'cpf', document_number: '111.111.111-11' },
+      { id: 'p2', name: 'Beto', document_type: 'passport', document_number: 'XY9090' },
+    ];
+
+    it('documento do cadastro fora do padrão vira aviso na hora de pagar', async () => {
+      // "Um monte de 1" fecha a conta do dígito verificador do CPF; sem esse
+      // aviso o recibo sai com um documento que não prova nada.
+      await montar({ jogadores: DOC_PODRE });
+      await abrirPagamento();
+      await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '11111111111');
+      await esperarResolvido();
+      const aviso = document.querySelector('.payout-warning-msg');
+      expect(aviso).toHaveTextContent('premiacao.docRegisteredInvalid');
+      expect(aviso).toHaveTextContent('documents.errorRepeated');
+    });
+
+    it('o tipo do documento sai com rótulo, não com o código do banco', async () => {
+      // "cpf" é nome de campo do banco. O rótulo vem do catálogo de
+      // utils/documentos.js — o mapa fixo que havia aqui só conhecia
+      // passaporte, identidade e CNH.
+      await montar({ jogadores: DOC_PODRE });
+      await abrirPagamento();
+      await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '11111111111');
+      const banner = await esperarResolvido();
+      expect(banner).toHaveTextContent('documents.typeCpf');
+      expect(banner).not.toHaveTextContent('— cpf');
+    });
+
+    it('o aviso NÃO trava o pagamento — quem recusa é o servidor', async () => {
+      // Travar aqui deixaria o campeão sem receber por causa de cadastro antigo.
+      api.post.mockResolvedValue({ data: { player_name: 'Ana' } });
+      await montar({ jogadores: DOC_PODRE });
+      await abrirPagamento();
+      await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '11111111111');
+      await esperarResolvido();
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmPayment' }));
+      await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    });
+
+    it('documento em ordem não gera aviso nenhum', async () => {
+      await montar({ jogadores: DOC_PODRE });
+      await abrirPagamento();
+      await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), 'XY9090');
+      await esperarResolvido();
+      expect(document.querySelector('.payout-warning-msg')).toBeNull();
+    });
+
+    it('trocar o documento apaga o aviso do jogador anterior', async () => {
+      await montar({ jogadores: DOC_PODRE });
+      await abrirPagamento();
+      const campo = screen.getByPlaceholderText('premiacao.docNumberPlaceholder');
+      await userEvent.type(campo, '11111111111');
+      await esperarResolvido();
+      await userEvent.clear(campo);
+      await userEvent.type(campo, 'XY9090');
+      await waitFor(() => expect(document.querySelector('.payout-warning-msg')).toBeNull());
+    });
   });
 });

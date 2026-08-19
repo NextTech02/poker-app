@@ -166,7 +166,8 @@
     "active": "Ativo",
     "empty": "Nenhum método cadastrado.",
     "builtin": "padrão",
-    "builtinHint": "Método padrão (traduz automaticamente com o idioma)"
+    "builtinHint": "Método padrão (traduz automaticamente com o idioma)",
+    "namePlaceholderShort": "ex.: Yape, Nequi, Cartão"
   },
   "buyTypes": {
     "intro": "Tipos de buy desta etapa. Cada tipo define o rake — o valor da entrada vem da configuração do torneio. Usado ao registrar no Caixa.",
@@ -182,7 +183,9 @@
     "amount": "Valor",
     "rake": "Rake %",
     "active": "Ativo",
-    "empty": "Nenhum tipo cadastrado nesta etapa."
+    "empty": "Nenhum tipo cadastrado nesta etapa.",
+    "namePlaceholderShort": "ex.: Buy-in VIP",
+    "rakeLabel": "Rake (%)"
   },
   "blindTemplates": {
     "pageTitle": "Templates de Blinds",
@@ -265,7 +268,11 @@
     "qualifyingBlindsPartial": "Dias criados, mas não foi possível aplicar a estrutura de blinds. Aplique manualmente na tela de Blinds.",
     "tabTournaments": "Torneios",
     "tabBlindTemplates": "Templates de Blinds",
-    "qualifyingValuesLabel": "Valores aplicados a todos os dias classificatórios"
+    "qualifyingValuesLabel": "Valores aplicados a todos os dias classificatórios",
+    "confirmDeleteEmpty": "Excluir o torneio \"{{name}}\"? Ele não tem nenhum dia, inscrição ou venda registrada.",
+    "confirmDeleteImpact": "Excluir o torneio \"{{name}}\"? Serão apagados em cascata: {{days}} dia(s), {{players}} inscrição(ões) e {{cancelled}} venda(s) já cancelada(s). Não há como desfazer.",
+    "deleteBlocked": "Este torneio não pode ser excluído: tem {{entries}} entrada(s) vendida(s) somando {{amount}}, {{players}} jogador(es) pago(s) e {{prizes}} pagamento(s) de premiação. Excluir apagaria a venda, o dinheiro recebido e o registro de quem pagou — e o caixa da etapa NÃO seria estornado. Cancele as vendas no Caixa (o estorno devolve o dinheiro e acerta o caixa) antes de excluir.",
+    "deleteBlockedTitle": "Torneio com movimento financeiro"
   },
   "tournamentDays": {
     "restarted": "Dia reiniciado.",
@@ -320,7 +327,10 @@
     "noSurvivorsHint": "Enquanto todos os jogadores estiverem eliminados (ou nenhum tiver sido inscrito), não há fichas a registrar.",
     "notAQualifyingDay": "Este dia não é classificatório: não há classificados para registrar fichas.",
     "noFinalDayLinked": "Este dia classificatório ainda não aponta para um dia final. Vincule o dia final antes de avançar os classificados.",
-    "allSurvivorsNeedChips": "O avanço para o dia final só é liberado quando todos os classificados tiverem fichas registradas."
+    "allSurvivorsNeedChips": "O avanço para o dia final só é liberado quando todos os classificados tiverem fichas registradas.",
+    "confirmDeleteImpact": "Excluir o dia \"{{name}}\"? Serão apagadas em cascata {{players}} inscrição(ões), {{cancelled}} venda(s) já cancelada(s), além das blinds e das mesas do dia. Não há como desfazer.",
+    "deleteBlocked": "Este dia não pode ser excluído: tem {{entries}} entrada(s) vendida(s) somando {{amount}} e {{players}} jogador(es) pago(s). Excluir apagaria a venda e o registro de quem pagou sem estornar o caixa da etapa. Cancele as vendas no Caixa antes de excluir.",
+    "deleteBlockedTitle": "Dia com movimento financeiro"
   },
   "loyalty": {
     "title": "Fidelidade",
@@ -465,7 +475,13 @@
     "docIdentity": "Identidade",
     "docPassport": "Passaporte",
     "docCnh": "CNH",
-    "name": "Nome"
+    "name": "Nome",
+    "firstName": "Nome",
+    "firstNamePlaceholder": "José",
+    "firstNameRequired": "Informe o nome do jogador.",
+    "lastName": "Sobrenome",
+    "lastNamePlaceholder": "Pinto Faria",
+    "legacyDocHint": "Cadastro antigo: escolha o tipo de documento do país quando puder."
   },
   "elimination": {
     "title": "Eliminar Jogadores",
@@ -593,7 +609,16 @@
     "finishCancel": "Concluir estorno",
     "confirmFinishCancel": "Concluir o estorno",
     "cancelResumeConfirm": "Este estorno parou no meio: a venda já saiu de todas as somas, mas faltou desfazer algum passo. Confirmar retoma SÓ o que faltou — nada é debitado duas vezes.",
-    "cancelResumeReason": "Retomada do estorno interrompido"
+    "cancelResumeReason": "Retomada do estorno interrompido",
+    "noTablesTitle": "Nenhuma mesa cadastrada",
+    "noTablesHint": "Este dia não tem mesa ativa. A venda pode ser feita, mas o jogador vai sair com bilhete de ALTERNADO — cadastre as mesas em Mesas para o assento sair no bilhete.",
+    "registeredNoTables": "Registrado — nenhuma mesa cadastrada",
+    "tablesLockedTitle": "Mesas travadas",
+    "tablesLockedHint": "As mesas estão travadas: quem entrar agora vai para a fila de alternados. O bilhete de alternado está correto.",
+    "tablesUnknownTitle": "Sem conexão",
+    "tablesUnknownHint": "Sem internet não dá para conferir as mesas. A venda é guardada e o assento é definido na sincronização.",
+    "ticketNoTablesHint": "Não há mesa cadastrada neste dia: o jogador não entrou em fila de alternados. Cadastre as mesas em Mesas e aloque o jogador.",
+    "ticketOfflineHint": "Venda guardada sem internet: o assento é definido na sincronização."
   },
   "cashbox": {
     "myCashbox": "Meu Caixa",
@@ -700,7 +725,19 @@
     "deleteError": "Erro ao excluir etapa.",
     "periodStart": "Início",
     "periodEnd": "Término",
-    "statusActiveShort": "Ativa"
+    "statusActiveShort": "Ativa",
+    "archive": "Arquivar",
+    "archiveError": "Não foi possível arquivar a etapa",
+    "archiveInstead": "Deseja arquivar a etapa? Ela sai da frente e nada é apagado.",
+    "archivedSuccess": "Etapa arquivada",
+    "confirmDeleteIrreversible": "Isso não pode ser desfeito.",
+    "confirmDeleteWhat": "Excluir esta etapa apaga em definitivo:",
+    "deleteBlocked": "Esta etapa tem movimento financeiro e não pode ser excluída:",
+    "endBeforeStart": "A data final não pode ser anterior à data de início",
+    "impactInCash": "em caixa",
+    "impactTournaments": "torneios ficam sem etapa.",
+    "legacyNoStartDate": "Esta etapa foi criada sem data de início. Informe a data para poder salvar.",
+    "startDateRequired": "Informe a data de início da etapa"
   },
   "reports": {
     "export": {
@@ -896,7 +933,12 @@
     "confirmEliminate": "Tem certeza que deseja eliminar este jogador?",
     "players": "Jogadores",
     "reset": "Zerar",
-    "confirmReset": "Tem certeza que deseja zerar o timer?"
+    "confirmReset": "Tem certeza que deseja zerar o timer?",
+    "breadcrumbControl": "Controle",
+    "breadcrumbTournament": "Torneio",
+    "offlineApplied": "Sem conexão: alteração aplicada só nesta tela e enviada quando a internet voltar",
+    "offlineClock": "Sem conexão — relógio rodando nesta tela",
+    "offlineQueued": "Sem conexão: comando na fila; a tela atualiza quando a internet voltar"
   },
   "comingSoon": {
     "title": "Em Construção",
@@ -968,6 +1010,7 @@
     "colorSidebarLabels": "Sidebar Labels",
     "colorSidebarValues": "Sidebar Valores",
     "visLogo": "Logo",
+    "visClubLogo": "Logo do clube",
     "visTitle": "Título",
     "visPrizepool": "Prizepool",
     "visLevel": "Nível",
@@ -1152,7 +1195,12 @@
     "addPreviewRow": "Adicionar posição",
     "restoreSuggestion": "Restaurar sugestão",
     "previewLeftover": "Sobra do pool pagável:",
-    "previewOverPool": "Acima do pool pagável em"
+    "previewOverPool": "Acima do pool pagável em",
+    "balancesLoadError": "Não foi possível carregar os saldos do torneio e do caixa. Confira antes de entregar o dinheiro.",
+    "docNoPlayerBlock": "Nenhum jogador deste torneio tem esse documento — confira o número antes de entregar o prêmio.",
+    "docRegisteredInvalid": "Documento do cadastro fora do padrão — o recibo sai assim mesmo, mas confira o cadastro do jogador:",
+    "docRequired": "Informe o número do documento de quem está recebendo o prêmio.",
+    "payoutNotReleasedWarn": "Este prêmio ainda não foi liberado: o pagamento será recusado. Libere na aba Liberação antes de entregar o dinheiro."
   },
   "generalCash": {
     "sessionExpired": "Sessão expirada. Por favor, faça login novamente.",
@@ -1740,7 +1788,14 @@
     "inactiveFilter": "Desativados",
     "showInactiveHint": "Mostrar funcionários desativados",
     "hideInactiveHint": "Ocultar funcionários desativados",
-    "name": "Nome"
+    "name": "Nome",
+    "confirmEffectivate": "Efetivar {{email}} como funcionário deste clube? O acesso vale na hora, sem esperar a resposta ao convite.",
+    "effectivate": "Efetivar",
+    "effectivateHint": "Entra na equipe agora, sem esperar a resposta ao convite",
+    "effectivated": "{{name}} agora faz parte da equipe.",
+    "errEffectivate": "Não foi possível efetivar o convite.",
+    "inviteCancelledFree": "Convite cancelado. Este e-mail pode ser convidado de novo.",
+    "joinedDirectly": "{{email}} já tinha conta e entrou direto na equipe — é só pedir para entrar no sistema."
   },
   "stageBar": {
     "selectedStage": "Etapa Selecionada:",
@@ -2202,5 +2257,26 @@
     "blockedDone": "Vendas encerradas para esta etapa",
     "unblockedDone": "Vendas liberadas para esta etapa",
     "blockError": "Não foi possível alterar o bloqueio de vendas"
+  },
+  "documents": {
+    "typeCpf": "CPF (Brasil)",
+    "typeDni": "DNI (Peru)",
+    "typeCedula": "Cédula de Ciudadanía (Colômbia)",
+    "typePassport": "Passaporte",
+    "typeDriverLicense": "Carteira de motorista",
+    "typeLegacyNationalId": "Documento de identidade (cadastro antigo)",
+    "typeCpfShort": "CPF",
+    "typeDniShort": "DNI",
+    "typeCedulaShort": "Cédula",
+    "errorRequired": "Informe o número do documento.",
+    "errorUnknownType": "Selecione o tipo de documento.",
+    "errorRepeated": "Documento com todos os caracteres iguais não é aceito — confira o número.",
+    "errorSequential": "Documento em sequência (12345678) não é aceito — confira o número.",
+    "errorCpfLength": "O CPF deve ter 11 dígitos.",
+    "errorCpfInvalid": "O CPF informado não é válido — confira os dígitos.",
+    "errorDniLength": "O DNI do Peru deve ter 8 dígitos.",
+    "errorCedulaLength": "A cédula da Colômbia deve ter de 6 a 10 dígitos.",
+    "errorPassportLength": "O passaporte deve ter de 6 a 12 caracteres (letras e números).",
+    "errorDriverLicenseLength": "A carteira de motorista deve ter de 5 a 20 caracteres."
   }
 }

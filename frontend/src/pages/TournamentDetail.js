@@ -80,16 +80,54 @@ const TournamentDetail = () => {
     return d?.day_name || '';
   };
 
-  const handleDeleteDay = async (dayId) => {
-    const name = dayNameOf(dayId);
-    const ok = await confirm(
-      t('tournamentDays.confirmDeleteMessage', 'O dia "{{name}}" e todos os seus dados serão removidos. Esta ação não pode ser desfeita.', { name }),
+  // O dia é pai de inscrição e de venda igual ao torneio: apagá-lo leva junto
+  // os jogadores daquele dia e, com eles, as vendas — sem estornar o caixa da
+  // etapa. Por isso a recusa repete os números do que está em jogo.
+  const textoDoBloqueioDoDia = (impacto) =>
+    t(
+      'tournamentDays.deleteBlocked',
+      'Este dia não pode ser excluído: tem {{entries}} entrada(s) vendida(s) somando {{amount}} e {{players}} jogador(es) pago(s). Excluir apagaria a venda e o registro de quem pagou sem estornar o caixa da etapa. Cancele as vendas no Caixa antes de excluir.',
       {
-        title: t('tournamentDays.confirmDeleteTitle', 'Excluir dia do torneio?'),
-        variant: 'danger',
-        confirmText: t('common.delete'),
+        entries: impacto.entries || 0,
+        amount: formatCurrency(impacto.entries_amount || 0),
+        players: impacto.paying_players || 0,
       }
     );
+
+  const handleDeleteDay = async (dayId) => {
+    const name = dayNameOf(dayId);
+
+    let impacto = null;
+    try {
+      const res = await api.get(`/tournament-days/${dayId}/delete-impact`);
+      impacto = res?.data || null;
+    } catch {
+      // Backend ainda sem o endpoint ou rede caída: cai na confirmação
+      // genérica. A recusa que vale é a do servidor.
+      impacto = null;
+    }
+
+    if (impacto?.blocked) {
+      toast.error(textoDoBloqueioDoDia(impacto), {
+        title: t('tournamentDays.deleteBlockedTitle', 'Dia com movimento financeiro'),
+        duration: 14000,
+      });
+      return;
+    }
+
+    const mensagem = impacto
+      ? t(
+          'tournamentDays.confirmDeleteImpact',
+          'Excluir o dia "{{name}}"? Serão apagadas em cascata {{players}} inscrição(ões), {{cancelled}} venda(s) já cancelada(s), além das blinds e das mesas do dia. Não há como desfazer.',
+          { name, players: impacto.players || 0, cancelled: impacto.cancelled_entries || 0 }
+        )
+      : t('tournamentDays.confirmDeleteMessage', 'O dia "{{name}}" e todos os seus dados serão removidos. Esta ação não pode ser desfeita.', { name });
+
+    const ok = await confirm(mensagem, {
+      title: t('tournamentDays.confirmDeleteTitle', 'Excluir dia do torneio?'),
+      variant: 'danger',
+      confirmText: t('common.delete'),
+    });
     if (!ok) return;
 
     try {
@@ -97,6 +135,14 @@ const TournamentDetail = () => {
       loadTournamentData();
     } catch (err) {
       console.error('Error deleting day:', err);
+      if (err?.response?.status === 409) {
+        const impactoDaRecusa = err.response?.data?.detail?.impact;
+        toast.error(
+          impactoDaRecusa ? textoDoBloqueioDoDia(impactoDaRecusa) : err.userMessage,
+          { title: t('tournamentDays.deleteBlockedTitle', 'Dia com movimento financeiro'), duration: 14000 }
+        );
+        return;
+      }
       toast.error(t('common.error'));
     }
   };

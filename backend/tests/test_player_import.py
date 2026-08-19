@@ -48,17 +48,22 @@ class TestNormalizacao:
         prontos, _ = S._preparar([_linha(birth_date="2004-07-18")])
         assert prontos[0]["birth_date"] == "2004-07-18"
 
-    @pytest.mark.parametrize("origem,esperado", [
-        ("RG", "national_id"),
-        ("CPF", "national_id"),
-        ("Cedula", "national_id"),
-        ("Passaporte", "passport"),
-        ("passport", "passport"),
-        ("CNH", "driver_license"),
+    @pytest.mark.parametrize("origem,numero,esperado", [
+        # Rotulo generico: nao da para saber o formato, fica no tipo legado.
+        ("RG", "123456", "national_id"),
+        ("CNPJ", "12345678000199", "national_id"),
+        ("INE", "123456789", "national_id"),
+        # Rotulo que diz o documento: grava o tipo do PAIS, que tem regra.
+        ("CPF", "529.982.247-25", "cpf"),
+        ("Cedula", "1020304050", "cedula"),
+        ("DNI", "10293847", "dni"),
+        ("Passaporte", "AB123456", "passport"),
+        ("passport", "AB123456", "passport"),
+        ("CNH", "12345678900", "driver_license"),
     ])
-    def test_tipos_de_documento_sao_traduzidos(self, origem, esperado):
-        """O banco so aceita tres tipos; o concorrente usa nomes livres."""
-        prontos, _ = S._preparar([_linha(document_type=origem)])
+    def test_tipos_de_documento_sao_traduzidos(self, origem, numero, esperado):
+        """O concorrente usa nomes livres de documento."""
+        prontos, _ = S._preparar([_linha(document_type=origem, document_number=numero)])
         assert prontos[0]["document_type"] == esperado
 
     def test_tipo_de_documento_desconhecido_e_rejeitado_com_motivo(self):
@@ -156,6 +161,91 @@ class TestDuplicidadeNoArquivo:
             _linha(source_id="2", name="Segundo", document_number="222"),
         ])
         assert prontos[0]["name"] == "Primeiro"
+
+
+class TestDocumentoValidado:
+    """A planilha passa pela MESMA regua da API.
+
+    Sem isto ela era a porta por onde o documento invalido entrava em lote: o
+    jogador nascia com documento que a tela recusa e ninguem conseguia mais
+    salvar nem uma correcao de telefone nele. Linha ruim vai para a lista de
+    rejeitados com o motivo — a regra ja combinada com o clube (corrigir na
+    origem e reimportar).
+    """
+
+    def test_cpf_invalido_na_planilha_e_rejeitado_com_motivo(self):
+        prontos, rejeitados = S._preparar(
+            [_linha(document_type="CPF", document_number="00000000000")]
+        )
+        assert prontos == []
+        assert "documento" in rejeitados[0]["reason"]
+
+    def test_cpf_com_digito_trocado_nao_entra(self):
+        prontos, _ = S._preparar([_linha(document_type="CPF", document_number="52998224726")])
+        assert prontos == []
+
+    def test_dni_com_tamanho_errado_nao_entra(self):
+        prontos, _ = S._preparar([_linha(document_type="DNI", document_number="123")])
+        assert prontos == []
+
+    def test_documento_valido_e_gravado_normalizado(self):
+        """Guardar normalizado e o que impede o mesmo CPF virar dois cadastros."""
+        prontos, _ = S._preparar([_linha(document_type="CPF", document_number="529.982.247-25")])
+        assert prontos[0]["document_number"] == "52998224725"
+
+    def test_documento_generico_continua_entrando_sem_regua_estrita(self):
+        """RG nao tem formato conhecido: exigir regra travaria a base antiga."""
+        prontos, rejeitados = S._preparar([_linha(document_type="RG", document_number="1234")])
+        assert len(prontos) == 1
+        assert rejeitados == []
+
+
+class TestGravacaoSemMigracao:
+    """A importacao tambem nao pode depender da ordem do deploy."""
+
+    def test_linha_com_tipo_novo_entra_como_legado_quando_o_check_e_antigo(self, monkeypatch):
+        import app.services.player_import_service as mod
+
+        gravados = []
+
+        class _Insert:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def execute(self):
+                if self.payload.get("document_type") not in (
+                    "passport", "national_id", "driver_license",
+                ):
+                    raise RuntimeError('violates check constraint "players_document_type_check"')
+                gravados.append(self.payload)
+                return None
+
+        class _Tabela:
+            def insert(self, payload):
+                return _Insert(payload)
+
+        monkeypatch.setattr(mod, "supabase", type("F", (), {"table": lambda self, n: _Tabela()})())
+        S._inserir_um({"name": "Ana", "document_type": "cpf", "document_number": "52998224725"})
+        assert gravados[0]["document_type"] == "national_id"
+        assert gravados[0]["document_number"] == "52998224725"
+
+    def test_outra_falha_continua_estourando(self, monkeypatch):
+        import app.services.player_import_service as mod
+
+        class _Insert:
+            def __init__(self, payload):
+                pass
+
+            def execute(self):
+                raise RuntimeError("players_email_org_key")
+
+        class _Tabela:
+            def insert(self, payload):
+                return _Insert(payload)
+
+        monkeypatch.setattr(mod, "supabase", type("F", (), {"table": lambda self, n: _Tabela()})())
+        with pytest.raises(RuntimeError):
+            S._inserir_um({"name": "Ana", "document_type": "cpf"})
 
 
 class TestArquivoVazio:

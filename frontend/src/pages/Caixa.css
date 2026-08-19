@@ -279,3 +279,11 @@
 .cx-avisos-lista li {
   padding-left: 0.15rem;
 }
+
+/* ── Estado das mesas no formulário de venda e no bilhete ──────────────────
+   Mesmo desenho da faixa de aviso do topo, mas dentro do modal: o operador
+   precisa ver que falta cadastrar mesa ANTES de imprimir o bilhete errado. */
+.cx-warning--mesas {
+  margin: 0 0 1rem;
+  line-height: 1.4;
+}

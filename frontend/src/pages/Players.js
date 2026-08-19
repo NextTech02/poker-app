@@ -11,24 +11,45 @@ import { offlineWrite } from '../offline/apiOffline';
 import { applyPlayerCreate } from '../offline/domainRules';
 import { uuid, getEntity, putEntity } from '../offline/db';
 import countries from '../data/countries';
+import { opcoesDocumento, validarDocumento, ehTipoLegado } from '../utils/documentos';
 import './Players.css';
 
 // Carregado só quando o usuário importa: puxa o leitor de planilha junto.
 const PlayerImportModal = lazy(() => import('../components/PlayerImportModal'));
 
+// Rótulo curto para a coluna da tabela. Os três primeiros já têm tradução no
+// arquivo de idioma; os tipos por país entram com o texto padrão inline.
 const DOC_TYPE_LABELS = {
-  national_id: 'players.docIdentity',
-  passport: 'players.docPassport',
-  driver_license: 'players.docCnh',
+  national_id: ['players.docIdentity'],
+  passport: ['players.docPassport'],
+  driver_license: ['players.docCnh'],
+  cpf: ['documents.typeCpfShort', 'CPF'],
+  dni: ['documents.typeDniShort', 'DNI'],
+  cedula: ['documents.typeCedulaShort', 'Cédula'],
 };
 
 const getInitials = (name = '') =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('');
 
+// Nome e sobrenome são campos separados no cadastro, mas `name` continua
+// existindo e sendo enviado: 93 arquivos do sistema leem players.name (recibo
+// de prêmio, alocação de mesa, tela de TV) e o backend anterior ao deploy
+// ainda exige o nome completo — o deploy não é atômico.
+const limparNome = (v = '') => String(v || '').replace(/\s+/g, ' ').trim();
+const primeiroNome = (nome = '') => limparNome(nome).split(' ')[0] || '';
+const sobrenomeDe = (nome = '') => limparNome(nome).split(' ').slice(1).join(' ');
+const nomeCompleto = (primeiro, ultimo) => limparNome(`${primeiro || ''} ${ultimo || ''}`);
 
+// O formulário abre em 'cpf' (é a maioria do balcão). Isso é seguro mesmo se
+// esta tela subir ANTES da migração dos tipos de documento: quando o CHECK
+// antigo do banco recusa o tipo novo, o backend regrava o cadastro com o tipo
+// legado em vez de derrubar a venda (backend/app/utils/documentos.py:
+// tipo_para_banco_antigo). Não troque este padrão por uma consulta ao servidor:
+// seria uma ida a mais no caminho quente e não protegeria a importação nem o
+// replay da fila offline, que não passam por esta tela.
 const EMPTY_FORM = {
-  name: '', email: '', phone: '', nationality: '',
-  document_type: 'national_id', document_number: '', nickname: '', birth_date: '', notes: '',
+  first_name: '', last_name: '', email: '', phone: '', nationality: '',
+  document_type: 'cpf', document_number: '', nickname: '', birth_date: '', notes: '',
 };
 
 const Players = () => {
@@ -83,28 +104,55 @@ const Players = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+
+    const primeiro = limparNome(formData.first_name);
+    const ultimo = limparNome(formData.last_name);
+    if (!primeiro) {
+      setFormError(t('players.firstNameRequired', 'Informe o nome do jogador.'));
+      return;
+    }
+
+    // O documento é o comprovante de quem recebeu prêmio em dinheiro: barrar
+    // aqui evita a ida ao servidor, mas quem VALE é o backend (a mesma API
+    // atende a importação e o replay da fila offline).
+    const doc = validarDocumento(formData.document_type, formData.document_number);
+    if (!doc.valido) {
+      setFormError(t(doc.chaveMotivo, doc.motivo));
+      return;
+    }
+
+    // `name` vai junto de propósito: 93 telas leem players.name e o backend
+    // anterior ao deploy ainda o exige.
+    const dados = {
+      ...formData,
+      first_name: primeiro,
+      last_name: ultimo,
+      name: nomeCompleto(primeiro, ultimo),
+      document_number: doc.normalizado,
+    };
+
     setSubmitting(true);
     try {
       if (editingPlayer) {
         const upd = await offlineWrite({
           kind: 'player-update', method: 'patch', url: `/players/${editingPlayer.id}`,
-          body: { player_id: editingPlayer.id, ...formData },
-          clientMutationId: uuid(), meta: { kind: 'player-update', name: formData.name },
-          synthetic: { ...editingPlayer, ...formData },
+          body: { player_id: editingPlayer.id, ...dados },
+          clientMutationId: uuid(), meta: { kind: 'player-update', name: dados.name },
+          synthetic: { ...editingPlayer, ...dados },
           applyLocal: async () => {
             const p = await getEntity('players', editingPlayer.id);
-            await putEntity('players', { ...(p || {}), ...formData, id: editingPlayer.id });
+            await putEntity('players', { ...(p || {}), ...dados, id: editingPlayer.id });
           },
         });
         toast.success(upd.offline ? t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar') : t('players.updatedSuccess'));
       } else {
         const cid = uuid();
-        const body = { ...formData, client_id: cid };
+        const body = { ...dados, client_id: cid };
         const cr = await offlineWrite({
           kind: 'player-create', method: 'post', url: '/players', body,
           clientEntityIds: { players: cid }, clientMutationId: uuid(),
-          meta: { kind: 'player-create', name: formData.name },
-          synthetic: { id: cid, ...formData },
+          meta: { kind: 'player-create', name: dados.name },
+          synthetic: { id: cid, ...dados },
           applyLocal: () => applyPlayerCreate(body),
         });
         toast.success(cr.offline ? t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar') : t('players.createdSuccess'));
@@ -125,11 +173,15 @@ const Players = () => {
   const handleEdit = (player) => {
     setEditingPlayer(player);
     setFormData({
-      name: player.name,
+      // Cadastro antigo (ou banco ainda sem a migração) só tem o nome
+      // completo: divide no primeiro espaço para o formulário abrir cheio, em
+      // vez de obrigar o operador a redigitar o nome para salvar o telefone.
+      first_name: player.first_name || primeiroNome(player.name),
+      last_name: player.last_name || sobrenomeDe(player.name),
       email: player.email || '',
       phone: player.phone || '',
       nationality: player.nationality || '',
-      document_type: player.document_type || 'national_id',
+      document_type: player.document_type || EMPTY_FORM.document_type,
       document_number: player.document_number || '',
       nickname: player.nickname || '',
       birth_date: player.birth_date || '',
@@ -270,7 +322,9 @@ const Players = () => {
                 <tbody>
                   {sortedPlayers.map((player) => {
                     const initials = getInitials(player.name);
-                    const docLabel = DOC_TYPE_LABELS[player.document_type] ? t(DOC_TYPE_LABELS[player.document_type]) : (player.document_type || '');
+                    const docLabel = DOC_TYPE_LABELS[player.document_type]
+                      ? t(...DOC_TYPE_LABELS[player.document_type])
+                      : (player.document_type || '');
                     return (
                       <tr key={player.id} className="pl-row">
                         <td className="pl-cell-player">
@@ -397,14 +451,27 @@ const Players = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="pl-modal-form">
-                {/* Nome */}
-                <div className="pl-field pl-field-full">
-                  <label htmlFor="name">{t('players.fullName')} <span className="pl-required">*</span></label>
-                  <input
-                    id="name" name="name" type="text"
-                    value={formData.name} onChange={handleChange}
-                    required placeholder={t('players.fullNamePlaceholder')}
-                  />
+                {/* Nome e sobrenome — campos separados (pedido do dono do clube).
+                    O nome completo continua sendo montado e enviado no submit. */}
+                <div className="pl-field-row">
+                  <div className="pl-field">
+                    <label htmlFor="first_name">
+                      {t('players.firstName', 'Nome')} <span className="pl-required">*</span>
+                    </label>
+                    <input
+                      id="first_name" name="first_name" type="text"
+                      value={formData.first_name} onChange={handleChange}
+                      required placeholder={t('players.firstNamePlaceholder', 'José')}
+                    />
+                  </div>
+                  <div className="pl-field">
+                    <label htmlFor="last_name">{t('players.lastName', 'Sobrenome')}</label>
+                    <input
+                      id="last_name" name="last_name" type="text"
+                      value={formData.last_name} onChange={handleChange}
+                      placeholder={t('players.lastNamePlaceholder', 'Pinto Faria')}
+                    />
+                  </div>
                 </div>
 
                 {/* Apelido */}
@@ -464,14 +531,20 @@ const Players = () => {
                 <div className="pl-field-row">
                   <div className="pl-field">
                     <label htmlFor="document_type">{t('players.documentType')} <span className="pl-required">*</span></label>
+                    {/* Tipos por país (o clube opera em Brasil, Peru e
+                        Colômbia). O tipo antigo só aparece quando já é o do
+                        cadastro sendo editado — senão o select abriria vazio
+                        num jogador legado e travaria o balcão. */}
                     <select
                       id="document_type" name="document_type"
                       value={formData.document_type} onChange={handleChange}
                       required
                     >
-                      <option value="national_id">{t('players.nationalId')}</option>
-                      <option value="passport">{t('players.passport')}</option>
-                      <option value="driver_license">{t('players.driverLicense')}</option>
+                      {opcoesDocumento(formData.document_type).map((opcao) => (
+                        <option key={opcao.valor} value={opcao.valor}>
+                          {t(opcao.chaveRotulo, opcao.rotulo)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="pl-field">
@@ -483,6 +556,15 @@ const Players = () => {
                     />
                   </div>
                 </div>
+
+                {/* Cadastro antigo: avisa, mas não obriga — trocar o tipo é
+                    tarefa para quando der, não para a fila do caixa. */}
+                {ehTipoLegado(formData.document_type) && (
+                  <p className="pl-field-hint">
+                    {t('players.legacyDocHint',
+                      'Cadastro antigo: escolha o tipo de documento do país quando puder.')}
+                  </p>
+                )}
 
                 {/* Observações */}
                 <div className="pl-field pl-field-full">

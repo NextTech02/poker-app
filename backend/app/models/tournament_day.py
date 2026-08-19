@@ -272,6 +272,28 @@ class TournamentDay(TournamentDayBase):
         from_attributes = True
 
 
+class TournamentDayDeleteImpact(BaseModel):
+    """O que a exclusão do DIA destrói, com número em cima.
+
+    O dia é pai de inscrição e de venda igual ao torneio: as FKs para
+    `tournament_days` são ON DELETE CASCADE, então apagar um dia leva junto os
+    `tournament_players` daquele dia — e, com eles, as `transactions` daquelas
+    inscrições. O caixa da etapa continua com o dinheiro somado, porque nada
+    estorna: mesmo buraco da exclusão de torneio, uma camada abaixo.
+    """
+    day_id: str
+    day_name: str
+    tournament_id: str
+    players: int = 0
+    paying_players: int = 0
+    entries: int = 0
+    entries_amount: float = 0
+    prizes: int = 0
+    prizes_amount: float = 0
+    cancelled_entries: int = 0
+    blocked: bool = False
+
+
 class TournamentDaySummary(BaseModel):
     """Tournament day with aggregated statistics"""
     id: str

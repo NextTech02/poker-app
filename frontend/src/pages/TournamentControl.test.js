@@ -46,7 +46,12 @@ jest.mock('react-i18next', () => {
   return { useTranslation: () => traducao };
 });
 
-const DIA = { id: 'dia-1', day_name: 'Dia 1A', status: 'active' };
+const DIA = { id: 'dia-1', day_name: 'Dia 1A', status: 'active', tournament_id: 'torneio-9' };
+
+const BLINDS = [
+  { level: 2, small_blind: 100, big_blind: 200, ante: 0, duration: 15, is_break: false },
+  { level: 1, small_blind: 50, big_blind: 100, ante: 0, duration: 15, is_break: false },
+];
 
 let relogio;
 let confirmar;
@@ -64,13 +69,16 @@ const estadoRelogio = (extra = {}) => ({
   ...extra,
 });
 
-const montar = async (extraRelogio = {}) => {
+const montar = async (extraRelogio = {}, extraHook = {}) => {
   relogio = {
     timerState: estadoRelogio(extraRelogio),
     triggerRefetch: jest.fn(),
     applyOptimistic: jest.fn(),
+    applyLocalCommand: jest.fn(() => true),
     broadcastCommand: jest.fn((c) => ({ ...c, remaining: 305 })),
+    isOffline: false,
     isLoading: false,
+    ...extraHook,
   };
   useTimerSync.mockReturnValue(relogio);
   render(<MemoryRouter><TournamentControl /></MemoryRouter>);
@@ -382,5 +390,115 @@ describe('bloqueio de vendas do dia', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Sem permissão para bloquear vendas')
     );
+  });
+});
+
+
+describe('saída da tela', () => {
+  /** O operador entra no controle pelo torneio e precisa VOLTAR para ele.
+   *  Sem a trilha, a única saída era o menu lateral — foi o achado relatado
+   *  duas vezes no teste de aceitação. */
+
+  it('a trilha leva de volta ao torneio', async () => {
+    await montar();
+    const link = screen.getByText('control.breadcrumbTournament').closest('a');
+    expect(link).toHaveAttribute('href', '/torneios/torneio-9');
+  });
+
+  it('mesmo sem conseguir carregar o dia, ainda há por onde voltar', async () => {
+    // O relógio continua na tela quando o GET do dia falha; a saída também
+    // precisa continuar, senão o operador fica preso justamente no erro.
+    api.get.mockRejectedValue(new Error('503'));
+    useTimerSync.mockReturnValue({
+      timerState: estadoRelogio(),
+      triggerRefetch: jest.fn(),
+      applyOptimistic: jest.fn(),
+      applyLocalCommand: jest.fn(),
+      broadcastCommand: jest.fn(),
+      isLoading: false,
+    });
+    render(<MemoryRouter><TournamentControl /></MemoryRouter>);
+    const link = (await screen.findByText('tournaments.title')).closest('a');
+    expect(link).toHaveAttribute('href', '/torneios');
+  });
+});
+
+describe('operação sem internet', () => {
+  /** O relógio do telão é o que a mesa inteira olha. Se o operador muda o
+   *  blind sem rede, o comando entra na fila — e a TELA não pode ficar
+   *  esperando calada uma confirmação que não vem. */
+
+  it('comando que ficou na fila é aplicado nesta tela na hora', async () => {
+    offlineWrite.mockResolvedValue({ data: { ok: true }, offline: true });
+    await montar();
+    await userEvent.click(screen.getByText('⏭'));
+    await waitFor(() =>
+      expect(relogio.applyLocalCommand).toHaveBeenCalledWith('next-level', {})
+    );
+  });
+
+  it('o ajuste de tempo leva os segundos para a aplicação local', async () => {
+    offlineWrite.mockResolvedValue({ data: { ok: true }, offline: true });
+    await montar();
+    await userEvent.click(screen.getByText('+5m'));
+    await waitFor(() =>
+      expect(relogio.applyLocalCommand).toHaveBeenCalledWith('adjust', { seconds: 300 })
+    );
+  });
+
+  it('o operador é avisado de que a mudança ainda não foi ao servidor', async () => {
+    // Um relógio que muda sozinho sem explicação assusta tanto quanto um
+    // relógio parado.
+    offlineWrite.mockResolvedValue({ data: { ok: true }, offline: true });
+    await montar();
+    await userEvent.click(screen.getByText('⏭'));
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith('control.offlineApplied')
+    );
+  });
+
+  it('quando nem localmente dá para aplicar, o aviso diz que ficou na fila', async () => {
+    // Voltar de nível sem a estrutura em cache é um caso assim: melhor avisar
+    // do que inventar um blind na frente da mesa.
+    offlineWrite.mockResolvedValue({ data: { ok: true }, offline: true });
+    await montar({}, { applyLocalCommand: jest.fn(() => false) });
+    await userEvent.click(screen.getByText('⏮'));
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith('control.offlineQueued')
+    );
+  });
+
+  it('comando que chegou ao servidor não mexe no relógio local nem avisa', async () => {
+    await montar();
+    await userEvent.click(screen.getByText('⏭'));
+    await waitFor(() => expect(relogio.triggerRefetch).toHaveBeenCalled());
+    expect(relogio.applyLocalCommand).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
+
+  it('o telão diz que está sem conexão', async () => {
+    // Sem esse aviso, "relógio rodando local" é indistinguível de "travou".
+    await montar({}, { isOffline: true });
+    expect(screen.getByText('control.offlineClock')).toBeInTheDocument();
+  });
+
+  it('com conexão o aviso não aparece', async () => {
+    await montar();
+    expect(screen.queryByText('control.offlineClock')).toBeNull();
+  });
+
+  it('entrega a estrutura de blinds ao relógio, ordenada por nível', async () => {
+    // É ela que permite virar de nível sozinho quando a internet cai; sem
+    // passar os blinds o relógio parava em 00:00 no fim do nível.
+    api.get.mockImplementation((url) => (
+      url.endsWith('/blinds')
+        ? Promise.resolve({ data: BLINDS })
+        : Promise.resolve({ data: DIA })
+    ));
+    await montar();
+    await waitFor(() => {
+      const ultima = useTimerSync.mock.calls[useTimerSync.mock.calls.length - 1];
+      expect(ultima[1].map((b) => b.level)).toEqual([1, 2]);
+    });
   });
 });

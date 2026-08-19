@@ -1,11 +1,40 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
-from app.models.tournament import TournamentCreate, TournamentUpdate, Tournament, TournamentSummary
-from app.services.tournament_service import TournamentService
+from app.models.tournament import (
+    TournamentCreate,
+    TournamentUpdate,
+    Tournament,
+    TournamentSummary,
+    TournamentDeleteImpact,
+)
+from app.services.tournament_service import (
+    TournamentService,
+    MovimentoFinanceiroImpedeExclusao,
+)
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
+
+
+def _exigir_torneio_da_etapa(tournament_id: str, stage_id: Optional[str]) -> None:
+    """Confere que o torneio existe e pertence à etapa selecionada.
+
+    Sem o header não há o que conferir: a chamada segue e quem responde 404 é o
+    próprio service, como sempre foi."""
+    if not stage_id:
+        return
+    existente = TournamentService.get_tournament(tournament_id)
+    if not existente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament not found"
+        )
+    if existente.stage_id != stage_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Tournament does not belong to the selected stage"
+        )
 
 
 @router.post("", response_model=Tournament, status_code=status.HTTP_201_CREATED)
@@ -72,6 +101,28 @@ def get_tournament(tournament_id: str):
     return tournament
 
 
+@router.get("/{tournament_id}/delete-impact", response_model=TournamentDeleteImpact)
+def get_tournament_delete_impact(
+    tournament_id: str,
+    current_user: dict = Depends(get_current_user),
+    stage_id: Optional[str] = Depends(get_stage_id_optional)
+):
+    """O que a exclusão deste torneio destruiria, com números reais.
+
+    A tela chama isto ANTES de perguntar "tem certeza?": o operador precisa ler
+    quantas entradas, quantos jogadores e quanto dinheiro somem com o clique.
+    Exige autenticação — expõe faturamento."""
+    _exigir_torneio_da_etapa(tournament_id, stage_id)
+
+    impacto = TournamentService.get_delete_impact(tournament_id)
+    if impacto is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournament not found"
+        )
+    return impacto
+
+
 @router.patch("/{tournament_id}", response_model=Tournament)
 def update_tournament(
     tournament_id: str,
@@ -83,19 +134,7 @@ def update_tournament(
     Update a tournament.
     If X-Stage-ID header is present, validates that tournament belongs to that stage.
     """
-    # Validate tournament belongs to stage if stage_id is provided
-    if stage_id:
-        existing_tournament = TournamentService.get_tournament(tournament_id)
-        if not existing_tournament:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tournament not found"
-            )
-        if existing_tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament does not belong to the selected stage"
-            )
+    _exigir_torneio_da_etapa(tournament_id, stage_id)
 
     tournament = TournamentService.update_tournament(tournament_id, tournament_data)
     if not tournament:
@@ -106,7 +145,19 @@ def update_tournament(
     return tournament
 
 
-@router.delete("/{tournament_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{tournament_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        409: {
+            "description": (
+                "O torneio tem movimento financeiro (entradas vendidas, jogador "
+                "pago ou premiação paga) e a exclusão foi recusada. O corpo traz "
+                "`impact` com os números do que seria destruído."
+            )
+        },
+    },
+)
 def delete_tournament(
     tournament_id: str,
     current_user: dict = Depends(get_current_user),
@@ -115,22 +166,23 @@ def delete_tournament(
     """
     Delete a tournament.
     If X-Stage-ID header is present, validates that tournament belongs to that stage.
-    """
-    # Validate tournament belongs to stage if stage_id is provided
-    if stage_id:
-        existing_tournament = TournamentService.get_tournament(tournament_id)
-        if not existing_tournament:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tournament not found"
-            )
-        if existing_tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament does not belong to the selected stage"
-            )
 
-    success = TournamentService.delete_tournament(tournament_id)
+    Torneio com dinheiro em cima é RECUSADO aqui, no servidor, e não só na tela:
+    quem chama a API direto (curl, script, integração) não pode contornar uma
+    cascata que apaga venda, caixa e histórico de quem pagou.
+    """
+    _exigir_torneio_da_etapa(tournament_id, stage_id)
+
+    try:
+        success = TournamentService.delete_tournament(tournament_id)
+    except MovimentoFinanceiroImpedeExclusao as recusa:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": recusa.mensagem,
+                "impact": recusa.impacto.model_dump(),
+            },
+        )
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

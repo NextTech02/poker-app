@@ -166,7 +166,8 @@
     "active": "Activo",
     "empty": "Ningún método registrado.",
     "builtin": "predeterminado",
-    "builtinHint": "Método predeterminado (se traduce automáticamente con el idioma)"
+    "builtinHint": "Método predeterminado (se traduce automáticamente con el idioma)",
+    "namePlaceholderShort": "ej.: Yape, Nequi, Tarjeta"
   },
   "buyTypes": {
     "intro": "Tipos de buy de esta etapa. Cada tipo define el rake — el valor de la entrada viene de la configuración del torneo. Usado en la Caja.",
@@ -182,7 +183,9 @@
     "amount": "Valor",
     "rake": "Rake %",
     "active": "Activo",
-    "empty": "Ningún tipo registrado en esta etapa."
+    "empty": "Ningún tipo registrado en esta etapa.",
+    "namePlaceholderShort": "ej.: Buy-in VIP",
+    "rakeLabel": "Rake (%)"
   },
   "blindTemplates": {
     "pageTitle": "Plantillas de Ciegas",
@@ -265,7 +268,11 @@
     "qualifyingBlindsPartial": "Días creados, pero no se pudo aplicar la estructura de ciegas. Aplícala manualmente en la pantalla de Ciegas.",
     "tabTournaments": "Torneos",
     "tabBlindTemplates": "Plantillas de Ciegas",
-    "qualifyingValuesLabel": "Valores aplicados a todos los días clasificatorios"
+    "qualifyingValuesLabel": "Valores aplicados a todos los días clasificatorios",
+    "confirmDeleteEmpty": "¿Eliminar el torneo \"{{name}}\"? No tiene ningún día, inscripción ni venta registrada.",
+    "confirmDeleteImpact": "¿Eliminar el torneo \"{{name}}\"? Se borrarán en cascada: {{days}} día(s), {{players}} inscripción(es) y {{cancelled}} venta(s) ya cancelada(s). No hay cómo deshacer.",
+    "deleteBlocked": "Este torneo no se puede eliminar: tiene {{entries}} entrada(s) vendida(s) que suman {{amount}}, {{players}} jugador(es) pagado(s) y {{prizes}} pago(s) de premiación. Eliminar borraría la venta, el dinero recibido y el registro de quién pagó — y la caja de la etapa NO sería revertida. Cancele las ventas en Caja (el estorno devuelve el dinero y ajusta la caja) antes de eliminar.",
+    "deleteBlockedTitle": "Torneo con movimiento financiero"
   },
   "tournamentDays": {
     "restarted": "Día reiniciado.",
@@ -320,7 +327,10 @@
     "noSurvivorsHint": "Mientras todos los jugadores estén eliminados (o ninguno se haya inscrito), no hay fichas que registrar.",
     "notAQualifyingDay": "Este día no es clasificatorio: no hay clasificados para registrar fichas.",
     "noFinalDayLinked": "Este día clasificatorio aún no apunta a un día final. Vincula el día final antes de avanzar a los clasificados.",
-    "allSurvivorsNeedChips": "El avance al día final solo se habilita cuando todos los clasificados tengan sus fichas registradas."
+    "allSurvivorsNeedChips": "El avance al día final solo se habilita cuando todos los clasificados tengan sus fichas registradas.",
+    "confirmDeleteImpact": "¿Eliminar el día \"{{name}}\"? Se borrarán en cascada {{players}} inscripción(es), {{cancelled}} venta(s) ya cancelada(s), además de las blinds y las mesas del día. No hay cómo deshacer.",
+    "deleteBlocked": "Este día no se puede eliminar: tiene {{entries}} entrada(s) vendida(s) que suman {{amount}} y {{players}} jugador(es) pagado(s). Eliminar borraría la venta y el registro de quién pagó sin revertir la caja de la etapa. Cancele las ventas en Caja antes de eliminar.",
+    "deleteBlockedTitle": "Día con movimiento financiero"
   },
   "loyalty": {
     "title": "Fidelidad",
@@ -465,7 +475,13 @@
     "docIdentity": "Identidad",
     "docPassport": "Pasaporte",
     "docCnh": "Licencia",
-    "name": "Nombre"
+    "name": "Nombre",
+    "firstName": "Nombre",
+    "firstNamePlaceholder": "José",
+    "firstNameRequired": "Ingrese el nombre del jugador.",
+    "lastName": "Apellido",
+    "lastNamePlaceholder": "Pinto Faria",
+    "legacyDocHint": "Registro antiguo: elija el tipo de documento del país cuando pueda."
   },
   "elimination": {
     "title": "Eliminar Jugadores",
@@ -593,7 +609,16 @@
     "finishCancel": "Concluir reverso",
     "confirmFinishCancel": "Concluir el reverso",
     "cancelResumeConfirm": "Este reverso se detuvo a medias: la venta ya salió de todas las sumas, pero faltó deshacer algún paso. Confirmar retoma SOLO lo que falta — nada se debita dos veces.",
-    "cancelResumeReason": "Reanudación del reverso interrumpido"
+    "cancelResumeReason": "Reanudación del reverso interrumpido",
+    "noTablesTitle": "Ninguna mesa registrada",
+    "noTablesHint": "Este día no tiene mesa activa. La venta se puede hacer, pero el jugador saldrá con boleto de ALTERNO — registre las mesas en Mesas para que el asiento salga en el boleto.",
+    "registeredNoTables": "Registrado — ninguna mesa registrada",
+    "tablesLockedTitle": "Mesas bloqueadas",
+    "tablesLockedHint": "Las mesas están bloqueadas: quien entre ahora va a la fila de alternos. El boleto de alterno es correcto.",
+    "tablesUnknownTitle": "Sin conexión",
+    "tablesUnknownHint": "Sin internet no se pueden verificar las mesas. La venta se guarda y el asiento se define en la sincronización.",
+    "ticketNoTablesHint": "No hay mesa registrada en este día: el jugador no entró en la fila de alternos. Registre las mesas en Mesas y asigne al jugador.",
+    "ticketOfflineHint": "Venta guardada sin internet: el asiento se define en la sincronización."
   },
   "cashbox": {
     "myCashbox": "Mi Caja",
@@ -700,7 +725,19 @@
     "deleteError": "Error al eliminar la etapa.",
     "periodStart": "Inicio",
     "periodEnd": "Fin",
-    "statusActiveShort": "Activa"
+    "statusActiveShort": "Activa",
+    "archive": "Archivar",
+    "archiveError": "No se pudo archivar la etapa",
+    "archiveInstead": "¿Desea archivar la etapa? Se quita del camino y no se borra nada.",
+    "archivedSuccess": "Etapa archivada",
+    "confirmDeleteIrreversible": "Esto no se puede deshacer.",
+    "confirmDeleteWhat": "Eliminar esta etapa borra en definitivo:",
+    "deleteBlocked": "Esta etapa tiene movimiento financiero y no se puede eliminar:",
+    "endBeforeStart": "La fecha final no puede ser anterior a la fecha de inicio",
+    "impactInCash": "en caja",
+    "impactTournaments": "torneos quedan sin etapa.",
+    "legacyNoStartDate": "Esta etapa fue creada sin fecha de inicio. Informe la fecha para poder guardar.",
+    "startDateRequired": "Informe la fecha de inicio de la etapa"
   },
   "reports": {
     "export": {
@@ -896,7 +933,12 @@
     "confirmEliminate": "¿Estás seguro de eliminar este jugador?",
     "players": "Jugadores",
     "reset": "Reiniciar",
-    "confirmReset": "¿Estás seguro de reiniciar el temporizador?"
+    "confirmReset": "¿Estás seguro de reiniciar el temporizador?",
+    "breadcrumbControl": "Control",
+    "breadcrumbTournament": "Torneo",
+    "offlineApplied": "Sin conexión: el cambio se aplicó solo en esta pantalla y se enviará cuando vuelva el internet",
+    "offlineClock": "Sin conexión — reloj corriendo en esta pantalla",
+    "offlineQueued": "Sin conexión: comando en cola; la pantalla se actualiza cuando vuelva el internet"
   },
   "comingSoon": {
     "title": "Próximamente",
@@ -968,6 +1010,7 @@
     "colorSidebarLabels": "Etiquetas Laterales",
     "colorSidebarValues": "Valores Laterales",
     "visLogo": "Logo",
+    "visClubLogo": "Logo del club",
     "visTitle": "Título",
     "visPrizepool": "Premio Total",
     "visLevel": "Nivel",
@@ -1152,7 +1195,12 @@
     "addPreviewRow": "Agregar posición",
     "restoreSuggestion": "Restaurar sugerencia",
     "previewLeftover": "Sobrante del pool pagable:",
-    "previewOverPool": "Por encima del pool pagable en"
+    "previewOverPool": "Por encima del pool pagable en",
+    "balancesLoadError": "No se pudieron cargar los saldos del torneo y de la caja. Verifíquelos antes de entregar el dinero.",
+    "docNoPlayerBlock": "Ningún jugador de este torneo tiene ese documento — verifique el número antes de entregar el premio.",
+    "docRegisteredInvalid": "El documento del registro está fuera del estándar — el recibo sale igual, pero verifique el registro del jugador:",
+    "docRequired": "Ingrese el número del documento de quien recibe el premio.",
+    "payoutNotReleasedWarn": "Este premio aún no fue liberado: el pago será rechazado. Libérelo en la pestaña Liberación antes de entregar el dinero."
   },
   "generalCash": {
     "sessionExpired": "La sesión expiró. Por favor, inicie sesión nuevamente.",
@@ -1740,7 +1788,14 @@
     "inactiveFilter": "Desactivados",
     "showInactiveHint": "Mostrar empleados desactivados",
     "hideInactiveHint": "Ocultar empleados desactivados",
-    "name": "Nombre"
+    "name": "Nombre",
+    "confirmEffectivate": "¿Efectivar a {{email}} como empleado de este club? El acceso vale de inmediato, sin esperar la respuesta a la invitación.",
+    "effectivate": "Efectivar",
+    "effectivateHint": "Entra al equipo ahora, sin esperar la respuesta a la invitación",
+    "effectivated": "{{name}} ahora forma parte del equipo.",
+    "errEffectivate": "No se pudo efectivar la invitación.",
+    "inviteCancelledFree": "Invitación cancelada. Este correo puede ser invitado de nuevo.",
+    "joinedDirectly": "{{email}} ya tenía cuenta y entró directo al equipo — solo pídale que inicie sesión."
   },
   "stageBar": {
     "selectedStage": "Etapa Seleccionada:",
@@ -2202,5 +2257,26 @@
     "blockedDone": "Ventas cerradas para esta etapa",
     "unblockedDone": "Ventas reabiertas para esta etapa",
     "blockError": "No se pudo cambiar el bloqueo de ventas"
+  },
+  "documents": {
+    "typeCpf": "CPF (Brasil)",
+    "typeDni": "DNI (Perú)",
+    "typeCedula": "Cédula de Ciudadanía (Colombia)",
+    "typePassport": "Pasaporte",
+    "typeDriverLicense": "Licencia de conducir",
+    "typeLegacyNationalId": "Documento de identidad (registro antiguo)",
+    "typeCpfShort": "CPF",
+    "typeDniShort": "DNI",
+    "typeCedulaShort": "Cédula",
+    "errorRequired": "Ingrese el número del documento.",
+    "errorUnknownType": "Seleccione el tipo de documento.",
+    "errorRepeated": "No se acepta un documento con todos los caracteres iguales — verifique el número.",
+    "errorSequential": "No se acepta un documento en secuencia (12345678) — verifique el número.",
+    "errorCpfLength": "El CPF debe tener 11 dígitos.",
+    "errorCpfInvalid": "El CPF ingresado no es válido — verifique los dígitos.",
+    "errorDniLength": "El DNI de Perú debe tener 8 dígitos.",
+    "errorCedulaLength": "La cédula de Colombia debe tener de 6 a 10 dígitos.",
+    "errorPassportLength": "El pasaporte debe tener de 6 a 12 caracteres (letras y números).",
+    "errorDriverLicenseLength": "La licencia de conducir debe tener de 5 a 20 caracteres."
   }
 }

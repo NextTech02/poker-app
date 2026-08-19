@@ -383,3 +383,18 @@
     font-size: 1.75rem;
   }
 }
+
+/* Aviso de operação sem rede no topo do relógio. Amarelo (atenção), não
+   vermelho: nada quebrou — o relógio segue rodando ancorado nesta tela. */
+.timer-offline-badge {
+  align-self: center;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--warning, #f59e0b);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning, #f59e0b);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+}

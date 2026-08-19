@@ -69,9 +69,22 @@ const DIAS = [
 let toast;
 let confirmar;
 
+// Impacto padrão da exclusão de dia: nada em cima, exclusão liberada.
+const SEM_IMPACTO = {
+  day_id: 'd1', day_name: 'Dia 1A', tournament_id: 't1',
+  players: 0, paying_players: 0, entries: 0, entries_amount: 0,
+  prizes: 0, prizes_amount: 0, cancelled_entries: 0, blocked: false,
+};
+
 const responder = ({ torneio = TORNEIO, dias = DIAS, codigo = { code: 'ABC123' },
-                     sobreviventes = [] } = {}) => {
+                     sobreviventes = [], impacto = SEM_IMPACTO } = {}) => {
   api.get.mockImplementation((url) => {
+    // Medição do estrago antes de perguntar "tem certeza?".
+    if (url.endsWith('/delete-impact')) {
+      return impacto instanceof Error
+        ? Promise.reject(impacto)
+        : Promise.resolve({ data: impacto });
+    }
     if (url === '/tournaments/t1') {
       return torneio instanceof Error ? Promise.reject(torneio) : Promise.resolve({ data: torneio });
     }
@@ -266,9 +279,42 @@ describe('iniciar, encerrar e reiniciar', () => {
   });
 });
 
+/**
+ * Excluir dia.
+ *
+ * O dia é pai de inscrição e de venda igual ao torneio: a FK de
+ * `tournament_players` é ON DELETE CASCADE, então apagar o dia leva os
+ * jogadores daquele dia e, com eles, as vendas — sem estornar o caixa da
+ * etapa. Por isso a confirmação passa a mostrar números, e dia com dinheiro em
+ * cima nem chega a perguntar.
+ */
 describe('excluir dia', () => {
-  it('a confirmação nomeia o dia e avisa que é definitivo', async () => {
-    await montar();
+  it('a confirmação diz o que será destruído, com números reais', async () => {
+    await montar({ impacto: { ...SEM_IMPACTO, players: 7, cancelled_entries: 2 } });
+    await userEvent.click(acao('Dia 1A', 'common.delete'));
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/tournament-days/d1/delete-impact'));
+    expect(confirmar).toHaveBeenCalledWith(
+      'tournamentDays.confirmDeleteImpact:Dia 1A,7,2',
+      expect.objectContaining({ variant: 'danger' })
+    );
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/tournament-days/d1'));
+  });
+
+  it('dia com movimento financeiro nem chega a perguntar', async () => {
+    await montar({
+      impacto: { ...SEM_IMPACTO, blocked: true, entries: 30, entries_amount: 3000, paying_players: 25 },
+    });
+    await userEvent.click(acao('Dia 1A', 'common.delete'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(confirmar).not.toHaveBeenCalled();
+    expect(api.delete).not.toHaveBeenCalled();
+    expect(toast.error.mock.calls[0][0]).toContain('30');
+  });
+
+  it('sem o endpoint de impacto, cai na confirmação genérica', async () => {
+    // Deploy não é atômico: frontend novo com backend antigo devolve 404 aqui.
+    await montar({ impacto: new Error('404') });
     await userEvent.click(acao('Dia 1A', 'common.delete'));
     expect(confirmar).toHaveBeenCalledWith(
       'tournamentDays.confirmDeleteMessage:Dia 1A',
@@ -283,6 +329,20 @@ describe('excluir dia', () => {
     await userEvent.click(acao('Dia 1A', 'common.delete'));
     await waitFor(() => expect(confirmar).toHaveBeenCalled());
     expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('409 do servidor vira aviso com os números', async () => {
+    // Entre medir e clicar, outro operador pode ter vendido. Quem recusa de
+    // verdade é o servidor.
+    api.delete.mockRejectedValue({
+      response: { status: 409, data: { detail: { message: 'recusado', impact: { entries: 9, entries_amount: 900, paying_players: 9 } } } },
+      userMessage: 'recusado',
+    });
+    await montar();
+    await userEvent.click(acao('Dia 1A', 'common.delete'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(toast.error.mock.calls[0][0]).toContain('9');
+    expect(toast.error.mock.calls[0][0]).not.toBe('common.error');
   });
 
   it('erro ao excluir avisa', async () => {

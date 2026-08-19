@@ -646,6 +646,15 @@
 }
 
 /* ── A7: Inline form error ── */
+/* Aviso de cadastro antigo: informa sem bloquear — o operador precisa
+   conseguir salvar o telefone do jogador legado com a fila esperando. */
+.pl-field-hint {
+  margin: -0.5rem 0 0;
+  color: #fcd34d;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .pl-form-error {
   display: flex;
   align-items: center;

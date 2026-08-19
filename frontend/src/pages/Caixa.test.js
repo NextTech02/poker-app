@@ -18,12 +18,12 @@
  * cliente (idempotência) e o bilhete sai como alternado, porque quem aloca o
  * assento é o servidor, no sync.
  */
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Caixa from './Caixa';
 import api from '../config/api';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
-import { isOnline } from '../offline/connectivity';
+import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
@@ -36,7 +36,16 @@ jest.mock('../config/api', () => ({
   default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
 }));
 jest.mock('../offline/apiOffline', () => ({ offlineWrite: jest.fn(), offlineRead: jest.fn() }));
-jest.mock('../offline/connectivity', () => ({ isOnline: jest.fn(() => true) }));
+jest.mock('../offline/connectivity', () => ({
+  isOnline: jest.fn(() => true),
+  subscribe: jest.fn(() => () => {}),
+}));
+/** Simula o heartbeat avisando a tela que a rede caiu ou voltou. */
+const mudarConectividade = (online) => {
+  isOnline.mockReturnValue(online);
+  const ouvinte = assinarConectividade.mock.calls.at(-1)[0];
+  act(() => ouvinte(online));
+};
 jest.mock('../offline/domainRules', () => ({
   applyRegister: jest.fn(), applyRebuy: jest.fn(), applyAddon: jest.fn(),
 }));
@@ -139,6 +148,12 @@ const TIPOS = [
 
 const ETAPA = { id: 'e1', name: 'Etapa Rio' };
 
+/** Mesa ativa: o estado normal de um dia já configurado. */
+const MESA = { id: 'm1', table_number: 1, seats: 9, status: 'active' };
+
+/** Dia com assento automático — o único modo em que faltar mesa vira bilhete. */
+const DIA_AUTO = { ...DIA, allocation_type: 'automatic' };
+
 let toast;
 
 const responder = ({
@@ -147,6 +162,7 @@ const responder = ({
   dias = DIAS,
   credito = 0,
   alocacoes = [],
+  mesas = [MESA],
   etapa = { id: 'e1', sales_blocked: false },
 } = {}) => {
   api.get.mockImplementation((url) => {
@@ -164,6 +180,9 @@ const responder = ({
     if (url.startsWith('/player-credits/')) return Promise.resolve({ data: { available_credit: credito } });
     if (url.startsWith('/players/')) return Promise.resolve({ data: { name: 'Ana' } });
     if (url.startsWith('/allocations/tournament/')) return Promise.resolve({ data: alocacoes });
+    if (url.startsWith('/tables/')) {
+      return mesas instanceof Error ? Promise.reject(mesas) : Promise.resolve({ data: mesas });
+    }
     return Promise.resolve({ data: [] });
   });
 };
@@ -214,6 +233,7 @@ beforeEach(() => {
   useStage.mockReturnValue({ selectedStage: ETAPA });
   usePermissions.mockReturnValue({ isAdmin: true, hasPermission: () => true });
   isOnline.mockReturnValue(true);
+  assinarConectividade.mockReturnValue(() => {});
   offlineWrite.mockResolvedValue({ offline: false, data: { id: 'tp1' } });
   offlineRead.mockResolvedValue([JOGADOR_TORNEIO]);
   api.post.mockResolvedValue({ data: {} });
@@ -1398,5 +1418,199 @@ describe('trocar a forma de pagamento', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Venda cancelada não pode ser alterada')
     );
+  });
+});
+
+
+/**
+ * Mesas do dia — o aviso que precede o bilhete de ALTERNADO.
+ *
+ * O dono do clube vendeu uma entrada num dia SEM NENHUMA MESA CRIADA e a
+ * impressora cuspiu um bilhete de alternado. Tecnicamente coerente (não havia
+ * assento livre), operacionalmente péssimo: ele só descobriu que faltava
+ * configurar as mesas com o jogador na frente dele esperando para sentar.
+ *
+ * Os dois casos NÃO são o mesmo problema e por isso não podem ter a mesma
+ * mensagem: "mesas cheias/travadas" é fila de alternados de verdade e o
+ * bilhete está certo; "nenhuma mesa cadastrada" é etapa por configurar. E o
+ * aviso nunca bloqueia: em evento ao vivo o clube às vezes vende antes de
+ * montar as mesas, e travar o caixa é pior que o bilhete errado.
+ */
+describe('mesas do dia', () => {
+  const avisoSemMesa = () => screen.queryByText('Nenhuma mesa cadastrada');
+  const avisoTravadas = () => screen.queryByText('Mesas travadas');
+
+  it('dia sem mesa cadastrada avisa ANTES de vender', async () => {
+    await montar({ dias: [DIA_AUTO], mesas: [] });
+    await abrirModal();
+    await preencher();
+    expect(await screen.findByText('Nenhuma mesa cadastrada')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/tables/day/d1');
+  });
+
+  it('o aviso não bloqueia a venda', async () => {
+    // Vender antes de montar as mesas é rotina em evento ao vivo; travar o
+    // caixa custaria mais que o bilhete errado.
+    await montar({ dias: [DIA_AUTO], mesas: [] });
+    await abrirModal();
+    await preencher();
+    await screen.findByText('Nenhuma mesa cadastrada');
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeEnabled();
+    await enviar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+  });
+
+  it('dia com mesa ativa não avisa nada', async () => {
+    await montar({ dias: [DIA_AUTO] });
+    await abrirModal();
+    await preencher();
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/tables/day/d1'));
+    expect(avisoSemMesa()).toBeNull();
+    expect(avisoTravadas()).toBeNull();
+  });
+
+  it('mesa fechada conta como sem mesa: o servidor não aloca nela', async () => {
+    await montar({ dias: [DIA_AUTO], mesas: [{ ...MESA, status: 'closed' }] });
+    await abrirModal();
+    await preencher();
+    expect(await screen.findByText('Nenhuma mesa cadastrada')).toBeInTheDocument();
+  });
+
+  it('mesas travadas avisam FILA, não falta de mesa', async () => {
+    // Aqui o alternado é o certo — o operador não tem nada a configurar.
+    await montar({ dias: [{ ...DIA_AUTO, tables_locked: true }] });
+    await abrirModal();
+    await preencher();
+    expect(await screen.findByText('Mesas travadas')).toBeInTheDocument();
+    expect(avisoSemMesa()).toBeNull();
+  });
+
+  it('travadas E sem mesa nenhuma: manda configurar, que é a ação real', async () => {
+    await montar({ dias: [{ ...DIA_AUTO, tables_locked: true }], mesas: [] });
+    await abrirModal();
+    await preencher();
+    expect(await screen.findByText('Nenhuma mesa cadastrada')).toBeInTheDocument();
+    expect(avisoTravadas()).toBeNull();
+  });
+
+  it('alocação manual não avisa: o staff senta o jogador na mão', async () => {
+    await montar({ mesas: [] });
+    await abrirModal();
+    await preencher();
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/tables/day/d1'));
+    expect(avisoSemMesa()).toBeNull();
+  });
+
+  it('falha ao conferir as mesas não vira aviso falso', async () => {
+    // Consulta quebrada não é prova de que falta mesa; calar é melhor que
+    // mandar o operador configurar o que já está configurado.
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await montar({ dias: [DIA_AUTO], mesas: new Error('rede') });
+    await abrirModal();
+    await preencher();
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/tables/day/d1'));
+    expect(avisoSemMesa()).toBeNull();
+    console.warn.mockRestore();
+  });
+
+  it('torneio sem dias confere as mesas do torneio', async () => {
+    await montar({ torneios: [{ ...TORNEIO, allocation_type: 'automatic' }], dias: [], mesas: [] });
+    await abrirModal();
+    await preencher({ dia: null });
+    expect(await screen.findByText('Nenhuma mesa cadastrada')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/tables/tournament/t1');
+  });
+
+  it('sem internet a tela admite que não sabe, em vez de inventar', async () => {
+    isOnline.mockReturnValue(false);
+    await montar({ dias: [DIA_AUTO], mesas: [] });
+    await abrirModal();
+    await preencher();
+    expect(await screen.findByText('Sem conexão')).toBeInTheDocument();
+    expect(avisoSemMesa()).toBeNull();
+    expect(api.get).not.toHaveBeenCalledWith('/tables/day/d1');
+  });
+
+  it('a tarja "Sem conexão" sai quando a internet volta com o formulário aberto', async () => {
+    // O balcão abre o Caixa offline e a internet volta com o formulário ainda
+    // na tela. Lida uma vez só na abertura, a tarja ficava presa mentindo — e
+    // aviso que mente é aviso que o operador aprende a ignorar, junto com o de
+    // mesa não configurada, que é o que o cliente pediu para aparecer.
+    isOnline.mockReturnValue(false);
+    await montar({ dias: [DIA_AUTO], mesas: [] });
+    await abrirModal();
+    await preencher();
+    expect(await screen.findByText('Sem conexão')).toBeInTheDocument();
+
+    mudarConectividade(true);
+
+    expect(await screen.findByText('Nenhuma mesa cadastrada')).toBeInTheDocument();
+    expect(screen.queryByText('Sem conexão')).toBeNull();
+    expect(api.get).toHaveBeenCalledWith('/tables/day/d1');
+  });
+
+  it('a tarja "Sem conexão" aparece quando a internet cai com o formulário aberto', async () => {
+    await montar({ dias: [DIA_AUTO], mesas: [] });
+    await abrirModal();
+    await preencher();
+    expect(await screen.findByText('Nenhuma mesa cadastrada')).toBeInTheDocument();
+
+    mudarConectividade(false);
+
+    expect(await screen.findByText('Sem conexão')).toBeInTheDocument();
+    expect(avisoSemMesa()).toBeNull();
+  });
+});
+
+/**
+ * O bilhete tem de dizer POR QUE saiu sem assento: "mesas cheias" é fila de
+ * alternados; "nenhuma mesa cadastrada" é configuração faltando, e o staff
+ * fica procurando uma fila que não existe se os dois papéis forem iguais.
+ */
+describe('bilhete sem assento: por que saiu assim', () => {
+  it('sem mesa ativa o bilhete diz que falta configurar, não que há fila', async () => {
+    api.post.mockRejectedValue({
+      response: { data: { detail: 'No active tables available for this day' } },
+    });
+    await montar({ dias: [DIA_AUTO], mesas: [] });
+    await abrirModal();
+    await preencher();
+    await enviar();
+    expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
+    expect(screen.getByText('Registrado — nenhuma mesa cadastrada')).toBeInTheDocument();
+    expect(screen.getByText(/não entrou em fila de alternados/)).toBeInTheDocument();
+  });
+
+  it('mesas cheias mantêm o bilhete de alternado, que aí está certo', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'All tables are full' } } });
+    await montar({ dias: [DIA_AUTO] });
+    await abrirModal();
+    await preencher();
+    await enviar();
+    expect(await screen.findByTestId('bilhete-alternado')).toHaveTextContent('true');
+    expect(screen.getByText('cashRegister.registeredAsAlternate')).toBeInTheDocument();
+    expect(screen.queryByText(/não entrou em fila de alternados/)).toBeNull();
+  });
+
+  it('offline o bilhete promete o assento no sync, não uma fila', async () => {
+    offlineWrite.mockResolvedValue({ offline: true, data: { id: 'uuid-1' } });
+    offlineRead.mockResolvedValue({ name: 'Ana' });
+    isOnline.mockReturnValue(false);
+    await montar({ dias: [DIA_AUTO] });
+    await abrirModal();
+    await preencher();
+    await enviar();
+    expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
+    expect(screen.getByText(/assento é definido na sincronização/)).toBeInTheDocument();
+    expect(screen.queryByText(/não entrou em fila de alternados/)).toBeNull();
+  });
+
+  it('rebuy sem mesa ativa também explica o motivo', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'No active tables available' } } });
+    await montar({ dias: [DIA_AUTO], mesas: [] });
+    await abrirModal();
+    await preencher({ tipo: 'b2' });
+    await enviar();
+    expect(await screen.findByText('Registrado — nenhuma mesa cadastrada')).toBeInTheDocument();
   });
 });

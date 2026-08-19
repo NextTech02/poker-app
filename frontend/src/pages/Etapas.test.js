@@ -63,10 +63,18 @@ let toast;
 let confirmar;
 let selecionarEtapa;
 
-const responder = ({ etapas = ETAPAS } = {}) => {
-  api.get.mockImplementation(() =>
-    etapas instanceof Error ? Promise.reject(etapas) : Promise.resolve({ data: etapas })
-  );
+/** Resumo do que a exclusão destruiria (GET /stages/:id/delete-impact). */
+const responder = ({ etapas = ETAPAS, impacto = null } = {}) => {
+  api.get.mockImplementation((url) => {
+    if (url.includes('/delete-impact')) {
+      return impacto instanceof Error
+        ? Promise.reject(impacto)
+        : Promise.resolve({ data: impacto || { stage_id: 'e1', stage_name: 'Etapa Rio' } });
+    }
+    return etapas instanceof Error
+      ? Promise.reject(etapas)
+      : Promise.resolve({ data: etapas });
+  });
 };
 
 const montar = async (opcoes, etapaAtual = null) => {
@@ -83,6 +91,15 @@ const linhaDe = (nome) =>
 
 const abrirNovo = () => userEvent.click(screen.getByRole('button', { name: /Nova Etapa/ }));
 const salvar = () => userEvent.click(document.querySelector('.modal button[type="submit"]'));
+
+const campo = (nome) => document.querySelector(`.modal [name="${nome}"]`);
+
+/** Nome, local e data de início: o mínimo que o servidor aceita. */
+const preencherObrigatorios = async (inicio = '2026-07-01') => {
+  await userEvent.type(screen.getByPlaceholderText('stages.namePlaceholder'), 'Nova');
+  await userEvent.type(screen.getByPlaceholderText('stages.locationPlaceholder'), 'Recife');
+  if (inicio) await userEvent.type(campo('start_date'), inicio);
+};
 
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
@@ -196,17 +213,15 @@ describe('escolher a etapa de trabalho', () => {
 });
 
 describe('criar etapa', () => {
-  it('data vazia é enviada como NULO, não string vazia', async () => {
+  it('data de fim vazia é enviada como NULO, não string vazia', async () => {
     // ISSUE-001: string vazia fazia o FastAPI devolver 422 e a etapa não
-    // era criada.
+    // era criada. O fim continua opcional — o circuito pode estar em aberto.
     await montar();
     await abrirNovo();
-    await userEvent.type(screen.getByPlaceholderText('stages.namePlaceholder'), 'Nova');
-    await userEvent.type(screen.getByPlaceholderText('stages.locationPlaceholder'), 'Recife');
+    await preencherObrigatorios();
     await salvar();
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const corpo = api.post.mock.calls[0][1];
-    expect(corpo.start_date).toBeNull();
     expect(corpo.end_date).toBeNull();
     expect(corpo.description).toBeNull();
   });
@@ -214,9 +229,7 @@ describe('criar etapa', () => {
   it('as datas preenchidas viajam como estão', async () => {
     await montar();
     await abrirNovo();
-    await userEvent.type(screen.getByPlaceholderText('stages.namePlaceholder'), 'Nova');
-    await userEvent.type(screen.getByPlaceholderText('stages.locationPlaceholder'), 'Recife');
-    await userEvent.type(document.querySelector('input[name="start_date"]'), '2026-07-01');
+    await preencherObrigatorios('2026-07-01');
     await salvar();
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/stages', expect.objectContaining({
@@ -229,8 +242,7 @@ describe('criar etapa', () => {
   it('a nova etapa nasce como "próxima"', async () => {
     await montar();
     await abrirNovo();
-    await userEvent.type(screen.getByPlaceholderText('stages.namePlaceholder'), 'Nova');
-    await userEvent.type(screen.getByPlaceholderText('stages.locationPlaceholder'), 'Recife');
+    await preencherObrigatorios();
     await salvar();
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/stages', expect.objectContaining({ status: 'upcoming' }))
@@ -241,8 +253,7 @@ describe('criar etapa', () => {
     api.post.mockRejectedValue({ userMessage: 'Já existe etapa com esse nome' });
     await montar();
     await abrirNovo();
-    await userEvent.type(screen.getByPlaceholderText('stages.namePlaceholder'), 'Nova');
-    await userEvent.type(screen.getByPlaceholderText('stages.locationPlaceholder'), 'Recife');
+    await preencherObrigatorios();
     await salvar();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Já existe etapa com esse nome'));
   });
@@ -251,8 +262,7 @@ describe('criar etapa', () => {
     api.post.mockRejectedValue({ response: { data: { detail: [{ msg: 'x' }] } } });
     await montar();
     await abrirNovo();
-    await userEvent.type(screen.getByPlaceholderText('stages.namePlaceholder'), 'Nova');
-    await userEvent.type(screen.getByPlaceholderText('stages.locationPlaceholder'), 'Recife');
+    await preencherObrigatorios();
     await salvar();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('stages.saveError'));
   });
@@ -401,5 +411,278 @@ describe('bloqueio de vendas da etapa', () => {
     });
     await montar();
     expect(screen.queryByRole('button', { name: 'Encerrar vendas' })).toBeNull();
+  });
+});
+
+describe('datas da etapa', () => {
+  /* Achados do teste de aceitação do dono do clube:
+     - "foi possível criar uma etapa com data de início dia 10/08 e data final
+       02/08" — etapa que termina antes de começar some do relatório por
+       período e nunca aparece como "em andamento";
+     - "criei uma etapa sem data de início, não sei se isso é um erro" —
+       decisão do dono do produto: início OBRIGATÓRIO, fim OPCIONAL.
+     A tela avisa cedo; quem decide é o backend (models/stage.py). */
+
+  const erro = () => document.querySelector('.et-erro-data');
+
+  it('fim antes do início não chega a ser enviado', async () => {
+    await montar();
+    await abrirNovo();
+    await preencherObrigatorios('2026-08-10');
+    await userEvent.type(campo('end_date'), '2026-08-02');
+    await salvar();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(erro()).toHaveTextContent('A data final não pode ser anterior à data de início');
+  });
+
+  it('mesmo dia de início e fim é válido', async () => {
+    // Etapa de uma noite só (satélite) é rotina.
+    await montar();
+    await abrirNovo();
+    await preencherObrigatorios('2026-08-10');
+    await userEvent.type(campo('end_date'), '2026-08-10');
+    await salvar();
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/stages', expect.objectContaining({
+        start_date: '2026-08-10', end_date: '2026-08-10',
+      }))
+    );
+  });
+
+  it('sem data de início não chega a ser enviado', async () => {
+    await montar();
+    await abrirNovo();
+    await preencherObrigatorios(null);
+    await salvar();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(erro()).toHaveTextContent('Informe a data de início da etapa');
+  });
+
+  it('corrigir a data limpa o aviso e a etapa é criada', async () => {
+    await montar();
+    await abrirNovo();
+    await preencherObrigatorios('2026-08-10');
+    await userEvent.type(campo('end_date'), '2026-08-02');
+    await salvar();
+    expect(erro()).not.toBeNull();
+
+    await userEvent.clear(campo('end_date'));
+    await userEvent.type(campo('end_date'), '2026-08-20');
+    await salvar();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(erro()).toBeNull();
+  });
+
+  it('o campo de fim não deixa escolher data anterior ao início', async () => {
+    // Trava do próprio seletor de data: o erro nem chega a acontecer.
+    await montar();
+    await abrirNovo();
+    await preencherObrigatorios('2026-08-10');
+    expect(campo('end_date')).toHaveAttribute('min', '2026-08-10');
+  });
+
+  it('editar invertendo as datas também é barrado', async () => {
+    await montar();
+    await userEvent.click(within(linhaDe('Etapa Rio')).getByRole('button', { name: 'common.edit' }));
+    await userEvent.clear(campo('end_date'));
+    await userEvent.type(campo('end_date'), '2020-01-01');
+    await salvar();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+});
+
+describe('etapa antiga sem data de início', () => {
+  /* Existem etapas assim na base, criadas antes da regra. Elas não podem
+     quebrar: continuam listadas e operáveis. A data é PEDIDA na edição, que é
+     o único momento em que dá para informá-la. */
+  const SEM_DATA = [{ id: 'e7', name: 'Etapa Legada', location: 'Natal',
+    status: 'upcoming', tournament_count: 2 }];
+
+  const editarLegada = async () => {
+    await montar({ etapas: SEM_DATA });
+    await userEvent.click(within(linhaDe('Etapa Legada')).getByRole('button', { name: 'common.edit' }));
+  };
+
+  it('continua listada e operável', async () => {
+    await montar({ etapas: SEM_DATA });
+    expect(linhaDe('Etapa Legada')).toBeInTheDocument();
+    await userEvent.click(within(linhaDe('Etapa Legada')).getByRole('button', { name: 'stages.selectStage' }));
+    expect(selecionarEtapa).toHaveBeenCalledWith(expect.objectContaining({ id: 'e7' }));
+  });
+
+  it('ao editar, a tela explica que falta a data', async () => {
+    await editarLegada();
+    expect(document.querySelector('.et-aviso-data')).toHaveTextContent(
+      'Esta etapa foi criada sem data de início'
+    );
+  });
+
+  it('salvar sem informar a data não envia nada ao servidor', async () => {
+    await editarLegada();
+    const nome = screen.getByPlaceholderText('stages.namePlaceholder');
+    await userEvent.clear(nome);
+    await userEvent.type(nome, 'Etapa Legada 2026');
+    await salvar();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('informando a data, a edição vai adiante', async () => {
+    await editarLegada();
+    await userEvent.type(campo('start_date'), '2026-08-02');
+    await salvar();
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/stages/e7', expect.objectContaining({
+        start_date: '2026-08-02',
+      }))
+    );
+  });
+});
+
+describe('exclusão de etapa: o que vai junto', () => {
+  /* As FKs para `stages` são ON DELETE CASCADE: apagar a etapa apaga
+     sangrias, despesas, outras receitas, pagamentos de funcionário, caixas,
+     tipos de buy e consignações de ficha. Dinheiro apagado não volta e não há
+     desfazer, então a confirmação precisa dizer o que será destruído — e,
+     havendo movimento, a exclusão nem é oferecida. */
+
+  const pedirExclusao = async (impacto) => {
+    await montar({ impacto });
+    await userEvent.click(within(linhaDe('Etapa Rio')).getByRole('button', { name: 'common.edit' }));
+    await userEvent.click(screen.getByRole('button', { name: 'common.delete' }));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    return confirmar.mock.calls[0][0];
+  };
+
+  it('a confirmação mostra os números reais do que será apagado', async () => {
+    const texto = await pedirExclusao({
+      stage_id: 'e1', stage_name: 'Etapa Rio',
+      sangrias: 3, expenses: 12, cash_balance: 4500, blocked: false,
+    });
+    expect(texto).toContain('3 sangrias');
+    expect(texto).toContain('12 despesas');
+    expect(texto).toContain('4.500,00');
+  });
+
+  it('só o que existe entra na frase', async () => {
+    const texto = await pedirExclusao({
+      stage_id: 'e1', stage_name: 'Etapa Rio', buy_types: 2, blocked: false,
+    });
+    expect(texto).toContain('2 tipos de buy');
+    expect(texto).not.toContain('0 ');
+  });
+
+  it('avisa que os torneios ficam sem etapa', async () => {
+    // A FK dos torneios é SET NULL: eles não somem, mas perdem o vínculo.
+    const texto = await pedirExclusao({
+      stage_id: 'e1', stage_name: 'Etapa Rio', tournaments: 4, buy_types: 1, blocked: false,
+    });
+    expect(texto).toContain('4 torneios ficam sem etapa');
+  });
+
+  it('etapa vazia mantém a confirmação simples de sempre', async () => {
+    const texto = await pedirExclusao({ stage_id: 'e1', stage_name: 'Etapa Rio', blocked: false });
+    expect(texto).toBe('stages.confirmDelete');
+  });
+
+  it('confirmada, a exclusão acontece', async () => {
+    await pedirExclusao({ stage_id: 'e1', stage_name: 'Etapa Rio', expenses: 1, blocked: false });
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/stages/e1'));
+  });
+
+  it('servidor antigo sem a rota de impacto não impede a exclusão', async () => {
+    // O deploy não é atômico: a tela nova pode chegar antes do backend.
+    const texto = await pedirExclusao(new Error('404'));
+    expect(texto).toBe('stages.confirmDelete');
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/stages/e1'));
+  });
+});
+
+describe('etapa com movimento financeiro não se apaga', () => {
+  const COM_MOVIMENTO = {
+    stage_id: 'e1', stage_name: 'Etapa Rio',
+    sangrias: 3, expenses: 12, cash_balance: 4500, blocked: true,
+  };
+
+  const pedirExclusao = async (impacto = COM_MOVIMENTO) => {
+    await montar({ impacto });
+    await userEvent.click(within(linhaDe('Etapa Rio')).getByRole('button', { name: 'common.edit' }));
+    await userEvent.click(screen.getByRole('button', { name: 'common.delete' }));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+  };
+
+  it('a exclusão não é nem tentada', async () => {
+    await pedirExclusao();
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('o motivo vem com os números e o convite a arquivar', async () => {
+    await pedirExclusao();
+    const texto = confirmar.mock.calls[0][0];
+    expect(texto).toContain('3 sangrias');
+    expect(texto).toContain('4.500,00');
+    expect(texto).toContain('arquivar');
+  });
+
+  it('aceitando, a etapa é arquivada em vez de apagada', async () => {
+    await pedirExclusao();
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/stages/e1/archive'));
+    expect(api.delete).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('Etapa arquivada');
+  });
+
+  it('recusando, nada acontece', async () => {
+    confirmar.mockResolvedValue(false);
+    await pedirExclusao();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
+  it('falha ao arquivar é avisada', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: 'Etapa não encontrada' } } });
+    await pedirExclusao();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Etapa não encontrada'));
+  });
+});
+
+describe('a data mostrada é a data cadastrada', () => {
+  /* O banco guarda "AAAA-MM-DD" e `new Date('2026-08-10')` é meia-noite UTC —
+     que no Brasil, no Peru e na Colômbia é ainda dia 09. O clube cadastrava
+     10/08 e a lista mostrava 09/08; pior, no ÚLTIMO dia a etapa já aparecia
+     como "Concluída" e sumia das ativas. */
+
+  /** Data local (não UTC) no formato do banco, deslocada de `n` dias. */
+  const localEmDias = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mes}-${dia}`;
+  };
+
+  it('a data da lista é exatamente a que foi cadastrada', async () => {
+    await montar({
+      etapas: [{ id: 'e9', name: 'Etapa Fuso', location: 'Bogotá', status: 'upcoming',
+        start_date: '2026-08-10', end_date: '2026-08-20' }],
+    });
+    const linha = linhaDe('Etapa Fuso');
+    expect(linha).toHaveTextContent('10/08/2026');
+    expect(linha).toHaveTextContent('20/08/2026');
+  });
+
+  it('no último dia a etapa ainda está EM ANDAMENTO', async () => {
+    // É o dia do evento: sumir das ativas justamente hoje é o pior momento.
+    await montar({
+      etapas: [{ id: 'e9', name: 'Último Dia', location: 'Lima', status: 'upcoming',
+        start_date: localEmDias(-3), end_date: localEmDias(0) }],
+    });
+    expect(within(linhaDe('Último Dia')).getByText('Em Andamento')).toBeInTheDocument();
+  });
+
+  it('a etapa que começa hoje já entra EM ANDAMENTO', async () => {
+    await montar({
+      etapas: [{ id: 'e9', name: 'Começa Hoje', location: 'Lima', status: 'upcoming',
+        start_date: localEmDias(0), end_date: localEmDias(2) }],
+    });
+    expect(within(linhaDe('Começa Hoje')).getByText('Em Andamento')).toBeInTheDocument();
   });
 });

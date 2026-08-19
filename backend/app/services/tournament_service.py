@@ -3,9 +3,78 @@ from typing import List, Optional
 from datetime import datetime
 from collections import defaultdict
 from app.database import supabase
-from app.models.tournament import TournamentCreate, TournamentUpdate, Tournament, TournamentSummary
+from app.models.tournament import (
+    TournamentCreate,
+    TournamentUpdate,
+    Tournament,
+    TournamentSummary,
+    TournamentDeleteImpact,
+)
 
 logger = logging.getLogger("uvicorn.error")
+
+# Mensagem da recusa de exclusão. O router a transforma em 409.
+MSG_TORNEIO_COM_MOVIMENTO = (
+    "Este torneio tem movimento financeiro e não pode ser excluído. "
+    "Cancele as vendas no Caixa (o estorno devolve o dinheiro ao jogador e "
+    "acerta o caixa da etapa) antes de excluir."
+)
+
+
+class MovimentoFinanceiroImpedeExclusao(Exception):
+    """Recusa de exclusão: existe dinheiro em cima do que se quer apagar.
+
+    Carrega o impacto medido para o router devolver os números junto do erro —
+    o operador precisa ler QUANTO está em jogo, não só que "não deu".
+    """
+
+    def __init__(self, impacto, mensagem: str = MSG_TORNEIO_COM_MOVIMENTO):
+        super().__init__(mensagem)
+        self.impacto = impacto
+        self.mensagem = mensagem
+
+
+def resumir_vendas(vendas: List[dict]) -> dict:
+    """Separa as vendas em dinheiro VIVO e histórico já estornado.
+
+    `status` só existe depois da migração de cancelamento; sem a coluna a linha
+    vem sem o campo e vale 'active' — o padrão do banco. Assim a medição
+    funciona igual num schema antigo (o deploy não é atômico).
+
+    'cancelling' conta como VIVA de propósito: é um estorno que começou e não
+    terminou. Apagar a venda no meio do caminho congela o caixa torto para
+    sempre, porque some justamente a linha que a retomada consulta.
+    """
+    resumo = {
+        "entries": 0, "entries_amount": 0.0,
+        "prizes": 0, "prizes_amount": 0.0,
+        "cancelled_entries": 0,
+    }
+    for venda in vendas:
+        if (venda.get("status") or "active") == "cancelled":
+            resumo["cancelled_entries"] += 1
+            continue
+        valor = float(venda.get("amount") or 0)
+        if venda.get("type") == "prize":
+            resumo["prizes"] += 1
+            resumo["prizes_amount"] = round(resumo["prizes_amount"] + valor, 2)
+        else:
+            resumo["entries"] += 1
+            resumo["entries_amount"] = round(resumo["entries_amount"] + valor, 2)
+    return resumo
+
+
+def contar_pagantes(inscricoes: List[dict]) -> int:
+    """Inscrições que pagaram alguma coisa e não foram estornadas.
+
+    Existe porque nem todo dinheiro deixa rastro em `transactions`: importação,
+    ajuste manual e base antiga gravam o valor direto na inscrição. Sem contar
+    isso, um torneio com jogador pago passaria pela guarda como se fosse vazio.
+    """
+    return sum(
+        1 for i in inscricoes
+        if (i.get("status") or "") != "cancelled" and float(i.get("total_spent") or 0) > 0
+    )
 
 
 class TournamentService:
@@ -180,7 +249,70 @@ class TournamentService:
         return None
 
     @staticmethod
+    def get_delete_impact(tournament_id: str) -> Optional[TournamentDeleteImpact]:
+        """Mede o estrago da exclusão ANTES de executá-la.
+
+        Três round-trips fixos (dias, inscrições, vendas), independentemente do
+        tamanho do torneio: é uma tela de confirmação, não um poll.
+
+        `select("*")` nas vendas de propósito: pedir a coluna `status` pelo nome
+        estoura no PostgREST se a migração de cancelamento ainda não rodou
+        naquele ambiente, e a guarda ficaria pior do que não existir — a
+        exclusão voltaria a passar.
+        """
+        torneio = (
+            supabase.table("tournaments").select("id, name")
+            .eq("id", tournament_id).execute()
+        )
+        if not torneio.data:
+            return None
+
+        dias = (
+            supabase.table("tournament_days").select("id")
+            .eq("tournament_id", tournament_id).execute().data or []
+        )
+        inscricoes = (
+            supabase.table("tournament_players").select("id, status, total_spent")
+            .eq("tournament_id", tournament_id).execute().data or []
+        )
+        vendas = (
+            supabase.table("transactions").select("*")
+            .eq("tournament_id", tournament_id).execute().data or []
+        )
+
+        resumo = resumir_vendas(vendas)
+        pagantes = contar_pagantes(inscricoes)
+        return TournamentDeleteImpact(
+            tournament_id=tournament_id,
+            tournament_name=torneio.data[0].get("name") or "",
+            days=len(dias),
+            players=len(inscricoes),
+            paying_players=pagantes,
+            blocked=bool(resumo["entries"] or resumo["prizes"] or pagantes),
+            **resumo,
+        )
+
+    @staticmethod
     def delete_tournament(tournament_id: str) -> bool:
-        """Delete a tournament"""
+        """Apaga o torneio — RECUSANDO quando ainda há dinheiro em cima.
+
+        A recusa mora AQUI, no service, e não na tela: as FKs para `tournaments`
+        são ON DELETE CASCADE, então um DELETE direto na API (curl, script,
+        integração) apagaria em cascata a venda, o dinheiro recebido e o
+        registro de quem pagou. E o caixa da etapa NÃO é estornado por isso —
+        os gatilhos de caixa são só de INSERT —, então o saldo continuaria
+        apontando dinheiro cuja origem sumiu e a etapa nunca mais fecharia.
+
+        O caminho para apagar um torneio criado por engano continua existindo:
+        cancelar as vendas no Caixa (o estorno devolve o dinheiro e acerta o
+        caixa) e só então excluir. Premiação PAGA nunca libera — evento com
+        prêmio pago é história fechada, não rascunho.
+        """
+        impacto = TournamentService.get_delete_impact(tournament_id)
+        if impacto is None:
+            return False
+        if impacto.blocked:
+            raise MovimentoFinanceiroImpedeExclusao(impacto)
+
         response = supabase.table("tournaments").delete().eq("id", tournament_id).execute()
         return len(response.data) > 0

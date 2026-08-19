@@ -9,7 +9,26 @@ import { useStage } from '../contexts/StageContext';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
+// Util em vez do contexto de moeda: o valor entra numa frase montada no
+// clique (o texto da confirmação), não numa parte da tela que precise
+// re-renderizar quando a moeda global mudar.
+import { formatCurrency } from '../utils/currencyUtils';
 import './Etapas.css';
+
+/**
+ * Converte "AAAA-MM-DD" (como o banco guarda) numa data do fuso LOCAL.
+ *
+ * `new Date('2026-08-10')` é lido como meia-noite UTC, o que no Brasil, no
+ * Peru e na Colômbia cai às 21h/19h do dia 09. O efeito era visível: a etapa
+ * cadastrada para 10/08 aparecia como 09/08 na lista, e no ÚLTIMO dia da
+ * etapa o sistema já a marcava como "Concluída".
+ */
+const parseDataLocal = (texto) => {
+  if (!texto) return null;
+  const [ano, mes, dia] = String(texto).slice(0, 10).split('-').map(Number);
+  if (!ano || !mes || !dia) return null;
+  return new Date(ano, mes - 1, dia);
+};
 
 const Etapas = () => {
   const { t } = useTranslation();
@@ -36,6 +55,9 @@ const Etapas = () => {
   }, [showModal]);
 
   const [editingStage, setEditingStage] = useState(null);
+  // Erro de data mostrado DENTRO do modal, ao lado dos campos. Um toast some
+  // sozinho e deixa a pessoa olhando um formulário que não salva.
+  const [erroDatas, setErroDatas] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -60,8 +82,35 @@ const Etapas = () => {
     }
   };
 
+  /**
+   * Mesma regra do servidor (backend/app/models/stage.py): início
+   * OBRIGATÓRIO, fim OPCIONAL (o circuito pode estar em aberto), fim nunca
+   * antes do início. Aqui é só para avisar cedo — quem decide é o backend.
+   * Uma etapa que termina antes de começar some do relatório por período e
+   * nunca aparece como "em andamento".
+   */
+  const validarDatas = ({ start_date: inicio, end_date: fim }) => {
+    if (!inicio) {
+      return t('stages.startDateRequired', 'Informe a data de início da etapa');
+    }
+    // Datas no formato AAAA-MM-DD comparam certo como texto.
+    if (fim && fim < inicio) {
+      return t(
+        'stages.endBeforeStart',
+        'A data final não pode ser anterior à data de início'
+      );
+    }
+    return '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const erroDeData = validarDatas(formData);
+    if (erroDeData) {
+      setErroDatas(erroDeData);
+      return;
+    }
+    setErroDatas('');
     // ISSUE-001 fix: backend expects null for empty optional date fields,
     // not empty strings — otherwise FastAPI returns 422.
     const payload = {
@@ -128,6 +177,7 @@ const Etapas = () => {
 
   const handleEdit = (stage) => {
     setEditingStage(stage);
+    setErroDatas('');
     setFormData({
       name: stage.name,
       location: stage.location,
@@ -139,8 +189,81 @@ const Etapas = () => {
     setShowModal(true);
   };
 
+  /**
+   * Traduz o resumo do servidor em "3 sangrias, 12 despesas, R$ 4.500 em
+   * caixa". Só entra na frase o que realmente existe — número zero na lista
+   * só faz o operador parar de ler.
+   */
+  const descreverImpacto = (impacto) => {
+    const partes = [];
+    const somar = (quantidade, chave, texto) => {
+      if (quantidade) partes.push(`${quantidade} ${t(chave, texto)}`);
+    };
+    somar(impacto.sangrias, 'stages.impactSangrias', 'sangrias');
+    somar(impacto.expenses, 'stages.impactExpenses', 'despesas');
+    somar(impacto.other_revenues, 'stages.impactRevenues', 'outras receitas');
+    somar(impacto.staff_payments, 'stages.impactStaffPayments', 'pagamentos de funcionário');
+    somar(impacto.chip_consignments, 'stages.impactConsignments', 'consignações de fichas');
+    somar(impacto.cashboxes, 'stages.impactCashboxes', 'caixas de funcionário');
+    somar(impacto.buy_types, 'stages.impactBuyTypes', 'tipos de buy');
+    if (impacto.cash_balance) {
+      partes.push(`${formatCurrency(impacto.cash_balance)} ${t('stages.impactInCash', 'em caixa')}`);
+    }
+    return partes;
+  };
+
+  const arquivarEtapa = async (stageId) => {
+    try {
+      await api.post(`/stages/${stageId}/archive`);
+      toast.success(t('stages.archivedSuccess', 'Etapa arquivada'));
+      loadStages();
+    } catch (error) {
+      toast.error(
+        error.userMessage || error.response?.data?.detail
+        || t('stages.archiveError', 'Não foi possível arquivar a etapa')
+      );
+    }
+  };
+
   const handleDelete = async (stageId) => {
-    const ok = await confirm(t('stages.confirmDelete'), { variant: 'danger', confirmText: t('common.delete') });
+    // As chaves estrangeiras para `stages` são ON DELETE CASCADE: apagar a
+    // etapa apaga junto sangrias, despesas, outras receitas, pagamentos de
+    // funcionário, caixas, tipos de buy e consignações de ficha. Por isso
+    // perguntamos ao servidor o que seria destruído ANTES de perguntar "tem
+    // certeza?" — a confirmação antiga não dizia nada disso.
+    let impacto = null;
+    try {
+      impacto = (await api.get(`/stages/${stageId}/delete-impact`)).data;
+    } catch (error) {
+      // Backend ainda sem a rota (o deploy não é atômico): segue com o texto
+      // genérico de sempre em vez de impedir a operação.
+      impacto = null;
+    }
+    const partes = impacto ? descreverImpacto(impacto) : [];
+
+    if (impacto?.blocked) {
+      // Tem dinheiro no meio. Excluir apagaria a contabilidade da etapa sem
+      // rastro e sem desfazer; o caminho vira arquivar, que preserva tudo.
+      const arquivar = await confirm(
+        `${t('stages.deleteBlocked', 'Esta etapa tem movimento financeiro e não pode ser excluída:')}`
+        + ` ${partes.join(', ')}. `
+        + t('stages.archiveInstead', 'Deseja arquivar a etapa? Ela sai da frente e nada é apagado.'),
+        { confirmText: t('stages.archive', 'Arquivar') }
+      );
+      if (!arquivar) return;
+      await arquivarEtapa(stageId);
+      return;
+    }
+
+    const semEtapa = impacto?.tournaments
+      ? ` ${impacto.tournaments} ${t('stages.impactTournaments', 'torneios ficam sem etapa.')}`
+      : '';
+    const mensagem = partes.length
+      ? `${t('stages.confirmDeleteWhat', 'Excluir esta etapa apaga em definitivo:')} ${partes.join(', ')}.`
+        + `${semEtapa} ${t('stages.confirmDeleteIrreversible', 'Isso não pode ser desfeito.')}`
+      : t('stages.confirmDelete');
+
+    const ok = await confirm(mensagem, { variant: 'danger', confirmText: t('common.delete') });
     if (!ok) return;
 
     try {
@@ -148,7 +271,9 @@ const Etapas = () => {
       loadStages();
     } catch (error) {
       console.error('Erro ao excluir etapa:', error);
-      toast.error(t('stages.deleteError'));
+      toast.error(
+        error.userMessage || error.response?.data?.detail || t('stages.deleteError')
+      );
     }
   };
 
@@ -161,6 +286,7 @@ const Etapas = () => {
 
   const openNewModal = () => {
     setEditingStage(null);
+    setErroDatas('');
     setFormData({
       name: '',
       location: '',
@@ -182,8 +308,8 @@ const Etapas = () => {
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const start = stage.start_date ? new Date(stage.start_date) : null;
-    const end = stage.end_date ? new Date(stage.end_date) : null;
+    const start = parseDataLocal(stage.start_date);
+    const end = parseDataLocal(stage.end_date);
     if (end && end < today) return 'completed';
     if (start && start <= today && (!end || end >= today)) return 'active';
     return 'upcoming';
@@ -202,8 +328,9 @@ const Etapas = () => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    const data = parseDataLocal(dateString);
+    if (!data) return '-';
+    return data.toLocaleDateString('pt-BR');
   };
 
   const handleSelectStage = (stage) => {
@@ -464,15 +591,29 @@ const Etapas = () => {
                   />
                 </div>
 
+                {/* Etapa antiga, gravada antes da data virar obrigatória: em
+                    vez de travar a tela, pedimos a data aqui, que é onde ela
+                    pode ser informada. */}
+                {editingStage && !editingStage.start_date && (
+                  <div className="et-aviso-data" role="status">
+                    {t(
+                      'stages.legacyNoStartDate',
+                      'Esta etapa foi criada sem data de início. Informe a data para poder salvar.'
+                    )}
+                  </div>
+                )}
+
                 <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="start_date">{t('stages.startDate')}</label>
+                    <label htmlFor="start_date">{t('stages.startDate')} *</label>
                     <input
                       id="start_date"
                       name="start_date"
                       type="date"
                       value={formData.start_date}
                       onChange={handleChange}
+                      required
+                      aria-invalid={erroDatas ? 'true' : undefined}
                     />
                   </div>
 
@@ -484,9 +625,17 @@ const Etapas = () => {
                       type="date"
                       value={formData.end_date}
                       onChange={handleChange}
+                      /* O navegador já barra o fim antes do início; a
+                         validação no submit é a que vale (data digitada). */
+                      min={formData.start_date || undefined}
+                      aria-invalid={erroDatas ? 'true' : undefined}
                     />
                   </div>
                 </div>
+
+                {erroDatas && (
+                  <div className="et-erro-data" role="alert">{erroDatas}</div>
+                )}
 
                 <div className="form-group">
                   <label htmlFor="status">{t('common.status')}</label>

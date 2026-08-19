@@ -39,7 +39,17 @@ jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
 jest.mock('react-i18next', () => {
-  const t = (chave, segundo) => (typeof segundo === 'string' ? segundo : chave);
+  // Interpola {{var}} como o i18next de verdade: a confirmação de exclusão
+  // existe justamente para mostrar NÚMEROS, e um mock que devolve o texto cru
+  // deixaria passar uma mensagem sem número nenhum.
+  const t = (chave, segundo, terceiro) => {
+    const padrao = typeof segundo === 'string' ? segundo : chave;
+    const vars = typeof segundo === 'string' ? terceiro : segundo;
+    if (!vars) return padrao;
+    return padrao.replace(/\{\{(\w+)\}\}/g, (bruto, nome) =>
+      vars[nome] === undefined ? bruto : String(vars[nome])
+    );
+  };
   const traducao = { t, i18n: { language: 'pt-BR' } };
   return { useTranslation: () => traducao };
 });
@@ -90,7 +100,11 @@ beforeEach(() => {
   confirmar = jest.fn().mockResolvedValue(true);
   useToast.mockReturnValue({ toast, confirm: confirmar });
   useStage.mockReturnValue({ selectedStage: ETAPA });
-  useCurrency.mockReturnValue({ currency: 'BRL' });
+  useCurrency.mockReturnValue({
+    currency: 'BRL',
+    formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}`,
+  });
+  api.get.mockRejectedValue(new Error('sem endpoint'));
   getSelectedStage.mockReturnValue(ETAPA);
   api.post.mockResolvedValue({ data: { id: 'novo' } });
   api.patch.mockResolvedValue({ data: {} });
@@ -481,9 +495,31 @@ describe('editar torneio', () => {
   });
 });
 
+/**
+ * Excluir torneio.
+ *
+ * Apagar um torneio é ON DELETE CASCADE em tudo o que pendura nele: vendas,
+ * inscrições, dias, premiação, blinds e assentos. Some o dinheiro recebido e o
+ * registro de quem pagou — e o caixa da etapa NÃO é estornado (os gatilhos são
+ * só de INSERT), então o saldo passa a apontar dinheiro sem origem e a etapa
+ * deixa de fechar.
+ *
+ * Daí as duas regras que estes testes fixam: a confirmação mostra NÚMEROS
+ * REAIS antes do clique, e torneio com dinheiro em cima nem chega a perguntar.
+ */
 describe('excluir torneio', () => {
   const excluir = async (nome) =>
     userEvent.click(within(cartaoDe(nome)).getByRole('button', { name: /common.delete|Excluir/ }));
+
+  const impacto = (extra = {}) =>
+    api.get.mockResolvedValue({
+      data: {
+        tournament_id: 't2', tournament_name: 'Turbo',
+        days: 0, players: 0, paying_players: 0,
+        entries: 0, entries_amount: 0, prizes: 0, prizes_amount: 0,
+        cancelled_entries: 0, blocked: false, ...extra,
+      },
+    });
 
   it('pede confirmação de perigo', async () => {
     await montar();
@@ -493,6 +529,68 @@ describe('excluir torneio', () => {
       expect.objectContaining({ variant: 'danger' })
     );
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/tournaments/t2'));
+  });
+
+  it('a confirmação diz o que será destruído, com números reais', async () => {
+    // "Tem certeza?" não distingue um torneio vazio de uma noite inteira de
+    // operação. O operador precisa ler o tamanho do estrago ANTES de confirmar.
+    impacto({ days: 3, players: 12, cancelled_entries: 4 });
+    await montar();
+    await excluir('Turbo');
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/tournaments/t2/delete-impact'));
+    const [mensagem] = confirmar.mock.calls[0];
+    expect(mensagem).toContain('3');
+    expect(mensagem).toContain('12');
+    expect(mensagem).toContain('4');
+    expect(mensagem).toContain('Turbo');
+  });
+
+  it('torneio vazio é anunciado como vazio', async () => {
+    impacto();
+    await montar();
+    await excluir('Turbo');
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(confirmar.mock.calls[0][0]).toContain('não tem nenhum dia');
+  });
+
+  it('torneio com movimento financeiro nem chega a perguntar', async () => {
+    // O caso que o cliente NÃO testou: confirmar aqui apagaria a venda, o
+    // dinheiro recebido e quem pagou, deixando o caixa da etapa impossível de
+    // fechar. Nada de "tem certeza?" — a exclusão simplesmente não acontece.
+    impacto({ blocked: true, entries: 77, entries_amount: 7700, paying_players: 60 });
+    await montar();
+    await excluir('Turbo');
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(confirmar).not.toHaveBeenCalled();
+    expect(api.delete).not.toHaveBeenCalled();
+    const [mensagem] = toast.error.mock.calls[0];
+    expect(mensagem).toContain('77');
+    expect(mensagem).toContain('R$ 7700.00');
+  });
+
+  it('409 do servidor vira aviso com os números, e não erro genérico', async () => {
+    // Entre medir o impacto e clicar, outro operador pode ter vendido. Quem
+    // recusa de verdade é o servidor — a tela precisa saber traduzir isso.
+    impacto();
+    api.delete.mockRejectedValue({
+      response: { status: 409, data: { detail: { message: 'recusado', impact: { entries: 5, entries_amount: 500, paying_players: 5 } } } },
+      userMessage: 'recusado',
+    });
+    await montar();
+    await excluir('Turbo');
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(toast.error.mock.calls[0][0]).toContain('5');
+    expect(toast.error.mock.calls[0][0]).not.toBe('tournaments.deleteError');
+  });
+
+  it('sem o endpoint de impacto, cai na confirmação genérica', async () => {
+    // O deploy não é atômico: frontend novo com backend antigo devolve 404 no
+    // /delete-impact. A tela não pode travar — a guarda de verdade é do servidor.
+    api.get.mockRejectedValue({ response: { status: 404 } });
+    await montar();
+    await excluir('Turbo');
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/tournaments/t2'));
+    expect(confirmar.mock.calls[0][0]).toBe('tournaments.confirmDelete');
   });
 
   it('recusar não exclui', async () => {

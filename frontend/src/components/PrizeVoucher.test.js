@@ -18,6 +18,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PrizeVoucher from './PrizeVoucher';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { TIPOS_DOCUMENTO, TIPOS_LEGADO } from '../utils/documentos';
 
 let mockIdioma = 'pt-BR';
 jest.mock('react-i18next', () => ({
@@ -148,6 +149,31 @@ describe('máscara do documento', () => {
   it('tipo desconhecido sai como veio', () => {
     render(<PrizeVoucher payout={{ ...PAGAMENTO, document_type: 'outro' }} />);
     expect(screen.getByText(/^outro:/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['cpf', 'CPF'],
+    ['dni', 'DNI'],
+    ['cedula', 'Cédula'],
+  ])('traduz o tipo %s, do cadastro por país', (tipo, rotulo) => {
+    // O clube opera em Brasil, Peru e Colômbia. Antes destes três tipos o
+    // comprovante saía com o nome do campo do banco: "cpf: ***8900".
+    render(<PrizeVoucher payout={{ ...PAGAMENTO, document_type: tipo }} />);
+    expect(screen.getByText(new RegExp(`^${rotulo}:`))).toBeInTheDocument();
+  });
+
+  it('nenhum tipo do catálogo sai com o código do banco no papel', () => {
+    // Trava contra o defeito voltar: se um tipo novo entrar no catálogo de
+    // utils/documentos.js e ninguém lembrar do comprovante, quebra aqui — e
+    // não na mão do ganhador.
+    for (const tipo of [...TIPOS_DOCUMENTO, ...TIPOS_LEGADO]) {
+      const { unmount } = render(
+        <PrizeVoucher payout={{ ...PAGAMENTO, document_type: tipo.valor }} />
+      );
+      const linha = document.querySelector('.pv-doc').textContent;
+      expect(linha.startsWith(`${tipo.valor}:`)).toBe(false);
+      unmount();
+    }
   });
 });
 

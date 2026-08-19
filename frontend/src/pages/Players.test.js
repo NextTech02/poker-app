@@ -13,6 +13,13 @@
  *   buy-in na mesma fila.
  * - **Plural correto na contagem** (ISSUE-008): "1 jogadores" numa tela de
  *   cadastro passa a impressão de sistema mal-acabado.
+ * - **Nome e sobrenome são dois campos, mas `name` continua sendo enviado.**
+ *   93 arquivos do sistema leem players.name (recibo de prêmio, alocação de
+ *   mesa, tela de TV) e o backend anterior ao deploy ainda o exige — o deploy
+ *   não é atômico.
+ * - **Documento inventado não passa** ("coloquei um monte de 0 e aceitou"),
+ *   mas o cadastro ANTIGO continua editável: bloquear o jogador legado
+ *   travaria o balcão com a fila esperando.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -87,11 +94,17 @@ const linhaDe = (nome) =>
 
 const abrirNovo = () => ue.click(screen.getByRole('button', { name: /players.newPlayer/ }));
 
+// CPF real (dígitos verificadores conferem) — o formulário agora recusa
+// documento inventado, então o preenchimento padrão precisa de um válido.
+const CPF_VALIDO = '529.982.247-25';
+const CPF_LIMPO = '52998224725';
+
 const preencher = async ({
-  nome = 'Carlos Dias', email = 'carlos@x.com', telefone = '11777',
-  nacionalidade = 'Brasil', documento = '999',
+  nome = 'Carlos', sobrenome = 'Dias', email = 'carlos@x.com', telefone = '11777',
+  nacionalidade = 'Brasil', documento = CPF_VALIDO,
 } = {}) => {
-  if (nome) await ue.type(screen.getByLabelText(/players.fullName/), nome);
+  if (nome) await ue.type(screen.getByLabelText(/players.firstName|Nome/), nome);
+  if (sobrenome) await ue.type(screen.getByLabelText(/Sobrenome/), sobrenome);
   if (email) await ue.type(screen.getByLabelText(/players.email/), email);
   if (telefone) await ue.type(screen.getByLabelText(/players.phone/), telefone);
   if (nacionalidade) await ue.type(screen.getByLabelText(/players.nationality/), nacionalidade);
@@ -224,6 +237,109 @@ describe('cadastrar jogador', () => {
     expect(op.body).toMatchObject({ name: 'Carlos Dias', client_id: 'uuid-fixo' });
   });
 
+  it('grava nome e sobrenome separados, e o nome completo junto', async () => {
+    // Os dois campos são o pedido do dono do clube; `name` continua indo no
+    // mesmo envio porque 93 telas leem players.name (recibo de prêmio, mesa,
+    // TV) e o backend anterior ao deploy ainda exige o nome completo.
+    await montar();
+    await abrirNovo();
+    await preencher({ nome: 'José', sobrenome: 'Pinto Faria' });
+    await salvar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+    expect(offlineWrite.mock.calls[0][0].body).toMatchObject({
+      first_name: 'José', last_name: 'Pinto Faria', name: 'José Pinto Faria',
+    });
+  });
+
+  it('jogador de nome só, sem sobrenome, é aceito', async () => {
+    // O sobrenome não pode ser obrigatório: 1 dos cadastros de hoje tem uma
+    // palavra só, e o balcão não vai inventar sobrenome para vender a ficha.
+    await montar();
+    await abrirNovo();
+    await preencher({ nome: 'Madonna', sobrenome: '' });
+    await salvar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+    expect(offlineWrite.mock.calls[0][0].body).toMatchObject({
+      first_name: 'Madonna', last_name: '', name: 'Madonna',
+    });
+  });
+
+  it('espaço sobrando não vira nome torto', async () => {
+    await montar();
+    await abrirNovo();
+    await preencher({ nome: '  Ana ', sobrenome: ' Costa  Lima ' });
+    await salvar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+    expect(offlineWrite.mock.calls[0][0].body.name).toBe('Ana Costa Lima');
+  });
+
+  it('só espaço no nome não cria jogador', async () => {
+    await montar();
+    await abrirNovo();
+    await preencher({ nome: '   ', sobrenome: 'Dias' });
+    await salvar();
+    expect(await screen.findByText('Informe o nome do jogador.')).toBeInTheDocument();
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('um monte de 0 no documento não sai da tela', async () => {
+    // O achado do dono do clube: recibo de prêmio com documento 00000000000
+    // não vale nada na prestação de contas.
+    await montar();
+    await abrirNovo();
+    await preencher({ documento: '00000000000' });
+    await salvar();
+    await waitFor(() =>
+      expect(document.querySelector('.pl-form-error')).toBeInTheDocument()
+    );
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('CPF com dígito errado é barrado', async () => {
+    await montar();
+    await abrirNovo();
+    await preencher({ documento: '529.982.247-26' });
+    await salvar();
+    await waitFor(() =>
+      expect(document.querySelector('.pl-form-error')).toBeInTheDocument()
+    );
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('o documento é enviado sem pontuação', async () => {
+    // Guardar normalizado é o que impede "529.982.247-25" e "52998224725"
+    // virarem dois cadastros do mesmo jogador.
+    await montar();
+    await abrirNovo();
+    await preencher();
+    await salvar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+    expect(offlineWrite.mock.calls[0][0].body.document_number).toBe(CPF_LIMPO);
+  });
+
+  it('o tipo de documento oferece os países onde o clube opera', async () => {
+    await montar();
+    await abrirNovo();
+    const tipos = Array.from(
+      screen.getByLabelText(/players.documentType/).querySelectorAll('option')
+    ).map((o) => o.value);
+    expect(tipos).toEqual(expect.arrayContaining(['cpf', 'dni', 'cedula', 'passport']));
+    // O tipo genérico antigo não é oferecido em cadastro novo.
+    expect(tipos).not.toContain('national_id');
+  });
+
+  it('DNI do Peru com 8 dígitos passa', async () => {
+    await montar();
+    await abrirNovo();
+    await ue.selectOptions(screen.getByLabelText(/players.documentType/), 'dni');
+    await preencher({ documento: '10293847' });
+    await salvar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+    expect(offlineWrite.mock.calls[0][0].body).toMatchObject({
+      document_type: 'dni', document_number: '10293847',
+    });
+  });
+
   it('criar invalida o cache da lista', async () => {
     // Sem isso o jogador sumiria por até um minuto e seria cadastrado de novo.
     await montar();
@@ -281,8 +397,39 @@ describe('editar jogador', () => {
   it('abre com os dados atuais', async () => {
     await montar();
     await editar('Beto Silva');
-    expect(screen.getByLabelText(/players.fullName/)).toHaveValue('Beto Silva');
     expect(screen.getByLabelText(/players.documentNumber/)).toHaveValue('123');
+  });
+
+  it('cadastro antigo abre com o nome já dividido', async () => {
+    // A linha só tem `name` enquanto a migração não roda. Sem dividir, o
+    // operador teria de redigitar o nome inteiro só para corrigir o telefone.
+    await montar();
+    await editar('Beto Silva');
+    expect(screen.getByLabelText(/players.firstName|Nome/)).toHaveValue('Beto');
+    expect(screen.getByLabelText(/Sobrenome/)).toHaveValue('Silva');
+  });
+
+  it('o tipo antigo continua no select de quem já está com ele', async () => {
+    // Se sumisse, o select abriria vazio e o cadastro legado só salvaria
+    // depois de escolher outro documento — com a fila esperando.
+    await montar();
+    await editar('Beto Silva');
+    const tipo = screen.getByLabelText(/players.documentType/);
+    expect(tipo).toHaveValue('national_id');
+    expect(within(tipo).getByText(/cadastro antigo/i)).toBeInTheDocument();
+  });
+
+  it('documento legado inválido não impede corrigir outro campo', async () => {
+    // Há 1 jogador na base com documento inválido: bloquear a edição dele
+    // travaria o balcão por causa de cadastro antigo.
+    await montar({ lista: [{ ...JOGADORES[0], document_number: '00000000000' }] });
+    await editar('Beto Silva');
+    const telefone = screen.getByLabelText(/players.phone/);
+    await ue.clear(telefone);
+    await ue.type(telefone, '11912345678');
+    await salvar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+    expect(offlineWrite.mock.calls[0][0].body.phone).toBe('11912345678');
   });
 
   it('campos ausentes viram vazio, não "undefined"', async () => {
@@ -295,15 +442,17 @@ describe('editar jogador', () => {
   it('salvar envia PATCH para o jogador certo', async () => {
     await montar();
     await editar('Beto Silva');
-    const nome = screen.getByLabelText(/players.fullName/);
-    await ue.clear(nome);
-    await ue.type(nome, 'Beto S. Silva');
+    const sobrenome = screen.getByLabelText(/Sobrenome/);
+    await ue.clear(sobrenome);
+    await ue.type(sobrenome, 'Andrade');
     await salvar();
     await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
     const op = offlineWrite.mock.calls[0][0];
     expect(op.method).toBe('patch');
     expect(op.url).toBe('/players/p1');
-    expect(op.body.name).toBe('Beto S. Silva');
+    // Trocar o sobrenome tem de remontar o nome completo: é ele que a tela de
+    // TV e o recibo do prêmio mostram.
+    expect(op.body).toMatchObject({ last_name: 'Andrade', name: 'Beto Andrade' });
   });
 
   it('editar também invalida o cache', async () => {

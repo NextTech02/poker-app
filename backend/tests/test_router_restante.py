@@ -173,8 +173,12 @@ class TestEtapas:
                      created_at="2026-06-08T00:00:00Z")
 
     def test_cria(self, client, stub):
+        # A data de início virou obrigatória (ver test_stage_datas_exclusao.py).
         stub(SS, create_stage=lambda d: self._etapa())
-        r = client.post("/stages", json={"name": "Etapa 1", "location": "Rio"})
+        r = client.post(
+            "/stages",
+            json={"name": "Etapa 1", "location": "Rio", "start_date": "2026-08-02"},
+        )
         assert r.status_code == 201
 
     def test_lista(self, client, stub):

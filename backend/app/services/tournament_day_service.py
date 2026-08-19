@@ -16,9 +16,23 @@ from app.models.tournament_day import (
     TournamentDayUpdate,
     TournamentDay,
     TournamentDaySummary,
+    TournamentDayDeleteImpact,
     QualifyingDayStats,
     FinalDayAggregatedStats,
     TournamentDayStatus
+)
+# A medição do estrago é a MESMA do torneio (mesma cascata, uma camada abaixo):
+# duplicá-la deixaria as duas guardas divergirem na primeira mudança de regra.
+from app.services.tournament_service import (
+    MovimentoFinanceiroImpedeExclusao,
+    contar_pagantes,
+    resumir_vendas,
+)
+
+MSG_DIA_COM_MOVIMENTO = (
+    "Este dia tem movimento financeiro e não pode ser excluído. "
+    "Cancele as vendas no Caixa (o estorno devolve o dinheiro ao jogador e "
+    "acerta o caixa da etapa) antes de excluir."
 )
 
 # Status que tiram o jogador do dia: eliminado na mesa, ou com a inscrição
@@ -344,8 +358,89 @@ class TournamentDayService:
         return None
 
     @staticmethod
+    def get_delete_impact(day_id: str) -> Optional[TournamentDayDeleteImpact]:
+        """Mede o estrago da exclusão DESTE DIA antes de executá-la.
+
+        `transactions` não guarda o dia: a venda aponta para a INSCRIÇÃO
+        (`tournament_player_id`), e é ela que sabe o dia. Por isso o caminho é
+        inscrições do dia → vendas dessas inscrições. Venda antiga sem inscrição
+        vinculada não é atribuída a dia nenhum — para essas, quem segura a
+        exclusão é a guarda do TORNEIO.
+
+        PREMIAÇÃO PAGA entra por um caminho próprio: o pagamento de prêmio não
+        aponta para inscrição nenhuma (só para torneio e jogador), e no dia
+        final os classificados entram sem pagar nada (total_spent zero). Só
+        pelas vendas, o dia que decidiu o torneio pareceria vazio e a exclusão
+        apagaria o registro de quem ganhou. Por isso o prêmio é atribuído ao dia
+        pelo JOGADOR: conta aqui o prêmio pago a alguém INSCRITO neste dia.
+        Medir pelo torneio inteiro, como já se fez, travava TODOS os dias de uma
+        vez — inclusive um dia vazio criado por engano, que ficava sem saída
+        nenhuma pela tela, mandando cancelar vendas que ele não tem.
+        """
+        dia = (
+            supabase.table("tournament_days").select("id, tournament_id, day_name")
+            .eq("id", day_id).execute()
+        )
+        if not dia.data:
+            return None
+        linha = dia.data[0]
+
+        inscricoes = (
+            supabase.table("tournament_players")
+            .select("id, player_id, status, total_spent")
+            .eq("tournament_day_id", day_id).execute().data or []
+        )
+        vendas = {}
+        if inscricoes:
+            vendas = {
+                v["id"]: v for v in (
+                    supabase.table("transactions").select("*")
+                    .in_("tournament_player_id", [i["id"] for i in inscricoes])
+                    .execute().data or []
+                )
+            }
+            jogadores_do_dia = sorted(
+                {i["player_id"] for i in inscricoes if i.get("player_id")}
+            )
+            if jogadores_do_dia:
+                for premio in (
+                    supabase.table("transactions").select("*")
+                    .eq("tournament_id", linha.get("tournament_id"))
+                    .eq("type", "prize")
+                    .in_("player_id", jogadores_do_dia).execute().data or []
+                ):
+                    vendas.setdefault(premio["id"], premio)
+
+        resumo = resumir_vendas(list(vendas.values()))
+        pagantes = contar_pagantes(inscricoes)
+        return TournamentDayDeleteImpact(
+            day_id=day_id,
+            day_name=linha.get("day_name") or "",
+            tournament_id=linha.get("tournament_id") or "",
+            players=len(inscricoes),
+            paying_players=pagantes,
+            blocked=bool(resumo["entries"] or resumo["prizes"] or pagantes),
+            **resumo,
+        )
+
+    @staticmethod
     def delete_tournament_day(day_id: str) -> bool:
-        """Delete a tournament day"""
+        """Apaga o dia — RECUSANDO quando ainda há dinheiro em cima.
+
+        Mesmo buraco da exclusão de torneio, uma camada abaixo: a FK de
+        `tournament_players` para `tournament_days` é ON DELETE CASCADE, então
+        apagar o dia leva as inscrições daquele dia e, com elas, as vendas.
+        Nada estorna o caixa da etapa — ele fica apontando dinheiro sem origem.
+
+        A tela só oferece o botão em dia 'pending', mas isso é conforto, não
+        garantia: a regra precisa valer para quem chama a API direto.
+        """
+        impacto = TournamentDayService.get_delete_impact(day_id)
+        if impacto is None:
+            return False
+        if impacto.blocked:
+            raise MovimentoFinanceiroImpedeExclusao(impacto, MSG_DIA_COM_MOVIMENTO)
+
         response = supabase.table("tournament_days").delete().eq("id", day_id).execute()
         return len(response.data) > 0
 

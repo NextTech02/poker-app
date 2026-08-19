@@ -22,7 +22,7 @@ import { useEscapeKey } from '../hooks/useEscapeKey';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
 import { applyRegister, applyRebuy, applyAddon } from '../offline/domainRules';
 import { uuid, putEntities, getEntity, getAllByTable } from '../offline/db';
-import { isOnline } from '../offline/connectivity';
+import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 import './Caixa.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -102,6 +102,37 @@ const Caixa = () => {
   const salesBlockedStage = !!stageBlock?.sales_blocked;
   const diaSelecionado = tournamentDays.find((d) => d.id === formData.tournament_day_id);
   const salesBlockedDay = !!diaSelecionado?.sales_blocked;
+  // Situação das MESAS do dia/torneio escolhido, lida quando o formulário abre.
+  // Três estados, porque a ação do operador é diferente em cada um:
+  //   'com-mesas'    → há mesa ativa; o assento sai normalmente;
+  //   'sem-mesas'    → nenhuma mesa ativa cadastrada: FALTA CONFIGURAR, e todo
+  //                    mundo vai sair com bilhete de alternado sem que exista
+  //                    fila de alternados de verdade;
+  //   'sem-conexao'  → offline: quem aloca é o servidor, no sync;
+  //   'desconhecido' → a consulta falhou; a tela não afirma nada.
+  const [estadoDasMesas, setEstadoDasMesas] = useState('desconhecido');
+  // A conectividade é ESTADO, não uma leitura única na abertura do formulário.
+  // Lida só uma vez, a tarja "Sem conexão" ficava presa depois de a internet
+  // voltar com o formulário aberto — que é o caso comum no balcão. Aviso que
+  // mente é aviso que o operador aprende a ignorar, e aí ele ignora junto o
+  // aviso de mesa não configurada, que é o que o cliente pediu.
+  const [redeOnline, setRedeOnline] = useState(() => isOnline());
+  useEffect(() => {
+    setRedeOnline(isOnline()); // resincroniza o que possa ter mudado antes de assinar
+    return assinarConectividade(setRedeOnline);
+  }, []);
+  const torneioSelecionado = tournaments.find((x) => x.id === formData.tournament_id);
+  // A alocação automática é a única em que a falta de mesa vira bilhete errado:
+  // no modo manual o staff senta o jogador na mão e a tela nem emite bilhete.
+  const alocacaoAutomatica =
+    (diaSelecionado?.allocation_type || torneioSelecionado?.allocation_type) === 'automatic';
+  const mesasTravadas = !!diaSelecionado?.tables_locked;
+  // Mesas travadas/cheias → alternado é o certo. Nenhuma mesa cadastrada →
+  // erro de configuração, e é isso que precisa aparecer ANTES da venda.
+  const avisarSemMesa = alocacaoAutomatica && estadoDasMesas === 'sem-mesas';
+  const avisarMesasTravadas = alocacaoAutomatica && mesasTravadas && !avisarSemMesa;
+  const avisarMesasDesconhecidas =
+    alocacaoAutomatica && !mesasTravadas && estadoDasMesas === 'sem-conexao';
   const podeCancelar = isAdmin || hasPermission('cashbox.admin');
 
   // Esc fecha o modal aberto. O caixa do clube trabalha de Tab e Enter, com as
@@ -162,6 +193,48 @@ const Caixa = () => {
         : { ...prev, payment_method: activeMethods[0].code }
     );
   }, [activeMethods]);
+
+  // Confere as mesas ANTES da venda. O operador só descobria que faltava
+  // cadastrar mesa quando o bilhete de ALTERNADO já tinha saído na impressora,
+  // com o jogador esperando para sentar; aqui ele descobre com o formulário
+  // ainda aberto. Só consulta com o formulário aberto (fora dele o dado não é
+  // usado) e nunca bloqueia a venda: em evento ao vivo o clube às vezes vende
+  // antes de montar as mesas, e travar o caixa é pior que o bilhete errado.
+  useEffect(() => {
+    if (!showModal) return undefined;
+    // Sem dia, só vale perguntar pelo torneio quando o torneio não tem dias.
+    const alvo = formData.tournament_day_id
+      ? `/tables/day/${formData.tournament_day_id}`
+      : (formData.tournament_id && tournamentDays.length === 0
+        ? `/tables/tournament/${formData.tournament_id}`
+        : null);
+    if (!alvo) {
+      setEstadoDasMesas('desconhecido');
+      return undefined;
+    }
+    if (!redeOnline) {
+      // Offline não dá para saber o estado das mesas — e a tela NÃO inventa.
+      setEstadoDasMesas('sem-conexao');
+      return undefined;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await api.get(alvo);
+        // Mesa fechada/quebrada não recebe jogador: o servidor só aloca em
+        // mesa 'active', então contar as outras daria falso "está tudo certo".
+        const ativas = (Array.isArray(res.data) ? res.data : []).filter(
+          (m) => (m.status || 'active') === 'active'
+        );
+        if (!cancelado) setEstadoDasMesas(ativas.length > 0 ? 'com-mesas' : 'sem-mesas');
+      } catch (error) {
+        // Falha de consulta não é "não tem mesa": calar é melhor que mentir.
+        console.warn('[Caixa] falha ao conferir as mesas:', error);
+        if (!cancelado) setEstadoDasMesas('desconhecido');
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [showModal, formData.tournament_id, formData.tournament_day_id, tournamentDays.length, redeOnline]);
 
   const loadData = async () => {
     try {
@@ -283,6 +356,9 @@ const Caixa = () => {
             day_name: selectedDay?.day_name || '',
             is_alternate: true,
             offline: true,
+            // Offline não dá para conferir mesa nenhuma: o bilhete diz que o
+            // assento sai no sync, não que existe fila de alternados.
+            motivo_alternate: 'sem-conexao',
             created_at: new Date().toISOString(),
             id: formData.player_id,
           });
@@ -295,12 +371,16 @@ const Caixa = () => {
 
         if (!reg.offline && allocationTypeToUse === 'automatic') {
           if (tablesLocked) {
-            // Tables are locked — player becomes alternate, show alternate ticket
+            // Tables are locked — player becomes alternate, show alternate ticket.
+            // Mesas travadas SEM mesa nenhuma cadastrada não é fila de
+            // alternados, é etapa por configurar: o bilhete precisa dizer qual
+            // dos dois é, senão o operador procura uma fila que não existe.
             setAllocationData({
               player_name: null, // filled below
               tournament_name: tournament?.name || '',
               day_name: selectedDay?.day_name || '',
               is_alternate: true,
+              motivo_alternate: estadoDasMesas === 'sem-mesas' ? 'sem-mesas' : 'travadas',
               created_at: new Date().toISOString(),
               id: formData.player_id,
             });
@@ -334,15 +414,19 @@ const Caixa = () => {
             } catch (allocationError) {
               console.error('Erro ao alocar jogador:', allocationError);
               const errDetail = allocationError.response?.data?.detail || '';
-              const noSeats = errDetail.toLowerCase().includes('tables are full')
-                || errDetail.toLowerCase().includes('no active tables');
+              const semMesaAtiva = errDetail.toLowerCase().includes('no active tables');
+              const noSeats = errDetail.toLowerCase().includes('tables are full') || semMesaAtiva;
               if (noSeats) {
-                // No seats available — player becomes alternate
+                // Sem assento o jogador vira alternado — mas o MOTIVO muda a
+                // ação: mesa cheia é fila de alternados; nenhuma mesa ativa é
+                // configuração faltando, e o staff tem de cadastrar as mesas.
+                if (semMesaAtiva) setEstadoDasMesas('sem-mesas');
                 const baseData = {
                   player_name: null,
                   tournament_name: tournament?.name || '',
                   day_name: selectedDay?.day_name || '',
                   is_alternate: true,
+                  motivo_alternate: semMesaAtiva ? 'sem-mesas' : 'lotadas',
                   created_at: new Date().toISOString(),
                   id: formData.player_id,
                 };
@@ -408,7 +492,7 @@ const Caixa = () => {
 
           if (rebuyOffline) {
             const pInfo = await offlineRead(`/players/${formData.player_id}`, { fromReplica: () => getEntity('players', formData.player_id) });
-            setAllocationData({ player_name: (pInfo && pInfo.name) || '—', tournament_name: tournament?.name || '', day_name: selectedDay?.day_name || '', is_alternate: true, offline: true, created_at: new Date().toISOString(), id: formData.player_id });
+            setAllocationData({ player_name: (pInfo && pInfo.name) || '—', tournament_name: tournament?.name || '', day_name: selectedDay?.day_name || '', is_alternate: true, offline: true, motivo_alternate: 'sem-conexao', created_at: new Date().toISOString(), id: formData.player_id });
             setShowTicketModal(true);
             toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
           }
@@ -423,6 +507,7 @@ const Caixa = () => {
                 tournament_name: tournament?.name || '',
                 day_name: selectedDay?.day_name || '',
                 is_alternate: true,
+                motivo_alternate: estadoDasMesas === 'sem-mesas' ? 'sem-mesas' : 'travadas',
                 created_at: new Date().toISOString(),
                 id: formData.player_id,
               });
@@ -453,14 +538,16 @@ const Caixa = () => {
               } catch (allocationError) {
                 console.error('Erro ao alocar jogador após rebuy:', allocationError);
                 const errDetail = allocationError.response?.data?.detail || '';
-                const noSeats = errDetail.toLowerCase().includes('tables are full')
-                  || errDetail.toLowerCase().includes('no active tables');
+                const semMesaAtiva = errDetail.toLowerCase().includes('no active tables');
+                const noSeats = errDetail.toLowerCase().includes('tables are full') || semMesaAtiva;
                 if (noSeats) {
+                  if (semMesaAtiva) setEstadoDasMesas('sem-mesas');
                   const baseData = {
                     player_name: null,
                     tournament_name: tournament?.name || '',
                     day_name: selectedDay?.day_name || '',
                     is_alternate: true,
+                    motivo_alternate: semMesaAtiva ? 'sem-mesas' : 'lotadas',
                     created_at: new Date().toISOString(),
                     id: formData.player_id,
                   };
@@ -1133,6 +1220,44 @@ const Caixa = () => {
                   </div>
                 )}
 
+                {/* Estado das MESAS, avisado ANTES de vender. Fica aqui e não
+                    no topo da tela porque o dia — que é quem tem as mesas — só
+                    é escolhido dentro deste formulário; no topo o aviso seria
+                    um palpite. Nenhum deles bloqueia o botão de registrar. */}
+                {avisarSemMesa && (
+                  <div className="cx-warning cx-warning--mesas" role="alert">
+                    <strong>{t('cashRegister.noTablesTitle', 'Nenhuma mesa cadastrada')}</strong>
+                    <span>
+                      {t(
+                        'cashRegister.noTablesHint',
+                        'Este dia não tem mesa ativa. A venda pode ser feita, mas o jogador vai sair com bilhete de ALTERNADO — cadastre as mesas em Mesas para o assento sair no bilhete.'
+                      )}
+                    </span>
+                  </div>
+                )}
+                {avisarMesasTravadas && (
+                  <div className="cx-warning cx-warning--mesas" role="status">
+                    <strong>{t('cashRegister.tablesLockedTitle', 'Mesas travadas')}</strong>
+                    <span>
+                      {t(
+                        'cashRegister.tablesLockedHint',
+                        'As mesas estão travadas: quem entrar agora vai para a fila de alternados. O bilhete de alternado está correto.'
+                      )}
+                    </span>
+                  </div>
+                )}
+                {avisarMesasDesconhecidas && (
+                  <div className="cx-warning cx-warning--mesas" role="status">
+                    <strong>{t('cashRegister.tablesUnknownTitle', 'Sem conexão')}</strong>
+                    <span>
+                      {t(
+                        'cashRegister.tablesUnknownHint',
+                        'Sem internet não dá para conferir as mesas. A venda é guardada e o assento é definido na sincronização.'
+                      )}
+                    </span>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label htmlFor="player_id">{t('cashRegister.player')}</label>
                   <PlayerSelect
@@ -1411,15 +1536,36 @@ const Caixa = () => {
                 <h2>
                   {allocationData.is_reprint
                     ? t('cashRegister.reprintTitle')
-                    : allocationData.is_alternate
-                      ? t('cashRegister.registeredAsAlternate')
-                      : t('cashRegister.registeredAndAllocated')}
+                    : allocationData.motivo_alternate === 'sem-mesas'
+                      ? t('cashRegister.registeredNoTables', 'Registrado — nenhuma mesa cadastrada')
+                      : allocationData.is_alternate
+                        ? t('cashRegister.registeredAsAlternate')
+                        : t('cashRegister.registeredAndAllocated')}
                 </h2>
                 <button type="button" className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
               <div className="modal-body">
+                {/* Por que este bilhete saiu sem assento. "Mesas cheias" é fila
+                    de alternados de verdade; "nenhuma mesa cadastrada" é a
+                    etapa por configurar e o bilhete NÃO significa fila. */}
+                {allocationData.motivo_alternate === 'sem-mesas' && (
+                  <p className="cx-warning cx-warning--mesas" role="alert">
+                    {t(
+                      'cashRegister.ticketNoTablesHint',
+                      'Não há mesa cadastrada neste dia: o jogador não entrou em fila de alternados. Cadastre as mesas em Mesas e aloque o jogador.'
+                    )}
+                  </p>
+                )}
+                {allocationData.motivo_alternate === 'sem-conexao' && (
+                  <p className="cx-warning cx-warning--mesas" role="status">
+                    {t(
+                      'cashRegister.ticketOfflineHint',
+                      'Venda guardada sem internet: o assento é definido na sincronização.'
+                    )}
+                  </p>
+                )}
                 <SeatTicket
                   allocation={{
                     id: allocationData.id,

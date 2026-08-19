@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -17,6 +17,7 @@ import {
   formatPercentage,
   isValidInput,
 } from '../utils/payoutEditing';
+import { validarDocumento, TIPOS_DOCUMENTO, TIPOS_LEGADO } from '../utils/documentos';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Premiacao.css';
 
@@ -43,11 +44,13 @@ const Premiacao = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
   const { formatCurrency, currency } = useCurrency();
-  const DOC_TYPE_LABELS = {
-    passport: t('premiacao.docPassport'),
-    national_id: t('premiacao.docIdentity'),
-    driver_license: t('premiacao.docCnh'),
-  };
+  // Rótulo do tipo de documento vem do CATÁLOGO (utils/documentos.js), que é a
+  // única lista de tipos aceitos. O mapa fixo que havia aqui só conhecia
+  // passport/national_id/driver_license: jogador de CPF, DNI ou cédula
+  // aparecia com o nome do campo do banco ("cpf") na tela e no recibo.
+  const DOC_TYPE_LABELS = Object.fromEntries(
+    [...TIPOS_DOCUMENTO, ...TIPOS_LEGADO].map((tipo) => [tipo.valor, t(tipo.chaveRotulo, tipo.rotulo)])
+  );
   const { tournamentId } = useParams();
   const navigate = useNavigate();
 
@@ -87,6 +90,23 @@ const Premiacao = () => {
   const [payoutSaving, setPayoutSaving] = useState(false);
   const [payoutPlayersDocs, setPayoutPlayersDocs] = useState({}); // playerId -> {document_type, document_number, name, nickname}
   const [payoutResolvedPlayer, setPayoutResolvedPlayer] = useState(null); // { player_id, name, nickname, document_type, document_number }
+  // A recusa do servidor mora DENTRO do modal. Antes ia para o `error` da
+  // página, que fica ATRÁS do overlay: o backend explicava o motivo (prêmio não
+  // liberado, prêmio acima do pool, caixa geral sem saldo, documento que não
+  // confere) e o operador não lia nada — era o "clico em confirmar e não
+  // acontece nada" relatado pelo clube.
+  const [payoutError, setPayoutError] = useState('');
+  // Aviso que NÃO bloqueia (documento do cadastro fora do padrão).
+  const [payoutDocWarning, setPayoutDocWarning] = useState('');
+  // Falha ao buscar os saldos: o modal abria sem os números e sem dizer por quê.
+  const [payoutInfoError, setPayoutInfoError] = useState('');
+  // Devolver o foco ao campo que falta: sem isso o operador fica caçando o que a
+  // tela quer dele com o jogador esperando o dinheiro no balcão.
+  const payoutDocRef = useRef(null);
+  // Trava de clique duplo por REFERÊNCIA, não por estado: dois envios no mesmo
+  // ciclo do React leem o mesmo `payoutSaving` (ainda false) e mandariam DOIS
+  // pagamentos do mesmo prêmio. Dinheiro entregue duas vezes não volta.
+  const pagamentoEmCursoRef = useRef(false);
 
   // Prize pool & cash info for payout validation
   const [prizePoolInfo, setPrizePoolInfo] = useState(null);
@@ -395,6 +415,14 @@ const Premiacao = () => {
     setPayoutPaidBy('');
     setPayoutResolvedPlayer(null);
     setPayoutPlayersDocs({});
+    setPayoutError('');
+    setPayoutDocWarning('');
+    setPayoutInfoError('');
+    // Zera os saldos: sem isso o modal reabre exibindo os números da consulta
+    // ANTERIOR como se fossem atuais — e, se a nova consulta falhar, o operador
+    // decide entregar o dinheiro olhando um saldo velho.
+    setPrizePoolInfo(null);
+    setGeneralCashBalance(null);
     setShowPayoutModal(true);
 
     // Load prize pool, general cash, and the docs for every eligible player so
@@ -423,19 +451,62 @@ const Premiacao = () => {
       setPayoutPlayersDocs(docMap);
     } catch (err) {
       console.error('Error loading pool/cash/players info:', err);
+      // O modal seguia abrindo mudo, sem saldo nenhum: o operador conclui que o
+      // torneio está zerado em vez de entender que a consulta falhou.
+      setPayoutInfoError(t(
+        'premiacao.balancesLoadError',
+        'Não foi possível carregar os saldos do torneio e do caixa. Confira antes de entregar o dinheiro.'
+      ));
     }
+  };
+
+  // O documento vai para o RECIBO do prêmio — é a prova de quem levou o
+  // dinheiro. Quando o jogador foi resolvido, o número veio do CADASTRO (foi
+  // por ele que o achamos), então documento fora do padrão é registro antigo, e
+  // não erro de digitação: aqui a tela AVISA e não bloqueia. Travar o pagamento
+  // deixaria o campeão sem receber por causa de cadastro velho; quem recusa de
+  // verdade é o backend, e agora a recusa dele aparece dentro do modal.
+  const avisoDoDocumentoCadastrado = (jogador) => {
+    const resultado = validarDocumento(jogador.document_type, jogador.document_number);
+    if (resultado.valido) return '';
+    return `${t(
+      'premiacao.docRegisteredInvalid',
+      'Documento do cadastro fora do padrão — o recibo sai assim mesmo, mas confira o cadastro do jogador:'
+    )} ${t(resultado.chaveMotivo, resultado.motivo)}`;
   };
 
   const handleConfirmPayout = async (e) => {
     e.preventDefault();
-    if (!payoutPlayerId || !payoutDocNumber) return;
-    if (!payoutResolvedPlayer) {
-      setPayoutDocError(t('premiacao.noPlayerWithDoc'));
+    // Segundo envio (clique duplo, Enter repetido) enquanto o primeiro está no
+    // ar pagaria o mesmo prêmio duas vezes.
+    if (pagamentoEmCursoRef.current) return;
+
+    setPayoutError('');
+
+    // Nenhuma saída daqui pode ser silenciosa: antes era um `return` seco e a
+    // tela não respondia NADA — sem mensagem e sem destaque no campo que falta.
+    const focarDocumento = () => payoutDocRef.current?.focus();
+
+    if (!payoutDocNumber.trim()) {
+      setPayoutDocError(t(
+        'premiacao.docRequired',
+        'Informe o número do documento de quem está recebendo o prêmio.'
+      ));
+      focarDocumento();
+      return;
+    }
+    if (!payoutResolvedPlayer || !payoutPlayerId) {
+      setPayoutDocError(t(
+        'premiacao.docNoPlayerBlock',
+        'Nenhum jogador deste torneio tem esse documento — confira o número antes de entregar o prêmio.'
+      ));
+      focarDocumento();
       return;
     }
     setPayoutDocError('');
 
     try {
+      pagamentoEmCursoRef.current = true;
       setPayoutSaving(true);
       const response = await api.post(
         `/tournaments/${tournamentId}/prizes/${payoutAllocation.id}/pay`,
@@ -468,8 +539,11 @@ const Premiacao = () => {
       await loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : t('premiacao.paymentError'));
+      // Dentro do modal, que continua aberto: é aqui que o servidor diz por que
+      // recusou. Sem rede, `detail` não existe — mesmo assim a tela responde.
+      setPayoutError(typeof detail === 'string' ? detail : t('premiacao.paymentError'));
     } finally {
+      pagamentoEmCursoRef.current = false;
       setPayoutSaving(false);
     }
   };
@@ -1032,6 +1106,24 @@ const Premiacao = () => {
                 <span className="payout-prize-value">{formatCurrency(payoutAllocation.prize_amount)}</span>
               </div>
 
+              {/* O backend só paga prêmio LIBERADO (aba Liberação). Sem este
+                  aviso o operador contava as notas, clicava em confirmar e
+                  levava uma recusa que não entendia. Só avisa quando o campo
+                  diz explicitamente que não está liberado: num backend antigo,
+                  sem o campo, seria alarme falso em todo pagamento. */}
+              {payoutAllocation.released === false && (
+                <div className="payout-warning-msg" role="status">
+                  {t(
+                    'premiacao.payoutNotReleasedWarn',
+                    'Este prêmio ainda não foi liberado: o pagamento será recusado. Libere na aba Liberação antes de entregar o dinheiro.'
+                  )}
+                </div>
+              )}
+
+              {payoutInfoError && (
+                <div className="payout-info-error" role="alert">{payoutInfoError}</div>
+              )}
+
               {prizePoolInfo && (
                 <div className="payout-balance-info">
                   <div className="payout-balance-row">
@@ -1059,21 +1151,32 @@ const Premiacao = () => {
                 </div>
               )}
 
-              <form onSubmit={handleConfirmPayout}>
+              {/* noValidate: a checagem é NOSSA. Com a validação nativa do
+                  navegador, o balão padrão do browser aparecia antes e as
+                  mensagens desta tela (que dizem exatamente o que falta e
+                  devolvem o foco) nunca rodavam. */}
+              <form onSubmit={handleConfirmPayout} noValidate>
                 <div className="form-group">
                   <label>{t('premiacao.documentNumberRequired')}</label>
                   <input
                     type="text"
+                    ref={payoutDocRef}
+                    aria-invalid={payoutDocError ? true : undefined}
+                    aria-describedby={payoutDocError ? 'payout-doc-error' : undefined}
                     value={payoutDocNumber}
                     onChange={(e) => {
                       const value = e.target.value;
                       setPayoutDocNumber(value);
                       setPayoutDocError('');
+                      // A recusa anterior era daquele documento; mudou o número,
+                      // some o erro velho (senão parece que já foi recusado).
+                      setPayoutError('');
 
                       const normalized = normalizeDoc(value);
                       if (!normalized) {
                         setPayoutResolvedPlayer(null);
                         setPayoutPlayerId('');
+                        setPayoutDocWarning('');
                         return;
                       }
 
@@ -1087,9 +1190,11 @@ const Premiacao = () => {
                         setPayoutResolvedPlayer(match);
                         setPayoutPlayerId(match.player_id);
                         setPayoutDocType(match.document_type || 'national_id');
+                        setPayoutDocWarning(avisoDoDocumentoCadastrado(match));
                       } else {
                         setPayoutResolvedPlayer(null);
                         setPayoutPlayerId('');
+                        setPayoutDocWarning('');
                       }
                     }}
                     required
@@ -1103,10 +1208,14 @@ const Premiacao = () => {
                           : undefined
                     }
                   />
-                  {/* Hidden required sentinel for player resolution */}
-                  <input type="hidden" value={payoutPlayerId} required />
+                  {/* A sentinela `<input type="hidden" required>` que ficava
+                      aqui não segurava nada: campo escondido é barrado da
+                      validação do navegador. Quem garante o jogador resolvido é
+                      handleConfirmPayout, com mensagem visível. */}
                   {payoutDocError && (
-                    <div className="doc-error-msg">{payoutDocError}</div>
+                    <div className="doc-error-msg" id="payout-doc-error" role="alert">
+                      {payoutDocError}
+                    </div>
                   )}
                 </div>
 
@@ -1122,11 +1231,15 @@ const Premiacao = () => {
                       {DOC_TYPE_LABELS[payoutResolvedPlayer.document_type] || payoutResolvedPlayer.document_type}
                     </span>
                   </div>
-                ) : payoutDocNumber.trim() ? (
+                ) : payoutDocNumber.trim() && !payoutDocError ? (
                   <div className="doc-error-msg" style={{ marginBottom: '1rem' }}>
                     {t('premiacao.noPlayerWithDoc')}
                   </div>
                 ) : null}
+
+                {payoutDocWarning && (
+                  <div className="payout-warning-msg" role="status">{payoutDocWarning}</div>
+                )}
 
                 <div className="form-group">
                   <label>{t('premiacao.attendantOptional')}</label>
@@ -1141,6 +1254,10 @@ const Premiacao = () => {
                 <div className="payout-doc-note">
                   {t('premiacao.docNote')}
                 </div>
+
+                {payoutError && (
+                  <div className="payout-error-msg" role="alert">{payoutError}</div>
+                )}
 
                 <div className="modal-actions">
                   <Button type="button" variant="secondary" onClick={() => setShowPayoutModal(false)}>
