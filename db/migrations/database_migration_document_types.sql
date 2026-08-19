@@ -43,11 +43,13 @@ COMMENT ON COLUMN public.players.document_type IS
   'Tipo do documento: cpf (BR), dni (PE), cedula (CO), passport, driver_license. '
   'national_id = legado (cadastros antigos, sem validação estrita).';
 
--- --- prize_payouts ---------------------------------------------------------
--- O recibo do prêmio copia o tipo do jogador; a coluna é VARCHAR(30) sem CHECK,
--- então só precisa caber. 'driver_license' (14) já cabia; os novos são menores.
--- Nada a alterar — o comentário fica registrado para quem for auditar.
-COMMENT ON COLUMN public.prize_payouts.document_type IS
+-- --- prize_allocations -----------------------------------------------------
+-- CORRIGIDO AO APLICAR (19/08/2026): a tabela `prize_payouts` NÃO existe. O
+-- recibo do prêmio guarda o documento em `prize_allocations` — conferido no
+-- banco de produção, é a única outra tabela com document_type/document_number.
+-- A coluna não tem CHECK nenhum, então já aceita os tipos novos e o pagamento
+-- de prêmio não quebra; só o comentário fica, para quem for auditar.
+COMMENT ON COLUMN public.prize_allocations.document_type IS
   'Copiado do jogador no momento do pagamento: cpf, dni, cedula, passport, '
   'driver_license ou national_id (legado).';
 

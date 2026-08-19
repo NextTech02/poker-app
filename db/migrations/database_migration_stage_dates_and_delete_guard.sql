@@ -43,9 +43,16 @@ end $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- b) Trava de exclusão: etapa com dinheiro no meio não se apaga
 -- ─────────────────────────────────────────────────────────────────────────────
+-- SECURITY DEFINER, igual às guardas de torneio e dia: o gatilho precisa
+-- ENXERGAR toda sangria e despesa da etapa para contar direito. Sob RLS uma
+-- linha escondida viraria "etapa vazia" e a exclusão passaria — a guarda seria
+-- burlada justamente por quem tem menos permissão. A função só CONTA e recusa;
+-- não devolve dado nenhum, então não há o que vazar. search_path fixado.
 create or replace function public.impedir_exclusao_de_etapa_com_movimento()
 returns trigger
 language plpgsql
+security definer
+set search_path = public, pg_temp
 as $$
 declare
   v_tabela  text;
