@@ -353,9 +353,9 @@ const TournamentControl = () => {
               {/* O relógio continua rodando ancorado localmente. Dizer isso é o
                   que separa "está sem internet" de "o sistema travou". */}
               {isOffline && (
-                <div className="timer-offline-badge" role="status">
+                <output className="timer-offline-badge">
                   {t('control.offlineClock', 'Sem conexão — relógio rodando nesta tela')}
-                </div>
+                </output>
               )}
               {isBreak ? (
                 <div className="timer-break-indicator">

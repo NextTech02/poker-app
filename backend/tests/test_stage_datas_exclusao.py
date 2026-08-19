@@ -66,9 +66,13 @@ class TestDatasNaCriacao:
     def test_fim_antes_do_inicio_e_recusado(self, banco):
         # O caso literal do dono: 10/08 até 02/08.
         banco({"stages": []})
+        # O StageCreate é montado FORA do bloco: dentro do `raises` fica só a
+        # chamada sob teste, senão um ValidationError do Pydantic (que também é
+        # ValueError) deixaria o teste verde sem o service ter recusado nada.
+        dados = StageCreate(name="Etapa", location="Rio",
+                            start_date="2026-08-10", end_date="2026-08-02")
         with pytest.raises(ValueError, match="anterior"):
-            SS.create_stage(StageCreate(name="Etapa", location="Rio",
-                                        start_date="2026-08-10", end_date="2026-08-02"))
+            SS.create_stage(dados)
 
     def test_mesmo_dia_vale(self, banco):
         # Etapa de um dia só é rotina (satélite de uma noite).
@@ -79,15 +83,17 @@ class TestDatasNaCriacao:
 
     def test_sem_data_de_inicio_e_recusado(self, banco):
         banco({"stages": []})
+        dados = StageCreate(name="Etapa", location="Rio")
         with pytest.raises(ValueError, match="data de início"):
-            SS.create_stage(StageCreate(name="Etapa", location="Rio"))
+            SS.create_stage(dados)
 
     def test_etapa_invalida_nao_chega_a_ser_gravada(self, banco):
         # A recusa não pode ser só cosmética: nada pode entrar na tabela.
         fake = banco({"stages": []})
-        with pytest.raises(ValueError):
-            SS.create_stage(StageCreate(name="Etapa", location="Rio",
-                                        start_date="2026-08-10", end_date="2026-08-02"))
+        dados = StageCreate(name="Etapa", location="Rio",
+                            start_date="2026-08-10", end_date="2026-08-02")
+        with pytest.raises(ValueError, match="anterior"):
+            SS.create_stage(dados)
         assert fake.store["stages"] == []
 
     def test_sem_data_de_fim_e_aceito(self, banco):
@@ -104,7 +110,8 @@ class TestLeituraTolerante:
         # consultando/operando a etapa antiga não é interrompido.
         banco({"stages": [_base(start_date=None, end_date=None)]})
         etapa = SS.get_stage(ETAPA)
-        assert etapa is not None and etapa.start_date is None
+        assert etapa is not None
+        assert etapa.start_date is None
 
     def test_etapa_antiga_com_datas_invertidas_continua_sendo_lida(self, banco):
         banco({"stages": [_base(start_date="2026-08-10", end_date="2026-08-02")]})
@@ -114,25 +121,28 @@ class TestLeituraTolerante:
 class TestDatasNaEdicao:
     def test_apagar_a_data_de_inicio_e_recusado(self, banco):
         banco({"stages": [_base()]})
+        dados = StageUpdate(start_date=None, name="X")
         with pytest.raises(ValueError, match="data de início"):
-            SS.update_stage(ETAPA, StageUpdate(start_date=None, name="X"))
+            SS.update_stage(ETAPA, dados)
 
     def test_inverter_as_duas_datas_de_uma_vez_e_recusado(self, banco):
         banco({"stages": [_base()]})
+        dados = StageUpdate(start_date="2026-08-10", end_date="2026-08-02")
         with pytest.raises(ValueError, match="anterior"):
-            SS.update_stage(ETAPA, StageUpdate(start_date="2026-08-10",
-                                               end_date="2026-08-02"))
+            SS.update_stage(ETAPA, dados)
 
     def test_fim_sozinho_e_comparado_com_o_inicio_gravado(self, banco):
         # O PATCH manda só `end_date`; a comparação depende da linha no banco.
         banco({"stages": [_base(start_date="2026-08-10", end_date="2026-08-20")]})
-        with pytest.raises(ValueError):
-            SS.update_stage(ETAPA, StageUpdate(end_date="2026-08-02"))
+        dados = StageUpdate(end_date="2026-08-02")
+        with pytest.raises(ValueError, match="anterior"):
+            SS.update_stage(ETAPA, dados)
 
     def test_inicio_sozinho_e_comparado_com_o_fim_gravado(self, banco):
         banco({"stages": [_base(start_date="2026-08-02", end_date="2026-08-10")]})
-        with pytest.raises(ValueError):
-            SS.update_stage(ETAPA, StageUpdate(start_date="2026-08-20"))
+        dados = StageUpdate(start_date="2026-08-20")
+        with pytest.raises(ValueError, match="anterior"):
+            SS.update_stage(ETAPA, dados)
 
     def test_edicao_valida_grava(self, banco):
         banco({"stages": [_base()]})
@@ -142,8 +152,9 @@ class TestDatasNaEdicao:
     def test_editar_etapa_antiga_sem_data_pede_a_data(self, banco):
         # É o momento certo de cobrar o que faltou: ele já está no cadastro.
         banco({"stages": [_base(start_date=None, end_date=None)]})
-        with pytest.raises(ValueError):
-            SS.update_stage(ETAPA, StageUpdate(name="Etapa Rio 2026"))
+        dados = StageUpdate(name="Etapa Rio 2026")
+        with pytest.raises(ValueError, match="data de início"):
+            SS.update_stage(ETAPA, dados)
 
     def test_editar_etapa_antiga_informando_a_data_resolve(self, banco):
         banco({"stages": [_base(start_date=None, end_date=None)]})
@@ -209,7 +220,8 @@ class TestDatasNaRota:
             id=ETAPA, name="Etapa", location="Rio", status="cancelled",
             created_at="2026-06-08T00:00:00Z"))
         r = client.post(f"/stages/{ETAPA}/archive")
-        assert r.status_code == 200 and r.json()["status"] == "cancelled"
+        assert r.status_code == 200
+        assert r.json()["status"] == "cancelled"
 
     def test_arquivar_inexistente_da_404(self, client, stub):
         stub(SS, archive_stage=lambda sid: None)
@@ -243,8 +255,10 @@ class TestImpactoDaExclusao:
         impacto = SS.get_delete_impact(ETAPA)
         # É com estes números que a tela monta "2 sangrias, 1 despesa,
         # R$ 4.500 em caixa" antes de alguém confirmar.
-        assert impacto.sangrias == 2 and impacto.sangrias_amount == 1500
-        assert impacto.expenses == 1 and impacto.expenses_amount == 250.5
+        assert impacto.sangrias == 2
+        assert impacto.sangrias_amount == 1500
+        assert impacto.expenses == 1
+        assert impacto.expenses_amount == 250.5
         assert impacto.cash_balance == 4500
         assert impacto.stage_name == "Etapa Rio"
 
@@ -268,7 +282,8 @@ class TestImpactoDaExclusao:
 
         monkeypatch.setattr(fake, "table", _tabela)
         impacto = SS.get_delete_impact(ETAPA)
-        assert impacto.other_revenues == 0 and impacto.blocked is False
+        assert impacto.other_revenues == 0
+        assert impacto.blocked is False
 
     def test_caixa_indisponivel_nao_derruba_o_resumo(self, banco, monkeypatch):
         fake = banco({"stages": [_base()]})
@@ -310,7 +325,8 @@ class TestImpactoDaExclusao:
                "buy_types": [{"id": "b1", "stage_id": ETAPA}],
                "cashboxes": [{"id": "cx1", "stage_id": ETAPA}]})
         impacto = SS.get_delete_impact(ETAPA)
-        assert impacto.buy_types == 1 and impacto.cashboxes == 1
+        assert impacto.buy_types == 1
+        assert impacto.cashboxes == 1
         assert impacto.blocked is False
 
 
@@ -339,8 +355,10 @@ class TestExclusaoBloqueada:
             stage_id=sid, stage_name="Etapa Rio", sangrias=3, expenses=12,
             cash_balance=4500, blocked=True))
         corpo = client.get(f"/stages/{ETAPA}/delete-impact").json()
-        assert corpo["sangrias"] == 3 and corpo["expenses"] == 12
-        assert corpo["cash_balance"] == 4500 and corpo["blocked"] is True
+        assert corpo["sangrias"] == 3
+        assert corpo["expenses"] == 12
+        assert corpo["cash_balance"] == 4500
+        assert corpo["blocked"] is True
 
     def test_rota_de_impacto_de_etapa_inexistente_da_404(self, client, stub):
         stub(SS, get_delete_impact=lambda sid: None)

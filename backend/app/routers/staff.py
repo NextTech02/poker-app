@@ -113,7 +113,28 @@ def cancel_invite(staff_id: str, user=_manage_staff):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{staff_id}/confirm-invite", response_model=StaffResponse)
+@router.post(
+    "/{staff_id}/confirm-invite",
+    response_model=StaffResponse,
+    responses={
+        400: {
+            "description": (
+                "Convite não pôde ser efetivado. Acontece quando: a pessoa já é "
+                "membro aceito deste clube; o convite ainda está em "
+                "'awaiting_signup' (ela não definiu a senha — o caminho é "
+                "reenviar o convite); o funcionário pertence a outra "
+                "organização; ou o plano atual não permite mais usuários ativos "
+                "(limite barrado pelo banco). O motivo exato vem em `detail`."
+            )
+        },
+        404: {
+            "description": (
+                "O vínculo foi efetivado, mas a releitura do funcionário não "
+                "encontrou o registro (ele deixou de existir nesse intervalo)."
+            )
+        },
+    },
+)
 def confirm_invite(staff_id: str, user=_manage_staff):
     """Efetiva o convite pendente sem esperar a pessoa responder.
 
@@ -168,7 +189,25 @@ def update_staff(staff_id: str, data: StaffUpdate, user=_manage_staff):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/{staff_id}")
+@router.delete(
+    "/{staff_id}",
+    responses={
+        400: {
+            "description": (
+                "Desativação recusada porque o funcionário está com caixa "
+                "aberto — `detail` traz o saldo atual; é preciso fechar o caixa "
+                "antes. Também cobre a falha ao cancelar um convite ainda "
+                "pendente (a rota cancela em vez de desativar nesse caso)."
+            )
+        },
+        404: {
+            "description": (
+                "Nenhum funcionário com esse id foi desativado — o registro não "
+                "existe (ou já não está mais acessível)."
+            )
+        },
+    },
+)
 def delete_staff(staff_id: str, user=_manage_staff):
     try:
         ok = StaffService.delete_staff(staff_id)

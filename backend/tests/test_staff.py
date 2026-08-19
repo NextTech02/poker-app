@@ -488,10 +488,10 @@ class TestEstadoDoConviteDependeDoVinculo:
     def test_quem_ja_esta_ativo_no_clube_nao_e_convidado_de_novo(self, monkeypatch):
         self._finge_auth(monkeypatch, [[{"id": AUTH, "email": "fulano@clube.com"}]])
         _monta(monkeypatch, {"staff": [_funcionario(status="accepted")]})
+        # StaffCreate montado fora: dentro do `raises` só a chamada sob teste.
+        dados = StaffCreate(email="fulano@clube.com")
         with pytest.raises(ValueError, match="já faz parte"):
-            StaffService.create_staff(
-                StaffCreate(email="fulano@clube.com"), created_by=AUTH, organization_id=ORG
-            )
+            StaffService.create_staff(dados, created_by=AUTH, organization_id=ORG)
 
 
 class TestReenvioDeConvite:

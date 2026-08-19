@@ -59,3 +59,12 @@ if (typeof global.ResizeObserver === 'undefined') {
     disconnect() {}
   };
 }
+
+// Timeout por teste. O padrão do Jest (5s) foi calibrado para teste de unidade;
+// as telas grandes (Caixa, Premiação, Jogadores) preenchem formulários inteiros
+// com userEvent e levam ~1s cada QUANDO RODAM SOZINHAS. Com a suíte completa em
+// paralelo disputando CPU o mesmo teste passa de 3s, e o primeiro de um bloco já
+// estourou os 5s — vermelho falso, sem nada quebrado no produto. Só o teste que
+// FALHA consome o limite, então subir o teto não deixa a suíte mais lenta; ele
+// apenas para de depender de quanto a máquina estava ocupada naquele minuto.
+jest.setTimeout(15000);

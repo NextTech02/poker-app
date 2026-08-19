@@ -472,7 +472,7 @@ const Premiacao = () => {
     return `${t(
       'premiacao.docRegisteredInvalid',
       'Documento do cadastro fora do padrão — o recibo sai assim mesmo, mas confira o cadastro do jogador:'
-    )} ${t(resultado.chaveMotivo, resultado.motivo)}`;
+    )} ${String(t(resultado.chaveMotivo, resultado.motivo))}`;
   };
 
   const handleConfirmPayout = async (e) => {
@@ -1112,12 +1112,12 @@ const Premiacao = () => {
                   diz explicitamente que não está liberado: num backend antigo,
                   sem o campo, seria alarme falso em todo pagamento. */}
               {payoutAllocation.released === false && (
-                <div className="payout-warning-msg" role="status">
+                <output className="payout-warning-msg">
                   {t(
                     'premiacao.payoutNotReleasedWarn',
                     'Este prêmio ainda não foi liberado: o pagamento será recusado. Libere na aba Liberação antes de entregar o dinheiro.'
                   )}
-                </div>
+                </output>
               )}
 
               {payoutInfoError && (
@@ -1231,14 +1231,19 @@ const Premiacao = () => {
                       {DOC_TYPE_LABELS[payoutResolvedPlayer.document_type] || payoutResolvedPlayer.document_type}
                     </span>
                   </div>
-                ) : payoutDocNumber.trim() && !payoutDocError ? (
+                ) : null}
+
+                {/* Documento digitado, sem erro de formato e mesmo assim nenhum
+                    jogador encontrado — condição separada porque encadeá-la ao
+                    banner acima escondia qual dos dois casos a tela está vendo. */}
+                {!payoutResolvedPlayer && !!payoutDocNumber.trim() && !payoutDocError && (
                   <div className="doc-error-msg" style={{ marginBottom: '1rem' }}>
                     {t('premiacao.noPlayerWithDoc')}
                   </div>
-                ) : null}
+                )}
 
                 {payoutDocWarning && (
-                  <div className="payout-warning-msg" role="status">{payoutDocWarning}</div>
+                  <output className="payout-warning-msg">{payoutDocWarning}</output>
                 )}
 
                 <div className="form-group">

@@ -42,6 +42,18 @@ const Caixa = () => {
 
   const buyCategoryLabel = (c) =>
     c === 'rebuy' ? t('cashRegister.rebuy', 'Rebuy') : c === 'addon' ? t('cashRegister.addon', 'Add-on') : t('cashRegister.buyIn', 'Buy-in');
+
+  // Título do bilhete: reimpressão, etapa sem mesa cadastrada, alternado de
+  // verdade ou alocado. Um caso por linha — encadeados em ternário, o operador
+  // lia "alternado" onde na verdade faltava cadastrar mesa.
+  const tituloDoBilhete = (dados) => {
+    if (dados.is_reprint) return t('cashRegister.reprintTitle');
+    if (dados.motivo_alternate === 'sem-mesas') {
+      return t('cashRegister.registeredNoTables', 'Registrado — nenhuma mesa cadastrada');
+    }
+    if (dados.is_alternate) return t('cashRegister.registeredAsAlternate');
+    return t('cashRegister.registeredAndAllocated');
+  };
   const [transactions, setTransactions] = useState([]);
   const [tournaments, setTournaments] = useState([]);
   const [tournamentDays, setTournamentDays] = useState([]);
@@ -203,11 +215,13 @@ const Caixa = () => {
   useEffect(() => {
     if (!showModal) return undefined;
     // Sem dia, só vale perguntar pelo torneio quando o torneio não tem dias.
+    // Só vale perguntar pelo torneio inteiro quando ele não tem dias; com dias
+    // cadastrados e nenhum escolhido não existe conjunto de mesas a consultar.
+    const perguntarPeloTorneio = !!formData.tournament_id && tournamentDays.length === 0;
+    const alvoDoTorneio = perguntarPeloTorneio ? `/tables/tournament/${formData.tournament_id}` : null;
     const alvo = formData.tournament_day_id
       ? `/tables/day/${formData.tournament_day_id}`
-      : (formData.tournament_id && tournamentDays.length === 0
-        ? `/tables/tournament/${formData.tournament_id}`
-        : null);
+      : alvoDoTorneio;
     if (!alvo) {
       setEstadoDasMesas('desconhecido');
       return undefined;
@@ -351,7 +365,7 @@ const Caixa = () => {
             fromReplica: () => getEntity('players', formData.player_id),
           });
           setAllocationData({
-            player_name: (pInfo && pInfo.name) || '—',
+            player_name: pInfo?.name || '—',
             tournament_name: tournament?.name || '',
             day_name: selectedDay?.day_name || '',
             is_alternate: true,
@@ -492,7 +506,7 @@ const Caixa = () => {
 
           if (rebuyOffline) {
             const pInfo = await offlineRead(`/players/${formData.player_id}`, { fromReplica: () => getEntity('players', formData.player_id) });
-            setAllocationData({ player_name: (pInfo && pInfo.name) || '—', tournament_name: tournament?.name || '', day_name: selectedDay?.day_name || '', is_alternate: true, offline: true, motivo_alternate: 'sem-conexao', created_at: new Date().toISOString(), id: formData.player_id });
+            setAllocationData({ player_name: pInfo?.name || '—', tournament_name: tournament?.name || '', day_name: selectedDay?.day_name || '', is_alternate: true, offline: true, motivo_alternate: 'sem-conexao', created_at: new Date().toISOString(), id: formData.player_id });
             setShowTicketModal(true);
             toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
           }
@@ -1236,7 +1250,7 @@ const Caixa = () => {
                   </div>
                 )}
                 {avisarMesasTravadas && (
-                  <div className="cx-warning cx-warning--mesas" role="status">
+                  <output className="cx-warning cx-warning--mesas">
                     <strong>{t('cashRegister.tablesLockedTitle', 'Mesas travadas')}</strong>
                     <span>
                       {t(
@@ -1244,10 +1258,10 @@ const Caixa = () => {
                         'As mesas estão travadas: quem entrar agora vai para a fila de alternados. O bilhete de alternado está correto.'
                       )}
                     </span>
-                  </div>
+                  </output>
                 )}
                 {avisarMesasDesconhecidas && (
-                  <div className="cx-warning cx-warning--mesas" role="status">
+                  <output className="cx-warning cx-warning--mesas">
                     <strong>{t('cashRegister.tablesUnknownTitle', 'Sem conexão')}</strong>
                     <span>
                       {t(
@@ -1255,7 +1269,7 @@ const Caixa = () => {
                         'Sem internet não dá para conferir as mesas. A venda é guardada e o assento é definido na sincronização.'
                       )}
                     </span>
-                  </div>
+                  </output>
                 )}
 
                 <div className="form-group">
@@ -1534,13 +1548,7 @@ const Caixa = () => {
             <div className="modal">
               <div className="modal-header">
                 <h2>
-                  {allocationData.is_reprint
-                    ? t('cashRegister.reprintTitle')
-                    : allocationData.motivo_alternate === 'sem-mesas'
-                      ? t('cashRegister.registeredNoTables', 'Registrado — nenhuma mesa cadastrada')
-                      : allocationData.is_alternate
-                        ? t('cashRegister.registeredAsAlternate')
-                        : t('cashRegister.registeredAndAllocated')}
+                  {tituloDoBilhete(allocationData)}
                 </h2>
                 <button type="button" className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
@@ -1559,12 +1567,12 @@ const Caixa = () => {
                   </p>
                 )}
                 {allocationData.motivo_alternate === 'sem-conexao' && (
-                  <p className="cx-warning cx-warning--mesas" role="status">
+                  <output className="cx-warning cx-warning--mesas">
                     {t(
                       'cashRegister.ticketOfflineHint',
                       'Venda guardada sem internet: o assento é definido na sincronização.'
                     )}
-                  </p>
+                  </output>
                 )}
                 <SeatTicket
                   allocation={{

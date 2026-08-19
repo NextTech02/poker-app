@@ -140,10 +140,10 @@ const alfanumerico = (v) => String(v === null || v === undefined ? '' : v)
   .toUpperCase()
   .replace(/[^0-9A-Z]/g, '');
 
-const TIPOS_NUMERICOS = ['cpf', 'dni', 'cedula'];
+const TIPOS_NUMERICOS = new Set(['cpf', 'dni', 'cedula']);
 
 export const normalizarDocumento = (tipo, numero) => (
-  TIPOS_NUMERICOS.includes(tipo) ? somenteDigitos(numero) : alfanumerico(numero)
+  TIPOS_NUMERICOS.has(tipo) ? somenteDigitos(numero) : alfanumerico(numero)
 );
 
 // --- regra geral: lixo óbvio ------------------------------------------------

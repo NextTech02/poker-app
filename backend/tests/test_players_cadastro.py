@@ -232,19 +232,26 @@ class TestDocumento:
     def test_um_monte_de_zero_e_recusado(self, banco):
         """O achado do dono do clube. Recibo com documento 00000000000 não
         vale nada na prestação de contas."""
+        # O payload é montado FORA do bloco: dentro do `raises` fica só a
+        # chamada sob teste, para a exceção não poder vir da montagem.
+        dados = _novo(document_number="00000000000")
         with pytest.raises(HTTPException) as exc:
-            S.create_player(_novo(document_number="00000000000"))
+            S.create_player(dados)
         assert exc.value.status_code == 400
         assert banco.store["players"] == []
 
     def test_cpf_com_digito_errado_e_recusado(self, banco):
+        dados = _novo(document_number="52998224726")
         with pytest.raises(HTTPException) as exc:
-            S.create_player(_novo(document_number="52998224726"))
+            S.create_player(dados)
         assert exc.value.status_code == 400
 
     def test_sequencia_trivial_e_recusada(self, banco):
-        with pytest.raises(HTTPException):
-            S.create_player(_novo(document_type="dni", document_number="12345678"))
+        dados = _novo(document_type="dni", document_number="12345678")
+        with pytest.raises(HTTPException) as exc:
+            S.create_player(dados)
+        assert exc.value.status_code == 400
+        assert banco.store["players"] == []
 
     def test_documento_valido_e_gravado_sem_pontuacao(self, banco):
         """Guardar normalizado é o que impede "529.982.247-25" e "52998224725"
@@ -253,8 +260,9 @@ class TestDocumento:
         assert criado.document_number == "52998224725"
 
     def test_tipo_desconhecido_e_recusado_com_frase_de_tela(self, banco):
+        dados = _novo(document_type="rg")
         with pytest.raises(HTTPException) as exc:
-            S.create_player(_novo(document_type="rg"))
+            S.create_player(dados)
         assert exc.value.status_code == 400
         assert isinstance(exc.value.detail, str)
 
@@ -290,15 +298,19 @@ class TestDocumento:
         banco.store["players"].append(
             _linha(document_type="national_id", document_number="00000000000")
         )
-        with pytest.raises(HTTPException):
-            S.update_player(JOGADOR, PlayerUpdate(document_type="cpf"))
+        dados = PlayerUpdate(document_type="cpf")
+        with pytest.raises(HTTPException) as exc:
+            S.update_player(JOGADOR, dados)
+        assert exc.value.status_code == 400
 
     def test_mudar_so_o_numero_valida_com_o_tipo_ja_gravado(self, banco):
         """O PATCH não manda o tipo; sem ler a linha atual, um CPF errado
         entraria por falta de contexto."""
         banco.store["players"].append(_linha())
-        with pytest.raises(HTTPException):
-            S.update_player(JOGADOR, PlayerUpdate(document_number="11111111111"))
+        dados = PlayerUpdate(document_number="11111111111")
+        with pytest.raises(HTTPException) as exc:
+            S.update_player(JOGADOR, dados)
+        assert exc.value.status_code == 400
 
 
 class TestOrdemDoDeploy:
@@ -335,8 +347,9 @@ class TestOrdemDoDeploy:
     def test_documento_invalido_continua_recusado_antes_de_chegar_ao_banco(self, banco, monkeypatch):
         """Tolerar o banco antigo não é tolerar documento ruim."""
         _banco_sem_migracao(banco, monkeypatch)
+        dados = _novo(document_number="00000000000")
         with pytest.raises(HTTPException) as exc:
-            S.create_player(_novo(document_number="00000000000"))
+            S.create_player(dados)
         assert exc.value.status_code == 400
         assert banco.store["players"] == []
 
@@ -350,8 +363,9 @@ class TestOrdemDoDeploy:
             return q
 
         monkeypatch.setattr(banco, "table", table)
-        with pytest.raises(RuntimeError):
-            S.create_player(_novo())
+        dados = _novo()
+        with pytest.raises(RuntimeError, match="connection reset by peer"):
+            S.create_player(dados)
 
 
 class TestDocumentoJaGravado:
@@ -380,8 +394,9 @@ class TestDocumentoJaGravado:
     def test_documento_novo_invalido_continua_recusado(self, banco):
         """A tolerância é só para o valor que já estava lá."""
         banco.store["players"].append(_linha(document_type="passport", document_number="AB1"))
+        dados = PlayerUpdate(document_number="AB2")
         with pytest.raises(HTTPException) as exc:
-            S.update_player(JOGADOR, PlayerUpdate(document_number="AB2"))
+            S.update_player(JOGADOR, dados)
         assert exc.value.status_code == 400
 
 
@@ -394,16 +409,19 @@ class TestPatchParcialDoNome:
 
     def test_apagar_o_nome_mandando_so_o_sobrenome_e_recusado(self, banco):
         banco.store["players"].append(_linha())
+        dados = PlayerUpdate(first_name="", last_name="Silva")
         with pytest.raises(HTTPException) as exc:
-            S.update_player(JOGADOR, PlayerUpdate(first_name="", last_name="Silva"))
+            S.update_player(JOGADOR, dados)
         assert exc.value.status_code == 400
         # E nada foi gravado pela metade.
         assert banco.store["players"][0]["name"] == "Beto Silva Souza"
 
     def test_apagar_so_o_primeiro_nome_tambem_e_recusado(self, banco):
         banco.store["players"].append(_linha())
-        with pytest.raises(HTTPException):
-            S.update_player(JOGADOR, PlayerUpdate(first_name="   "))
+        dados = PlayerUpdate(first_name="   ")
+        with pytest.raises(HTTPException) as exc:
+            S.update_player(JOGADOR, dados)
+        assert exc.value.status_code == 400
 
     def test_apagar_so_o_sobrenome_continua_valendo(self, banco):
         """Isso é edição legítima: o jogador passa a ter só o primeiro nome."""

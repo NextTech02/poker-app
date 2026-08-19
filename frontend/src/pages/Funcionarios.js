@@ -487,6 +487,106 @@ const Funcionarios = () => {
     return a + (parseFloat(v) || 0);
   }, 0);
 
+  // Uma célula, uma função. A linha da tabela era um encadeado de ternários de
+  // status + ternários de ações; extraído SEM mudar nenhuma condição.
+  const statusDoFuncionario = (s) => (
+    <>
+      {/* UM status por linha, sempre. Antes, um convite
+          pendente aparecia como "Convite pendente" e ao
+          mesmo tempo cinza de desativado — o admin lia
+          "cadastrado, porém desativado, porém pendente" e
+          não sabia o que fazer.
+          'pending'         = já tinha conta, falta aceitar;
+          'awaiting_signup' = conta nova, falta definir a senha. */}
+      {s.invite_status === 'pending' ? (
+        <span className="func-status func-status--pending"
+              title={t('staff.pendingInviteHint', 'Aguardando a pessoa aceitar o convite')}>
+          {t('staff.pendingInvite', 'Convite pendente')}
+        </span>
+      ) : s.invite_status === 'awaiting_signup' ? (
+        <span className="func-status func-status--pending"
+              title={t('staff.awaitingSignupHint', 'Convite enviado; a pessoa ainda não definiu a senha')}>
+          {t('staff.awaitingSignup', 'Aguardando cadastro')}
+        </span>
+      ) : (
+        <span className={`func-status ${s.active ? 'func-status--active' : 'func-status--inactive'}`}>
+          {s.active ? t('staff.active') : t('staff.inactive')}
+        </span>
+      )}
+    </>
+  );
+
+  const acoesDoFuncionario = (s) => (
+    // Contêiner flex: botões irmãos soltos na célula não têm como receber
+    // espaçamento entre si.
+    <div className="func-acoes-linha">
+      {/* Cada estado com a ação que o resolve. "Ativar" não
+          cabe em convite: quem manda no vínculo é o
+          invite_status, e mexer no active deixaria a linha
+          ativa E pendente ao mesmo tempo. */}
+      {s.invite_status === 'awaiting_signup' ? (
+        <>
+          <button
+            type="button"
+            className="func-action-btn func-action-btn--success"
+            onClick={() => handleResendInvite(s)}
+            title={t('staff.resendHint', 'Os links do e-mail expiram; envie outro')}
+          >
+            {t('staff.resendInvite', 'Reenviar')}
+          </button>
+          <button
+            type="button"
+            className="func-action-btn func-action-btn--danger"
+            onClick={() => handleCancelInvite(s)}
+          >
+            {t('staff.cancelInvite', 'Cancelar convite')}
+          </button>
+        </>
+      ) : s.invite_status === 'pending' ? (
+        <>
+          {/* Saída do admin quando a pessoa não responde:
+              antes o convite só virava membro se ela mesma
+              entrasse e clicasse — quem não entrava ficava
+              presa nesse estado sem nenhuma saída. */}
+          <button
+            type="button"
+            className="func-action-btn func-action-btn--success"
+            onClick={() => handleConfirmInvite(s)}
+            title={t('staff.effectivateHint',
+                     'Entra na equipe agora, sem esperar a resposta ao convite')}
+          >
+            {t('staff.effectivate', 'Efetivar')}
+          </button>
+          <button
+            type="button"
+            className="func-action-btn func-action-btn--danger"
+            onClick={() => handleCancelInvite(s)}
+          >
+            {t('staff.cancelInvite', 'Cancelar convite')}
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
+            onClick={() => handleToggleActive(s)}
+          >
+            {s.active ? t('staff.deactivate') : t('staff.activate')}
+          </button>
+          <button
+            type="button"
+            className="func-action-btn func-action-btn--danger"
+            onClick={() => handleRemoveStaff(s)}
+            title={t('staff.removeHint', 'Tira do clube; apaga a conta se ela não estiver em outro')}
+          >
+            {t('staff.remove', 'Excluir')}
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="layout">
       <Sidebar />
@@ -595,98 +695,10 @@ const Funcionarios = () => {
                           </select>
                         </td>
                         <td>
-                          {/* UM status por linha, sempre. Antes, um convite
-                              pendente aparecia como "Convite pendente" e ao
-                              mesmo tempo cinza de desativado — o admin lia
-                              "cadastrado, porém desativado, porém pendente" e
-                              não sabia o que fazer.
-                              'pending'         = já tinha conta, falta aceitar;
-                              'awaiting_signup' = conta nova, falta definir a senha. */}
-                          {s.invite_status === 'pending' ? (
-                            <span className="func-status func-status--pending"
-                                  title={t('staff.pendingInviteHint', 'Aguardando a pessoa aceitar o convite')}>
-                              {t('staff.pendingInvite', 'Convite pendente')}
-                            </span>
-                          ) : s.invite_status === 'awaiting_signup' ? (
-                            <span className="func-status func-status--pending"
-                                  title={t('staff.awaitingSignupHint', 'Convite enviado; a pessoa ainda não definiu a senha')}>
-                              {t('staff.awaitingSignup', 'Aguardando cadastro')}
-                            </span>
-                          ) : (
-                            <span className={`func-status ${s.active ? 'func-status--active' : 'func-status--inactive'}`}>
-                              {s.active ? t('staff.active') : t('staff.inactive')}
-                            </span>
-                          )}
+                          {statusDoFuncionario(s)}
                         </td>
                         <td>
-                          {/* Contêiner flex: botões irmãos soltos na célula não
-                              têm como receber espaçamento entre si. */}
-                          <div className="func-acoes-linha">
-                          {/* Cada estado com a ação que o resolve. "Ativar" não
-                              cabe em convite: quem manda no vínculo é o
-                              invite_status, e mexer no active deixaria a linha
-                              ativa E pendente ao mesmo tempo. */}
-                          {s.invite_status === 'awaiting_signup' ? (
-                            <>
-                              <button
-                                type="button"
-                                className="func-action-btn func-action-btn--success"
-                                onClick={() => handleResendInvite(s)}
-                                title={t('staff.resendHint', 'Os links do e-mail expiram; envie outro')}
-                              >
-                                {t('staff.resendInvite', 'Reenviar')}
-                              </button>
-                              <button
-                                type="button"
-                                className="func-action-btn func-action-btn--danger"
-                                onClick={() => handleCancelInvite(s)}
-                              >
-                                {t('staff.cancelInvite', 'Cancelar convite')}
-                              </button>
-                            </>
-                          ) : s.invite_status === 'pending' ? (
-                            <>
-                              {/* Saída do admin quando a pessoa não responde:
-                                  antes o convite só virava membro se ela mesma
-                                  entrasse e clicasse — quem não entrava ficava
-                                  presa nesse estado sem nenhuma saída. */}
-                              <button
-                                type="button"
-                                className="func-action-btn func-action-btn--success"
-                                onClick={() => handleConfirmInvite(s)}
-                                title={t('staff.effectivateHint',
-                                         'Entra na equipe agora, sem esperar a resposta ao convite')}
-                              >
-                                {t('staff.effectivate', 'Efetivar')}
-                              </button>
-                              <button
-                                type="button"
-                                className="func-action-btn func-action-btn--danger"
-                                onClick={() => handleCancelInvite(s)}
-                              >
-                                {t('staff.cancelInvite', 'Cancelar convite')}
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                className={`func-action-btn ${s.active ? 'func-action-btn--danger' : 'func-action-btn--success'}`}
-                                onClick={() => handleToggleActive(s)}
-                              >
-                                {s.active ? t('staff.deactivate') : t('staff.activate')}
-                              </button>
-                              <button
-                                type="button"
-                                className="func-action-btn func-action-btn--danger"
-                                onClick={() => handleRemoveStaff(s)}
-                                title={t('staff.removeHint', 'Tira do clube; apaga a conta se ela não estiver em outro')}
-                              >
-                                {t('staff.remove', 'Excluir')}
-                              </button>
-                            </>
-                          )}
-                          </div>
+                          {acoesDoFuncionario(s)}
                         </td>
                       </tr>
                     ))}

@@ -197,7 +197,7 @@ const Etapas = () => {
   const descreverImpacto = (impacto) => {
     const partes = [];
     const somar = (quantidade, chave, texto) => {
-      if (quantidade) partes.push(`${quantidade} ${t(chave, texto)}`);
+      if (quantidade) partes.push(`${quantidade} ${String(t(chave, texto))}`);
     };
     somar(impacto.sangrias, 'stages.impactSangrias', 'sangrias');
     somar(impacto.expenses, 'stages.impactExpenses', 'despesas');
@@ -595,12 +595,12 @@ const Etapas = () => {
                     vez de travar a tela, pedimos a data aqui, que é onde ela
                     pode ser informada. */}
                 {editingStage && !editingStage.start_date && (
-                  <div className="et-aviso-data" role="status">
+                  <output className="et-aviso-data">
                     {t(
                       'stages.legacyNoStartDate',
                       'Esta etapa foi criada sem data de início. Informe a data para poder salvar.'
                     )}
-                  </div>
+                  </output>
                 )}
 
                 <div className="form-row">

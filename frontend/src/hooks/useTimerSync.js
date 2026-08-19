@@ -57,6 +57,33 @@ const FALHAS_PARA_MODO_LOCAL_COM_SINAL_GLOBAL = 1;
 //    derivam do MESMO instante absoluto → sincronia exata, sem jitter.
 //  - RELATIVE/FROZEN (pausado, otimista, ou backend sem ends_at): { at, remaining,
 //    breakRemaining, level, paused }.
+// Varre a estrutura para frente a partir de `indiceDoAlvo` e devolve o próximo
+// intervalo já com quanto tempo falta para ele. null = não há intervalo à frente.
+const acharProximoIntervalo = (blinds, indiceDoAlvo, segundosDoAlvo) => {
+  let faltaParaOIntervalo = segundosDoAlvo;
+  for (let i = indiceDoAlvo + 1; i < blinds.length; i++) {
+    if (blinds[i].is_break) {
+      return {
+        level: blinds[i].level,
+        duration: blinds[i].duration * 60,
+        time_until_break: faltaParaOIntervalo,
+      };
+    }
+    faltaParaOIntervalo += blinds[i].duration * 60;
+  }
+  return null;
+};
+
+// Formato de blind que o estado do relógio (e as telas) esperam. null vira null.
+const blindDoEstado = (b) => (b ? {
+  level: b.level,
+  small_blind: b.small_blind,
+  big_blind: b.big_blind,
+  ante: b.ante || 0,
+  duration: b.duration,
+  is_break: b.is_break || false,
+} : null);
+
 const anchorFromData = (data) => {
   const paused = !!data.is_paused;
   if (!paused && typeof data.current_level_ends_at === 'number') {
@@ -166,19 +193,7 @@ export const useTimerSync = (dayId, blinds = null) => {
       alvo = currentBlinds[targetIndex];
       depoisDoAlvo = targetIndex + 1 < currentBlinds.length ? currentBlinds[targetIndex + 1] : null;
 
-      // Find next break by scanning forward from new level
-      let timeUntilBreak = alvo.duration * 60;
-      for (let i = targetIndex + 1; i < currentBlinds.length; i++) {
-        if (currentBlinds[i].is_break) {
-          nextBreakInfo = {
-            level: currentBlinds[i].level,
-            duration: currentBlinds[i].duration * 60,
-            time_until_break: timeUntilBreak
-          };
-          break;
-        }
-        timeUntilBreak += currentBlinds[i].duration * 60;
-      }
+      nextBreakInfo = acharProximoIntervalo(currentBlinds, targetIndex, alvo.duration * 60);
     } else if (delta === 1 && currentState.next_blind
       && typeof currentState.next_blind.duration === 'number') {
       // Sem a estrutura em cache ainda dá para avançar UM nível: o próprio estado
@@ -188,7 +203,7 @@ export const useTimerSync = (dayId, blinds = null) => {
       if (agora.breakRemaining != null) {
         // Pular o resto do nível também aproxima o intervalo na mesma medida.
         nextBreakInfo = {
-          ...(currentState.next_break || {}),
+          ...currentState.next_break,
           time_until_break: Math.max(0, agora.breakRemaining - (agora.remaining || 0)),
         };
       }
@@ -206,22 +221,8 @@ export const useTimerSync = (dayId, blinds = null) => {
       // novo — o "relógio travado" que o cliente viu ao mudar o blind sem rede.
       current_level_ends_at: null,
       next_break_starts_at: null,
-      current_blind: {
-        level: alvo.level,
-        small_blind: alvo.small_blind,
-        big_blind: alvo.big_blind,
-        ante: alvo.ante || 0,
-        duration: alvo.duration,
-        is_break: alvo.is_break || false,
-      },
-      next_blind: depoisDoAlvo ? {
-        level: depoisDoAlvo.level,
-        small_blind: depoisDoAlvo.small_blind,
-        big_blind: depoisDoAlvo.big_blind,
-        ante: depoisDoAlvo.ante || 0,
-        duration: depoisDoAlvo.duration,
-        is_break: depoisDoAlvo.is_break || false,
-      } : null,
+      current_blind: blindDoEstado(alvo),
+      next_blind: blindDoEstado(depoisDoAlvo),
       next_break: nextBreakInfo,
     };
 
@@ -247,10 +248,12 @@ export const useTimerSync = (dayId, blinds = null) => {
     if (action === 'prev-level') return shiftLevelLocally(-1, true);
 
     const agora = anchorNow(anchorRef.current);
-    const restanteAtual = agora.remaining != null
-      ? agora.remaining
-      : (typeof currentState.time_remaining_current_level === 'number'
-        ? currentState.time_remaining_current_level : 0);
+    // Sem âncora local, cai no que o servidor disse por último; se nem isso for
+    // número, começa do zero em vez de propagar undefined para a tela.
+    const restanteDoServidor = typeof currentState.time_remaining_current_level === 'number'
+      ? currentState.time_remaining_current_level
+      : 0;
+    const restanteAtual = agora.remaining != null ? agora.remaining : restanteDoServidor;
 
     let novoRestante = null;
     if (action === 'adjust' && typeof extra.seconds === 'number') {

@@ -260,7 +260,25 @@ def update_tournament_day(
     return day
 
 
-@router.get("/{day_id}/delete-impact", response_model=TournamentDayDeleteImpact)
+@router.get(
+    "/{day_id}/delete-impact",
+    response_model=TournamentDayDeleteImpact,
+    responses={
+        403: {
+            "description": (
+                "O dia existe, mas pertence a um torneio de OUTRA etapa "
+                "(diferente do X-Stage-ID enviado) — consulta recusada para não "
+                "vazar números de outra etapa."
+            )
+        },
+        404: {
+            "description": (
+                "Dia de torneio não encontrado (id inexistente ou sem impacto "
+                "calculável para ele)."
+            )
+        },
+    },
+)
 def get_tournament_day_delete_impact(
     day_id: str,
     current_user: dict = Depends(get_current_user),

@@ -141,7 +141,7 @@ const Players = () => {
           synthetic: { ...editingPlayer, ...dados },
           applyLocal: async () => {
             const p = await getEntity('players', editingPlayer.id);
-            await putEntity('players', { ...(p || {}), ...dados, id: editingPlayer.id });
+            await putEntity('players', { ...p, ...dados, id: editingPlayer.id });
           },
         });
         toast.success(upd.offline ? t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar') : t('players.updatedSuccess'));

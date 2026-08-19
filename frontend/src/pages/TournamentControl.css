@@ -387,6 +387,7 @@
 /* Aviso de operação sem rede no topo do relógio. Amarelo (atenção), não
    vermelho: nada quebrou — o relógio segue rodando ancorado nesta tela. */
 .timer-offline-badge {
+  display: block;
   align-self: center;
   padding: 0.35rem 0.9rem;
   border: 1px solid var(--warning, #f59e0b);
