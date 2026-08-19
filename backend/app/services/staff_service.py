@@ -89,6 +89,30 @@ class StaffService:
     # ================================================
 
     @staticmethod
+    def _estado_do_convite(de_outro_clube: bool, criamos_o_usuario: bool) -> str:
+        """Em que estado o vínculo nasce — os três casos têm motivos diferentes.
+
+        'pending'         a pessoa JÁ é membro de outro clube. Entra inativa e
+                          aguardando: ninguém pode ser jogado dentro de um clube
+                          sem saber. Ela aceita pelo OrgInviteModal, ou o admin
+                          efetiva por POST /staff/{id}/confirm-invite.
+        'awaiting_signup' a conta foi criada agora pelo convite e ainda não tem
+                          senha. Nasce ATIVA de propósito: o Auth Hook exige
+                          vínculo ativo para emitir o claim de organização, e sem
+                          ele a pessoa não conclui o cadastro pelo link do e-mail.
+        'accepted'        a conta já existia mas não serve a nenhum clube (conta
+                          órfã de cadastro antigo). Não há de quem pedir
+                          consentimento e não há cadastro a concluir — só entrar.
+                          É o caso que antes prendia o convidado num laço sem
+                          saída, porque o Excluir não apaga a conta do auth.
+        """
+        if de_outro_clube:
+            return "pending"
+        if criamos_o_usuario:
+            return "awaiting_signup"
+        return "accepted"
+
+    @staticmethod
     def create_staff(data: StaffCreate, created_by: str, organization_id: str = None) -> StaffResponse:
         """Convida o funcionário por e-mail; ele define nome e senha.
 
@@ -291,10 +315,8 @@ class StaffService:
             "email": data.email,
             "permission_group_id": data.permission_group_id,
             "active": not de_outro_clube,
-            "invite_status": (
-                "pending" if de_outro_clube
-                else "awaiting_signup" if criamos_o_usuario
-                else "accepted"
+            "invite_status": StaffService._estado_do_convite(
+                de_outro_clube, criamos_o_usuario
             ),
             "created_by": created_by,
         }

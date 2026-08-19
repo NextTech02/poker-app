@@ -145,6 +145,66 @@ class PlayerService:
         return None
 
     @staticmethod
+    def _reconciliar_nome(data: dict, atual: dict) -> None:
+        """Remonta o nome do PATCH parcial com o que já está gravado."""
+        if data.keys() & CAMPOS_NOME:
+            # Partes do que já está gravado. Passa pelo sincronizar_nome
+            # para cobrir a linha antiga (ou o banco ainda sem a migração),
+            # onde só existe `name`.
+            juntos = sincronizar_nome({c: atual.get(c) for c in CAMPOS_NOME})
+            if not (data.keys() & {"first_name", "last_name"}):
+                # Cliente antigo: mandou só o nome completo. Zerar as partes
+                # faz o nome novo ser redividido — senão o nome antigo seria
+                # remontado por cima do que a operação acabou de digitar.
+                juntos["first_name"] = None
+                juntos["last_name"] = None
+            juntos.update({c: data[c] for c in CAMPOS_NOME if c in data})
+            juntos = sincronizar_nome(juntos)
+
+            # Nada de descarte calado: com first_name="" e last_name="Silva"
+            # a remontagem cai no `name` que já estava gravado e devolve o
+            # nome ANTIGO — o "Silva" sumiria sem erro nenhum. Pela tela não
+            # acontece (o formulário exige o nome), mas acontece pelo replay
+            # da fila offline, pela importação e por cliente HTTP. Se o que
+            # veio no PATCH não sobreviveu, é 400.
+            enviado = {c: nome_limpo(data[c]) or None for c in CAMPOS_NOME if c in data}
+            if any(juntos.get(c) != v for c, v in enviado.items()):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Informe o nome do jogador — o sobrenome sozinho não basta.",
+                )
+
+            # `name` é NOT NULL e é o que 93 telas mostram: só reescreve
+            # quando o resultado tem nome de verdade.
+            if juntos.get("name"):
+                data.update({c: juntos.get(c) for c in CAMPOS_NOME})
+
+    @staticmethod
+    def _reconciliar_documento(data: dict, atual: dict) -> None:
+        """Valida o documento do PATCH parcial contra o que já está gravado."""
+        if data.keys() & CAMPOS_DOCUMENTO:
+            tipo = data.get("document_type", atual.get("document_type"))
+            numero = data.get("document_number", atual.get("document_number"))
+            normalizado = normalizar_documento(tipo, numero)
+            # A régua vale para documento NOVO. Reenviar o que já está
+            # gravado passa como está: a tela manda o formulário inteiro ao
+            # salvar, e há cadastro antigo (e importado antes de a planilha
+            # validar) com documento que não passa na régua de hoje — se
+            # isso bloqueasse, ninguém mais conseguiria nem corrigir o
+            # telefone desse jogador, com a fila esperando no balcão.
+            igual_ao_gravado = tipo == atual.get("document_type") and normalizado == (
+                normalizar_documento(
+                    atual.get("document_type"), atual.get("document_number")
+                )
+            )
+            if not igual_ao_gravado:
+                normalizado = _validar_documento_ou_400(tipo, numero)
+            # Só reescreve o número quando ele veio no PATCH — trocar o
+            # telefone não é hora de mexer no documento de ninguém.
+            if "document_number" in data:
+                data["document_number"] = normalizado
+
+    @staticmethod
     def update_player(player_id: str, player_data: PlayerUpdate) -> Optional[Player]:
         """Update a player"""
         data = player_data.model_dump(exclude_unset=True)
@@ -158,59 +218,8 @@ class PlayerService:
             )
             atual = (atual_res.data or [{}])[0]
 
-            if data.keys() & CAMPOS_NOME:
-                # Partes do que já está gravado. Passa pelo sincronizar_nome
-                # para cobrir a linha antiga (ou o banco ainda sem a migração),
-                # onde só existe `name`.
-                juntos = sincronizar_nome({c: atual.get(c) for c in CAMPOS_NOME})
-                if not (data.keys() & {"first_name", "last_name"}):
-                    # Cliente antigo: mandou só o nome completo. Zerar as partes
-                    # faz o nome novo ser redividido — senão o nome antigo seria
-                    # remontado por cima do que a operação acabou de digitar.
-                    juntos["first_name"] = None
-                    juntos["last_name"] = None
-                juntos.update({c: data[c] for c in CAMPOS_NOME if c in data})
-                juntos = sincronizar_nome(juntos)
-
-                # Nada de descarte calado: com first_name="" e last_name="Silva"
-                # a remontagem cai no `name` que já estava gravado e devolve o
-                # nome ANTIGO — o "Silva" sumiria sem erro nenhum. Pela tela não
-                # acontece (o formulário exige o nome), mas acontece pelo replay
-                # da fila offline, pela importação e por cliente HTTP. Se o que
-                # veio no PATCH não sobreviveu, é 400.
-                enviado = {c: nome_limpo(data[c]) or None for c in CAMPOS_NOME if c in data}
-                if any(juntos.get(c) != v for c, v in enviado.items()):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Informe o nome do jogador — o sobrenome sozinho não basta.",
-                    )
-
-                # `name` é NOT NULL e é o que 93 telas mostram: só reescreve
-                # quando o resultado tem nome de verdade.
-                if juntos.get("name"):
-                    data.update({c: juntos.get(c) for c in CAMPOS_NOME})
-
-            if data.keys() & CAMPOS_DOCUMENTO:
-                tipo = data.get("document_type", atual.get("document_type"))
-                numero = data.get("document_number", atual.get("document_number"))
-                normalizado = normalizar_documento(tipo, numero)
-                # A régua vale para documento NOVO. Reenviar o que já está
-                # gravado passa como está: a tela manda o formulário inteiro ao
-                # salvar, e há cadastro antigo (e importado antes de a planilha
-                # validar) com documento que não passa na régua de hoje — se
-                # isso bloqueasse, ninguém mais conseguiria nem corrigir o
-                # telefone desse jogador, com a fila esperando no balcão.
-                igual_ao_gravado = tipo == atual.get("document_type") and normalizado == (
-                    normalizar_documento(
-                        atual.get("document_type"), atual.get("document_number")
-                    )
-                )
-                if not igual_ao_gravado:
-                    normalizado = _validar_documento_ou_400(tipo, numero)
-                # Só reescreve o número quando ele veio no PATCH — trocar o
-                # telefone não é hora de mexer no documento de ninguém.
-                if "document_number" in data:
-                    data["document_number"] = normalizado
+            PlayerService._reconciliar_nome(data, atual)
+            PlayerService._reconciliar_documento(data, atual)
 
         response = PlayerService._gravar(
             lambda d: supabase.table("players").update(d).eq("id", player_id), data

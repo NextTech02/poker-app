@@ -451,7 +451,8 @@ class TestSincronizarNome:
     ])
     def test_divisao_e_remontagem(self, entrada, esperado):
         r = sincronizar_nome(entrada)
-        assert (r.get("first_name"), r.get("last_name"), r.get("name")) == esperado
+        obtido = (r.get("first_name"), r.get("last_name"), r.get("name"))
+        assert obtido == esperado
 
     def test_nao_altera_o_dicionario_recebido(self):
         entrada = {"name": "Ana Costa"}
