@@ -9,9 +9,10 @@ import EmptyState from './EmptyState';
 import { SkeletonStatCard, SkeletonTableRow } from './SkeletonLoader';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './CashboxDemonstrativo.css';
+import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 
-const firstOfMonth = () => new Date(new Date().setDate(1)).toISOString().split('T')[0];
-const today = () => new Date().toISOString().split('T')[0];
+const firstOfMonth = () => primeiroDiaDoMes();
+const today = () => hojeLocal();
 
 const CashboxDemonstrativo = () => {
   const { t } = useTranslation();

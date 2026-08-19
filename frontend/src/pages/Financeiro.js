@@ -17,6 +17,7 @@ import BuyTypesManager from '../components/BuyTypesManager';
 import ExpensesManager from '../components/ExpensesManager';
 import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
+import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 
 const Financeiro = () => {
   const { toast } = useToast();
@@ -34,8 +35,8 @@ const Financeiro = () => {
   const [filters, setFilters] = useState({
     stage_id: '',
     tournament_id: '',
-    start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0],
+    start: primeiroDiaDoMes(),
+    end: hojeLocal(),
   });
 
   // Extract filters

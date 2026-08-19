@@ -10,6 +10,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './Relatorios.css';
+import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 
 const Relatorios = () => {
   const { t } = useTranslation();
@@ -29,8 +30,8 @@ const Relatorios = () => {
   });
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0],
+    start: primeiroDiaDoMes(),
+    end: hojeLocal(),
   });
 
   useEffect(() => {
