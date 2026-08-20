@@ -98,7 +98,7 @@ class TestQuemPodeEmitirEmLote:
 class TestEscritaExigePermissao:
     """Era o buraco: bastava um JWT válido para emitir/resgatar/cancelar."""
 
-    def test_perfil_de_sanger_nao_emite_ticket(self, client, monkeypatch, stub):
+    def test_perfil_de_sangeur_nao_emite_ticket(self, client, monkeypatch, stub):
         stub(T, create_ticket=lambda d, u: _ticket())
         _perfil(monkeypatch, "sangi")
         assert client.post("/satellite-tickets", json=CORPO_UNICO).status_code == 403
@@ -108,12 +108,12 @@ class TestEscritaExigePermissao:
         _perfil(monkeypatch, "cashier_tickets")
         assert client.post("/satellite-tickets", json=CORPO_UNICO).status_code == 200
 
-    def test_perfil_de_sanger_nao_cancela(self, client, monkeypatch, stub):
+    def test_perfil_de_sangeur_nao_cancela(self, client, monkeypatch, stub):
         stub(T, cancel_ticket=lambda tid, u: _ticket())
         _perfil(monkeypatch, "sangi")
         assert client.post("/satellite-tickets/tk1/cancel").status_code == 403
 
-    def test_perfil_de_sanger_nao_resgata(self, client, monkeypatch, stub):
+    def test_perfil_de_sangeur_nao_resgata(self, client, monkeypatch, stub):
         stub(T, redeem_ticket=lambda tid, f, u: {"ok": True})
         _perfil(monkeypatch, "sangi")
         assert client.post("/satellite-tickets/tk1/redeem", json={}).status_code == 403
@@ -160,7 +160,7 @@ class TestTransferencia:
         assert r.status_code == 400
         assert "etapa" in r.json()["detail"]
 
-    def test_perfil_de_sanger_nao_transfere(self, client, monkeypatch, stub):
+    def test_perfil_de_sangeur_nao_transfere(self, client, monkeypatch, stub):
         stub(T, transfer_ticket=lambda *a, **k: _ticket())
         _perfil(monkeypatch, "sangi")
         r = client.post("/satellite-tickets/tk1/transfer", json={"to_player_id": "p9"})
