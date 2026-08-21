@@ -29,19 +29,28 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
     trava do dia — a mesma escolha de `seguir_sem_a_trava`. Filtrar pelo texto
     do erro só criaria um jeito novo de a recompra parar no balcão.
     """
-    def _buscar(colunas: str):
+    def _buscar(colunas: str, com_trava: bool):
+        # A ETAPA vem embutida junto de propósito: sem isso, toda venda fazia uma
+        # segunda ida ao banco só para saber se a etapa está bloqueada. Nesta
+        # instalação o banco fica em outra região e cada ida custa ~270ms — é a
+        # consulta mais cara que dá para simplesmente não fazer.
+        etapa = ", tournaments(stage_id, stages(sales_blocked, sales_blocked_reason))" if com_trava else ""
         return (
             supabase.table("tournament_players")
-            .select(f"*, {_EMBED_DO_DIA}({colunas})")
+            .select(f"*, {_EMBED_DO_DIA}({colunas}){etapa}")
             .eq("id", tournament_player_id)
             .execute()
         )
 
     try:
-        return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}")
+        return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}", com_trava=True)
     except Exception as exc:
+        # Banco sem a migração da trava: as colunas não existem e a consulta
+        # falha. Refaz sem elas — e sem o embed da etapa, que cita as mesmas
+        # colunas. A venda segue sem a trava, que é a escolha já documentada em
+        # `seguir_sem_a_trava`: parar o balcão seria pior.
         seguir_sem_a_trava(exc, f"dia embutido do inscrito {tournament_player_id}")
-        return _buscar(colunas_do_dia)
+        return _buscar(colunas_do_dia, com_trava=False)
 
 
 class TournamentPlayerService:
@@ -372,6 +381,9 @@ class TournamentPlayerService:
                 tp["tournament_id"],
                 tp.get("tournament_day_id"),
                 day_row=tp.get("tournament_days"),
+                # A etapa veio embutida na mesma leitura — passar aqui evita a
+                # segunda ida ao banco que acontecia em TODA venda.
+                stage_row=tp.get("tournaments"),
             )
         day_info = tp.get("tournament_days", {}) or {}
         # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).
@@ -462,6 +474,9 @@ class TournamentPlayerService:
                 tp["tournament_id"],
                 tp.get("tournament_day_id"),
                 day_row=tp.get("tournament_days"),
+                # A etapa veio embutida na mesma leitura — passar aqui evita a
+                # segunda ida ao banco que acontecia em TODA venda.
+                stage_row=tp.get("tournaments"),
             )
         day_info = tp.get("tournament_days", {}) or {}
         # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).

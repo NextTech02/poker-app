@@ -106,7 +106,7 @@ class SalesBlockService:
         return None
 
     @staticmethod
-    def _bloqueio_da_etapa(tournament_id: str) -> Optional[str]:
+    def _bloqueio_da_etapa(tournament_id: str, stage_row: Optional[dict] = None) -> Optional[str]:
         """Motivo do bloqueio da etapa do torneio, ou None.
 
         Uma consulta só (com o join da etapa) porque isto roda em TODA venda —
@@ -117,6 +117,11 @@ class SalesBlockService:
         antigo — o deploy não é atômico com a migração (ver
         `seguir_sem_a_trava` para o que acontece nas demais falhas).
         """
+        # Quem já leu a etapa passa `stage_row` e economiza uma ida ao banco. Numa
+        # instalação com o banco em outra região isso vale ~270ms POR VENDA, que
+        # é o operador esperando no balcão.
+        if stage_row is not None:
+            return SalesBlockService._motivo_do_bloqueio_da_etapa(stage_row)
         try:
             r = (
                 supabase.table("tournaments")
@@ -129,7 +134,17 @@ class SalesBlockService:
             return None
         if not r.data:
             return None
-        stage = r.data[0].get("stages") or {}
+        return SalesBlockService._motivo_do_bloqueio_da_etapa(r.data[0])
+
+    @staticmethod
+    def _motivo_do_bloqueio_da_etapa(linha_do_torneio: dict) -> Optional[str]:
+        """Lê o bloqueio a partir da linha do torneio com a etapa embutida.
+
+        O PostgREST devolve o embed como objeto OU como lista de um item,
+        conforme a relação — tratar só um dos dois faria a trava passar batido
+        justamente onde ela precisa valer.
+        """
+        stage = (linha_do_torneio or {}).get("stages") or {}
         if isinstance(stage, list):
             stage = stage[0] if stage else {}
         if stage.get("sales_blocked"):
@@ -148,8 +163,8 @@ class SalesBlockService:
             )
 
     @staticmethod
-    def _exigir_etapa_liberada(tournament_id: str) -> None:
-        motivo = SalesBlockService._bloqueio_da_etapa(tournament_id)
+    def _exigir_etapa_liberada(tournament_id: str, stage_row: Optional[dict] = None) -> None:
+        motivo = SalesBlockService._bloqueio_da_etapa(tournament_id, stage_row)
         if motivo is not None:
             raise ValueError(
                 f"Vendas bloqueadas para esta etapa: {motivo}" if motivo
@@ -161,6 +176,7 @@ class SalesBlockService:
         tournament_id: str,
         tournament_day_id: Optional[str] = None,
         day_row: Optional[dict] = None,
+        stage_row: Optional[dict] = None,
     ) -> None:
         """Levanta ValueError quando a venda está bloqueada (dia OU etapa).
 
@@ -172,7 +188,7 @@ class SalesBlockService:
         chave-mestra do diretor no POST /transactions.
         """
         SalesBlockService._exigir_dia_liberado(tournament_day_id, day_row)
-        SalesBlockService._exigir_etapa_liberada(tournament_id)
+        SalesBlockService._exigir_etapa_liberada(tournament_id, stage_row)
 
     @staticmethod
     def dia_da_venda(tournament_id: str, player_id: str) -> Optional[str]:

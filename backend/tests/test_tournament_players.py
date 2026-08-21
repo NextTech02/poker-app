@@ -240,6 +240,55 @@ class TestRecompraEmLote:
         assert fake.store["tournament_players"][0]["rebuy_count"] == 1
 
 
+class TestIdasAoBancoNaRecompra:
+    """Quantas vezes o banco e consultado numa recompra.
+
+    Nao e microotimizacao: o banco desta instalacao fica em outra regiao e cada
+    ida custa ~270ms medidos. Consulta a mais aqui e o operador esperando no
+    balcao, e este teste existe para que uma volte a aparecer sem ninguem notar.
+    """
+
+    def _com_jogador(self, monkeypatch):
+        return TestRebuyEAddon._com_jogador(self, monkeypatch)
+
+    def test_a_etapa_nao_e_consultada_de_novo_quando_veio_embutida(self, monkeypatch):
+        """Com a etapa embutida na leitura da inscricao, a venda NAO faz a segunda
+        ida ao banco so para checar o bloqueio.
+
+        O FakeSupabase nao resolve embed (devolve a linha crua), entao o teste
+        entrega a linha ja no formato que o PostgREST devolve — que e o que
+        acontece em producao. Tirando o embed do SELECT, o codigo volta a
+        consultar `tournaments` e este teste fica vermelho."""
+        fake = TestRebuyEAddon._com_jogador(
+            self, monkeypatch,
+            tournaments={"stage_id": "etapa-1", "stages": {"sales_blocked": False}},
+        )
+
+        tabelas = []
+        original = fake.table
+        monkeypatch.setattr(fake, "table", lambda n: (tabelas.append(n), original(n))[1])
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+
+        assert tabelas.count("tournaments") == 0, (
+            f"a etapa foi consultada a parte; tabelas lidas: {tabelas}"
+        )
+
+    def test_o_lote_nao_multiplica_as_consultas(self, monkeypatch):
+        """Tres recompras nao podem custar tres vezes o numero de consultas de
+        uma — era exatamente o que o laco do Caixa fazia."""
+        def _contar(qtd):
+            fake = self._com_jogador(monkeypatch)
+            tabelas = []
+            original = fake.table
+            monkeypatch.setattr(fake, "table", lambda n: (tabelas.append(n), original(n))[1])
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=qtd)
+            return len(tabelas)
+
+        uma = _contar(1)
+        tres = _contar(3)
+        assert tres == uma, f"uma recompra: {uma} consultas; tres: {tres}"
+
+
 class TestEliminacao:
     def _ativo(self, monkeypatch):
         return _monta(monkeypatch, jogadores=[{
@@ -672,9 +721,9 @@ class TestCaminhoQuenteDaVenda:
         vezes = {"n": 0}
         original = SalesBlockService._bloqueio_da_etapa
 
-        def _contar(tournament_id):
+        def _contar(tournament_id, stage_row=None):
             vezes["n"] += 1
-            return original(tournament_id)
+            return original(tournament_id, stage_row)
 
         monkeypatch.setattr(SalesBlockService, "_bloqueio_da_etapa", staticmethod(_contar))
 
