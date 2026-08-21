@@ -82,7 +82,11 @@ begin
              where stage_id = $1 and (coalesce(current_balance,0) <> 0 or coalesce(total_received,0) <> 0)'
       into v_total using old.id;
     if v_total > 0 then
-      v_achados := v_achados || 'caixa da etapa com movimento';
+      -- `::text` OBRIGATORIO: sem ele o literal e de tipo `unknown` e o Postgres
+      -- resolve o `||` como array||array, tentando ler a frase como literal de
+      -- array (ERROR 22P02 malformed array literal). No laco acima nao acontece
+      -- porque format() ja devolve text tipado. Pego em teste na producao.
+      v_achados := v_achados || 'caixa da etapa com movimento'::text;
     end if;
   end if;
 
