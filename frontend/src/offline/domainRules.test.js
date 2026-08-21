@@ -220,6 +220,30 @@ describe('rebuy', () => {
     expect(tp.total_spent).toBe(600);
   });
 
+  it('recompra em lote soma as tres de uma vez', async () => {
+    // O modo offline precisa chegar ao MESMO numero que o servidor vai gravar;
+    // se divergir, a tela mostra um estado que a sincronizacao depois desmente.
+    const { tp } = await applyRebuy({ ...corpoRebuy(), quantity: 3 });
+    expect(tp.rebuy_count).toBe(3);
+    expect(tp.total_rebuy_amount).toBe(900);
+    // 30.000 iniciais + 3 x 30.000 de recompra
+    expect(tp.total_chips).toBe(120000);
+  });
+
+  it('recompra em lote grava uma linha por recompra, com id proprio', async () => {
+    // Uma linha so com valor triplicado faria a contagem de entradas mentir; e
+    // sem id proprio o replay acharia a primeira e pularia as outras duas.
+    const corpo = { ...corpoRebuy(), quantity: 3, client_mutation_id: 'abc' };
+    await applyRebuy(corpo);
+    const gravadas = [...memoria.entries()]
+      .filter(([chave]) => chave.startsWith('transactions:'))
+      .map(([, linha]) => linha)
+      .filter((t) => t.type === 'rebuy');
+    expect(gravadas).toHaveLength(3);
+    expect(gravadas.map((t) => t.client_id).sort()).toEqual(['abc:0', 'abc:1', 'abc:2']);
+    expect(new Set(gravadas.map((t) => t.amount)).size).toBe(1);
+  });
+
   it('reativa quem estava eliminado', async () => {
     // É exatamente para isso que serve o rebuy: o jogador voltou.
     await applyEliminate({ tournament_player_id: 'tp-local-1' });

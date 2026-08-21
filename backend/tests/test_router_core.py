@@ -212,7 +212,7 @@ class TestInscricoes:
     @pytest.mark.parametrize("acao,metodo", [("rebuy", "add_rebuy"), ("addon", "add_addon")])
     def test_rebuy_e_addon(self, client, stub, acao, metodo):
         stub(TPS, **{metodo: lambda tpid, uid, payment_source="cash",
-                     payment_method="cash", buy_type_id=None: _inscricao(gasto=200.0)})
+                     payment_method="cash", buy_type_id=None, **kwargs: _inscricao(gasto=200.0)})
         r = client.post(f"/tournament-players/{TP}/{acao}")
         assert r.status_code == 200
         assert r.json()["total_spent"] == 200.0
@@ -223,7 +223,10 @@ class TestInscricoes:
         caminho, o rake volta a ser o percentual genérico do dia."""
         recebidos = {}
 
-        def _acao(tpid, uid, payment_source="cash", payment_method="cash", buy_type_id=None):
+        # `**kwargs` na assinatura, mas FORA da captura: a rota de rebuy passa
+        # `quantity` e `client_mutation_id`, que nao sao o objeto deste teste —
+        # incluí-los aqui faria a comparacao falhar por um motivo alheio.
+        def _acao(tpid, uid, payment_source="cash", payment_method="cash", buy_type_id=None, **kwargs):
             recebidos.update(fonte=payment_source, forma=payment_method, tipo=buy_type_id)
             return _inscricao()
 
@@ -234,7 +237,7 @@ class TestInscricoes:
 
     @pytest.mark.parametrize("acao,metodo", [("rebuy", "add_rebuy"), ("addon", "add_addon")])
     def test_fora_do_nivel_permitido_da_404_com_motivo(self, client, stub, acao, metodo):
-        def _estoura(tpid, uid, payment_source="cash", payment_method="cash", buy_type_id=None):
+        def _estoura(tpid, uid, payment_source="cash", payment_method="cash", buy_type_id=None, **kwargs):
             raise ValueError("Rebuy não permitido após o nível 6")
         stub(TPS, **{metodo: _estoura})
         r = client.post(f"/tournament-players/{TP}/{acao}")

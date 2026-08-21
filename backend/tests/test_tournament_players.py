@@ -162,6 +162,84 @@ class TestRebuyEAddon:
         assert fake.store["tournament_players"][0]["rebuy_count"] == 2
 
 
+class TestRecompraEmLote:
+    """Recompra dupla/tripla numa ida só.
+
+    O motivo é medido, nao estetico: o banco desta instalacao fica em outra
+    regiao e cada ida custa ~270ms. Uma recompra faz ~6 consultas, entao o Caixa
+    disparando uma chamada por recompra fazia o operador esperar a SOMA de
+    todas — perto de 6 segundos para tres, com a fila no balcao.
+    """
+
+    def _com_jogador(self, monkeypatch):
+        return TestRebuyEAddon._com_jogador(self, monkeypatch)
+
+    def test_tres_recompras_somam_contador_valor_e_fichas_de_uma_vez(self, monkeypatch):
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=3)
+        linha = fake.store["tournament_players"][0]
+        assert linha["rebuy_count"] == 3
+        # 10000 iniciais + 3 x 10000 de recompra
+        assert linha["total_chips"] == 40000
+
+    def test_cada_recompra_do_lote_vira_UMA_linha(self, monkeypatch):
+        """Relatorio e bolsa de premios contam LINHAS de venda, nao quantidade:
+        gravar uma linha com valor triplicado faria o numero de entradas mentir."""
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=3)
+        rebuys = [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
+        assert len(rebuys) == 3
+        # Cada linha vale UMA recompra: o valor NAO pode vir triplicado numa
+        # linha so, senao a bolsa de premios e o rake sairiam certos mas a
+        # contagem de entradas mentiria.
+        assert len({float(t["amount"]) for t in rebuys}) == 1
+
+    def test_o_valor_da_linha_do_lote_e_o_mesmo_da_recompra_avulsa(self, monkeypatch):
+        """Prova que o lote nao concentrou o valor numa linha: cada linha do lote
+        vale exatamente o que valeria uma recompra feita sozinha."""
+        avulso = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        valor_avulso = float([t for t in avulso.store["transactions"] if t["type"] == "rebuy"][0]["amount"])
+
+        lote = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=3)
+        valores = [float(t["amount"]) for t in lote.store["transactions"] if t["type"] == "rebuy"]
+        assert valores == [valor_avulso] * 3
+
+    def test_lote_grava_um_identificador_por_linha(self, monkeypatch):
+        """Sem identificador proprio por linha, o replay da fila offline acharia
+        a primeira e concluiria que as tres ja entraram."""
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=3,
+                                          client_mutation_id="abc")
+        ids = sorted(t.get("client_id") for t in fake.store["transactions"] if t["type"] == "rebuy")
+        assert ids == ["abc:0", "abc:1", "abc:2"]
+
+    def test_uma_recompra_mantem_o_identificador_sem_sufixo(self, monkeypatch):
+        """Compatibilidade: quem ja esta no ar manda quantity=1 e o id inteiro."""
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
+                                          client_mutation_id="abc")
+        ids = [t.get("client_id") for t in fake.store["transactions"] if t["type"] == "rebuy"]
+        assert ids == ["abc"]
+
+    def test_repetir_o_lote_nao_duplica_nada(self, monkeypatch):
+        """A retentativa do mesmo lote (rede caiu no meio) nao pode cobrar de novo."""
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=3,
+                                          client_mutation_id="abc")
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=3,
+                                          client_mutation_id="abc")
+        rebuys = [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
+        assert len(rebuys) == 3
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 3
+
+    def test_quantidade_ausente_ou_zero_vale_como_uma(self, monkeypatch):
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=0)
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 1
+
+
 class TestEliminacao:
     def _ativo(self, monkeypatch):
         return _monta(monkeypatch, jogadores=[{

@@ -477,29 +477,44 @@ const Caixa = () => {
           }
 
           // Process the rebuy(s) — supports multiple rebuys at once ("recompra dupla").
+          // UMA chamada para N recompras. Antes havia um laco com `await` por
+          // recompra: como o banco desta instalacao fica em outra regiao e cada
+          // ida custa ~270ms, e uma recompra faz ~6 consultas, tres recompras
+          // somavam perto de 6 segundos com a fila esperando no balcao.
+          // Mandando a quantidade, as conferencias acontecem uma vez so e as
+          // escritas viram um update e um insert com N linhas.
+          // De quebra fica atomico: antes, se a segunda falhasse, a primeira ja
+          // tinha sido gravada e o jogador ficava com fichas a menos do que pagou.
           const rebuyQty = Math.max(1, parseInt(formData.rebuy_quantity, 10) || 1);
-          let rebuyOffline = false;
-          for (let i = 0; i < rebuyQty; i++) {
-            const cmid = uuid();
-            const rbBody = {
-              tournament_player_id: tournamentPlayer.id,
-              payment_source: formData.payment_source || 'cash',
-              payment_method: formData.payment_method || 'cash',
-              buy_type_id: formData.buy_type_id || null,
+          const cmid = uuid();
+          const rbBody = {
+            tournament_player_id: tournamentPlayer.id,
+            payment_source: formData.payment_source || 'cash',
+            payment_method: formData.payment_method || 'cash',
+            buy_type_id: formData.buy_type_id || null,
+            client_mutation_id: cmid,
+            quantity: rebuyQty,
+          };
+          const rr = await offlineWrite({
+            kind: 'rebuy', method: 'post',
+            url: `/tournament-players/${tournamentPlayer.id}/rebuy`,
+            // `quantity` e `client_mutation_id` vao como PARAMETRO: a rota le
+            // parametros de consulta, e o corpo era descartado — foi assim que a
+            // protecao contra registrar a mesma venda duas vezes se perdeu.
+            params: {
+              payment_source: rbBody.payment_source,
+              payment_method: rbBody.payment_method,
+              quantity: rebuyQty,
               client_mutation_id: cmid,
-            };
-            const rr = await offlineWrite({
-              kind: 'rebuy', method: 'post',
-              url: `/tournament-players/${tournamentPlayer.id}/rebuy`,
-              params: { payment_source: rbBody.payment_source, payment_method: rbBody.payment_method, ...(formData.buy_type_id ? { buy_type_id: formData.buy_type_id } : {}) },
-              body: rbBody,
-              clientMutationId: cmid,
-              meta: { kind: 'rebuy', player_id: formData.player_id },
-              synthetic: { ok: true },
-              applyLocal: () => applyRebuy(rbBody),
-            });
-            if (rr.offline) rebuyOffline = true;
-          }
+              ...(formData.buy_type_id ? { buy_type_id: formData.buy_type_id } : {}),
+            },
+            body: rbBody,
+            clientMutationId: cmid,
+            meta: { kind: 'rebuy', player_id: formData.player_id },
+            synthetic: { ok: true },
+            applyLocal: () => applyRebuy(rbBody),
+          });
+          const rebuyOffline = !!rr.offline;
 
           const tournament = tournaments.find(t => t.id === formData.tournament_id);
           const selectedDay = tournamentDays.find(d => d.id === formData.tournament_day_id);

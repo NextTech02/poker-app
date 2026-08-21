@@ -114,16 +114,26 @@ export const applyRebuy = async (body) => {
   const chips = Number((day && day.rebuy_chips) || 10000);
   const rakePct = rakePctFor(day, buyType);
 
-  tp.rebuy_count = Number(tp.rebuy_count || 0) + 1;
-  tp.total_rebuy_amount = round2(Number(tp.total_rebuy_amount || 0) + amount);
-  tp.total_chips = Number(tp.total_chips || 0) + chips;
-  tp.total_spent = round2(Number(tp.total_spent || 0) + amount);
+  // Recompra dupla/tripla: a quantidade vem no corpo e e aplicada aqui de uma vez,
+  // igual ao backend. Localmente nao ha rede, mas os numeros TEM de bater com o
+  // que o servidor vai gravar — senao a tela mostra um estado que a sincronizacao
+  // depois desmente.
+  const qtd = Math.max(1, parseInt(body.quantity, 10) || 1);
+
+  tp.rebuy_count = Number(tp.rebuy_count || 0) + qtd;
+  tp.total_rebuy_amount = round2(Number(tp.total_rebuy_amount || 0) + amount * qtd);
+  tp.total_chips = Number(tp.total_chips || 0) + chips * qtd;
+  tp.total_spent = round2(Number(tp.total_spent || 0) + amount * qtd);
   tp.status = 'active';
   await putEntity('tournament_players', tp);
 
+  // Uma LINHA por recompra, com o mesmo sufixo que o backend usa — o relatorio
+  // conta linhas, e o replay precisa reconhecer as que ja entraram.
+  for (let i = 0; i < qtd; i++) {
+  const idDaLinha = qtd === 1 ? body.client_mutation_id : `${body.client_mutation_id}:${i}`;
   await putEntity('transactions', {
-    id: body.client_mutation_id,
-    client_id: body.client_mutation_id,
+    id: idDaLinha,
+    client_id: idDaLinha,
     tournament_id: tp.tournament_id,
     player_id: tp.player_id,
     tournament_player_id: tp.id,
@@ -137,7 +147,8 @@ export const applyRebuy = async (body) => {
     created_at: nowISO(),
     _offline: true,
   });
-  if (day) await bumpStageCashAndPool(day, tp.tournament_id, amount, rakePct);
+  }
+  if (day) await bumpStageCashAndPool(day, tp.tournament_id, amount * qtd, rakePct);
   return { tp };
 };
 

@@ -576,8 +576,11 @@ describe('rebuy', () => {
     expect(offlineWrite).not.toHaveBeenCalled();
   });
 
-  it('recompra dupla envia um rebuy por unidade', async () => {
-    // O jogador pede duas de uma vez; contar uma só cobraria metade.
+  it('recompra dupla vai numa chamada só, levando a quantidade', async () => {
+    // O jogador pede três de uma vez. Antes o Caixa disparava três chamadas em
+    // sequência, cada uma esperando a anterior: como o banco fica em outra
+    // região e cada ida custa ~270ms, o operador esperava perto de 6 segundos
+    // com a fila no balcão. Agora vai a quantidade, e o servidor grava as três.
     await montar();
     await comoRebuy();
     const qtd = screen.getByLabelText('Quantidade de rebuys');
@@ -585,8 +588,14 @@ describe('rebuy', () => {
     await userEvent.type(qtd, '3');
     await enviar();
     await waitFor(() =>
-      expect(offlineWrite.mock.calls.filter((c) => c[0].url.includes('/rebuy')).length).toBe(3)
+      expect(offlineWrite.mock.calls.filter((c) => c[0].url.includes('/rebuy')).length).toBe(1)
     );
+    const chamada = offlineWrite.mock.calls.find((c) => c[0].url.includes('/rebuy'))[0];
+    // A quantidade tem de chegar como PARÂMETRO: a rota lê parâmetros de
+    // consulta e descarta o corpo — foi assim que a chave de idempotência
+    // enviada no corpo se perdia.
+    expect(chamada.params.quantity).toBe(3);
+    expect(chamada.body.quantity).toBe(3);
   });
 
   it('quantidade inválida vira uma recompra, não zero', async () => {
@@ -600,9 +609,10 @@ describe('rebuy', () => {
     );
   });
 
-  it('cada rebuy leva chave de idempotência própria', async () => {
-    // Duas recompras iguais no mesmo segundo não podem colapsar numa só no
-    // replay da fila.
+  it('a recompra leva chave de idempotência, e ela chega ao servidor', async () => {
+    // Sem a chave, uma retentativa (rede oscilou, operador clicou de novo)
+    // registraria a mesma venda outra vez. Ela ia no CORPO, que a rota descarta;
+    // agora vai também como parâmetro, que é o que o servidor lê.
     await montar();
     await comoRebuy();
     const qtd = screen.getByLabelText('Quantidade de rebuys');
@@ -610,12 +620,11 @@ describe('rebuy', () => {
     await userEvent.type(qtd, '2');
     await enviar();
     await waitFor(() =>
-      expect(offlineWrite.mock.calls.filter((c) => c[0].url.includes('/rebuy')).length).toBe(2)
+      expect(offlineWrite.mock.calls.filter((c) => c[0].url.includes('/rebuy')).length).toBe(1)
     );
-    const ids = offlineWrite.mock.calls
-      .filter((c) => c[0].url.includes('/rebuy'))
-      .map((c) => c[0].clientMutationId);
-    expect(new Set(ids).size).toBe(2);
+    const chamada = offlineWrite.mock.calls.find((c) => c[0].url.includes('/rebuy'))[0];
+    expect(chamada.clientMutationId).toBeTruthy();
+    expect(chamada.params.client_mutation_id).toBe(chamada.clientMutationId);
   });
 
   it('jogador eliminado sai do ranking antes de voltar ao jogo', async () => {

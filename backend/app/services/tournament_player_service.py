@@ -154,12 +154,17 @@ class TournamentPlayerService:
         return payment_source, ticket_id, buy_in_amount
 
     @staticmethod
-    def _venda_ja_registrada(tp: dict, client_mutation_id: Optional[str]) -> Optional[TournamentPlayer]:
+    def _venda_ja_registrada(tp: dict, client_mutation_id: Optional[str], quantity: int = 1) -> Optional[TournamentPlayer]:
         """Replay offline: se a transação desta venda já existe (mesmo
-        client_mutation_id), não re-incrementa contadores — devolve o tp atual."""
+        client_mutation_id), não re-incrementa contadores — devolve o tp atual.
+
+        Numa recompra em lote as linhas são gravadas como `cmid:0`, `cmid:1`...
+        Procurar só por `cmid` não acharia nenhuma e o replay duplicaria TODAS —
+        por isso o lote procura pela primeira linha da série."""
         if not client_mutation_id:
             return None
-        dup = supabase.table("transactions").select("id").eq("client_id", client_mutation_id).execute()
+        procurado = client_mutation_id if quantity == 1 else f"{client_mutation_id}:0"
+        dup = supabase.table("transactions").select("id").eq("client_id", procurado).execute()
         if not dup.data:
             return None
         return TournamentPlayer(**{k: v for k, v in tp.items() if k != "tournament_days"})
@@ -322,8 +327,25 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False) -> TournamentPlayer:
-        """Add a rebuy for a tournament player"""
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1) -> TournamentPlayer:
+        """Registra UMA OU MAIS recompras do jogador, numa ida só.
+
+        `quantity` existe por desempenho medido, não por elegância: o banco deste
+        projeto fica em outra região (us-west-2) e cada ida custa ~270ms de rede.
+        Uma recompra faz ~6 consultas, então a "recompra dupla" feita em duas
+        chamadas separadas cobrava a conta duas vezes — com três, o operador
+        esperava perto de 6 segundos com a fila no balcão.
+
+        Com a quantidade aqui dentro, as CONFERÊNCIAS acontecem uma vez só
+        (inscrição, caixa aberto, trava de vendas, tipo de buy) e as ESCRITAS
+        viram uma atualização de contadores e um único insert com N linhas.
+        Três recompras passam de ~18 consultas para ~6.
+
+        De quebra fica ATÔMICO no que importa: antes, se a segunda recompra
+        falhasse, a primeira já tinha sido gravada e o jogador ficava com fichas
+        a menos do que pagou.
+        """
+        quantity = max(1, int(quantity or 1))
         # Get tournament player info with tournament_day data
         tp_response = _ler_inscrito_com_o_dia(
             tournament_player_id,
@@ -337,7 +359,7 @@ class TournamentPlayerService:
 
         # Idempotência (replay offline): se a transação deste rebuy já existe
         # (mesmo client_mutation_id), não re-incrementa contadores — devolve o tp atual.
-        ja_registrado = TournamentPlayerService._venda_ja_registrada(tp, client_mutation_id)
+        ja_registrado = TournamentPlayerService._venda_ja_registrada(tp, client_mutation_id, quantity)
         if ja_registrado is not None:
             return ja_registrado
 
@@ -363,10 +385,13 @@ class TournamentPlayerService:
         TournamentPlayerService._recusar_rebuy_fora_do_nivel(day_info, current_blind_level, skip_level_gate)
 
         # Update tournament player - if eliminated, reactivate them
+        # Uma atualização só, com os contadores já multiplicados: N recompras não
+        # podem virar N idas ao banco (ver docstring).
+        valor_total = rebuy_amount * quantity
         updated_data = {
-            "rebuy_count": tp["rebuy_count"] + 1,
-            "total_rebuy_amount": float(tp["total_rebuy_amount"]) + rebuy_amount,
-            "total_chips": tp["total_chips"] + rebuy_chips,
+            "rebuy_count": tp["rebuy_count"] + quantity,
+            "total_rebuy_amount": float(tp["total_rebuy_amount"]) + valor_total,
+            "total_chips": tp["total_chips"] + (rebuy_chips * quantity),
             "status": "active",  # Reactivate player if they were eliminated
         }
 
@@ -376,27 +401,39 @@ class TournamentPlayerService:
         _chipcount_cache.pop(tp.get("tournament_day_id"), None)
 
         # Handle credit payment for rebuy
+        # O crédito é consumido pelo valor TOTAL das N recompras — cobrar só uma e
+        # gravar N deixaria o saldo do jogador maior do que ele tem.
         actual_payment_source = TournamentPlayerService._pagar_com_credito(
-            tp, rebuy_amount, "rebuy", payment_source, user_id
+            tp, valor_total, "rebuy", payment_source, user_id
         )
 
         # Create transaction
-        transaction_data = {
-            "tournament_id": tp["tournament_id"],
-            "player_id": tp["player_id"],
-            "tournament_player_id": tournament_player_id,
-            "type": "rebuy",
-            "amount": rebuy_amount,
-            "payment_source": actual_payment_source,
-            "payment_method": payment_method or "cash",
-            "buy_type_id": buy_type_id,
-            "rake_percentage": rake_pct,
-            "rake_amount": round(rebuy_amount * rake_pct / 100, 2),
-            "created_by": user_id,
-        }
-        if client_mutation_id:
-            transaction_data["client_id"] = client_mutation_id
-        supabase.table("transactions").insert(transaction_data).execute()
+        # UMA linha por recompra (o relatório e a bolsa de prêmios contam linhas,
+        # não somam quantidade), mas UM ÚNICO insert com as N de uma vez.
+        def _linha(indice: int) -> dict:
+            linha = {
+                "tournament_id": tp["tournament_id"],
+                "player_id": tp["player_id"],
+                "tournament_player_id": tournament_player_id,
+                "type": "rebuy",
+                "amount": rebuy_amount,
+                "payment_source": actual_payment_source,
+                "payment_method": payment_method or "cash",
+                "buy_type_id": buy_type_id,
+                "rake_percentage": rake_pct,
+                "rake_amount": round(rebuy_amount * rake_pct / 100, 2),
+                "created_by": user_id,
+            }
+            if client_mutation_id:
+                # Cada linha precisa do SEU identificador, senão o replay da fila
+                # offline acharia a primeira e concluiria que as N já entraram.
+                linha["client_id"] = (
+                    client_mutation_id if quantity == 1
+                    else f"{client_mutation_id}:{indice}"
+                )
+            return linha
+
+        supabase.table("transactions").insert([_linha(i) for i in range(quantity)]).execute()
 
         return TournamentPlayer(**response.data[0])
 
