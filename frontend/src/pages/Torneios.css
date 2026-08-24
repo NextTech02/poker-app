@@ -277,9 +277,14 @@
 .tr-stat strong { color: var(--text-secondary); }
 
 /* Footer */
+/* O rodape do card tem quatro acoes numa linha de ~300px. Em portugues cabia
+   raspando; em espanhol ("Eliminar", "Informe") o ultimo item saia pela borda
+   do card e ficava cortado. Deixar quebrar em duas linhas e melhor que sumir —
+   o card cresce um pouco e todas as acoes continuam alcancaveis. */
 .tr-card-footer {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.75rem 1.25rem;
   border-top: 1px solid #111e2e;
@@ -296,6 +301,9 @@
   border-radius: 5px;
   font-size: 0.75rem;
   font-weight: 600;
+  /* Sem isto o rotulo quebra no meio da palavra antes de a linha quebrar. */
+  white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.15s;
 }
