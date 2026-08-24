@@ -16,6 +16,10 @@
 -- O contador `tournament_days.eliminations_count` é genérico: o operador clica
 -- "Eliminar 1" e o número sobe, sem dizer quem saiu. Por isso a recompra mexe
 -- nele, e não no status de um jogador específico.
+--
+-- UMA POR VENDA, não por recompra: o jogador que compra 5 recompras de uma vez
+-- foi ao caixa UMA vez e sentou UMA vez — comprou mais fichas, não mais
+-- cadeiras. Descontar 5 daria 104 jogadores ativos num torneio de 100 entradas.
 -- ============================================================================
 
 
@@ -51,6 +55,16 @@ COMMENT ON FUNCTION public.desfazer_eliminacoes(uuid, int) IS
 -- Simetria: sem ela o telão fica com um jogador ativo a mais PARA SEMPRE, e
 -- ninguém percebe — o número está a um dígito do certo.
 --
+-- Só quando some a ÚLTIMA recompra do jogador. O estorno é POR TRANSAÇÃO, e uma
+-- venda de 5 recompras gerou 5 linhas; se cada cancelamento devolvesse 1,
+-- sairia 1 e voltariam 5.
+--
+-- LIMITE CONHECIDO: se o jogador recomprou em VENDAS separadas (três idas ao
+-- caixa, três eliminações desfeitas) e todas forem canceladas, isto devolve uma
+-- só. O contador fica abaixo do real, e o operador acerta no botão
+-- "Eliminar 1". Cancelar recompra é estorno — operação excepcional, sempre
+-- conferida — e o caso comum, o do lote vendido de uma vez, fica exato.
+--
 -- Entra dentro de `undo_entry_counters_once`, e não no Python, por dois
 -- motivos: roda na mesma transação do resto do acerto, e herda a guarda que já
 -- existe — o recibo em `transaction_counter_refunds` faz a função valer uma vez
@@ -68,6 +82,7 @@ DECLARE
   v_dia_id    uuid;
   v_fichas    integer;
   v_inseridos int;
+  v_restantes int;
 BEGIN
   SELECT * INTO v_tx FROM public.transactions WHERE id = p_transaction_id;
   IF NOT FOUND OR v_tx.tournament_player_id IS NULL THEN
@@ -98,12 +113,13 @@ BEGIN
        SET rebuy_count        = GREATEST(COALESCE(rebuy_count, 0) - 1, 0),
            total_rebuy_amount = GREATEST(COALESCE(total_rebuy_amount, 0) - COALESCE(v_tx.amount, 0), 0),
            total_chips        = GREATEST(COALESCE(total_chips, 0) - COALESCE(v_fichas, 0), 0)
-     WHERE id = v_tx.tournament_player_id;
+     WHERE id = v_tx.tournament_player_id
+    RETURNING rebuy_count INTO v_restantes;
 
-    -- A venda desta recompra tinha baixado o contador de eliminações; o estorno
-    -- devolve. Teto no total de buy-ins do dia: não há mais eliminados do que
-    -- gente que entrou.
-    IF v_dia_id IS NOT NULL THEN
+    -- Só quando não sobra nenhuma recompra o jogador volta a estar fora da mesa
+    -- (ver o cabeçalho). Teto no total de buy-ins do dia: não há mais eliminados
+    -- do que gente que entrou.
+    IF v_dia_id IS NOT NULL AND COALESCE(v_restantes, 0) = 0 THEN
       UPDATE public.tournament_days d
          SET eliminations_count = LEAST(
                COALESCE(d.eliminations_count, 0) + 1,

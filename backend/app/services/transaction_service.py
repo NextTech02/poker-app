@@ -334,6 +334,13 @@ class TransactionService:
     def _refazer_eliminacao(dia: dict, day_id: str) -> None:
         """Devolve uma eliminação ao contador do dia, sem passar do total.
 
+        LIMITE CONHECIDO: se o jogador recomprou em VENDAS separadas (três idas
+        ao caixa, três eliminações desfeitas) e todas forem canceladas, isto
+        devolve uma só. O contador fica abaixo do real e o operador acerta no
+        botão "Eliminar 1". Cancelar recompra é estorno — operação excepcional,
+        sempre conferida — e o caso comum, o do lote vendido de uma vez, fica
+        exato.
+
         Só é usada no caminho anterior à migração — onde o RPC existe, o mesmo
         acerto acontece dentro dele, na mesma transação. Falhar aqui não derruba
         o estorno: o dinheiro já voltou, e o pior caso é um ativo a mais na TV
@@ -447,11 +454,15 @@ class TransactionService:
                 campo_total: max(round(float(tp.get(campo_total) or 0) - valor, 2), 0.0),
                 "total_chips": max(int(tp.get("total_chips") or 0) - fichas_do_tipo, 0),
             }
-            if tx["type"] == "rebuy" and day_id:
-                # A venda da recompra tinha baixado o contador de eliminações
-                # (quem recompra volta à mesa); o estorno devolve. Sem isto o
-                # telão fica com um jogador ativo a mais para sempre, e ninguém
-                # percebe: o número está a um dígito do certo.
+            # A venda da recompra tinha baixado o contador de eliminações (quem
+            # recompra volta à mesa); o estorno devolve. Sem isto o telão fica
+            # com um jogador ativo a mais para sempre, e ninguém percebe: o
+            # número está a um dígito do certo.
+            #
+            # SÓ quando some a ÚLTIMA recompra do jogador. A venda desconta UMA
+            # eliminação por VENDA, mesmo quando são cinco recompras de uma vez;
+            # devolver uma por transação faria sair 1 e voltarem 5.
+            if tx["type"] == "rebuy" and day_id and dados[campo_conta] == 0:
                 TransactionService._refazer_eliminacao(dia, day_id)
         else:
             # Buy-in cancelado = inscrição desfeita: o jogador sai do dia.

@@ -452,24 +452,30 @@ class TournamentPlayerService:
         # porque as recompras eram somadas aos ativos em vez de cancelarem uma
         # eliminacao. Com 100 entradas: elimina o jogador X (99 ativos), X
         # recompra e voltam as mesmas 100.
-        TournamentPlayerService._desfazer_eliminacoes(tp.get("tournament_day_id"), quantity)
+        #
+        # UMA por VENDA, nao por recompra: o jogador que compra 5 recompras de
+        # uma vez foi ao caixa UMA vez e sentou UMA vez. Descontar 5 daria 104
+        # ativos num torneio de 100 entradas.
+        TournamentPlayerService._desfazer_eliminacoes(tp.get("tournament_day_id"))
 
         return TournamentPlayer(**response.data[0])
 
     @staticmethod
-    def _desfazer_eliminacoes(day_id, quantidade: int) -> None:
-        """Baixa o contador de eliminacoes do dia, com piso em zero.
+    def _desfazer_eliminacoes(day_id) -> None:
+        """Baixa em UM o contador de eliminacoes do dia, com piso em zero.
+
+        Uma por venda, seja ela de uma recompra ou de cinco: o jogador foi ao
+        caixa uma vez e voltou para a mesa uma vez.
 
         Falhar aqui NAO pode derrubar a venda: o dinheiro ja entrou e a recompra
         ja esta gravada. O pior caso e o telao mostrar um ativo a menos ate o
         operador ajustar no botao — muito melhor que recusar uma venda paga.
         """
-        if not day_id or quantidade <= 0:
+        if not day_id:
             return
         try:
             supabase.rpc(
-                "desfazer_eliminacoes",
-                {"p_day_id": str(day_id), "p_qtd": int(quantidade)},
+                "desfazer_eliminacoes", {"p_day_id": str(day_id), "p_qtd": 1},
             ).execute()
         except Exception:
             # Banco ainda sem a funcao (o deploy do codigo nao e atomico com a
@@ -486,7 +492,7 @@ class TournamentPlayerService:
                     or [{}]
                 )[0].get("eliminations_count") or 0
                 supabase.table("tournament_days").update(
-                    {"eliminations_count": max(0, atual - quantidade)}
+                    {"eliminations_count": max(0, atual - 1)}
                 ).eq("id", day_id).execute()
             except Exception:
                 pass

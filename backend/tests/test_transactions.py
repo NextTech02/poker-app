@@ -944,7 +944,7 @@ class TestContadoresSaoDecrementados:
             "undo_entry_counters_once"
         ]
 
-    def test_cancelar_recompra_devolve_a_eliminacao_ao_contador(self, monkeypatch):
+    def test_cancelar_a_ultima_recompra_devolve_a_eliminacao(self, monkeypatch):
         """Simetria com a venda: a recompra baixa o contador de eliminacoes
         (quem recompra volta a mesa), entao o estorno devolve.
 
@@ -957,7 +957,7 @@ class TestContadoresSaoDecrementados:
         fake = _cenario(
             monkeypatch,
             venda=_venda(tipo="rebuy"),
-            jogador={"buy_in_count": 3},
+            jogador={"buy_in_count": 3, "rebuy_count": 1},
             tabelas={"tournament_days": [{
                 "id": DIA, "tournament_id": TOUR, "registered_players": 10,
                 "rebuy_chips": 10000, "addon_chips": 10000,
@@ -973,7 +973,7 @@ class TestContadoresSaoDecrementados:
         fake = _cenario(
             monkeypatch,
             venda=_venda(tipo="rebuy"),
-            jogador={"buy_in_count": 1},
+            jogador={"buy_in_count": 1, "rebuy_count": 1},
             tabelas={"tournament_days": [{
                 "id": DIA, "tournament_id": TOUR, "registered_players": 10,
                 "rebuy_chips": 10000, "addon_chips": 10000,
@@ -981,6 +981,25 @@ class TestContadoresSaoDecrementados:
             }]},
         )
         TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+
+    def test_cancelar_uma_de_varias_recompras_nao_devolve_nada(self, monkeypatch):
+        """A venda desconta UMA eliminacao por VENDA, mesmo sendo cinco
+        recompras de uma vez. Devolver uma por transacao cancelada faria sair 1
+        e voltarem 5 — o jogador que continua com recompras nao voltou a estar
+        fora da mesa."""
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(tipo="rebuy"),
+            jogador={"buy_in_count": 3, "rebuy_count": 5},
+            tabelas={"tournament_days": [{
+                "id": DIA, "tournament_id": TOUR, "registered_players": 10,
+                "rebuy_chips": 10000, "addon_chips": 10000,
+                "eliminations_count": 1,
+            }]},
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 4
         assert fake.store["tournament_days"][0]["eliminations_count"] == 1
 
     def test_cancelar_add_on_nao_mexe_no_contador(self, monkeypatch):

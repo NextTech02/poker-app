@@ -650,11 +650,25 @@ class TestRecompraDesfazEliminacao:
         assert len(chamadas) == 1
         assert chamadas[0][1] == {"p_day_id": DIA, "p_qtd": 1}
 
-    def test_recompra_multipla_desfaz_uma_eliminacao_por_recompra(self, monkeypatch):
-        """Cinco recompras de uma vez sao cinco voltas a mesa, nao uma."""
+    def test_recompra_multipla_desfaz_UMA_eliminacao(self, monkeypatch):
+        """Cinco recompras de uma vez sao UMA volta a mesa.
+
+        O jogador foi ao caixa uma vez e sentou uma vez — comprou mais fichas,
+        nao mais cadeiras. Descontar cinco daria 104 jogadores ativos num
+        torneio de 100 entradas."""
         fake = _monta(monkeypatch, jogadores=self._inscrito())
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5)
-        assert self._chamadas_da_rpc(fake)[0][1]["p_qtd"] == 5
+        assert self._chamadas_da_rpc(fake)[0][1]["p_qtd"] == 1
+        # E as cinco recompras foram gravadas do mesmo jeito.
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 5
+
+    def test_recompra_multipla_pelo_caminho_sem_a_funcao_tambem_desfaz_uma(self, monkeypatch):
+        fake = _monta(monkeypatch,
+                      dia=_dia(eliminations_count=3),
+                      jogadores=self._inscrito())
+        del fake.rpcs["desfazer_eliminacoes"]
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5)
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 2
 
     def test_a_recompra_reativa_o_jogador(self, monkeypatch):
         fake = _monta(monkeypatch, jogadores=self._inscrito())
