@@ -746,6 +746,10 @@ const TournamentBroadcast = () => {
   let displayNextSmallBlind, displayNextBigBlind, displayNextAnte;
   let currentBlindIsBreak = false;
   let nextBlindIsBreak = false;
+  // Existe um proximo nivel? No ultimo da estrutura nao existe, e sem esta
+  // distincao o telao anunciava "0/0 ( 0 )" — zero nao e um blind, e a mesa
+  // inteira le isso.
+  let temProximoBlind = true;
 
   if (isDayBased && timerState) {
     displayBlindLevel = timerState.current_level;
@@ -755,6 +759,7 @@ const TournamentBroadcast = () => {
     displayAnte = timerState.current_blind?.ante || 0;
     currentBlindIsBreak = timerState.current_blind?.is_break === true;
 
+    temProximoBlind = !!timerState.next_blind;
     displayNextSmallBlind = timerState.next_blind?.small_blind || 0;
     displayNextBigBlind = timerState.next_blind?.big_blind || 0;
     displayNextAnte = timerState.next_blind?.ante || 0;
@@ -762,6 +767,7 @@ const TournamentBroadcast = () => {
   } else {
     const currentBlinds = getBlindValues(blindLevel);
     const nextBlinds = getNextBlindValues(blindLevel);
+    temProximoBlind = !!nextBlinds && (nextBlinds.bigBlind || 0) > 0;
     displayBlindLevel = blindLevel;
     displayTimeRemaining = timeRemaining;
     displaySmallBlind = currentBlinds.smallBlind;
@@ -921,9 +927,11 @@ const TournamentBroadcast = () => {
               <div className="next-blind-section">
                 <div className="next-blind-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.nextLabel }}>{t('broadcast.nextBlinds')}</div>
                 <div className="next-blind-value" style={{ fontSize: `${24 * fontScale}px`, color: colors.nextValue }}>
-                  {nextBlindIsBreak
-                    ? t('broadcast.break').toUpperCase()
-                    : `${displayNextSmallBlind}/${displayNextBigBlind} ( ${displayNextAnte} )`
+                  {!temProximoBlind
+                    ? '—'
+                    : nextBlindIsBreak
+                      ? t('broadcast.break').toUpperCase()
+                      : `${displayNextSmallBlind}/${displayNextBigBlind} ( ${displayNextAnte} )`
                   }
                 </div>
               </div>

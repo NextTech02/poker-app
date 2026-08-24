@@ -18,6 +18,7 @@ tem de continuar funcionando.
 """
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app.models.player import PlayerCreate, PlayerUpdate, sincronizar_nome
 from app.services import player_service as mod
@@ -190,6 +191,41 @@ class TestNomeESobrenome:
         )
         lido = S.get_player(JOGADOR)
         assert (lido.first_name, lido.last_name) == ("Beto", "Silva Souza")
+
+
+class TestEmailJaGravado:
+    """Dado que ja esta no banco tem de conseguir SAIR.
+
+    Uma planilha importada trouxe quatro enderecos que o validador estrito
+    recusa — ponto colado no @ ("fulano.@gmail.com"), dois pontos seguidos — e a
+    tela de Jogadores passou a responder 500 para TODO MUNDO. Nao era o jogador
+    problematico que sumia: era a LISTA INTEIRA que nao carregava.
+
+    Validacao estrita e trabalho da porta de entrada. Na saida, o registro
+    torto precisa aparecer, inclusive para o operador abrir o cadastro e
+    corrigi-lo.
+    """
+
+    RUINS = ["fulano.@gmail.com", "ing..jeimanf@gmail.com", "sem-arroba"]
+
+    @pytest.mark.parametrize("endereco", RUINS)
+    def test_um_email_torto_nao_derruba_a_leitura_do_jogador(self, banco, endereco):
+        banco.store["players"].append(_linha(email=endereco))
+        assert S.get_player(JOGADOR).email == endereco
+
+    def test_um_email_torto_nao_derruba_a_LISTA(self, banco):
+        """O prejuizo real: 282 jogadores bons invisiveis por causa de um."""
+        banco.store["players"].append(_linha(email="fulano.@gmail.com"))
+        banco.store["players"].append(
+            _linha(id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2", email="ok@clube.com")
+        )
+        assert len(S.get_players()) == 2
+
+    @pytest.mark.parametrize("endereco", RUINS)
+    def test_a_porta_de_entrada_continua_recusando(self, endereco):
+        """Tolerar na leitura nao pode virar tolerar no cadastro."""
+        with pytest.raises(ValidationError):
+            _novo(email=endereco)
 
 
 class TestBuscaDoBalcao:

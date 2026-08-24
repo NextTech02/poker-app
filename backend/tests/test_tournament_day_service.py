@@ -994,6 +994,53 @@ class TestStatusEnriquecido:
         assert r["next_blind"]["level"] == 2
         assert r["next_break"]["level"] == 3
 
+    def test_proximo_nivel_atravessa_buraco_na_numeracao(self, monkeypatch):
+        """A numeracao tem buracos na vida real.
+
+        Apagar um nivel ou um intervalo no meio da estrutura deixa 2 -> 4, 5 ->
+        7 (ha varios assim em producao). O codigo procurava `atual + 1` exato,
+        nao achava nada, e o telao anunciava "PROXIMOS BLINDS 0/0 (0)" para a
+        mesa inteira — zero nao e um blind, e o operador nao tinha como saber o
+        que vinha.
+        """
+        _monta(monkeypatch, blinds=[
+            {"id": "b1", "tournament_day_id": D1, "level": 1, "duration": 10,
+             "small_blind": 100, "big_blind": 200, "ante": 0, "is_break": False},
+            {"id": "b3", "tournament_day_id": D1, "level": 3, "duration": 10,
+             "small_blind": 300, "big_blind": 600, "ante": 50, "is_break": False},
+        ])
+        r = S.get_enriched_timer_status(D1)
+        assert r["current_blind"]["level"] == 1
+        assert r["next_blind"]["level"] == 3
+        assert r["next_blind"]["big_blind"] == 600
+
+    def test_proximo_nivel_e_o_menor_seguinte_mesmo_fora_de_ordem(self):
+        """Direto na funcao, sem passar pelo banco falso — que reordena e
+        esconderia justamente o que este teste protege: pegar o primeiro da
+        lista daria o nivel errado em silencio, e este numero esta numa TV."""
+        fora_de_ordem = [
+            {"level": 9, "big_blind": 1800},
+            {"level": 2, "big_blind": 400},
+            {"level": 1, "big_blind": 200},
+        ]
+        assert S._proximo_blind(fora_de_ordem, 1)["level"] == 2
+        assert S._proximo_blind(fora_de_ordem, 2)["level"] == 9
+        assert S._proximo_blind(fora_de_ordem, 9) is None
+
+    def test_nivel_nulo_na_estrutura_nao_derruba_o_proximo(self):
+        """Linha sem nivel nao pode estourar a tela que a mesa inteira olha."""
+        assert S._proximo_blind([{"level": None}, {"level": 4}], 1)["level"] == 4
+        assert S._proximo_blind([], 1) is None
+
+    def test_no_ultimo_nivel_nao_ha_proximo(self, monkeypatch):
+        """Devolve None, e nao um blind zerado: e o telao que decide como dizer
+        "acabou a estrutura"."""
+        _monta(monkeypatch, blinds=[
+            {"id": "b1", "tournament_day_id": D1, "level": 1, "duration": 10,
+             "small_blind": 100, "big_blind": 200, "ante": 0, "is_break": False},
+        ])
+        assert S.get_enriched_timer_status(D1)["next_blind"] is None
+
     def test_o_nivel_se_corrige_sozinho_pelo_tempo(self, monkeypatch):
         """Se a tela ficar minutos sem atualizar (rede caiu, aba em segundo
         plano), o nível é recalculado do tempo e gravado — a TV nunca volta

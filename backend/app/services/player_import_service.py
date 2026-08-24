@@ -17,6 +17,8 @@ from typing import Dict, List, Optional, Tuple
 import re
 import unicodedata
 
+from email_validator import EmailNotValidError, validate_email
+
 from app.database.supabase_client import supabase
 from app.utils.documentos import (
     erro_de_tipo_recusado,
@@ -54,7 +56,28 @@ _DOC_MAP = {
 # Valores que o clube digita para "não tenho" e que não são dado de verdade.
 _LIXO = {"", "-", "--", "0", "1", "n/a", "na", "nao", "não", "none", "null", "sem", "x", "xx"}
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]+$")
+
+def _email_valido(email: str) -> bool:
+    """O MESMO criterio do cadastro manual (email-validator, via EmailStr).
+
+    Havia um regex proprio aqui, mais frouxo, e a diferenca custou caro: ele
+    aceitava "fulano.@gmail.com" (ponto colado no @) e "ing..jeimanf@gmail.com"
+    (dois pontos seguidos). A planilha entrou, e depois a tela de Jogadores
+    respondia 500 para TODO MUNDO, porque a leitura usava o validador estrito.
+
+    Regra: o que a importacao aceita tem de ser exatamente o que o cadastro
+    aceita. Duas definicoes de "e-mail valido" no mesmo sistema viram dado que
+    entra e nao sai.
+
+    `check_deliverability=False` de proposito: conferir o DNS de cada linha
+    poria a importacao de 500 jogadores para conversar com a rede 500 vezes, e
+    recusaria um endereco valido so porque o servidor do clube esta sem DNS.
+    """
+    try:
+        validate_email(email, check_deliverability=False)
+        return True
+    except EmailNotValidError:
+        return False
 
 
 def _sem_acento(v: str) -> str:
@@ -142,7 +165,7 @@ class PlayerImportService:
                 faltando.append("nome")
             if not email:
                 faltando.append("e-mail")
-            elif not _EMAIL_RE.match(email):
+            elif not _email_valido(email):
                 faltando.append("e-mail inválido")
             if not fone:
                 faltando.append("telefone")

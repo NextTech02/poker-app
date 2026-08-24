@@ -1239,6 +1239,22 @@ class TournamentDayService:
         return None
 
     @staticmethod
+    def _proximo_blind(blinds: list, nivel_atual: int) -> Optional[dict]:
+        """O PRÓXIMO nível da estrutura — o seguinte na ordem, não o `atual + 1`.
+
+        A numeração tem buracos na vida real: apagar um nível ou um intervalo no
+        meio deixa 2 → 4, 5 → 7. Procurar `atual + 1` não achava nada nesses
+        pontos, e o telão anunciava "PRÓXIMOS BLINDS 0/0 (0)" para a mesa
+        inteira — o operador via zero e não tinha como saber o que vinha.
+
+        `blinds` chega ordenado por nível (é o `.order("level")` de quem lê),
+        mas o mínimo é calculado explicitamente: uma lista fora de ordem daria
+        o nível errado em silêncio, e este número está numa TV.
+        """
+        seguintes = [b for b in blinds if b.get("level") is not None and b["level"] > nivel_atual]
+        return min(seguintes, key=lambda b: b["level"]) if seguintes else None
+
+    @staticmethod
     def _sum_durations_before_level(blinds: list, target_level: int) -> int:
         """Calculate total duration (in seconds) of all levels before target_level"""
         total_seconds = 0
@@ -1346,7 +1362,7 @@ class TournamentDayService:
         current_blind = TournamentDayService._find_blind_by_level(blinds, correct_level)
 
         # Find next blind
-        next_blind = TournamentDayService._find_blind_by_level(blinds, correct_level + 1)
+        next_blind = TournamentDayService._proximo_blind(blinds, correct_level)
 
         # Find next break and calculate time until it
         next_break_info = TournamentDayService._find_next_break(blinds, correct_level, current_elapsed)

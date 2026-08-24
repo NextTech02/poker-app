@@ -79,7 +79,19 @@ class PlayerBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Full name (kept in sync with first_name + last_name)")
     first_name: Optional[str] = Field(None, max_length=120, description="Nome")
     last_name: Optional[str] = Field(None, max_length=160, description="Sobrenome")
-    email: EmailStr = Field(..., description="Email address (required, unique)")
+    # `str` na BASE, `EmailStr` só na ENTRADA (PlayerCreate, logo abaixo).
+    #
+    # Pelo mesmo motivo que `document_type` não é Literal: uma linha JÁ GRAVADA
+    # com e-mail que o validador recusa derrubava o GET inteiro — não o jogador
+    # problemático, a LISTA. Foi o que aconteceu depois de uma importação de
+    # planilha: quatro endereços com ponto antes do @ ("fulano.@gmail.com") ou
+    # dois pontos seguidos passaram pelo regex do importador, e a tela de
+    # Jogadores respondia 500 para todo mundo.
+    #
+    # Validação estrita é trabalho da porta de entrada. Na saída, o dado que já
+    # está no banco tem de conseguir sair — inclusive para o operador poder
+    # abrir o cadastro e corrigi-lo.
+    email: str = Field(..., min_length=3, max_length=255, description="Email address (required, unique)")
     phone: str = Field(..., min_length=1, max_length=50, description="Phone number with country code (required)")
     nationality: str = Field(..., min_length=1, max_length=100, description="Nationality/Country (required)")
     # `str` e não Literal de propósito: os tipos aceitos vivem em
@@ -108,6 +120,8 @@ class PlayerBase(BaseModel):
 
 
 class PlayerCreate(PlayerBase):
+    # A porta de entrada é estrita: aqui o e-mail passa pelo email-validator.
+    email: EmailStr = Field(..., description="Email address (required, unique)")
     # Offline: id gerado no cliente (vira o PK; idempotência no replay).
     client_id: Optional[str] = Field(default=None, description="Client-generated player id (offline)")
 

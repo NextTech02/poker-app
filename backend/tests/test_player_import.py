@@ -113,6 +113,25 @@ class TestCamposObrigatorios:
         _, rejeitados = S._preparar([_linha(email="fulano-arroba-exemplo")])
         assert "inválido" in rejeitados[0]["reason"]
 
+    @pytest.mark.parametrize("endereco", [
+        "dkuzhaoo.@gmail.com",       # ponto colado no @
+        "shafik.darwinch.@gmail.com",
+        "ing..jeimanf@gmail.com",    # dois pontos seguidos
+    ])
+    def test_email_que_o_cadastro_recusa_nao_entra_pela_planilha(self, endereco):
+        """A importacao tem de usar a MESMA regua do cadastro manual.
+
+        Havia um regex proprio aqui, mais frouxo, e estes tres endereços
+        passaram numa planilha real. Depois a tela de Jogadores respondia 500
+        para TODO MUNDO: a leitura usa o validador estrito, e uma linha que ele
+        recusa derruba a lista inteira, nao so aquele jogador.
+
+        Duas definicoes de "e-mail valido" no mesmo sistema viram dado que entra
+        e nao sai.
+        """
+        _, rejeitados = S._preparar([_linha(email=endereco)])
+        assert "e-mail inválido" in rejeitados[0]["reason"]
+
     def test_varios_campos_faltando_aparecem_juntos(self):
         """O clube precisa saber TUDO que falta de uma vez, senao corrige um
         campo e o registro cai de novo na proxima importacao."""
