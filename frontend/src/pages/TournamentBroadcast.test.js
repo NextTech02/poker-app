@@ -302,10 +302,12 @@ describe('o que a tela mostra ao vivo', () => {
   });
 
   it('em torneio sem dia, os jogadores vêm da lista', async () => {
-    // 1 ativo de 3 entradas (2 buy-ins + 1 rebuy).
+    // 2 buy-ins e 1 recompra: 1 jogador ainda em jogo e 2 ENTRADAS.
+    // A recompra nao vira entrada — quem recompra voltou ao torneio, nao
+    // entrou nele de novo.
     await montar({ comoDia: false }, null);
     expect(barraLateral()).toHaveTextContent('1');
-    expect(barraLateral()).toHaveTextContent('3');
+    expect(barraLateral()).toHaveTextContent('2');
   });
 });
 

@@ -243,11 +243,16 @@ class TournamentDay(TournamentDayBase):
     id: str
     status: TournamentDayStatus = TournamentDayStatus.pending
     registered_players: int = 0
-    total_entries: int = 0  # buy-ins + rebuys (addons not counted)
-    # Recompras + add-ons do dia. Fica separado de `registered_players` porque
-    # quem recompra nao vira um jogador novo na mesa — somar os dois inflava a
-    # contagem do torneio.
+    # ENTRADA = buy-in. Quem recompra voltou ao torneio, nao entrou nele de
+    # novo: um dia com 2 inscritos e 5 recompras tem 2 entradas, nao 7.
+    total_entries: int = 0
+    # Recompras + add-ons do dia, em campo proprio. O clube escolhe se exibe.
     total_reentries: int = 0
+    # So as recompras. Existe separado de `total_reentries` porque e ele que
+    # diz quantas VIDAS foram compradas no dia (buy-in + recompra) — a base de
+    # "jogadores em jogo" e do teto do contador de eliminacoes. Add-on nao entra:
+    # quem faz add-on ja esta na mesa.
+    total_rebuys: int = 0
     prize_pool: float = 0.0
     start_time: Optional[datetime] = None
     created_at: datetime
@@ -345,7 +350,7 @@ class QualifyingDayStats(BaseModel):
     total_buy_ins: int = 0
     total_rebuys: int = 0
     total_addons: int = 0
-    total_entries: int = 0  # buy_ins + rebuys
+    total_entries: int = 0  # so buy-ins (recompra vai em total_rebuys)
 
     # Financial totals
     buy_in_amount: float = 0.0

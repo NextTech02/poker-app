@@ -311,7 +311,12 @@ const Premiacao = () => {
   // ── Auto-Calculate Handlers ──────────────────────────────────────────────
 
   const handleOpenAutoCalculate = () => {
-    // entry count = buy-ins + rebuys per player
+    // ATENCAO: aqui "entrada" NAO e o mesmo numero que a tela do torneio mostra
+    // no card ENTRADAS (que conta so buy-ins). Este e o TAMANHO DO CAMPO, que
+    // dimensiona a tabela de pagamento — quantos lugares recebem premio. Quem
+    // recompra ocupou uma cadeira a mais e pagou por ela, entao ele entra na
+    // conta: um torneio de 2 inscritos com 5 recompras paga como um de 7, nao
+    // como um de 2. Mudar isto mudaria o dinheiro que cada jogador leva.
     const entryCount = tournamentPlayers.reduce(
       (sum, p) => sum + (p.buy_in_count || 1) + (p.rebuy_count || 0), 0
     ) || tournamentPlayers.length;

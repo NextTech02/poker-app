@@ -597,7 +597,12 @@ class TestRelatorioPorPeriodo:
             "total_addons": 5, "avg_buy_in": 300}]
         r = R.get_reports("2026-06-01", "2026-06-30")
         assert r.totalRevenue == 12000
-        assert r.totalPlayers == 43        # entradas somadas
+        # ENTRADA = buy-in. As 8 recompras e os 5 add-ons tem numero proprio;
+        # somar tudo aqui era o que fazia o relatorio anunciar 43 entradas num
+        # periodo de 30 inscricoes.
+        assert r.totalPlayers == 30
+        assert r.totalRebuys == 8
+        assert r.totalAddons == 5
 
     def test_sem_a_rpc_soma_em_python(self, monkeypatch):
         """Cliente sem a migração continua tendo relatório, só com mais
@@ -640,7 +645,11 @@ class TestRelatorioPorPeriodo:
         r = R.get_reports()
         por_nome = {p.player_name: p for p in r.playerReports}
         assert por_nome["Fulano"].total_spent == 1050.0
-        assert por_nome["Fulano"].total_entries == 4
+        # Fulano entrou DUAS vezes (2 buy-ins). A recompra e o add-on dele
+        # aparecem nas colunas de recompra e add-on, nao aqui.
+        assert por_nome["Fulano"].total_entries == 2
+        assert por_nome["Fulano"].rebuys == 1
+        assert por_nome["Fulano"].addons == 1
         assert por_nome["Beltrano"].total_entries == 1
 
     def test_periodo_sem_torneio_nao_traz_jogador(self, monkeypatch):

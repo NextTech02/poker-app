@@ -184,17 +184,17 @@ class TournamentService:
             )
 
         # --- In-memory aggregation (hash maps, O(n)) ---
+        # ENTRADAS, JOGADORES e REENTRADAS sao tres numeros distintos:
+        #   entrada   = buy-in. Quem recompra voltou ao torneio, nao entrou de novo.
+        #   jogador   = uma pessoa na mesa, por mais que recompre.
+        #   reentrada = recompra + add-on, em campo proprio.
+        # Somar tudo num numero so era o que inflava a contagem do torneio.
         entries_by_day = defaultdict(int)
-        # JOGADORES e REENTRADAS separados: quem recompra tres vezes continua
-        # sendo UMA pessoa na mesa. Somar as duas coisas num numero so era o que
-        # inflava a contagem do torneio na lista.
         players_by_day = defaultdict(int)
         reentries_by_day = defaultdict(int)
         for p in players:
             dia = p["tournament_day_id"]
-            entries_by_day[dia] += (
-                (p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0)
-            )
+            entries_by_day[dia] += p.get("buy_in_count") or 0
             # Inscricao estornada nao conta como gente na mesa.
             if (p.get("status") or "") != "cancelled":
                 players_by_day[dia] += 1

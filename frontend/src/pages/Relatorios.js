@@ -227,7 +227,8 @@ const Relatorios = () => {
                     <thead>
                       <tr>
                         <th>{t('players.columnPlayer', 'Jogador')}</th>
-                        <th>{t('reports.totalEntries', 'Entradas')}</th>
+                        {/* Nao ha coluna "Entradas" aqui: entrada e buy-in, e
+                            ela repetiria a coluna ao lado numero por numero. */}
                         <th>{t('reports.buyIns', 'Buy-ins')}</th>
                         <th>{t('reports.rebuys', 'Rebuys')}</th>
                         <th>{t('reports.addons', 'Add-ons')}</th>
@@ -238,7 +239,6 @@ const Relatorios = () => {
                       {reports.playerReports.map((player, index) => (
                         <tr key={index}>
                           <td className="player-name">{player.player_name}</td>
-                          <td>{player.total_entries}</td>
                           <td>{player.buy_ins}</td>
                           <td>{player.rebuys}</td>
                           <td>{player.addons}</td>

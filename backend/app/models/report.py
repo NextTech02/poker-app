@@ -4,6 +4,7 @@ from typing import List, Optional
 
 class PlayerReport(BaseModel):
     player_name: str
+    # ENTRADA = buy-in. Recompra e add-on tem campo proprio logo abaixo.
     total_entries: int
     buy_ins: int
     rebuys: int
@@ -14,6 +15,9 @@ class PlayerReport(BaseModel):
 class ReportSummary(BaseModel):
     totalRevenue: float
     totalTournaments: int
+    # Numero de ENTRADAS do periodo (buy-ins). O nome ficou de quando "entrada"
+    # e "jogador" eram a mesma coisa no sistema; a tela ja rotula "Total de
+    # Entradas". Renomear o campo quebraria o contrato com o frontend em uso.
     totalPlayers: int
     avgBuyIn: float
     totalBuyIns: int
@@ -55,7 +59,7 @@ class TournamentReport(BaseModel):
 
     # Participation
     total_players: int = 0          # distinct players across all days
-    total_entries: int = 0          # buy-ins + rebuys + addons
+    total_entries: int = 0          # so buy-ins
     total_buy_ins: int = 0
     total_rebuys: int = 0
     total_addons: int = 0

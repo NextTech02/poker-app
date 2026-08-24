@@ -150,7 +150,11 @@ class ReportService:
             has_qualifying=bool(t.get("has_qualifying")),
             is_satellite=bool(t.get("is_satellite")),
             total_players=len(distinct_players),
-            total_entries=tot_buy_ins + tot_rebuys + tot_addons,
+            # ENTRADA = buy-in. Quem recompra voltou ao torneio, nao entrou nele
+            # de novo; quem faz add-on ja estava na mesa. As duas coisas
+            # continuam visiveis em total_rebuys/total_addons — e o dinheiro
+            # delas, inteiro, em total_revenue.
+            total_entries=tot_buy_ins,
             total_buy_ins=tot_buy_ins,
             total_rebuys=tot_rebuys,
             total_addons=tot_addons,
@@ -214,7 +218,9 @@ class ReportService:
             buy_in_amounts = [float(t["amount"]) for t in transactions if t["type"] == "buy_in"]
             avg_buy_in = sum(buy_in_amounts) / len(buy_in_amounts) if buy_in_amounts else 0
 
-        total_entries = total_buy_ins + total_rebuys + total_addons
+        # ENTRADA = buy-in (ver TournamentReport acima). Recompra e add-on tem
+        # os seus proprios numeros logo abaixo, e a receita soma as tres.
+        total_entries = total_buy_ins
 
         # Get tournament count
         tournament_query = supabase.table("tournaments").select("id", count="exact")
@@ -259,7 +265,7 @@ class ReportService:
                     "total_spent": 0.0,
                 }
 
-            player_stats[player_name]["total_entries"] += tp["buy_in_count"] + tp["rebuy_count"] + tp["addon_count"]
+            player_stats[player_name]["total_entries"] += tp["buy_in_count"]
             player_stats[player_name]["buy_ins"] += tp["buy_in_count"]
             player_stats[player_name]["rebuys"] += tp["rebuy_count"]
             player_stats[player_name]["addons"] += tp["addon_count"]

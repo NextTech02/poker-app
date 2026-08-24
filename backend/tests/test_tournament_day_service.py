@@ -109,8 +109,10 @@ class TestJogadoresSeparadoDeReentradas:
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1, rebuys=3, addons=1),
         ])
-        entradas, reentradas = S._entries_by_day([D1])
-        assert reentradas[D1] == 4
+        entradas, reentradas, recompras = S._entries_by_day([D1])
+        assert entradas[D1] == 1      # uma entrada: o buy-in
+        assert reentradas[D1] == 4    # 3 recompras + 1 add-on
+        assert recompras[D1] == 3     # so as recompras: e o que da direito a voltar
 
     def test_add_on_entra_na_conta_de_reentradas(self, monkeypatch):
         """O numero antigo somava recompra e ignorava add-on — nao era nem uma
@@ -118,16 +120,33 @@ class TestJogadoresSeparadoDeReentradas:
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1, rebuys=0, addons=2),
         ])
-        _, reentradas = S._entries_by_day([D1])
+        _, reentradas, recompras = S._entries_by_day([D1])
         assert reentradas[D1] == 2
+        assert recompras[D1] == 0
 
     def test_dia_sem_reentrada_devolve_zero(self, monkeypatch):
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1),
             self._um_jogador(buy_ins=1, status="eliminated"),
         ])
-        _, reentradas = S._entries_by_day([D1])
+        _, reentradas, recompras = S._entries_by_day([D1])
         assert reentradas.get(D1, 0) == 0
+        assert recompras.get(D1, 0) == 0
+
+    def test_dois_inscritos_e_cinco_recompras_sao_duas_entradas(self, monkeypatch):
+        """O caso exato que o dono do clube mandou por print.
+
+        A tela mostrava ENTRADAS 7 e REENTRADAS 5 num torneio de DOIS inscritos.
+        O 7 era buy-ins + recompras somados; o torneio parecia ter tres vezes
+        mais gente do que tinha. Entrada e buy-in: sao 2. As 5 recompras ja
+        estao no campo ao lado."""
+        _monta(monkeypatch, tournament_players=[
+            self._um_jogador(buy_ins=1, rebuys=3),
+            self._um_jogador(buy_ins=1, rebuys=2),
+        ])
+        dia = S.get_tournament_day(D1)
+        assert dia.total_entries == 2
+        assert dia.total_reentries == 5
 
     def test_o_dia_devolve_as_reentradas_separadas(self, monkeypatch):
         """O campo chega na tela: sem ele o front nao tem como separar."""
@@ -210,8 +229,15 @@ class TestCriacaoELeitura:
         assert fake.store["tournament_days"][0]["registered_players"] == 0
 
     def test_entradas_sao_somadas_numa_consulta_para_todos_os_dias(self, monkeypatch):
-        """Entrada = buy-ins + rebuys. Add-on NÃO entra: não é uma entrada
-        nova no torneio, é ficha extra para quem já está dentro."""
+        """ENTRADA = buy-in. So isso.
+
+        Quem recompra nao entrou de novo no torneio: ele voltou para dentro
+        dele, disputando a mesma vaga. Um dia com 2 inscritos e 3 recompras tem
+        2 ENTRADAS e 3 REENTRADAS — a tela mostrava 5, e o operador reclamou com
+        razao que o torneio parecia ter o dobro de gente.
+
+        Add-on tambem nao e entrada: e ficha extra para quem ja esta na mesa.
+        """
         _monta(monkeypatch,
                tournament_days=[_dia(D1), _dia(D2, day_number=2)],
                tournament_players=[
@@ -219,8 +245,11 @@ class TestCriacaoELeitura:
                    _jogador(D1, buy=1, rebuy=0),
                    _jogador(D2, buy=1, rebuy=1),
                ])
-        por_dia = {d.id: d.total_entries for d in S.get_tournament_days(TOUR)}
-        assert por_dia == {D1: 4, D2: 2}
+        dias = {d.id: d for d in S.get_tournament_days(TOUR)}
+        assert {i: d.total_entries for i, d in dias.items()} == {D1: 2, D2: 1}
+        # E as recompras nao somem: elas tem campo proprio.
+        assert dias[D1].total_reentries == 7   # 2 recompras + 5 add-ons
+        assert dias[D2].total_reentries == 1
 
     def test_filtra_por_varios_status_de_uma_vez(self, monkeypatch):
         _monta(monkeypatch, tournament_days=[
@@ -235,7 +264,9 @@ class TestCriacaoELeitura:
 
     def test_busca_um_dia_com_as_entradas(self, monkeypatch):
         _monta(monkeypatch, tournament_players=[_jogador(D1, buy=1, rebuy=3)])
-        assert S.get_tournament_day(D1).total_entries == 4
+        dia = S.get_tournament_day(D1)
+        assert dia.total_entries == 1      # uma entrada: o buy-in
+        assert dia.total_reentries == 3    # as tres recompras, em campo proprio
 
     def test_pode_pular_a_contagem_de_entradas(self, monkeypatch):
         """Os comandos do relógio não usam total_entries; pular a varredura
@@ -291,7 +322,7 @@ class TestResumoPorDia:
         assert r[D1].total_buy_ins == 2
         assert r[D1].total_rebuys == 1
         assert r[D1].total_addons == 3
-        assert r[D1].total_entries == 3       # add-on fora
+        assert r[D1].total_entries == 2       # so os buy-ins
         assert r[D2].total_entries == 1
 
     def test_resumo_de_um_dia_especifico(self, monkeypatch):
@@ -437,7 +468,8 @@ class TestSobreviventesEAvanco:
                       tournament_players=[_jogador(D1, buy=4, rebuy=2, addon=1)])
         r = S.advance_qualifiers(D1)
         assert r["advanced_count"] == 7
-        assert r["total_entries"] == 6
+        assert r["total_entries"] == 4     # entrada e buy-in; as 2 recompras nao contam
+        # As FICHAS somam tudo — cada recompra e cada add-on entrega pilha nova:
         # 4 buy-ins × 10000 + 2 rebuys × 10000 + 1 add-on × 5000
         assert r["total_chips"] == 65000
         final = [d for d in fake.store["tournament_days"] if d["id"] == FINAL][0]
@@ -1019,7 +1051,12 @@ class TestStatusEnriquecido:
                ],
                blinds=self._blinds())
         r = S.get_enriched_timer_status(D1)
-        assert r["total_entries"] == 4
+        # 3 inscritos, 1 recompra, 2 eliminados.
+        assert r["total_entries"] == 3      # entrada e buy-in
+        assert r["total_reentries"] == 1
+        # Ativos contam a recompra: quem recompra volta para a mesa, e o
+        # contador de eliminacoes do dia nao anda para tras sozinho.
+        # (3 buy-ins + 1 recompra) - 2 eliminados = 2.
         assert r["active_players"] == 2
         assert r["chipcount"] == 60000
         assert r["average_stack"] == 30000
@@ -1086,7 +1123,10 @@ class TestContadorDeEliminados:
             _jogador(D1, buy=1), _jogador(D1, buy=1, rebuy=1)])
         r = S.adjust_eliminations(D1, 2)
         assert r["eliminations_count"] == 2
-        assert r["active_players"] == 1        # 3 entradas − 2
+        # 2 inscritos + 1 recompra = 3 vidas; menos 2 eliminados, sobra 1.
+        # "Entradas" aqui sao 2 — quem recompra nao entrou de novo.
+        assert r["active_players"] == 1
+        assert r["total_entries"] == 2
         assert fake.store["tournament_days"][0]["eliminations_count"] == 2
 
     def test_desfaz_uma_eliminacao(self, monkeypatch):
@@ -1099,11 +1139,25 @@ class TestContadorDeEliminados:
         assert S.adjust_eliminations(D1, -10)["eliminations_count"] == 0
 
     def test_nao_passa_do_total_de_entradas(self, monkeypatch):
-        """Mais eliminados que entradas deixaria "jogadores ativos" negativo
-        na TV."""
+        """Mais eliminados que vidas compradas deixaria "jogadores ativos"
+        negativo na TV."""
         _monta(monkeypatch, tournament_players=[_jogador(D1, buy=3)])
         r = S.adjust_eliminations(D1, 99)
         assert r["eliminations_count"] == 3
+        assert r["active_players"] == 0
+
+    def test_o_teto_conta_as_recompras(self, monkeypatch):
+        """O teto sao as VIDAS compradas, nao as entradas.
+
+        Num dia de 2 inscritos e 5 recompras cabem 7 eliminacoes ao longo da
+        noite. Se o teto fosse "entradas" (agora so buy-ins), o contador
+        travaria em 2 e o operador nao conseguiria mais eliminar ninguem — com
+        a mesa ainda cheia."""
+        _monta(monkeypatch, tournament_players=[
+            _jogador(D1, buy=1, rebuy=3), _jogador(D1, buy=1, rebuy=2)])
+        r = S.adjust_eliminations(D1, 99)
+        assert r["eliminations_count"] == 7
+        assert r["total_entries"] == 2
         assert r["active_players"] == 0
 
     def test_dia_inexistente(self, monkeypatch):

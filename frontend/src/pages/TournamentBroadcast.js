@@ -774,8 +774,11 @@ const TournamentBroadcast = () => {
 
   // For day-based: active players and entries come from enriched endpoint (entries - eliminations)
   const activePlayers = (isDayBased && timerState) ? (timerState.active_players || 0) : players.filter(p => p.status !== 'eliminated').length;
+  // ENTRADA = buy-in. Quem recompra voltou ao torneio, nao entrou nele de novo:
+  // um dia com 2 inscritos e 5 recompras tem 2 entradas, nao 7. As recompras
+  // aparecem em `totalReentries`, logo abaixo.
   const totalEntries = (isDayBased && timerState) ? (timerState.total_entries || 0) : players.reduce((sum, p) => {
-    return sum + (p.buy_in_count || 0) + (p.rebuy_count || 0);
+    return sum + (p.buy_in_count || 0);
   }, 0);
 
   // Reentradas (recompra + add-on). Nao somam jogadores: quem recompra continua
