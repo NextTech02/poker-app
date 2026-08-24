@@ -1,0 +1,6 @@
+# A landing é para ser encontrada. O sistema, não: app.aceblind.net exige
+# login e não tem nada de útil para indexar.
+User-agent: *
+Allow: /
+
+Sitemap: https://aceblind.net/sitemap.xml

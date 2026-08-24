@@ -40,6 +40,20 @@ services:
     networks:
       - torneios-net
 
+  # ── Landing page (HTML estático) ─────────────────────────────────────────────
+  # Mora na RAIZ do domínio (aceblind.net); o sistema fica em app.aceblind.net.
+  # Container separado de propósito: a landing não tem build, não tem variável
+  # de ambiente e muda por motivo de marketing — subir uma versão dela não pode
+  # exigir rebuild do React nem derrubar quem está operando um torneio.
+  landing:
+    build: ./landing
+    container_name: torneios-landing
+    restart: unless-stopped
+    ports:
+      - "3003:80"
+    networks:
+      - torneios-net
+
   # ── Cloudflare Tunnel ─────────────────────────────────────────────────────────
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -51,6 +65,7 @@ services:
     depends_on:
       - backend
       - frontend
+      - landing
     networks:
       - torneios-net
 

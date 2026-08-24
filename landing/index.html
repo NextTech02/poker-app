@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AceBlind — Sistema de gestão para clubes de poker</title>
+<meta name="description" content="Torneio, caixa e ranking numa ferramenta só — e que continua rodando quando a internet cai. Teste grátis por 60 dias, sem instalação.">
+<link rel="canonical" href="https://aceblind.net/">
+<meta name="theme-color" content="#14052E">
+
+<!-- Compartilhamento em WhatsApp, Instagram e LinkedIn. Sem isto o link do
+     clube aparece como uma caixa cinza sem título — e é por WhatsApp que este
+     link vai circular. -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://aceblind.net/">
+<meta property="og:site_name" content="AceBlind">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="AceBlind — Seu torneio não pode parar. Seu sistema também não.">
+<meta property="og:description" content="Torneio, caixa e ranking numa ferramenta só — e que continua rodando quando a internet cai.">
+<meta property="og:image" content="https://aceblind.net/og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- SVG inline: o mesmo ás da marca, sem um arquivo a mais para carregar. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%2314052E'/%3E%3Cpath d='M20 6 L33 34 H26.5 L20 19 L13.5 34 H7 Z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TIPOGRAFIA — GOTHAM
+   Gotham é licenciada (Hoefler&Co / typography.com). Quando você
+   tiver os arquivos de webfont, descomente o bloco abaixo, coloque
+   os arquivos em /fonts e a página passa a usar Gotham de verdade.
+   Enquanto isso, o fallback é Montserrat, a geométrica gratuita
+   mais próxima em desenho e cor de texto.
+
+@font-face{font-family:'Gotham';src:url('/fonts/Gotham-Book.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Gotham';src:url('/fonts/Gotham-BookItalic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:'Gotham';src:url('/fonts/Gotham-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:'Gotham';src:url('/fonts/Gotham-MediumItalic.woff2') format('woff2');font-weight:500;font-style:italic;font-display:swap}
+@font-face{font-family:'Gotham';src:url('/fonts/Gotham-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Gotham';src:url('/fonts/Gotham-BoldItalic.woff2') format('woff2');font-weight:700;font-style:italic;font-display:swap}
+@font-face{font-family:'Gotham';src:url('/fonts/Gotham-Light.woff2') format('woff2');font-weight:300;font-style:normal;font-display:swap}
+
+   IMPORTANTE: o pacote precisa incluir os ITÁLICOS. A página usa
+   itálico como marcador de marca em todos os H1 e H2 — sem o
+   arquivo real, o navegador inclina a fonte na força bruta e o
+   resultado fica visivelmente torto.
+   ============================================================ */
+
+:root{
+  --feltro:#14052E;
+  --mesa:#2B0A6B;
+  --violeta:#6D3BFF;
+  --lavanda:#B79CFF;
+  --branco:#FFFFFF;
+  --sala:#F2F1F5;
+  --ambar:#FFB020;
+  --tinta:#1A1030;
+  --tinta-fraca:#5B5470;
+  --display:'Gotham','Gotham HTF','Montserrat','Helvetica Neue',Arial,sans-serif;
+  --mono:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
+  --container:1240px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--display);
+  background:var(--sala);
+  color:var(--tinta);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:0}
+
+:focus-visible{outline:2px solid var(--violeta);outline-offset:3px;border-radius:4px}
+.band--dark :focus-visible{outline-color:var(--lavanda)}
+
+/* ---------- estrutura ---------- */
+.band{padding:120px 0;position:relative}
+.band--dark{background:var(--feltro);color:var(--branco)}
+.band--light{background:var(--sala);color:var(--tinta)}
+.wrap{width:100%;max-width:var(--container);margin:0 auto;padding:0 32px}
+
+/* ---------- tipografia ---------- */
+.eyebrow{
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--violeta);
+  margin-bottom:24px;
+  display:block;
+}
+.band--dark .eyebrow{color:var(--lavanda)}
+
+h1{
+  font-size:clamp(40px,5.6vw,72px);
+  font-weight:400;
+  line-height:1.04;
+  letter-spacing:-.03em;
+}
+h2{
+  font-size:clamp(32px,4vw,52px);
+  font-weight:400;
+  line-height:1.1;
+  letter-spacing:-.025em;
+  margin-bottom:28px;
+}
+h3{font-size:clamp(20px,2vw,26px);font-weight:500;letter-spacing:-.015em}
+.italic{font-style:italic;display:block;color:var(--violeta)}
+/* sobre fundo escuro o itálico é BRANCO — o itálico já é a ênfase, a cor não precisa carregar isso */
+.band--dark .italic,
+.hero .italic,
+.offline .italic,
+.close .italic{color:#fff}
+.hero .eyebrow,
+.offline .eyebrow,
+.close .eyebrow{color:var(--lavanda)}
+.hero p,
+.offline p,
+.close p{color:#C9C2DE}
+p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
+.band--dark p{color:#C9C2DE}
+.lead{font-size:clamp(17px,1.3vw,20px);line-height:1.55}
+
+/* ---------- nav ---------- */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:18px 0;
+  transition:background .3s ease,padding .3s ease,box-shadow .3s ease;
+}
+.nav.is-stuck{
+  background:rgba(20,5,46,.86);
+  backdrop-filter:blur(14px);
+  padding:12px 0;
+  box-shadow:0 1px 0 rgba(183,156,255,.18);
+}
+.nav__inner{display:flex;align-items:center;justify-content:space-between;gap:32px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--branco)}
+.brand__mark{width:26px;height:26px;flex:none}
+.brand__word{font-size:22px;letter-spacing:-.02em}
+.brand__word b{font-weight:700}
+.brand__word span{font-weight:300}
+.nav__acoes{display:flex;align-items:center;gap:18px}
+/* "Entrar" é para quem JÁ é cliente: fica discreto ao lado do CTA, mas nunca
+   escondido — inclusive no celular, onde o menu de seções some. */
+.nav__login{font-size:15px;color:#D8D2EA;transition:color .15s;white-space:nowrap}
+.nav__login:hover{color:#fff}
+.nav__links{display:flex;gap:28px;font-size:15px;color:#D8D2EA}
+.nav__links a{transition:color .15s}
+.nav__links a:hover{color:var(--branco)}
+
+/* ---------- botões ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:52px;padding:0 26px;border-radius:8px;
+  font-size:16px;font-weight:500;letter-spacing:-.01em;
+  transition:transform .15s ease,background .15s ease,box-shadow .15s ease;
+  white-space:nowrap;
+}
+.btn--primary{background:var(--violeta);color:#fff;box-shadow:0 0 0 rgba(109,59,255,0)}
+.btn--primary:hover{background:#7d50ff;box-shadow:0 8px 30px rgba(109,59,255,.42);transform:translateY(-1px)}
+.btn--ghost{border:1px solid rgba(255,255,255,.28);color:#fff;background:transparent}
+.btn--ghost:hover{border-color:var(--lavanda);background:rgba(183,156,255,.08)}
+.btn--outline{border:1px solid rgba(26,16,48,.2);color:var(--tinta);background:transparent}
+.btn--outline:hover{border-color:var(--violeta);color:var(--violeta)}
+.btn--sm{height:44px;padding:0 20px;font-size:15px}
+.btn--block{width:100%}
+
+/* ---------- hero ---------- */
+.hero{
+  background:
+    radial-gradient(1100px 620px at 78% 42%,rgba(109,59,255,.42),transparent 62%),
+    radial-gradient(760px 520px at 8% 8%,rgba(43,10,107,.85),transparent 68%),
+    var(--feltro);
+  padding:180px 0 0;
+  overflow:hidden;
+}
+.hero__grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.02fr);gap:48px;align-items:center}
+.hero__copy{max-width:600px;padding-bottom:120px}
+.hero h1{margin-bottom:26px}
+.hero .lead{max-width:520px;margin-bottom:36px;color:#C9C2DE}
+.hero__cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.hero__note{font-family:var(--mono);font-size:12.5px;color:#9C93BC;letter-spacing:.02em}
+.hero__art{position:relative;margin-right:-16vw;padding-bottom:80px}
+.hero__art::before{
+  content:"";position:absolute;inset:8% -6% 12% 4%;
+  background:radial-gradient(closest-side,rgba(109,59,255,.55),transparent 72%);
+  filter:blur(46px);
+}
+
+/* ---------- mockup do sistema ---------- */
+.app{
+  position:relative;
+  border-radius:14px;
+  overflow:hidden;
+  background:#0F0424;
+  border:1px solid rgba(183,156,255,.22);
+  box-shadow:0 50px 90px -30px rgba(0,0,0,.8);
+  display:grid;
+  grid-template-columns:172px minmax(0,1fr);
+  font-size:11px;
+  transform:perspective(1800px) rotateY(-7deg) rotateX(2deg);
+  transform-origin:left center;
+}
+.app__bar{
+  grid-column:1/-1;display:flex;align-items:center;gap:6px;
+  padding:10px 14px;background:#0A0119;border-bottom:1px solid rgba(183,156,255,.14);
+}
+.dot{width:8px;height:8px;border-radius:50%;background:#2F2350}
+.app__url{
+  margin-left:12px;font-family:var(--mono);font-size:10px;color:#7A6FA0;
+}
+.app__side{background:#0A0119;padding:16px 12px;border-right:1px solid rgba(183,156,255,.12)}
+.app__brand{display:flex;align-items:center;gap:6px;color:#fff;font-size:14px;margin-bottom:16px}
+.app__brand svg{width:15px;height:15px}
+.app__chip{
+  display:block;text-align:center;font-size:10px;color:var(--lavanda);
+  border:1px solid rgba(183,156,255,.3);border-radius:6px;padding:6px;margin-bottom:18px;
+}
+.app__nav{list-style:none;display:flex;flex-direction:column;gap:2px}
+.app__nav li{padding:6px 8px;border-radius:5px;color:#8E85B4;font-size:11px}
+.app__nav li.on{background:rgba(109,59,255,.22);color:#fff}
+.app__main{padding:18px;background:linear-gradient(160deg,#150631,#0D0320)}
+.app__h{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
+.app__h b{display:block;color:#fff;font-size:16px;font-weight:600;letter-spacing:-.01em}
+.app__h span{color:#7A6FA0;font-size:10px}
+.app__live{
+  font-family:var(--mono);font-size:9.5px;color:var(--violeta);
+  border:1px solid rgba(109,59,255,.5);border-radius:20px;padding:4px 9px;
+}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stat{background:rgba(255,255,255,.045);border:1px solid rgba(183,156,255,.14);border-radius:8px;padding:10px}
+.stat small{display:block;color:#8E85B4;font-size:9px;margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase}
+.stat b{color:#fff;font-size:17px;font-weight:600;letter-spacing:-.02em}
+.stat b.hi{color:var(--lavanda)}
+.panels{display:grid;grid-template-columns:1.25fr 1fr;gap:8px}
+.panel{background:rgba(255,255,255,.045);border:1px solid rgba(183,156,255,.14);border-radius:8px;padding:11px}
+.panel__t{display:flex;justify-content:space-between;color:#fff;font-size:11px;font-weight:500;margin-bottom:9px}
+.panel__t em{font-style:normal;color:var(--lavanda);font-size:9.5px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid rgba(183,156,255,.1);color:#B4ACD0;font-size:10.5px}
+.row:first-of-type{border-top:0}
+.row b{color:#fff;font-weight:500}
+.tag{font-family:var(--mono);font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(109,59,255,.28);color:#CBB8FF}
+.tag--ok{background:rgba(63,214,138,.16);color:#7BE3AC}
+
+/* ---------- posicionamento ---------- */
+.stance{max-width:860px}
+.stance h2{margin-bottom:24px}
+.stance p{font-size:clamp(17px,1.3vw,20px)}
+
+/* ---------- offline / assinatura ---------- */
+.offline{
+  background:
+    radial-gradient(900px 500px at 50% 30%,rgba(43,10,107,.9),transparent 70%),
+    var(--feltro);
+}
+.offline__head{max-width:760px;margin:0 auto 48px;text-align:center}
+.offline__head .eyebrow{margin-left:auto;margin-right:auto}
+.tv{
+  border-radius:16px;
+  border:1px solid rgba(183,156,255,.28);
+  background:linear-gradient(165deg,#1B0740,#0B0119);
+  padding:26px 32px 30px;
+  box-shadow:0 60px 120px -40px rgba(0,0,0,.9);
+  position:relative;
+  overflow:hidden;
+}
+.tv::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent 40%);
+}
+.tv__top{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.tv__title{font-family:var(--mono);font-size:13px;letter-spacing:.16em;color:var(--lavanda);text-transform:uppercase}
+.status{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+  border:1px solid currentColor;border-radius:20px;padding:6px 12px;
+  color:var(--lavanda);transition:color .4s ease;
+}
+.status__dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.status.is-off{color:var(--ambar)}
+.status.is-sync{color:#7BE3AC}
+.tv__body{display:grid;grid-template-columns:1fr auto 1fr;gap:24px;align-items:center}
+.tv__clock{
+  grid-column:2;text-align:center;
+  font-size:clamp(72px,13vw,148px);
+  font-weight:700;letter-spacing:-.04em;line-height:.92;
+  font-variant-numeric:tabular-nums;
+  color:var(--branco);
+}
+.tv__col{display:flex;flex-direction:column;gap:16px}
+.tv__col--r{text-align:right}
+.tvstat small{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8E85B4;margin-bottom:4px}
+.tvstat b{font-size:clamp(20px,2.4vw,30px);font-weight:600;color:var(--branco);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.tvstat b.accent{color:var(--lavanda)}
+.tv__foot{
+  margin-top:22px;padding-top:16px;border-top:1px solid rgba(183,156,255,.16);
+  display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.tv__foot span{font-family:var(--mono);font-size:11px;color:#8E85B4;letter-spacing:.06em}
+.tv__msg{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--lavanda);min-height:18px}
+.tv__msg.is-off{color:var(--ambar)}
+.tv__msg.is-sync{color:#7BE3AC}
+.offline__note{max-width:720px;margin:44px auto 0;text-align:center}
+
+/* ---------- features ---------- */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{
+  background:#fff;border:1px solid rgba(26,16,48,.1);border-radius:12px;
+  padding:28px;display:flex;flex-direction:column;
+}
+.card__label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--violeta);margin-bottom:14px}
+.card h3{margin-bottom:22px;padding-bottom:22px;border-bottom:1px solid rgba(26,16,48,.1)}
+.card > p{margin-bottom:18px}
+.list{list-style:none;display:flex;flex-direction:column;gap:10px}
+.list li{position:relative;padding-left:20px;font-size:15.5px;line-height:1.45;color:var(--tinta)}
+.list li::before{
+  content:"";position:absolute;left:0;top:8px;width:7px;height:7px;
+  background:var(--violeta);transform:rotate(45deg);
+}
+
+/* ---------- funções ---------- */
+.roles{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.role{background:#fff;border:1px solid rgba(26,16,48,.1);border-radius:12px;padding:22px}
+.role b{display:block;font-size:16px;font-weight:600;margin-bottom:10px}
+.role span{font-size:14.5px;line-height:1.45;color:var(--tinta-fraca)}
+.role__n{font-family:var(--mono);font-size:11px;color:var(--violeta);display:block;margin-bottom:12px}
+
+/* ---------- migração ---------- */
+.migra{max-width:900px;margin:0 auto;background:#fff;border:1px solid rgba(26,16,48,.1);border-left:3px solid var(--violeta);border-radius:12px;padding:48px}
+.migra p + p{margin-top:18px}
+
+/* ---------- planos ---------- */
+.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:stretch}
+.plan{background:#fff;border:1px solid rgba(26,16,48,.1);border-radius:12px;padding:28px 24px;display:flex;flex-direction:column}
+.plan__fine{font-size:12.5px;line-height:1.4;color:var(--tinta-fraca);margin-top:12px;min-height:34px}
+.plan--hi .plan__fine{color:#A79ECB}
+
+/* alternador anual / mensal */
+.toggle{display:flex;align-items:center;gap:8px;margin-bottom:32px}
+.toggle__btn{
+  height:38px;padding:0 20px;border-radius:20px;font-size:14.5px;font-weight:500;
+  background:transparent;color:var(--tinta-fraca);border:1px solid rgba(26,16,48,.14);
+  transition:all .15s ease;
+}
+.toggle__btn.is-on{background:var(--feltro);color:#fff;border-color:var(--feltro)}
+.toggle__save{
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--violeta);padding-left:6px;
+}
+.toggle__save.is-hidden{visibility:hidden}
+.plan--hi{background:var(--feltro);border-color:var(--feltro);color:#fff;position:relative}
+.plan--hi .plan__price b,.plan--hi h3{color:#fff}
+.plan--hi .list li{color:#D8D2EA}
+.plan--hi .plan__for{color:#A79ECB}
+.plan__flag{
+  position:absolute;top:-11px;left:32px;background:var(--violeta);color:#fff;
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  padding:5px 10px;border-radius:4px;
+}
+.plan h3{margin-bottom:6px}
+.plan__for{font-size:14.5px;color:var(--tinta-fraca);margin-bottom:22px;min-height:42px;line-height:1.4}
+.plan__price{display:flex;align-items:baseline;gap:6px;margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid rgba(26,16,48,.1)}
+.plan--hi .plan__price{border-color:rgba(183,156,255,.22)}
+.plan__price b{font-size:34px;font-weight:600;letter-spacing:-.03em}
+.plan__price span{font-size:14px;color:var(--tinta-fraca)}
+.plan--hi .plan__price span{color:#A79ECB}
+.plan .list{margin-bottom:26px}
+.plan .btn{margin-top:auto}
+.plans__note{text-align:center;margin-top:26px;font-size:14.5px;color:var(--tinta-fraca)}
+
+/* ---------- faq ---------- */
+.faq{max-width:820px;margin:0 auto}
+.faq__item{border-top:1px solid rgba(26,16,48,.13)}
+.faq__item:last-child{border-bottom:1px solid rgba(26,16,48,.13)}
+.faq__q{
+  width:100%;background:none;text-align:left;padding:24px 40px 24px 0;
+  font-size:clamp(17px,1.4vw,19px);font-weight:500;color:var(--tinta);
+  position:relative;letter-spacing:-.01em;
+}
+.faq__q::after{
+  content:"+";position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  font-size:22px;color:var(--violeta);font-weight:300;transition:transform .2s ease;
+}
+.faq__item.is-open .faq__q::after{transform:translateY(-50%) rotate(45deg)}
+.faq__a{max-height:0;overflow:hidden;transition:max-height .28s ease}
+.faq__a p{padding:0 40px 26px 0}
+
+/* ---------- cta final ---------- */
+.close{
+  background:radial-gradient(900px 520px at 50% 110%,rgba(109,59,255,.4),transparent 65%),var(--feltro);
+  text-align:center;
+}
+.close h2{font-size:clamp(34px,5vw,66px);max-width:1000px;margin:0 auto 28px}
+.close p{max-width:620px;margin:0 auto 44px}
+.form{max-width:640px;margin:0 auto;text-align:left}
+.form__grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.field{display:flex;flex-direction:column;gap:7px}
+.field--full{grid-column:1/-1}
+.field label{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#9C93BC}
+.field input,.field select{
+  height:50px;border-radius:8px;padding:0 14px;font-size:15px;font-family:inherit;
+  background:rgba(255,255,255,.05);border:1px solid rgba(183,156,255,.24);color:#fff;
+  transition:border-color .15s;
+}
+.field input:hover,.field select:hover{border-color:rgba(183,156,255,.5)}
+.field input::placeholder{color:#6E6590}
+.field select option{background:var(--feltro)}
+.form__foot{margin-top:18px;text-align:center}
+.form__foot small{display:block;font-family:var(--mono);font-size:11.5px;color:#8E85B4;margin-top:14px}
+.form__foot a{color:var(--lavanda);border-bottom:1px solid rgba(183,156,255,.4)}
+.form__ok{display:none;text-align:center;padding:40px;border:1px solid rgba(123,227,172,.4);border-radius:12px;background:rgba(63,214,138,.08)}
+.form__ok b{display:block;font-size:20px;color:#fff;margin-bottom:8px}
+.form__err{
+  margin-top:12px;text-align:center;font-size:14.5px;color:#FFC46B;
+  background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.35);
+  border-radius:8px;padding:12px 14px;
+}
+.btn[aria-busy="true"]{opacity:.65;pointer-events:none}
+
+/* ---------- rodapé ---------- */
+.foot{background:#0A0119;color:#8E85B4;padding:44px 0;font-size:14px}
+.foot__inner{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
+.foot__links{display:flex;gap:22px}
+.foot__links a:hover{color:#fff}
+.foot__tag{font-style:italic;color:var(--lavanda)}
+
+/* ---------- whatsapp mobile ---------- */
+.wa{display:none}
+
+/* ---------- reveal ---------- */
+.rv{opacity:0;transform:translateY(12px);transition:opacity .5s ease,transform .5s ease}
+.rv.is-in{opacity:1;transform:none}
+
+/* ---------- responsivo ---------- */
+@media (max-width:1080px){
+  /* minmax(0,1fr), e nao 1fr: o minimo de `1fr` e `auto`, ou seja, a largura do
+     CONTEUDO. O mockup do sistema sai de proposito pela borda direita (o
+     margin-right negativo do .hero__art), e com `1fr` essa largura toda virava
+     a largura da COLUNA — o titulo e o texto do hero, que dividem a mesma
+     coluna, esticavam junto e ficavam cortados na tela do celular. */
+  .hero__grid{grid-template-columns:minmax(0,1fr);gap:0}
+  .hero__copy,.hero__art{min-width:0}
+  .hero__copy{padding-bottom:56px;max-width:720px}
+  .hero__art{margin-right:-28vw;padding-bottom:70px}
+  .app{transform:perspective(1600px) rotateY(-8deg)}
+  .grid3{grid-template-columns:1fr}
+  .roles{grid-template-columns:repeat(2,1fr)}
+  .plans{grid-template-columns:repeat(2,1fr)}
+  .plan__fine{min-height:0}
+  .nav__links{display:none}
+}
+@media (max-width:720px){
+  .band{padding:80px 0}
+  .wrap{padding:0 20px}
+  .hero{padding:130px 0 0}
+  .hero__art{margin-right:-45vw}
+  .app{transform:none;font-size:10px}
+  .tv{padding:20px 18px 24px}
+  .tv__body{grid-template-columns:1fr;gap:18px;text-align:center}
+  .tv__clock{grid-column:1;order:-1}
+  .tv__col--r{text-align:center}
+  .tv__col{flex-direction:row;justify-content:space-around}
+  .roles{grid-template-columns:1fr}
+  .plans{grid-template-columns:1fr;max-width:420px;margin:0 auto}
+  .migra{padding:32px 24px}
+  .form__grid{grid-template-columns:1fr}
+  .foot__inner{flex-direction:column;text-align:center}
+  .wa{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:99;
+    align-items:center;justify-content:center;height:56px;
+    background:var(--violeta);color:#fff;font-weight:500;font-size:16px;
+  }
+  .foot{padding-bottom:80px}
+  /* No celular a marca + "Entrar" + o botao nao cabem na mesma linha, e o
+     botao ficava cortado na borda. Quem some e o CTA: ele se repete no hero
+     logo abaixo e na barra fixa do rodape. "Entrar" fica, porque e o unico
+     caminho para quem JA e cliente e digitou o dominio de cabeca. */
+  .nav__acoes .btn{display:none}
+  .nav__login{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .rv{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= NAV ================= -->
+<header class="nav" id="nav">
+  <div class="wrap nav__inner">
+    <a class="brand" href="#top" aria-label="AceBlind, início">
+      <svg class="brand__mark" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M20 3 L36 37 H28.5 L20 18 L11.5 37 H4 Z" fill="#fff"/>
+        <path d="M20 24 L24 30 L20 36 L16 30 Z" fill="#fff"/>
+      </svg>
+      <span class="brand__word"><b>Ace</b><span>Blind</span></span>
+    </a>
+    <nav class="nav__links" aria-label="Seções">
+      <a href="#sistema">Sistema</a>
+      <a href="#offline">Offline</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">Dúvidas</a>
+    </nav>
+    <div class="nav__acoes">
+      <a class="nav__login" href="https://app.aceblind.net">Entrar</a>
+      <a class="btn btn--primary btn--sm" href="#demo">Começar grátis</a>
+    </div>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero band--dark" id="top">
+  <div class="wrap hero__grid">
+    <div class="hero__copy">
+      <span class="eyebrow">Sistema de gestão para clubes de poker</span>
+      <h1>Seu torneio não pode parar.<span class="italic">Seu sistema também não.</span></h1>
+      <p class="lead">Torneio, caixa e ranking numa única ferramenta, construída para continuar rodando mesmo quando a internet cai no meio do dia mais cheio do mês.</p>
+      <div class="hero__cta">
+        <a class="btn btn--primary" href="#demo">Comece o teste grátis</a>
+        <a class="btn btn--ghost" href="#demo">Falar no WhatsApp</a>
+      </div>
+      <p class="hero__note">Plano Free por 60 dias · sem instalação · seu próximo evento já roda nele</p>
+    </div>
+
+    <div class="hero__art">
+      <!-- MOCKUP: tela inicial do sistema -->
+      <div class="app" role="img" aria-label="Tela inicial do AceBlind mostrando torneio ativo, jogadores e caixa">
+        <div class="app__bar">
+          <i class="dot"></i><i class="dot"></i><i class="dot"></i>
+          <span class="app__url">app.aceblind.net/home</span>
+        </div>
+        <aside class="app__side">
+          <div class="app__brand">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L36 37 H28.5 L20 18 L11.5 37 H4 Z" fill="#fff"/><path d="M20 24 L24 30 L20 36 L16 30 Z" fill="#fff"/></svg>
+            <span><b style="font-weight:700">Ace</b><span style="font-weight:300">Blind</span></span>
+          </div>
+          <span class="app__chip">Poker Day</span>
+          <!-- Os itens abaixo sao os do menu REAL do sistema (Sidebar.js +
+               locales/pt-BR.json). O prototipo trazia "Sanger", nome antigo:
+               a tela diz Sangeur desde a migracao que renomeou o cargo. Quem
+               ja usa o produto reconhece a diferenca na hora. -->
+          <ul class="app__nav">
+            <li class="on">Início</li>
+            <li>Etapas</li>
+            <li>Vendas</li>
+            <li>Limite de Jogador</li>
+            <li>Tickets Torneio</li>
+            <li>Sangeur</li>
+            <li>Caixa Geral</li>
+            <li>Torneios</li>
+            <li>Templates de Blinds</li>
+            <li>Premiações</li>
+            <li>Financeiro</li>
+            <li>Jogadores</li>
+            <li>Funcionários</li>
+            <li>Relatórios</li>
+          </ul>
+        </aside>
+        <main class="app__main">
+          <div class="app__h">
+            <div>
+              <b>Dashboard</b>
+              <span>Main Event — Dia 1 · Nível 12</span>
+            </div>
+            <span class="app__live">● AO VIVO</span>
+          </div>
+          <div class="stats">
+            <div class="stat"><small>Torneios ativos</small><b>3</b></div>
+            <div class="stat"><small>Jogadores em mesa</small><b>128</b></div>
+            <div class="stat"><small>Entradas</small><b>247</b></div>
+            <div class="stat"><small>Caixa do dia</small><b class="hi">R$ 82.400</b></div>
+          </div>
+          <div class="panels">
+            <div class="panel">
+              <div class="panel__t"><span>Torneios de hoje</span><em>ver todos</em></div>
+              <div class="row"><span><b>Main Event</b> · Dia 1</span><span class="tag">Nível 12</span></div>
+              <div class="row"><span><b>Satélite 19h</b> · 8 tickets</span><span class="tag">Late reg</span></div>
+              <div class="row"><span><b>Turbo Bounty</b> · Final table</span><span class="tag">6 restantes</span></div>
+              <div class="row"><span><b>Ladies Night</b> · encerrado</span><span class="tag tag--ok">Pago</span></div>
+            </div>
+            <div class="panel">
+              <div class="panel__t"><span>Caixa por operador</span><em>hoje</em></div>
+              <div class="row"><span>Marina</span><b>R$ 31.200</b></div>
+              <div class="row"><span>Diego</span><b>R$ 27.850</b></div>
+              <div class="row"><span>Recepção</span><b>R$ 14.100</b></div>
+              <div class="row"><span>Sangria</span><b>R$ 9.250</b></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= POSICIONAMENTO ================= -->
+<section class="band band--light" id="sistema">
+  <div class="wrap stance rv">
+    <span class="eyebrow">O que é o AceBlind</span>
+    <h2>Não é mais um software de torneio.<span class="italic">É o sistema operacional da sua operação.</span></h2>
+    <p>Planilha que não fecha, timer que trava na hora do all-in, caixa que não conversa com o ranking. O AceBlind coloca torneio, caixa e ranking dentro de uma ferramenta só, com permissão por função e histórico de tudo que foi movimentado.</p>
+    <p style="margin-top:18px">Já está pronto e em operação — pode ser a tela que seu caixa vai usar amanhã.</p>
+  </div>
+</section>
+
+<!-- ================= OFFLINE — ASSINATURA ================= -->
+<section class="band band--dark offline" id="offline">
+  <div class="wrap">
+    <div class="offline__head rv">
+      <span class="eyebrow">O diferencial</span>
+      <h2>O único sistema da categoria<span class="italic">que continua de pé quando a internet cai.</span></h2>
+    </div>
+
+    <!-- MOCKUP: tela de TV do timer -->
+    <div class="tv" id="tv">
+      <div class="tv__top">
+        <span class="tv__title">Main Event — Dia 1</span>
+        <span class="status" id="status"><i class="status__dot"></i><span id="statusText">Online</span></span>
+      </div>
+      <div class="tv__body">
+        <div class="tv__col">
+          <div class="tvstat"><small>Nível</small><b>12</b></div>
+          <div class="tvstat"><small>Jogadores</small><b>128 de 247</b></div>
+          <div class="tvstat"><small>Stack médio</small><b>36.667</b></div>
+        </div>
+        <div class="tv__clock" id="clock">12:34</div>
+        <div class="tv__col tv__col--r">
+          <div class="tvstat"><small>Blinds</small><b class="accent">500 / 1.000</b></div>
+          <div class="tvstat"><small>Ante</small><b>1.000</b></div>
+          <div class="tvstat"><small>Prizepool</small><b>R$ 148.200</b></div>
+        </div>
+      </div>
+      <div class="tv__foot">
+        <span>Tela de TV · código do evento: ACE-4471</span>
+        <span class="tv__msg" id="tvMsg">Tudo sincronizado</span>
+      </div>
+    </div>
+
+    <div class="offline__note rv">
+      <p>Se a conexão cair no meio da operação, o AceBlind não trava e não perde dado. Caixa, registro de jogadores e timer continuam rodando normalmente. Quando a internet volta, tudo sincroniza sozinho.</p>
+      <p style="margin-top:16px"><strong style="color:#fff;font-weight:500">Isso não é um recurso a mais.</strong> É a diferença entre terminar o evento no horário e explicar para o jogador por que o timer sumiu.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= O QUE FAZ ================= -->
+<section class="band band--light">
+  <div class="wrap">
+    <div class="rv" style="max-width:760px;margin-bottom:52px">
+      <span class="eyebrow">Na prática</span>
+      <h2>Da estrutura de blind ao pódio,<span class="italic">sem sair de uma tela.</span></h2>
+    </div>
+    <div class="grid3 rv">
+
+      <article class="card">
+        <span class="card__label">Torneio</span>
+        <h3>Da inscrição ao pagamento da premiação</h3>
+        <ul class="list">
+          <li>Torneios multi-dia com continuidade real entre as sessões</li>
+          <li>Estrutura de blinds e timer ao vivo</li>
+          <li>Tela de TV por código, visível de longe, em qualquer mesa</li>
+          <li>Mesas, assentos e eliminações em tempo real</li>
+          <li>Ranking e premiação calculados automaticamente</li>
+          <li>Tickets de satélite integrados ao torneio principal</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="card__label">Caixa</span>
+        <h3>Controle de caixa de verdade, não anotação de papel</h3>
+        <ul class="list">
+          <li>Buy-in, rebuy e add-on com rake configurável por tipo</li>
+          <li>Caixa segmentado por operador: quem movimentou o quê</li>
+          <li>Sangria e caixa geral organizados automaticamente</li>
+          <li>Sangeur e fichas em consignação, sem anotação manual</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <span class="card__label">Jogadores</span>
+        <h3>O que sustenta a operação depois do evento</h3>
+        <ul class="list">
+          <li>Cadastro e check-in ágil, sem gargalo na porta</li>
+          <li>Histórico do jogador por etapa e por temporada</li>
+          <li>Permissões por função para toda a equipe</li>
+          <li>Relatórios de operação e financeiro sem montagem manual</li>
+        </ul>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ================= CINCO FUNÇÕES ================= -->
+<section class="band band--light" style="padding-top:0">
+  <div class="wrap">
+    <div class="rv" style="max-width:700px;margin-bottom:44px">
+      <span class="eyebrow">Um sistema</span>
+      <h2>Cinco pessoas na operação.<span class="italic">Uma ferramenta só.</span></h2>
+    </div>
+    <div class="roles rv">
+      <div class="role"><span class="role__n">DONO DE CLUBE</span><b>Visão consolidada</b><span>Operação e financeiro num lugar só, sem depender de relatório montado na mão.</span></div>
+      <div class="role"><span class="role__n">GERENTE</span><b>Equipe sob controle</b><span>Permissões e acompanhamento de time num painel só.</span></div>
+      <div class="role"><span class="role__n">DIRETOR DE TORNEIO</span><b>Estrutura na mão</b><span>Timer, blinds e estrutura sob controle total, mesmo sob pressão do evento ao vivo.</span></div>
+      <div class="role"><span class="role__n">CAIXA</span><b>Tela rápida</b><span>Pensada para operar em movimento, e que não trava se a conexão cair no meio do turno.</span></div>
+      <div class="role"><span class="role__n">RECEPÇÃO</span><b>Entrada sem fila</b><span>Check-in e cadastro ágil, sem gargalo na porta do evento.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MIGRAÇÃO ================= -->
+<section class="band band--light" style="padding-top:0">
+  <div class="wrap">
+    <div class="migra rv">
+      <span class="eyebrow">A objeção</span>
+      <h2>Migrar de sistema costuma ser o motivo para não trocar.<span class="italic">Aqui, é o motivo para trocar.</span></h2>
+      <p>Trocar de sistema no meio da operação é a maior objeção de qualquer clube, e com razão. Por isso a migração dos seus dados é conduzida pela nossa equipe: não é você quem carrega essa planilha sozinho.</p>
+      <p>Você sai de ferramentas soltas para um sistema único sem pagar o preço de uma transição arriscada.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PLANOS ================= -->
+<section class="band band--light" id="planos" style="padding-top:0">
+  <div class="wrap">
+    <div class="rv" style="max-width:720px;margin-bottom:52px">
+      <span class="eyebrow">Planos</span>
+      <h2>O sistema é o mesmo em todos os planos.<span class="italic">O que muda é o tamanho da sua operação.</span></h2>
+    </div>
+    <div class="toggle rv" role="group" aria-label="Ciclo de cobrança">
+      <button class="toggle__btn is-on" id="tgAnual" aria-pressed="true">Anual</button>
+      <button class="toggle__btn" id="tgMensal" aria-pressed="false">Mensal</button>
+      <span class="toggle__save" id="tgSave">economize 30%</span>
+    </div>
+
+    <div class="plans rv">
+
+      <article class="plan">
+        <h3>Free</h3>
+        <p class="plan__for">Tudo o que o sistema faz, com limite de volume. Para testar rodando um evento de verdade.</p>
+        <div class="plan__price"><b>$0</b><span>/mês</span></div>
+        <ul class="list">
+          <li>2 usuários</li>
+          <li>4 torneios por mês</li>
+          <li>4 mesas por torneio</li>
+          <li>Até 150 jogadores na base</li>
+          <li>Funciona offline, como todos os planos</li>
+        </ul>
+        <a class="btn btn--outline btn--block" href="#demo">Começar grátis</a>
+        <p class="plan__fine">Por 60 dias. Depois é escolher um plano para continuar — nada do que você lançou é apagado.</p>
+      </article>
+
+      <article class="plan">
+        <h3>Standard</h3>
+        <p class="plan__for">Para o clube que roda eventos regulares numa casa só.</p>
+        <div class="plan__price"><b data-anual="$49" data-mensal="$69">$49</b><span>/mês</span></div>
+        <ul class="list">
+          <li>6 usuários</li>
+          <li>20 torneios por mês</li>
+          <li>Mesas ilimitadas por torneio</li>
+          <li>Até 1.000 jogadores na base</li>
+          <li>Caixa por operador, sangria e relatórios</li>
+        </ul>
+        <a class="btn btn--outline btn--block" href="#demo">Começar grátis</a>
+        <p class="plan__fine">&nbsp;</p>
+      </article>
+
+      <article class="plan plan--hi">
+        <span class="plan__flag">Sem limite</span>
+        <h3>Pro</h3>
+        <p class="plan__for">Para quem roda circuito, multi-dia e satélite sem olhar o contador.</p>
+        <div class="plan__price"><b data-anual="$99" data-mensal="$129">$99</b><span>/mês</span></div>
+        <ul class="list">
+          <li>Usuários ilimitados</li>
+          <li>Torneios ilimitados</li>
+          <li>Mesas ilimitadas</li>
+          <li>Base de jogadores ilimitada</li>
+          <li>Todos os módulos, sem trava de volume</li>
+        </ul>
+        <a class="btn btn--primary btn--block" href="#demo">Começar grátis</a>
+        <p class="plan__fine">&nbsp;</p>
+      </article>
+
+      <article class="plan">
+        <h3>Premium</h3>
+        <p class="plan__for">Para rede de clubes, federação ou operação com regra própria.</p>
+        <div class="plan__price"><b>Sob consulta</b></div>
+        <ul class="list">
+          <li>Tudo do Pro, sem limite</li>
+          <li>Sistema personalizado para a sua operação</li>
+          <li>Múltiplas unidades numa só visão</li>
+          <li>Migração conduzida pela nossa equipe</li>
+          <li>Suporte dedicado durante o evento</li>
+        </ul>
+        <a class="btn btn--outline btn--block" href="#demo">Falar com o time</a>
+        <p class="plan__fine">&nbsp;</p>
+      </article>
+
+    </div>
+    <p class="plans__note">Todos os planos funcionam offline e sincronizam sozinhos. Migração de dados incluída.</p>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section class="band band--light" id="faq" style="padding-top:0">
+  <div class="wrap">
+    <div class="faq rv">
+      <div style="margin-bottom:36px">
+        <span class="eyebrow">Dúvidas</span>
+        <h2>Antes de você perguntar.</h2>
+      </div>
+
+      <div class="faq__item">
+        <button class="faq__q" aria-expanded="false">Como funciona quando a internet cai mesmo?</button>
+        <div class="faq__a"><p>O sistema roda localmente na máquina. Caixa, registro e timer continuam operando normalmente durante a queda, e o que foi lançado sobe automaticamente quando a conexão volta. Nada é digitado duas vezes.</p></div>
+      </div>
+
+      <div class="faq__item">
+        <button class="faq__q" aria-expanded="false">Preciso instalar alguma coisa?</button>
+        <div class="faq__a"><p>Não. O AceBlind roda no navegador — abre o endereço e usa, no computador do caixa, no notebook ou no tablet. Se quiser, dá para instalar como aplicativo e ele ganha ícone na área de trabalho, mas é opcional: é o mesmo sistema, e é o que permite continuar operando sem internet.</p></div>
+      </div>
+
+      <div class="faq__item">
+        <button class="faq__q" aria-expanded="false">Consigo trazer meus jogadores do sistema atual?</button>
+        <div class="faq__a"><p>Sim. O cadastro dos seus jogadores entra por planilha exportada do sistema atual, e a migração é conduzida pela nossa equipe — você não carrega esse arquivo sozinho. O histórico é preservado, e o que já entrou não duplica se for preciso reimportar.</p></div>
+      </div>
+
+      <div class="faq__item">
+        <button class="faq__q" aria-expanded="false">O que acontece quando terminam os 60 dias do plano Free?</button>
+        <div class="faq__a"><p>O acesso fica pausado até você escolher um plano — não há cobrança automática nem surpresa no cartão. Nada é apagado: torneios, caixa, jogadores e histórico continuam guardados e voltam exatamente como estavam assim que a conta é reativada.</p></div>
+      </div>
+
+      <div class="faq__item">
+        <button class="faq__q" aria-expanded="false">Serve para clube pequeno?</button>
+        <div class="faq__a"><p>Sim. O plano Free cobre 4 torneios por mês, e o Standard, 20. Para operação de uma casa só, isso costuma dar conta do mês inteiro.</p></div>
+      </div>
+
+      <div class="faq__item">
+        <button class="faq__q" aria-expanded="false">O sistema atende clube fora do Brasil?</button>
+        <div class="faq__a"><p>Sim. A interface está em português, espanhol e inglês, e a moeda é configurada por clube — real, sol peruano, peso colombiano ou outra. Cada operador ainda pode usar o idioma que preferir, mesmo que o clube tenha escolhido outro.</p></div>
+      </div>
+
+      <div class="faq__item">
+        <button class="faq__q" aria-expanded="false">A tela de TV precisa de equipamento especial?</button>
+        <div class="faq__a"><p>Não. Qualquer TV ou monitor com navegador acessa a tela do evento pelo código, sem instalar nada.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA FINAL ================= -->
+<section class="band band--dark close" id="demo">
+  <div class="wrap">
+    <div class="rv">
+      <h2>Sua operação já é profissional.<span class="italic">Seu sistema também precisa ser.</span></h2>
+      <p>Crie a conta e rode seu próximo evento no AceBlind, do primeiro buy-in ao pagamento da premiação. O plano Free vai até 4 torneios por mês, por 60 dias.</p>
+    </div>
+
+    <form class="form" id="form" novalidate>
+      <!-- Armadilha anti-robô: invisível e fora da ordem de tabulação, então
+           ninguém preenche à mão. Robô de formulário preenche tudo que acha, e
+           o backend descarta o envio que vier com ela cheia. -->
+      <div aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">
+        <label for="fw">Não preencha</label>
+        <input id="fw" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+      <div class="form__grid">
+        <div class="field"><label for="f1">Nome</label><input id="f1" type="text" placeholder="Seu nome" required></div>
+        <div class="field"><label for="f2">Clube</label><input id="f2" type="text" placeholder="Nome do clube" required></div>
+        <div class="field"><label for="f3">WhatsApp</label><input id="f3" type="tel" placeholder="(00) 00000-0000" required></div>
+        <div class="field"><label for="f4">E-mail</label><input id="f4" type="email" placeholder="voce@clube.com" required></div>
+        <div class="field"><label for="f5">Cidade</label><input id="f5" type="text" placeholder="Cidade / UF"></div>
+        <div class="field"><label for="f6">Eventos por mês</label>
+          <select id="f6">
+            <option>Até 4</option><option>5 a 12</option><option>13 a 30</option><option>Mais de 30</option>
+          </select>
+        </div>
+      </div>
+      <div class="form__foot">
+        <button class="btn btn--primary btn--block" type="submit" id="send">Comece o teste grátis</button>
+        <!-- role="alert" para o leitor de tela anunciar a falha: sem isso quem
+             navega por teclado envia, não ouve nada e tenta de novo. -->
+        <p class="form__err" id="err" role="alert" hidden></p>
+        <small>Sem custo e sem instalação. Prefere ver funcionando antes? <a href="#" id="waLink">Chamar no WhatsApp</a></small>
+      </div>
+    </form>
+
+    <div class="form__ok" id="ok" role="status">
+      <b>Pedido recebido.</b>
+      <p>A gente entra em contato pelo WhatsApp para abrir a sua conta e configurar o primeiro torneio. Se preferir adiantar, é só chamar.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RODAPÉ ================= -->
+<footer class="foot">
+  <div class="wrap foot__inner">
+    <div>
+      <div class="brand" style="margin-bottom:6px">
+        <svg class="brand__mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L36 37 H28.5 L20 18 L11.5 37 H4 Z" fill="#fff"/><path d="M20 24 L24 30 L20 36 L16 30 Z" fill="#fff"/></svg>
+        <span class="brand__word"><b>Ace</b><span>Blind</span></span>
+      </div>
+      <span class="foot__tag">Mais controle. Menos complicação.</span>
+    </div>
+    <nav class="foot__links" aria-label="Rodapé">
+      <a href="#sistema">Sistema</a><a href="#offline">Offline</a><a href="#planos">Planos</a><a href="#faq">Dúvidas</a><a href="#demo">Contato</a><a href="https://app.aceblind.net">Entrar no sistema</a>
+    </nav>
+    <span>© 2026 AceBlind</span>
+  </div>
+</footer>
+
+<a class="wa" href="#demo">Falar no WhatsApp</a>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO DA PÁGINA
+   Os dois valores que mudam sem tocar no resto do arquivo.
+
+   ACEBLIND_WHATSAPP: só dígitos, com DDI e DDD (ex.: '5511999998888').
+   Enquanto estiver vazio, os botões de WhatsApp levam ao formulário em
+   vez de abrir uma conversa quebrada — melhor mandar para um lugar que
+   funciona do que para um número inexistente.
+   ============================================================ */
+window.ACEBLIND_API = 'https://api.aceblind.net';
+window.ACEBLIND_WHATSAPP = '';
+</script>
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* nav sticky */
+  var nav = document.getElementById('nav');
+  window.addEventListener('scroll', function(){
+    nav.classList.toggle('is-stuck', window.scrollY > 40);
+  }, {passive:true});
+
+  /* reveal */
+  var rvs = document.querySelectorAll('.rv');
+  if('IntersectionObserver' in window && !reduce){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('is-in'); io.unobserve(e.target);} });
+    },{threshold:.12});
+    rvs.forEach(function(el){ io.observe(el); });
+  } else {
+    rvs.forEach(function(el){ el.classList.add('is-in'); });
+  }
+
+  /* timer ao vivo */
+  var clock = document.getElementById('clock');
+  var total = 12*60 + 34;
+  setInterval(function(){
+    total--; if(total < 0) total = 17*60;
+    var m = Math.floor(total/60), s = total%60;
+    clock.textContent = m + ':' + (s<10?'0':'') + s;
+  }, 1000);
+
+  /* assinatura: o corte de conexão */
+  var status = document.getElementById('status');
+  var statusText = document.getElementById('statusText');
+  var msg = document.getElementById('tvMsg');
+  var played = false;
+
+  function play(){
+    if(played) return; played = true;
+    if(reduce){
+      status.classList.add('is-sync'); statusText.textContent = 'Sincronizado';
+      msg.classList.add('is-sync');
+      msg.textContent = 'A conexão caiu e voltou. O timer não parou.';
+      return;
+    }
+    setTimeout(function(){
+      status.classList.add('is-off'); statusText.textContent = 'Sem conexão';
+      msg.classList.add('is-off'); msg.textContent = 'O timer não para. O caixa continua.';
+    }, 1600);
+    setTimeout(function(){
+      status.classList.remove('is-off'); status.classList.add('is-sync');
+      statusText.textContent = 'Sincronizado';
+      msg.classList.remove('is-off'); msg.classList.add('is-sync');
+      msg.textContent = '14 registros enviados automaticamente.';
+    }, 6200);
+  }
+
+  var tv = document.getElementById('tv');
+  if('IntersectionObserver' in window){
+    var io2 = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ play(); io2.unobserve(e.target);} });
+    },{threshold:.4});
+    io2.observe(tv);
+  } else { play(); }
+
+  /* faq */
+  document.querySelectorAll('.faq__q').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var item = btn.parentElement, a = item.querySelector('.faq__a');
+      var open = item.classList.toggle('is-open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      a.style.maxHeight = open ? a.scrollHeight + 'px' : 0;
+    });
+  });
+
+  /* alternador anual / mensal */
+  var tgA = document.getElementById('tgAnual'), tgM = document.getElementById('tgMensal'), tgS = document.getElementById('tgSave');
+  function setCiclo(ciclo){
+    var anual = ciclo === 'anual';
+    tgA.classList.toggle('is-on', anual); tgA.setAttribute('aria-pressed', anual);
+    tgM.classList.toggle('is-on', !anual); tgM.setAttribute('aria-pressed', !anual);
+    tgS.classList.toggle('is-hidden', !anual);
+    document.querySelectorAll('.plan__price b[data-anual]').forEach(function(el){
+      el.textContent = anual ? el.dataset.anual : el.dataset.mensal;
+    });
+  }
+  tgA.addEventListener('click', function(){ setCiclo('anual'); });
+  tgM.addEventListener('click', function(){ setCiclo('mensal'); });
+
+  /* ---- formulário ----------------------------------------------------- */
+  /* Configuração da página, num lugar só. `API` aponta para o backend; trocar
+     de ambiente é trocar esta linha. */
+  var API = window.ACEBLIND_API || 'https://api.aceblind.net';
+  var WHATSAPP = window.ACEBLIND_WHATSAPP || '';   /* só dígitos, com DDI */
+
+  var form = document.getElementById('form');
+  var ok = document.getElementById('ok');
+  var err = document.getElementById('err');
+  var send = document.getElementById('send');
+
+  function val(id){ var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+  function falhar(msg){
+    err.textContent = msg;
+    err.hidden = false;
+    send.removeAttribute('aria-busy');
+    send.textContent = 'Comece o teste grátis';
+  }
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    err.hidden = true;
+
+    /* Validação na tela antes de gastar uma ida ao servidor. O backend valida
+       de novo — cliente nunca é fonte confiável —, mas quem preencheu merece
+       saber na hora qual campo está faltando. */
+    if(!val('f1') || !val('f2') || !val('f3') || !val('f4')){
+      return falhar('Preencha nome, clube, WhatsApp e e-mail.');
+    }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f4'))){
+      return falhar('Confira o e-mail: parece que falta alguma coisa.');
+    }
+
+    send.setAttribute('aria-busy','true');
+    send.textContent = 'Enviando…';
+
+    fetch(API + '/public/leads', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        name: val('f1'), club: val('f2'), whatsapp: val('f3'), email: val('f4'),
+        city: val('f5'), events_per_month: val('f6'),
+        website: val('fw'),          /* armadilha anti-robô */
+        source: 'landing'
+      })
+    }).then(function(r){
+      if(!r.ok) throw new Error('http ' + r.status);
+      form.style.display = 'none';
+      ok.style.display = 'block';
+      ok.scrollIntoView({block:'center', behavior: reduce ? 'auto' : 'smooth'});
+    }).catch(function(){
+      /* Nunca engolir a falha: sem isto a pessoa vê "recebemos" e ninguém
+         recebeu nada. O WhatsApp fica como saída imediata. */
+      falhar('Não consegui enviar agora. Tente de novo em instantes — ou chame no WhatsApp, que a gente responde por lá.');
+    });
+  });
+
+  /* WhatsApp: um número só, definido em ACEBLIND_WHATSAPP. Enquanto não
+     estiver preenchido, os botões levam ao formulário em vez de abrir uma
+     conversa quebrada. */
+  if(WHATSAPP){
+    var texto = encodeURIComponent('Olá! Quero conhecer o AceBlind para o meu clube.');
+    var href = 'https://wa.me/' + WHATSAPP + '?text=' + texto;
+    document.querySelectorAll('.wa, #waLink').forEach(function(a){ a.href = href; a.target = '_blank'; a.rel = 'noopener'; });
+    document.querySelectorAll('a.btn--ghost').forEach(function(a){
+      if(/whatsapp/i.test(a.textContent)){ a.href = href; a.target = '_blank'; a.rel = 'noopener'; }
+    });
+  }
+})();
+</script>
+</body>
+</html>
