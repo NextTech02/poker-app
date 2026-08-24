@@ -625,6 +625,10 @@ const TournamentBroadcast = () => {
     showPrizepool: bSource?.broadcast_show_prizepool !== false,
     showLevel: bSource?.broadcast_show_level !== false,
     showPlayers: bSource?.broadcast_show_players !== false,
+    // `=== true` e nao `!== false`: o padrao aqui e NAO mostrar. O numero nao
+    // existia ate agora, e liga-lo sozinho mudaria o telao de todos os clubes
+    // sem ninguem ter pedido.
+    showReentries: bSource?.broadcast_show_reentries === true,
     showInterval: bSource?.broadcast_show_interval !== false,
     showTimer: bSource?.broadcast_show_timer !== false,
     showBlinds: bSource?.broadcast_show_blinds !== false,
@@ -774,6 +778,13 @@ const TournamentBroadcast = () => {
     return sum + (p.buy_in_count || 0) + (p.rebuy_count || 0);
   }, 0);
 
+  // Reentradas (recompra + add-on). Nao somam jogadores: quem recompra continua
+  // sendo a mesma pessoa na mesa — por isso e um numero proprio, e nao entra no
+  // "Jogadores" nem no "Entradas".
+  const totalReentries = (isDayBased && timerState) ? (timerState.total_reentries || 0) : players.reduce((sum, p) => {
+    return sum + (p.rebuy_count || 0) + (p.addon_count || 0);
+  }, 0);
+
   // Chipcount and average stack (day-based only, from enriched endpoint)
   const chipcount = (isDayBased && timerState) ? (timerState.chipcount || 0) : 0;
   const averageStack = (isDayBased && timerState) ? (timerState.average_stack || 0) : 0;
@@ -838,6 +849,13 @@ const TournamentBroadcast = () => {
                 <div className="sidebar-section">
                   <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.entries}</div>
                   <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{totalEntries}</div>
+                </div>
+              )}
+
+              {broadcastSettings.showReentries && totalReentries > 0 && (
+                <div className="sidebar-section">
+                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.reentries}</div>
+                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{totalReentries}</div>
                 </div>
               )}
 

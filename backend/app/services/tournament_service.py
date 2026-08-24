@@ -176,7 +176,7 @@ class TournamentService:
         if counted_day_ids:
             players = (
                 supabase.table("tournament_players")
-                .select("tournament_day_id, buy_in_count, rebuy_count")
+                .select("tournament_day_id, buy_in_count, rebuy_count, addon_count, status")
                 .in_("tournament_day_id", counted_day_ids)
                 .execute()
                 .data
@@ -185,9 +185,21 @@ class TournamentService:
 
         # --- In-memory aggregation (hash maps, O(n)) ---
         entries_by_day = defaultdict(int)
+        # JOGADORES e REENTRADAS separados: quem recompra tres vezes continua
+        # sendo UMA pessoa na mesa. Somar as duas coisas num numero so era o que
+        # inflava a contagem do torneio na lista.
+        players_by_day = defaultdict(int)
+        reentries_by_day = defaultdict(int)
         for p in players:
-            entries_by_day[p["tournament_day_id"]] += (
+            dia = p["tournament_day_id"]
+            entries_by_day[dia] += (
                 (p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0)
+            )
+            # Inscricao estornada nao conta como gente na mesa.
+            if (p.get("status") or "") != "cancelled":
+                players_by_day[dia] += 1
+            reentries_by_day[dia] += (
+                (p.get("rebuy_count") or 0) + (p.get("addon_count") or 0)
             )
 
         days_by_tournament = defaultdict(list)
@@ -200,12 +212,16 @@ class TournamentService:
             tdays = days_by_tournament.get(item["id"], [])
             total_days = len(tdays)
             total_entries = 0
+            total_players = 0
+            total_reentries = 0
             day_statuses = []
             for day in tdays:
                 day_statuses.append(day.get("status", "pending"))
                 if day.get("day_type") == "final":
                     continue
                 total_entries += entries_by_day.get(day["id"], 0)
+                total_players += players_by_day.get(day["id"], 0)
+                total_reentries += reentries_by_day.get(day["id"], 0)
 
             # Derive tournament status from its days
             if day_statuses:
@@ -221,6 +237,8 @@ class TournamentService:
                     item["status"] = derived_status
 
             item["total_entries"] = total_entries
+            item["total_players"] = total_players
+            item["total_reentries"] = total_reentries
             item["total_days"] = total_days
             sponsor = item.pop("sponsors", None) or {}
             item["sponsor_name"] = sponsor.get("name")

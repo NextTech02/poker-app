@@ -244,6 +244,10 @@ class TournamentDay(TournamentDayBase):
     status: TournamentDayStatus = TournamentDayStatus.pending
     registered_players: int = 0
     total_entries: int = 0  # buy-ins + rebuys (addons not counted)
+    # Recompras + add-ons do dia. Fica separado de `registered_players` porque
+    # quem recompra nao vira um jogador novo na mesa — somar os dois inflava a
+    # contagem do torneio.
+    total_reentries: int = 0
     prize_pool: float = 0.0
     start_time: Optional[datetime] = None
     created_at: datetime

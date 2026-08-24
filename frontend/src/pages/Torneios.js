@@ -379,7 +379,13 @@ const Torneios = () => {
             </div>
             <div className="tr-grid">
               {tournaments.map((tournament) => {
-                const entries = tournament.total_entries || 0;
+                // JOGADORES e REENTRADAS separados. Antes o card mostrava
+                // buy-ins + recompras num numero so, ao lado de um icone de
+                // pessoas: quem recompra tres vezes aparecia como tres jogadores
+                // e a contagem do torneio inflava. Recompra e add-on nao criam
+                // gente nova na mesa.
+                const players = tournament.total_players || 0;
+                const reentries = tournament.total_reentries || 0;
                 // O card inteiro continua clicável pelo link "Ver detalhes" esticado sobre ele
                 // (ver .tr-card-cta::after no CSS); assim o teclado alcança a navegação pelo
                 // próprio link, em vez de uma <div> com onClick que o Tab nunca visita.
@@ -410,10 +416,25 @@ const Torneios = () => {
                           <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                         </svg>
                         <span>
-                          <strong>{entries}</strong>{' '}
-                          {entries === 1 ? t('tournaments.entries', 'entrada') : t('tournaments.entriesPlural', 'entradas')}
+                          <strong>{players}</strong>{' '}
+                          {players === 1
+                            ? t('tournaments.playersSingular', 'jogador')
+                            : t('tournaments.playersPlural', 'jogadores')}
                         </span>
                       </div>
+                      {reentries > 0 && (
+                        <div className="tr-stat" title={t('tournaments.reentriesHint', 'Recompras e add-ons. Não somam jogadores: quem recompra continua sendo a mesma pessoa na mesa.')}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
+                            <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                          </svg>
+                          <span>
+                            <strong>{reentries}</strong>{' '}
+                            {reentries === 1
+                              ? t('tournaments.reentrySingular', 'reentrada')
+                              : t('tournaments.reentryPlural', 'reentradas')}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="tr-card-footer">

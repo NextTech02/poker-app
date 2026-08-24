@@ -539,6 +539,16 @@ const TournamentDetail = () => {
             <span className="day-info-value">{day.total_entries || 0}</span>
           </div>
         )}
+        {day.day_type !== 'final' && (day.total_reentries || 0) > 0 && (
+          // Recompra e add-on ficam num campo proprio: elas nao criam jogador
+          // novo, e juntar tudo num numero so inflava a contagem do torneio.
+          <div className="day-info-item">
+            <span className="day-info-label">
+              {t('tournamentDays.reentries', 'Reentradas')}
+            </span>
+            <span className="day-info-value">{day.total_reentries}</span>
+          </div>
+        )}
         {day.day_type === 'qualifying' && day.qualifies_to_day_id && (
           <div className="day-info-item qualifying-info">
             <span className="day-info-label">{t('tournamentDays.qualifiesTo')}</span>

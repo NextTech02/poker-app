@@ -38,6 +38,9 @@ const DEFAULT_SETTINGS = {
   broadcast_show_prizepool: true,
   broadcast_show_level: true,
   broadcast_show_players: true,
+  // Padrao FALSE: o numero e novo, e liga-lo sozinho mudaria o telao de todos
+  // os clubes sem ninguem ter pedido.
+  broadcast_show_reentries: false,
   broadcast_show_interval: true,
   broadcast_show_timer: true,
   broadcast_show_blinds: true,
@@ -380,6 +383,12 @@ const BroadcastPreview = ({ settings, displayName, notice, previewBreak }) => {
                         <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewEntries')}</div>
                         <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.entries}</div>
                       </div>
+                      {S.broadcast_show_reentries && (
+                        <div>
+                          <div style={{ fontSize: 13 * fs, color: c.sbLabel, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('broadcastSettings.previewReentries', 'Reentradas')}</div>
+                          <div style={{ fontSize: 32 * fs, fontWeight: 800, color: c.sbVal }}>{MOCK.reentries ?? 6}</div>
+                        </div>
+                      )}
                     </>
                   )}
                   {S.broadcast_show_interval && (
@@ -592,6 +601,7 @@ const BroadcastSettings = () => {
           broadcast_show_prizepool:  d.broadcast_show_prizepool  !== false,
           broadcast_show_level:      d.broadcast_show_level      !== false,
           broadcast_show_players:    d.broadcast_show_players    !== false,
+          broadcast_show_reentries:  d.broadcast_show_reentries  === true,
           broadcast_show_interval:   d.broadcast_show_interval   !== false,
           broadcast_show_timer:      d.broadcast_show_timer      !== false,
           broadcast_show_blinds:     d.broadcast_show_blinds     !== false,
@@ -983,6 +993,7 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_show_prizepool',  labelKey: 'visPrizepool' },
                   { key: 'broadcast_show_level',      labelKey: 'visLevel' },
                   { key: 'broadcast_show_players',    labelKey: 'visPlayers' },
+                  { key: 'broadcast_show_reentries',  labelKey: 'visReentries', padrao: 'Reentradas (recompras e add-ons)' },
                   { key: 'broadcast_show_interval',   labelKey: 'visInterval' },
                   { key: 'broadcast_show_timer',      labelKey: 'visTimer' },
                   { key: 'broadcast_show_blinds',     labelKey: 'visBlinds' },

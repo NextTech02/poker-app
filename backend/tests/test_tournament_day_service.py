@@ -83,6 +83,61 @@ def _monta(monkeypatch, **tabelas):
     return fake
 
 
+class TestJogadoresSeparadoDeReentradas:
+    """Recompra e add-on NAO criam jogador novo.
+
+    Reclamacao do dono do clube: "os rebuys e addons estao entrando como sendo
+    novos jogadores, aumentando a contagem de um torneio". O banco sempre esteve
+    certo — `registered_players` bate com os buy-ins —, mas a agregacao somava
+    buy_in_count + rebuy_count num numero so, e a tela mostrava isso ao lado de
+    um icone de pessoas. Quem recompra tres vezes continua sendo UMA pessoa.
+
+    Detalhe que mostra o tamanho da confusao: o numero antigo somava recompra e
+    IGNORAVA add-on. Nao era jogadores nem entradas.
+    """
+
+    def _um_jogador(self, buy_ins=1, rebuys=0, addons=0, status="active"):
+        return {
+            "id": f"tp-{buy_ins}-{rebuys}-{addons}-{status}",
+            "tournament_day_id": D1, "tournament_id": TOUR,
+            "buy_in_count": buy_ins, "rebuy_count": rebuys, "addon_count": addons,
+            "status": status,
+        }
+
+    def test_quem_recompra_continua_sendo_um_jogador(self, monkeypatch):
+        """Um jogador com 3 recompras e 1 add-on: 1 pessoa, 4 reentradas."""
+        _monta(monkeypatch, tournament_players=[
+            self._um_jogador(buy_ins=1, rebuys=3, addons=1),
+        ])
+        entradas, reentradas = S._entries_by_day([D1])
+        assert reentradas[D1] == 4
+
+    def test_add_on_entra_na_conta_de_reentradas(self, monkeypatch):
+        """O numero antigo somava recompra e ignorava add-on — nao era nem uma
+        coisa nem outra."""
+        _monta(monkeypatch, tournament_players=[
+            self._um_jogador(buy_ins=1, rebuys=0, addons=2),
+        ])
+        _, reentradas = S._entries_by_day([D1])
+        assert reentradas[D1] == 2
+
+    def test_dia_sem_reentrada_devolve_zero(self, monkeypatch):
+        _monta(monkeypatch, tournament_players=[
+            self._um_jogador(buy_ins=1),
+            self._um_jogador(buy_ins=1, status="eliminated"),
+        ])
+        _, reentradas = S._entries_by_day([D1])
+        assert reentradas.get(D1, 0) == 0
+
+    def test_o_dia_devolve_as_reentradas_separadas(self, monkeypatch):
+        """O campo chega na tela: sem ele o front nao tem como separar."""
+        _monta(monkeypatch, tournament_players=[
+            self._um_jogador(buy_ins=1, rebuys=2, addons=1),
+        ])
+        dia = S.get_tournament_day(D1)
+        assert dia.total_reentries == 3
+
+
 class TestCodigoDeTV:
     def test_resolve_o_codigo_para_o_dia(self, monkeypatch):
         _monta(monkeypatch, tournament_days=[_dia(

@@ -155,33 +155,41 @@ class TournamentDayService:
             return []
 
         # total_entries per day in ONE round-trip (was one query per day = N+1).
-        entries_by_day = TournamentDayService._entries_by_day([r["id"] for r in rows])
+        entries_by_day, reentries_by_day = TournamentDayService._entries_by_day([r["id"] for r in rows])
 
         days = []
         for item in rows:
             item["total_entries"] = entries_by_day.get(item["id"], 0)
+            item["total_reentries"] = reentries_by_day.get(item["id"], 0)
             days.append(TournamentDay(**item))
 
         return days
 
     @staticmethod
-    def _entries_by_day(day_ids: List[str]) -> dict:
-        """Map day_id -> total entries (buy_in_count + rebuy_count) for the given
-        days in a single batched query, aggregated in memory (hash map)."""
+    def _entries_by_day(day_ids: List[str]) -> tuple:
+        """Devolve (entradas_por_dia, reentradas_por_dia) numa consulta so.
+
+        REENTRADA (recompra + add-on) fica separada de propósito: quem recompra
+        tres vezes continua sendo UMA pessoa na mesa, e somar as duas coisas num
+        numero unico era o que inflava a contagem de jogadores do torneio."""
         if not day_ids:
-            return {}
+            return {}, {}
         players = (
             supabase.table("tournament_players")
-            .select("tournament_day_id, buy_in_count, rebuy_count")
+            .select("tournament_day_id, buy_in_count, rebuy_count, addon_count")
             .in_("tournament_day_id", day_ids)
             .execute()
             .data
             or []
         )
         agg = defaultdict(int)
+        reentradas = defaultdict(int)
         for p in players:
             agg[p["tournament_day_id"]] += (p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0)
-        return agg
+            # Reentradas (recompra + add-on) contadas a parte: elas nao criam
+            # jogador novo, e juntar tudo num numero so inflava a contagem.
+            reentradas[p["tournament_day_id"]] += (p.get("rebuy_count") or 0) + (p.get("addon_count") or 0)
+        return agg, reentradas
 
     @staticmethod
     def get_tournament_day(day_id: str, include_entries: bool = True) -> Optional[TournamentDay]:
@@ -197,20 +205,21 @@ class TournamentDayService:
             item = response.data[0]
 
             total_entries = 0
+            total_reentries = 0
             if include_entries:
-                # Calculate total_entries
-                players_response = supabase.table("tournament_players")\
-                    .select("buy_in_count, rebuy_count")\
-                    .eq("tournament_day_id", day_id)\
-                    .execute()
+                players_response = supabase.table("tournament_players")                    .select("buy_in_count, rebuy_count, addon_count")                    .eq("tournament_day_id", day_id)                    .execute()
 
                 if players_response.data:
                     for player in players_response.data:
                         buy_ins = player.get("buy_in_count", 0) or 0
                         rebuys = player.get("rebuy_count", 0) or 0
+                        addons = player.get("addon_count", 0) or 0
                         total_entries += buy_ins + rebuys
+                        # Reentrada nao cria jogador novo — conta a parte.
+                        total_reentries += rebuys + addons
 
             item["total_entries"] = total_entries
+            item["total_reentries"] = total_reentries
             return TournamentDay(**item)
         return None
 
@@ -475,7 +484,12 @@ class TournamentDayService:
 
         É o número que o clube usa quando não conta ficha por jogador: serve de
         referência e alimenta o caminho antigo do avanço.
-        Devolve (total_chips_teorico, total_entries).
+        Devolve (total_chips_teorico, total_entries, total_reentradas).
+
+        REENTRADA (recompra + add-on) vem separada porque ela nao cria jogador
+        novo: quem recompra tres vezes continua sendo uma pessoa na mesa. O telao
+        exibe as duas coisas em campos distintos, e o clube escolhe se mostra a
+        segunda.
         """
         players_response = supabase.table("tournament_players")\
             .select("buy_in_count, rebuy_count, addon_count")\
@@ -484,6 +498,7 @@ class TournamentDayService:
 
         total_chips = 0
         total_entries = 0
+        total_reentradas = 0
         for p in (players_response.data or []):
             buy_ins = p.get("buy_in_count", 0) or 0
             rebuys = p.get("rebuy_count", 0) or 0
@@ -492,7 +507,8 @@ class TournamentDayService:
             total_chips += rebuys * (day.rebuy_chips or 0)
             total_chips += addons * (day.addon_chips or 0)
             total_entries += buy_ins + rebuys
-        return total_chips, total_entries
+            total_reentradas += rebuys + addons
+        return total_chips, total_entries, total_reentradas
 
     @staticmethod
     def advance_qualifiers(qualifying_day_id: str) -> dict:
@@ -580,7 +596,7 @@ class TournamentDayService:
         if survivors_count <= 0:
             raise ValueError("Nenhum sobrevivente para avançar (todos eliminados)")
 
-        total_chips, total_entries = TournamentDayService._entradas_do_dia(qualifying_day)
+        total_chips, total_entries, _reentradas = TournamentDayService._entradas_do_dia(qualifying_day)
 
         # Carry over prize pool
         qualifying_prize_pool = qualifying_day.prize_pool or 0
@@ -685,7 +701,7 @@ class TournamentDayService:
                 "chips": fichas,
             })
 
-        _, total_entries = TournamentDayService._entradas_do_dia(qualifying_day)
+        _, total_entries, _reentradas = TournamentDayService._entradas_do_dia(qualifying_day)
 
         # Lido ANTES do insert de propósito: no banco, o trigger de prize_pool
         # dispara a cada linha nova e recalcula o prêmio do dia final a partir
@@ -1338,16 +1354,19 @@ class TournamentDayService:
         if cached and (now - cached[0]) < _CHIPCOUNT_TTL:
             chipcount = cached[1]
             total_entries = cached[2]
+            # Cache antigo (3 posicoes) continua valido: reentrada vira 0 ate o
+            # proximo ciclo, em vez de estourar por indice.
+            total_reentries = cached[3] if len(cached) > 3 else 0
         else:
             try:
                 agg_resp = supabase.table("tournament_players")\
-                    .select("total_chips, buy_in_count, rebuy_count")\
+                    .select("total_chips, buy_in_count, rebuy_count, addon_count")\
                     .eq("tournament_day_id", day_id)\
                     .execute()
                 players_data = agg_resp.data or []
                 if not players_data:
                     agg_resp2 = supabase.table("tournament_players")\
-                        .select("total_chips, buy_in_count, rebuy_count")\
+                        .select("total_chips, buy_in_count, rebuy_count, addon_count")\
                         .eq("tournament_id", day.tournament_id)\
                         .execute()
                     players_data = agg_resp2.data or []
@@ -1356,10 +1375,18 @@ class TournamentDayService:
                     (p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0)
                     for p in players_data
                 )
-                _chipcount_cache[day_id] = (now, chipcount, total_entries)
+                # Reentrada = recompra + add-on. Separada de proposito: ela nao
+                # cria jogador novo, e somar tudo num numero so inflava a
+                # contagem que o telao mostra ao lado de "Jogadores".
+                total_reentries = sum(
+                    (p.get("rebuy_count") or 0) + (p.get("addon_count") or 0)
+                    for p in players_data
+                )
+                _chipcount_cache[day_id] = (now, chipcount, total_entries, total_reentries)
             except Exception:
                 chipcount = cached[1] if cached else 0
                 total_entries = cached[2] if cached else 0
+                total_reentries = cached[3] if cached and len(cached) > 3 else 0
 
         # Active players = total_entries - eliminations_count (eliminations read fresh
         # from the day row, so they reflect instantly even while aggregates are cached)
@@ -1405,6 +1432,8 @@ class TournamentDayService:
             "next_break_starts_at": next_break_starts_at,
             "active_players": active_players,
             "total_entries": total_entries,
+            # Recompras + add-ons, para o telao exibir separado de "Jogadores".
+            "total_reentries": total_reentries,
             "eliminations_count": eliminations_count,
             "chipcount": chipcount,
             "average_stack": average_stack,

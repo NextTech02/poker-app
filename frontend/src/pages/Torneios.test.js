@@ -55,9 +55,11 @@ jest.mock('react-i18next', () => {
 });
 
 const TORNEIOS = [
-  { id: 't1', name: 'Main Event', status: 'active', total_entries: 120, has_qualifying: true },
-  { id: 't2', name: 'Turbo', status: 'PENDING', total_entries: 0 },
-  { id: 't3', name: 'Antigo', status: 'completed', total_entries: 55 },
+  // 80 pessoas na mesa e 40 reentradas. O numero antigo somava tudo (120) e
+  // mostrava ao lado de um icone de pessoas — era o que inflava a contagem.
+  { id: 't1', name: 'Main Event', status: 'active', total_entries: 120, total_players: 80, total_reentries: 40, has_qualifying: true },
+  { id: 't2', name: 'Turbo', status: 'PENDING', total_entries: 0, total_players: 0, total_reentries: 0 },
+  { id: 't3', name: 'Antigo', status: 'completed', total_entries: 55, total_players: 55, total_reentries: 0 },
 ];
 
 const PATROCINADORES = [{ id: 'sp1', name: 'Cerveja X' }];
@@ -121,9 +123,26 @@ describe('lista', () => {
     expect(document.querySelectorAll('.skeleton-tournament-card').length).toBeGreaterThan(0);
   });
 
-  it('lista cada torneio com o total de entradas', async () => {
+  it('o card conta JOGADORES, nao entradas', async () => {
+    // Reclamacao do dono do clube: "os rebuys e addons estao entrando como
+    // sendo novos jogadores, aumentando a contagem de um torneio". Quem
+    // recompra tres vezes continua sendo UMA pessoa na mesa.
     await montar();
-    expect(cartaoDe('Main Event')).toHaveTextContent('120');
+    expect(cartaoDe('Main Event')).toHaveTextContent('80 jogadores');
+  });
+
+  it('reentradas aparecem num numero proprio, sem somar aos jogadores', async () => {
+    await montar();
+    expect(cartaoDe('Main Event')).toHaveTextContent('40 reentradas');
+    // 120 era a soma antiga — nao pode voltar a aparecer.
+    expect(cartaoDe('Main Event')).not.toHaveTextContent('120');
+  });
+
+  it('torneio sem reentrada nao mostra o campo', async () => {
+    // Numero zerado na tela so faz o operador parar de ler.
+    await montar();
+    expect(cartaoDe('Antigo')).toHaveTextContent('55 jogadores');
+    expect(cartaoDe('Antigo')).not.toHaveTextContent('reentrada');
   });
 
   it('torneio com classificatórios é sinalizado', async () => {

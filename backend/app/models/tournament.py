@@ -154,6 +154,12 @@ class TournamentSummary(BaseModel):
     is_satellite: bool = False
     status: Optional[str] = "pending"  # A2: campo incluído para exibição de badges no frontend
     total_entries: int = 0  # Aggregated from all days (buy-ins + rebuys)
+    # JOGADOR e REENTRADA sao coisas diferentes, e misturar as duas inflava a
+    # contagem do torneio: quem recompra tres vezes continua sendo UMA pessoa na
+    # mesa. `total_players` conta gente; `total_reentries` conta recompra e
+    # add-on, que e o numero que o clube pode ou nao querer exibir.
+    total_players: int = 0
+    total_reentries: int = 0
     total_days: int = 0  # Number of tournament days
     created_by: str
     created_at: datetime
