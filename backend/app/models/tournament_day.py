@@ -248,11 +248,6 @@ class TournamentDay(TournamentDayBase):
     total_entries: int = 0
     # Recompras + add-ons do dia, em campo proprio. O clube escolhe se exibe.
     total_reentries: int = 0
-    # So as recompras. Existe separado de `total_reentries` porque e ele que
-    # diz quantas VIDAS foram compradas no dia (buy-in + recompra) — a base de
-    # "jogadores em jogo" e do teto do contador de eliminacoes. Add-on nao entra:
-    # quem faz add-on ja esta na mesa.
-    total_rebuys: int = 0
     prize_pool: float = 0.0
     start_time: Optional[datetime] = None
     created_at: datetime

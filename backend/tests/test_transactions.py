@@ -944,6 +944,60 @@ class TestContadoresSaoDecrementados:
             "undo_entry_counters_once"
         ]
 
+    def test_cancelar_recompra_devolve_a_eliminacao_ao_contador(self, monkeypatch):
+        """Simetria com a venda: a recompra baixa o contador de eliminacoes
+        (quem recompra volta a mesa), entao o estorno devolve.
+
+        Sem isto o telao fica com um jogador ativo A MAIS para sempre, e ninguem
+        percebe — o numero esta a um digito do certo.
+
+        Este e o caminho ANTERIOR a migracao; onde o RPC existe, o mesmo acerto
+        acontece dentro dele, na mesma transacao e com a mesma guarda de recibo.
+        """
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(tipo="rebuy"),
+            jogador={"buy_in_count": 3},
+            tabelas={"tournament_days": [{
+                "id": DIA, "tournament_id": TOUR, "registered_players": 10,
+                "rebuy_chips": 10000, "addon_chips": 10000,
+                "eliminations_count": 1,
+            }]},
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 2
+
+    def test_o_contador_devolvido_nao_passa_do_total_de_entradas(self, monkeypatch):
+        """Mais eliminados que entradas deixaria "jogadores ativos" negativo na
+        TV — o mesmo defeito que estamos consertando, pelo outro lado."""
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(tipo="rebuy"),
+            jogador={"buy_in_count": 1},
+            tabelas={"tournament_days": [{
+                "id": DIA, "tournament_id": TOUR, "registered_players": 10,
+                "rebuy_chips": 10000, "addon_chips": 10000,
+                "eliminations_count": 1,
+            }]},
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+
+    def test_cancelar_add_on_nao_mexe_no_contador(self, monkeypatch):
+        """Add-on nunca tirou ninguem da mesa: quem faz add-on ja esta jogando."""
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(tipo="addon"),
+            jogador={"buy_in_count": 3},
+            tabelas={"tournament_days": [{
+                "id": DIA, "tournament_id": TOUR, "registered_players": 10,
+                "rebuy_chips": 10000, "addon_chips": 10000,
+                "eliminations_count": 1,
+            }]},
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+
     def test_o_acerto_na_mao_tambem_deixa_recibo(self, monkeypatch):
         """Quando o acerto sai pelo caminho manual (o RPC existe mas falhou na
         hora), o recibo e gravado assim mesmo — senao a proxima tentativa

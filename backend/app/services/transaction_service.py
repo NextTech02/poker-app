@@ -331,6 +331,37 @@ class TransactionService:
         return []
 
     @staticmethod
+    def _refazer_eliminacao(dia: dict, day_id: str) -> None:
+        """Devolve uma eliminação ao contador do dia, sem passar do total.
+
+        Só é usada no caminho anterior à migração — onde o RPC existe, o mesmo
+        acerto acontece dentro dele, na mesma transação. Falhar aqui não derruba
+        o estorno: o dinheiro já voltou, e o pior caso é um ativo a mais na TV
+        até o operador ajustar no botão.
+        """
+        try:
+            entradas = sum(
+                int(linha.get("buy_in_count") or 0)
+                for linha in (
+                    supabase.table("tournament_players")
+                    .select("buy_in_count")
+                    .eq("tournament_day_id", day_id)
+                    .execute()
+                    .data
+                    or []
+                )
+            )
+            atual = int(dia.get("eliminations_count") or 0)
+            supabase.table("tournament_days").update(
+                {"eliminations_count": min(atual + 1, entradas)}
+            ).eq("id", day_id).execute()
+        except Exception:
+            logger.warning(
+                "não consegui devolver a eliminação ao contador do dia %s", day_id,
+                exc_info=True,
+            )
+
+    @staticmethod
     def _banco_acertou_os_contadores(transaction_id: str) -> bool:
         """Deixa o BANCO desfazer os contadores desta venda, uma vez só.
 
@@ -416,6 +447,12 @@ class TransactionService:
                 campo_total: max(round(float(tp.get(campo_total) or 0) - valor, 2), 0.0),
                 "total_chips": max(int(tp.get("total_chips") or 0) - fichas_do_tipo, 0),
             }
+            if tx["type"] == "rebuy" and day_id:
+                # A venda da recompra tinha baixado o contador de eliminações
+                # (quem recompra volta à mesa); o estorno devolve. Sem isto o
+                # telão fica com um jogador ativo a mais para sempre, e ninguém
+                # percebe: o número está a um dígito do certo.
+                TransactionService._refazer_eliminacao(dia, day_id)
         else:
             # Buy-in cancelado = inscrição desfeita: o jogador sai do dia.
             # `buy_in_count` precisa zerar junto com o valor: é ELE que todo

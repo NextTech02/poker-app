@@ -25,13 +25,15 @@ DIA_1B = "88888888-8888-8888-8888-888888888888"
 TP_1B = "99999999-9999-9999-9999-999999999999"
 
 
-def _dia(buy_in=100, chips=10000, rake=20, max_players=None, registrados=0):
+def _dia(buy_in=100, chips=10000, rake=20, max_players=None, registrados=0,
+         eliminations_count=0):
     return {
         "id": DIA, "tournament_id": TOUR, "buy_in": buy_in,
         "starting_chips": chips, "rake_percentage": rake,
         "max_players": max_players, "registered_players": registrados,
         "rebuy_amount": buy_in, "addon_amount": buy_in,
         "rebuy_chips": chips, "addon_chips": chips,
+        "eliminations_count": eliminations_count,
         "created_at": "2026-06-08T00:00:00Z",
     }
 
@@ -47,6 +49,9 @@ def _monta(monkeypatch, dia=None, jogadores=None, tabelas=None):
     }
     base.update(tabelas or {})
     fake = FakeSupabase(base)
+    # A recompra chama esta funcao para desfazer uma eliminacao. Ela existe no
+    # banco de verdade; aqui o retorno nao importa, so o fato de nao estourar.
+    fake.rpcs["desfazer_eliminacoes"] = 0
     monkeypatch.setattr(tournament_player_service, "supabase", fake)
     # O bloqueio de vendas le do MESMO banco falso: sem isto ele consultaria o
     # Supabase de verdade no meio do teste.
@@ -610,6 +615,91 @@ class TestBloqueioNaVendaAvulsa:
         with pytest.raises(ValueError, match="evento encerrado"):
             TransactionService.create_transaction(venda, "u1")
         assert fake.store["transactions"] == []
+
+
+class TestRecompraDesfazEliminacao:
+    """Quem recompra volta para a mesa — nao vira um jogador a mais.
+
+    O contador `eliminations_count` do dia e generico: o operador clica
+    "Eliminar 1" e o numero sobe, sem dizer quem saiu. A conta do telao e
+    ENTRADAS - ELIMINACOES = ATIVOS. Faltava o outro lado, e a tela chegou a
+    mostrar "2 entradas - 0 eliminacoes = 7 ativos" num torneio de dois
+    inscritos, porque as recompras eram somadas aos ativos.
+
+    Com 100 entradas: elimina o jogador X e ficam 99 ativos; X recompra e voltam
+    as mesmas 100 entradas com 100 ativos.
+    """
+
+    def _inscrito(self):
+        return [{
+            "id": TP, "tournament_id": TOUR, "tournament_day_id": DIA,
+            "player_id": PLAYER, "status": "eliminated", "rebuy_count": 0, "addon_count": 0,
+            "total_chips": 0, "total_spent": 100,
+            "total_buy_in_amount": 100, "total_rebuy_amount": 0, "total_addon_amount": 0,
+            "created_at": "2026-06-08T00:00:00Z", "registered_at": "2026-06-08T00:00:00Z",
+            "tournament_days": dict(_dia()),
+        }]
+
+    def _chamadas_da_rpc(self, fake):
+        return [c for c in fake.rpc_calls if c[0] == "desfazer_eliminacoes"]
+
+    def test_a_recompra_baixa_o_contador_de_eliminacoes(self, monkeypatch):
+        fake = _monta(monkeypatch, jogadores=self._inscrito())
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        chamadas = self._chamadas_da_rpc(fake)
+        assert len(chamadas) == 1
+        assert chamadas[0][1] == {"p_day_id": DIA, "p_qtd": 1}
+
+    def test_recompra_multipla_desfaz_uma_eliminacao_por_recompra(self, monkeypatch):
+        """Cinco recompras de uma vez sao cinco voltas a mesa, nao uma."""
+        fake = _monta(monkeypatch, jogadores=self._inscrito())
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5)
+        assert self._chamadas_da_rpc(fake)[0][1]["p_qtd"] == 5
+
+    def test_a_recompra_reativa_o_jogador(self, monkeypatch):
+        fake = _monta(monkeypatch, jogadores=self._inscrito())
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert fake.store["tournament_players"][0]["status"] == "active"
+
+    def test_a_venda_nao_cai_se_o_contador_falhar(self, monkeypatch):
+        """O dinheiro ja entrou e a recompra ja esta gravada. O pior caso e o
+        telao mostrar um ativo a menos ate o operador ajustar no botao — muito
+        melhor que recusar uma venda paga."""
+        fake = _monta(monkeypatch, jogadores=self._inscrito())
+        del fake.rpcs["desfazer_eliminacoes"]   # RPC ausente: cai no caminho lento
+
+        original = fake.table
+
+        def _table(nome):
+            if nome == "tournament_days":
+                raise RuntimeError("banco fora do ar")
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 1
+
+    def test_sem_a_funcao_no_banco_cai_no_caminho_em_duas_idas(self, monkeypatch):
+        """O deploy do codigo nao e atomico com a migracao: por um tempo o banco
+        do cliente ainda nao tem a funcao, e a recompra tem de continuar
+        acertando o contador."""
+        fake = _monta(monkeypatch,
+                      dia=_dia(eliminations_count=3),
+                      jogadores=self._inscrito())
+        del fake.rpcs["desfazer_eliminacoes"]
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 2
+
+    def test_o_contador_nao_fica_negativo(self, monkeypatch):
+        """Recompra sem eliminacao registrada e comum: o operador vende a
+        recompra e nunca clicou em "Eliminar". Sem o piso, os ativos passariam
+        do numero de entradas — que e justamente o defeito do print."""
+        fake = _monta(monkeypatch,
+                      dia=_dia(eliminations_count=0),
+                      jogadores=self._inscrito())
+        del fake.rpcs["desfazer_eliminacoes"]
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5)
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 0
 
 
 class TestCaminhoQuenteDaVenda:

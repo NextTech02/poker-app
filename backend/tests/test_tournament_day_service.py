@@ -109,10 +109,9 @@ class TestJogadoresSeparadoDeReentradas:
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1, rebuys=3, addons=1),
         ])
-        entradas, reentradas, recompras = S._entries_by_day([D1])
+        entradas, reentradas = S._entries_by_day([D1])
         assert entradas[D1] == 1      # uma entrada: o buy-in
         assert reentradas[D1] == 4    # 3 recompras + 1 add-on
-        assert recompras[D1] == 3     # so as recompras: e o que da direito a voltar
 
     def test_add_on_entra_na_conta_de_reentradas(self, monkeypatch):
         """O numero antigo somava recompra e ignorava add-on — nao era nem uma
@@ -120,18 +119,16 @@ class TestJogadoresSeparadoDeReentradas:
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1, rebuys=0, addons=2),
         ])
-        _, reentradas, recompras = S._entries_by_day([D1])
+        _, reentradas = S._entries_by_day([D1])
         assert reentradas[D1] == 2
-        assert recompras[D1] == 0
 
     def test_dia_sem_reentrada_devolve_zero(self, monkeypatch):
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1),
             self._um_jogador(buy_ins=1, status="eliminated"),
         ])
-        _, reentradas, recompras = S._entries_by_day([D1])
+        _, reentradas = S._entries_by_day([D1])
         assert reentradas.get(D1, 0) == 0
-        assert recompras.get(D1, 0) == 0
 
     def test_dois_inscritos_e_cinco_recompras_sao_duas_entradas(self, monkeypatch):
         """O caso exato que o dono do clube mandou por print.
@@ -1051,15 +1048,16 @@ class TestStatusEnriquecido:
                ],
                blinds=self._blinds())
         r = S.get_enriched_timer_status(D1)
-        # 3 inscritos, 1 recompra, 2 eliminados.
+        # 3 inscritos, 1 recompra, 2 eliminados no contador.
         assert r["total_entries"] == 3      # entrada e buy-in
         assert r["total_reentries"] == 1
-        # Ativos contam a recompra: quem recompra volta para a mesa, e o
-        # contador de eliminacoes do dia nao anda para tras sozinho.
-        # (3 buy-ins + 1 recompra) - 2 eliminados = 2.
-        assert r["active_players"] == 2
+        # A conta e a que a tela mostra por extenso: ENTRADAS - ELIMINACOES.
+        # A recompra ja baixou o contador quando foi vendida, entao ela NAO
+        # aparece de novo aqui — somar a recompra aos ativos era o que fazia a
+        # tela exibir "2 - 0 = 7".
+        assert r["active_players"] == 1
         assert r["chipcount"] == 60000
-        assert r["average_stack"] == 30000
+        assert r["average_stack"] == 60000
 
     def test_sem_ativos_o_stack_medio_e_zero(self, monkeypatch):
         """Divisão por zero derrubaria a tela justamente no fim do torneio."""
@@ -1123,9 +1121,9 @@ class TestContadorDeEliminados:
             _jogador(D1, buy=1), _jogador(D1, buy=1, rebuy=1)])
         r = S.adjust_eliminations(D1, 2)
         assert r["eliminations_count"] == 2
-        # 2 inscritos + 1 recompra = 3 vidas; menos 2 eliminados, sobra 1.
-        # "Entradas" aqui sao 2 — quem recompra nao entrou de novo.
-        assert r["active_players"] == 1
+        # 2 entradas - 2 eliminados = 0. A recompra do segundo jogador ja tinha
+        # baixado o contador na hora da venda; ela nao entra de novo aqui.
+        assert r["active_players"] == 0
         assert r["total_entries"] == 2
         assert fake.store["tournament_days"][0]["eliminations_count"] == 2
 
@@ -1146,17 +1144,17 @@ class TestContadorDeEliminados:
         assert r["eliminations_count"] == 3
         assert r["active_players"] == 0
 
-    def test_o_teto_conta_as_recompras(self, monkeypatch):
-        """O teto sao as VIDAS compradas, nao as entradas.
+    def test_o_teto_sao_as_entradas_mesmo_com_recompras(self, monkeypatch):
+        """Nunca ha mais eliminados do que entradas ao mesmo tempo.
 
-        Num dia de 2 inscritos e 5 recompras cabem 7 eliminacoes ao longo da
-        noite. Se o teto fosse "entradas" (agora so buy-ins), o contador
-        travaria em 2 e o operador nao conseguiria mais eliminar ninguem — com
-        a mesa ainda cheia."""
+        Num dia de 2 inscritos, no maximo 2 pessoas estao fora da mesa AGORA —
+        por mais recompras que tenham acontecido, porque cada uma ja baixou o
+        contador quando foi vendida. Teto maior deixaria "jogadores ativos"
+        negativo na TV."""
         _monta(monkeypatch, tournament_players=[
             _jogador(D1, buy=1, rebuy=3), _jogador(D1, buy=1, rebuy=2)])
         r = S.adjust_eliminations(D1, 99)
-        assert r["eliminations_count"] == 7
+        assert r["eliminations_count"] == 2
         assert r["total_entries"] == 2
         assert r["active_players"] == 0
 

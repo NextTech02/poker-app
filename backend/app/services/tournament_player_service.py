@@ -447,7 +447,49 @@ class TournamentPlayerService:
 
         supabase.table("transactions").insert([_linha(i) for i in range(quantity)]).execute()
 
+        # Quem recompra volta para a mesa: a recompra DESFAZ uma eliminacao.
+        # Sem isto o telao mostrava "2 entradas - 0 eliminacoes = 7 ativos",
+        # porque as recompras eram somadas aos ativos em vez de cancelarem uma
+        # eliminacao. Com 100 entradas: elimina o jogador X (99 ativos), X
+        # recompra e voltam as mesmas 100.
+        TournamentPlayerService._desfazer_eliminacoes(tp.get("tournament_day_id"), quantity)
+
         return TournamentPlayer(**response.data[0])
+
+    @staticmethod
+    def _desfazer_eliminacoes(day_id, quantidade: int) -> None:
+        """Baixa o contador de eliminacoes do dia, com piso em zero.
+
+        Falhar aqui NAO pode derrubar a venda: o dinheiro ja entrou e a recompra
+        ja esta gravada. O pior caso e o telao mostrar um ativo a menos ate o
+        operador ajustar no botao — muito melhor que recusar uma venda paga.
+        """
+        if not day_id or quantidade <= 0:
+            return
+        try:
+            supabase.rpc(
+                "desfazer_eliminacoes",
+                {"p_day_id": str(day_id), "p_qtd": int(quantidade)},
+            ).execute()
+        except Exception:
+            # Banco ainda sem a funcao (o deploy do codigo nao e atomico com a
+            # migracao): cai no caminho em duas idas. Aqui duas caixas vendendo
+            # ao mesmo tempo podem perder uma volta — e por isso que o caminho
+            # bom e a funcao.
+            try:
+                atual = (
+                    supabase.table("tournament_days")
+                    .select("eliminations_count")
+                    .eq("id", day_id)
+                    .execute()
+                    .data
+                    or [{}]
+                )[0].get("eliminations_count") or 0
+                supabase.table("tournament_days").update(
+                    {"eliminations_count": max(0, atual - quantidade)}
+                ).eq("id", day_id).execute()
+            except Exception:
+                pass
 
     @staticmethod
     def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_sales_block: bool = False) -> TournamentPlayer:
