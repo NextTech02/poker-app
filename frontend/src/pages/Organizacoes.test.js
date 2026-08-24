@@ -450,10 +450,26 @@ describe('criar organização', () => {
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/organizations', {
         name: 'Clube Novo', admin_name: 'Dono', admin_email: 'dono@clube.com',
-        currency: 'BRL', plan: 'free',
+        currency: 'BRL', language: 'pt-BR', plan: 'free',
       })
     );
     expect(toast.success).toHaveBeenCalledWith('organizations.created:dono@clube.com');
+  });
+
+  it('o idioma escolhido vai junto na criação', async () => {
+    // Não é só a interface: o provisionamento grava os nomes dos cargos e das
+    // formas de pagamento NESSE idioma, direto no banco. Um clube colombiano
+    // criado sem isso nasce com "Caixa" e "Cartão" em português, e consertar
+    // depois é editar registro por registro.
+    await montar();
+    await abrir();
+    await preencher();
+    await userEvent.selectOptions(document.getElementById('org-language'), 'es-ES');
+    await criar();
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/organizations',
+        expect.objectContaining({ language: 'es-ES' }))
+    );
   });
 
   it('organização criada mas convite falhado avisa em amarelo, não em verde', async () => {
@@ -489,7 +505,7 @@ describe('criar organização', () => {
   it('plano sem trial não anuncia trial', async () => {
     await montar();
     await abrir();
-    await userEvent.selectOptions(screen.getAllByRole('combobox')[1], 'pro');
+    await userEvent.selectOptions(document.getElementById('org-plan'), 'pro');
     expect(document.querySelector('.org-plan-hint')).not.toHaveTextContent('planTrial');
   });
 
@@ -498,7 +514,9 @@ describe('criar organização', () => {
     // secundária que falhou.
     await montar({ planos: [] });
     await abrir();
-    expect(within(screen.getAllByRole('combobox')[1]).getAllByRole('option').length).toBe(4);
+    // Por id, nao por posicao: a tela ganhou um seletor de idioma no meio, e
+    // indice posicional passa a apontar para o campo errado sem avisar.
+    expect(within(document.getElementById('org-plan')).getAllByRole('option').length).toBe(4);
   });
 
   it('cancelar fecha sem criar', async () => {

@@ -9,6 +9,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { CURRENCIES } from '../utils/currencyUtils';
+import { IDIOMAS } from '../utils/idiomaDoUsuario';
 import { currentOrgId, enterOrg } from '../utils/orgScope';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Organizacoes.css';
@@ -40,7 +41,7 @@ const Organizacoes = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', admin_name: '', admin_email: '', currency: 'BRL', plan: 'free' });
+  const [form, setForm] = useState({ name: '', admin_name: '', admin_email: '', currency: 'BRL', language: 'pt-BR', plan: 'free' });
   const [errors, setErrors] = useState({});
 
   // Modal de mudança de plano.
@@ -250,7 +251,7 @@ const Organizacoes = () => {
         toast.success(t('organizations.created', 'Organização criada. Convite enviado para {{email}}.', { email: form.admin_email }));
       }
       setShowForm(false);
-      setForm({ name: '', admin_name: '', admin_email: '', currency: 'BRL', plan: 'free' });
+      setForm({ name: '', admin_name: '', admin_email: '', currency: 'BRL', language: 'pt-BR', plan: 'free' });
       setLoading(true);
       load();
     } catch (err) {
@@ -488,16 +489,28 @@ const Organizacoes = () => {
                   {errors.admin_email && <span className="org-error">{errors.admin_email}</span>}
                 </div>
                 <div className="org-field">
-                  <label>{t('organizations.currency', 'Moeda')}</label>
-                  <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                  <label htmlFor="org-currency">{t('organizations.currency', 'Moeda')}</label>
+                  <select id="org-currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
                     {Object.entries(CURRENCIES).map(([code, c]) => (
                       <option key={code} value={code}>{c.name}</option>
                     ))}
                   </select>
                 </div>
+                {/* Idioma do clube. Decide o texto que NASCE no banco junto com a
+                    organizacao — nomes de cargos e formas de pagamento —, e nao
+                    apenas a interface. Por isso e escolhido aqui, na criacao:
+                    corrigir depois exige editar registro por registro. */}
                 <div className="org-field">
-                  <label>{t('organizations.plan', 'Plano')}</label>
-                  <select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })}>
+                  <label htmlFor="org-language">{t('organizations.language', 'Idioma')}</label>
+                  <select id="org-language" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })}>
+                    {IDIOMAS.map((l) => (
+                      <option key={l.code} value={l.code}>{l.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="org-field">
+                  <label htmlFor="org-plan">{t('organizations.plan', 'Plano')}</label>
+                  <select id="org-plan" value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value })}>
                     {(plans.length ? plans : [
                       { code: 'free', name: 'Free' }, { code: 'standard', name: 'Standard' },
                       { code: 'pro', name: 'Pro' }, { code: 'premium', name: 'Premium' },

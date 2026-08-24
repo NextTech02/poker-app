@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IDIOMAS as languages, marcarEscolhaDoUsuario } from '../utils/idiomaDoUsuario';
 import './LanguageSelector.css';
-
-const languages = [
-  { code: 'pt-BR', name: 'Português', cc: 'br' },
-  { code: 'en-US', name: 'English', cc: 'us' },
-  { code: 'es-ES', name: 'Español', cc: 'es' }
-];
 
 // Real flag images (emoji flags don't render on Windows).
 const Flag = ({ cc }) => (
@@ -29,6 +24,9 @@ const LanguageSelector = ({ dropDirection = 'down' }) => {
   const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
   const changeLanguage = (langCode) => {
+    // Este é o ÚNICO lugar onde a escolha é da pessoa. A partir daqui ela passa
+    // a valer mais que o idioma padrão do clube, inclusive nas próximas visitas.
+    marcarEscolhaDoUsuario(langCode);
     i18n.changeLanguage(langCode);
     setIsOpen(false);
   };

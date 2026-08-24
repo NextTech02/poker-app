@@ -18,11 +18,12 @@ import ExpensesManager from '../components/ExpensesManager';
 import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { IDIOMAS } from '../utils/idiomaDoUsuario';
 
 const Financeiro = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
-  const { currency, setCurrency, currencies, formatCurrency } = useCurrency();
+  const { currency, setCurrency, currencies, formatCurrency, language, setLanguage } = useCurrency();
   const { labelFor: paymentLabelFor } = usePaymentMethods();
   const fmt = formatCurrency;
 
@@ -167,6 +168,22 @@ const Financeiro = () => {
             >
               {Object.values(currencies).map((c) => (
                 <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Idioma do clube: é o padrão de quem ainda nao escolheu o seu pela
+              bandeira da barra lateral. Fica junto da moeda porque as duas sao
+              a mesma decisao — em que pais este clube opera. */}
+          <div className="fn-currency-setting">
+            <label htmlFor="fn-language">{t('financial.language', 'Idioma do sistema')}</label>
+            <select
+              id="fn-language"
+              value={language || ''}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="fn-currency-select"
+            >
+              {IDIOMAS.map((l) => (
+                <option key={l.code} value={l.code}>{l.name}</option>
               ))}
             </select>
           </div>

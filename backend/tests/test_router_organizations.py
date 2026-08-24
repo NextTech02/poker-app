@@ -279,6 +279,32 @@ class TestCriacao:
         assert r.json()["slug"] == "clube-novo"
         assert any("/auth/v1/invite" in u for u in chamadas)
 
+    def test_idioma_vai_para_o_provisionamento(self, admin, banco, monkeypatch):
+        """O idioma nao e so a interface: o provisionamento grava os nomes dos
+        cargos e das formas de pagamento NELE, direto no banco. Se o parametro
+        se perder no caminho, um clube colombiano nasce com "Caixa" e "Cartao"
+        em portugues, e consertar depois e editar registro por registro."""
+        monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(200, {"id": "auth-1"}))
+        banco.rpcs["provision_organization"] = "org-nova"
+        r = admin.post("/organizations", json=self._corpo(language="es-ES"))
+        assert r.status_code == 201
+        params = dict(banco.rpc_calls[-1][1])
+        assert params["p_language"] == "es-ES"
+
+    def test_sem_idioma_o_padrao_e_portugues(self, admin, banco, monkeypatch):
+        monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(200, {"id": "auth-1"}))
+        banco.rpcs["provision_organization"] = "org-nova"
+        admin.post("/organizations", json=self._corpo())
+        assert dict(banco.rpc_calls[-1][1])["p_language"] == "pt-BR"
+
+    def test_idioma_que_nao_falamos_e_recusado(self, admin, banco, monkeypatch):
+        """Recusa na borda: um idioma sem traducao gravaria cargos vazios ou em
+        portugues sem ninguem perceber. O banco tambem tem CHECK, mas o erro la
+        chega como falha generica de provisionamento."""
+        monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(200, {"id": "auth-1"}))
+        r = admin.post("/organizations", json=self._corpo(language="fr-FR"))
+        assert r.status_code == 422
+
     def test_slug_repetido_da_409(self, admin, banco, monkeypatch):
         monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(200, {"id": "x"}))
         r = admin.post("/organizations", json=self._corpo(name="Clube A"))

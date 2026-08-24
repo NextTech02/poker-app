@@ -69,6 +69,7 @@ const TORNEIOS = [
 ];
 
 let toast;
+let trocarIdioma;
 let trocarMoeda;
 
 const responder = ({ relatorio = RELATORIO, etapas = ETAPAS, torneios = TORNEIOS } = {}) => {
@@ -103,12 +104,15 @@ const aba = (chave) => screen.getByRole('button', { name: chave });
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
   trocarMoeda = jest.fn();
+  trocarIdioma = jest.fn();
   useToast.mockReturnValue({ toast });
   useCurrency.mockReturnValue({
     currency: 'BRL',
     setCurrency: trocarMoeda,
     currencies: { BRL: { code: 'BRL', name: 'Real' }, USD: { code: 'USD', name: 'Dólar' } },
     formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}`,
+    language: 'pt-BR',
+    setLanguage: trocarIdioma,
   });
   usePaymentMethods.mockReturnValue({ labelFor: (c) => (c === 'yape' ? 'Yape' : null) });
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -155,6 +159,26 @@ describe('moeda do sistema', () => {
     await montar();
     await userEvent.selectOptions(screen.getByLabelText('Moeda do sistema'), 'USD');
     expect(trocarMoeda).toHaveBeenCalledWith('USD');
+  });
+});
+
+describe('idioma do clube', () => {
+  it('o idioma atual vem selecionado', async () => {
+    await montar();
+    expect(screen.getByLabelText('Idioma do sistema')).toHaveValue('pt-BR');
+  });
+
+  it('trocar o idioma é decisão do clube, não da tela', async () => {
+    // Vale como padrão para quem ainda não escolheu o seu pela bandeira.
+    await montar();
+    await userEvent.selectOptions(screen.getByLabelText('Idioma do sistema'), 'es-ES');
+    expect(trocarIdioma).toHaveBeenCalledWith('es-ES');
+  });
+
+  it('oferece os três idiomas que o sistema fala', async () => {
+    await montar();
+    const opcoes = within(screen.getByLabelText('Idioma do sistema')).getAllByRole('option');
+    expect(opcoes.map((o) => o.value)).toEqual(['pt-BR', 'en-US', 'es-ES']);
   });
 });
 

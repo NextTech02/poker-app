@@ -1439,7 +1439,8 @@
     "revenueBuyIns": "Buy-in Revenue",
     "revenueRebuys": "Rebuy Revenue",
     "revenueAddons": "Add-on Revenue",
-    "ticketsRedeemed": "Tickets Redeemed"
+    "ticketsRedeemed": "Tickets Redeemed",
+    "language": "System language"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -1948,7 +1949,8 @@
     "viewingAs": "Viewing",
     "leave": "Exit",
     "errorLeave": "Could not leave this organization",
-    "unknownOrg": "another organization"
+    "unknownOrg": "another organization",
+    "language": "Language"
   },
   "sangi": {
     "pageTitle": "Sangeur — Consignment Chip Sales",

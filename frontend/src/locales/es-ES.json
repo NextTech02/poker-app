@@ -1439,7 +1439,8 @@
     "revenueBuyIns": "Ingresos Buy-ins",
     "revenueRebuys": "Ingresos Rebuys",
     "revenueAddons": "Ingresos Add-ons",
-    "ticketsRedeemed": "Tickets Canjeados"
+    "ticketsRedeemed": "Tickets Canjeados",
+    "language": "Idioma del sistema"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneo",
@@ -1948,7 +1949,8 @@
     "viewingAs": "Viendo",
     "leave": "Salir",
     "errorLeave": "No se pudo salir de esta organización",
-    "unknownOrg": "otra organización"
+    "unknownOrg": "otra organización",
+    "language": "Idioma"
   },
   "sangi": {
     "pageTitle": "Sangeur — Venta de Fichas en Consignación",

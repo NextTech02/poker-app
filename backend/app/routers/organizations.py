@@ -9,7 +9,7 @@ formas de pagamento). Assim um cliente nunca nasce pela metade.
 """
 import re
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Literal, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -43,6 +43,11 @@ class OrganizationCreate(BaseModel):
     admin_name: str = Field(..., min_length=2, max_length=120)
     admin_email: EmailStr
     currency: str = Field("BRL", min_length=3, max_length=3)
+    # Idioma do clube. Nao e so a interface: o provisionamento grava os nomes
+    # dos cargos e das formas de pagamento NESTE idioma, direto no banco. Antes
+    # sempre saiam em portugues, e um clube colombiano abria a tela de
+    # Funcionarios lendo "Caixa / Operacao de caixa".
+    language: Literal["pt-BR", "en-US", "es-ES"] = "pt-BR"
     plan: str = Field("free", max_length=30)
 
 
@@ -426,6 +431,7 @@ def create_organization(data: OrganizationCreate):
             "p_admin_email": data.admin_email,
             "p_currency": data.currency.upper(),
             "p_plan": data.plan,
+            "p_language": data.language,
         }).execute()
         org_id = result.data if isinstance(result.data, str) else (result.data or [None])[0]
     except Exception as exc:
