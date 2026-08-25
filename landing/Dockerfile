@@ -7,8 +7,9 @@ FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY index.html /usr/share/nginx/html/index.html
-# Arquivos opcionais (og.png, robots.txt, fontes). O `[]` no fim faz o COPY
-# não falhar quando a pasta ainda não existe — a página funciona sem eles.
+# robots.txt, sitemap.xml e o que mais entrar (og.png, fontes). A pasta é
+# versionada com esses dois arquivos justamente para este COPY não falhar —
+# `COPY` de diretório inexistente aborta o build.
 COPY public/ /usr/share/nginx/html/
 
 EXPOSE 80
