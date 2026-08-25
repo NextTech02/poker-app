@@ -23,15 +23,30 @@ echo "==> Subindo..."
 docker compose up -d landing
 
 echo "==> Conferindo que a página responde..."
-# Espera o nginx aceitar conexão. Sem isto o script diria "pronto" enquanto o
-# container ainda está subindo, e um erro de configuração passaria batido.
+# Pela porta publicada, do HOST — não com `docker compose exec` dentro do
+# container. A versão anterior chamava `wget` lá dentro e dava ERRO com o nginx
+# funcionando perfeitamente: o que ela testava era a existência do wget na
+# imagem, não a página. Aqui o teste percorre o mesmo caminho do túnel.
+PORTA="${PORTA_LANDING:-3003}"
+
+conferir() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS -o /dev/null "http://127.0.0.1:${PORTA}/"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O /dev/null "http://127.0.0.1:${PORTA}/"
+  else
+    echo "    (sem curl nem wget no host — pulando a conferência)"
+    return 0
+  fi
+}
+
 for i in $(seq 1 15); do
-  if docker compose exec -T landing wget -q -O /dev/null http://localhost/ 2>/dev/null; then
-    echo "    ok, a landing está servindo"
+  if conferir; then
+    echo "    ok, a landing respondeu na porta ${PORTA}"
     break
   fi
   if [ "$i" = "15" ]; then
-    echo "    ERRO: a landing não respondeu. Os logs:"
+    echo "    ERRO: a landing não respondeu na porta ${PORTA}. Os logs:"
     docker compose logs --tail=30 landing
     exit 1
   fi
