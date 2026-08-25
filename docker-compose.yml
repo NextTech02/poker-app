@@ -18,6 +18,15 @@ services:
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
       - SUPER_ADMIN_USER_IDS=${SUPER_ADMIN_USER_IDS}
       - FRONTEND_URL=${FRONTEND_URL}
+      # A landing é outra origem (aceblind.net) do app (app.aceblind.net). Sem
+      # ela aqui, o formulário público morre no preflight — e o erro só aparece
+      # no console de quem tentou virar cliente.
+      - LANDING_URL=${LANDING_URL}
+      # Aviso de lead por e-mail. Ausentes, o lead continua sendo gravado; só o
+      # aviso não sai. Por isso são opcionais e têm default vazio.
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - LEADS_EMAIL_TO=${LEADS_EMAIL_TO:-}
+      - LEADS_EMAIL_FROM=${LEADS_EMAIL_FROM:-AceBlind <noreply@aceblind.net>}
       # Interruptor de emergência do multi-tenant: false volta o backend ao modo
       # antigo (service_role, ignora RLS) sem precisar de deploy.
       - SUPABASE_RLS_AS_USER=${SUPABASE_RLS_AS_USER:-true}
