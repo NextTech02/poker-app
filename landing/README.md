@@ -6,11 +6,37 @@ que não podiam ir ao ar como estavam.
 
 ```
 landing/
-├── index.html      a página inteira (HTML + CSS + JS num arquivo só)
+├── index.html      a página (HTML + CSS + JS), em português
+├── i18n.js         as traduções para inglês e espanhol
 ├── nginx.conf      como é servida
 ├── Dockerfile      container (nginx:alpine, ~10 MB)
 └── public/         robots.txt, sitemap.xml — e og.png, quando existir
 ```
+
+## Idiomas
+
+A página é escrita em **português no HTML**, e inglês e espanhol vivem em
+`i18n.js`. O português não está lá de propósito: ele é o próprio HTML, que é o
+que o buscador lê e o que sobra se o JavaScript falhar. Duplicá-lo criaria duas
+fontes do mesmo texto, e uma ficaria para trás na primeira correção de copy.
+
+Qual idioma aparece, nesta ordem: `?lang=es` na URL → o que a pessoa escolheu
+antes → o idioma do navegador dela → português.
+
+O `?lang=` serve para o link que você manda pronto: `aceblind.net/?lang=es` abre
+em espanhol no celular de um clube colombiano, sem depender do navegador dele.
+
+**Ao acrescentar texto novo**, marque no HTML e adicione a chave nos dois
+idiomas de `i18n.js`:
+
+```html
+<p data-i18n="minha.chave">Texto em português</p>
+<input data-i18n-ph="minha.chavePh" placeholder="Dica do campo">
+<nav data-i18n-aria="minha.chaveAria" aria-label="Seções">
+```
+
+Chave faltando não quebra a página — o trecho fica em português — e o console
+do navegador avisa quais faltaram.
 
 ## Editar o texto
 
@@ -24,9 +50,13 @@ window.ACEBLIND_API = 'https://api.aceblind.net';
 window.ACEBLIND_WHATSAPP = '';   // só dígitos, com DDI: '5511999998888'
 ```
 
-**Enquanto `ACEBLIND_WHATSAPP` estiver vazio**, todos os botões de WhatsApp
-levam ao formulário em vez de abrir uma conversa quebrada. É de propósito:
-melhor mandar para um lugar que funciona do que para um número inexistente.
+O número já está configurado (**+55 62 3300-1244**). A conversa abre com a
+mensagem **já escrita no idioma da página** — quem leu em espanhol não precisa
+redigir em português para pedir informação. Os três textos ficam em `i18n.js`,
+em `ACEBLIND_META`.
+
+Se um dia `ACEBLIND_WHATSAPP` ficar vazio, os botões passam a levar ao
+formulário em vez de abrir uma conversa quebrada.
 
 ## O formulário
 
@@ -102,8 +132,6 @@ quebra o convite por e-mail se for esquecido.
 
 ## O que ainda falta (não dá para eu resolver sozinho)
 
-- **`ACEBLIND_WHATSAPP`** — o número. Sem ele os botões de WhatsApp caem no
-  formulário.
 - **`public/og.png`** — imagem 1200×630 para o link no WhatsApp/Instagram. A
   meta tag já aponta para ela; sem o arquivo, o link aparece sem imagem.
 - **FAQ "a equipe precisa de treinamento?"** — a pergunta foi removida porque

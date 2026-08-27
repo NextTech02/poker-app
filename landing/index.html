@@ -146,6 +146,32 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 .brand__word b{font-weight:700}
 .brand__word span{font-weight:300}
 .nav__acoes{display:flex;align-items:center;gap:18px}
+
+/* ---------- seletor de idioma ---------- */
+.lang{position:relative}
+.lang__btn{
+  display:flex;align-items:center;gap:4px;
+  height:36px;padding:0 10px;border-radius:8px;
+  background:transparent;color:#D8D2EA;
+  font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;
+  border:1px solid rgba(255,255,255,.16);
+  transition:border-color .15s,color .15s;
+}
+.lang__btn:hover{border-color:var(--lavanda);color:#fff}
+.lang__menu{
+  position:absolute;top:calc(100% + 6px);right:0;min-width:150px;
+  background:#1B0740;border:1px solid rgba(183,156,255,.28);border-radius:10px;
+  padding:5px;display:none;flex-direction:column;
+  box-shadow:0 18px 40px -12px rgba(0,0,0,.75);
+}
+.lang.is-open .lang__menu{display:flex}
+.lang__menu button{
+  background:transparent;color:#D8D2EA;text-align:left;
+  padding:9px 12px;border-radius:6px;font-size:14.5px;
+  transition:background .12s,color .12s;
+}
+.lang__menu button:hover{background:rgba(109,59,255,.28);color:#fff}
+.lang__menu button[aria-current="true"]{color:#fff;font-weight:600}
 /* "Entrar" é para quem JÁ é cliente: fica discreto ao lado do CTA, mas nunca
    escondido — inclusive no celular, onde o menu de seções some. */
 .nav__login{font-size:15px;color:#D8D2EA;transition:color .15s;white-space:nowrap}
@@ -483,6 +509,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
      caminho para quem JA e cliente e digitou o dominio de cabeca. */
   .nav__acoes .btn{display:none}
   .nav__login{font-size:16px}
+  .nav__acoes{gap:12px}
+  .lang__btn{height:32px;padding:0 8px;font-size:12px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
@@ -495,22 +523,35 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <!-- ================= NAV ================= -->
 <header class="nav" id="nav">
   <div class="wrap nav__inner">
-    <a class="brand" href="#top" aria-label="AceBlind, início">
+    <a class="brand" href="#top" data-i18n-aria="nav.marca">
       <svg class="brand__mark" viewBox="0 0 40 40" aria-hidden="true">
         <path d="M20 3 L36 37 H28.5 L20 18 L11.5 37 H4 Z" fill="#fff"/>
         <path d="M20 24 L24 30 L20 36 L16 30 Z" fill="#fff"/>
       </svg>
       <span class="brand__word"><b>Ace</b><span>Blind</span></span>
     </a>
-    <nav class="nav__links" aria-label="Seções">
-      <a href="#sistema">Sistema</a>
-      <a href="#offline">Offline</a>
-      <a href="#planos">Planos</a>
-      <a href="#faq">Dúvidas</a>
+    <nav class="nav__links" data-i18n-aria="nav.secoes">
+      <a href="#sistema" data-i18n="nav.sistema">Sistema</a>
+      <a href="#offline" data-i18n="nav.offline">Offline</a>
+      <a href="#planos" data-i18n="nav.planos">Planos</a>
+      <a href="#faq" data-i18n="nav.duvidas">Dúvidas</a>
     </nav>
     <div class="nav__acoes">
-      <a class="nav__login" href="https://app.aceblind.net">Entrar</a>
-      <a class="btn btn--primary btn--sm" href="#demo">Começar grátis</a>
+      <!-- Seletor de idioma. Fica ao lado do "Entrar" porque quem chega de
+           outro país procura a troca de idioma ANTES de ler a página. -->
+      <div class="lang" id="lang">
+        <button type="button" class="lang__btn" id="langBtn" aria-haspopup="true" aria-expanded="false">
+          <span id="langAtual">PT</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+        </button>
+        <div class="lang__menu" id="langMenu" role="menu">
+          <button type="button" role="menuitem" data-lang="pt-BR">Português</button>
+          <button type="button" role="menuitem" data-lang="en-US">English</button>
+          <button type="button" role="menuitem" data-lang="es-ES">Español</button>
+        </div>
+      </div>
+      <a class="nav__login" href="https://app.aceblind.net" data-i18n="nav.entrar">Entrar</a>
+      <a class="btn btn--primary btn--sm" href="#demo" data-i18n="nav.cta">Começar grátis</a>
     </div>
   </div>
 </header>
@@ -519,19 +560,19 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="hero band--dark" id="top">
   <div class="wrap hero__grid">
     <div class="hero__copy">
-      <span class="eyebrow">Sistema de gestão para clubes de poker</span>
-      <h1>Seu torneio não pode parar.<span class="italic">Seu sistema também não.</span></h1>
-      <p class="lead">Torneio, caixa e ranking numa única ferramenta, construída para continuar rodando mesmo quando a internet cai no meio do dia mais cheio do mês.</p>
+      <span class="eyebrow" data-i18n="hero.eyebrow">Sistema de gestão para clubes de poker</span>
+      <h1 data-i18n="hero.titulo">Seu torneio não pode parar.<span class="italic">Seu sistema também não.</span></h1>
+      <p class="lead" data-i18n="hero.lead">Torneio, caixa e ranking numa única ferramenta, construída para continuar rodando mesmo quando a internet cai no meio do dia mais cheio do mês.</p>
       <div class="hero__cta">
-        <a class="btn btn--primary" href="#demo">Comece o teste grátis</a>
-        <a class="btn btn--ghost" href="#demo">Falar no WhatsApp</a>
+        <a class="btn btn--primary" href="#demo" data-i18n="hero.cta">Comece o teste grátis</a>
+        <a class="btn btn--ghost wa-link" href="#demo" data-i18n="hero.whats">Falar no WhatsApp</a>
       </div>
-      <p class="hero__note">Plano Free por 60 dias · sem instalação · seu próximo evento já roda nele</p>
+      <p class="hero__note" data-i18n="hero.nota">Plano Free por 60 dias · sem instalação · seu próximo evento já roda nele</p>
     </div>
 
     <div class="hero__art">
       <!-- MOCKUP: tela inicial do sistema -->
-      <div class="app" role="img" aria-label="Tela inicial do AceBlind mostrando torneio ativo, jogadores e caixa">
+      <div class="app" role="img" data-i18n-aria="app.alt">
         <div class="app__bar">
           <i class="dot"></i><i class="dot"></i><i class="dot"></i>
           <span class="app__url">app.aceblind.net/home</span>
@@ -547,50 +588,50 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
                a tela diz Sangeur desde a migracao que renomeou o cargo. Quem
                ja usa o produto reconhece a diferenca na hora. -->
           <ul class="app__nav">
-            <li class="on">Início</li>
-            <li>Etapas</li>
-            <li>Vendas</li>
-            <li>Limite de Jogador</li>
-            <li>Tickets Torneio</li>
+            <li class="on" data-i18n="menu.inicio">Início</li>
+            <li data-i18n="menu.etapas">Etapas</li>
+            <li data-i18n="menu.vendas">Vendas</li>
+            <li data-i18n="menu.limite">Limite de Jogador</li>
+            <li data-i18n="menu.tickets">Tickets Torneio</li>
             <li>Sangeur</li>
-            <li>Caixa Geral</li>
-            <li>Torneios</li>
-            <li>Templates de Blinds</li>
-            <li>Premiações</li>
-            <li>Financeiro</li>
-            <li>Jogadores</li>
-            <li>Funcionários</li>
-            <li>Relatórios</li>
+            <li data-i18n="menu.caixaGeral">Caixa Geral</li>
+            <li data-i18n="menu.torneios">Torneios</li>
+            <li data-i18n="menu.templates">Templates de Blinds</li>
+            <li data-i18n="menu.premiacoes">Premiações</li>
+            <li data-i18n="menu.financeiro">Financeiro</li>
+            <li data-i18n="menu.jogadores">Jogadores</li>
+            <li data-i18n="menu.funcionarios">Funcionários</li>
+            <li data-i18n="menu.relatorios">Relatórios</li>
           </ul>
         </aside>
         <main class="app__main">
           <div class="app__h">
             <div>
               <b>Dashboard</b>
-              <span>Main Event — Dia 1 · Nível 12</span>
+              <span data-i18n="app.subtitulo">Main Event — Dia 1 · Nível 12</span>
             </div>
-            <span class="app__live">● AO VIVO</span>
+            <span class="app__live" data-i18n="app.aoVivo">● AO VIVO</span>
           </div>
           <div class="stats">
-            <div class="stat"><small>Torneios ativos</small><b>3</b></div>
-            <div class="stat"><small>Jogadores em mesa</small><b>128</b></div>
-            <div class="stat"><small>Entradas</small><b>247</b></div>
-            <div class="stat"><small>Caixa do dia</small><b class="hi">R$ 82.400</b></div>
+            <div class="stat"><small data-i18n="app.torneiosAtivos">Torneios ativos</small><b>3</b></div>
+            <div class="stat"><small data-i18n="app.jogadoresMesa">Jogadores em mesa</small><b>128</b></div>
+            <div class="stat"><small data-i18n="app.entradas">Entradas</small><b>247</b></div>
+            <div class="stat"><small data-i18n="app.caixaDia">Caixa do dia</small><b class="hi">R$ 82.400</b></div>
           </div>
           <div class="panels">
             <div class="panel">
-              <div class="panel__t"><span>Torneios de hoje</span><em>ver todos</em></div>
-              <div class="row"><span><b>Main Event</b> · Dia 1</span><span class="tag">Nível 12</span></div>
-              <div class="row"><span><b>Satélite 19h</b> · 8 tickets</span><span class="tag">Late reg</span></div>
-              <div class="row"><span><b>Turbo Bounty</b> · Final table</span><span class="tag">6 restantes</span></div>
-              <div class="row"><span><b>Ladies Night</b> · encerrado</span><span class="tag tag--ok">Pago</span></div>
+              <div class="panel__t"><span data-i18n="app.torneiosHoje">Torneios de hoje</span><em data-i18n="app.verTodos">ver todos</em></div>
+              <div class="row"><span data-i18n="app.linha1"><b>Main Event</b> · Dia 1</span><span class="tag" data-i18n="app.nivel12">Nível 12</span></div>
+              <div class="row"><span data-i18n="app.linha2"><b>Satélite 19h</b> · 8 tickets</span><span class="tag">Late reg</span></div>
+              <div class="row"><span data-i18n="app.linha3"><b>Turbo Bounty</b> · Final table</span><span class="tag" data-i18n="app.restantes">6 restantes</span></div>
+              <div class="row"><span data-i18n="app.linha4"><b>Ladies Night</b> · encerrado</span><span class="tag tag--ok" data-i18n="app.pago">Pago</span></div>
             </div>
             <div class="panel">
-              <div class="panel__t"><span>Caixa por operador</span><em>hoje</em></div>
+              <div class="panel__t"><span data-i18n="app.caixaOperador">Caixa por operador</span><em data-i18n="app.hoje">hoje</em></div>
               <div class="row"><span>Marina</span><b>R$ 31.200</b></div>
               <div class="row"><span>Diego</span><b>R$ 27.850</b></div>
-              <div class="row"><span>Recepção</span><b>R$ 14.100</b></div>
-              <div class="row"><span>Sangria</span><b>R$ 9.250</b></div>
+              <div class="row"><span data-i18n="app.recepcao">Recepção</span><b>R$ 14.100</b></div>
+              <div class="row"><span data-i18n="app.sangria">Sangria</span><b>R$ 9.250</b></div>
             </div>
           </div>
         </main>
@@ -602,10 +643,10 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <!-- ================= POSICIONAMENTO ================= -->
 <section class="band band--light" id="sistema">
   <div class="wrap stance rv">
-    <span class="eyebrow">O que é o AceBlind</span>
-    <h2>Não é mais um software de torneio.<span class="italic">É o sistema operacional da sua operação.</span></h2>
-    <p>Planilha que não fecha, timer que trava na hora do all-in, caixa que não conversa com o ranking. O AceBlind coloca torneio, caixa e ranking dentro de uma ferramenta só, com permissão por função e histórico de tudo que foi movimentado.</p>
-    <p style="margin-top:18px">Já está pronto e em operação — pode ser a tela que seu caixa vai usar amanhã.</p>
+    <span class="eyebrow" data-i18n="posic.eyebrow">O que é o AceBlind</span>
+    <h2 data-i18n="posic.titulo">Não é mais um software de torneio.<span class="italic">É o sistema operacional da sua operação.</span></h2>
+    <p data-i18n="posic.p1">Planilha que não fecha, timer que trava na hora do all-in, caixa que não conversa com o ranking. O AceBlind coloca torneio, caixa e ranking dentro de uma ferramenta só, com permissão por função e histórico de tudo que foi movimentado.</p>
+    <p style="margin-top:18px" data-i18n="posic.p2">Já está pronto e em operação — pode ser a tela que seu caixa vai usar amanhã.</p>
   </div>
 </section>
 
@@ -613,38 +654,38 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="band band--dark offline" id="offline">
   <div class="wrap">
     <div class="offline__head rv">
-      <span class="eyebrow">O diferencial</span>
-      <h2>O único sistema da categoria<span class="italic">que continua de pé quando a internet cai.</span></h2>
+      <span class="eyebrow" data-i18n="off.eyebrow">O diferencial</span>
+      <h2 data-i18n="off.titulo">O único sistema da categoria<span class="italic">que continua de pé quando a internet cai.</span></h2>
     </div>
 
     <!-- MOCKUP: tela de TV do timer -->
     <div class="tv" id="tv">
       <div class="tv__top">
-        <span class="tv__title">Main Event — Dia 1</span>
-        <span class="status" id="status"><i class="status__dot"></i><span id="statusText">Online</span></span>
+        <span class="tv__title" data-i18n="tv.titulo">Main Event — Dia 1</span>
+        <span class="status" id="status"><i class="status__dot"></i><span id="statusText" data-i18n="tv.online">Online</span></span>
       </div>
       <div class="tv__body">
         <div class="tv__col">
-          <div class="tvstat"><small>Nível</small><b>12</b></div>
-          <div class="tvstat"><small>Jogadores</small><b>128 de 247</b></div>
-          <div class="tvstat"><small>Stack médio</small><b>36.667</b></div>
+          <div class="tvstat"><small data-i18n="tv.nivel">Nível</small><b>12</b></div>
+          <div class="tvstat"><small data-i18n="tv.jogadores">Jogadores</small><b data-i18n="tv.jogadoresVal">128 de 247</b></div>
+          <div class="tvstat"><small data-i18n="tv.stack">Stack médio</small><b>36.667</b></div>
         </div>
         <div class="tv__clock" id="clock">12:34</div>
         <div class="tv__col tv__col--r">
-          <div class="tvstat"><small>Blinds</small><b class="accent">500 / 1.000</b></div>
-          <div class="tvstat"><small>Ante</small><b>1.000</b></div>
-          <div class="tvstat"><small>Prizepool</small><b>R$ 148.200</b></div>
+          <div class="tvstat"><small data-i18n="tv.blinds">Blinds</small><b class="accent">500 / 1.000</b></div>
+          <div class="tvstat"><small data-i18n="tv.ante">Ante</small><b>1.000</b></div>
+          <div class="tvstat"><small data-i18n="tv.prize">Prizepool</small><b>R$ 148.200</b></div>
         </div>
       </div>
       <div class="tv__foot">
-        <span>Tela de TV · código do evento: ACE-4471</span>
-        <span class="tv__msg" id="tvMsg">Tudo sincronizado</span>
+        <span data-i18n="tv.rodape">Tela de TV · código do evento: ACE-4471</span>
+        <span class="tv__msg" id="tvMsg" data-i18n="tv.sync">Tudo sincronizado</span>
       </div>
     </div>
 
     <div class="offline__note rv">
-      <p>Se a conexão cair no meio da operação, o AceBlind não trava e não perde dado. Caixa, registro de jogadores e timer continuam rodando normalmente. Quando a internet volta, tudo sincroniza sozinho.</p>
-      <p style="margin-top:16px"><strong style="color:#fff;font-weight:500">Isso não é um recurso a mais.</strong> É a diferença entre terminar o evento no horário e explicar para o jogador por que o timer sumiu.</p>
+      <p data-i18n="off.p1">Se a conexão cair no meio da operação, o AceBlind não trava e não perde dado. Caixa, registro de jogadores e timer continuam rodando normalmente. Quando a internet volta, tudo sincroniza sozinho.</p>
+      <p style="margin-top:16px" data-i18n="off.p2"><strong style="color:#fff;font-weight:500">Isso não é um recurso a mais.</strong> É a diferença entre terminar o evento no horário e explicar para o jogador por que o timer sumiu.</p>
     </div>
   </div>
 </section>
@@ -653,43 +694,43 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="band band--light">
   <div class="wrap">
     <div class="rv" style="max-width:760px;margin-bottom:52px">
-      <span class="eyebrow">Na prática</span>
-      <h2>Da estrutura de blind ao pódio,<span class="italic">sem sair de uma tela.</span></h2>
+      <span class="eyebrow" data-i18n="faz.eyebrow">Na prática</span>
+      <h2 data-i18n="faz.titulo">Da estrutura de blind ao pódio,<span class="italic">sem sair de uma tela.</span></h2>
     </div>
     <div class="grid3 rv">
 
       <article class="card">
-        <span class="card__label">Torneio</span>
-        <h3>Da inscrição ao pagamento da premiação</h3>
+        <span class="card__label" data-i18n="card1.label">Torneio</span>
+        <h3 data-i18n="card1.titulo">Da inscrição ao pagamento da premiação</h3>
         <ul class="list">
-          <li>Torneios multi-dia com continuidade real entre as sessões</li>
-          <li>Estrutura de blinds e timer ao vivo</li>
-          <li>Tela de TV por código, visível de longe, em qualquer mesa</li>
-          <li>Mesas, assentos e eliminações em tempo real</li>
-          <li>Ranking e premiação calculados automaticamente</li>
-          <li>Tickets de satélite integrados ao torneio principal</li>
+          <li data-i18n="card1.i1">Torneios multi-dia com continuidade real entre as sessões</li>
+          <li data-i18n="card1.i2">Estrutura de blinds e timer ao vivo</li>
+          <li data-i18n="card1.i3">Tela de TV por código, visível de longe, em qualquer mesa</li>
+          <li data-i18n="card1.i4">Mesas, assentos e eliminações em tempo real</li>
+          <li data-i18n="card1.i5">Ranking e premiação calculados automaticamente</li>
+          <li data-i18n="card1.i6">Tickets de satélite integrados ao torneio principal</li>
         </ul>
       </article>
 
       <article class="card">
-        <span class="card__label">Caixa</span>
-        <h3>Controle de caixa de verdade, não anotação de papel</h3>
+        <span class="card__label" data-i18n="card2.label">Caixa</span>
+        <h3 data-i18n="card2.titulo">Controle de caixa de verdade, não anotação de papel</h3>
         <ul class="list">
-          <li>Buy-in, rebuy e add-on com rake configurável por tipo</li>
-          <li>Caixa segmentado por operador: quem movimentou o quê</li>
-          <li>Sangria e caixa geral organizados automaticamente</li>
-          <li>Sangeur e fichas em consignação, sem anotação manual</li>
+          <li data-i18n="card2.i1">Buy-in, rebuy e add-on com rake configurável por tipo</li>
+          <li data-i18n="card2.i2">Caixa segmentado por operador: quem movimentou o quê</li>
+          <li data-i18n="card2.i3">Sangria e caixa geral organizados automaticamente</li>
+          <li data-i18n="card2.i4">Sangeur e fichas em consignação, sem anotação manual</li>
         </ul>
       </article>
 
       <article class="card">
-        <span class="card__label">Jogadores</span>
-        <h3>O que sustenta a operação depois do evento</h3>
+        <span class="card__label" data-i18n="card3.label">Jogadores</span>
+        <h3 data-i18n="card3.titulo">O que sustenta a operação depois do evento</h3>
         <ul class="list">
-          <li>Cadastro e check-in ágil, sem gargalo na porta</li>
-          <li>Histórico do jogador por etapa e por temporada</li>
-          <li>Permissões por função para toda a equipe</li>
-          <li>Relatórios de operação e financeiro sem montagem manual</li>
+          <li data-i18n="card3.i1">Cadastro e check-in ágil, sem gargalo na porta</li>
+          <li data-i18n="card3.i2">Histórico do jogador por etapa e por temporada</li>
+          <li data-i18n="card3.i3">Permissões por função para toda a equipe</li>
+          <li data-i18n="card3.i4">Relatórios de operação e financeiro sem montagem manual</li>
         </ul>
       </article>
 
@@ -701,15 +742,15 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="band band--light" style="padding-top:0">
   <div class="wrap">
     <div class="rv" style="max-width:700px;margin-bottom:44px">
-      <span class="eyebrow">Um sistema</span>
-      <h2>Cinco pessoas na operação.<span class="italic">Uma ferramenta só.</span></h2>
+      <span class="eyebrow" data-i18n="func.eyebrow">Um sistema</span>
+      <h2 data-i18n="func.titulo">Cinco pessoas na operação.<span class="italic">Uma ferramenta só.</span></h2>
     </div>
     <div class="roles rv">
-      <div class="role"><span class="role__n">DONO DE CLUBE</span><b>Visão consolidada</b><span>Operação e financeiro num lugar só, sem depender de relatório montado na mão.</span></div>
-      <div class="role"><span class="role__n">GERENTE</span><b>Equipe sob controle</b><span>Permissões e acompanhamento de time num painel só.</span></div>
-      <div class="role"><span class="role__n">DIRETOR DE TORNEIO</span><b>Estrutura na mão</b><span>Timer, blinds e estrutura sob controle total, mesmo sob pressão do evento ao vivo.</span></div>
-      <div class="role"><span class="role__n">CAIXA</span><b>Tela rápida</b><span>Pensada para operar em movimento, e que não trava se a conexão cair no meio do turno.</span></div>
-      <div class="role"><span class="role__n">RECEPÇÃO</span><b>Entrada sem fila</b><span>Check-in e cadastro ágil, sem gargalo na porta do evento.</span></div>
+      <div class="role"><span class="role__n" data-i18n="papel1.n">DONO DE CLUBE</span><b data-i18n="papel1.t">Visão consolidada</b><span data-i18n="papel1.d">Operação e financeiro num lugar só, sem depender de relatório montado na mão.</span></div>
+      <div class="role"><span class="role__n" data-i18n="papel2.n">GERENTE</span><b data-i18n="papel2.t">Equipe sob controle</b><span data-i18n="papel2.d">Permissões e acompanhamento de time num painel só.</span></div>
+      <div class="role"><span class="role__n" data-i18n="papel3.n">DIRETOR DE TORNEIO</span><b data-i18n="papel3.t">Estrutura na mão</b><span data-i18n="papel3.d">Timer, blinds e estrutura sob controle total, mesmo sob pressão do evento ao vivo.</span></div>
+      <div class="role"><span class="role__n" data-i18n="papel4.n">CAIXA</span><b data-i18n="papel4.t">Tela rápida</b><span data-i18n="papel4.d">Pensada para operar em movimento, e que não trava se a conexão cair no meio do turno.</span></div>
+      <div class="role"><span class="role__n" data-i18n="papel5.n">RECEPÇÃO</span><b data-i18n="papel5.t">Entrada sem fila</b><span data-i18n="papel5.d">Check-in e cadastro ágil, sem gargalo na porta do evento.</span></div>
     </div>
   </div>
 </section>
@@ -718,10 +759,10 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="band band--light" style="padding-top:0">
   <div class="wrap">
     <div class="migra rv">
-      <span class="eyebrow">A objeção</span>
-      <h2>Migrar de sistema costuma ser o motivo para não trocar.<span class="italic">Aqui, é o motivo para trocar.</span></h2>
-      <p>Trocar de sistema no meio da operação é a maior objeção de qualquer clube, e com razão. Por isso a migração dos seus dados é conduzida pela nossa equipe: não é você quem carrega essa planilha sozinho.</p>
-      <p>Você sai de ferramentas soltas para um sistema único sem pagar o preço de uma transição arriscada.</p>
+      <span class="eyebrow" data-i18n="migra.eyebrow">A objeção</span>
+      <h2 data-i18n="migra.titulo">Migrar de sistema costuma ser o motivo para não trocar.<span class="italic">Aqui, é o motivo para trocar.</span></h2>
+      <p data-i18n="migra.p1">Trocar de sistema no meio da operação é a maior objeção de qualquer clube, e com razão. Por isso a migração dos seus dados é conduzida pela nossa equipe: não é você quem carrega essa planilha sozinho.</p>
+      <p data-i18n="migra.p2">Você sai de ferramentas soltas para um sistema único sem pagar o preço de uma transição arriscada.</p>
     </div>
   </div>
 </section>
@@ -730,80 +771,80 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="band band--light" id="planos" style="padding-top:0">
   <div class="wrap">
     <div class="rv" style="max-width:720px;margin-bottom:52px">
-      <span class="eyebrow">Planos</span>
-      <h2>O sistema é o mesmo em todos os planos.<span class="italic">O que muda é o tamanho da sua operação.</span></h2>
+      <span class="eyebrow" data-i18n="planos.eyebrow">Planos</span>
+      <h2 data-i18n="planos.titulo">O sistema é o mesmo em todos os planos.<span class="italic">O que muda é o tamanho da sua operação.</span></h2>
     </div>
-    <div class="toggle rv" role="group" aria-label="Ciclo de cobrança">
-      <button class="toggle__btn is-on" id="tgAnual" aria-pressed="true">Anual</button>
-      <button class="toggle__btn" id="tgMensal" aria-pressed="false">Mensal</button>
-      <span class="toggle__save" id="tgSave">economize 30%</span>
+    <div class="toggle rv" role="group" data-i18n-aria="planos.ciclo">
+      <button class="toggle__btn is-on" id="tgAnual" aria-pressed="true" data-i18n="planos.anual">Anual</button>
+      <button class="toggle__btn" id="tgMensal" aria-pressed="false" data-i18n="planos.mensal">Mensal</button>
+      <span class="toggle__save" id="tgSave" data-i18n="planos.economize">economize 30%</span>
     </div>
 
     <div class="plans rv">
 
       <article class="plan">
         <h3>Free</h3>
-        <p class="plan__for">Tudo o que o sistema faz, com limite de volume. Para testar rodando um evento de verdade.</p>
-        <div class="plan__price"><b>$0</b><span>/mês</span></div>
+        <p class="plan__for" data-i18n="free.para">Tudo o que o sistema faz, com limite de volume. Para testar rodando um evento de verdade.</p>
+        <div class="plan__price"><b>$0</b><span data-i18n="planos.porMes">/mês</span></div>
         <ul class="list">
-          <li>2 usuários</li>
-          <li>4 torneios por mês</li>
-          <li>4 mesas por torneio</li>
-          <li>Até 150 jogadores na base</li>
-          <li>Funciona offline, como todos os planos</li>
+          <li data-i18n="free.i1">2 usuários</li>
+          <li data-i18n="free.i2">4 torneios por mês</li>
+          <li data-i18n="free.i3">4 mesas por torneio</li>
+          <li data-i18n="free.i4">Até 150 jogadores na base</li>
+          <li data-i18n="free.i5">Funciona offline, como todos os planos</li>
         </ul>
-        <a class="btn btn--outline btn--block" href="#demo">Começar grátis</a>
-        <p class="plan__fine">Por 60 dias. Depois é escolher um plano para continuar — nada do que você lançou é apagado.</p>
+        <a class="btn btn--outline btn--block" href="#demo" data-i18n="planos.comecar">Começar grátis</a>
+        <p class="plan__fine" data-i18n="free.rodape">Por 60 dias. Depois é escolher um plano para continuar — nada do que você lançou é apagado.</p>
       </article>
 
       <article class="plan">
         <h3>Standard</h3>
-        <p class="plan__for">Para o clube que roda eventos regulares numa casa só.</p>
-        <div class="plan__price"><b data-anual="$49" data-mensal="$69">$49</b><span>/mês</span></div>
+        <p class="plan__for" data-i18n="std.para">Para o clube que roda eventos regulares numa casa só.</p>
+        <div class="plan__price"><b data-anual="$49" data-mensal="$69">$49</b><span data-i18n="planos.porMes">/mês</span></div>
         <ul class="list">
-          <li>6 usuários</li>
-          <li>20 torneios por mês</li>
-          <li>Mesas ilimitadas por torneio</li>
-          <li>Até 1.000 jogadores na base</li>
-          <li>Caixa por operador, sangria e relatórios</li>
+          <li data-i18n="std.i1">6 usuários</li>
+          <li data-i18n="std.i2">20 torneios por mês</li>
+          <li data-i18n="std.i3">Mesas ilimitadas por torneio</li>
+          <li data-i18n="std.i4">Até 1.000 jogadores na base</li>
+          <li data-i18n="std.i5">Caixa por operador, sangria e relatórios</li>
         </ul>
-        <a class="btn btn--outline btn--block" href="#demo">Começar grátis</a>
+        <a class="btn btn--outline btn--block" href="#demo" data-i18n="planos.comecar">Começar grátis</a>
         <p class="plan__fine">&nbsp;</p>
       </article>
 
       <article class="plan plan--hi">
-        <span class="plan__flag">Sem limite</span>
+        <span class="plan__flag" data-i18n="pro.selo">Sem limite</span>
         <h3>Pro</h3>
-        <p class="plan__for">Para quem roda circuito, multi-dia e satélite sem olhar o contador.</p>
-        <div class="plan__price"><b data-anual="$99" data-mensal="$129">$99</b><span>/mês</span></div>
+        <p class="plan__for" data-i18n="pro.para">Para quem roda circuito, multi-dia e satélite sem olhar o contador.</p>
+        <div class="plan__price"><b data-anual="$99" data-mensal="$129">$99</b><span data-i18n="planos.porMes">/mês</span></div>
         <ul class="list">
-          <li>Usuários ilimitados</li>
-          <li>Torneios ilimitados</li>
-          <li>Mesas ilimitadas</li>
-          <li>Base de jogadores ilimitada</li>
-          <li>Todos os módulos, sem trava de volume</li>
+          <li data-i18n="pro.i1">Usuários ilimitados</li>
+          <li data-i18n="pro.i2">Torneios ilimitados</li>
+          <li data-i18n="pro.i3">Mesas ilimitadas</li>
+          <li data-i18n="pro.i4">Base de jogadores ilimitada</li>
+          <li data-i18n="pro.i5">Todos os módulos, sem trava de volume</li>
         </ul>
-        <a class="btn btn--primary btn--block" href="#demo">Começar grátis</a>
+        <a class="btn btn--primary btn--block" href="#demo" data-i18n="planos.comecar">Começar grátis</a>
         <p class="plan__fine">&nbsp;</p>
       </article>
 
       <article class="plan">
         <h3>Premium</h3>
-        <p class="plan__for">Para rede de clubes, federação ou operação com regra própria.</p>
-        <div class="plan__price"><b>Sob consulta</b></div>
+        <p class="plan__for" data-i18n="prem.para">Para rede de clubes, federação ou operação com regra própria.</p>
+        <div class="plan__price"><b data-i18n="prem.preco">Sob consulta</b></div>
         <ul class="list">
-          <li>Tudo do Pro, sem limite</li>
-          <li>Sistema personalizado para a sua operação</li>
-          <li>Múltiplas unidades numa só visão</li>
-          <li>Migração conduzida pela nossa equipe</li>
-          <li>Suporte dedicado durante o evento</li>
+          <li data-i18n="prem.i1">Tudo do Pro, sem limite</li>
+          <li data-i18n="prem.i2">Sistema personalizado para a sua operação</li>
+          <li data-i18n="prem.i3">Múltiplas unidades numa só visão</li>
+          <li data-i18n="prem.i4">Migração conduzida pela nossa equipe</li>
+          <li data-i18n="prem.i5">Suporte dedicado durante o evento</li>
         </ul>
-        <a class="btn btn--outline btn--block" href="#demo">Falar com o time</a>
+        <a class="btn btn--outline btn--block" href="#demo" data-i18n="prem.cta">Falar com o time</a>
         <p class="plan__fine">&nbsp;</p>
       </article>
 
     </div>
-    <p class="plans__note">Todos os planos funcionam offline e sincronizam sozinhos. Migração de dados incluída.</p>
+    <p class="plans__note" data-i18n="planos.nota">Todos os planos funcionam offline e sincronizam sozinhos. Migração de dados incluída.</p>
   </div>
 </section>
 
@@ -812,43 +853,43 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   <div class="wrap">
     <div class="faq rv">
       <div style="margin-bottom:36px">
-        <span class="eyebrow">Dúvidas</span>
-        <h2>Antes de você perguntar.</h2>
+        <span class="eyebrow" data-i18n="nav.duvidas">Dúvidas</span>
+        <h2 data-i18n="faq.titulo">Antes de você perguntar.</h2>
       </div>
 
       <div class="faq__item">
-        <button class="faq__q" aria-expanded="false">Como funciona quando a internet cai mesmo?</button>
-        <div class="faq__a"><p>O sistema roda localmente na máquina. Caixa, registro e timer continuam operando normalmente durante a queda, e o que foi lançado sobe automaticamente quando a conexão volta. Nada é digitado duas vezes.</p></div>
+        <button class="faq__q" aria-expanded="false" data-i18n="faq.q1">Como funciona quando a internet cai mesmo?</button>
+        <div class="faq__a"><p data-i18n="faq.a1">O sistema roda localmente na máquina. Caixa, registro e timer continuam operando normalmente durante a queda, e o que foi lançado sobe automaticamente quando a conexão volta. Nada é digitado duas vezes.</p></div>
       </div>
 
       <div class="faq__item">
-        <button class="faq__q" aria-expanded="false">Preciso instalar alguma coisa?</button>
-        <div class="faq__a"><p>Não. O AceBlind roda no navegador — abre o endereço e usa, no computador do caixa, no notebook ou no tablet. Se quiser, dá para instalar como aplicativo e ele ganha ícone na área de trabalho, mas é opcional: é o mesmo sistema, e é o que permite continuar operando sem internet.</p></div>
+        <button class="faq__q" aria-expanded="false" data-i18n="faq.q2">Preciso instalar alguma coisa?</button>
+        <div class="faq__a"><p data-i18n="faq.a2">Não. O AceBlind roda no navegador — abre o endereço e usa, no computador do caixa, no notebook ou no tablet. Se quiser, dá para instalar como aplicativo e ele ganha ícone na área de trabalho, mas é opcional: é o mesmo sistema, e é o que permite continuar operando sem internet.</p></div>
       </div>
 
       <div class="faq__item">
-        <button class="faq__q" aria-expanded="false">Consigo trazer meus jogadores do sistema atual?</button>
-        <div class="faq__a"><p>Sim. O cadastro dos seus jogadores entra por planilha exportada do sistema atual, e a migração é conduzida pela nossa equipe — você não carrega esse arquivo sozinho. O histórico é preservado, e o que já entrou não duplica se for preciso reimportar.</p></div>
+        <button class="faq__q" aria-expanded="false" data-i18n="faq.q3">Consigo trazer meus jogadores do sistema atual?</button>
+        <div class="faq__a"><p data-i18n="faq.a3">Sim. O cadastro dos seus jogadores entra por planilha exportada do sistema atual, e a migração é conduzida pela nossa equipe — você não carrega esse arquivo sozinho. O histórico é preservado, e o que já entrou não duplica se for preciso reimportar.</p></div>
       </div>
 
       <div class="faq__item">
-        <button class="faq__q" aria-expanded="false">O que acontece quando terminam os 60 dias do plano Free?</button>
-        <div class="faq__a"><p>O acesso fica pausado até você escolher um plano — não há cobrança automática nem surpresa no cartão. Nada é apagado: torneios, caixa, jogadores e histórico continuam guardados e voltam exatamente como estavam assim que a conta é reativada.</p></div>
+        <button class="faq__q" aria-expanded="false" data-i18n="faq.q4">O que acontece quando terminam os 60 dias do plano Free?</button>
+        <div class="faq__a"><p data-i18n="faq.a4">O acesso fica pausado até você escolher um plano — não há cobrança automática nem surpresa no cartão. Nada é apagado: torneios, caixa, jogadores e histórico continuam guardados e voltam exatamente como estavam assim que a conta é reativada.</p></div>
       </div>
 
       <div class="faq__item">
-        <button class="faq__q" aria-expanded="false">Serve para clube pequeno?</button>
-        <div class="faq__a"><p>Sim. O plano Free cobre 4 torneios por mês, e o Standard, 20. Para operação de uma casa só, isso costuma dar conta do mês inteiro.</p></div>
+        <button class="faq__q" aria-expanded="false" data-i18n="faq.q5">Serve para clube pequeno?</button>
+        <div class="faq__a"><p data-i18n="faq.a5">Sim. O plano Free cobre 4 torneios por mês, e o Standard, 20. Para operação de uma casa só, isso costuma dar conta do mês inteiro.</p></div>
       </div>
 
       <div class="faq__item">
-        <button class="faq__q" aria-expanded="false">O sistema atende clube fora do Brasil?</button>
-        <div class="faq__a"><p>Sim. A interface está em português, espanhol e inglês, e a moeda é configurada por clube — real, sol peruano, peso colombiano ou outra. Cada operador ainda pode usar o idioma que preferir, mesmo que o clube tenha escolhido outro.</p></div>
+        <button class="faq__q" aria-expanded="false" data-i18n="faq.q6">O sistema atende clube fora do Brasil?</button>
+        <div class="faq__a"><p data-i18n="faq.a6">Sim. A interface está em português, espanhol e inglês, e a moeda é configurada por clube — real, sol peruano, peso colombiano ou outra. Cada operador ainda pode usar o idioma que preferir, mesmo que o clube tenha escolhido outro.</p></div>
       </div>
 
       <div class="faq__item">
-        <button class="faq__q" aria-expanded="false">A tela de TV precisa de equipamento especial?</button>
-        <div class="faq__a"><p>Não. Qualquer TV ou monitor com navegador acessa a tela do evento pelo código, sem instalar nada.</p></div>
+        <button class="faq__q" aria-expanded="false" data-i18n="faq.q7">A tela de TV precisa de equipamento especial?</button>
+        <div class="faq__a"><p data-i18n="faq.a7">Não. Qualquer TV ou monitor com navegador acessa a tela do evento pelo código, sem instalar nada.</p></div>
       </div>
     </div>
   </div>
@@ -858,8 +899,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="band band--dark close" id="demo">
   <div class="wrap">
     <div class="rv">
-      <h2>Sua operação já é profissional.<span class="italic">Seu sistema também precisa ser.</span></h2>
-      <p>Crie a conta e rode seu próximo evento no AceBlind, do primeiro buy-in ao pagamento da premiação. O plano Free vai até 4 torneios por mês, por 60 dias.</p>
+      <h2 data-i18n="cta.titulo">Sua operação já é profissional.<span class="italic">Seu sistema também precisa ser.</span></h2>
+      <p data-i18n="cta.p">Crie a conta e rode seu próximo evento no AceBlind, do primeiro buy-in ao pagamento da premiação. O plano Free vai até 4 torneios por mês, por 60 dias.</p>
     </div>
 
     <form class="form" id="form" novalidate>
@@ -871,29 +912,29 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
         <input id="fw" name="website" type="text" tabindex="-1" autocomplete="off">
       </div>
       <div class="form__grid">
-        <div class="field"><label for="f1">Nome</label><input id="f1" type="text" placeholder="Seu nome" required></div>
-        <div class="field"><label for="f2">Clube</label><input id="f2" type="text" placeholder="Nome do clube" required></div>
+        <div class="field"><label for="f1" data-i18n="form.nome">Nome</label><input id="f1" type="text" data-i18n-ph="form.nomePh" placeholder="Seu nome" required></div>
+        <div class="field"><label for="f2" data-i18n="form.clube">Clube</label><input id="f2" type="text" data-i18n-ph="form.clubePh" placeholder="Nome do clube" required></div>
         <div class="field"><label for="f3">WhatsApp</label><input id="f3" type="tel" placeholder="(00) 00000-0000" required></div>
-        <div class="field"><label for="f4">E-mail</label><input id="f4" type="email" placeholder="voce@clube.com" required></div>
-        <div class="field"><label for="f5">Cidade</label><input id="f5" type="text" placeholder="Cidade / UF"></div>
-        <div class="field"><label for="f6">Eventos por mês</label>
+        <div class="field"><label for="f4" data-i18n="form.email">E-mail</label><input id="f4" type="email" placeholder="voce@clube.com" required></div>
+        <div class="field"><label for="f5" data-i18n="form.cidade">Cidade</label><input id="f5" type="text" data-i18n-ph="form.cidadePh" placeholder="Cidade / UF"></div>
+        <div class="field"><label for="f6" data-i18n="form.eventos">Eventos por mês</label>
           <select id="f6">
-            <option>Até 4</option><option>5 a 12</option><option>13 a 30</option><option>Mais de 30</option>
+            <option data-i18n="form.ev1">Até 4</option><option data-i18n="form.ev2">5 a 12</option><option data-i18n="form.ev3">13 a 30</option><option data-i18n="form.ev4">Mais de 30</option>
           </select>
         </div>
       </div>
       <div class="form__foot">
-        <button class="btn btn--primary btn--block" type="submit" id="send">Comece o teste grátis</button>
+        <button class="btn btn--primary btn--block" type="submit" id="send" data-i18n="form.enviar">Comece o teste grátis</button>
         <!-- role="alert" para o leitor de tela anunciar a falha: sem isso quem
              navega por teclado envia, não ouve nada e tenta de novo. -->
         <p class="form__err" id="err" role="alert" hidden></p>
-        <small>Sem custo e sem instalação. Prefere ver funcionando antes? <a href="#" id="waLink">Chamar no WhatsApp</a></small>
+        <small data-i18n="form.rodape">Sem custo e sem instalação. Prefere ver funcionando antes? <a href="#" id="waLink" class="wa-link">Chamar no WhatsApp</a></small>
       </div>
     </form>
 
     <div class="form__ok" id="ok" role="status">
-      <b>Pedido recebido.</b>
-      <p>A gente entra em contato pelo WhatsApp para abrir a sua conta e configurar o primeiro torneio. Se preferir adiantar, é só chamar.</p>
+      <b data-i18n="form.okTitulo">Pedido recebido.</b>
+      <p data-i18n="form.okTexto">A gente entra em contato pelo WhatsApp para abrir a sua conta e configurar o primeiro torneio. Se preferir adiantar, é só chamar.</p>
     </div>
   </div>
 </section>
@@ -906,33 +947,175 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
         <svg class="brand__mark" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L36 37 H28.5 L20 18 L11.5 37 H4 Z" fill="#fff"/><path d="M20 24 L24 30 L20 36 L16 30 Z" fill="#fff"/></svg>
         <span class="brand__word"><b>Ace</b><span>Blind</span></span>
       </div>
-      <span class="foot__tag">Mais controle. Menos complicação.</span>
+      <span class="foot__tag" data-i18n="rodape.tag">Mais controle. Menos complicação.</span>
     </div>
-    <nav class="foot__links" aria-label="Rodapé">
-      <a href="#sistema">Sistema</a><a href="#offline">Offline</a><a href="#planos">Planos</a><a href="#faq">Dúvidas</a><a href="#demo">Contato</a><a href="https://app.aceblind.net">Entrar no sistema</a>
+    <nav class="foot__links" data-i18n-aria="rodape.nav">
+      <a href="#sistema" data-i18n="nav.sistema">Sistema</a><a href="#offline" data-i18n="nav.offline">Offline</a><a href="#planos" data-i18n="nav.planos">Planos</a><a href="#faq" data-i18n="nav.duvidas">Dúvidas</a><a href="#demo" data-i18n="rodape.contato">Contato</a><a href="https://app.aceblind.net" data-i18n="rodape.entrar">Entrar no sistema</a>
     </nav>
     <span>© 2026 AceBlind</span>
   </div>
 </footer>
 
-<a class="wa" href="#demo">Falar no WhatsApp</a>
+<a class="wa wa-link" href="#demo" data-i18n="hero.whats">Falar no WhatsApp</a>
 
+<!-- As traduções vivem num arquivo à parte: são ~550 linhas de texto, e
+     misturá-las com o markup faria toda correção de copy conviver com o
+     layout. O português NÃO está lá — ele é o próprio HTML acima, que é o
+     que o buscador lê e o que sobra se o JavaScript falhar. -->
+<script src="i18n.js"></script>
 <script>
 /* ============================================================
    CONFIGURAÇÃO DA PÁGINA
    Os dois valores que mudam sem tocar no resto do arquivo.
 
-   ACEBLIND_WHATSAPP: só dígitos, com DDI e DDD (ex.: '5511999998888').
-   Enquanto estiver vazio, os botões de WhatsApp levam ao formulário em
-   vez de abrir uma conversa quebrada — melhor mandar para um lugar que
-   funciona do que para um número inexistente.
+   ACEBLIND_WHATSAPP: só dígitos, com DDI e DDD. Vazio faz os botões de
+   WhatsApp levarem ao formulário em vez de abrir uma conversa quebrada.
+   A mensagem que já vai escrita muda com o idioma — está em i18n.js,
+   em ACEBLIND_META.
    ============================================================ */
 window.ACEBLIND_API = 'https://api.aceblind.net';
-window.ACEBLIND_WHATSAPP = '';
+window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
 </script>
 <script>
 (function(){
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ==========================================================================
+     IDIOMA
+     ========================================================================== */
+  var DICIONARIOS = window.ACEBLIND_I18N || {};
+  var METAS = window.ACEBLIND_META || {};
+  var IDIOMAS = ['pt-BR', 'en-US', 'es-ES'];
+  var CHAVE_IDIOMA = 'aceblind:lang';
+
+  /* O português é o próprio HTML. Guardamos o estado original ANTES da
+     primeira troca — sem isso, voltar para o português traria o texto em
+     inglês, porque não haveria de onde tirar o original. */
+  var ORIGINAL = null;
+  function guardarOriginal(){
+    if(ORIGINAL) return;
+    ORIGINAL = {texto: {}, ph: {}, aria: {}};
+    document.querySelectorAll('[data-i18n]').forEach(function(el, i){
+      el.dataset.i18nIdx = i; ORIGINAL.texto[i] = el.innerHTML;
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function(el, i){
+      el.dataset.i18nPhIdx = i; ORIGINAL.ph[i] = el.getAttribute('placeholder') || '';
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function(el, i){
+      el.dataset.i18nAriaIdx = i; ORIGINAL.aria[i] = el.getAttribute('aria-label') || '';
+    });
+  }
+
+  var idiomaAtual = 'pt-BR';
+
+  /* Texto avulso para o que o JavaScript escreve na tela (a animação da TV).
+     Cai no padrão em português quando a chave não existe. */
+  function t(chave, padrao){
+    var d = DICIONARIOS[idiomaAtual];
+    return (d && d[chave]) || padrao;
+  }
+
+  function aplicarIdioma(codigo){
+    if(IDIOMAS.indexOf(codigo) === -1) codigo = 'pt-BR';
+    guardarOriginal();
+    idiomaAtual = codigo;
+    var d = DICIONARIOS[codigo] || {};
+    var faltando = [];
+
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var k = el.getAttribute('data-i18n');
+      var v = codigo === 'pt-BR' ? ORIGINAL.texto[el.dataset.i18nIdx] : d[k];
+      if(v == null){ faltando.push(k); v = ORIGINAL.texto[el.dataset.i18nIdx]; }
+      el.innerHTML = v;
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function(el){
+      var k = el.getAttribute('data-i18n-ph');
+      var v = codigo === 'pt-BR' ? ORIGINAL.ph[el.dataset.i18nPhIdx] : d[k];
+      el.setAttribute('placeholder', v != null ? v : ORIGINAL.ph[el.dataset.i18nPhIdx]);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function(el){
+      var k = el.getAttribute('data-i18n-aria');
+      var v = codigo === 'pt-BR' ? ORIGINAL.aria[el.dataset.i18nAriaIdx] : d[k];
+      el.setAttribute('aria-label', v != null ? v : ORIGINAL.aria[el.dataset.i18nAriaIdx]);
+    });
+
+    /* DIZ AO NAVEGADOR em que idioma a página está.
+       Sem isto o Chrome vê "página em português" para quem lê espanhol e
+       TRADUZ POR CIMA — retraduzindo um texto que já estava em espanhol. No
+       nosso próprio sistema isso já aconteceu: o intervalo do torneio virou
+       "allanamiento", que é como se traduz arrombamento. */
+    document.documentElement.setAttribute('lang', codigo);
+
+    var meta = METAS[codigo];
+    if(meta){
+      document.title = meta.title;
+      var descricao = document.querySelector('meta[name="description"]');
+      if(descricao) descricao.setAttribute('content', meta.description);
+    }
+
+    /* O rótulo do botão: PT / EN / ES. */
+    var atual = document.getElementById('langAtual');
+    if(atual) atual.textContent = codigo.slice(0, 2).toUpperCase();
+    document.querySelectorAll('#langMenu button').forEach(function(b){
+      b.setAttribute('aria-current', b.dataset.lang === codigo ? 'true' : 'false');
+    });
+
+    /* Os links do WhatsApp são refeitos DEPOIS da troca: o texto do rodapé do
+       formulário contém um deles, e trocar o conteúdo do parágrafo destrói o
+       link antigo junto. */
+    ligarWhatsApp();
+
+    try { window.localStorage.setItem(CHAVE_IDIOMA, codigo); } catch(e){}
+    if(faltando.length) console.warn('[i18n] sem tradução em ' + codigo + ':', faltando);
+  }
+
+  /* Qual idioma mostrar:
+     1. ?lang=es na URL — para o link que o marketing manda já no idioma do
+        clube, sem depender do navegador de quem abre;
+     2. o que a pessoa escolheu antes;
+     3. o do navegador dela — quem abre a página com o Chrome em espanhol
+        merece ler em espanhol sem procurar o seletor;
+     4. português. */
+  function idiomaInicial(){
+    var pedido = (new URLSearchParams(window.location.search).get('lang') || '').toLowerCase();
+    if(pedido){
+      var achado = IDIOMAS.filter(function(c){
+        return c.toLowerCase() === pedido || c.slice(0,2) === pedido.slice(0,2);
+      })[0];
+      if(achado) return achado;
+    }
+    try {
+      var salvo = window.localStorage.getItem(CHAVE_IDIOMA);
+      if(IDIOMAS.indexOf(salvo) !== -1) return salvo;
+    } catch(e){}
+    var nav = (navigator.language || 'pt').toLowerCase();
+    if(nav.indexOf('es') === 0) return 'es-ES';
+    if(nav.indexOf('en') === 0) return 'en-US';
+    return 'pt-BR';
+  }
+
+  var lang = document.getElementById('lang');
+  var langBtn = document.getElementById('langBtn');
+  if(langBtn){
+    langBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var aberto = lang.classList.toggle('is-open');
+      langBtn.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    });
+    document.querySelectorAll('#langMenu button').forEach(function(b){
+      b.addEventListener('click', function(){
+        aplicarIdioma(b.dataset.lang);
+        lang.classList.remove('is-open');
+        langBtn.setAttribute('aria-expanded', 'false');
+      });
+    });
+    /* Fechar clicando fora e no Esc: sem isso o menu fica aberto atrás do
+       dedo de quem tocou na tela e desistiu. */
+    document.addEventListener('click', function(){ lang.classList.remove('is-open'); langBtn.setAttribute('aria-expanded','false'); });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ lang.classList.remove('is-open'); langBtn.setAttribute('aria-expanded','false'); }
+    });
+  }
 
   /* nav sticky */
   var nav = document.getElementById('nav');
@@ -968,21 +1151,23 @@ window.ACEBLIND_WHATSAPP = '';
 
   function play(){
     if(played) return; played = true;
+    /* Estes textos são escritos pelo JavaScript, então não têm data-i18n no
+       HTML: vêm do dicionário pelo t(), com o português como padrão. */
     if(reduce){
-      status.classList.add('is-sync'); statusText.textContent = 'Sincronizado';
+      status.classList.add('is-sync'); statusText.textContent = t('tv.sincronizado', 'Sincronizado');
       msg.classList.add('is-sync');
-      msg.textContent = 'A conexão caiu e voltou. O timer não parou.';
+      msg.textContent = t('tv.msgReduzido', 'A conexão caiu e voltou. O timer não parou.');
       return;
     }
     setTimeout(function(){
-      status.classList.add('is-off'); statusText.textContent = 'Sem conexão';
-      msg.classList.add('is-off'); msg.textContent = 'O timer não para. O caixa continua.';
+      status.classList.add('is-off'); statusText.textContent = t('tv.semConexao', 'Sem conexão');
+      msg.classList.add('is-off'); msg.textContent = t('tv.msgOff', 'O timer não para. O caixa continua.');
     }, 1600);
     setTimeout(function(){
       status.classList.remove('is-off'); status.classList.add('is-sync');
-      statusText.textContent = 'Sincronizado';
+      statusText.textContent = t('tv.sincronizado', 'Sincronizado');
       msg.classList.remove('is-off'); msg.classList.add('is-sync');
-      msg.textContent = '14 registros enviados automaticamente.';
+      msg.textContent = t('tv.msgSync', '14 registros enviados automaticamente.');
     }, 6200);
   }
 
@@ -1076,17 +1261,26 @@ window.ACEBLIND_WHATSAPP = '';
     });
   });
 
-  /* WhatsApp: um número só, definido em ACEBLIND_WHATSAPP. Enquanto não
-     estiver preenchido, os botões levam ao formulário em vez de abrir uma
-     conversa quebrada. */
-  if(WHATSAPP){
-    var texto = encodeURIComponent('Olá! Quero conhecer o AceBlind para o meu clube.');
-    var href = 'https://wa.me/' + WHATSAPP + '?text=' + texto;
-    document.querySelectorAll('.wa, #waLink').forEach(function(a){ a.href = href; a.target = '_blank'; a.rel = 'noopener'; });
-    document.querySelectorAll('a.btn--ghost').forEach(function(a){
-      if(/whatsapp/i.test(a.textContent)){ a.href = href; a.target = '_blank'; a.rel = 'noopener'; }
+  /* WhatsApp: um número só (ACEBLIND_WHATSAPP), e a conversa já abre com a
+     mensagem escrita NO IDIOMA DA PÁGINA — quem leu em espanhol não deve ter
+     que redigir em português para pedir informação.
+
+     Chamada de novo a cada troca de idioma, e não só na carga: o rodapé do
+     formulário contém um destes links dentro do texto traduzido, então ele é
+     destruído e recriado junto com o parágrafo. */
+  function ligarWhatsApp(){
+    if(!WHATSAPP) return;   /* sem número, os botões seguem para o formulário */
+    var meta = METAS[idiomaAtual] || {};
+    var texto = meta.whatsapp || 'Olá, gostaria de saber mais informações sobre o AceBlind';
+    var href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(texto);
+    document.querySelectorAll('.wa-link').forEach(function(a){
+      a.href = href; a.target = '_blank'; a.rel = 'noopener';
     });
   }
+
+  /* Aplica o idioma por último: o motor precisa dos elementos todos no lugar,
+     e é ele que liga os links do WhatsApp pela primeira vez. */
+  aplicarIdioma(idiomaInicial());
 })();
 </script>
 </body>
