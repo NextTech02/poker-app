@@ -47,7 +47,7 @@ no fim do arquivo:
 
 ```js
 window.ACEBLIND_API = 'https://api.aceblind.net';
-window.ACEBLIND_WHATSAPP = '';   // só dígitos, com DDI: '5511999998888'
+window.ACEBLIND_WHATSAPP = '556233001244';   // só dígitos, com DDI
 ```
 
 O número já está configurado (**+55 62 3300-1244**). A conversa abre com a
@@ -124,11 +124,15 @@ quebra o convite por e-mail se for esquecido.
    senha. É o passo que dá problema silencioso: o e-mail sai normalmente, e só o
    destinatário descobre que não funciona.
 
-4. **Rebuild do frontend**, porque `REACT_APP_*` entra no bundle em tempo de
-   build:
+4. **Recrie só o backend** para ele reler o `.env`:
    ```bash
-   docker compose build frontend && docker compose up -d frontend
+   docker compose up -d backend
    ```
+
+   O frontend **não** precisa de rebuild: nenhuma das três `REACT_APP_*` que
+   entram no bundle muda com a troca de domínio (a API continua em
+   `api.aceblind.net`), e o `redirectTo` do "esqueci minha senha" usa
+   `window.location.origin`, que se ajusta sozinho.
 
 ## O que ainda falta (não dá para eu resolver sozinho)
 
