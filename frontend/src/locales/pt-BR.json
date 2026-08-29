@@ -189,7 +189,11 @@
     "levelsShort": "níveis",
     "breaksShort": "breaks",
     "break": "Break",
-    "breakRow": "Intervalo"
+    "breakRow": "Intervalo",
+    "reorder": "Reordenar",
+    "reorderHint": "Arraste as linhas para mudar a ordem — a numeração se refaz sozinha.",
+    "moveUp": "Mover {{item}} para cima",
+    "moveDown": "Mover {{item}} para baixo"
   },
   "tournaments": {
     "title": "Torneios",

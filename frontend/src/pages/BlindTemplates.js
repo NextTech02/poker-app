@@ -5,19 +5,38 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './BlindTemplates.css';
 
+/* Identidade da LINHA, só no navegador — não vai para o banco (o nível é
+   derivado da posição no salvamento).
+
+   Existe por causa do arrastar: com `key={idx}`, reordenar faz o React reusar
+   a linha que estava naquela posição, e o cursor do campo que estava em foco
+   salta para outra linha no meio da digitação. Com id próprio, cada linha
+   carrega o seu DOM enquanto se move. */
+let proximoId = 0;
+const comId = (linha) => ({ ...linha, _id: `lv-${proximoId++}` });
+
 // Próximo nível: dobra a partir do último nível que não é break.
 const nextLevelFrom = (prev) => {
-  if (!prev) return { small_blind: 25, big_blind: 50, ante: 0, duration: 15, is_break: false };
-  return {
+  if (!prev) return comId({ small_blind: 25, big_blind: 50, ante: 0, duration: 15, is_break: false });
+  return comId({
     small_blind: (prev.small_blind || 0) * 2 || 25,
     big_blind: (prev.big_blind || 0) * 2 || 50,
     ante: prev.ante > 0 ? prev.ante * 2 : 0,
     duration: prev.duration || 15,
     is_break: false,
-  };
+  });
 };
 
-const newBreak = () => ({ small_blind: 0, big_blind: 0, ante: 0, duration: 10, is_break: true });
+const newBreak = () => comId({ small_blind: 0, big_blind: 0, ante: 0, duration: 10, is_break: true });
+
+/** Move um item de posição, devolvendo uma lista nova. */
+export const moverItem = (lista, de, para) => {
+  if (de === para || de < 0 || para < 0 || de >= lista.length || para >= lista.length) return lista;
+  const copia = [...lista];
+  const [item] = copia.splice(de, 1);
+  copia.splice(para, 0, item);
+  return copia;
+};
 
 const BlindTemplates = () => {
   const { t } = useTranslation();
@@ -78,7 +97,7 @@ const BlindTemplates = () => {
     setName(tpl.name || '');
     setDescription(tpl.description || '');
     const lv = (tpl.custom_levels && tpl.custom_levels.length)
-      ? tpl.custom_levels.map((l) => ({
+      ? tpl.custom_levels.map((l) => comId({
           small_blind: l.small_blind || 0,
           big_blind: l.big_blind || 0,
           ante: l.ante || 0,
@@ -88,6 +107,22 @@ const BlindTemplates = () => {
       : [nextLevelFrom(null)];
     setLevels(lv);
     setShowEditor(true);
+  };
+
+  /* Qual linha está sendo arrastada e sobre qual ela está passando. A segunda
+     serve só para desenhar onde ela vai cair — sem esse retorno visual, quem
+     arrasta numa lista de 20 níveis solta no lugar errado. */
+  const [arrastando, setArrastando] = useState(null);
+  const [alvo, setAlvo] = useState(null);
+
+  const mover = (de, para) => {
+    setLevels((prev) => moverItem(prev, de, para));
+  };
+
+  const aoSoltar = (destino) => {
+    if (arrastando !== null) mover(arrastando, destino);
+    setArrastando(null);
+    setAlvo(null);
   };
 
   const addLevel = () => setLevels((prev) => [...prev, nextLevelFrom(lastNonBreak(prev))]);
@@ -155,13 +190,21 @@ const BlindTemplates = () => {
   const levelCount = (tpl) => (tpl.custom_levels || []).filter((l) => !l.is_break).length;
   const breakCount = (tpl) => (tpl.custom_levels || []).filter((l) => l.is_break).length;
 
-  // Numeração de exibição: breaks não consomem número de nível.
-  let displayCounter = 0;
-  const displayLabel = (row) => {
-    if (row.is_break) return t('blindTemplates.break', 'Break');
-    displayCounter += 1;
-    return `${t('blindTemplates.level', 'Nível')} ${displayCounter}`;
-  };
+  /* Numeração de exibição: breaks não consomem número de nível.
+     Calculada UMA vez para a lista inteira, e não a cada uso.
+     Antes era uma função que incrementava um contador a cada chamada — o
+     rótulo dependia de QUANTAS VEZES tinha sido chamado. Bastou o nome
+     acessível dos botões de mover usar o mesmo rótulo para a primeira linha
+     virar "Nível 3": três chamadas por linha, três incrementos. */
+  const rotulosDasLinhas = levels.reduce((acc, row) => {
+    if (row.is_break) {
+      acc.rotulos.push(t('blindTemplates.break', 'Break'));
+    } else {
+      acc.n += 1;
+      acc.rotulos.push(`${t('blindTemplates.level', 'Nível')} ${acc.n}`);
+    }
+    return acc;
+  }, { n: 0, rotulos: [] }).rotulos;
 
   return (
     <div className="app-layout">
@@ -269,9 +312,14 @@ const BlindTemplates = () => {
               </div>
 
               <div className="bt-levels">
+                <p className="bt-levels-hint">
+                  {t('blindTemplates.reorderHint',
+                     'Arraste as linhas para mudar a ordem — a numeração se refaz sozinha.')}
+                </p>
                 <table className="bt-levels-table">
                   <thead>
                     <tr>
+                      <th aria-label={t('blindTemplates.reorder', 'Reordenar')} />
                       <th>#</th>
                       <th>{t('blinds.smallBlind', 'SB')}</th>
                       <th>{t('blinds.bigBlind', 'BB')}</th>
@@ -281,10 +329,52 @@ const BlindTemplates = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => { displayCounter = 0; return null; })()}
                     {levels.map((row, idx) => (
-                      <tr key={idx} className={row.is_break ? 'bt-row-break' : ''}>
-                        <td className="bt-row-label">{displayLabel(row)}</td>
+                      <tr
+                        key={row._id || idx}
+                        className={[
+                          row.is_break ? 'bt-row-break' : '',
+                          arrastando === idx ? 'bt-row-arrastando' : '',
+                          alvo === idx && arrastando !== idx ? 'bt-row-alvo' : '',
+                        ].filter(Boolean).join(' ')}
+                        /* O arrastar fica na LINHA, não só na alça: numa tabela
+                           a alça é um alvo pequeno, e o operador tenta pegar a
+                           linha inteira. Os campos continuam editáveis porque
+                           input dentro de elemento arrastável segue recebendo o
+                           clique. */
+                        draggable
+                        onDragStart={(e) => {
+                          setArrastando(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                          /* Firefox não inicia o arrasto sem algum dado. */
+                          e.dataTransfer.setData('text/plain', String(idx));
+                        }}
+                        onDragOver={(e) => { e.preventDefault(); setAlvo(idx); }}
+                        onDragEnd={() => { setArrastando(null); setAlvo(null); }}
+                        onDrop={(e) => { e.preventDefault(); aoSoltar(idx); }}
+                      >
+                        <td className="bt-row-grip">
+                          {/* Subir/descer NÃO é enfeite: arrastar não funciona
+                              por teclado nem no celular, e a estrutura de blinds
+                              é montada tanto no notebook quanto no telefone,
+                              minutos antes do torneio. */}
+                          <span className="bt-grip" aria-hidden="true">⠿</span>
+                          <span className="bt-mover">
+                            <button
+                              type="button"
+                              onClick={() => mover(idx, idx - 1)}
+                              disabled={idx === 0}
+                              aria-label={t('blindTemplates.moveUp', 'Mover {{item}} para cima', { item: rotulosDasLinhas[idx] })}
+                            >↑</button>
+                            <button
+                              type="button"
+                              onClick={() => mover(idx, idx + 1)}
+                              disabled={idx === levels.length - 1}
+                              aria-label={t('blindTemplates.moveDown', 'Mover {{item}} para baixo', { item: rotulosDasLinhas[idx] })}
+                            >↓</button>
+                          </span>
+                        </td>
+                        <td className="bt-row-label">{rotulosDasLinhas[idx]}</td>
                         {row.is_break ? (
                           <td colSpan={3} className="bt-break-cell">
                             {t('blindTemplates.breakRow', 'Intervalo')}

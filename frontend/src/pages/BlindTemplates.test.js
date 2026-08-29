@@ -14,7 +14,7 @@
  * Ao salvar, os valores de um break são zerados independentemente do que
  * estiver na linha, e a numeração é reescrita pela ordem da tabela.
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BlindTemplates from './BlindTemplates';
 import api from '../config/api';
@@ -27,7 +27,15 @@ jest.mock('../config/api', () => ({
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('react-i18next', () => {
-  const t = (chave, segundo) => (typeof segundo === 'string' ? segundo : chave);
+  const t = (chave, segundo, terceiro) => {
+    const padrao = typeof segundo === 'string' ? segundo : chave;
+    const vars = segundo && typeof segundo === 'object' ? segundo : terceiro;
+    // Interpola {{var}}: os nomes acessíveis de "mover para cima/baixo"
+    // dependem disso para dizer QUAL nível cada botão move.
+    return vars
+      ? padrao.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? vars[k] : `{{${k}}}`))
+      : padrao;
+  };
   const traducao = { t, i18n: { language: 'pt-BR' } };
   return { useTranslation: () => traducao };
 });
@@ -362,5 +370,147 @@ describe('excluir template', () => {
     await montar();
     await userEvent.click(within(cartaoDe('Turbo 15min')).getByText('Excluir'));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('common.error'));
+  });
+});
+
+describe('reordenar níveis', () => {
+  /* O template é montado na correria antes do torneio: o diretor põe um
+     intervalo no lugar errado e precisa movê-lo sem refazer a estrutura. */
+
+  const rotulos = () =>
+    linhas().map((tr) => tr.querySelector('.bt-row-label').textContent.trim());
+
+  const subir = (indice) =>
+    userEvent.click(within(linhas()[indice]).getByRole('button', { name: /para cima/ }));
+  const descer = (indice) =>
+    userEvent.click(within(linhas()[indice]).getByRole('button', { name: /para baixo/ }));
+
+  const arrastar = (de, para) => {
+    const origem = linhas()[de];
+    const destino = linhas()[para];
+    const dados = { effectAllowed: '', setData: jest.fn(), getData: () => String(de) };
+    fireEvent.dragStart(origem, { dataTransfer: dados });
+    fireEvent.dragOver(destino, { dataTransfer: dados });
+    fireEvent.drop(destino, { dataTransfer: dados });
+  };
+
+  it('arrastar uma linha muda a ordem', async () => {
+    await montar();
+    await userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+    // Nível 1 (SB 25), Nível 2 (SB 50), Intervalo
+    expect(campoDaLinha(0, 0)).toHaveValue(25);
+    arrastar(1, 0);
+    expect(campoDaLinha(0, 0)).toHaveValue(50);
+    expect(campoDaLinha(1, 0)).toHaveValue(25);
+  });
+
+  it('a numeração se refaz sozinha depois de mover', async () => {
+    // O número do nível vem da POSIÇÃO, não de um campo — mover não pode
+    // deixar dois "Nível 2" na tela.
+    await montar();
+    await userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+    expect(rotulos()).toEqual(['Nível 1', 'Nível 2', 'Break']);
+    arrastar(2, 0);   // o intervalo vai para o topo
+    expect(rotulos()).toEqual(['Break', 'Nível 1', 'Nível 2']);
+  });
+
+  it('os valores acompanham a linha que se moveu', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.click(screen.getByRole('button', { name: /Adicionar nível/ }));
+    await userEvent.clear(campoDaLinha(0, 0));
+    await userEvent.type(campoDaLinha(0, 0), '111');
+    await userEvent.clear(campoDaLinha(1, 0));
+    await userEvent.type(campoDaLinha(1, 0), '222');
+
+    arrastar(0, 1);
+
+    expect(campoDaLinha(0, 0)).toHaveValue(222);
+    expect(campoDaLinha(1, 0)).toHaveValue(111);
+  });
+
+  it('o cursor continua no campo que a pessoa estava editando', async () => {
+    /* ESTE é o motivo de cada linha ter id próprio.
+
+       Com a chave pela POSIÇÃO, o React reusa o elemento que já estava naquele
+       lugar da tela: o campo em foco não se move, e passa a mostrar o valor da
+       OUTRA linha. Quem estava digitando 111 e move a linha continua com o
+       cursor no mesmo lugar da tela — só que agora editando o 222.
+
+       Os valores exibidos ficariam certos de qualquer forma (os campos são
+       controlados pelo estado), e é por isso que o teste acima passa nas duas
+       versões. O foco é o que denuncia. */
+    await montar();
+    await abrirNovo();
+    await userEvent.click(screen.getByRole('button', { name: /Adicionar nível/ }));
+    await userEvent.clear(campoDaLinha(0, 0));
+    await userEvent.type(campoDaLinha(0, 0), '111');
+    await userEvent.clear(campoDaLinha(1, 0));
+    await userEvent.type(campoDaLinha(1, 0), '222');
+
+    campoDaLinha(0, 0).focus();
+    expect(document.activeElement).toHaveValue(111);
+
+    arrastar(0, 1);   // a linha do 111 desce
+
+    // O cursor segue o 111, esteja ele onde estiver.
+    expect(document.activeElement).toHaveValue(111);
+    expect(document.activeElement).toBe(campoDaLinha(1, 0));
+  });
+
+  it('a ordem nova é a que vai para o servidor', async () => {
+    await montar();
+    await userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+    arrastar(2, 0);   // intervalo para o topo
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    const enviados = api.patch.mock.calls[0][1].custom_levels;
+    expect(enviados[0].is_break).toBe(true);
+    // `level` é renumerado na gravação, na ordem em que as linhas estão.
+    expect(enviados.map((l) => l.level)).toEqual([1, 2, 3]);
+  });
+
+  describe('sem arrastar: teclado e celular', () => {
+    /* Arrastar não funciona por teclado nem em tela sensível ao toque, e a
+       estrutura é montada nos dois. Sem estes botões o recurso não existiria
+       para quem opera do telefone. */
+
+    it('as setas movem a linha', async () => {
+      await montar();
+      await userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+      await subir(1);
+      expect(campoDaLinha(0, 0)).toHaveValue(50);
+    });
+
+    it('descer no fim e subir no topo ficam desativados', async () => {
+      await montar();
+      await userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+      expect(within(linhas()[0]).getByRole('button', { name: /para cima/ })).toBeDisabled();
+      const ultima = linhas().length - 1;
+      expect(within(linhas()[ultima]).getByRole('button', { name: /para baixo/ })).toBeDisabled();
+    });
+
+    it('cada botão diz QUAL nível ele move', async () => {
+      // "Mover para cima" repetido em vinte linhas não ajuda quem usa leitor
+      // de tela a saber onde está.
+      await montar();
+      await userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+      expect(within(linhas()[1]).getByRole('button', { name: 'Mover Nível 2 para cima' })).toBeInTheDocument();
+    });
+
+    it('descer a última linha não faz nada', async () => {
+      await montar();
+      await userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+      const antes = rotulos();
+      await descer(linhas().length - 1);
+      expect(rotulos()).toEqual(antes);
+    });
+  });
+
+  it('a dica de arrastar aparece', async () => {
+    // Recurso que ninguém descobre não existe.
+    await montar();
+    await abrirNovo();
+    expect(screen.getByText(/Arraste as linhas/)).toBeInTheDocument();
   });
 });

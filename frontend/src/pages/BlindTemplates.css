@@ -320,3 +320,54 @@
   .bt-levels-table input { max-width: none; }
   .bt-field { min-width: 100%; }
 }
+
+/* ── Reordenar níveis ─────────────────────────────────────────────────────
+   A dica fica ACIMA da tabela: quem monta a estrutura não descobre sozinho
+   que a linha se arrasta, e um recurso que ninguém encontra não existe. */
+.bt-levels-hint {
+  margin: 0 0 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.bt-row-grip {
+  width: 62px;
+  white-space: nowrap;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* `grab` avisa que a linha se move antes de a pessoa tentar. */
+.bt-levels-table tbody tr { cursor: grab; }
+.bt-levels-table tbody tr:active { cursor: grabbing; }
+/* Os campos não: dentro deles o cursor é de texto, senão parece que digitar
+   ali vai arrastar a linha. */
+.bt-levels-table input { cursor: text; }
+
+.bt-grip { opacity: 0.5; margin-right: 2px; font-size: 0.9rem; }
+
+.bt-mover { display: inline-flex; gap: 1px; }
+.bt-mover button {
+  width: 20px; height: 20px; padding: 0; line-height: 1;
+  background: transparent; color: var(--text-secondary, #8aa0b0);
+  border: 1px solid transparent; border-radius: 4px;
+  cursor: pointer; font-size: 0.75rem;
+}
+.bt-mover button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #e0eaf4);
+}
+.bt-mover button:disabled { opacity: 0.25; cursor: default; }
+
+/* A linha em movimento some pela metade; a de destino ganha uma marca ACIMA,
+   que é onde ela vai entrar. Só opacidade não bastaria: numa lista de vinte
+   níveis, quem arrasta precisa ver o lugar exato antes de soltar. */
+.bt-row-arrastando { opacity: 0.4; }
+.bt-row-alvo td { box-shadow: inset 0 2px 0 0 var(--poker-green, #7233f8); }
+
+@media (max-width: 720px) {
+  /* No celular não se arrasta linha de tabela: sobram as setas, que ficam
+     maiores para o dedo alcançar. */
+  .bt-grip { display: none; }
+  .bt-mover button { width: 30px; height: 30px; font-size: 0.9rem; }
+  .bt-row-grip { width: 68px; }
+}

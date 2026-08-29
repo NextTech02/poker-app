@@ -189,7 +189,11 @@
     "levelsShort": "levels",
     "breaksShort": "breaks",
     "break": "Break",
-    "breakRow": "Break"
+    "breakRow": "Break",
+    "reorder": "Reorder",
+    "reorderHint": "Drag the rows to change the order — the numbering redoes itself.",
+    "moveUp": "Move {{item}} up",
+    "moveDown": "Move {{item}} down"
   },
   "tournaments": {
     "title": "Tournaments",
