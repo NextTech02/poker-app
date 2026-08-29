@@ -134,9 +134,10 @@ def perform_sangria(
             user_id=current_user["sub"]
         )
     except ValueError as e:
-        # `CashRegisterService.perform_sangria` ainda levanta `ValueError` cru
-        # (saldo insuficiente, etapa sem caixa): o código genérico mantém UM só
-        # formato de recusa na tela até essas mensagens virarem `ErroDeNegocio`.
+        # As recusas conhecidas da sangria (saldo insuficiente, etapa sem caixa)
+        # chegam como `ErroDeNegocio` e `da_excecao` preserva o código e o
+        # status delas. `sangria_recusada` é a rede para o que ainda não tiver
+        # código próprio — a tela recebe um formato só de qualquer jeito.
         raise da_excecao(e, code_padrao="sangria_recusada")
     except Exception as e:
         raise HTTPException(

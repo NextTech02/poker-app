@@ -1129,7 +1129,9 @@
     "ticket_nao_cancelavel": "Este ticket no puede cancelarse ({{status_atual}}).",
     "ticket_nao_transferivel": "Este ticket no puede transferirse ({{status_atual}}).",
     "credito_ja_utilizado": "Este crédito ya fue utilizado.",
-    "sem_credito_disponivel": "El jugador no tiene crédito disponible."
+    "sem_credito_disponivel": "El jugador no tiene crédito disponible.",
+    "saldo_insuficiente_na_etapa": "Saldo insuficiente en la caja de la etapa: hay {{disponivel}} y se pidieron {{solicitado}}.",
+    "caixa_da_etapa_nao_encontrado": "Esta etapa todavía no tiene caja abierta."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",

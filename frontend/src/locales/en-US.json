@@ -1129,7 +1129,9 @@
     "ticket_nao_cancelavel": "This ticket cannot be cancelled ({{status_atual}}).",
     "ticket_nao_transferivel": "This ticket cannot be transferred ({{status_atual}}).",
     "credito_ja_utilizado": "This credit was already used.",
-    "sem_credito_disponivel": "The player has no credit available."
+    "sem_credito_disponivel": "The player has no credit available.",
+    "saldo_insuficiente_na_etapa": "Not enough balance in the stage cash register: {{disponivel}} available, {{solicitado}} requested.",
+    "caixa_da_etapa_nao_encontrado": "This stage has no cash register open yet."
   },
   "premiacao": {
     "loadError": "Error loading prize data",

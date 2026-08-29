@@ -734,3 +734,53 @@ class TestNenhumaRecusaSemCodigo:
         fonte = io.open(caminho, encoding="utf-8").read()
         cruas = fonte.count("HTTPException(")
         assert cruas <= self.ORCAMENTO.get(caminho, 0)
+
+
+class TestSangriaPelaRota:
+    """As duas últimas recusas em inglês do sistema — as da sangria.
+
+    O router as achatava num `sangria_recusada` genérico porque o serviço ainda
+    levantava `ValueError` cru. Agora elas têm código próprio, e o que este
+    teste garante é que `da_excecao` PRESERVA esse código em vez de trocá-lo
+    pelo padrão da rota.
+    """
+
+    def test_saldo_insuficiente_chega_com_codigo_e_valores(self, client, stub):
+        from app.services.cash_register_service import CashRegisterService as CRS
+        from app.utils.erros import ErroDeNegocio
+
+        def _estoura(sangria_data, user_id):
+            raise ErroDeNegocio(
+                "saldo_insuficiente_na_etapa",
+                "Saldo insuficiente no caixa da etapa: há 100 e foram pedidos 500.",
+                disponivel=100, solicitado=500,
+            )
+
+        stub(CRS, perform_sangria=_estoura)
+        r = client.post("/cash/sangria", json={
+            "stage_id": "11111111-1111-1111-1111-111111111111",
+            "stage_name": "Etapa 1", "amount": 500,
+        })
+        assert r.status_code == 400
+        d = r.json()["detail"]
+        assert d["code"] == "saldo_insuficiente_na_etapa"   # e NÃO "sangria_recusada"
+        assert d["disponivel"] == 100 and d["solicitado"] == 500
+
+    def test_etapa_sem_caixa_chega_como_404(self, client, stub):
+        from app.services.cash_register_service import CashRegisterService as CRS
+        from app.utils.erros import ErroDeNegocio
+
+        def _estoura(sangria_data, user_id):
+            raise ErroDeNegocio(
+                "caixa_da_etapa_nao_encontrado",
+                "Esta etapa ainda não tem caixa aberto.", status=404,
+            )
+
+        stub(CRS, perform_sangria=_estoura)
+        r = client.post("/cash/sangria", json={
+            "stage_id": "11111111-1111-1111-1111-111111111111",
+            "stage_name": "Etapa 1", "amount": 10,
+        })
+        # O status do ErroDeNegocio vence o padrão 400 da rota.
+        assert r.status_code == 404
+        assert r.json()["detail"]["code"] == "caixa_da_etapa_nao_encontrado"

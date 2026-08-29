@@ -10,6 +10,7 @@ import pytest
 
 from app.services import cash_register_service
 from app.services.cash_register_service import CashRegisterService
+from app.utils.erros import ErroDeNegocio
 from app.models.cash_register import SangriaTransactionCreate
 
 from tests.conftest import FakeSupabase
@@ -54,18 +55,40 @@ def _sangria(valor, notes=None, client_mutation_id=None):
 
 class TestSangria:
     def test_saldo_insuficiente_e_recusado(self, monkeypatch):
+        """A recusa saía em INGLÊS ("Insufficient balance. Available: ...") para
+        um operador em Lima ou Barranquilla. Agora vai o CÓDIGO, e a tela monta
+        a frase no idioma dela.
+
+        Os dois valores vão como dado, e não só dentro da frase: quem faz a
+        sangria precisa ver quanto há e quanto pediu para corrigir na hora."""
         _fake(monkeypatch, _mundo(saldo="100.00"))
         arg = _sangria("500.00")
-        with pytest.raises(ValueError, match="Insufficient balance"):
+        with pytest.raises(ErroDeNegocio) as e:
             CashRegisterService.perform_sangria(arg, user_id="u1")
+        assert e.value.code == "saldo_insuficiente_na_etapa"
+        assert e.value.status == 400
+        assert str(e.value.dados["disponivel"]) == "100.00"
+        assert str(e.value.dados["solicitado"]) == "500.00"
+
+    def test_a_recusa_de_saldo_continua_sendo_ValueError(self, monkeypatch):
+        """`ErroDeNegocio` herda de ValueError de propósito: os `except
+        ValueError` que já existem nos routers continuam pegando, e é isso que
+        permitiu converter os serviços um a um."""
+        _fake(monkeypatch, _mundo(saldo="100.00"))
+        with pytest.raises(ValueError):
+            CashRegisterService.perform_sangria(_sangria("500.00"), user_id="u1")
 
     def test_etapa_sem_caixa_e_recusada(self, monkeypatch):
+        """Era 'Cash register not found for stage <uuid>' — inglês, e com um
+        uuid que não diz nada a quem está no balcão."""
         tabelas = _mundo()
         tabelas["stage_cash_register"] = []
         _fake(monkeypatch, tabelas)
         arg = _sangria("10.00")
-        with pytest.raises(ValueError, match="Cash register not found"):
+        with pytest.raises(ErroDeNegocio) as e:
             CashRegisterService.perform_sangria(arg, user_id="u1")
+        assert e.value.code == "caixa_da_etapa_nao_encontrado"
+        assert e.value.status == 404
 
     def test_move_o_dinheiro_entre_os_tres_registradores(self, monkeypatch):
         # 1000 em caixa, sem rake pendente: tudo vira líquido no caixa geral.

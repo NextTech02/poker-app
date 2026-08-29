@@ -21,6 +21,7 @@ from app.models.cash_register import (
     SangriaResponse
 )
 from app.services.transaction_filters import ler_transacoes_ativas
+from app.utils.erros import ErroDeNegocio
 
 
 # Só ENTRADA vira caixa. Prêmio pago (type='prize') sai do caixa e não pode ser
@@ -388,13 +389,24 @@ class CashRegisterService:
         # Get stage cash register
         stage_cash = CashRegisterService.get_stage_cash(sangria_data.stage_id)
         if not stage_cash:
-            raise ValueError(f"Cash register not found for stage {sangria_data.stage_id}")
+            raise ErroDeNegocio(
+                "caixa_da_etapa_nao_encontrado",
+                "Esta etapa ainda não tem caixa aberto.",
+                status=404,
+                stage_id=sangria_data.stage_id,
+            )
 
         # Validate sufficient balance
         if stage_cash.current_balance < sangria_data.amount:
-            raise ValueError(
-                f"Insufficient balance. Available: {stage_cash.current_balance}, "
-                f"Requested: {sangria_data.amount}"
+            # Os dois valores vão como DADO, e não só dentro da frase: quem faz
+            # a sangria precisa ver quanto há e quanto pediu para corrigir o
+            # número na hora, e a tela remonta a frase no idioma dela.
+            raise ErroDeNegocio(
+                "saldo_insuficiente_na_etapa",
+                f"Saldo insuficiente no caixa da etapa: há {stage_cash.current_balance} "
+                f"e foram pedidos {sangria_data.amount}.",
+                disponivel=stage_cash.current_balance,
+                solicitado=sangria_data.amount,
             )
 
         # Rake derivado das transações (Fase 2 — caminho A): o rake é a soma dos
