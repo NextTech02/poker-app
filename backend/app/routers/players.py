@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, status, Query
 from typing import List, Optional
 from app.models.player import (
     PlayerCreate,
@@ -12,6 +12,7 @@ from app.services.player_service import PlayerService
 from app.services.player_import_service import PlayerImportService
 from app.services.satellite_ticket_service import SatelliteTicketService
 from app.auth.jwt import get_current_user
+from app.utils.erros import conflito, da_excecao, nao_encontrado, sem_permissao
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/players", tags=["players"])
@@ -42,7 +43,10 @@ class ImportRequest(BaseModel):
 def _org(current_user: dict) -> str:
     org = current_user.get("organization_id")
     if not org:
-        raise HTTPException(status_code=403, detail="Sua conta não está vinculada a nenhuma organização.")
+        raise sem_permissao(
+            "conta_sem_organizacao",
+            "Sua conta não está vinculada a nenhuma organização.",
+        )
     return org
 
 
@@ -64,8 +68,12 @@ def run_import(data: ImportRequest, current_user: dict = Depends(get_current_use
     except ValueError as exc:
         msg = str(exc)
         if msg.startswith("PLANO_LIMITE_CLIENTES:"):
-            raise HTTPException(status_code=409, detail=msg.split(":", 1)[1].strip())
-        raise HTTPException(status_code=400, detail=msg)
+            # O detalhe (quantos cabem, quantos já existem) vai TAMBÉM como dado
+            # nomeado: a tela remonta a frase no idioma dela e mesmo assim mostra
+            # os números, que é o que diz ao clube quanto falta liberar.
+            detalhe = msg.split(":", 1)[1].strip()
+            raise conflito("limite_de_clientes_do_plano", detalhe, detalhe=detalhe)
+        raise da_excecao(exc)
 
 
 @router.post("", response_model=Player, status_code=status.HTTP_201_CREATED)
@@ -126,10 +134,7 @@ def get_player(
     """Get a specific player by ID"""
     player = PlayerService.get_player(player_id)
     if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
-        )
+        raise nao_encontrado("jogador_nao_encontrado", "Jogador não encontrado")
     return player
 
 
@@ -142,10 +147,7 @@ def update_player(
     """Update a player"""
     player = PlayerService.update_player(player_id, player_data)
     if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
-        )
+        raise nao_encontrado("jogador_nao_encontrado", "Jogador não encontrado")
     return player
 
 
@@ -157,7 +159,4 @@ def delete_player(
     """Delete a player"""
     success = PlayerService.delete_player(player_id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
-        )
+        raise nao_encontrado("jogador_nao_encontrado", "Jogador não encontrado")

@@ -11,6 +11,10 @@ from ..models.prize_allocation import (
     PrizeSummary
 )
 from app.services.transaction_filters import ler_transacoes_ativas
+# As recusas da premiacao vao com CODIGO: o clube da Colombia paga premio
+# lendo esta mensagem, e ela nao pode chegar em portugues. A tela escolhe a
+# frase pelo `code` e usa `message` como reserva (ver app/utils/erros.py).
+from app.utils.erros import da_excecao, nao_encontrado, recusado
 
 
 class PrizeAllocationService:
@@ -54,10 +58,7 @@ class PrizeAllocationService:
             .execute()
 
         if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tournament not found"
-            )
+            raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
 
         return response.data[0]
 
@@ -179,9 +180,12 @@ class PrizeAllocationService:
             .execute()
 
         if existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Position {allocation.position} already has a prize allocation"
+            # A posicao vai TAMBEM como dado nomeado: a tela remonta a frase
+            # no idioma dela sem perder QUAL posicao ja esta ocupada.
+            raise recusado(
+                "posicao_de_premio_duplicada",
+                f"Position {allocation.position} already has a prize allocation",
+                position=allocation.position,
             )
 
         prize_type = getattr(allocation, "prize_type", "cash") or "cash"
@@ -197,18 +201,18 @@ class PrizeAllocationService:
             day_id = getattr(allocation, "vaga_target_day_id", None)
             tgt_tournament_id = getattr(allocation, "vaga_target_tournament_id", None)
             if not day_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Vaga requer um dia alvo (vaga_target_day_id)"
+                raise recusado(
+                    "vaga_sem_dia_alvo",
+                    "Vaga requer um dia alvo (vaga_target_day_id)",
                 )
             day = supabase.table("tournament_days")\
                 .select("buy_in, tournament_id")\
                 .eq("id", str(day_id))\
                 .execute()
             if not day.data:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Dia alvo da vaga não encontrado"
+                raise nao_encontrado(
+                    "dia_alvo_da_vaga_nao_encontrado",
+                    "Dia alvo da vaga não encontrado",
                 )
             data["prize_amount"] = float(day.data[0]["buy_in"] or 0)
             data["vaga_target_day_id"] = str(day_id)
@@ -240,9 +244,8 @@ class PrizeAllocationService:
             .execute()
 
         if not existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Prize allocation not found"
+            raise nao_encontrado(
+                "faixa_de_premio_nao_encontrada", "Prize allocation not found"
             )
 
         update_data = {}
@@ -255,9 +258,10 @@ class PrizeAllocationService:
                 .execute()
 
             if conflict.data:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Position {update.position} already has a prize allocation"
+                raise recusado(
+                    "posicao_de_premio_duplicada",
+                    f"Position {update.position} already has a prize allocation",
+                    position=update.position,
                 )
             update_data["position"] = update.position
 
@@ -288,10 +292,7 @@ class PrizeAllocationService:
                 update_data["released_by"] = None
 
         if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update"
-            )
+            raise recusado("nada_para_atualizar", "No fields to update")
 
         from datetime import datetime, timezone
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -331,15 +332,14 @@ class PrizeAllocationService:
             .eq("tournament_id", str(tournament_id))\
             .execute()
         if not existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Prize allocation not found"
+            raise nao_encontrado(
+                "faixa_de_premio_nao_encontrada", "Prize allocation not found"
             )
         alloc = existing.data[0]
         if alloc.get("paid") and not released:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Não é possível revogar liberação de um prêmio já pago"
+            raise recusado(
+                "liberacao_de_premio_pago_nao_revogavel",
+                "Não é possível revogar liberação de um prêmio já pago",
             )
 
         update_data = {
@@ -371,16 +371,16 @@ class PrizeAllocationService:
         """Create a satellite_ticket for a released 'vaga' prize."""
         player_id = alloc.get("player_id")
         if not player_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Atribua o jogador à posição antes de liberar a vaga."
+            raise recusado(
+                "vaga_sem_jogador",
+                "Atribua o jogador à posição antes de liberar a vaga.",
             )
         target_day_id = alloc.get("vaga_target_day_id")
         target_tournament_id = alloc.get("vaga_target_tournament_id")
         if not target_day_id or not target_tournament_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Vaga sem dia alvo configurado; edite a premiação antes de liberar."
+            raise recusado(
+                "vaga_sem_dia_alvo_configurado",
+                "Vaga sem dia alvo configurado; edite a premiação antes de liberar.",
             )
 
         stage_id = PrizeAllocationService.get_tournament_info(tournament_id).get("stage_id")
@@ -412,9 +412,9 @@ class PrizeAllocationService:
         PrizeAllocationService.get_tournament_info(tournament_id)
 
         if reserved_purpose not in (None, "", "ranking", "staff"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="reserved_purpose deve ser 'ranking', 'staff' ou vazio"
+            raise recusado(
+                "destino_da_reserva_invalido",
+                "reserved_purpose deve ser 'ranking', 'staff' ou vazio",
             )
 
         response = supabase.table("tournaments")\
@@ -505,30 +505,27 @@ class PrizeAllocationService:
             .execute()
 
         if not alloc_resp.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Prize allocation not found"
+            raise nao_encontrado(
+                "faixa_de_premio_nao_encontrada", "Prize allocation not found"
             )
 
         allocation = alloc_resp.data[0]
         if allocation.get("paid"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This prize has already been paid"
-            )
+            raise recusado("premio_ja_pago", "This prize has already been paid")
 
         # Feature 4.3: prize must be released before it can be paid
         if not allocation.get("released"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Premiação não liberada. Libere na aba de Liberação antes de pagar."
+            raise recusado(
+                "premio_nao_liberado",
+                "Premiação não liberada. Libere na aba de Liberação antes de pagar.",
             )
 
         # Feature 4.2: 'vaga' prizes cannot be paid in cash
         if allocation.get("prize_type") == "vaga":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Premiação do tipo 'Vaga' não pode ser paga em dinheiro; gere o ticket na liberação."
+            raise recusado(
+                "premio_de_vaga_nao_pago_em_dinheiro",
+                "Premiação do tipo 'Vaga' não pode ser paga em dinheiro; "
+                "gere o ticket na liberação.",
             )
 
         # Block when the operator has no open cashbox (super-admins bypass)
@@ -537,18 +534,25 @@ class PrizeAllocationService:
             try:
                 CashboxService.require_open_cashbox_for_tournament(user_id, str(tournament_id))
             except ValueError as exc:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+                # O CashboxService ja levanta ErroDeNegocio com o proprio
+                # codigo; `da_excecao` o preserva em vez de achatar tudo
+                # num codigo generico.
+                raise da_excecao(exc, "caixa_do_operador_fechado")
 
         prize_amount = Decimal(str(allocation["prize_amount"]))
 
         # ── Validate prize pool limit ──
         pool_info = PrizeAllocationService.get_tournament_prize_pool(tournament_id)
         if float(prize_amount) > pool_info["available"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Premio excede o prize pool disponivel do torneio. "
-                       f"Disponivel: R$ {pool_info['available']:.2f}, "
-                       f"Solicitado: R$ {float(prize_amount):.2f}"
+            # Os valores vao TAMBEM como dado nomeado: a tela formata na
+            # moeda e no idioma do clube (o "R$" da frase e so a reserva).
+            raise recusado(
+                "premio_excede_o_pool_disponivel",
+                f"Premio excede o prize pool disponivel do torneio. "
+                f"Disponivel: R$ {pool_info['available']:.2f}, "
+                f"Solicitado: R$ {float(prize_amount):.2f}",
+                disponivel=float(pool_info["available"]),
+                solicitado=float(prize_amount),
             )
 
         # ── Validate general cash balance ──
@@ -556,11 +560,13 @@ class PrizeAllocationService:
         general_cash = CashRegisterService.get_general_cash()
 
         if general_cash.current_balance < prize_amount:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Saldo insuficiente no caixa geral. "
-                       f"Disponivel: R$ {float(general_cash.current_balance):.2f}, "
-                       f"Solicitado: R$ {float(prize_amount):.2f}"
+            raise recusado(
+                "saldo_insuficiente_no_caixa_geral",
+                f"Saldo insuficiente no caixa geral. "
+                f"Disponivel: R$ {float(general_cash.current_balance):.2f}, "
+                f"Solicitado: R$ {float(prize_amount):.2f}",
+                disponivel=float(general_cash.current_balance),
+                solicitado=float(prize_amount),
             )
 
         # Verify player exists
@@ -570,10 +576,7 @@ class PrizeAllocationService:
             .execute()
 
         if not player_resp.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Player not found"
-            )
+            raise nao_encontrado("jogador_nao_encontrado", "Player not found")
 
         player = player_resp.data[0]
 
@@ -585,9 +588,9 @@ class PrizeAllocationService:
                 return s.replace(" ", "").replace(".", "").replace("-", "").replace("/", "").upper()
 
             if normalize(registered_doc) != normalize(payout.document_number):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Documento não confere com o cadastro do jogador"
+                raise recusado(
+                    "documento_nao_confere",
+                    "Documento não confere com o cadastro do jogador",
                 )
         else:
             supabase.table("players").update({
@@ -648,15 +651,13 @@ class PrizeAllocationService:
             .execute()
 
         if not existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Prize allocation not found"
+            raise nao_encontrado(
+                "faixa_de_premio_nao_encontrada", "Prize allocation not found"
             )
 
         if existing.data[0].get("paid"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete a paid prize allocation"
+            raise recusado(
+                "faixa_de_premio_paga", "Cannot delete a paid prize allocation"
             )
 
         supabase.table("prize_allocations").delete().eq("id", str(allocation_id)).execute()
@@ -717,11 +718,14 @@ class PrizeAllocationService:
                 f"das posições {', '.join(f'{p}º' for p in pagas)}"
                 if pagas else "de faixas deste torneio"
             )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Não é possível recalcular a premiação: a premiação "
-                       f"{alvo} já foi paga. Ajuste as faixas "
-                       f"restantes uma a uma."
+            # As posicoes vao TAMBEM como lista nomeada: a tela monta
+            # "1º, 2º" no idioma dela sem depender da frase pronta.
+            raise recusado(
+                "recalculo_com_faixa_ja_paga",
+                f"Não é possível recalcular a premiação: a premiação "
+                f"{alvo} já foi paga. Ajuste as faixas "
+                f"restantes uma a uma.",
+                posicoes=pagas or None,
             )
 
         # ── Limite: o pool PAGÁVEL (já descontada a premiação reservada) ──
@@ -743,11 +747,13 @@ class PrizeAllocationService:
             # Tolerância de 1 centavo: diferença de arredondamento não pode
             # derrubar a requisição.
             if total_solicitado - payable_pool > Decimal("0.01"):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Premiação excede o prize pool pagável do torneio. "
-                           f"Disponivel: R$ {float(payable_pool):.2f}, "
-                           f"Solicitado: R$ {float(total_solicitado):.2f}"
+                raise recusado(
+                    "premiacao_excede_o_pool_pagavel",
+                    f"Premiação excede o prize pool pagável do torneio. "
+                    f"Disponivel: R$ {float(payable_pool):.2f}, "
+                    f"Solicitado: R$ {float(total_solicitado):.2f}",
+                    disponivel=float(payable_pool),
+                    solicitado=float(total_solicitado),
                 )
 
         supabase.table("prize_allocations")\

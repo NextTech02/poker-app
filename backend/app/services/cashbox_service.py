@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from app.database import supabase
+from app.utils.erros import ErroDeNegocio
 from app.models.cashbox import (
     CashboxResponse,
     CashboxSessionResponse,
@@ -193,10 +194,10 @@ class CashboxService:
         """Manually ensure a cashbox exists for a staff member in a stage
         (idempotent). Used by the admin 'Novo Caixa' action."""
         if not stage_id:
-            raise ValueError("Selecione uma etapa")
+            raise ErroDeNegocio("etapa_nao_selecionada", "Selecione uma etapa")
         staff = supabase.table("staff").select("id").eq("id", staff_id).execute()
         if not staff.data:
-            raise ValueError("Funcionário não encontrado")
+            raise ErroDeNegocio("funcionario_nao_encontrado", "Funcionário não encontrado", status=404)
         row = CashboxService._get_or_create(staff_id, stage_id)
         return CashboxService._enrich(row)
 
@@ -222,7 +223,7 @@ class CashboxService:
             return None
         t = supabase.table("tournaments").select("stage_id").eq("id", tournament_id).execute()
         if not t.data:
-            raise ValueError("Torneio não encontrado")
+            raise ErroDeNegocio("torneio_nao_encontrado", "Torneio não encontrado", status=404)
         return CashboxService.require_open_cashbox(auth_user_id, t.data[0].get("stage_id"))
 
     @staticmethod
@@ -235,14 +236,16 @@ class CashboxService:
         if is_super:
             return None
         if not staff_id:
-            raise ValueError("Usuário não tem cadastro de funcionário")
+            raise ErroDeNegocio("sem_cadastro_de_funcionario", "Usuário não tem cadastro de funcionário")
         if not stage_id:
-            raise ValueError("Selecione uma etapa antes de registrar operações no caixa")
+            raise ErroDeNegocio("etapa_nao_selecionada", "Selecione uma etapa antes de registrar operações no caixa")
         cb = supabase.table("cashboxes").select("*") \
             .eq("staff_id", staff_id).eq("stage_id", stage_id) \
             .eq("status", "open").execute()
         if not cb.data:
-            raise ValueError("Abra seu caixa antes de registrar operações")
+            raise ErroDeNegocio(
+                "caixa_fechado", "Abra seu caixa antes de registrar operações"
+            )
         return cb.data[0]
 
     # ============================================================
@@ -371,19 +374,28 @@ class CashboxService:
     ) -> CashboxSessionResponse:
         cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
         if not cb.data:
-            raise ValueError("Caixa não encontrado")
+            raise ErroDeNegocio("caixa_nao_encontrado", "Caixa não encontrado", status=404)
         cb_row = cb.data[0]
 
         if cb_row["status"] == "open":
-            raise ValueError("Caixa já está aberto")
+            # 409: o pedido está correto, o que ele quer já existe. A tela usa
+            # isso para mandar o operador CONTINUAR na sessão aberta em vez de
+            # oferecer "tentar de novo", que abriria a mesma discussão de novo.
+            raise ErroDeNegocio("caixa_ja_aberto", "Caixa já está aberto", status=409)
         if cb_row["status"] == "archived":
-            raise ValueError("Caixa arquivado não pode ser aberto")
+            raise ErroDeNegocio(
+                "caixa_arquivado", "Caixa arquivado não pode ser aberto"
+            )
 
         # Permission: operate own cashbox OR admin to open another's
         is_admin = CashboxService.can_admin(auth_user_id)
         own_staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
         if not is_admin and own_staff_id != cb_row["staff_id"]:
-            raise ValueError("Sem permissão para abrir este caixa")
+            raise ErroDeNegocio(
+                "sem_permissao_abrir_caixa",
+                "Sem permissão para abrir este caixa",
+                status=403,
+            )
 
         now = datetime.now(timezone.utc).isoformat()
         session_insert = supabase.table("cashbox_sessions").insert({
@@ -432,20 +444,27 @@ class CashboxService:
     ) -> CashboxSessionResponse:
         cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
         if not cb.data:
-            raise ValueError("Caixa não encontrado")
+            raise ErroDeNegocio("caixa_nao_encontrado", "Caixa não encontrado", status=404)
         cb_row = cb.data[0]
 
         if cb_row["status"] != "open":
-            raise ValueError("Caixa não está aberto")
+            raise ErroDeNegocio("caixa_nao_esta_aberto", "Caixa não está aberto")
 
         is_admin = CashboxService.can_admin(auth_user_id)
         own_staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
         if not is_admin and own_staff_id != cb_row["staff_id"]:
-            raise ValueError("Sem permissão para fechar este caixa")
+            raise ErroDeNegocio(
+                "sem_permissao_fechar_caixa",
+                "Sem permissão para fechar este caixa",
+                status=403,
+            )
 
         session_id = cb_row.get("current_session_id")
         if not session_id:
-            raise ValueError("Caixa aberto sem sessão registrada — contate o admin")
+            raise ErroDeNegocio(
+                "caixa_aberto_sem_sessao",
+                "Caixa aberto sem sessão registrada — contate o admin",
+            )
 
         expected = float(cb_row["current_balance"])
         diff = round(actual_final_balance - expected, 2)
@@ -498,19 +517,32 @@ class CashboxService:
         notes: Optional[str],
     ) -> CashboxTransactionResponse:
         if not CashboxService.can_admin(auth_user_id):
-            raise ValueError("Sem permissão para esta operação")
+            raise ErroDeNegocio(
+                "sem_permissao_movimentar_caixa",
+                "Sem permissão para esta operação",
+                status=403,
+            )
 
         cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
         if not cb.data:
-            raise ValueError("Caixa não encontrado")
+            raise ErroDeNegocio("caixa_nao_encontrado", "Caixa não encontrado", status=404)
         cb_row = cb.data[0]
 
         if cb_row["status"] != "open":
-            raise ValueError("Caixa precisa estar aberto para receber movimentações")
+            raise ErroDeNegocio(
+                "caixa_precisa_estar_aberto",
+                "Caixa precisa estar aberto para receber movimentações",
+            )
 
         if tx_type == "sangria" and amount > float(cb_row["current_balance"]):
-            raise ValueError(
-                f"Saldo insuficiente — disponível R$ {float(cb_row['current_balance']):.2f}"
+            # O saldo vai como NÚMERO, além da frase: a tela formata na moeda e
+            # no idioma do clube (o R$ embutido na frase chega errado no Peru e
+            # na Colômbia) e ainda consegue sugerir o valor máximo possível.
+            raise ErroDeNegocio(
+                "saldo_insuficiente_no_caixa",
+                f"Saldo insuficiente — disponível R$ {float(cb_row['current_balance']):.2f}",
+                disponivel=float(cb_row["current_balance"]),
+                solicitado=float(amount),
             )
 
         signed = _signed(amount, tx_type)
@@ -575,7 +607,7 @@ class CashboxService:
     ) -> CashboxSummary:
         cb = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
         if not cb.data:
-            raise ValueError("Caixa não encontrado")
+            raise ErroDeNegocio("caixa_nao_encontrado", "Caixa não encontrado", status=404)
         cb_row = cb.data[0]
 
         tx_query = supabase.table("cashbox_transactions").select("*").eq("cashbox_id", cashbox_id)

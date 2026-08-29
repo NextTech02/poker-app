@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
 from app.models.player_credit import (
     PlayerCreditCreate,
@@ -11,6 +11,7 @@ from app.models.player_credit import (
 from app.services.player_credit_service import PlayerCreditService
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
+from app.utils.erros import da_excecao, nao_encontrado
 
 router = APIRouter(prefix="/player-credits", tags=["player-credits"])
 
@@ -35,7 +36,7 @@ def grant_credit(data: PlayerCreditCreate, user=Depends(get_current_user)):
     try:
         return PlayerCreditService.grant_credit(data, _id_do_usuario(user))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.get("", response_model=List[PlayerCreditResponse])
@@ -54,7 +55,7 @@ def get_all_credits(
 def get_credit(credit_id: str, user=Depends(get_current_user)):
     credit = PlayerCreditService.get_credit(credit_id)
     if not credit:
-        raise HTTPException(status_code=404, detail="Crédito não encontrado")
+        raise nao_encontrado("credito_nao_encontrado", "Crédito não encontrado")
     return credit
 
 
@@ -72,7 +73,7 @@ def settle_credit(
     try:
         return PlayerCreditService.settle_sponsor_payment(credit_id, data, _id_do_usuario(user))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.post("/{credit_id}/cancel", response_model=PlayerCreditResponse)
@@ -80,7 +81,7 @@ def cancel_credit(credit_id: str, user=Depends(get_current_user)):
     try:
         return PlayerCreditService.cancel_credit(credit_id, _id_do_usuario(user))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 # ================================================

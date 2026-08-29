@@ -219,6 +219,44 @@ describe('mensagem de erro para a tela', () => {
     });
   });
 
+  it('recusa com CÓDIGO sai traduzida', async () => {
+    /* O servidor manda `{code, message}` justamente para NÃO decidir o idioma:
+       o sistema atende clubes no Brasil, no Peru e na Colômbia. A frase é
+       escolhida aqui, por `errors.<code>`. */
+    mock.onPost('/players').reply(409, {
+      detail: { code: 'caixa_fechado', message: 'Abra o seu caixa antes de vender.' },
+    });
+    await expect(api.post('/players', {})).rejects.toMatchObject({
+      userMessage: 'Abra o seu caixa antes de vender.',
+    });
+  });
+
+  it('os dados do erro entram na frase', async () => {
+    // O motivo que o admin escreveu é a parte que resolve a dúvida do jogador
+    // no balcão — precisa aparecer, mesmo com a frase montada aqui.
+    mock.onPost('/players').reply(400, {
+      detail: {
+        code: 'vendas_bloqueadas_dia',
+        message: 'Vendas bloqueadas para este dia: registro tardio encerrado',
+        motivo: 'registro tardio encerrado',
+      },
+    });
+    const erro = await api.post('/players', {}).catch((e) => e);
+    expect(erro.userMessage).toContain('registro tardio encerrado');
+  });
+
+  it('código que a tela ainda não conhece cai na frase do servidor', async () => {
+    /* Degradação prevista: um código novo no backend aparece em português, e
+       não como "erro desconhecido". É o que permite converter o backend aos
+       poucos sem quebrar tela nenhuma. */
+    mock.onPost('/players').reply(400, {
+      detail: { code: 'codigo_que_nao_existe_na_tela', message: 'Frase vinda do servidor.' },
+    });
+    await expect(api.post('/players', {})).rejects.toMatchObject({
+      userMessage: 'Frase vinda do servidor.',
+    });
+  });
+
   it('detalhe em objeto usa a mensagem interna', async () => {
     mock.onPost('/players').reply(400, { detail: { msg: 'algo deu errado' } });
     await expect(api.post('/players', {})).rejects.toMatchObject({

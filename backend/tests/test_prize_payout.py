@@ -87,21 +87,21 @@ class TestPortoesDoPagamento:
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
         assert e.value.status_code == 400
-        assert "already been paid" in e.value.detail
+        assert "already been paid" in e.value.detail["message"]
 
     def test_premio_nao_liberado_e_bloqueado(self, monkeypatch):
         _monta(monkeypatch, alocacao=_alocacao(released=False))
         arg = _pedido()
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
-        assert "não liberada" in e.value.detail
+        assert "não liberada" in e.value.detail["message"]
 
     def test_premio_do_tipo_vaga_nao_sai_em_dinheiro(self, monkeypatch):
         _monta(monkeypatch, alocacao=_alocacao(tipo="vaga"))
         arg = _pedido()
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.pay_prize(TOUR, ALLOC, arg, user_id=None)
-        assert "Vaga" in e.value.detail
+        assert "Vaga" in e.value.detail["message"]
 
     def test_saldo_insuficiente_no_caixa_geral(self, monkeypatch):
         _monta(monkeypatch, alocacao=_alocacao(valor=5000), saldo=100)
@@ -160,7 +160,7 @@ class TestCriacaoDeAlocacao:
             PrizeAllocationService.create_allocation(
                 TOUR, arg
             )
-        assert "already has a prize allocation" in e.value.detail
+        assert "already has a prize allocation" in e.value.detail["message"]
 
     def test_cria_em_posicao_livre(self, monkeypatch):
         fake = _monta(monkeypatch)
@@ -192,7 +192,7 @@ class TestLiberacao:
         _monta(monkeypatch, alocacao=_alocacao(paid=True))
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.set_released(TOUR, ALLOC, released=False, user_id="u1")
-        assert "já pago" in e.value.detail
+        assert "já pago" in e.value.detail["message"]
 
     def test_alocacao_inexistente_da_404(self, monkeypatch):
         _monta(monkeypatch, tabelas={"prize_allocations": []})
@@ -207,7 +207,7 @@ class TestExclusaoDeAlocacao:
         _monta(monkeypatch, alocacao=_alocacao(paid=True))
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.delete_allocation(TOUR, ALLOC)
-        assert "Cannot delete a paid" in e.value.detail
+        assert "Cannot delete a paid" in e.value.detail["message"]
 
     def test_premio_nao_pago_e_apagado(self, monkeypatch):
         fake = _monta(monkeypatch, alocacao=_alocacao(paid=False))
@@ -287,7 +287,7 @@ class TestPremioReservado:
         arg = Decimal("10")
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.update_reserved_config(TOUR, arg, "qualquer")
-        assert "reserved_purpose" in e.value.detail
+        assert "reserved_purpose" in e.value.detail["message"]
 
     def test_finalidade_vazia_e_aceita(self, monkeypatch):
         from decimal import Decimal
@@ -337,7 +337,7 @@ class TestEdicaoDetalhada:
             PrizeAllocationService.update_allocation(
                 TOUR, ALLOC, arg
             )
-        assert "already has a prize allocation" in e.value.detail
+        assert "already has a prize allocation" in e.value.detail["message"]
 
     def test_manter_a_propria_posicao_e_permitido(self, monkeypatch):
         """A checagem de conflito ignora a propria linha; sem isso, salvar sem
@@ -396,7 +396,7 @@ class TestPremioTipoVaga:
             )
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.create_allocation(TOUR, arg)
-        assert "dia alvo" in e.value.detail
+        assert "dia alvo" in e.value.detail["message"]
 
     def test_dia_alvo_inexistente_da_404(self, monkeypatch):
         _monta(monkeypatch)

@@ -62,7 +62,7 @@ class TestReleaseGate:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.pay_prize(TOURNAMENT_UUID, "a1", arg, user_id=None)
         assert exc.value.status_code == 400
-        assert "liberada" in exc.value.detail.lower()
+        assert "liberada" in exc.value.detail["message"].lower()
 
     def test_pay_blocked_for_vaga(self, monkeypatch):
         tables = {"prize_allocations": [{
@@ -74,7 +74,7 @@ class TestReleaseGate:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.pay_prize(TOURNAMENT_UUID, "a1", arg, user_id=None)
         assert exc.value.status_code == 400
-        assert "vaga" in exc.value.detail.lower()
+        assert "vaga" in exc.value.detail["message"].lower()
 
 
 class TestVagaRelease:
@@ -89,7 +89,7 @@ class TestVagaRelease:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.set_released(TOURNAMENT_UUID, ALLOC_UUID, released=True, user_id="u")
         assert exc.value.status_code == 400
-        assert "jogador" in exc.value.detail.lower()
+        assert "jogador" in exc.value.detail["message"].lower()
 
 
 class TestAtualizacaoDaFaixa:
@@ -137,7 +137,7 @@ class TestAtualizacaoDaFaixa:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.update_allocation(TOURNAMENT_UUID, ALLOC_UUID, arg)
         assert exc.value.status_code == 400
-        assert "No fields" in exc.value.detail
+        assert "No fields" in exc.value.detail["message"]
 
     def test_posicao_ja_ocupada_e_recusada(self, monkeypatch):
         """Duas faixas na mesma posição tornariam ambígua a premiação."""
@@ -148,7 +148,7 @@ class TestAtualizacaoDaFaixa:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.update_allocation(TOURNAMENT_UUID, ALLOC_UUID, arg)
         assert exc.value.status_code == 400
-        assert "already has" in exc.value.detail
+        assert "already has" in exc.value.detail["message"]
 
     def test_manter_a_propria_posicao_e_permitido(self, monkeypatch):
         """A checagem exclui a própria linha, senão salvar sem mexer na posição
@@ -251,8 +251,8 @@ class TestBulkDaPremiacao:
             PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
         # A mensagem precisa dizer quanto cabe; só "recusado" não ajuda o caixa.
-        assert "900.00" in exc.value.detail
-        assert "1100.00" in exc.value.detail
+        assert "900.00" in exc.value.detail["message"]
+        assert "1100.00" in exc.value.detail["message"]
         # E nada pode ter sido apagado antes da recusa.
         assert fake.store["prize_allocations"] == []
 
@@ -267,7 +267,7 @@ class TestBulkDaPremiacao:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
-        assert "pagável" in exc.value.detail
+        assert "pagável" in exc.value.detail["message"]
 
     def test_soma_exata_do_pool_e_aceita(self, monkeypatch):
         fake = self._monta(monkeypatch)
@@ -302,7 +302,7 @@ class TestBulkDaPremiacao:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
-        assert "2º" in exc.value.detail
+        assert "2º" in exc.value.detail["message"]
         assert len(fake.store["prize_allocations"]) == 1
 
     def test_faixa_paga_sem_posicao_ainda_recusa_com_400(self, monkeypatch):
@@ -323,7 +323,7 @@ class TestBulkDaPremiacao:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.bulk_create_allocations(TOURNAMENT_UUID, lote)
         assert exc.value.status_code == 400
-        assert "2º" in exc.value.detail
+        assert "2º" in exc.value.detail["message"]
         # E nada foi apagado: as duas faixas pagas continuam lá.
         assert len(fake.store["prize_allocations"]) == 2
 
@@ -370,7 +370,7 @@ class TestRevogacaoDeLiberacao:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.set_released(TOURNAMENT_UUID, ALLOC_UUID, released=False)
         assert exc.value.status_code == 400
-        assert "já pago" in exc.value.detail.lower()
+        assert "já pago" in exc.value.detail["message"].lower()
 
     def test_faixa_inexistente_da_404(self, monkeypatch):
         monkeypatch.setattr(prize_allocation_service, "supabase",

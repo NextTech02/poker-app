@@ -182,7 +182,7 @@ class TestQualificacao:
         stub(TDS, advance_qualifiers=_estoura)
         r = client.post(f"/tournament-days/{DIA}/advance-qualifiers")
         assert r.status_code == 400
-        assert "qualifica" in r.json()["detail"]
+        assert "qualifica" in r.json()["detail"]["message"]
 
     def test_atualiza_fichas_de_um_jogador(self, client, dia_valido, stub):
         stub(TDS, update_player_chips=lambda did, pid, chips: True)
@@ -224,7 +224,7 @@ class TestQualificacao:
         stub(TDS, advance_qualifiers=_estoura)
         r = client.post(f"/tournament-days/{DIA}/advance-qualifiers")
         assert r.status_code == 400
-        assert "fichas" in r.json()["detail"]
+        assert "fichas" in r.json()["detail"]["message"]
 
     def test_avanco_devolve_quem_passou_e_com_quantas_fichas(self, client, dia_valido, stub):
         stub(TDS, advance_qualifiers=lambda did: {
@@ -473,7 +473,7 @@ class TestBloqueioDeVendas:
         stub(SalesBlockService, set_day_block=_explode)
         r = client.post(f"/tournament-days/{DIA}/sales-block", json={"blocked": True})
         assert r.status_code == 400
-        assert "migração" in r.json()["detail"]
+        assert "migração" in r.json()["detail"]["message"]
 
     def test_o_patch_generico_nao_e_porta_lateral_para_liberar_vendas(self, client, dia_valido, stub):
         """PATCH /tournament-days/{id} exige apenas estar logado. Se ele
@@ -600,7 +600,7 @@ class TestMeiosDeEntradaDoDia:
         r = client.put(f"/tournament-days/{DIA}/buy-types",
                        json={"items": [self._item()]})
         assert r.status_code == 400
-        assert "buy-in" in r.json()["detail"]
+        assert "buy-in" in r.json()["detail"]["message"]
 
     def test_substituir_em_dia_de_outra_etapa_da_403(self, client, stub):
         stub(TDS, get_tournament_day=lambda did: _dia())

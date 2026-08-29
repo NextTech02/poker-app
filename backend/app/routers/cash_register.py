@@ -18,6 +18,7 @@ from app.models.cash_register import (
 )
 from app.services.cash_register_service import CashRegisterService
 from app.auth.jwt import get_current_user
+from app.utils.erros import da_excecao, nao_encontrado
 
 router = APIRouter(prefix="/cash", tags=["cash-management"])
 
@@ -31,9 +32,13 @@ def get_stage_cash(
     """Get cash register for a specific stage (caixa do dia)"""
     stage_cash = CashRegisterService.get_stage_cash(stage_id)
     if not stage_cash:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Cash register not found for stage {stage_id}"
+        # A etapa vai como DADO e não só embutida na frase: a tela do Caixa
+        # remonta o aviso no idioma do clube (Peru/Colômbia) e ainda consegue
+        # dizer QUAL etapa está sem caixa quando há mais de uma na noite.
+        raise nao_encontrado(
+            "caixa_da_etapa_nao_encontrado",
+            f"Caixa não encontrado para a etapa {stage_id}",
+            stage_id=stage_id,
         )
     return stage_cash
 
@@ -129,10 +134,10 @@ def perform_sangria(
             user_id=current_user["sub"]
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        # `CashRegisterService.perform_sangria` ainda levanta `ValueError` cru
+        # (saldo insuficiente, etapa sem caixa): o código genérico mantém UM só
+        # formato de recusa na tela até essas mensagens virarem `ErroDeNegocio`.
+        raise da_excecao(e, code_padrao="sangria_recusada")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

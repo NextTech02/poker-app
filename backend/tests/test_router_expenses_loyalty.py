@@ -133,7 +133,7 @@ class TestDespesas:
         stub(ES, create_expense=_estoura)
         r = client.post("/expenses", json=self._corpo())
         assert r.status_code == 400
-        assert "Saldo insuficiente" in r.json()["detail"]
+        assert "Saldo insuficiente" in r.json()["detail"]["message"]
 
     def test_insercao_sem_retorno_da_400(self, client, stub):
         stub(ES, create_expense=lambda org, d, uid: None)
@@ -336,7 +336,9 @@ class TestResgates:
         stub(LS, redeem_reward=_estoura)
         r = client.post(f"/loyalty/players/{JOGADOR}/redeem", json={"reward_id": "r1"})
         assert r.status_code == 400
-        assert "insuficientes" in r.json()["detail"]
+        # O `detail` agora vai estruturado (code + message) para a tela traduzir;
+        # a frase em português continua na `message`, como reserva.
+        assert "insuficientes" in r.json()["detail"]["message"]
 
     def test_converte_cashback_em_credito(self, client, stub):
         stub(LS, convert_cashback=lambda org, pid: {"amount": 42.5})

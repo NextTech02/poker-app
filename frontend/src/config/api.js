@@ -115,7 +115,19 @@ api.interceptors.response.use(
           .filter(Boolean)
           .join(' · ');
       }
-      if (d && typeof d === 'object') return d.msg || d.message || null;
+      if (d && typeof d === 'object') {
+        /* Recusa com CÓDIGO (ver backend/app/utils/erros.py). O servidor manda
+           `{code, message, ...extras}` justamente para NÃO decidir o idioma: o
+           sistema atende clubes no Brasil, no Peru e na Colômbia, e uma frase
+           pronta em português chegaria assim para todos eles.
+
+           A chave é `errors.<code>` e o padrão inline é a própria `message` do
+           servidor — então um código que a tela ainda não conhece aparece em
+           português, em vez de virar "erro desconhecido". Os extras entram como
+           variáveis da frase ({{name}}, {{nivel}}). */
+        if (d.code) return i18n.t(`errors.${d.code}`, d.message, d);
+        return d.msg || d.message || null;
+      }
       return null;
     };
 

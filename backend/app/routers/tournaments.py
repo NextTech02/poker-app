@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from typing import List, Optional
 from app.models.tournament import (
     TournamentCreate,
@@ -13,6 +13,9 @@ from app.services.tournament_service import (
 )
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
+# Recusas com CODIGO: a tela escolhe a frase no idioma do clube
+# (Brasil, Peru, Colombia) — ver app/utils/erros.py.
+from app.utils.erros import conflito, nao_encontrado, recusado, sem_permissao
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
@@ -26,14 +29,13 @@ def _exigir_torneio_da_etapa(tournament_id: str, stage_id: Optional[str]) -> Non
         return
     existente = TournamentService.get_tournament(tournament_id)
     if not existente:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
     if existente.stage_id != stage_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Tournament does not belong to the selected stage"
+        # Frase de DESENVOLVEDOR (o X-Stage-ID vem do proprio cliente, o
+        # operador nao digita etapa): fica em ingles — a tela usa o codigo.
+        raise sem_permissao(
+            "torneio_fora_da_etapa",
+            "Tournament does not belong to the selected stage",
         )
 
 
@@ -52,9 +54,9 @@ def create_tournament(
     # The header takes precedence; fall back to a stage_id supplied in the body.
     effective_stage_id = stage_id or tournament.stage_id
     if not effective_stage_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="É necessário selecionar uma etapa antes de criar um torneio."
+        raise recusado(
+            "etapa_obrigatoria",
+            "É necessário selecionar uma etapa antes de criar um torneio.",
         )
 
     tournament.stage_id = effective_stage_id
@@ -63,9 +65,12 @@ def create_tournament(
     from app.database.supabase_client import supabase
     stage_response = supabase.table('stages').select('id').eq('id', effective_stage_id).execute()
     if not stage_response.data:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Stage with id {effective_stage_id} not found"
+        # O id vai TAMBEM como dado nomeado, para a tela montar a frase no
+        # idioma dela sem perder QUAL etapa nao existe.
+        raise nao_encontrado(
+            "etapa_nao_encontrada",
+            f"Stage with id {effective_stage_id} not found",
+            stage_id=effective_stage_id,
         )
 
     return TournamentService.create_tournament(tournament, user_id)
@@ -94,10 +99,7 @@ def get_tournament(tournament_id: str):
     """Get a specific tournament by ID"""
     tournament = TournamentService.get_tournament(tournament_id)
     if not tournament:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
     return tournament
 
 
@@ -116,10 +118,7 @@ def get_tournament_delete_impact(
 
     impacto = TournamentService.get_delete_impact(tournament_id)
     if impacto is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
     return impacto
 
 
@@ -138,10 +137,7 @@ def update_tournament(
 
     tournament = TournamentService.update_tournament(tournament_id, tournament_data)
     if not tournament:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
     return tournament
 
 
@@ -176,15 +172,12 @@ def delete_tournament(
     try:
         success = TournamentService.delete_tournament(tournament_id)
     except MovimentoFinanceiroImpedeExclusao as recusa:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "message": recusa.mensagem,
-                "impact": recusa.impacto.model_dump(),
-            },
+        # `impact` continua no corpo (a tela repete os numeros na recusa); o
+        # `code` entra ao lado para ela traduzir a frase.
+        raise conflito(
+            "torneio_com_movimento_financeiro",
+            recusa.mensagem,
+            impact=recusa.impacto.model_dump(),
         )
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")

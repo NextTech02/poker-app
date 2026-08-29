@@ -89,7 +89,7 @@ class TestMesasPorTorneio:
         intenção — e criaria linhas que alguém teria de apagar na mão."""
         r = client.post(f"/tables/tournament/{TOUR}/bulk?{qs}")
         assert r.status_code == 400
-        assert motivo in r.json()["detail"]
+        assert motivo in r.json()["detail"]["message"]
 
     def test_lista_mesas(self, client, stub):
         stub(TSvc, get_tournament_tables=lambda tid: [_mesa()])

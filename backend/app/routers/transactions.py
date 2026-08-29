@@ -12,6 +12,7 @@ from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
+from app.utils.erros import da_excecao, nao_encontrado, sem_permissao
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -57,7 +58,10 @@ def create_transaction(
         )
         return TransactionService.create_transaction(transaction, user_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # `da_excecao` preserva o status que a REGRA escolheu (a trava de vendas
+        # e o caixa fechado são 400; venda repetida é 409). O 400 aqui é só o
+        # padrão para o `ValueError` cru que ainda não virou `ErroDeNegocio`.
+        raise da_excecao(e)
 
 
 @router.get("", response_model=List[TransactionDetail])
@@ -107,13 +111,13 @@ def _validar_escopo_da_etapa(transaction_id: str, stage_id: Optional[str]) -> di
     """
     tx = TransactionService.get_raw_transaction(transaction_id)
     if not tx:
-        raise HTTPException(status_code=404, detail="Transação não encontrada")
+        raise nao_encontrado("transacao_nao_encontrada", "Transação não encontrada")
     if stage_id:
         tournament = TournamentService.get_tournament(tx["tournament_id"])
         if not tournament or tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Transação não pertence à etapa selecionada",
+            raise sem_permissao(
+                "transacao_de_outra_etapa",
+                "Transação não pertence à etapa selecionada",
             )
     return tx
 
@@ -150,13 +154,15 @@ def cancel_transaction(
     """
     user_id = current_user.get("sub")
     if not CashboxService.can_admin(user_id):
-        raise HTTPException(status_code=403, detail="Sem permissão para cancelar vendas")
+        raise sem_permissao(
+            "sem_permissao_cancelar_venda", "Sem permissão para cancelar vendas"
+        )
 
     _validar_escopo_da_etapa(transaction_id, stage_id)
     try:
         return TransactionService.cancel_transaction(transaction_id, user_id, data.reason)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.patch(
@@ -189,9 +195,9 @@ def update_transaction_payment_method(
     tx = _validar_escopo_da_etapa(transaction_id, stage_id)
 
     if tx.get("created_by") != user_id and not CashboxService.can_admin(user_id):
-        raise HTTPException(
-            status_code=403,
-            detail="Só o operador que registrou a venda ou um admin pode trocar a forma de pagamento",
+        raise sem_permissao(
+            "sem_permissao_trocar_forma_pagamento",
+            "Só o operador que registrou a venda ou um admin pode trocar a forma de pagamento",
         )
 
     try:
@@ -199,7 +205,7 @@ def update_transaction_payment_method(
             transaction_id, data.payment_method, data.notes
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.get("/player/{player_id}", response_model=List[TransactionDetail])

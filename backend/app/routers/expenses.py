@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from typing import Optional
 
 from app.auth.jwt import get_current_user
@@ -9,6 +9,7 @@ from app.models.expense import (
     AttachmentCreate, ExpenseTemplateCreate,
 )
 from app.services.expense_service import ExpenseService
+from app.utils.erros import da_excecao, nao_encontrado, recusado
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -40,14 +41,14 @@ def update_category(
         _org(current_user), category_id, data.model_dump(exclude_unset=True)
     )
     if updated is None:
-        raise HTTPException(status_code=404, detail="Categoria não encontrada.")
+        raise nao_encontrado("categoria_nao_encontrada", "Categoria não encontrada.")
     return updated
 
 
 @router.delete("/categories/{category_id}")
 def delete_category(category_id: str, current_user: dict = Depends(get_current_user)):
     if not ExpenseService.delete_category(_org(current_user), category_id):
-        raise HTTPException(status_code=404, detail="Categoria não encontrada.")
+        raise nao_encontrado("categoria_nao_encontrada", "Categoria não encontrada.")
     return {"deleted": True}
 
 
@@ -67,7 +68,7 @@ def create_template(data: ExpenseTemplateCreate, current_user: dict = Depends(ge
 @router.delete("/templates/{template_id}")
 def delete_template(template_id: str, current_user: dict = Depends(get_current_user)):
     if not ExpenseService.delete_template(_org(current_user), template_id):
-        raise HTTPException(status_code=404, detail="Modelo não encontrado.")
+        raise nao_encontrado("modelo_de_despesa_nao_encontrado", "Modelo não encontrado.")
     return {"deleted": True}
 
 
@@ -109,9 +110,12 @@ def create_expense(data: ExpenseCreate, current_user: dict = Depends(get_current
             _org(current_user), data.model_dump(), current_user.get("sub")
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # A frase vem do BANCO (o RPC do débito no caixa geral diz o motivo:
+        # "Saldo insuficiente…"), então não há código específico a dar aqui —
+        # o genérico mantém o formato único e a frase continua chegando inteira.
+        raise da_excecao(e, code_padrao="despesa_recusada")
     if not created:
-        raise HTTPException(status_code=400, detail="Não foi possível registrar a despesa.")
+        raise recusado("despesa_nao_registrada", "Não foi possível registrar a despesa.")
     return created
 
 
@@ -126,16 +130,16 @@ def update_expense(
             _org(current_user), expense_id, data.model_dump(exclude_unset=True)
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e, code_padrao="despesa_recusada")
     if updated is None:
-        raise HTTPException(status_code=404, detail="Despesa não encontrada.")
+        raise nao_encontrado("despesa_nao_encontrada", "Despesa não encontrada.")
     return updated
 
 
 @router.delete("/{expense_id}")
 def delete_expense(expense_id: str, current_user: dict = Depends(get_current_user)):
     if not ExpenseService.delete_expense(_org(current_user), expense_id):
-        raise HTTPException(status_code=404, detail="Despesa não encontrada.")
+        raise nao_encontrado("despesa_nao_encontrada", "Despesa não encontrada.")
     return {"deleted": True}
 
 
@@ -158,7 +162,7 @@ def add_attachment(
         _org(current_user), expense_id, data.model_dump(), current_user.get("sub")
     )
     if not created:
-        raise HTTPException(status_code=400, detail="Não foi possível registrar o comprovante.")
+        raise recusado("comprovante_nao_registrado", "Não foi possível registrar o comprovante.")
     return created
 
 
@@ -169,7 +173,7 @@ def delete_attachment(
     current_user: dict = Depends(get_current_user),
 ):
     if not ExpenseService.delete_attachment(_org(current_user), attachment_id):
-        raise HTTPException(status_code=404, detail="Comprovante não encontrado.")
+        raise nao_encontrado("comprovante_nao_encontrado", "Comprovante não encontrado.")
     return {"deleted": True}
 
 
@@ -211,9 +215,9 @@ def create_revenue(data: RevenueCreate, current_user: dict = Depends(get_current
             _org(current_user), data.model_dump(), current_user.get("sub")
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e, code_padrao="receita_recusada")
     if not created:
-        raise HTTPException(status_code=400, detail="Não foi possível registrar a receita.")
+        raise recusado("receita_nao_registrada", "Não foi possível registrar a receita.")
     return created
 
 
@@ -228,14 +232,14 @@ def update_revenue(
             _org(current_user), revenue_id, data.model_dump(exclude_unset=True)
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e, code_padrao="receita_recusada")
     if updated is None:
-        raise HTTPException(status_code=404, detail="Receita não encontrada.")
+        raise nao_encontrado("receita_nao_encontrada", "Receita não encontrada.")
     return updated
 
 
 @revenues_router.delete("/{revenue_id}")
 def delete_revenue(revenue_id: str, current_user: dict = Depends(get_current_user)):
     if not ExpenseService.delete_revenue(_org(current_user), revenue_id):
-        raise HTTPException(status_code=404, detail="Receita não encontrada.")
+        raise nao_encontrado("receita_nao_encontrada", "Receita não encontrada.")
     return {"deleted": True}

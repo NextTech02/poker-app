@@ -115,4 +115,9 @@ class TestErrosDeRegra:
         monkeypatch.setattr(PlayerCreditService, "grant_credit", staticmethod(_explode))
         r = client.post("/player-credits", json=CORPO)
         assert r.status_code == 400
-        assert r.json()["detail"] == "Jogador não encontrado"
+        # ValueError simples (ainda sem código próprio) chega embrulhado no
+        # código genérico, para a tela ter UM formato só de recusa.
+        assert r.json()["detail"] == {
+            "code": "regra_de_negocio",
+            "message": "Jogador não encontrado",
+        }

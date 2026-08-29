@@ -83,7 +83,8 @@ class TestCriacao:
         r = client.post(rotas[0], json={"level": 1, "small_blind": 100,
                                         "big_blind": 200, "duration": 15})
         assert r.status_code == 400
-        assert "already exists" in r.json()["detail"]
+        assert "already exists" in r.json()["detail"]["message"]
+        assert r.json()["detail"]["code"] == "nivel_de_blind_duplicado"
 
     def test_pai_inexistente_da_404(self, client, banco):
         banco.store["tournaments"] = []
@@ -127,7 +128,8 @@ class TestEdicao:
     def test_mudar_para_um_nivel_ja_usado_e_recusado(self, client, banco, rotas):
         r = client.patch(rotas[1].format(B1), json={"level": 2})
         assert r.status_code == 400
-        assert "already exists" in r.json()["detail"]
+        assert "already exists" in r.json()["detail"]["message"]
+        assert r.json()["detail"]["code"] == "nivel_de_blind_duplicado"
 
     def test_manter_o_proprio_nivel_e_permitido(self, client, banco, rotas):
         """A checagem de duplicidade precisa excluir a própria linha, senão
@@ -138,7 +140,7 @@ class TestEdicao:
     def test_corpo_vazio_da_400(self, client, banco, rotas):
         r = client.patch(rotas[1].format(B1), json={})
         assert r.status_code == 400
-        assert "No fields" in r.json()["detail"]
+        assert "No fields" in r.json()["detail"]["message"]
 
     def test_blind_de_outro_pai_da_404(self, client, banco, rotas):
         assert client.patch(rotas[1].format(SUMIU), json={"duration": 5}).status_code == 404
@@ -186,7 +188,7 @@ class TestExclusaoEmMassa:
         banco.store["tournament_days"][0]["status"] = "active"
         r = client.delete(self.ROTA)
         assert r.status_code == 409
-        assert "force=true" in r.json()["detail"]
+        assert "force=true" in r.json()["detail"]["message"]
         assert len(banco.store["blinds"]) == 2
 
     def test_relogio_rodando_tambem_exige_confirmacao(self, client, banco):

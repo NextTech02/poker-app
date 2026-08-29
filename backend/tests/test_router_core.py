@@ -27,6 +27,7 @@ from app.services.tournament_player_service import TournamentPlayerService as TP
 from app.services.transaction_service import TransactionService as TrS
 from app.services.cash_register_service import CashRegisterService as CRS
 from app.services.sales_block_service import SalesBlockService as SBS
+from app.utils.erros import ErroDeNegocio
 
 from tests.conftest import FakeSupabase
 
@@ -104,7 +105,7 @@ class TestCriacaoDeTorneio:
         """Um torneio órfão de etapa não aparece em tela nenhuma."""
         r = client.post("/tournaments", json={"name": "Torneio"})
         assert r.status_code == 400
-        assert "etapa" in r.json()["detail"]
+        assert "etapa" in r.json()["detail"]["message"]
 
     def test_etapa_inexistente_da_404(self, client, etapa_no_banco):
         r = client.post("/tournaments", json={"name": "T"},
@@ -207,7 +208,12 @@ class TestInscricoes:
         r = client.post("/tournament-players",
                         json={"tournament_id": TOUR, "player_id": JOGADOR})
         assert r.status_code == 404
-        assert r.json()["detail"] == "Jogador já inscrito neste dia"
+        # O `detail` passou a ser ESTRUTURADO ({code, message}) para a tela poder
+        # traduzir — o sistema atende clubes no Peru e na Colômbia. A frase
+        # continua chegando inteira, agora em `message`; um ValueError que ainda
+        # não foi convertido entra com o código genérico.
+        assert r.json()["detail"]["message"] == "Jogador já inscrito neste dia"
+        assert r.json()["detail"]["code"] == "regra_de_negocio"
 
     @pytest.mark.parametrize("acao,metodo", [("rebuy", "add_rebuy"), ("addon", "add_addon")])
     def test_rebuy_e_addon(self, client, stub, acao, metodo):
@@ -242,7 +248,7 @@ class TestInscricoes:
         stub(TPS, **{metodo: _estoura})
         r = client.post(f"/tournament-players/{TP}/{acao}")
         assert r.status_code == 404
-        assert "nível 6" in r.json()["detail"]
+        assert "nível 6" in r.json()["detail"]["message"]
 
     def test_lista_por_torneio(self, client, stub):
         stub(TPS, get_tournament_players=lambda tid: [_inscricao_detalhe()])
@@ -301,7 +307,7 @@ class TestTransacoes:
         stub(TrS, create_transaction=_nao_deveria)
         r = client.post("/transactions", json=self._corpo())
         assert r.status_code == 400
-        assert "registro tardio encerrado" in r.json()["detail"]
+        assert "registro tardio encerrado" in r.json()["detail"]["message"]
         assert chamou["service"] is False
 
     def test_a_rota_pergunta_pelo_dia_da_venda(self, client, stub):
@@ -564,13 +570,22 @@ class TestCancelamentoDeVenda:
         stub(CashboxService, can_admin=lambda uid: True)
 
         def _estoura(tid, uid, reason):
-            raise ValueError("Venda paga com crédito ou ticket ainda não pode ser cancelada")
+            raise ErroDeNegocio(
+                "venda_com_credito_nao_estornavel",
+                "Venda paga com crédito ou ticket ainda não pode ser cancelada",
+                origem="credit",
+            )
 
         stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(),
              cancel_transaction=_estoura)
         r = client.post("/transactions/tx1/cancel", json={"reason": "erro"})
         assert r.status_code == 400
-        assert "crédito" in r.json()["detail"]
+        detalhe = r.json()["detail"]
+        assert detalhe["code"] == "venda_com_credito_nao_estornavel"
+        # A frase continua chegando inteira (é a reserva de quem não traduz)...
+        assert "crédito" in detalhe["message"]
+        # ...e a ORIGEM vai como dado, para a tela dizer QUAL saldo ajustar.
+        assert detalhe["origem"] == "credit"
 
 
 class TestTrocaDeFormaDePagamentoHTTP:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 from typing import List
 from app.models.staff import (
     PermissionGroupCreate,
@@ -12,6 +12,7 @@ from app.models.staff import (
 from app.services.staff_service import StaffService
 from app.auth.jwt import get_current_user
 from app.auth.permissions import require_permission
+from app.utils.erros import da_excecao, nao_encontrado
 
 router = APIRouter(prefix="/staff", tags=["staff"])
 
@@ -39,7 +40,7 @@ def create_group(data: PermissionGroupCreate, user=_manage_staff):
     try:
         return StaffService.create_group(data)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e, "falha_ao_criar_grupo")
 
 
 @router.get("/groups", response_model=List[PermissionGroupResponse])
@@ -51,7 +52,7 @@ def get_groups(user=Depends(get_current_user)):
 def get_group(group_id: str, user=Depends(get_current_user)):
     group = StaffService.get_group(group_id)
     if not group:
-        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+        raise nao_encontrado("grupo_nao_encontrado", "Grupo não encontrado")
     return group
 
 
@@ -60,16 +61,16 @@ def update_group(group_id: str, data: PermissionGroupUpdate, user=_manage_staff)
     try:
         result = StaffService.update_group(group_id, data)
         if not result:
-            raise HTTPException(status_code=404, detail="Grupo não encontrado")
+            raise nao_encontrado("grupo_nao_encontrado", "Grupo não encontrado")
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.delete("/groups/{group_id}")
 def delete_group(group_id: str, user=_manage_staff):
     if not StaffService.delete_group(group_id):
-        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+        raise nao_encontrado("grupo_nao_encontrado", "Grupo não encontrado")
     return {"message": "Grupo removido"}
 
 
@@ -83,7 +84,7 @@ def create_staff(data: StaffCreate, user=_manage_staff):
             data, user.get("sub"), user.get("organization_id")
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.delete("/{staff_id}/remove")
@@ -96,7 +97,7 @@ def remove_staff(staff_id: str, user=_manage_staff):
     try:
         return StaffService.remove_from_org(staff_id, user.get("organization_id"))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.delete("/{staff_id}/invite")
@@ -110,21 +111,21 @@ def cancel_invite(staff_id: str, user=_manage_staff):
     try:
         return StaffService.cancel_invite(staff_id, user.get("organization_id"))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.post(
     "/{staff_id}/confirm-invite",
     response_model=StaffResponse,
     responses={
-        400: {
+        409: {
             "description": (
                 "Convite não pôde ser efetivado. Acontece quando: a pessoa já é "
-                "membro aceito deste clube; o convite ainda está em "
-                "'awaiting_signup' (ela não definiu a senha — o caminho é "
-                "reenviar o convite); o funcionário pertence a outra "
-                "organização; ou o plano atual não permite mais usuários ativos "
-                "(limite barrado pelo banco). O motivo exato vem em `detail`."
+                "membro aceito deste clube (`ja_e_membro_do_clube`); o convite "
+                "ainda está em 'awaiting_signup' — ela não definiu a senha e o "
+                "caminho é reenviar (`convite_aguardando_cadastro`); ou o plano "
+                "atual não permite mais usuários ativos "
+                "(`limite_de_usuarios_do_plano`). O código vem em `detail.code`."
             )
         },
         404: {
@@ -146,9 +147,9 @@ def confirm_invite(staff_id: str, user=_manage_staff):
     try:
         result = StaffService.confirm_invite(staff_id, user.get("organization_id"))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
     if not result:
-        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+        raise nao_encontrado("funcionario_nao_encontrado", "Funcionário não encontrado")
     return result
 
 
@@ -162,7 +163,7 @@ def resend_invite(staff_id: str, user=_manage_staff):
     try:
         return StaffService.resend_invite(staff_id, user.get("organization_id"))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.get("", response_model=List[StaffResponse])
@@ -174,7 +175,7 @@ def get_staff_list(user=Depends(get_current_user)):
 def get_staff(staff_id: str, user=Depends(get_current_user)):
     staff = StaffService.get_staff(staff_id)
     if not staff:
-        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+        raise nao_encontrado("funcionario_nao_encontrado", "Funcionário não encontrado")
     return staff
 
 
@@ -183,21 +184,22 @@ def update_staff(staff_id: str, data: StaffUpdate, user=_manage_staff):
     try:
         result = StaffService.update_staff(staff_id, data)
         if not result:
-            raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+            raise nao_encontrado("funcionario_nao_encontrado", "Funcionário não encontrado")
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.delete(
     "/{staff_id}",
     responses={
-        400: {
+        409: {
             "description": (
                 "Desativação recusada porque o funcionário está com caixa "
-                "aberto — `detail` traz o saldo atual; é preciso fechar o caixa "
-                "antes. Também cobre a falha ao cancelar um convite ainda "
-                "pendente (a rota cancela em vez de desativar nesse caso)."
+                "aberto (`funcionario_com_caixa_aberto`) — `detail.saldo` traz o "
+                "saldo atual; é preciso fechar o caixa antes. Também cobre a "
+                "falha ao cancelar um convite ainda pendente (a rota cancela em "
+                "vez de desativar nesse caso)."
             )
         },
         404: {
@@ -212,7 +214,7 @@ def delete_staff(staff_id: str, user=_manage_staff):
     try:
         ok = StaffService.delete_staff(staff_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
     if not ok:
-        raise HTTPException(status_code=404, detail="Funcionário não encontrado")
+        raise nao_encontrado("funcionario_nao_encontrado", "Funcionário não encontrado")
     return {"message": "Funcionário desativado"}

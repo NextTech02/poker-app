@@ -1,8 +1,10 @@
+import logging
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.database import supabase
 from app.database.supabase_client import supabase_admin
 from app.config import get_settings
+from app.utils.erros import ErroDeNegocio
 from app.models.staff import (
     PermissionGroupCreate,
     PermissionGroupUpdate,
@@ -33,6 +35,16 @@ def _has_cashbox_permission(permissions: list) -> bool:
     return any(p in (permissions or []) for p in CASHBOX_OPERATING_PERMISSIONS)
 
 settings = get_settings()
+
+
+logger = logging.getLogger(__name__)
+
+
+def _nao_encontrado() -> ErroDeNegocio:
+    """Funcionário inexistente — ou de outra organização, que dá no mesmo."""
+    return ErroDeNegocio(
+        "funcionario_nao_encontrado", "Funcionário não encontrado.", status=404
+    )
 
 
 class StaffService:
@@ -69,7 +81,9 @@ class StaffService:
     def update_group(group_id: str, data: PermissionGroupUpdate) -> Optional[PermissionGroupResponse]:
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
-            raise ValueError("Nenhum campo para atualizar")
+            raise ErroDeNegocio(
+                "nenhum_campo_para_atualizar", "Nenhum campo para atualizar"
+            )
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         response = supabase.table("permission_groups").update(update_data) \
@@ -171,9 +185,16 @@ class StaffService:
                     "org_limit", {"p_org": organization_id, "p_kind": "users"}
                 ).execute().data
                 if isinstance(lim, int) and atual >= lim:
-                    raise ValueError(
+                    # Limite e uso vão TAMBÉM como dados nomeados: a tela remonta
+                    # a frase no idioma dela sem perder os números, que são o que
+                    # dizem ao dono do clube quanto ele precisa liberar.
+                    raise ErroDeNegocio(
+                        "limite_de_usuarios_do_plano",
                         f"O plano atual permite {lim} usuário(s) e a organização já tem {atual}. "
-                        "Altere o plano para convidar mais gente."
+                        "Altere o plano para convidar mais gente.",
+                        status=409,
+                        limite=lim,
+                        atual=atual,
                     )
             except ValueError:
                 raise
@@ -196,14 +217,21 @@ class StaffService:
                 timeout=20,
             )
         except Exception as exc:
-            raise ValueError(f"Falha ao contatar o serviço de e-mail: {exc}")
+            # `exc` pode trazer host, chave e corpo da resposta do provedor —
+            # nada disso ajuda quem está na tela, e parte é segredo. Fica no log.
+            logger.error("Falha ao contatar o serviço de e-mail: %s", exc)
+            raise ErroDeNegocio(
+                "servico_de_email_indisponivel",
+                "Não foi possível contatar o serviço de e-mail. Tente novamente em instantes.",
+            )
 
         if resp.status_code in (200, 201):
             auth_user_id = resp.json().get("id")
             criamos_o_usuario = True
         elif resp.status_code == 429:
-            raise ValueError(
-                "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente de novo."
+            raise ErroDeNegocio(
+                "limite_de_envio_de_email",
+                "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente de novo.",
             )
         elif resp.status_code in (409, 422):
             # Já existe conta com este e-mail. Isso sozinho NÃO diz de quem ela
@@ -212,7 +240,12 @@ class StaffService:
             # checagem de vínculo logo abaixo, não este código HTTP.
             auth_user_id = StaffService._localiza_conta_por_email(base, headers, data.email)
             if not auth_user_id:
-                raise ValueError("Já existe uma conta com este e-mail.")
+                raise ErroDeNegocio(
+                    "email_ja_tem_conta",
+                    "Já existe uma conta com este e-mail.",
+                    status=409,
+                    email=data.email,
+                )
         else:
             detalhe = ""
             try:
@@ -220,10 +253,21 @@ class StaffService:
                 detalhe = j.get("msg") or j.get("message") or ""
             except Exception:
                 detalhe = resp.text[:160]
-            raise ValueError(f"Não foi possível enviar o convite. {detalhe}".strip())
+            # `detalhe` é a resposta do provedor de auth: inglês, JSON, e às
+            # vezes o e-mail de outra pessoa. Vai só para o log.
+            logger.error(
+                "Convite recusado pelo serviço de auth (%s): %s", resp.status_code, detalhe
+            )
+            raise ErroDeNegocio(
+                "falha_ao_enviar_convite",
+                "Não foi possível enviar o convite. Confira o e-mail e tente de novo.",
+            )
 
         if not auth_user_id:
-            raise ValueError("Não foi possível criar o acesso deste funcionário.")
+            raise ErroDeNegocio(
+                "acesso_do_funcionario_nao_criado",
+                "Não foi possível criar o acesso deste funcionário.",
+            )
 
         # `staff.name` é obrigatório no banco, mas quem informa o nome é o
         # próprio funcionário ao aceitar o convite. Até lá, vale a parte do
@@ -262,7 +306,12 @@ class StaffService:
             if antigo and antigo.data:
                 linha = antigo.data[0]
                 if linha.get("active"):
-                    raise ValueError("Esta pessoa já faz parte da equipe deste clube.")
+                    raise ErroDeNegocio(
+                        "ja_e_membro_do_clube",
+                        "Esta pessoa já faz parte da equipe deste clube.",
+                        status=409,
+                        email=data.email,
+                    )
                 # Readmissão segue o MESMO critério do convite novo: quem não
                 # trabalha em outro clube volta direto como membro (o convite
                 # partiu deste clube, não há terceiro a consultar); quem
@@ -279,11 +328,17 @@ class StaffService:
                 except Exception as exc:
                     # O gatilho do plano dispara na virada false -> true.
                     if "PLANO_LIMITE" in str(exc):
-                        raise ValueError(
+                        raise ErroDeNegocio(
+                            "limite_de_usuarios_do_plano",
                             "O plano atual não permite mais usuários ativos. "
-                            "Altere o plano para readmitir esta pessoa."
+                            "Altere o plano para readmitir esta pessoa.",
+                            status=409,
                         )
-                    raise ValueError("Não foi possível readmitir o funcionário.")
+                    logger.error("Falha ao readmitir o funcionário %s: %s", linha["id"], exc)
+                    raise ErroDeNegocio(
+                        "falha_ao_readmitir_funcionario",
+                        "Não foi possível readmitir o funcionário.",
+                    )
 
                 readmitido = StaffService.get_staff(linha["id"])
                 # Voltou como membro: precisa dos caixas das etapas ativas,
@@ -338,10 +393,26 @@ class StaffService:
                     pass
             txt = str(exc)
             if "PLANO_LIMITE" in txt:
-                raise ValueError("O plano atual não permite mais usuários.")
+                raise ErroDeNegocio(
+                    "limite_de_usuarios_do_plano",
+                    "O plano atual não permite mais usuários.",
+                    status=409,
+                )
             if "staff_email" in txt or "duplicate key" in txt:
-                raise ValueError("Este e-mail já está cadastrado nesta organização.")
-            raise ValueError("Não foi possível cadastrar o funcionário.")
+                # Diz DE QUEM é o e-mail repetido, como no cadastro de jogador:
+                # "já existe" sem o e-mail manda o admin procurar às cegas.
+                raise ErroDeNegocio(
+                    "email_ja_cadastrado_na_organizacao",
+                    "Este e-mail já está cadastrado nesta organização.",
+                    status=409,
+                    email=data.email,
+                )
+            # Texto do Postgres (constraint, coluna) só no log.
+            logger.error("Falha ao cadastrar o funcionário %s: %s", data.email, txt)
+            raise ErroDeNegocio(
+                "falha_ao_cadastrar_funcionario",
+                "Não foi possível cadastrar o funcionário.",
+            )
 
         # Get group info
         group_name = None
@@ -456,17 +527,19 @@ class StaffService:
             "id, email, active, invite_status, auth_user_id, organization_id"
         ).eq("id", staff_id).execute()
         if not alvo.data:
-            raise ValueError("Funcionário não encontrado.")
+            raise _nao_encontrado()
         linha = alvo.data[0]
 
         if organization_id and linha.get("organization_id") != organization_id:
-            raise ValueError("Funcionário não encontrado.")
+            raise _nao_encontrado()
 
         estado = linha.get("invite_status")
         if estado not in ("pending", "awaiting_signup"):
-            raise ValueError(
+            raise ErroDeNegocio(
+                "sem_convite_a_cancelar",
                 "Esta pessoa já faz parte da equipe — não há convite a cancelar. "
-                "Use Desativar ou Excluir."
+                "Use Desativar ou Excluir.",
+                status=409,
             )
 
         StaffService._guard_no_open_cashbox(staff_id)
@@ -474,7 +547,9 @@ class StaffService:
 
         r = supabase.table("staff").delete().eq("id", staff_id).execute()
         if not (r.data or []):
-            raise ValueError("Não foi possível cancelar o convite.")
+            raise ErroDeNegocio(
+                "falha_ao_cancelar_convite", "Não foi possível cancelar o convite."
+            )
 
         # Cadastro nunca concluído: a conta de acesso também sai. Deixá-la
         # criaria uma armadilha — no próximo convite o e-mail já existiria e a
@@ -533,8 +608,10 @@ class StaffService:
         movimentos = supabase.table("cashbox_transactions").select("id") \
             .in_("cashbox_id", ids).limit(1).execute()
         if (sessoes.data or []) or (movimentos.data or []):
-            raise ValueError(
-                "Este funcionário já movimentou caixa. Use Excluir, que preserva o histórico."
+            raise ErroDeNegocio(
+                "funcionario_com_movimento_de_caixa",
+                "Este funcionário já movimentou caixa. Use Excluir, que preserva o histórico.",
+                status=409,
             )
 
         supabase.table("cashboxes").delete().in_("id", ids).execute()
@@ -560,19 +637,27 @@ class StaffService:
             "id, name, email, invite_status, organization_id"
         ).eq("id", staff_id).execute()
         if not alvo.data:
-            raise ValueError("Funcionário não encontrado.")
+            raise _nao_encontrado()
         linha = alvo.data[0]
 
         if organization_id and linha.get("organization_id") != organization_id:
-            raise ValueError("Funcionário não encontrado.")
+            raise _nao_encontrado()
 
         estado = linha.get("invite_status")
         if estado == "accepted":
-            raise ValueError("Esta pessoa já faz parte da equipe deste clube.")
+            raise ErroDeNegocio(
+                "ja_e_membro_do_clube",
+                "Esta pessoa já faz parte da equipe deste clube.",
+                status=409,
+                nome=linha.get("name"),
+            )
         if estado == "awaiting_signup":
-            raise ValueError(
+            raise ErroDeNegocio(
+                "convite_aguardando_cadastro",
                 "Esta pessoa ainda não definiu a senha. Use Reenviar para mandar "
-                "outro link de cadastro."
+                "outro link de cadastro.",
+                status=409,
+                nome=linha.get("name"),
             )
 
         # O gatilho do plano dispara AQUI (false -> true): a vaga é cobrada de
@@ -585,13 +670,20 @@ class StaffService:
             }).eq("id", staff_id).execute()
         except Exception as exc:
             if "PLANO_LIMITE" in str(exc):
-                raise ValueError(
+                raise ErroDeNegocio(
+                    "limite_de_usuarios_do_plano",
                     "O plano atual não permite mais usuários ativos. "
-                    "Altere o plano para efetivar este convite."
+                    "Altere o plano para efetivar este convite.",
+                    status=409,
                 )
-            raise ValueError("Não foi possível efetivar o convite.")
+            logger.error("Falha ao efetivar o convite %s: %s", staff_id, exc)
+            raise ErroDeNegocio(
+                "falha_ao_efetivar_convite", "Não foi possível efetivar o convite."
+            )
         if not (r.data or []):
-            raise ValueError("Não foi possível efetivar o convite.")
+            raise ErroDeNegocio(
+                "falha_ao_efetivar_convite", "Não foi possível efetivar o convite."
+            )
 
         efetivado = StaffService.get_staff(staff_id)
 
@@ -617,7 +709,11 @@ class StaffService:
         import httpx
 
         if not organization_id:
-            raise ValueError("Sua conta não está vinculada a nenhuma organização.")
+            raise ErroDeNegocio(
+                "conta_sem_organizacao",
+                "Sua conta não está vinculada a nenhuma organização.",
+                status=403,
+            )
 
         StaffService._guard_no_open_cashbox(staff_id)
 
@@ -628,8 +724,11 @@ class StaffService:
             ).execute()
         except Exception as exc:
             if "FUNCIONARIO_NAO_ENCONTRADO" in str(exc):
-                raise ValueError("Funcionário não encontrado.")
-            raise ValueError("Não foi possível excluir o funcionário.")
+                raise _nao_encontrado()
+            logger.error("Falha ao excluir o funcionário %s: %s", staff_id, exc)
+            raise ErroDeNegocio(
+                "falha_ao_excluir_funcionario", "Não foi possível excluir o funcionário."
+            )
 
         res = r.data or {}
 
@@ -670,13 +769,17 @@ class StaffService:
             "id, email, invite_status, organization_id"
         ).eq("id", staff_id).execute()
         if not alvo.data:
-            raise ValueError("Funcionário não encontrado.")
+            raise _nao_encontrado()
         linha = alvo.data[0]
 
         if organization_id and linha.get("organization_id") != organization_id:
-            raise ValueError("Funcionário não encontrado.")
+            raise _nao_encontrado()
         if linha.get("invite_status") == "accepted":
-            raise ValueError("Esta pessoa já concluiu o cadastro.")
+            raise ErroDeNegocio(
+                "cadastro_ja_concluido",
+                "Esta pessoa já concluiu o cadastro.",
+                status=409,
+            )
 
         base = settings.supabase_url.rstrip("/")
         r = httpx.post(
@@ -693,9 +796,17 @@ class StaffService:
             timeout=20,
         )
         if r.status_code == 429:
-            raise ValueError("Muitos e-mails enviados. Aguarde alguns minutos e tente de novo.")
+            raise ErroDeNegocio(
+                "limite_de_envio_de_email",
+                "Muitos e-mails enviados. Aguarde alguns minutos e tente de novo.",
+            )
         if r.status_code >= 400:
-            raise ValueError("Não foi possível reenviar o convite.")
+            logger.error(
+                "Reenvio de convite recusado (%s): %s", r.status_code, r.text[:500]
+            )
+            raise ErroDeNegocio(
+                "falha_ao_reenviar_convite", "Não foi possível reenviar o convite."
+            )
         return {"sent": True, "email": linha["email"]}
 
     @staticmethod
@@ -734,7 +845,9 @@ class StaffService:
     def update_staff(staff_id: str, data: StaffUpdate) -> Optional[StaffResponse]:
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
-            raise ValueError("Nenhum campo para atualizar")
+            raise ErroDeNegocio(
+                "nenhum_campo_para_atualizar", "Nenhum campo para atualizar"
+            )
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Block deactivation if there is an open cashbox with a non-zero balance
@@ -761,15 +874,21 @@ class StaffService:
 
     @staticmethod
     def _guard_no_open_cashbox(staff_id: str) -> None:
-        """Raise ValueError if this staff has any open cashbox."""
+        """Recusa (ErroDeNegocio) se este funcionário tiver caixa aberto."""
         open_cb = supabase.table("cashboxes").select("id, current_balance, stage_id") \
             .eq("staff_id", staff_id).eq("status", "open").execute()
         if open_cb.data:
             row = open_cb.data[0]
             balance = float(row.get("current_balance") or 0)
-            raise ValueError(
+            # O SALDO vai como dado nomeado: a frase é remontada na tela, no
+            # idioma e na MOEDA do clube — o "R$" da reserva não serve para o
+            # clube peruano nem para o colombiano.
+            raise ErroDeNegocio(
+                "funcionario_com_caixa_aberto",
                 f"Funcionário tem caixa aberto com saldo de R$ {balance:.2f}. "
-                f"Feche o caixa antes de desativar."
+                f"Feche o caixa antes de desativar.",
+                status=409,
+                saldo=balance,
             )
 
     @staticmethod

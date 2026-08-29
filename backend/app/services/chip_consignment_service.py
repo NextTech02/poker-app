@@ -1,8 +1,8 @@
 from typing import List, Optional
 from datetime import datetime, timezone
-from fastapi import HTTPException, status
 
 from app.database import supabase
+from app.utils.erros import conflito, nao_encontrado, recusado, sem_permissao
 from app.models.chip_consignment import (
     ConsignmentRelease,
     ConsignmentResponse,
@@ -60,7 +60,11 @@ class ChipConsignmentService:
     def release(data: ConsignmentRelease, stage_id: Optional[str], opened_by: str) -> ConsignmentResponse:
         effective_stage = data.stage_id or stage_id
         if not effective_stage:
-            raise HTTPException(status_code=400, detail="stage_id é obrigatório (selecione uma etapa).")
+            # Mesmo código do caixa (`etapa_nao_selecionada`): a saída para o
+            # operador é a mesma — escolher a etapa na barra do topo.
+            raise recusado(
+                "etapa_nao_selecionada", "stage_id é obrigatório (selecione uma etapa)."
+            )
 
         # Validate sangi staff exists, is active, and is classified as a sangi.
         # A sangi (chip seller on consignment) is distinct from a cashbox/caixa:
@@ -69,15 +73,17 @@ class ChipConsignmentService:
         staff = supabase.table("staff").select("id, active, permission_groups(permissions)") \
             .eq("id", data.sangi_staff_id).execute()
         if not staff.data:
-            raise HTTPException(status_code=404, detail="Sangeur (funcionário) não encontrada.")
+            raise nao_encontrado(
+                "sangeur_nao_encontrado", "Sangeur (funcionário) não encontrada."
+            )
         staff_row = staff.data[0]
         if not staff_row.get("active", True):
-            raise HTTPException(status_code=400, detail="Funcionário inativo.")
+            raise recusado("funcionario_inativo", "Funcionário inativo.")
         group = staff_row.get("permission_groups") or {}
         if "sangi" not in (group.get("permissions") or []):
-            raise HTTPException(
-                status_code=400,
-                detail="Este funcionário não está classificado como Sangeur.",
+            raise recusado(
+                "funcionario_nao_e_sangeur",
+                "Este funcionário não está classificado como Sangeur.",
             )
 
         # One open consignment per (sangi, stage)
@@ -86,9 +92,13 @@ class ChipConsignmentService:
             .eq("stage_id", effective_stage) \
             .eq("status", "open").execute()
         if open_existing.data:
-            raise HTTPException(
-                status_code=400,
-                detail="Esta sangeur já tem uma consignação aberta nesta etapa. Faça o abate antes de liberar outra."
+            # 409 e não 400: nada de errado no pedido, ele só briga com a
+            # consignação que já está aberta — o caminho é abater aquela, não
+            # corrigir este pedido.
+            raise conflito(
+                "consignacao_aberta_existente",
+                "Esta sangeur já tem uma consignação aberta nesta etapa. Faça o abate antes de liberar outra.",
+                consignment_id=open_existing.data[0].get("id"),
             )
 
         insert = {
@@ -112,7 +122,9 @@ class ChipConsignmentService:
             .select("*, staff(name)") \
             .eq("id", consignment_id).execute()
         if not resp.data:
-            raise HTTPException(status_code=404, detail="Consignação não encontrada.")
+            raise nao_encontrado(
+                "consignacao_nao_encontrada", "Consignação não encontrada."
+            )
         return ChipConsignmentService._build(resp.data[0], with_sales=with_sales)
 
     @staticmethod
@@ -175,30 +187,45 @@ class ChipConsignmentService:
         cons = supabase.table("chip_consignments").select("*") \
             .eq("id", consignment_id).execute()
         if not cons.data:
-            raise HTTPException(status_code=404, detail="Consignação não encontrada.")
+            raise nao_encontrado(
+                "consignacao_nao_encontrada", "Consignação não encontrada."
+            )
         c = cons.data[0]
         if c["status"] != "open":
-            raise HTTPException(status_code=400, detail="Consignação já reconciliada; não aceita novas vendas.")
+            raise conflito(
+                "consignacao_ja_reconciliada",
+                "Consignação já reconciliada; não aceita novas vendas.",
+            )
 
         # When the caller is the sangi, ensure they only sell on their own consignment
         if restrict_to_self and acting_auth_user_id:
             staff = ChipConsignmentService._staff_for_user(acting_auth_user_id)
             if not staff or staff["id"] != c["sangi_staff_id"]:
-                raise HTTPException(status_code=403, detail="Você só pode registrar vendas da sua própria consignação.")
+                raise sem_permissao(
+                    "consignacao_de_outro_sangeur",
+                    "Você só pode registrar vendas da sua própria consignação.",
+                )
 
         # Buyer must be a registered player
         player = supabase.table("players").select("id, name") \
             .eq("id", data.buyer_player_id).execute()
         if not player.data:
-            raise HTTPException(status_code=404, detail="Comprador (jogador) não encontrado.")
+            raise nao_encontrado(
+                "comprador_nao_encontrado", "Comprador (jogador) não encontrado."
+            )
 
         # Optional guard: don't let sales exceed what was released
         new_total = float(c.get("total_sold") or 0) + data.amount
         if new_total > float(c["released_amount"]) + 0.001:
-            raise HTTPException(
-                status_code=400,
-                detail=(f"Venda excede o valor liberado. Liberado: R$ {float(c['released_amount']):.2f}, "
-                        f"já vendido: R$ {float(c.get('total_sold') or 0):.2f}.")
+            # Os dois valores vão como DADO além da frase: a tela formata na
+            # moeda do clube (o "R$" embutido chega errado no Peru e na
+            # Colômbia) e consegue mostrar quanto ainda cabe nesta venda.
+            raise recusado(
+                "venda_excede_o_liberado",
+                (f"Venda excede o valor liberado. Liberado: R$ {float(c['released_amount']):.2f}, "
+                 f"já vendido: R$ {float(c.get('total_sold') or 0):.2f}."),
+                liberado=float(c["released_amount"]),
+                vendido=float(c.get("total_sold") or 0),
             )
 
         insert = {
@@ -217,9 +244,9 @@ class ChipConsignmentService:
         except Exception as exc:
             msg = str(exc)
             if "excede o valor liberado" in msg or "reconciliada" in msg:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Venda excede o valor liberado para esta consignação.",
+                raise recusado(
+                    "venda_excede_o_liberado",
+                    "Venda excede o valor liberado para esta consignação.",
                 )
             raise
         sale = resp.data[0]
@@ -239,9 +266,14 @@ class ChipConsignmentService:
         cons = supabase.table("chip_consignments").select("status") \
             .eq("id", consignment_id).execute()
         if not cons.data:
-            raise HTTPException(status_code=404, detail="Consignação não encontrada.")
+            raise nao_encontrado(
+                "consignacao_nao_encontrada", "Consignação não encontrada."
+            )
         if cons.data[0]["status"] != "open":
-            raise HTTPException(status_code=400, detail="Consignação reconciliada; vendas não podem ser alteradas.")
+            raise conflito(
+                "consignacao_ja_reconciliada",
+                "Consignação reconciliada; vendas não podem ser alteradas.",
+            )
         supabase.table("chip_consignment_sales").delete() \
             .eq("id", sale_id).eq("consignment_id", consignment_id).execute()
 
@@ -254,10 +286,14 @@ class ChipConsignmentService:
         cons = supabase.table("chip_consignments").select("*") \
             .eq("id", consignment_id).execute()
         if not cons.data:
-            raise HTTPException(status_code=404, detail="Consignação não encontrada.")
+            raise nao_encontrado(
+                "consignacao_nao_encontrada", "Consignação não encontrada."
+            )
         c = cons.data[0]
         if c["status"] == "reconciled":
-            raise HTTPException(status_code=400, detail="Consignação já reconciliada.")
+            raise conflito(
+                "consignacao_ja_reconciliada", "Consignação já reconciliada."
+            )
 
         released = float(c["released_amount"])
         sold = float(c.get("total_sold") or 0)

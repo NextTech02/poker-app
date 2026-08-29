@@ -94,11 +94,17 @@ class TestConsignmentService:
         monkeypatch.setattr(chip_consignment_service, "supabase", FakeSupabase(tables))
         with pytest.raises(HTTPException) as exc:
             ChipConsignmentService.reconcile("c1", reconciled_by="u")
-        assert exc.value.status_code == 400
+        # 409: o pedido está certo, ele briga com o abate que já aconteceu.
+        assert exc.value.status_code == 409
+        assert exc.value.detail["code"] == "consignacao_ja_reconciliada"
 
     def test_release_blocks_duplicate_open(self, monkeypatch):
         tables = {
-            "staff": [{"id": "s1", "active": True}],
+            # A sangeur precisa do grupo com a permissão `sangi`: sem ele a
+            # recusa que dispara é "não é sangeur", e o teste passaria sem
+            # nunca chegar na trava de consignação duplicada que ele mede.
+            "staff": [{"id": "s1", "active": True,
+                       "permission_groups": {"permissions": ["sangi"]}}],
             "chip_consignments": [{
                 "id": "c0", "sangi_staff_id": "s1", "stage_id": "st1",
                 "released_amount": 5000, "total_sold": 0, "status": "open",
@@ -109,7 +115,8 @@ class TestConsignmentService:
         data = ConsignmentRelease(sangi_staff_id="s1", released_amount=1000, stage_id="st1")
         with pytest.raises(HTTPException) as exc:
             ChipConsignmentService.release(data, stage_id=None, opened_by="u")
-        assert exc.value.status_code == 400
+        assert exc.value.status_code == 409
+        assert exc.value.detail["code"] == "consignacao_aberta_existente"
 
     def test_sale_cannot_exceed_released(self, monkeypatch):
         tables = {

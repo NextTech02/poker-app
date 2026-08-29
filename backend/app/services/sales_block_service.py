@@ -14,6 +14,7 @@ import logging
 from typing import Optional
 
 from app.database import supabase
+from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
 
@@ -157,18 +158,26 @@ class SalesBlockService:
     ) -> None:
         motivo = SalesBlockService._bloqueio_do_dia(tournament_day_id, day_row)
         if motivo is not None:
-            raise ValueError(
+            # O MOTIVO vai como dado, não embutido na frase: a tela monta a
+            # frase no idioma dela e ainda assim mostra o que o admin escreveu
+            # ("registro tardio encerrado"), que é a parte que resolve a dúvida
+            # do jogador no balcão.
+            raise ErroDeNegocio(
+                "vendas_bloqueadas_dia",
                 f"Vendas bloqueadas para este dia: {motivo}" if motivo
-                else "Vendas bloqueadas para este dia do torneio"
+                else "Vendas bloqueadas para este dia do torneio",
+                motivo=motivo or None,
             )
 
     @staticmethod
     def _exigir_etapa_liberada(tournament_id: str, stage_row: Optional[dict] = None) -> None:
         motivo = SalesBlockService._bloqueio_da_etapa(tournament_id, stage_row)
         if motivo is not None:
-            raise ValueError(
+            raise ErroDeNegocio(
+                "vendas_bloqueadas_etapa",
                 f"Vendas bloqueadas para esta etapa: {motivo}" if motivo
-                else "Vendas bloqueadas para esta etapa"
+                else "Vendas bloqueadas para esta etapa",
+                motivo=motivo or None,
             )
 
     @staticmethod
@@ -286,11 +295,12 @@ class SalesBlockService:
         except Exception as exc:
             # Sem a migração aplicada a coluna não existe. Mensagem clara em vez
             # de 500 para o admin não achar que o sistema quebrou.
-            raise ValueError(
-                "Bloqueio de vendas indisponível: a migração do banco ainda não foi aplicada."
+            raise ErroDeNegocio(
+                "bloqueio_sem_migracao",
+                "Bloqueio de vendas indisponível: a migração do banco ainda não foi aplicada.",
             ) from exc
         if not resp.data:
-            raise ValueError("Registro não encontrado")
+            raise ErroDeNegocio("registro_nao_encontrado", "Registro não encontrado", status=404)
         return {
             "success": True,
             "sales_blocked": bool(blocked),

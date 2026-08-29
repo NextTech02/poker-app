@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
 from app.models.satellite_ticket import (
     TicketBulkCreate,
@@ -14,6 +14,7 @@ from app.services.satellite_ticket_service import SatelliteTicketService
 from app.auth.jwt import get_current_user
 from app.auth.permissions import require_permission
 from app.dependencies import get_stage_id_optional, get_org_id_optional
+from app.utils.erros import da_excecao, nao_encontrado
 
 router = APIRouter(prefix="/satellite-tickets", tags=["satellite-tickets"])
 
@@ -36,8 +37,12 @@ MASTER_PERMS = ("cashier_tickets.master", "employees")
     responses={
         400: {
             "description": (
-                "Não dá para emitir o ticket: torneio alvo, dia alvo ou jogador não "
-                "encontrado, ou o dia informado não pertence ao torneio alvo."
+                "O dia informado não pertence ao torneio alvo (`dia_de_outro_torneio`)."
+            )
+        },
+        404: {
+            "description": (
+                "Torneio alvo, dia alvo ou jogador não encontrado."
             )
         },
     },
@@ -46,7 +51,7 @@ def create_ticket(data: TicketCreate, user=Depends(require_permission(*TICKET_PE
     try:
         return SatelliteTicketService.create_ticket(data, user.get("id") or user["sub"])
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.post("/bulk", response_model=TicketBulkResult)
@@ -58,7 +63,7 @@ def create_tickets_bulk(
     try:
         return SatelliteTicketService.create_tickets_bulk(data, user.get("id") or user["sub"])
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 # ── Query Tickets ──
@@ -101,7 +106,7 @@ def get_available_tickets(
 def get_ticket(ticket_id: str, user=Depends(get_current_user)):
     ticket = SatelliteTicketService.get_ticket(ticket_id)
     if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket não encontrado")
+        raise nao_encontrado("ticket_nao_encontrado", "Ticket não encontrado")
     return ticket
 
 
@@ -121,7 +126,7 @@ def redeem_ticket(
     try:
         return SatelliteTicketService.redeem_ticket(ticket_id, data.funded_by, user.get("id") or user["sub"])
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.post(
@@ -130,10 +135,17 @@ def redeem_ticket(
     responses={
         400: {
             "description": (
-                "Transferência recusada: ticket não encontrado, já resgatado, jogador "
-                "de destino não informado/inexistente ou igual ao dono atual. Quando é "
-                "venda (amount > 0), também 400 se não houver etapa selecionada ou "
-                "organização vinculada para lançar a venda no caixa."
+                "Transferência recusada: jogador de destino não informado; ou, quando "
+                "é venda (amount > 0), não há etapa selecionada para lançar o dinheiro "
+                "no caixa."
+            )
+        },
+        403: {"description": "A conta não está vinculada a nenhuma organização."},
+        404: {"description": "Ticket ou jogador de destino não encontrado."},
+        409: {
+            "description": (
+                "O ticket já foi resgatado (`ticket_nao_transferivel`) ou já pertence "
+                "ao jogador de destino (`ticket_ja_e_do_jogador`)."
             )
         },
     },
@@ -152,7 +164,7 @@ def transfer_ticket(
             org_id=org_id, stage_id=stage_id,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)
 
 
 @router.post("/{ticket_id}/cancel", response_model=TicketResponse)
@@ -160,4 +172,4 @@ def cancel_ticket(ticket_id: str, user=Depends(require_permission(*TICKET_PERMS)
     try:
         return SatelliteTicketService.cancel_ticket(ticket_id, user.get("id") or user["sub"])
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e)

@@ -7,6 +7,10 @@ from ..auth.jwt import get_current_user
 from ..auth.permissions import require_permission
 from ..database import supabase
 from ..models.blind import BlindCreateRequest, BlindUpdate, BlindResponse
+# Recusas com CODIGO: a estrutura de blinds e mexida no meio do evento, e o
+# operador do Peru/Colombia nao pode receber a frase em portugues — a tela
+# escolhe o idioma pelo `code` (ver app/utils/erros.py).
+from ..utils.erros import conflito, nao_encontrado, recusado
 
 # Mensagem 404 de dia de torneio inexistente. Centralizada para que todas as
 # rotas de blinds respondam exatamente o mesmo texto ao frontend.
@@ -25,10 +29,7 @@ async def get_tournament_blinds(
     # Verify tournament exists
     tournament_response = supabase.table("tournaments").select("id").eq("id", str(tournament_id)).execute()
     if not tournament_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
 
     # Get blinds ordered by level
     response = supabase.table("blinds")\
@@ -51,10 +52,7 @@ async def create_blind(
     # Verify tournament exists
     tournament_response = supabase.table("tournaments").select("id").eq("id", str(tournament_id)).execute()
     if not tournament_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
 
     # Add tournament_id from URL to the blind data
     blind_data = blind.model_dump()
@@ -68,9 +66,12 @@ async def create_blind(
         .execute()
 
     if existing.data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Blind level {blind.level} already exists for this tournament"
+        # O nivel vai TAMBEM como dado nomeado: a tela remonta a frase no
+        # idioma dela sem perder QUAL nivel esta repetido.
+        raise recusado(
+            "nivel_de_blind_duplicado",
+            f"Blind level {blind.level} already exists for this tournament",
+            level=blind.level,
         )
 
     # Create blind
@@ -107,19 +108,16 @@ async def update_blind(
         .execute()
 
     if not blind_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Blind not found or does not belong to this tournament"
+        raise nao_encontrado(
+            "blind_nao_encontrado",
+            "Blind not found or does not belong to this tournament",
         )
 
     # Prepare update data (only include non-None values)
     update_data = {k: v for k, v in blind_update.model_dump().items() if v is not None}
 
     if not update_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No fields to update"
-        )
+        raise recusado("nada_para_atualizar", "No fields to update")
 
     # If updating level, check it doesn't conflict with existing level
     if "level" in update_data:
@@ -131,9 +129,10 @@ async def update_blind(
             .execute()
 
         if existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Blind level {update_data['level']} already exists for this tournament"
+            raise recusado(
+                "nivel_de_blind_duplicado",
+                f"Blind level {update_data['level']} already exists for this tournament",
+                level=update_data["level"],
             )
 
     # Add updated_at timestamp
@@ -175,9 +174,9 @@ async def delete_blind(
         .execute()
 
     if not blind_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Blind not found or does not belong to this tournament"
+        raise nao_encontrado(
+            "blind_nao_encontrado",
+            "Blind not found or does not belong to this tournament",
         )
 
     # Delete blind
@@ -205,10 +204,7 @@ async def get_tournament_day_blinds(
     # Verify tournament day exists
     day_response = supabase.table("tournament_days").select("id").eq("id", str(tournament_day_id)).execute()
     if not day_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=DIA_DE_TORNEIO_NAO_ENCONTRADO
-        )
+        raise nao_encontrado("dia_nao_encontrado", DIA_DE_TORNEIO_NAO_ENCONTRADO)
 
     # Get blinds ordered by level
     response = supabase.table("blinds")\
@@ -231,10 +227,7 @@ async def create_blind_for_day(
     # Verify tournament day exists
     day_response = supabase.table("tournament_days").select("id, tournament_id").eq("id", str(tournament_day_id)).execute()
     if not day_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=DIA_DE_TORNEIO_NAO_ENCONTRADO
-        )
+        raise nao_encontrado("dia_nao_encontrado", DIA_DE_TORNEIO_NAO_ENCONTRADO)
 
     # Add tournament_day_id from URL to the blind data
     blind_data = blind.model_dump()
@@ -250,9 +243,10 @@ async def create_blind_for_day(
         .execute()
 
     if existing.data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Blind level {blind.level} already exists for this tournament day"
+        raise recusado(
+            "nivel_de_blind_duplicado",
+            f"Blind level {blind.level} already exists for this tournament day",
+            level=blind.level,
         )
 
     # Create blind
@@ -289,19 +283,16 @@ async def update_blind_for_day(
         .execute()
 
     if not blind_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Blind not found or does not belong to this tournament day"
+        raise nao_encontrado(
+            "blind_nao_encontrado",
+            "Blind not found or does not belong to this tournament day",
         )
 
     # Prepare update data (only include non-None values)
     update_data = {k: v for k, v in blind_update.model_dump().items() if v is not None}
 
     if not update_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No fields to update"
-        )
+        raise recusado("nada_para_atualizar", "No fields to update")
 
     # If updating level, check it doesn't conflict with existing level
     if "level" in update_data:
@@ -313,9 +304,10 @@ async def update_blind_for_day(
             .execute()
 
         if existing.data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Blind level {update_data['level']} already exists for this tournament day"
+            raise recusado(
+                "nivel_de_blind_duplicado",
+                f"Blind level {update_data['level']} already exists for this tournament day",
+                level=update_data["level"],
             )
 
     # Add updated_at timestamp
@@ -357,9 +349,9 @@ async def delete_blind_for_day(
         .execute()
 
     if not blind_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Blind not found or does not belong to this tournament day"
+        raise nao_encontrado(
+            "blind_nao_encontrado",
+            "Blind not found or does not belong to this tournament day",
         )
 
     # Delete blind
@@ -393,10 +385,7 @@ async def delete_all_blinds_for_day(
         .execute()
 
     if not day_response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=DIA_DE_TORNEIO_NAO_ENCONTRADO
-        )
+        raise nao_encontrado("dia_nao_encontrado", DIA_DE_TORNEIO_NAO_ENCONTRADO)
 
     day = day_response.data[0]
 
@@ -407,12 +396,10 @@ async def delete_all_blinds_for_day(
         day.get("timer_started_at") and not day.get("is_paused")
     )
     if em_andamento and not force:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "O dia está em andamento. Apagar a estrutura agora deixa o telão "
-                "sem blinds e zera o relógio. Repita com force=true para confirmar."
-            )
+        raise conflito(
+            "estrutura_de_blinds_em_dia_em_andamento",
+            "O dia está em andamento. Apagar a estrutura agora deixa o telão "
+            "sem blinds e zera o relógio. Repita com force=true para confirmar.",
         )
 
     try:

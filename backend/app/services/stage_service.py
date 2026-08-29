@@ -2,6 +2,9 @@ import logging
 from typing import List, Optional, Tuple
 from collections import Counter
 from app.database import supabase
+# Recusa com CODIGO (a tela traduz pelo `code`); herda de ValueError, entao o
+# `except ValueError` do router continua valendo.
+from app.utils.erros import ErroDeNegocio
 from app.models.stage import (
     StageCreate,
     StageUpdate,
@@ -247,6 +250,8 @@ class StageService:
         if impacto is None:
             return False
         if impacto.blocked:
-            raise ValueError(MSG_ETAPA_COM_MOVIMENTO)
+            raise ErroDeNegocio(
+                "etapa_com_movimento_financeiro", MSG_ETAPA_COM_MOVIMENTO, status=409
+            )
         response = supabase.table("stages").delete().eq("id", stage_id).execute()
         return len(response.data) > 0

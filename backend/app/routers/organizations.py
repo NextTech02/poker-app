@@ -7,6 +7,7 @@ A criação em si é feita pela função `provision_organization` no banco, que 
 tudo numa transação (org + grupos + staff admin + moeda + caixa geral + rake +
 formas de pagamento). Assim um cliente nunca nasce pela metade.
 """
+import logging
 import re
 from datetime import datetime, timezone, timedelta
 from typing import Literal, Optional
@@ -18,9 +19,15 @@ from pydantic import BaseModel, EmailStr, Field
 from app.auth.jwt import get_current_user
 from app.config import get_settings
 from app.database.supabase_client import supabase_admin
+from app.utils.erros import conflito, erro_http, nao_encontrado, recusado, sem_permissao
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 settings = get_settings()
+
+# Texto de erro de TERCEIRO (Supabase, Postgres) nao vai para a tela do cliente:
+# vem em ingles, cita nome de constraint e as vezes o e-mail de outra pessoa. Ele
+# fica so aqui no log, onde o suporte le; a tela recebe codigo + frase nossa.
+logger = logging.getLogger(__name__)
 
 
 def require_platform_admin(user: dict = Depends(get_current_user)) -> dict:
@@ -30,9 +37,9 @@ def require_platform_admin(user: dict = Depends(get_current_user)) -> dict:
     frontend não é segurança, qualquer um poderia chamar a API na mão.
     """
     if user.get("platform_admin") is not True:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas administradores da plataforma podem cadastrar organizações.",
+        raise sem_permissao(
+            "apenas_platform_admin",
+            "Apenas administradores da plataforma podem cadastrar organizações.",
         )
     return user
 
@@ -112,7 +119,7 @@ def list_organization_staff(org_id: str):
     """
     org = supabase_admin.table("organizations").select("id, name").eq("id", org_id).execute()
     if not org.data:
-        raise HTTPException(status_code=404, detail="Organização não encontrada.")
+        raise nao_encontrado("organizacao_nao_encontrada", "Organização não encontrada.")
 
     rows = (
         supabase_admin.table("staff")
@@ -173,10 +180,16 @@ def update_organization_plan(org_id: str, data: OrganizationPlanUpdate):
     """
     org = supabase_admin.table("organizations").select("id, plan_code").eq("id", org_id).execute()
     if not org.data:
-        raise HTTPException(status_code=404, detail="Organização não encontrada.")
+        raise nao_encontrado("organizacao_nao_encontrada", "Organização não encontrada.")
     plan = supabase_admin.table("plans").select("*").eq("code", data.plan_code).execute()
     if not plan.data:
-        raise HTTPException(status_code=400, detail=f"Plano '{data.plan_code}' inválido.")
+        # O código do plano vai TAMBÉM como dado nomeado: a tela remonta a frase
+        # no idioma dela e ainda assim mostra qual plano foi recusado.
+        raise recusado(
+            "plano_invalido",
+            f"Plano '{data.plan_code}' inválido.",
+            plan_code=data.plan_code,
+        )
     p = plan.data[0]
 
     update = {
@@ -213,7 +226,7 @@ def update_organization_status(org_id: str, data: OrganizationStatusUpdate):
     """
     org = supabase_admin.table("organizations").select("id, name, status").eq("id", org_id).execute()
     if not org.data:
-        raise HTTPException(status_code=404, detail="Organização não encontrada.")
+        raise nao_encontrado("organizacao_nao_encontrada", "Organização não encontrada.")
 
     updated = (
         supabase_admin.table("organizations")
@@ -239,10 +252,20 @@ def delete_organization(org_id: str):
     except Exception as exc:
         msg = str(exc)
         if "Suspenda" in msg:
-            raise HTTPException(status_code=409, detail="Suspenda a organização antes de excluí-la.")
+            raise conflito(
+                "organizacao_ativa_nao_pode_ser_excluida",
+                "Suspenda a organização antes de excluí-la.",
+            )
         if "não encontrada" in msg or "nao encontrada" in msg:
-            raise HTTPException(status_code=404, detail="Organização não encontrada.")
-        raise HTTPException(status_code=400, detail=f"Falha ao excluir a organização: {msg}")
+            raise nao_encontrado("organizacao_nao_encontrada", "Organização não encontrada.")
+        # O texto do banco fica no LOG. Antes ele ia inteiro para a tela do
+        # platform admin — em inglês, com nome de constraint, e sem lhe dizer
+        # nada sobre o que fazer.
+        logger.error("Falha ao excluir a organização %s: %s", org_id, msg)
+        raise recusado(
+            "falha_ao_excluir_organizacao",
+            "Não foi possível excluir a organização. Consulte o suporte.",
+        )
 
 
 # ── Multi-organização: o mesmo usuário pode pertencer a vários clubes ────────
@@ -279,13 +302,16 @@ def accept_invite(staff_id: str, current_user: dict = Depends(get_current_user))
     except Exception as exc:
         msg = str(exc)
         if "PLANO_LIMITE_USUARIOS" in msg:
-            raise HTTPException(
-                status_code=409,
-                detail="Este clube atingiu o limite de usuários do plano. Fale com o administrador.",
+            raise conflito(
+                "limite_de_usuarios_do_plano",
+                "Este clube atingiu o limite de usuários do plano. Fale com o administrador.",
             )
         if "CONVITE_INVALIDO" in msg:
-            raise HTTPException(status_code=404, detail="Convite não encontrado ou já respondido.")
-        raise HTTPException(status_code=400, detail="Não foi possível aceitar o convite.")
+            raise nao_encontrado(
+                "convite_ja_respondido", "Convite não encontrado ou já respondido."
+            )
+        logger.error("Falha ao aceitar o convite %s: %s", staff_id, msg)
+        raise recusado("falha_ao_aceitar_convite", "Não foi possível aceitar o convite.")
     return res.data or {}
 
 
@@ -297,7 +323,9 @@ def decline_invite(staff_id: str, current_user: dict = Depends(get_current_user)
         {"p_user": current_user.get("sub"), "p_staff": staff_id},
     ).execute()
     if not res.data:
-        raise HTTPException(status_code=404, detail="Convite não encontrado ou já respondido.")
+        raise nao_encontrado(
+            "convite_ja_respondido", "Convite não encontrado ou já respondido."
+        )
     return {"declined": True}
 
 
@@ -325,11 +353,17 @@ def switch_organization(data: SwitchOrgRequest, current_user: dict = Depends(get
             "p_user": current_user.get("sub"),
             "p_org": data.organization_id,
         }).execute()
-    except Exception:
-        raise HTTPException(
-            status_code=403,
-            detail=("Organização inexistente ou inativa."
-                    if is_admin else "Você não pertence a esta organização."),
+    except Exception as exc:
+        # Dois códigos porque são duas situações diferentes para quem lê: o
+        # platform admin PODE entrar em qualquer org ativa (se falhou, é a org
+        # que não serve); o usuário comum é quem não tem vínculo.
+        logger.info("Troca de organização recusada (%s): %s", data.organization_id, exc)
+        if is_admin:
+            raise sem_permissao(
+                "organizacao_inexistente_ou_inativa", "Organização inexistente ou inativa."
+            )
+        raise sem_permissao(
+            "sem_vinculo_com_a_organizacao", "Você não pertence a esta organização."
         )
     return {"organization_id": data.organization_id, "refresh_required": True}
 
@@ -347,7 +381,11 @@ def create_organization(data: OrganizationCreate):
 
     existing = supabase_admin.table("organizations").select("id").eq("slug", slug).execute()
     if existing.data:
-        raise HTTPException(status_code=409, detail=f"Já existe uma organização com o identificador '{slug}'.")
+        raise conflito(
+            "slug_de_organizacao_em_uso",
+            f"Já existe uma organização com o identificador '{slug}'.",
+            slug=slug,
+        )
 
     base = settings.supabase_url
     headers = {
@@ -391,13 +429,11 @@ def create_organization(data: OrganizationCreate):
         elif r.status_code == 429:
             # Limite de envio de e-mail do Supabase (SMTP padrão manda pouquíssimos
             # por hora). Mensagem explícita: sem isso o operador só via "erro".
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Limite de envio de e-mails do Supabase atingido. Configure um SMTP "
-                    "próprio em Authentication → Emails para convidar clientes sem limite, "
-                    "ou aguarde e tente novamente."
-                ),
+            raise recusado(
+                "limite_de_envio_de_email",
+                "Limite de envio de e-mails do Supabase atingido. Configure um SMTP "
+                "próprio em Authentication → Emails para convidar clientes sem limite, "
+                "ou aguarde e tente novamente.",
             )
         elif r.status_code in (409, 422):
             # Usuário já existe no auth — reaproveita (o provisionamento recusa
@@ -412,14 +448,31 @@ def create_organization(data: OrganizationCreate):
                     break
             invite_error = "Usuário já existia no sistema; vinculado sem novo convite."
         else:
-            raise HTTPException(status_code=400, detail=f"Falha ao convidar o administrador: {r.text[:200]}")
+            # A resposta CRUA do serviço de auth ia para a tela: inglês, JSON e
+            # nenhuma ação possível para quem lê. Fica no log.
+            logger.error(
+                "Convite do administrador recusado (%s): %s", r.status_code, r.text[:500]
+            )
+            raise recusado(
+                "falha_ao_convidar_administrador",
+                "Não foi possível convidar o administrador. Confira o e-mail e tente de novo.",
+            )
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Falha ao contatar o serviço de e-mail: {exc}")
+        # `exc` pode trazer host, token e corpo da resposta do provedor — log.
+        logger.error("Falha ao contatar o serviço de e-mail: %s", exc)
+        raise erro_http(
+            503,
+            "servico_de_email_indisponivel",
+            "Não foi possível contatar o serviço de e-mail. Tente novamente em instantes.",
+        )
 
     if not auth_user_id:
-        raise HTTPException(status_code=400, detail="Não foi possível obter o usuário do administrador.")
+        raise recusado(
+            "administrador_nao_obtido",
+            "Não foi possível obter o usuário do administrador.",
+        )
 
     # 2) Provisionamento atômico da organização
     try:
@@ -441,7 +494,12 @@ def create_organization(data: OrganizationCreate):
                 httpx.delete(f"{base}/auth/v1/admin/users/{auth_user_id}", headers=headers, timeout=20)
             except Exception:
                 pass
-        raise HTTPException(status_code=400, detail=f"Falha ao provisionar a organização: {exc}")
+        # A mensagem do Postgres (constraint, função, coluna) fica no log.
+        logger.error("Falha ao provisionar a organização '%s': %s", slug, exc)
+        raise recusado(
+            "falha_ao_provisionar_organizacao",
+            "Não foi possível criar a organização. Consulte o suporte.",
+        )
 
     return OrganizationOut(
         id=str(org_id), name=data.name, slug=slug,

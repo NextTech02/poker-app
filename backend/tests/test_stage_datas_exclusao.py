@@ -180,13 +180,15 @@ class TestDatasNaRota:
             "start_date": "2026-08-10", "end_date": "2026-08-02",
         })
         assert r.status_code == 400
-        assert r.json()["detail"] == MSG_FIM_ANTES_DO_INICIO
+        assert r.json()["detail"]["message"] == MSG_FIM_ANTES_DO_INICIO
+        assert r.json()["detail"]["code"] == "etapa_fim_antes_do_inicio"
 
     def test_criar_sem_inicio_da_400_com_o_motivo(self, client, banco):
         banco({"stages": []})
         r = client.post("/stages", json={"name": "Etapa", "location": "Rio"})
         assert r.status_code == 400
-        assert r.json()["detail"] == MSG_INICIO_OBRIGATORIO
+        assert r.json()["detail"]["message"] == MSG_INICIO_OBRIGATORIO
+        assert r.json()["detail"]["code"] == "etapa_sem_data_de_inicio"
 
     def test_criacao_valida_passa(self, client, banco):
         banco({"stages": []})
@@ -204,7 +206,7 @@ class TestDatasNaRota:
         banco({"stages": [_base(start_date="2026-08-10", end_date="2026-08-20")]})
         r = client.patch(f"/stages/{ETAPA}", json=corpo)
         assert r.status_code == 400
-        assert isinstance(r.json()["detail"], str)
+        assert isinstance(r.json()["detail"]["message"], str)
 
     def test_editar_com_data_incoerente_da_400_com_o_motivo(self, client, stub):
         def _explode(sid, dados):
@@ -213,7 +215,7 @@ class TestDatasNaRota:
         stub(SS, update_stage=_explode)
         r = client.patch(f"/stages/{ETAPA}", json={"end_date": "2026-08-02"})
         assert r.status_code == 400
-        assert "anterior" in r.json()["detail"]
+        assert "anterior" in r.json()["detail"]["message"]
 
     def test_arquivar_devolve_a_etapa_cancelada(self, client, stub):
         stub(SS, archive_stage=lambda sid: Stage(
@@ -346,7 +348,7 @@ class TestExclusaoBloqueada:
         stub(SS, delete_stage=_recusa)
         r = client.delete(f"/stages/{ETAPA}")
         assert r.status_code == 409
-        assert "movimento financeiro" in r.json()["detail"]
+        assert "movimento financeiro" in r.json()["detail"]["message"]
 
     def test_rota_de_impacto_devolve_os_numeros(self, client, stub):
         from app.models.stage import StageDeleteImpact

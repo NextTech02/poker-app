@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
 from app.models.cashbox import (
     CashboxResponse,
@@ -16,6 +16,7 @@ from app.models.cashbox import (
 from app.services.cashbox_service import CashboxService
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
+from app.utils.erros import da_excecao, nao_encontrado, recusado, sem_permissao
 
 router = APIRouter(prefix="/cashboxes", tags=["cashboxes"])
 
@@ -42,11 +43,13 @@ def create_cashbox(
     user=Depends(get_current_user),
 ):
     if not CashboxService.can_admin(_auth_user_id(user)):
-        raise HTTPException(status_code=403, detail="Sem permissão")
+        raise sem_permissao("sem_permissao_criar_caixa", "Sem permissão para criar caixas")
     try:
         return CashboxService.create_for_staff(data.staff_id, stage_id)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        # `da_excecao` respeita o status que a regra escolheu (funcionário
+        # inexistente é 404, não 400); o 400 fica só como padrão.
+        raise da_excecao(exc)
 
 
 @router.get("/me/current", response_model=Optional[CashboxResponse])
@@ -55,7 +58,7 @@ def get_my_current(
     user=Depends(get_current_user),
 ):
     if not stage_id:
-        raise HTTPException(status_code=400, detail="Selecione uma etapa")
+        raise recusado("etapa_nao_selecionada", "Selecione uma etapa")
     return CashboxService.get_my_current(_auth_user_id(user), stage_id)
 
 
@@ -67,7 +70,9 @@ def get_aggregated_summary(
     user=Depends(get_current_user),
 ):
     if not CashboxService.can_admin(_auth_user_id(user)):
-        raise HTTPException(status_code=403, detail="Sem permissão")
+        raise sem_permissao(
+            "sem_permissao_ver_consolidado", "Sem permissão para ver o consolidado dos caixas"
+        )
     return CashboxService.get_aggregated_summary(stage_id=stage_id, date_from=date_from, date_to=date_to)
 
 
@@ -80,7 +85,10 @@ def get_demonstrativo(
     user=Depends(get_current_user),
 ):
     if not CashboxService.can_admin(_auth_user_id(user)):
-        raise HTTPException(status_code=403, detail="Sem permissão")
+        raise sem_permissao(
+            "sem_permissao_ver_demonstrativo",
+            "Sem permissão para ver o demonstrativo dos caixas",
+        )
     return CashboxService.get_demonstrativo(
         stage_id=stage_id, date_from=date_from, date_to=date_to, staff_id=staff_id
     )
@@ -90,7 +98,7 @@ def get_demonstrativo(
 def get_cashbox(cashbox_id: str, user=Depends(get_current_user)):
     cb = CashboxService.get_cashbox(cashbox_id)
     if not cb:
-        raise HTTPException(status_code=404, detail="Caixa não encontrado")
+        raise nao_encontrado("caixa_nao_encontrado", "Caixa não encontrado")
     return cb
 
 
@@ -118,7 +126,9 @@ def get_summary(
     try:
         return CashboxService.get_summary(cashbox_id, date_from=date_from, date_to=date_to)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        # 404 é o padrão aqui porque a única recusa deste caminho é "caixa não
+        # existe"; um `ErroDeNegocio` com status próprio continua mandando.
+        raise da_excecao(exc, status=404)
 
 
 # ── Sessions ──
@@ -133,7 +143,7 @@ def open_cashbox(cashbox_id: str, data: CashboxOpen, user=Depends(get_current_us
             data.notes,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise da_excecao(exc)
 
 
 @router.post("/{cashbox_id}/close", response_model=CashboxSessionResponse)
@@ -146,7 +156,7 @@ def close_cashbox(cashbox_id: str, data: CashboxClose, user=Depends(get_current_
             data.notes,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise da_excecao(exc)
 
 
 # ── Admin movements ──
@@ -156,7 +166,7 @@ def register_supply(cashbox_id: str, data: CashboxSupply, user=Depends(get_curre
     try:
         return CashboxService.register_supply(cashbox_id, _auth_user_id(user), data.amount, data.notes)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise da_excecao(exc)
 
 
 @router.post("/{cashbox_id}/sangria", response_model=CashboxTransactionResponse)
@@ -164,4 +174,4 @@ def register_sangria(cashbox_id: str, data: CashboxSangria, user=Depends(get_cur
     try:
         return CashboxService.register_sangria(cashbox_id, _auth_user_id(user), data.amount, data.notes)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise da_excecao(exc)

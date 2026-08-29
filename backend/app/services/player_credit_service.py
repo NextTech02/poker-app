@@ -10,6 +10,7 @@ from app.models.player_credit import (
     PlayerStatementEntry,
 )
 from app.services.transaction_filters import sem_canceladas
+from app.utils.erros import ErroDeNegocio
 
 
 class PlayerCreditService:
@@ -23,12 +24,16 @@ class PlayerCreditService:
         # Validate player exists
         player = supabase.table("players").select("id, name, nickname").eq("id", data.player_id).execute()
         if not player.data:
-            raise ValueError("Jogador não encontrado")
+            raise ErroDeNegocio(
+                "jogador_nao_encontrado", "Jogador não encontrado", status=404
+            )
 
         # Validate sponsor exists
         sponsor = supabase.table("sponsors").select("id, name").eq("id", data.sponsor_id).execute()
         if not sponsor.data:
-            raise ValueError("Patrocinador não encontrado")
+            raise ErroDeNegocio(
+                "patrocinador_nao_encontrado", "Patrocinador não encontrado", status=404
+            )
 
         # Create credit record
         credit_data = {
@@ -193,7 +198,10 @@ class PlayerCreditService:
 
         total_available = sum(float(c["remaining_amount"]) for c in credits)
         if total_available <= 0:
-            raise ValueError("Jogador não possui crédito disponível")
+            # Regra, não "não encontrado": o jogador existe, o saldo é que acabou.
+            raise ErroDeNegocio(
+                "sem_credito_disponivel", "Jogador não possui crédito disponível"
+            )
 
         credit_to_use = min(amount, total_available)
         remaining_to_deduct = credit_to_use
@@ -319,7 +327,9 @@ class PlayerCreditService:
         ).eq("id", credit_id).execute()
 
         if not credit_resp.data:
-            raise ValueError("Crédito não encontrado")
+            raise ErroDeNegocio(
+                "credito_nao_encontrado", "Crédito não encontrado", status=404
+            )
 
         credit = credit_resp.data[0]
         p = credit.pop("players", {}) or {}
@@ -358,11 +368,17 @@ class PlayerCreditService:
         ).eq("id", credit_id).execute()
 
         if not credit_resp.data:
-            raise ValueError("Crédito não encontrado")
+            raise ErroDeNegocio(
+                "credito_nao_encontrado", "Crédito não encontrado", status=404
+            )
 
         credit = credit_resp.data[0]
         if float(credit["used_amount"]) > 0:
-            raise ValueError("Não é possível cancelar um crédito já utilizado")
+            raise ErroDeNegocio(
+                "credito_ja_utilizado",
+                "Não é possível cancelar um crédito já utilizado",
+                status=409,
+            )
 
         p = credit.pop("players", {}) or {}
         s = credit.pop("sponsors", {}) or {}

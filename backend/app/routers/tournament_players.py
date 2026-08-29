@@ -8,6 +8,7 @@ from app.models.tournament_player import (
 )
 from app.services.tournament_player_service import TournamentPlayerService
 from app.auth.jwt import get_current_user
+from app.utils.erros import da_excecao
 
 router = APIRouter(prefix="/tournament-players", tags=["tournament-players"])
 
@@ -22,10 +23,7 @@ def register_player(
     try:
         return TournamentPlayerService.register_player(registration, user_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise da_excecao(e, status=404)
 
 
 @router.post(
@@ -66,10 +64,7 @@ def add_rebuy(
     try:
         return TournamentPlayerService.add_rebuy(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id, quantity=quantity, client_mutation_id=client_mutation_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise da_excecao(e, status=404)
 
 
 @router.post("/{tournament_player_id}/addon", response_model=TournamentPlayer)
@@ -85,10 +80,7 @@ def add_addon(
     try:
         return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise da_excecao(e, status=404)
 
 
 @router.get("/tournament/{tournament_id}", response_model=List[TournamentPlayerDetail])
@@ -132,7 +124,4 @@ def eliminate_player(
     try:
         return TournamentPlayerService.eliminate_player(tournament_player_id, user_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise da_excecao(e, status=404)

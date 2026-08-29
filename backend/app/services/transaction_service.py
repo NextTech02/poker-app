@@ -7,6 +7,7 @@ from app.models.transaction import TransactionCreate, Transaction, TransactionDe
 from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService
 from app.services.transaction_filters import sem_canceladas
+from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,9 @@ class TransactionService:
         """
         resp = supabase.table("transactions").select("*").eq("id", transaction_id).execute()
         if not resp.data:
-            raise ValueError("Transação não encontrada")
+            raise ErroDeNegocio(
+                "transacao_nao_encontrada", "Transação não encontrada", status=404
+            )
         tx = resp.data[0]
         estado = tx.get("status") or "active"
 
@@ -132,16 +135,24 @@ class TransactionService:
             return TransactionService._detalhar(tx)
 
         if tx.get("type") not in TIPOS_ESTORNAVEIS:
-            raise ValueError("Apenas entradas (buy-in, rebuy e add-on) podem ser canceladas")
+            raise ErroDeNegocio(
+                "venda_nao_estornavel",
+                "Apenas entradas (buy-in, rebuy e add-on) podem ser canceladas",
+                tipo=tx.get("type"),
+            )
 
         # Crédito e ticket exigem devolver saldo/bilhete ao jogador, e não existe
         # inversa de PlayerCreditService.use_credit nem "des-resgate" de ticket.
         # Cancelar sem devolver seria confiscar o crédito do jogador.
         origem = tx.get("payment_source") or "cash"
         if origem != "cash":
-            raise ValueError(
+            # A origem vai como dado: a tela precisa dizer SE foi crédito ou
+            # ticket para o admin saber qual saldo ajustar na mão.
+            raise ErroDeNegocio(
+                "venda_com_credito_nao_estornavel",
                 "Venda paga com crédito ou ticket ainda não pode ser cancelada — "
-                "ajuste manualmente o saldo do jogador"
+                "ajuste manualmente o saldo do jogador",
+                origem=origem,
             )
 
         TransactionService._exigir_recompras_canceladas(tx)
@@ -216,8 +227,9 @@ class TransactionService:
                 .execute()
             )
         except Exception as exc:
-            raise ValueError(
-                "Cancelamento indisponível: a migração do banco ainda não foi aplicada."
+            raise ErroDeNegocio(
+                "cancelamento_sem_migracao",
+                "Cancelamento indisponível: a migração do banco ainda não foi aplicada.",
             ) from exc
 
         if marcada.data:
@@ -228,9 +240,15 @@ class TransactionService:
             return atual, None
         # Outro pedido pegou a venda primeiro e está estornando agora: repetir os
         # débitos aqui tiraria o dinheiro do caixa duas vezes.
-        raise ValueError(
+        #
+        # 409 e não 400: o pedido está correto, ele só briga com um estorno que
+        # já está em curso. É o que permite à tela oferecer "recarregar" em vez
+        # de mandar o admin corrigir o que mandou.
+        raise ErroDeNegocio(
+            "cancelamento_em_andamento",
             "Esta venda já está sendo cancelada por outra operação — "
-            "recarregue a tela para ver o resultado"
+            "recarregue a tela para ver o resultado",
+            status=409,
         )
 
     @staticmethod
@@ -285,9 +303,14 @@ class TransactionService:
             if l.get("type") in ("rebuy", "addon") and l.get("id") != tx.get("id")
         ]
         if pendentes:
-            raise ValueError(
+            # A QUANTIDADE também vai como dado: a frase é remontada no idioma
+            # da tela, e o número é o que diz ao admin quantas vendas ele ainda
+            # precisa estornar antes desta.
+            raise ErroDeNegocio(
+                "recompras_ativas_no_buy_in",
                 f"Cancele primeiro as recompras deste jogador — "
-                f"{len(pendentes)} rebuy/add-on ainda ativo(s) nesta inscrição"
+                f"{len(pendentes)} rebuy/add-on ainda ativo(s) nesta inscrição",
+                quantidade=len(pendentes),
             )
 
     @staticmethod
@@ -1098,12 +1121,16 @@ class TransactionService:
         """
         atual = supabase.table("transactions").select("*").eq("id", transaction_id).execute()
         if not atual.data:
-            raise ValueError("Transação não encontrada")
+            raise ErroDeNegocio(
+                "transacao_nao_encontrada", "Transação não encontrada", status=404
+            )
         # Vale também para a venda em 'cancelling': o dinheiro dela já está
         # voltando para o jogador, trocar o rótulo agora só confundiria a
         # conferência da gaveta por forma de pagamento.
         if (atual.data[0].get("status") or "active") != "active":
-            raise ValueError("Venda cancelada não pode ser alterada")
+            raise ErroDeNegocio(
+                "venda_cancelada_nao_alteravel", "Venda cancelada não pode ser alterada"
+            )
 
         dados = {"payment_method": payment_method}
         if notes is not None:

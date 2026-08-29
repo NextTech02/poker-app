@@ -200,7 +200,7 @@ class TestMultiOrganizacao:
         banco.rpcs["accept_org_invite"] = _estoura
         r = client.post("/organizations/invites/s9/accept")
         assert r.status_code == 409
-        assert "limite de usuários" in r.json()["detail"]
+        assert "limite de usuários" in r.json()["detail"]["message"]
 
     def test_convite_ja_respondido_da_404(self, client, banco):
         def _estoura(_):
@@ -235,7 +235,7 @@ class TestMultiOrganizacao:
         banco.rpcs["set_active_organization"] = _estoura
         r = client.post("/organizations/switch", json={"organization_id": "outra"})
         assert r.status_code == 403
-        assert "não pertence" in r.json()["detail"]
+        assert "não pertence" in r.json()["detail"]["message"]
 
     def test_mensagem_de_erro_e_diferente_para_o_platform_admin(self, admin, banco):
         """Ele PODE entrar em qualquer org ativa; se falhou, o motivo é outro."""
@@ -243,7 +243,7 @@ class TestMultiOrganizacao:
             raise Exception("inativa")
         banco.rpcs["set_active_organization"] = _estoura
         r = admin.post("/organizations/switch", json={"organization_id": "outra"})
-        assert "inexistente ou inativa" in r.json()["detail"]
+        assert "inexistente ou inativa" in r.json()["detail"]["message"]
 
 
 class _RespostaFalsa:
@@ -325,7 +325,7 @@ class TestCriacao:
         monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(429))
         r = admin.post("/organizations", json=self._corpo())
         assert r.status_code == 400
-        assert "SMTP" in r.json()["detail"]
+        assert "SMTP" in r.json()["detail"]["message"]
 
     def test_usuario_ja_existente_no_auth_e_reaproveitado(self, admin, banco, monkeypatch):
         monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(422))

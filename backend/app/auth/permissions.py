@@ -16,10 +16,11 @@ Semantics (mirrors PermissionContext.hasPermission on the frontend):
   - Com vinculo ativo: precisa ter ao menos uma das permissoes exigidas.
 """
 from typing import Iterable
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 
 from app.auth.jwt import get_current_user
 from app.services.staff_service import StaffService
+from app.utils.erros import sem_permissao
 
 
 def require_permission(*required: str):
@@ -34,9 +35,12 @@ def require_permission(*required: str):
             return current_user
         if required_set & set(perms.permissions or []):
             return current_user
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Você não tem permissão para acessar este recurso.",
+        # Duas das recusas mais vistas do sistema — e as duas chegavam em
+        # português na tela de um operador peruano ou colombiano. O `code` deixa
+        # a tela escolher a frase; o `message` continua valendo de reserva.
+        raise sem_permissao(
+            "sem_permissao",
+            "Você não tem permissão para acessar este recurso.",
         )
 
     return _dependency
@@ -56,9 +60,9 @@ def forbid_permission(*forbidden: str):
         user_perms = set(perms.permissions or [])
         # If the user has ONLY forbidden perms (no other access), block.
         if user_perms and user_perms.issubset(forbidden_set):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acesso não permitido para este perfil.",
+            raise sem_permissao(
+                "perfil_sem_acesso",
+                "Acesso não permitido para este perfil.",
             )
         return current_user
 

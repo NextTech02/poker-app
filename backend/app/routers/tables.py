@@ -3,6 +3,8 @@ from typing import List
 from app.models.table import TableCreate, TableUpdate, Table
 from app.services.table_service import TableService
 from app.auth import get_current_user
+# Recusas com CODIGO para a tela traduzir (ver app/utils/erros.py).
+from app.utils.erros import da_excecao, nao_encontrado, recusado
 
 router = APIRouter(prefix="/tables", tags=["tables"])
 
@@ -19,7 +21,7 @@ def create_table(
     try:
         return TableService.create_table(tournament_id, table_data)
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise da_excecao(e, "criacao_de_mesa_recusada")
 
 
 @router.post("/tournament/{tournament_id}/bulk", response_model=List[Table], status_code=status.HTTP_201_CREATED)
@@ -31,13 +33,23 @@ def create_multiple_tables(
 ):
     """Create multiple tables at once"""
     try:
+        # Os limites vao TAMBEM como dado nomeado: a tela monta "entre 1 e
+        # 50" no idioma dela sem depender da frase em ingles.
         if count < 1 or count > 50:
-            raise ValueError("Count must be between 1 and 50")
+            raise recusado(
+                "quantidade_de_mesas_invalida",
+                "Count must be between 1 and 50",
+                minimo=1, maximo=50,
+            )
         if seats < 1 or seats > 10:
-            raise ValueError("Seats must be between 1 and 10")
+            raise recusado(
+                "lugares_por_mesa_invalido",
+                "Seats must be between 1 and 10",
+                minimo=1, maximo=10,
+            )
         return TableService.create_multiple_tables(tournament_id, count, seats)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise da_excecao(e, "criacao_de_mesas_recusada")
 
 
 @router.get("/tournament/{tournament_id}", response_model=List[Table])
@@ -72,13 +84,13 @@ def create_table_for_day(
         from app.database import supabase
         day = supabase.table("tournament_days").select("tournament_id").eq("id", day_id).single().execute()
         if not day.data:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Day not found")
+            raise nao_encontrado("dia_nao_encontrado", "Day not found")
         tournament_id = day.data["tournament_id"]
         return TableService.create_table(tournament_id, table_data, tournament_day_id=day_id)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise da_excecao(e, "criacao_de_mesa_recusada")
 
 
 @router.post("/day/{day_id}/bulk", response_model=List[Table], status_code=status.HTTP_201_CREATED)
@@ -90,20 +102,30 @@ def create_multiple_tables_for_day(
 ):
     """Create multiple tables scoped to a tournament day"""
     try:
+        # Os limites vao TAMBEM como dado nomeado: a tela monta "entre 1 e
+        # 50" no idioma dela sem depender da frase em ingles.
         if count < 1 or count > 50:
-            raise ValueError("Count must be between 1 and 50")
+            raise recusado(
+                "quantidade_de_mesas_invalida",
+                "Count must be between 1 and 50",
+                minimo=1, maximo=50,
+            )
         if seats < 1 or seats > 10:
-            raise ValueError("Seats must be between 1 and 10")
+            raise recusado(
+                "lugares_por_mesa_invalido",
+                "Seats must be between 1 and 10",
+                minimo=1, maximo=10,
+            )
         from app.database import supabase
         day = supabase.table("tournament_days").select("tournament_id").eq("id", day_id).single().execute()
         if not day.data:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Day not found")
+            raise nao_encontrado("dia_nao_encontrado", "Day not found")
         tournament_id = day.data["tournament_id"]
         return TableService.create_multiple_tables(tournament_id, count, seats, tournament_day_id=day_id)
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise da_excecao(e, "criacao_de_mesas_recusada")
 
 
 @router.get("/day/{day_id}", response_model=List[Table])
@@ -134,7 +156,7 @@ def get_table(
     """Get a specific table"""
     table = TableService.get_table(table_id)
     if not table:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
+        raise nao_encontrado("mesa_nao_encontrada", "Table not found")
     return table
 
 
@@ -147,7 +169,7 @@ def update_table(
     """Update table information"""
     table = TableService.update_table(table_id, update_data)
     if not table:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
+        raise nao_encontrado("mesa_nao_encontrada", "Table not found")
     return table
 
 
@@ -160,9 +182,9 @@ def delete_table(
     try:
         success = TableService.delete_table(table_id)
         if not success:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
+            raise nao_encontrado("mesa_nao_encontrada", "Table not found")
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise da_excecao(e, "exclusao_de_mesa_recusada")
 
 
 @router.post("/{table_id}/break", response_model=Table)
@@ -173,5 +195,5 @@ def break_table(
     """Mark table as broken"""
     table = TableService.break_table(table_id)
     if not table:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found")
+        raise nao_encontrado("mesa_nao_encontrada", "Table not found")
     return table

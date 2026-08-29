@@ -2,6 +2,11 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, date
 
+# ErroDeNegocio herda de ValueError, entao quem ja capturava ValueError aqui
+# continua capturando — o que muda e a recusa levar um CODIGO, para a tela
+# escolher a frase no idioma do clube (ver app/utils/erros.py).
+from app.utils.erros import ErroDeNegocio
+
 # Mensagens das regras de data da etapa. Ficam aqui, num lugar só, porque o
 # router e o service precisam devolver EXATAMENTE o mesmo texto ao operador.
 MSG_FIM_ANTES_DO_INICIO = (
@@ -19,7 +24,7 @@ def validar_ordem_das_datas(inicio: Optional[date], fim: Optional[date]) -> None
     opcional, porque o circuito pode estar em aberto.
     """
     if inicio and fim and fim < inicio:
-        raise ValueError(MSG_FIM_ANTES_DO_INICIO)
+        raise ErroDeNegocio("etapa_fim_antes_do_inicio", MSG_FIM_ANTES_DO_INICIO)
 
 
 def validar_datas_da_etapa(inicio: Optional[date], fim: Optional[date]) -> None:
@@ -33,7 +38,7 @@ def validar_datas_da_etapa(inicio: Optional[date], fim: Optional[date]) -> None:
     rotas (POST e PATCH) devolvem 400 com `detail` em texto simples.
     """
     if inicio is None:
-        raise ValueError(MSG_INICIO_OBRIGATORIO)
+        raise ErroDeNegocio("etapa_sem_data_de_inicio", MSG_INICIO_OBRIGATORIO)
     validar_ordem_das_datas(inicio, fim)
 
 

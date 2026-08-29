@@ -7,6 +7,11 @@ from app.database import supabase
 # Venda estornada não entregou ficha nenhuma: contá-la infla o chipcount do
 # telão com fichas que voltaram para o caixa.
 from app.services.transaction_filters import ler_transacoes_ativas
+# Recusa de REGRA com codigo. Herda de ValueError, entao todo
+# `except ValueError` que ja existe nos routers continua pegando — o que
+# muda e a tela receber um `code` para escolher a frase no idioma do clube
+# (ver app/utils/erros.py).
+from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -57,7 +62,7 @@ class TournamentDayService:
         import secrets
         d = supabase.table("tournament_days").select("id, broadcast_code").eq("id", day_id).execute()
         if not d.data:
-            raise ValueError("Dia não encontrado")
+            raise ErroDeNegocio("dia_nao_encontrado", "Dia não encontrado", status=404)
         code = d.data[0].get("broadcast_code")
         if code:
             return code
@@ -72,19 +77,30 @@ class TournamentDayService:
             cur = supabase.table("tournament_days").select("broadcast_code").eq("id", day_id).execute()
             if cur.data and cur.data[0].get("broadcast_code"):
                 return cur.data[0]["broadcast_code"]
-        raise ValueError("Não foi possível gerar o código")
+        # 409 e nao 404: o dia existe, o que falhou foi achar um codigo livre
+        # depois de 12 colisoes no indice UNIQUE. Dizer "nao encontrado"
+        # mandava o operador procurar um dia que esta ali.
+        raise ErroDeNegocio(
+            "codigo_de_tv_nao_gerado",
+            "Não foi possível gerar o código",
+            status=409,
+        )
 
     @staticmethod
     def resolve_broadcast_code(code: str) -> dict:
         """Resolve o código público → o DIA exato (e seu torneio) a exibir."""
         code = (code or "").strip().upper()
         if not code:
-            raise ValueError("Código inválido")
+            raise ErroDeNegocio(
+                "codigo_de_tv_invalido", "Código inválido", status=404
+            )
         d = supabase.table("tournament_days") \
             .select("id, day_name, tournament_id, tournaments(name)") \
             .eq("broadcast_code", code).execute()
         if not d.data:
-            raise ValueError("Código inválido")
+            raise ErroDeNegocio(
+                "codigo_de_tv_invalido", "Código inválido", status=404
+            )
         day = d.data[0]
         tour = day.get("tournaments") or {}
         return {
@@ -610,18 +626,28 @@ class TournamentDayService:
         # Get the qualifying day
         qualifying_day = TournamentDayService.get_tournament_day(qualifying_day_id)
         if not qualifying_day:
-            raise ValueError("Dia classificatório não encontrado")
+            raise ErroDeNegocio(
+                "dia_classificatorio_nao_encontrado",
+                "Dia classificatório não encontrado",
+                status=404,
+            )
 
         if qualifying_day.day_type != "qualifying":
-            raise ValueError("Este dia não é um dia classificatório")
+            raise ErroDeNegocio(
+                "dia_nao_e_classificatorio", "Este dia não é um dia classificatório"
+            )
 
         if not qualifying_day.qualifies_to_day_id:
-            raise ValueError("Este dia não tem um dia final vinculado")
+            raise ErroDeNegocio(
+                "dia_sem_final_vinculada", "Este dia não tem um dia final vinculado"
+            )
 
         # Get the final day
         final_day = TournamentDayService.get_tournament_day(qualifying_day.qualifies_to_day_id)
         if not final_day:
-            raise ValueError("Dia final não encontrado")
+            raise ErroDeNegocio(
+                "dia_final_nao_encontrado", "Dia final não encontrado", status=404
+            )
 
         sobreviventes = TournamentDayService.get_survivors(qualifying_day_id)
         # A coluna final_chip_count pode não existir num banco ainda não migrado.
@@ -677,7 +703,10 @@ class TournamentDayService:
         survivors_count = max(0, registered - eliminations_count)
 
         if survivors_count <= 0:
-            raise ValueError("Nenhum sobrevivente para avançar (todos eliminados)")
+            raise ErroDeNegocio(
+                "sem_sobreviventes_para_avancar",
+                "Nenhum sobrevivente para avançar (todos eliminados)",
+            )
 
         total_chips, total_entries, _reentradas = TournamentDayService._entradas_do_dia(qualifying_day)
 
@@ -747,9 +776,14 @@ class TournamentDayService:
         if sem_fichas:
             # Avançar sem as fichas contadas produziria um dia final com stacks
             # zerados — o erro tem que aparecer ANTES de criar as linhas.
-            raise ValueError(
+            # Os dois numeros vao TAMBEM como dado nomeado: a tela remonta
+            # "2 de 5" no idioma dela sem depender da frase pronta.
+            raise ErroDeNegocio(
+                "fichas_dos_classificados_faltando",
                 f"Registre as fichas de todos os classificados antes de avançar "
-                f"({len(sem_fichas)} de {len(sobreviventes)} sem fichas registradas)"
+                f"({len(sem_fichas)} de {len(sobreviventes)} sem fichas registradas)",
+                sem_fichas=len(sem_fichas),
+                total=len(sobreviventes),
             )
 
         # Idempotência: quem já tem linha no dia final não entra de novo.
@@ -881,7 +915,9 @@ class TournamentDayService:
         # Get the final day
         final_day = TournamentDayService.get_tournament_day(final_day_id)
         if not final_day:
-            raise ValueError("Dia final não encontrado")
+            raise ErroDeNegocio(
+                "dia_final_nao_encontrado", "Dia final não encontrado", status=404
+            )
 
         # Get all qualifying days that point to this final day
         qualifying_days_response = supabase.table("tournament_days")\
@@ -1010,7 +1046,7 @@ class TournamentDayService:
         """Get detailed statistics for a single qualifying day"""
         day = TournamentDayService.get_tournament_day(day_id)
         if not day:
-            raise ValueError("Dia não encontrado")
+            raise ErroDeNegocio("dia_nao_encontrado", "Dia não encontrado", status=404)
 
         # Get all players for this day
         players_response = supabase.table("tournament_players")\
@@ -1061,7 +1097,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         was_active = day.status == "active"
 
@@ -1089,7 +1127,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         # Calculate current elapsed time
         if day.timer_started_at and not day.is_paused:
@@ -1116,7 +1156,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         # If timer is running, materialize the current elapsed time
         current_elapsed = day.elapsed_time or 0
@@ -1148,10 +1190,14 @@ class TournamentDayService:
         """Set current blind level"""
         day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         if level < 1:
-            raise ValueError("Level must be at least 1")
+            raise ErroDeNegocio(
+                "nivel_minimo_de_blind", "Level must be at least 1", minimo=1
+            )
 
         response = supabase.table("tournament_days")\
             .update({"current_level": level})\
@@ -1166,7 +1212,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         new_level = day.current_level + 1
         blinds = TournamentDayService._get_all_blinds(day_id, day.tournament_id)
@@ -1195,7 +1243,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         new_level = max(1, day.current_level - 1)
         blinds = TournamentDayService._get_all_blinds(day_id, day.tournament_id)
@@ -1224,7 +1274,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         response = supabase.table("tournament_days")\
             .update({
@@ -1245,7 +1297,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         # One players scan feeds both active count and total_entries (so we don't
         # depend on day.total_entries — the day may be fetched without that scan)
@@ -1412,7 +1466,9 @@ class TournamentDayService:
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         # Get all blinds sorted by level
         blinds = TournamentDayService._get_all_blinds(day_id, day.tournament_id)
@@ -1549,7 +1605,9 @@ class TournamentDayService:
         """Adjust eliminations counter. Positive = add eliminations, negative = undo."""
         day = TournamentDayService.get_tournament_day(day_id)
         if not day:
-            raise ValueError("Tournament day not found")
+            raise ErroDeNegocio(
+                "dia_nao_encontrado", "Tournament day not found", status=404
+            )
 
         current = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
         new_count = max(0, current + count)

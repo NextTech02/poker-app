@@ -11,6 +11,8 @@ from ..models.blind_template import (
     ApplyTemplateRequest
 )
 from ..models.blind import BlindResponse
+# Recusas com CODIGO para a tela traduzir (ver app/utils/erros.py).
+from ..utils.erros import da_excecao, nao_encontrado
 
 router = APIRouter(prefix="/blind-templates", tags=["blind-templates"])
 
@@ -33,9 +35,8 @@ async def get_template(
     """Get a specific blind template by ID."""
     template = BlindTemplateService.get_template(str(template_id))
     if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Template not found"
+        raise nao_encontrado(
+            "template_de_blinds_nao_encontrado", "Template not found"
         )
     return template
 
@@ -65,9 +66,8 @@ async def update_template(
     """Update an existing blind template."""
     template = BlindTemplateService.update_template(str(template_id), template_update)
     if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Template not found"
+        raise nao_encontrado(
+            "template_de_blinds_nao_encontrado", "Template not found"
         )
     return template
 
@@ -80,9 +80,8 @@ async def delete_template(
     """Delete a blind template."""
     success = BlindTemplateService.delete_template(str(template_id))
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Template not found"
+        raise nao_encontrado(
+            "template_de_blinds_nao_encontrado", "Template not found"
         )
     return None
 
@@ -101,10 +100,7 @@ async def apply_template(
         )
         return blinds
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise da_excecao(e, "template_de_blinds_nao_encontrado", status=404)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -133,10 +129,7 @@ async def save_blinds_as_template(
             user_id=user_id
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "template_de_blinds_recusado")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

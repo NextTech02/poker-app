@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import Header, HTTPException, Depends
 from .auth.jwt import get_current_user
 from .database.supabase_client import supabase
+from .utils.erros import sem_permissao
 
 
 def get_org_id(current_user: dict = Depends(get_current_user)) -> str:
@@ -19,9 +20,12 @@ def get_org_id(current_user: dict = Depends(get_current_user)) -> str:
     """
     org_id = current_user.get("organization_id")
     if not org_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Sua conta não está vinculada a nenhuma organização.",
+        # Recusa estruturada: a conta sem vínculo aparece no primeiro acesso de
+        # quem foi convidado e ainda não aceitou — quem lê isso pode estar em
+        # Lima ou em Medellín, então quem escolhe a frase é a tela.
+        raise sem_permissao(
+            "conta_sem_organizacao",
+            "Sua conta não está vinculada a nenhuma organização.",
         )
     return org_id
 

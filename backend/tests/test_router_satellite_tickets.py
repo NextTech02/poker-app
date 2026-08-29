@@ -92,7 +92,7 @@ class TestQuemPodeEmitirEmLote:
         stub(T, create_tickets_bulk=_estoura)
         r = client.post("/satellite-tickets/bulk", json=CORPO_LOTE)
         assert r.status_code == 400
-        assert "não pertence" in r.json()["detail"]
+        assert "não pertence" in r.json()["detail"]["message"]
 
 
 class TestEscritaExigePermissao:
@@ -158,7 +158,7 @@ class TestTransferencia:
         r = client.post("/satellite-tickets/tk1/transfer",
                         json={"to_player_id": "p9", "amount": 250})
         assert r.status_code == 400
-        assert "etapa" in r.json()["detail"]
+        assert "etapa" in r.json()["detail"]["message"]
 
     def test_perfil_de_sangeur_nao_transfere(self, client, monkeypatch, stub):
         stub(T, transfer_ticket=lambda *a, **k: _ticket())

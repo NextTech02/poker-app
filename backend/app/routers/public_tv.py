@@ -1,7 +1,10 @@
 """Rotas PÚBLICAS (sem auth) para exibição de blinds em TVs via código."""
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 
 from app.services.tournament_day_service import TournamentDayService
+# A TV do salao e publica, mas a recusa ainda e lida por quem a instala:
+# vai com `code` para a tela escolher a frase (ver app/utils/erros.py).
+from app.utils.erros import da_excecao
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -13,4 +16,4 @@ def resolve_tv_code(code: str):
     try:
         return TournamentDayService.resolve_broadcast_code(code)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise da_excecao(e, "codigo_de_tv_invalido", status=404)

@@ -121,9 +121,20 @@ const CaixaGeral = () => {
       setRake(rakeRes.data);
     } catch (error) {
       console.error('Erro ao carregar dados gerais:', error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      /* 401 e 403 dizem coisas diferentes, e tratá-los igual expulsava gente
+         que estava perfeitamente logada: o perfil Sangeur não tem acesso ao
+         caixa geral (o router inteiro roda sob `forbid_permission('sangi')`),
+         recebia 403 e era MANDADO PARA O LOGIN — onde entrava de novo, clicava
+         de novo e era expulso de novo.
+
+         401 é sessão que não vale mais: aí sim, login.
+         403 é "você está logado, isto não é para o seu perfil": mensagem. */
+      const status = error.response?.status;
+      if (status === 401) {
         toast.error(t('generalCash.sessionExpired'));
         window.location.href = '/login';
+      } else if (status === 403) {
+        toast.error(error.userMessage || t('generalCash.noAccess', 'Seu perfil não tem acesso ao caixa geral.'));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

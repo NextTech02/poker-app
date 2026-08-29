@@ -22,6 +22,10 @@ from app.services.tournament_service import (
 )
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
+# Recusas com CODIGO: o operador colombiano nao pode ler a frase em portugues
+# no meio da operacao — quem escolhe o idioma e a tela, pelo `code`
+# (ver app/utils/erros.py).
+from app.utils.erros import conflito, da_excecao, nao_encontrado, sem_permissao
 
 
 class SalesBlockToggle(BaseModel):
@@ -62,14 +66,11 @@ def _validate_day_for_timer(day_id: str, stage_id: Optional[str]) -> TournamentD
     validation that ran on every timer command/poll."""
     day, day_stage_id = TournamentDayService.get_day_with_stage(day_id)
     if not day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
     if stage_id and day_stage_id != stage_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Tournament day does not belong to the selected stage"
+        raise sem_permissao(
+            "dia_fora_da_etapa",
+            "Tournament day does not belong to the selected stage",
         )
     return day
 
@@ -87,15 +88,18 @@ def create_tournament_day(
     # Validate that the tournament exists and belongs to the stage if stage_id is provided
     tournament = TournamentService.get_tournament(day_data.tournament_id)
     if not tournament:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Tournament with id {day_data.tournament_id} not found"
+        # O id vai TAMBEM como dado nomeado: a tela remonta a frase no idioma
+        # dela e mesmo assim consegue dizer de qual torneio se fala.
+        raise nao_encontrado(
+            "torneio_nao_encontrado",
+            f"Tournament with id {day_data.tournament_id} not found",
+            tournament_id=day_data.tournament_id,
         )
 
     if stage_id and tournament.stage_id != stage_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Tournament does not belong to the selected stage"
+        raise sem_permissao(
+            "torneio_fora_da_etapa",
+            "Tournament does not belong to the selected stage",
         )
 
     return TournamentDayService.create_tournament_day(day_data)
@@ -174,15 +178,12 @@ def get_days_by_tournament(
     # Validate tournament exists and belongs to stage if stage_id is provided
     tournament = TournamentService.get_tournament(tournament_id)
     if not tournament:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament not found"
-        )
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
 
     if stage_id and tournament.stage_id != stage_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Tournament does not belong to the selected stage"
+        raise sem_permissao(
+            "torneio_fora_da_etapa",
+            "Tournament does not belong to the selected stage",
         )
 
     return TournamentDayService.get_days_by_tournament(tournament_id)
@@ -195,7 +196,7 @@ def get_day_broadcast_code(day_id: str, current_user: dict = Depends(get_current
         code = TournamentDayService.get_or_create_broadcast_code(day_id)
         return {"code": code}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise da_excecao(e, "dia_nao_encontrado", status=404)
 
 
 @router.get("/{day_id}", response_model=TournamentDay)
@@ -209,18 +210,18 @@ def get_tournament_day(
     """
     day = TournamentDayService.get_tournament_day(day_id)
     if not day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     # Validate tournament belongs to stage if stage_id is provided
     if stage_id:
         tournament = TournamentService.get_tournament(day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     return day
@@ -240,25 +241,22 @@ def update_tournament_day(
     # Validate day exists and belongs to stage if stage_id is provided
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     day = TournamentDayService.update_tournament_day(day_id, day_data)
     if not day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
     return day
 
 
@@ -292,25 +290,22 @@ def get_tournament_day_delete_impact(
     inscrição e de venda."""
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     impacto = TournamentDayService.get_delete_impact(day_id)
     if impacto is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
     return impacto
 
 
@@ -342,34 +337,31 @@ def delete_tournament_day(
     # Validate day exists and belongs to stage if stage_id is provided
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     try:
         success = TournamentDayService.delete_tournament_day(day_id)
     except MovimentoFinanceiroImpedeExclusao as recusa:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "message": recusa.mensagem,
-                "impact": recusa.impacto.model_dump(),
-            },
+        # `impact` continua no corpo (a tela repete os numeros na recusa) e o
+        # `code` entra ao lado, para ela traduzir a frase.
+        raise conflito(
+            "dia_com_movimento_financeiro",
+            recusa.mensagem,
+            impact=recusa.impacto.model_dump(),
         )
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
 
 @router.get("/{day_id}/survivors", response_model=List[dict])
@@ -385,17 +377,17 @@ def get_day_survivors(
     # Validate day exists
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     return TournamentDayService.get_survivors(day_id)
@@ -422,27 +414,24 @@ def advance_qualifiers(
     # Validate day exists
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     try:
         result = TournamentDayService.advance_qualifiers(day_id)
         return result
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "avanco_de_classificados_recusado")
 
 
 @router.patch("/{day_id}/player-chips/{player_id}")
@@ -460,24 +449,25 @@ def update_player_chips(
     # Validate day exists
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     success = TournamentDayService.update_player_chips(day_id, player_id, chip_count)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found in this day"
+        raise nao_encontrado(
+            "jogador_nao_encontrado_no_dia",
+            "Player not found in this day",
+            player_id=player_id,
         )
 
     return {"success": True, "player_id": player_id, "chip_count": chip_count}
@@ -497,17 +487,17 @@ def bulk_update_chips(
     # Validate day exists
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     updates = [{"player_id": u.player_id, "chip_count": u.chip_count} for u in data.updates]
@@ -529,26 +519,23 @@ def get_day_stats(
     # Validate day exists
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     try:
         return TournamentDayService.get_qualifying_day_stats(day_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "estatisticas_do_dia_recusadas")
 
 
 @router.get("/{day_id}/aggregated-stats", response_model=FinalDayAggregatedStats)
@@ -571,26 +558,23 @@ def get_final_day_aggregated_stats(
     # Validate day exists
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     try:
         return TournamentDayService.get_final_day_aggregated_stats(day_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "estatisticas_agregadas_recusadas")
 
 
 # ================================================
@@ -613,10 +597,7 @@ def start_tournament_timer(
         result = TournamentDayService.start_timer(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
 
 
 @router.post("/{day_id}/timer/pause")
@@ -635,10 +616,7 @@ def pause_tournament_timer(
         result = TournamentDayService.pause_timer(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
 
 
 @router.post("/{day_id}/timer/adjust")
@@ -658,10 +636,7 @@ def adjust_tournament_timer(
         result = TournamentDayService.adjust_timer(day_id, adjustment.seconds, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
 
 
 @router.post("/{day_id}/timer/next-level")
@@ -679,10 +654,7 @@ def next_blind_level(
         result = TournamentDayService.next_level(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
 
 
 @router.post("/{day_id}/timer/prev-level")
@@ -701,10 +673,7 @@ def previous_blind_level(
         result = TournamentDayService.previous_level(day_id, day=day)
         return {"success": True, "data": result}
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
 
 
 @router.post("/{day_id}/timer/reset")
@@ -723,10 +692,7 @@ def reset_tournament_timer(
         result = TournamentDayService.reset_timer(day_id, day=day)
         return {"success": True, "message": "Timer reset successfully", "data": result}
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
 
 
 @router.get("/{day_id}/timer/status", response_model=TimerStatus)
@@ -743,10 +709,7 @@ def get_tournament_timer_status(
     try:
         return TournamentDayService.get_timer_status(day_id, day=day)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
 
 
 @router.get("/{day_id}/timer/status-enriched")
@@ -771,10 +734,7 @@ def get_tournament_timer_status_enriched(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "comando_do_relogio_recusado")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -796,27 +756,24 @@ def adjust_eliminations(
     """
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     try:
         result = TournamentDayService.adjust_eliminations(day_id, data.count)
         return {"success": True, **result}
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise da_excecao(e, "ajuste_de_eliminacoes_recusado")
 
 
 @router.post(
@@ -854,27 +811,29 @@ def set_day_sales_block(
 
     user_id = current_user.get("sub")
     if not CashboxService.can_admin(user_id):
-        raise HTTPException(status_code=403, detail="Sem permissão para bloquear vendas")
+        raise sem_permissao(
+            "sem_permissao_bloquear_vendas", "Sem permissão para bloquear vendas"
+        )
 
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     try:
         return SalesBlockService.set_day_block(day_id, data.blocked, data.reason, user_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e, "bloqueio_de_vendas_recusado")
 
 
 @router.post("/{day_id}/tables-lock")
@@ -889,17 +848,17 @@ def toggle_tables_lock(
     """
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     from app.database import supabase
@@ -922,17 +881,17 @@ def list_day_buy_types(
     """Lista os meios de entrada do dia, na ordem de exibição do Caixa."""
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     return BuyTypeService.listar(day_id)
@@ -967,17 +926,17 @@ def replace_day_buy_types(
     """
     existing_day = TournamentDayService.get_tournament_day(day_id)
     if not existing_day:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tournament day not found"
-        )
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
 
     if stage_id:
         tournament = TournamentService.get_tournament(existing_day.tournament_id)
         if tournament and tournament.stage_id != stage_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Tournament day does not belong to the selected stage"
+            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
+            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
+            # de proposito — o que a tela traduz e o codigo.
+            raise sem_permissao(
+                "dia_fora_da_etapa",
+                "Tournament day does not belong to the selected stage",
             )
 
     try:
@@ -985,4 +944,4 @@ def replace_day_buy_types(
             day_id, [item.model_dump() for item in data.items]
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e, "meios_de_entrada_recusados")

@@ -145,7 +145,13 @@ class TestImportacaoDeJogadores:
         stub(PIS, importar=_estoura)
         r = client.post("/players/import", json={"rows": [self.LINHA]})
         assert r.status_code == 409
-        assert r.json()["detail"] == "seu plano permite 100 jogadores"
+        # A frase segue em português na `message` (reserva) e os números vão
+        # também em `detalhe`, para a tela remontar a frase no idioma dela.
+        assert r.json()["detail"] == {
+            "code": "limite_de_clientes_do_plano",
+            "message": "seu plano permite 100 jogadores",
+            "detalhe": "seu plano permite 100 jogadores",
+        }
 
     def test_outro_erro_da_400(self, client, stub):
         def _estoura(org, linhas):
@@ -485,4 +491,6 @@ class TestTvPublica:
         stub(TDS, resolve_broadcast_code=_estoura)
         r = client.get("/public/tv/ZZZZZZ")
         assert r.status_code == 404
-        assert r.json() == {"detail": "Código não encontrado"}
+        # `detail` estruturado: a tela da TV escolhe a frase pelo `code`.
+        assert r.json()["detail"]["code"] == "codigo_de_tv_invalido"
+        assert r.json()["detail"]["message"] == "Código não encontrado"

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from app.models.stage import (
@@ -12,6 +12,9 @@ from app.services.stage_service import StageService
 from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService
 from app.auth.jwt import get_current_user
+# O `detail` vai estruturado (code + message) para a tela do Peru e da
+# Colombia nao exibir a frase em portugues — ver app/utils/erros.py.
+from app.utils.erros import da_excecao, nao_encontrado, sem_permissao
 
 # Mensagem 404 de etapa inexistente, igual em todas as rotas de etapa.
 ETAPA_NAO_ENCONTRADA = "Stage not found"
@@ -50,15 +53,17 @@ def set_stage_sales_block(
     """
     user_id = current_user.get("sub")
     if not CashboxService.can_admin(user_id):
-        raise HTTPException(status_code=403, detail="Sem permissão para bloquear vendas")
+        raise sem_permissao(
+            "sem_permissao_bloquear_vendas", "Sem permissão para bloquear vendas"
+        )
 
     if not StageService.get_stage(stage_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ETAPA_NAO_ENCONTRADA)
+        raise nao_encontrado("etapa_nao_encontrada", ETAPA_NAO_ENCONTRADA)
 
     try:
         return SalesBlockService.set_stage_block(stage_id, data.blocked, data.reason, user_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise da_excecao(e, "bloqueio_de_vendas_recusado")
 
 
 @router.post(
@@ -73,9 +78,10 @@ def create_stage(
     try:
         return StageService.create_stage(stage)
     except ValueError as e:
-        # Mesma tradução da edição: 400 com `detail` em texto simples, para a
-        # tela de Etapas exibir a frase em português direto.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        # Mesma tradução da edição: 400 com `code` + `message`, para a tela de
+        # Etapas escolher a frase pelo código (e cair na frase em português
+        # enquanto não conhecer um código recém-criado).
+        raise da_excecao(e, "datas_da_etapa_invalidas")
 
 
 @router.get("", response_model=List[StageSummary])
@@ -95,10 +101,7 @@ def get_stage(
     """Get a specific stage by ID"""
     stage = StageService.get_stage(stage_id)
     if not stage:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ETAPA_NAO_ENCONTRADA
-        )
+        raise nao_encontrado("etapa_nao_encontrada", ETAPA_NAO_ENCONTRADA)
     return stage
 
 
@@ -116,14 +119,12 @@ def update_stage(
     try:
         updated_stage = StageService.update_stage(stage_id, stage)
     except ValueError as e:
-        # Regra de data violada. 400 (e não 422) para o texto chegar em
-        # `detail` como string simples e a tela conseguir mostrá-lo direto.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        # Regra de data violada. 400 (e não 422) porque o 422 do Pydantic traz
+        # `detail` em LISTA, que a tela não sabe ler; aqui ela recebe
+        # `code` + `message`.
+        raise da_excecao(e, "datas_da_etapa_invalidas")
     if not updated_stage:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ETAPA_NAO_ENCONTRADA
-        )
+        raise nao_encontrado("etapa_nao_encontrada", ETAPA_NAO_ENCONTRADA)
     return updated_stage
 
 
@@ -139,7 +140,7 @@ def get_stage_delete_impact(
     """
     impacto = StageService.get_delete_impact(stage_id)
     if impacto is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ETAPA_NAO_ENCONTRADA)
+        raise nao_encontrado("etapa_nao_encontrada", ETAPA_NAO_ENCONTRADA)
     return impacto
 
 
@@ -155,7 +156,7 @@ def archive_stage(
     """
     etapa = StageService.archive_stage(stage_id)
     if not etapa:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ETAPA_NAO_ENCONTRADA)
+        raise nao_encontrado("etapa_nao_encontrada", ETAPA_NAO_ENCONTRADA)
     return etapa
 
 
@@ -172,10 +173,7 @@ def delete_stage(
     try:
         success = StageService.delete_stage(stage_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        raise da_excecao(e, "etapa_com_movimento_financeiro", status=409)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ETAPA_NAO_ENCONTRADA
-        )
+        raise nao_encontrado("etapa_nao_encontrada", ETAPA_NAO_ENCONTRADA)
     return None

@@ -1,6 +1,8 @@
+import logging
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.database import supabase
+from app.utils.erros import ErroDeNegocio
 from app.models.satellite_ticket import (
     TicketBulkCreate,
     TicketBulkResult,
@@ -19,6 +21,14 @@ from app.models.satellite_ticket import (
 # começa por uma migração que já está aplicada.
 # Erro levantado quando o ticket informado não existe (ou não pertence à etapa).
 TICKET_NAO_ENCONTRADO = "Ticket não encontrado"
+
+logger = logging.getLogger(__name__)
+
+
+def _ticket_nao_encontrado() -> ErroDeNegocio:
+    """404 e não 400: o ticket não existe (ou é de outra organização, que para
+    quem pergunta dá no mesmo). Repetido em resgatar, cancelar e transferir."""
+    return ErroDeNegocio("ticket_nao_encontrado", TICKET_NAO_ENCONTRADO, status=404)
 
 _SINAIS_DE_TABELA_AUSENTE = (
     "undefined_table",
@@ -83,7 +93,9 @@ class SatelliteTicketService:
         player = supabase.table("players").select("name, nickname") \
             .eq("id", data.player_id).execute()
         if not player.data:
-            raise ValueError("Jogador não encontrado")
+            raise ErroDeNegocio(
+                "jogador_nao_encontrado", "Jogador não encontrado", status=404
+            )
 
         # Legacy column `satellite_name` is still NOT NULL until the
         # `database_migration_ticket_simplified.sql` migration runs in prod.
@@ -155,15 +167,22 @@ class SatelliteTicketService:
         target = supabase.table("tournaments").select("name") \
             .eq("id", data.target_tournament_id).execute()
         if not target.data:
-            raise ValueError("Torneio alvo não encontrado")
+            raise ErroDeNegocio(
+                "torneio_alvo_nao_encontrado", "Torneio alvo não encontrado", status=404
+            )
 
         day = supabase.table("tournament_days") \
             .select("buy_in, day_name, tournament_id") \
             .eq("id", data.target_tournament_day_id).execute()
         if not day.data:
-            raise ValueError("Dia do torneio não encontrado")
+            raise ErroDeNegocio(
+                "dia_do_torneio_nao_encontrado", "Dia do torneio não encontrado", status=404
+            )
         if day.data[0]["tournament_id"] != data.target_tournament_id:
-            raise ValueError("O dia selecionado não pertence ao torneio alvo")
+            # 400 e não 404: os dois existem, o que não bate é a combinação.
+            raise ErroDeNegocio(
+                "dia_de_outro_torneio", "O dia selecionado não pertence ao torneio alvo"
+            )
         ticket_value = float(day.data[0]["buy_in"] or 0)
         target_day_name = day.data[0].get("day_name")
         return target.data[0]["name"], ticket_value, target_day_name
@@ -241,7 +260,9 @@ class SatelliteTicketService:
             SatelliteTicketService._separar_jogadores_do_lote(data.player_ids)
 
         if not validos:
-            raise ValueError("Nenhum jogador válido no lote")
+            raise ErroDeNegocio(
+                "lote_sem_jogador_valido", "Nenhum jogador válido no lote"
+            )
 
         derived_label = SatelliteTicketService._rotulo_legado_do_satelite(target_name, target_day_name)
 
@@ -362,20 +383,32 @@ class SatelliteTicketService:
         field existed at creation time."""
         ticket = supabase.table("satellite_tickets").select("*").eq("id", ticket_id).execute()
         if not ticket.data:
-            raise ValueError(TICKET_NAO_ENCONTRADO)
+            raise _ticket_nao_encontrado()
 
         t = ticket.data[0]
 
         if t["status"] not in ("awarded", "available"):
-            raise ValueError(f"Ticket não pode ser resgatado (status: {t['status']})")
+            # O status atual vai como dado nomeado: a tela remonta a frase no
+            # idioma dela e ainda diz ao operador em que estado o ticket está.
+            raise ErroDeNegocio(
+                "ticket_nao_resgatavel",
+                f"Ticket não pode ser resgatado (status: {t['status']})",
+                status=409,
+                status_atual=t["status"],
+            )
 
         player_id = t.get("player_id")
         if not player_id:
-            raise ValueError("Este ticket não tem jogador atribuído. Cadastre um novo ticket no formato atual.")
+            raise ErroDeNegocio(
+                "ticket_sem_jogador",
+                "Este ticket não tem jogador atribuído. Cadastre um novo ticket no formato atual.",
+            )
 
         day_id = t.get("target_tournament_day_id")
         if not day_id:
-            raise ValueError("Este ticket não tem dia alvo definido")
+            raise ErroDeNegocio(
+                "ticket_sem_dia_alvo", "Este ticket não tem dia alvo definido"
+            )
 
         # Prefer the funder set at creation; fall back to the legacy notes
         # encoding ("Financiado por: X"); finally fall back to the payload
@@ -389,7 +422,9 @@ class SatelliteTicketService:
                     break
         funded_by_clean = ticket_funded or (funded_by or "").strip()
         if not funded_by_clean:
-            raise ValueError("Informe quem financiou o ticket")
+            raise ErroDeNegocio(
+                "financiador_obrigatorio", "Informe quem financiou o ticket"
+            )
 
         # Register player using tournament_player_service
         from app.models.tournament_player import TournamentPlayerCreate
@@ -441,11 +476,16 @@ class SatelliteTicketService:
         ticket = supabase.table("satellite_tickets").select("*, players(name, nickname)") \
             .eq("id", ticket_id).execute()
         if not ticket.data:
-            raise ValueError(TICKET_NAO_ENCONTRADO)
+            raise _ticket_nao_encontrado()
 
         t = ticket.data[0]
         if t["status"] not in ("awarded", "available"):
-            raise ValueError("Apenas tickets ainda não resgatados podem ser cancelados")
+            raise ErroDeNegocio(
+                "ticket_nao_cancelavel",
+                "Apenas tickets ainda não resgatados podem ser cancelados",
+                status=409,
+                status_atual=t["status"],
+            )
 
         supabase.table("satellite_tickets").update({
             "status": "cancelled",
@@ -466,22 +506,37 @@ class SatelliteTicketService:
         ticket = supabase.table("satellite_tickets").select("*") \
             .eq("id", ticket_id).execute()
         if not ticket.data:
-            raise ValueError(TICKET_NAO_ENCONTRADO)
+            raise _ticket_nao_encontrado()
 
         t = ticket.data[0]
         if t["status"] not in ("awarded", "available"):
-            raise ValueError("Apenas tickets ainda não resgatados podem ser transferidos")
+            raise ErroDeNegocio(
+                "ticket_nao_transferivel",
+                "Apenas tickets ainda não resgatados podem ser transferidos",
+                status=409,
+                status_atual=t["status"],
+            )
 
         destino_id = (data.to_player_id or "").strip()
         if not destino_id:
-            raise ValueError("Informe o jogador de destino")
+            raise ErroDeNegocio(
+                "jogador_de_destino_obrigatorio", "Informe o jogador de destino"
+            )
         if t.get("player_id") == destino_id:
-            raise ValueError("O ticket já pertence a esse jogador")
+            raise ErroDeNegocio(
+                "ticket_ja_e_do_jogador",
+                "O ticket já pertence a esse jogador",
+                status=409,
+            )
 
         destino = supabase.table("players").select("name") \
             .eq("id", destino_id).execute()
         if not destino.data:
-            raise ValueError("Jogador de destino não encontrado")
+            raise ErroDeNegocio(
+                "jogador_de_destino_nao_encontrado",
+                "Jogador de destino não encontrado",
+                status=404,
+            )
 
         return t, destino_id, destino.data[0].get("name")
 
@@ -500,9 +555,16 @@ class SatelliteTicketService:
 
         etapa = stage_id or t.get("stage_id")
         if lanca_no_caixa and not etapa:
-            raise ValueError("Selecione uma etapa para lançar a venda no caixa")
+            raise ErroDeNegocio(
+                "etapa_obrigatoria_para_venda",
+                "Selecione uma etapa para lançar a venda no caixa",
+            )
         if lanca_no_caixa and not org_id:
-            raise ValueError("Sua conta não está vinculada a nenhuma organização.")
+            raise ErroDeNegocio(
+                "conta_sem_organizacao",
+                "Sua conta não está vinculada a nenhuma organização.",
+                status=403,
+            )
 
         return valor, tipo, lanca_no_caixa, etapa
 
@@ -560,12 +622,21 @@ class SatelliteTicketService:
             # quando a tabela realmente não existe; no resto, mostra o motivo
             # real para quem estiver com o caixa parado.
             if _falta_a_tabela_de_transferencias(erro):
-                raise ValueError(
+                raise ErroDeNegocio(
+                    "transferencia_sem_migracao",
                     "Não foi possível registrar a transferência do ticket. "
-                    "Verifique se a migração de transferência de tickets já foi aplicada."
+                    "Verifique se a migração de transferência de tickets já foi aplicada.",
                 )
-            raise ValueError(
-                f"Não foi possível registrar a transferência do ticket: {erro}"
+            # Aqui o motivo real CONTINUA na frase, de propósito (ver
+            # `test_outras_falhas_mostram_o_motivo_real`): o caixa está parado
+            # com o jogador na frente e é o operador quem lê o motivo para o
+            # suporte pelo telefone. O `motivo` vai também como dado nomeado,
+            # para a tela poder montar a frase traduzida e ainda mostrá-lo.
+            logger.error("Falha ao registrar a transferência do ticket: %s", erro)
+            raise ErroDeNegocio(
+                "falha_ao_registrar_transferencia",
+                f"Não foi possível registrar a transferência do ticket: {erro}",
+                motivo=str(erro),
             )
 
     @staticmethod
