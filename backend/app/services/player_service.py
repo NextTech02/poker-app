@@ -76,6 +76,80 @@ def _validar_documento_ou_400(tipo: Optional[str], numero: Optional[str]) -> str
     return resultado.normalizado
 
 
+def _quem_ja_tem(campo: str, dados: dict) -> Optional[str]:
+    """Nome do jogador que já ocupa aquele e-mail/documento, se der para saber.
+
+    Dizer "já existe" sem dizer QUEM manda o operador procurar às cegas numa
+    base de centenas. Com o nome, ele reconhece na hora — quase sempre é a
+    mesma pessoa se cadastrando de novo porque a busca não a encontrou.
+
+    Falhar aqui não pode atrapalhar: a mensagem sem o nome ainda serve, e este
+    caminho só roda quando a gravação JÁ falhou.
+    """
+    try:
+        q = supabase.table("players").select("name")
+        if campo == "email":
+            q = q.eq("email", (dados.get("email") or "").lower())
+        else:
+            q = q.eq("document_type", dados.get("document_type"))
+            q = q.eq("document_number", dados.get("document_number"))
+        achado = q.limit(1).execute().data or []
+        return (achado[0].get("name") or "").strip() or None
+    except Exception:
+        return None
+
+
+def _erro_de_gravacao(exc: Exception, dados: dict) -> Optional[HTTPException]:
+    """Traduz a reclamação do banco para algo que o balcão resolva.
+
+    O que chegava na tela era o texto cru do Postgres — "duplicate key value
+    violates unique constraint players_email_org_key" — precedido de "Internal
+    server error". Fora ilegível, dizia a coisa errada: não é erro interno,
+    é cadastro repetido, e quem está no balcão consegue resolver em cinco
+    segundos se souber disso.
+
+    O `detail` vai ESTRUTURADO (code + message) porque o sistema atende clubes
+    no Brasil, no Peru e na Colômbia: o frontend traduz pelo `code`, e o
+    `message` em português serve de reserva para qualquer outro cliente da API.
+    """
+    texto = str(exc)
+
+    if "players_email_org_key" in texto:
+        nome = _quem_ja_tem("email", dados)
+        return HTTPException(status_code=409, detail={
+            "code": "email_duplicado",
+            "name": nome,
+            "message": (
+                f"Este e-mail já está cadastrado para {nome}." if nome
+                else "Este e-mail já está cadastrado para outro jogador."
+            ),
+        })
+
+    if "players_document_org_key" in texto:
+        nome = _quem_ja_tem("documento", dados)
+        return HTTPException(status_code=409, detail={
+            "code": "documento_duplicado",
+            "name": nome,
+            "message": (
+                f"Este documento já está cadastrado para {nome}." if nome
+                else "Este documento já está cadastrado para outro jogador."
+            ),
+        })
+
+    # O limite do plano vinha pelo mesmo caminho, e com a mesma cara de erro
+    # interno — sendo que a saída é trocar de plano, não tentar de novo.
+    if "PLANO_LIMITE_CLIENTES" in texto:
+        return HTTPException(status_code=409, detail={
+            "code": "limite_de_jogadores",
+            "message": (
+                "O plano do clube atingiu o limite de jogadores cadastrados. "
+                "Troque de plano para cadastrar mais."
+            ),
+        })
+
+    return None
+
+
 class PlayerService:
     @staticmethod
     def create_player(player_data: PlayerCreate) -> Player:
@@ -112,7 +186,8 @@ class PlayerService:
             except Exception as exc:
                 ajustado = _ajustar_ao_banco_sem_migracao(tentativa, exc)
                 if ajustado is None or ajustado == tentativa:
-                    raise
+                    # Última parada antes de o erro do banco chegar à tela.
+                    raise _erro_de_gravacao(exc, tentativa) or exc
                 tentativa = ajustado
 
     @staticmethod

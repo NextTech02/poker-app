@@ -52,6 +52,40 @@ const EMPTY_FORM = {
   document_type: 'cpf', document_number: '', nickname: '', birth_date: '', notes: '',
 };
 
+/** O que mostrar quando o cadastro não grava.
+ *
+ * O backend recusa duplicidade com um `detail` ESTRUTURADO (`code` + `message`)
+ * em vez de uma frase pronta, e aqui a frase é escolhida pelo idioma de quem
+ * está na tela: o mesmo erro precisa sair em espanhol num clube colombiano.
+ *
+ * `message` é a reserva — se um código novo aparecer no backend antes de esta
+ * tela conhecê-lo, é melhor mostrar a frase em português do que o texto
+ * genérico "não foi possível salvar", que não diz o que fazer.
+ */
+export const mensagemDoErro = (error, t) => {
+  if (error?.userMessage) return error.userMessage;
+  const detalhe = error?.response?.data?.detail;
+
+  if (detalhe && typeof detalhe === 'object' && detalhe.code) {
+    const nome = detalhe.name;
+    const porCodigo = {
+      email_duplicado: nome
+        ? t('players.errEmailDuplicadoCom', 'Este e-mail já está cadastrado para {{name}}.', { name: nome })
+        : t('players.errEmailDuplicado', 'Este e-mail já está cadastrado para outro jogador.'),
+      documento_duplicado: nome
+        ? t('players.errDocumentoDuplicadoCom', 'Este documento já está cadastrado para {{name}}.', { name: nome })
+        : t('players.errDocumentoDuplicado', 'Este documento já está cadastrado para outro jogador.'),
+      limite_de_jogadores: t(
+        'players.errLimiteDeJogadores',
+        'O plano do clube atingiu o limite de jogadores cadastrados. Troque de plano para cadastrar mais.',
+      ),
+    };
+    return porCodigo[detalhe.code] || detalhe.message || t('players.saveError', 'Não foi possível salvar o jogador.');
+  }
+
+  return typeof detalhe === 'string' ? detalhe : t('players.saveError', 'Não foi possível salvar o jogador.');
+};
+
 const Players = () => {
   const { toast, confirm } = useToast();
   const { t } = useTranslation();
@@ -163,8 +197,7 @@ const Players = () => {
       setFormData(EMPTY_FORM);
       loadPlayers();
     } catch (error) {
-      const msg = error.userMessage || error.response?.data?.detail || t('players.saveError');
-      setFormError(typeof msg === 'string' ? msg : t('players.saveError'));
+      setFormError(mensagemDoErro(error, t));
     } finally {
       setSubmitting(false);
     }

@@ -24,7 +24,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import Players from './Players';
+import Players, { mensagemDoErro } from './Players';
 import api from '../config/api';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { offlineWrite } from '../offline/apiOffline';
@@ -51,7 +51,13 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 jest.mock('react-i18next', () => {
-  const t = (chave, segundo) => (typeof segundo === 'string' ? segundo : chave);
+  const t = (chave, segundo, terceiro) => {
+    const padrao = typeof segundo === 'string' ? segundo : chave;
+    const vars = segundo && typeof segundo === 'object' ? segundo : terceiro;
+    return vars
+      ? padrao.replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? vars[k] : `{{${k}}}`))
+      : padrao;
+  };
   const traducao = { t, i18n: { language: 'pt-BR' } };
   return { useTranslation: () => traducao };
 });
@@ -377,7 +383,9 @@ describe('cadastrar jogador', () => {
     await abrirNovo();
     await preencher();
     await salvar();
-    expect(await screen.findByText('players.saveError')).toBeInTheDocument();
+    // O padrão inline passou a existir nesta chamada (regra do projeto), então
+    // é a frase que aparece — e não o nome da chave.
+    expect(await screen.findByText('Não foi possível salvar o jogador.')).toBeInTheDocument();
   });
 
   it('fechar sem salvar não cria nada', async () => {
@@ -537,5 +545,72 @@ describe('histórico e importação', () => {
     await screen.findByTestId('importacao');
     await ue.click(screen.getByText('fechar'));
     await waitFor(() => expect(screen.queryByTestId('importacao')).toBeNull());
+  });
+});
+
+describe('mensagem de erro do cadastro', () => {
+  /* O que chegava na tela era o texto cru do Postgres, precedido de "Internal
+     server error" — ilegível, e dizendo a coisa errada: não é erro interno, é
+     cadastro repetido, que o balcão resolve em segundos se souber disso.
+
+     Testado como função pura porque é o que ela é. O sistema atende clubes no
+     Brasil, no Peru e na Colômbia: a frase sai pelo `code`, no idioma de quem
+     está na tela, e não pronta do servidor. */
+  // Espelha o mock do i18n deste arquivo: sem padrão inline, devolve a chave.
+  const t = (chave, padrao, vars) => {
+    const base = typeof padrao === 'string' ? padrao : chave;
+    return vars ? base.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k]) : base;
+  };
+
+  const erroCom = (detail) => ({ response: { data: { detail } } });
+
+  it('e-mail repetido diz de quem é', () => {
+    const msg = mensagemDoErro(erroCom({
+      code: 'email_duplicado', name: 'Beto Silva',
+      message: 'Este e-mail já está cadastrado para Beto Silva.',
+    }), t);
+    expect(msg).toBe('Este e-mail já está cadastrado para Beto Silva.');
+  });
+
+  it('documento repetido diz de quem é', () => {
+    const msg = mensagemDoErro(erroCom({
+      code: 'documento_duplicado', name: 'Ana Costa', message: 'x',
+    }), t);
+    expect(msg).toContain('Ana Costa');
+  });
+
+  it('sem o nome, a frase ainda serve', () => {
+    const msg = mensagemDoErro(erroCom({ code: 'email_duplicado', message: 'x' }), t);
+    expect(msg).toBe('Este e-mail já está cadastrado para outro jogador.');
+  });
+
+  it('limite do plano diz o que fazer', () => {
+    const msg = mensagemDoErro(erroCom({ code: 'limite_de_jogadores', message: 'x' }), t);
+    expect(msg).toMatch(/Troque de plano/);
+  });
+
+  it('código novo do servidor cai na frase que ele mandou', () => {
+    /* Reserva: se o backend ganhar um código antes desta tela conhecê-lo, a
+       frase dele é melhor que o genérico "não foi possível salvar". */
+    const msg = mensagemDoErro(erroCom({
+      code: 'coisa_nova', message: 'Explicação vinda do servidor.',
+    }), t);
+    expect(msg).toBe('Explicação vinda do servidor.');
+  });
+
+  it('detail em texto continua funcionando', () => {
+    // As outras recusas do backend (documento inválido, por exemplo) mandam
+    // string, e não podem parar de aparecer.
+    expect(mensagemDoErro(erroCom('CPF inválido.'), t)).toBe('CPF inválido.');
+  });
+
+  it('erro sem detail nenhum cai no genérico', () => {
+    expect(mensagemDoErro(new Error('rede'), t)).toBe('Não foi possível salvar o jogador.');
+  });
+
+  it('a mensagem da camada offline tem prioridade', () => {
+    // Ela já vem pronta e explica a fila; sobrepô-la confundiria.
+    const e = { userMessage: 'Salvo no aparelho, sincroniza depois.', response: { data: { detail: 'x' } } };
+    expect(mensagemDoErro(e, t)).toBe('Salvo no aparelho, sincroniza depois.');
   });
 });

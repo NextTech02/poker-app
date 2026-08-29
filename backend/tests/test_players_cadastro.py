@@ -494,3 +494,122 @@ class TestSincronizarNome:
         entrada = {"name": "Ana Costa"}
         sincronizar_nome(entrada)
         assert entrada == {"name": "Ana Costa"}
+
+
+class TestCadastroRepetido:
+    """O que chegava na tela era o texto cru do Postgres:
+
+        Internal server error: APIError: {'code': '23505', ...
+        'message': 'duplicate key value violates unique constraint
+        "players_email_org_key"'}
+
+    Ilegível, e dizendo a coisa errada: não é erro interno do servidor, é
+    cadastro repetido — algo que quem está no balcão resolve em cinco segundos
+    se souber disso. Quase sempre é a MESMA pessoa se cadastrando de novo
+    porque a busca não a encontrou.
+    """
+
+    def _recusa(self, banco, monkeypatch, restricao):
+        """Faz o insert estourar como o Postgres faz, com o nome da restrição."""
+        original = banco.table
+
+        class _Recusa:
+            def __init__(self, q):
+                self._q = q
+
+            def insert(self, *a, **k):
+                class _Estoura:
+                    def execute(self_):
+                        raise RuntimeError(
+                            "APIError: {'code': '23505', 'message': 'duplicate key value "
+                            f'violates unique constraint "{restricao}"' + "'}"
+                        )
+                return _Estoura()
+
+            def __getattr__(self, nome):
+                return getattr(self._q, nome)
+
+        monkeypatch.setattr(
+            banco, "table",
+            lambda nome: _Recusa(original(nome)) if nome == "players" else original(nome),
+        )
+
+    def test_email_repetido_diz_de_quem_e(self, banco, monkeypatch):
+        banco.store["players"].append(_linha(name="Beto Silva", email="ana@clube.com"))
+        self._recusa(banco, monkeypatch, "players_email_org_key")
+        with pytest.raises(HTTPException) as e:
+            S.create_player(_novo(email="ana@clube.com"))
+        assert e.value.status_code == 409
+        assert e.value.detail["code"] == "email_duplicado"
+        # O NOME é o que resolve: sem ele o operador procura às cegas numa base
+        # de centenas.
+        assert "Beto Silva" in e.value.detail["message"]
+        assert e.value.detail["name"] == "Beto Silva"
+
+    def test_documento_repetido_diz_de_quem_e(self, banco, monkeypatch):
+        banco.store["players"].append(_linha(
+            name="Ana Costa", document_type="cpf", document_number="52998224725"))
+        self._recusa(banco, monkeypatch, "players_document_org_key")
+        with pytest.raises(HTTPException) as e:
+            S.create_player(_novo())
+        assert e.value.status_code == 409
+        assert e.value.detail["code"] == "documento_duplicado"
+        assert "Ana Costa" in e.value.detail["message"]
+
+    def test_sem_achar_o_dono_a_mensagem_ainda_serve(self, banco, monkeypatch):
+        """A busca pelo nome é conveniência. Se ela falhar, dizer "já existe"
+        continua sendo infinitamente melhor que o erro do banco."""
+        self._recusa(banco, monkeypatch, "players_email_org_key")
+        with pytest.raises(HTTPException) as e:
+            S.create_player(_novo())
+        assert e.value.detail["name"] is None
+        assert "outro jogador" in e.value.detail["message"]
+
+    def test_limite_do_plano_diz_o_que_fazer(self, banco, monkeypatch):
+        """A saída aqui é trocar de plano, não tentar de novo — e isso não dava
+        para adivinhar do erro anterior."""
+        self._recusa(banco, monkeypatch, "PLANO_LIMITE_CLIENTES")
+        with pytest.raises(HTTPException) as e:
+            S.create_player(_novo())
+        assert e.value.detail["code"] == "limite_de_jogadores"
+        assert "plano" in e.value.detail["message"].lower()
+
+    def test_erro_desconhecido_continua_subindo(self, banco, monkeypatch):
+        """Traduzir só o que se conhece. Engolir o resto esconderia falha de
+        verdade atrás de uma frase amigável."""
+        self._recusa(banco, monkeypatch, "alguma_outra_coisa")
+        with pytest.raises(RuntimeError):
+            S.create_player(_novo())
+
+    def test_a_edicao_tambem_e_traduzida(self, banco, monkeypatch):
+        """Trocar o e-mail de um jogador para um já usado dá o mesmo erro, e
+        chegava igualmente cru na tela."""
+        banco.store["players"].append(_linha())
+        original = banco.table
+
+        class _RecusaUpdate:
+            def __init__(self, q):
+                self._q = q
+
+            def update(self, *a, **k):
+                class _Estoura:
+                    def eq(self_, *a_, **k_):
+                        return self_
+
+                    def execute(self_):
+                        raise RuntimeError(
+                            'duplicate key value violates unique constraint '
+                            '"players_email_org_key"'
+                        )
+                return _Estoura()
+
+            def __getattr__(self, nome):
+                return getattr(self._q, nome)
+
+        monkeypatch.setattr(
+            banco, "table",
+            lambda nome: _RecusaUpdate(original(nome)) if nome == "players" else original(nome),
+        )
+        with pytest.raises(HTTPException) as e:
+            S.update_player(JOGADOR, PlayerUpdate(email="ja@existe.com"))
+        assert e.value.detail["code"] == "email_duplicado"

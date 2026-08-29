@@ -468,7 +468,12 @@
     "firstNameRequired": "Informe o nome do jogador.",
     "lastName": "Sobrenome",
     "lastNamePlaceholder": "Silva Costa",
-    "legacyDocHint": "Cadastro antigo: escolha o tipo de documento do país quando puder."
+    "legacyDocHint": "Cadastro antigo: escolha o tipo de documento do país quando puder.",
+    "errEmailDuplicadoCom": "Este e-mail já está cadastrado para {{name}}.",
+    "errEmailDuplicado": "Este e-mail já está cadastrado para outro jogador.",
+    "errDocumentoDuplicadoCom": "Este documento já está cadastrado para {{name}}.",
+    "errDocumentoDuplicado": "Este documento já está cadastrado para outro jogador.",
+    "errLimiteDeJogadores": "O plano do clube atingiu o limite de jogadores cadastrados. Troque de plano para cadastrar mais."
   },
   "elimination": {
     "title": "Eliminar Jogadores",

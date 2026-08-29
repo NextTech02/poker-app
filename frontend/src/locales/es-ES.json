@@ -468,7 +468,12 @@
     "firstNameRequired": "Ingrese el nombre del jugador.",
     "lastName": "Apellido",
     "lastNamePlaceholder": "García López",
-    "legacyDocHint": "Registro antiguo: elija el tipo de documento del país cuando pueda."
+    "legacyDocHint": "Registro antiguo: elija el tipo de documento del país cuando pueda.",
+    "errEmailDuplicadoCom": "Este correo ya está registrado para {{name}}.",
+    "errEmailDuplicado": "Este correo ya está registrado para otro jugador.",
+    "errDocumentoDuplicadoCom": "Este documento ya está registrado para {{name}}.",
+    "errDocumentoDuplicado": "Este documento ya está registrado para otro jugador.",
+    "errLimiteDeJogadores": "El plan del club alcanzó el límite de jugadores registrados. Cambiá de plan para agregar más."
   },
   "elimination": {
     "title": "Eliminar Jugadores",
