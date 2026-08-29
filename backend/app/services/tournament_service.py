@@ -123,12 +123,36 @@ class TournamentService:
                 "get_tournament_summary",
                 {"p_stage_id": stage_id, "p_tournament_id": tournament_id},
             ).execute()
-            return [TournamentSummary(**row) for row in (resp.data or [])]
+            linhas = resp.data or []
+            if TournamentService._resumo_incompleto(linhas):
+                logger.warning(
+                    "RPC get_tournament_summary respondeu sem os agregados novos; "
+                    "usando o caminho em Python. Aplique a migração "
+                    "database_migration_summary_torneio_jogadores.sql."
+                )
+                return TournamentService._get_tournament_summary_batched(tournament_id, stage_id)
+            return [TournamentSummary(**row) for row in linhas]
         except Exception as exc:  # RPC missing / transient error -> safe fallback
             logger.warning(
                 "get_tournament_summary RPC unavailable, using batched fallback: %s", exc
             )
             return TournamentService._get_tournament_summary_batched(tournament_id, stage_id)
+
+    # Agregados que a função SQL PRECISA devolver. Faltando qualquer um, o
+    # Pydantic preencheria com o padrão do modelo — ZERO — e a tela mostraria
+    # "0 jogadores" sem erro nenhum. Foi exatamente o que aconteceu: a contagem
+    # foi corrigida aqui no Python e a função SQL ficou para trás, com o RPC
+    # respondendo primeiro. Preferir o caminho lento a exibir zero é o certo:
+    # número errado no card é pior que uma consulta a mais.
+    _AGREGADOS_DO_RESUMO = ("total_entries", "total_players", "total_reentries", "total_days")
+
+    @staticmethod
+    def _resumo_incompleto(linhas: list) -> bool:
+        """O RPC respondeu, mas de uma versão anterior da função?"""
+        if not linhas:
+            return False   # lista vazia é resposta legítima: nenhum torneio
+        primeira = linhas[0] or {}
+        return any(chave not in primeira for chave in TournamentService._AGREGADOS_DO_RESUMO)
 
     @staticmethod
     def _get_tournament_summary_batched(tournament_id: Optional[str] = None, stage_id: Optional[str] = None) -> List[TournamentSummary]:
