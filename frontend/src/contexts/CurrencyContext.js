@@ -10,7 +10,6 @@ import {
 import {
   IDIOMAS_SUPORTADOS,
   aplicarIdiomaDaOrganizacao,
-  marcarEscolhaDoUsuario,
 } from '../utils/idiomaDoUsuario';
 
 const CurrencyContext = createContext({});
@@ -45,6 +44,10 @@ const lerConfiguracoes = () =>
 export const CurrencyProvider = ({ children }) => {
   // Start from the cached value (instant), then sync from the shared DB setting.
   const [currency, setCurrencyState] = useState(getStoredCurrency());
+  /* Idioma do clube, só de leitura. Quem TROCA de idioma é a bandeira da barra
+     lateral, e ela guarda a escolha da pessoa — não a do clube. O clube define o
+     seu na criação da organização, e ele serve de padrão para quem nunca
+     escolheu (ver utils/idiomaDoUsuario.js). */
   const [language, setLanguageState] = useState(null);
   // Em ref, não em state: quem precisa do id são os gravadores, e mudá-lo não
   // muda nada na tela.
@@ -102,32 +105,6 @@ export const CurrencyProvider = ({ children }) => {
     }
   }, [garantirId]);
 
-  /**
-   * Troca o idioma do clube — o padrão de quem nunca escolheu o seu.
-   *
-   * Vale também para quem fez a troca, mesmo que essa pessoa já tenha uma
-   * preferência própria: ela acabou de pedir este idioma, na tela, de propósito.
-   * Sem isso o admin trocaria o idioma e não veria nada mudar. Os DEMAIS
-   * operadores que já clicaram numa bandeira continuam com a deles — o padrão do
-   * clube não desfaz preferência pessoal alheia.
-   */
-  const setLanguage = useCallback(async (code) => {
-    if (!IDIOMAS_SUPORTADOS.includes(code)) return;
-    setLanguageState(code);
-    marcarEscolhaDoUsuario(code);
-    i18n.changeLanguage(code);
-    try {
-      const id = await garantirId();
-      if (id == null) return;
-      await supabase
-        .from('app_settings')
-        .update({ language: code, updated_at: new Date().toISOString() })
-        .eq('id', id);
-    } catch (e) {
-      /* a tela já mudou; a gravação é best-effort, como a da moeda */
-    }
-  }, [garantirId]);
-
   // Presa à moeda atual (para os consumidores re-renderizarem na troca) e
   // memoizada: várias telas a listam em dependências de useEffect, e uma
   // identidade nova a cada render viraria laço infinito.
@@ -141,7 +118,6 @@ export const CurrencyProvider = ({ children }) => {
         formatCurrency,
         currencies: CURRENCIES,
         language,
-        setLanguage,
       }}
     >
       {children}

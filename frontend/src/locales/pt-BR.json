@@ -1446,8 +1446,7 @@
     "revenueBuyIns": "Receita Buy-ins",
     "revenueRebuys": "Receita Rebuys",
     "revenueAddons": "Receita Add-ons",
-    "ticketsRedeemed": "Tickets Resgatados",
-    "language": "Idioma do sistema"
+    "ticketsRedeemed": "Tickets Resgatados"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneio",

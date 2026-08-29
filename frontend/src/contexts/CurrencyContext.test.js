@@ -13,7 +13,7 @@ import { render, screen, act, waitFor } from '@testing-library/react';
 import { CurrencyProvider, useCurrency } from './CurrencyContext';
 import { supabase } from '../config/supabase';
 import i18n from '../config/i18n';
-import { idiomaEscolhidoPeloUsuario, marcarEscolhaDoUsuario } from '../utils/idiomaDoUsuario';
+import { marcarEscolhaDoUsuario } from '../utils/idiomaDoUsuario';
 
 jest.mock('../config/supabase', () => {
   const cadeia = {};
@@ -244,31 +244,15 @@ describe('idioma do clube', () => {
     expect(i18n.language).toBe('pt-BR');
   });
 
-  it('trocar o idioma do clube grava e vale para quem trocou', async () => {
+  it('o contexto NÃO troca o idioma — só o lê', async () => {
+    /* Quem troca de idioma é a bandeira da barra lateral, e o que ela guarda é
+       a escolha da PESSOA. O idioma do clube é definido na criação da
+       organização e serve de padrão para quem nunca escolheu; expor uma troca
+       aqui criava um segundo lugar decidindo a mesma coisa. */
     await act(async () => {
       montar();
     });
-    await act(async () => {
-      await api.setLanguage('en-US');
-    });
-    expect(i18n.language).toBe('en-US');
-    // Quem troca na tela está pedindo aquele idioma para si também — senão o
-    // admin mexeria no seletor e não veria nada acontecer.
-    expect(idiomaEscolhidoPeloUsuario()).toBe('en-US');
-    expect(supabase.update).toHaveBeenCalledWith(
-      expect.objectContaining({ language: 'en-US' })
-    );
-  });
-
-  it('idioma que não existe é recusado sem tocar no banco', async () => {
-    await act(async () => {
-      montar();
-    });
-    supabase.update.mockClear();
-    await act(async () => {
-      await api.setLanguage('tlh-KX');
-    });
-    expect(supabase.update).not.toHaveBeenCalled();
-    expect(i18n.language).toBe('pt-BR');
+    expect(api.setLanguage).toBeUndefined();
+    expect(api.language).toBeDefined();
   });
 });

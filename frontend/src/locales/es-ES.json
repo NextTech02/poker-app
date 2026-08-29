@@ -1446,8 +1446,7 @@
     "revenueBuyIns": "Ingresos Buy-ins",
     "revenueRebuys": "Ingresos Rebuys",
     "revenueAddons": "Ingresos Add-ons",
-    "ticketsRedeemed": "Tickets Canjeados",
-    "language": "Idioma del sistema"
+    "ticketsRedeemed": "Tickets Canjeados"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneo",
