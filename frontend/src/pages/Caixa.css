@@ -198,7 +198,7 @@
   font-size: 0.8rem;
 }
 
-/* ── Vendas encerradas / sem tipo de buy ───────────────────────────────────
+/* ── Vendas encerradas / sem meio de entrada ───────────────────────────────
    Faixa de aviso no topo. O operador precisa entender NA HORA por que o botão
    de lançar está desabilitado — senão vira chamado de suporte no meio do
    evento. */
@@ -216,10 +216,17 @@
   font-size: 0.9rem;
 }
 
-.cx-warning-link {
-  color: var(--brand-green);
-  font-weight: 600;
-  text-decoration: underline;
+/* ── Meio de entrada no recibo ─────────────────────────────────────────────
+   O que a pessoa acabou de comprar, pelo nome configurado no dia. A categoria
+   sozinha não distingue duas entradas de preços diferentes. */
+.cx-ticket-buytype {
+  margin: 0 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.cx-ticket-buytype strong {
+  color: var(--text-primary);
 }
 
 /* ── Venda cancelada no extrato ────────────────────────────────────────────

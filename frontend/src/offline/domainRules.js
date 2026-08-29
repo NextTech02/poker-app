@@ -5,7 +5,9 @@
  * sendo o servidor (o pull-refresh sobrescreve tudo no sync).
  *
  * Paridade (mantenha em sincronia com o servidor):
- *  - valor/rake/chips  ⇐ tournament_player_service.register_player / add_rebuy / add_addon
+ *  - valor/rake/chips  ⇐ do MEIO DE ENTRADA (buy_types) quando há buy_type_id,
+ *    com o dia como reserva ⇐ tournament_player_service.register_player /
+ *    add_rebuy / add_addon
  *  - stage_cash += amount, prize_pool = Σentradas×(1−rake/100), registered_players±1,
  *    total_spent ⇐ triggers (cash_management / fix_prizepool_delete / fix_player_count /
  *    calculate_total_spent).
@@ -20,6 +22,39 @@ const rakePctFor = (day, buyType) =>
   buyType && buyType.rake_percentage != null
     ? Number(buyType.rake_percentage)
     : Number((day && day.rake_percentage) || 0);
+
+/**
+ * Valor e fichas vêm do MEIO DE ENTRADA quando ele existe; o dia é só reserva
+ * (venda pela categoria, réplica ainda não hidratada, cadastro legado).
+ *
+ * O teste é `!= null` e não "se for verdadeiro" de propósito: zero é um valor
+ * legítimo — o dia final costuma ter buy-in zerado, porque quem chega lá vem
+ * classificado — e cair na reserva do dia cobraria de quem não deve pagar.
+ *
+ * Isto TEM de bater com o backend: se o offline calcular diferente, a mesma
+ * venda grava valores diferentes conforme a rede, e a divergência só aparece
+ * no fechamento do caixa, quando ninguém mais consegue reconstituir o que
+ * aconteceu.
+ */
+/** Tipo LEGADO: o da ETAPA, de quando ele só dizia o rake.
+ *
+ * Reconhece-se por NÃO pertencer a um dia — e não por ter campo nulo. Todos
+ * eles ficaram com `chips = 0` quando a coluna foi criada (`NOT NULL DEFAULT
+ * 0`) e vários têm `amount = 0`, porque naquele desenho o valor vinha sempre do
+ * dia. Tratá-los como tipo do dia entregaria ZERO ficha e cobraria ZERO.
+ *
+ * O backend usa exatamente a mesma regra. Se as duas pontas divergirem, a mesma
+ * venda grava valores diferentes conforme haja rede ou não, e a diferença só
+ * aparece no fechamento do caixa. */
+const ehLegado = (buyType) => !!buyType && !buyType.tournament_day_id;
+
+/** Valor/fichas: do TIPO quando ele é do dia; do dia quando é legado ou não há
+ *  tipo. Zero configurado no tipo do dia é decisão (o dia final costuma ter
+ *  buy-in zerado), por isso o teste é `!= null` e não `||`. */
+const doTipoOuDoDia = (buyType, campo, reservaDoDia) =>
+  buyType && !ehLegado(buyType) && buyType[campo] != null
+    ? Number(buyType[campo])
+    : Number(reservaDoDia || 0);
 
 /** Aplica um valor de entrada (buy_in/rebuy/addon) ao caixa da etapa + prize pool do dia. */
 const bumpStageCashAndPool = async (day, tournamentId, amount, rakePct) => {
@@ -50,9 +85,9 @@ export const applyRegister = async (body) => {
   const buyType = body.buy_type_id ? await getEntity('buy_types', body.buy_type_id) : null;
 
   const count = body.buy_in_count || 1;
-  const buyIn = Number((day && day.buy_in) || 0);
+  const buyIn = doTipoOuDoDia(buyType, 'amount', day && day.buy_in);
   const rakePct = rakePctFor(day, buyType);
-  const startingChips = Number((day && day.starting_chips) || 0);
+  const startingChips = doTipoOuDoDia(buyType, 'chips', day && day.starting_chips);
 
   const isTicket = body.payment_source === 'ticket';
   const amount = isTicket ? 0 : buyIn * count;
@@ -89,6 +124,11 @@ export const applyRegister = async (body) => {
     payment_source: body.payment_source || 'cash',
     payment_method: body.payment_method || 'cash',
     buy_type_id: body.buy_type_id || null,
+    // Retrato do que foi vendido, como o backend passa a gravar: renomear ou
+    // apagar o meio de entrada não pode reescrever o recibo, e o estorno
+    // devolve ESTAS fichas — não as que o cadastro disser depois.
+    buy_type_name: (buyType && buyType.name) || null,
+    chips: totalChips,
     rake_percentage: rakePct,
     rake_amount: round2(amount * rakePct / 100),
     created_at: nowISO(),
@@ -104,20 +144,21 @@ export const applyRegister = async (body) => {
   return { tp, txn };
 };
 
-/** Rebuy. Espelha add_rebuy (reativa eliminado; valor/chips do dia). */
+/** Rebuy. Espelha add_rebuy (reativa eliminado; valor/rake/fichas do meio de entrada). */
 export const applyRebuy = async (body) => {
   const tp = await getEntity('tournament_players', body.tournament_player_id);
   if (!tp) return null;
   const day = tp.tournament_day_id ? await getEntity('tournament_days', tp.tournament_day_id) : null;
   const buyType = body.buy_type_id ? await getEntity('buy_types', body.buy_type_id) : null;
-  const amount = Number((day && day.rebuy_amount) || 0);
-  const chips = Number((day && day.rebuy_chips) || 10000);
+  const amount = doTipoOuDoDia(buyType, 'amount', day && day.rebuy_amount);
+  const chips = doTipoOuDoDia(buyType, 'chips', (day && day.rebuy_chips) || 10000);
   const rakePct = rakePctFor(day, buyType);
 
-  // Recompra dupla/tripla: a quantidade vem no corpo e e aplicada aqui de uma vez,
-  // igual ao backend. Localmente nao ha rede, mas os numeros TEM de bater com o
-  // que o servidor vai gravar — senao a tela mostra um estado que a sincronizacao
-  // depois desmente.
+  // Quantidade: a tela NÃO produz mais vendas com quantidade — um "rebuy duplo"
+  // virou um meio de entrada próprio, com valor e fichas próprios, porque ele
+  // nunca foi rebuy × 2. O tratamento continua aqui porque a fila offline
+  // gravada no aparelho antes desta mudança pode ter itens com `quantity`, e
+  // eles precisam ser reaplicados exatamente como foram enfileirados.
   const qtd = Math.max(1, parseInt(body.quantity, 10) || 1);
 
   tp.rebuy_count = Number(tp.rebuy_count || 0) + qtd;
@@ -142,6 +183,8 @@ export const applyRebuy = async (body) => {
     payment_source: body.payment_source || 'cash',
     payment_method: body.payment_method || 'cash',
     buy_type_id: body.buy_type_id || null,
+    buy_type_name: (buyType && buyType.name) || null,
+    chips,
     rake_percentage: rakePct,
     rake_amount: round2(amount * rakePct / 100),
     created_at: nowISO(),
@@ -158,8 +201,8 @@ export const applyAddon = async (body) => {
   if (!tp) return null;
   const day = tp.tournament_day_id ? await getEntity('tournament_days', tp.tournament_day_id) : null;
   const buyType = body.buy_type_id ? await getEntity('buy_types', body.buy_type_id) : null;
-  const amount = Number((day && day.addon_amount) || 0);
-  const chips = Number((day && day.addon_chips) || 10000);
+  const amount = doTipoOuDoDia(buyType, 'amount', day && day.addon_amount);
+  const chips = doTipoOuDoDia(buyType, 'chips', (day && day.addon_chips) || 10000);
   const rakePct = rakePctFor(day, buyType);
 
   tp.addon_count = Number(tp.addon_count || 0) + 1;
@@ -179,6 +222,8 @@ export const applyAddon = async (body) => {
     payment_source: body.payment_source || 'cash',
     payment_method: body.payment_method || 'cash',
     buy_type_id: body.buy_type_id || null,
+    buy_type_name: (buyType && buyType.name) || null,
+    chips,
     rake_percentage: rakePct,
     rake_amount: round2(amount * rakePct / 100),
     created_at: nowISO(),

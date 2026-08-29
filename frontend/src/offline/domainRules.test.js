@@ -330,6 +330,146 @@ describe('add-on', () => {
   });
 });
 
+describe('o meio de entrada manda em valor, rake e fichas', () => {
+  /**
+   * O meio de entrada deixou de ser só "o rake desta venda": ele carrega nome,
+   * VALOR e FICHAS próprios. É o que permite "rebuy duplo" existir — ele nunca
+   * foi rebuy × 2, e por isso o campo "quantidade de rebuys" saiu do Caixa.
+   *
+   * Estes testes existem pela mesma razão do arquivo inteiro: se o offline
+   * calcular diferente do backend, a MESMA venda grava valores diferentes
+   * conforme a rede, e a divergência só aparece no fechamento do caixa.
+   */
+  const corpoRebuy = (extra = {}) => ({
+    tournament_player_id: 'tp-local-1',
+    client_mutation_id: 'mut-9',
+    ...extra,
+  });
+
+  it('o buy-in cobra o valor e entrega as fichas do meio de entrada', async () => {
+    guardar('buy_types', {
+      id: 'bt-vip', tournament_day_id: DIA, name: 'Buy-in VIP', category: 'buy_in',
+      amount: 1000, rake_percentage: 10, chips: 50000,
+    });
+    const { tp, txn } = await applyRegister(corpoRegistro({ buy_type_id: 'bt-vip' }));
+    expect(tp.total_buy_in_amount).toBe(1000); // e não os 300 do dia
+    expect(tp.total_chips).toBe(50000); // e não as 30.000 do dia
+    expect(txn.amount).toBe(1000);
+    expect(txn.rake_amount).toBe(100);
+  });
+
+  it('valor zero no meio de entrada não cai na reserva do dia', async () => {
+    // O dia final costuma ter entrada zerada: quem chega lá vem classificado.
+    // Tratar o zero como "ausente" cobraria dele os 300 do dia.
+    guardar('buy_types', {
+      id: 'bt-final', tournament_day_id: DIA, name: 'Classificado', category: 'buy_in',
+      amount: 0, rake_percentage: 0, chips: 0,
+    });
+    const { tp } = await applyRegister(corpoRegistro({ buy_type_id: 'bt-final' }));
+    expect(tp.total_buy_in_amount).toBe(0);
+    expect(ler('stage_cash_register', ETAPA).current_balance).toBe(0);
+  });
+
+  it('a venda guarda o nome e as fichas do que foi comprado', async () => {
+    // O estorno devolve ESTAS fichas. Lidas do cadastro na hora de cancelar,
+    // um meio de entrada editado depois devolveria mais fichas do que a venda
+    // entregou; e renomeá-lo reescreveria o recibo.
+    guardar('buy_types', {
+      id: 'bt-vip', tournament_day_id: DIA, name: 'Buy-in VIP', category: 'buy_in',
+      amount: 1000, rake_percentage: 10, chips: 50000,
+    });
+    const { txn } = await applyRegister(corpoRegistro({ buy_type_id: 'bt-vip' }));
+    expect(txn.buy_type_name).toBe('Buy-in VIP');
+    expect(txn.chips).toBe(50000);
+  });
+
+  it('venda sem meio de entrada não inventa nome', async () => {
+    const { txn } = await applyRegister(corpoRegistro());
+    expect(txn.buy_type_name).toBeNull();
+    expect(txn.chips).toBe(30000); // fichas do dia, a reserva
+  });
+
+  it('"rebuy duplo" é uma venda própria, não rebuy vezes dois', async () => {
+    // Uma linha só, com o valor e as fichas que o clube configurou — nada de
+    // multiplicar o rebuy simples.
+    await applyRegister(corpoRegistro());
+    guardar('buy_types', {
+      id: 'bt-duplo', tournament_day_id: DIA, name: 'Rebuy duplo', category: 'rebuy',
+      amount: 500, rake_percentage: 20, chips: 70000,
+    });
+    const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-duplo' }));
+    expect(tp.rebuy_count).toBe(1);
+    expect(tp.total_rebuy_amount).toBe(500);
+    expect(tp.total_chips).toBe(100000); // 30.000 do buy-in + 70.000 do duplo
+    const linhas = [...memoria.values()].filter((l) => l.type === 'rebuy');
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].buy_type_name).toBe('Rebuy duplo');
+    expect(linhas[0].chips).toBe(70000);
+  });
+
+  it('o add-on também segue o meio de entrada', async () => {
+    await applyRegister(corpoRegistro());
+    guardar('buy_types', {
+      id: 'bt-add', tournament_day_id: DIA, name: 'Add-on turbo', category: 'addon',
+      amount: 250, rake_percentage: 0, chips: 40000,
+    });
+    const { tp } = await applyAddon({
+      tournament_player_id: 'tp-local-1', client_mutation_id: 'mut-10', buy_type_id: 'bt-add',
+    });
+    expect(tp.total_addon_amount).toBe(250);
+    expect(tp.total_chips).toBe(70000); // 30.000 + 40.000
+  });
+
+  it('meio de entrada sem valor/fichas cadastrados cai na configuração do dia', async () => {
+    // Cadastro legado (por etapa) só dizia o rake. A venda não pode parar por
+    // isso: o dia continua sendo a reserva.
+    await applyRegister(corpoRegistro());
+    guardar('buy_types', { id: 'bt-legado', tournament_day_id: DIA, name: 'Rebuy', rake_percentage: 5 });
+    const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-legado' }));
+    expect(tp.total_rebuy_amount).toBe(300); // rebuy_amount do dia
+    expect(tp.total_chips).toBe(60000); // 30.000 + rebuy_chips do dia
+  });
+
+  it('tipo LEGADO com zeros gravados cobra e entrega pelo DIA', async () => {
+    // O tipo da etapa não se reconhece por campo nulo: TODOS ficaram com
+    // `chips = 0` quando a coluna foi criada (NOT NULL DEFAULT 0), e vários têm
+    // `amount = 0` porque naquele desenho o valor vinha sempre do dia.
+    // Tratá-lo como tipo do dia entregaria ZERO ficha e cobraria ZERO — e isso
+    // chega aqui pelo replay de uma fila gravada antes da mudança.
+    await applyRegister(corpoRegistro());
+    guardar('buy_types', {
+      id: 'bt-etapa', stage_id: 'etapa-1', name: 'Rebuy',
+      amount: 0, chips: 0, rake_percentage: 5,
+    });
+    const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-etapa' }));
+    expect(tp.total_rebuy_amount).toBe(300);   // do dia, não o zero do tipo
+    expect(tp.total_chips).toBe(60000);        // do dia, não o zero do tipo
+  });
+
+  it('zero configurado no tipo DO DIA é decisão, e vale', async () => {
+    // O dia final costuma ter entrada zerada: quem chega lá vem classificado.
+    // Se esse zero caísse na reserva do dia, o classificado seria cobrado.
+    await applyRegister(corpoRegistro());
+    guardar('buy_types', {
+      id: 'bt-final', tournament_day_id: DIA, name: 'Recompra cortesia',
+      category: 'rebuy', amount: 0, chips: 15000, rake_percentage: 0,
+    });
+    const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-final' }));
+    expect(tp.total_rebuy_amount).toBe(0);
+    expect(tp.total_chips).toBe(45000); // 30.000 + as 15.000 do tipo
+  });
+
+  it('fila antiga com quantidade continua sendo reaplicada', async () => {
+    // A tela não produz mais vendas com `quantity`, mas o aparelho pode ter
+    // itens enfileirados antes da mudança — reaplicá-los errado deixaria o
+    // jogador com fichas a menos do que pagou.
+    await applyRegister(corpoRegistro());
+    const { tp } = await applyRebuy(corpoRebuy({ quantity: 2 }));
+    expect(tp.rebuy_count).toBe(2);
+    expect(tp.total_rebuy_amount).toBe(600);
+  });
+});
+
 describe('sangria', () => {
   beforeEach(() => {
     guardar('stage_cash_register', {

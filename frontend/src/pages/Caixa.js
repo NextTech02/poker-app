@@ -36,7 +36,7 @@ const Caixa = () => {
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const { activeMethods } = usePaymentMethods();
-  const { activeBuyTypes, stageId, tiposCarregados } = useBuyTypes();
+  const { activeBuyTypes, dayId, tiposCarregados, selectDay } = useBuyTypes();
   const { selectedStage } = useStage();
   const { isAdmin, hasPermission } = usePermissions();
 
@@ -91,26 +91,30 @@ const Caixa = () => {
     tournament_id: '',
     tournament_day_id: '',
     player_id: '',
-    // Sem categoria implícita: ela passa a vir SEMPRE do tipo de buy escolhido,
-    // que é o único lugar onde o financeiro homologou nome, categoria e rake.
+    // Sem categoria implícita: ela passa a vir SEMPRE do meio de entrada
+    // escolhido, único lugar onde o clube configurou nome, categoria, valor,
+    // rake e fichas.
     type: '',
     amount: '',
     payment_method: 'cash',
     payment_source: 'cash',
-    rebuy_quantity: 1,
     buy_type_id: '',
   });
+  // Nome do meio de entrada da venda que acabou de sair, para o recibo. Fica
+  // em estado próprio porque o formulário é limpo assim que a venda é aceita —
+  // ler dele na hora de montar o bilhete devolveria vazio.
+  const [meioDeEntradaVendido, setMeioDeEntradaVendido] = useState(null);
 
-  // Sem tipo de buy à mão a venda NÃO para: cai no modo categoria (buy-in /
+  // Sem meio de entrada à mão a venda NÃO para: cai no modo categoria (buy-in /
   // rebuy / add-on com o rake do dia), que é como o clube operava antes dos
-  // tipos de buy. Travar aqui matava a operação em três cenários reais — o
+  // meios de entrada. Travar aqui matava a operação em três cenários reais — o
   // primeiro render, a sessão expirada e, principalmente, o modo OFFLINE —,
   // com uma mensagem mandando cadastrar o que já estava cadastrado.
   const semTiposDeBuy = activeBuyTypes.length === 0;
-  // "A etapa realmente não cadastrou nenhum tipo" só pode ser afirmado com a
-  // resposta do servidor em mãos. Lista vazia por falha de consulta é outra
-  // coisa, e merece outro aviso.
-  const nenhumTipoCadastrado = semTiposDeBuy && tiposCarregados && !!stageId;
+  // "O dia realmente não cadastrou nenhum meio de entrada" só pode ser afirmado
+  // com a resposta do servidor em mãos. Lista vazia por falha de consulta é
+  // outra coisa, e merece outro aviso.
+  const nenhumTipoCadastrado = semTiposDeBuy && tiposCarregados && !!dayId;
   const salesBlockedStage = !!stageBlock?.sales_blocked;
   const diaSelecionado = tournamentDays.find((d) => d.id === formData.tournament_day_id);
   const salesBlockedDay = !!diaSelecionado?.sales_blocked;
@@ -166,7 +170,15 @@ const Caixa = () => {
   // Polling que pausa quando a aba está oculta (reduz carga em produção).
   usePolling(() => loadData(), 5000);
 
-  // Hidrata os tipos de buy na réplica offline (definem o rake).
+  // Os meios de entrada são do DIA, e o dia é escolhido aqui dentro, no
+  // formulário de venda: é esta tela que avisa o contexto qual carregar. Sem
+  // este aviso a lista ficaria vazia e toda venda cairia no modo categoria,
+  // cobrando o valor do dia em vez do valor configurado na entrada.
+  useEffect(() => {
+    if (selectDay) selectDay(formData.tournament_day_id);
+  }, [selectDay, formData.tournament_day_id]);
+
+  // Hidrata os meios de entrada na réplica offline (valor, rake e fichas).
   useEffect(() => {
     if (activeBuyTypes?.length) putEntities('buy_types', activeBuyTypes);
   }, [activeBuyTypes]);
@@ -315,17 +327,23 @@ const Caixa = () => {
       return;
     }
 
-    // Com tipos disponíveis, exige o tipo (é ele que carrega o rake). No modo
-    // categoria, exige ao menos a categoria — sem ela não dá para saber o que
-    // está sendo vendido.
+    // Com meios de entrada disponíveis, exige o meio (é ele que carrega valor,
+    // rake e fichas). No modo categoria, exige ao menos a categoria — sem ela
+    // não dá para saber o que está sendo vendido.
     if (!formData.type || (!semTiposDeBuy && !formData.buy_type_id)) {
       toast.warning(
         semTiposDeBuy
           ? t('cashRegister.categoryRequired', 'Escolha a categoria da entrada.')
-          : t('cashRegister.buyTypeRequired', 'Escolha o tipo de buy.')
+          : t('cashRegister.buyTypeRequired', 'Escolha o meio de entrada.')
       );
       return;
     }
+
+    // Guardado ANTES da venda: o recibo mostra o nome que o clube configurou
+    // ("Rebuy duplo"), não a categoria genérica — é por ele que o jogador
+    // confere o que comprou.
+    const tipoVendido = activeBuyTypes.find((b) => b.id === formData.buy_type_id);
+    setMeioDeEntradaVendido(tipoVendido ? tipoVendido.name : null);
 
     try {
       // If it's a buy_in, register the player in the tournament day
@@ -476,16 +494,11 @@ const Caixa = () => {
             }
           }
 
-          // Process the rebuy(s) — supports multiple rebuys at once ("recompra dupla").
-          // UMA chamada para N recompras. Antes havia um laco com `await` por
-          // recompra: como o banco desta instalacao fica em outra regiao e cada
-          // ida custa ~270ms, e uma recompra faz ~6 consultas, tres recompras
-          // somavam perto de 6 segundos com a fila esperando no balcao.
-          // Mandando a quantidade, as conferencias acontecem uma vez so e as
-          // escritas viram um update e um insert com N linhas.
-          // De quebra fica atomico: antes, se a segunda falhasse, a primeira ja
-          // tinha sido gravada e o jogador ficava com fichas a menos do que pagou.
-          const rebuyQty = Math.max(1, parseInt(formData.rebuy_quantity, 10) || 1);
+          // UMA recompra por venda. A "quantidade de rebuys" saiu da tela: ela
+          // multiplicava o valor e as fichas do rebuy simples, e um rebuy duplo
+          // NÃO é rebuy × 2 — tem valor e fichas próprios. Agora ele é um meio
+          // de entrada próprio, escolhido no seletor, e a conta sai certa por
+          // construção em vez de por acidente.
           const cmid = uuid();
           const rbBody = {
             tournament_player_id: tournamentPlayer.id,
@@ -493,18 +506,16 @@ const Caixa = () => {
             payment_method: formData.payment_method || 'cash',
             buy_type_id: formData.buy_type_id || null,
             client_mutation_id: cmid,
-            quantity: rebuyQty,
           };
           const rr = await offlineWrite({
             kind: 'rebuy', method: 'post',
             url: `/tournament-players/${tournamentPlayer.id}/rebuy`,
-            // `quantity` e `client_mutation_id` vao como PARAMETRO: a rota le
-            // parametros de consulta, e o corpo era descartado — foi assim que a
-            // protecao contra registrar a mesma venda duas vezes se perdeu.
+            // `client_mutation_id` vai como PARAMETRO: a rota le parametros de
+            // consulta, e o corpo era descartado — foi assim que a protecao
+            // contra registrar a mesma venda duas vezes se perdeu.
             params: {
               payment_source: rbBody.payment_source,
               payment_method: rbBody.payment_method,
-              quantity: rebuyQty,
               client_mutation_id: cmid,
               ...(formData.buy_type_id ? { buy_type_id: formData.buy_type_id } : {}),
             },
@@ -641,7 +652,6 @@ const Caixa = () => {
         amount: '',
         payment_method: 'cash',
         payment_source: 'cash',
-        rebuy_quantity: 1,
         buy_type_id: '',
       });
       setPlayerCredit(0);
@@ -663,6 +673,9 @@ const Caixa = () => {
   // assento, reimprime como alternate.
   const handleReprint = async (transaction) => {
     setReprintingId(transaction.id);
+    // Na reimpressão o nome vem da venda gravada, não do cadastro de hoje:
+    // renomear o meio de entrada depois não pode reescrever o recibo.
+    setMeioDeEntradaVendido(transaction.buy_type_name || null);
     try {
       const res = await api
         .get(`/allocations/tournament/${transaction.tournament_id}`)
@@ -714,12 +727,12 @@ const Caixa = () => {
     }
   };
 
-  // O VALOR cobrado vem sempre da configuração do DIA (e do torneio como
-  // reserva, quando o dia não foi escolhido) — nunca do tipo de buy, que só
-  // define categoria e rake. Cobrar os 500 do torneio num Dia 1A de 1000 é
-  // cobrar errado do jogador na frente dele.
-  const valorDaCategoria = (categoria, dayId, tournamentId) => {
-    const dia = tournamentDays.find((d) => d.id === dayId);
+  // Valor de RESERVA, usado só no modo categoria (nenhum meio de entrada à
+  // mão): vem da configuração do DIA, e do torneio quando o dia não foi
+  // escolhido. Cobrar os 500 do torneio num Dia 1A de 1000 é cobrar errado do
+  // jogador na frente dele. Com meio de entrada escolhido quem manda é ele.
+  const valorDaCategoria = (categoria, diaId, tournamentId) => {
+    const dia = tournamentDays.find((d) => d.id === diaId);
     const torneio = tournaments.find((tr) => tr.id === tournamentId);
     if (dia) {
       if (categoria === 'rebuy') return dia.rebuy_amount || dia.buy_in;
@@ -734,9 +747,10 @@ const Caixa = () => {
     return 0;
   };
 
-  // Ao escolher um tipo de buy, ele define a categoria (type) e o rake, e o
-  // valor precisa ser recalculado junto — um tipo de rebuy num dia de rebuy
-  // mais barato cobraria o valor do buy-in se não recalculasse aqui.
+  // O meio de entrada escolhido define categoria, rake, fichas e VALOR. O valor
+  // vem dele, não do dia: é isso que faz "Rebuy duplo" cobrar o preço próprio
+  // em vez de o dobro do rebuy simples. `amount ?? ...` porque zero é um preço
+  // legítimo (dia final de classificados) e cairia na reserva do dia.
   const handleBuyTypeChange = (e) => {
     const id = e.target.value;
     const bt = activeBuyTypes.find((b) => b.id === id);
@@ -745,13 +759,13 @@ const Caixa = () => {
       buy_type_id: bt ? id : '',
       type: bt ? bt.category : '',
       amount: bt
-        ? valorDaCategoria(bt.category, prev.tournament_day_id, prev.tournament_id)
+        ? (bt.amount ?? valorDaCategoria(bt.category, prev.tournament_day_id, prev.tournament_id))
         : prev.amount,
     }));
   };
 
-  // Modo sem tipos de buy: a categoria é escolhida direto e o rake fica sendo o
-  // do dia (comportamento anterior aos tipos de buy).
+  // Modo sem meios de entrada: a categoria é escolhida direto e o valor/rake
+  // ficam sendo os do dia (comportamento anterior aos meios de entrada).
   const handleCategoriaChange = (e) => {
     const categoria = e.target.value;
     setFormData((prev) => ({
@@ -782,25 +796,30 @@ const Caixa = () => {
       loadTournamentDays(value);
     }
 
-    // Recobra o valor ao trocar de torneio ou de dia. A categoria não muda por
-    // aqui: ela vem do tipo de buy (handleBuyTypeChange), que recalcula sozinho.
+    // Trocar de torneio ou de dia invalida o meio de entrada escolhido: eles
+    // pertencem ao DIA, e manter a escolha cobraria o preço do dia anterior
+    // (ou de um cadastro que nem existe no dia novo). O valor volta para a
+    // reserva do dia até o operador escolher de novo.
     if (name === 'tournament_id' || name === 'tournament_day_id') {
       const tournamentId = name === 'tournament_id' ? value : formData.tournament_id;
-      const dayId = name === 'tournament_day_id' ? value : newFormData.tournament_day_id;
+      const diaId = name === 'tournament_day_id' ? value : newFormData.tournament_day_id;
 
-      newFormData.amount = valorDaCategoria(formData.type, dayId, tournamentId);
+      newFormData.buy_type_id = '';
+      newFormData.amount = valorDaCategoria(formData.type, diaId, tournamentId);
     }
 
     setFormData(newFormData);
   };
 
-  // Mostra o NOME do tipo vendido (é o que o financeiro cadastrou e o que o
-  // operador reconhece); cai no rótulo da categoria para vendas antigas,
-  // anteriores aos tipos de buy.
+  // Mostra o NOME do meio de entrada vendido (é o que o clube cadastrou e o que
+  // o operador reconhece). A primeira fonte é o nome CONGELADO na venda: a
+  // lista carregada é a do dia escolhido no formulário, e o extrato mostra
+  // vendas de todos os dias — procurar nela deixaria a maioria sem nome.
+  // Sem nenhum dos dois, cai no rótulo da categoria (vendas antigas).
   const getTransactionTypeBadge = (transaction) => {
     const classes = { buy_in: 'badge-success', rebuy: 'badge-warning', addon: 'badge-info' };
     const bt = activeBuyTypes.find((b) => b.id === transaction.buy_type_id);
-    const label = bt ? bt.name : buyCategoryLabel(transaction.type);
+    const label = transaction.buy_type_name || (bt ? bt.name : buyCategoryLabel(transaction.type));
     return <span className={`badge ${classes[transaction.type] || 'badge-success'}`}>{label}</span>;
   };
 
@@ -975,25 +994,10 @@ const Caixa = () => {
           </div>
         )}
 
-        {/* Sem tipo de buy a venda CONTINUA: o aviso é informativo, não uma
-            trava. O que muda é a origem do rake — passa a ser o do dia. */}
-        {nenhumTipoCadastrado && (
-          <div className="cx-warning" role="alert">
-            <strong>{t('cashRegister.noBuyTypesTitle', 'Nenhum tipo de buy cadastrado')}</strong>
-            <span>
-              {t(
-                'cashRegister.noBuyTypes',
-                'Esta etapa não tem tipos de buy. As vendas usam a categoria e o rake do dia; cadastre em Financeiro → Tipos de Buy para controlar o rake por entrada.'
-              )}
-            </span>
-            {hasPermission('financial') && (
-              <a className="cx-warning-link" href="/financeiro">
-                {t('cashRegister.goToFinanceiro', 'Ir para o Financeiro')}
-              </a>
-            )}
-          </div>
-        )}
-        {semTiposDeBuy && !stageId && (
+        {/* Os meios de entrada são do DIA, e o dia só é escolhido dentro do
+            formulário de venda — por isso o aviso de "dia sem cadastro" mora
+            lá, e não aqui: no topo da tela ele seria um palpite. */}
+        {!selectedStage?.id && (
           <div className="cx-warning" role="alert">
             <span>
               {t('cashRegister.noStageSelected', 'Selecione uma etapa para vender.')}
@@ -1297,11 +1301,28 @@ const Caixa = () => {
                   />
                 </div>
 
-                {/* Com tipos disponíveis, o tipo é a ÚNICA fonte da categoria e
-                    do rake — sem opção "Manual" nem categoria solta ao lado.
-                    Sem nenhum tipo à mão (etapa sem cadastro, sessão caída ou
-                    offline), o seletor vira o de CATEGORIA: melhor vender com o
-                    rake do dia do que não vender. */}
+                {/* Dia sem meio de entrada cadastrado: a venda CONTINUA, pela
+                    categoria e com o valor/rake do dia. O aviso é informativo,
+                    não uma trava — e fica aqui porque só depois de escolher o
+                    dia dá para afirmar que ele não tem cadastro. */}
+                {nenhumTipoCadastrado && (
+                  <div className="cx-warning" role="alert">
+                    <strong>{t('cashRegister.noBuyTypesTitle', 'Nenhum meio de entrada cadastrado')}</strong>
+                    <span>
+                      {t(
+                        'cashRegister.noBuyTypes',
+                        'Este dia não tem meios de entrada. A venda usa a categoria e o valor/rake do dia; configure os meios de entrada na edição do dia do torneio.'
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                {/* Com meios de entrada disponíveis, o meio é a ÚNICA fonte da
+                    categoria, do valor, do rake e das fichas — sem opção
+                    "Manual" nem categoria solta ao lado. Sem nenhum à mão (dia
+                    sem cadastro, sessão caída ou offline), o seletor vira o de
+                    CATEGORIA: melhor vender com o valor do dia do que não
+                    vender. */}
                 {semTiposDeBuy ? (
                   <div className="form-group">
                     <label htmlFor="type">{t('cashRegister.type', 'Categoria')}</label>
@@ -1322,7 +1343,7 @@ const Caixa = () => {
                   </div>
                 ) : (
                   <div className="form-group">
-                    <label htmlFor="buy_type_id">{t('cashRegister.buyType', 'Tipo de Buy')}</label>
+                    <label htmlFor="buy_type_id">{t('cashRegister.buyType', 'Meio de entrada')}</label>
                     <select
                       id="buy_type_id"
                       name="buy_type_id"
@@ -1331,11 +1352,15 @@ const Caixa = () => {
                       required
                     >
                       <option value="" disabled>
-                        {t('cashRegister.selectBuyType', 'Selecione o tipo de buy')}
+                        {t('cashRegister.selectBuyType', 'Selecione o meio de entrada')}
                       </option>
+                      {/* O NOME configurado no dia vem primeiro: é por ele que
+                          o operador escolhe. O valor ao lado é o do próprio
+                          meio de entrada — "Rebuy duplo" cobra o preço dele,
+                          não o dobro do rebuy simples. */}
                       {activeBuyTypes.map((b) => (
                         <option key={b.id} value={b.id}>
-                          {b.name} — {buyCategoryLabel(b.category)} · {Number(b.rake_percentage)}% rake
+                          {b.name} — {buyCategoryLabel(b.category)} · {formatCurrency(b.amount)} · {Number(b.rake_percentage)}% rake
                         </option>
                       ))}
                     </select>
@@ -1345,8 +1370,9 @@ const Caixa = () => {
                 <div className="form-group">
                   <label htmlFor="amount">{t('cashRegister.amount')}</label>
                   {/* Somente leitura: o backend IGNORA o que for digitado aqui —
-                      o valor vem sempre da configuração do dia. Editável, o
-                      campo prometia um desconto que nunca aconteceria. */}
+                      o valor vem do meio de entrada escolhido (do dia, quando
+                      não há nenhum). Editável, o campo prometia um desconto que
+                      nunca aconteceria. */}
                   <input
                     id="amount"
                     name="amount"
@@ -1357,22 +1383,6 @@ const Caixa = () => {
                     placeholder="0.00"
                   />
                 </div>
-
-                {formData.type === 'rebuy' && (
-                  <div className="form-group">
-                    <label htmlFor="rebuy_quantity">{t('cashRegister.rebuyQuantity', 'Quantidade de rebuys')}</label>
-                    <input
-                      id="rebuy_quantity"
-                      name="rebuy_quantity"
-                      type="number"
-                      min="1"
-                      max="20"
-                      step="1"
-                      value={formData.rebuy_quantity}
-                      onChange={handleChange}
-                    />
-                  </div>
-                )}
 
                 <div className="form-group">
                   <label htmlFor="payment_method">{t('cashRegister.paymentMethod')}</label>
@@ -1570,6 +1580,16 @@ const Caixa = () => {
                 </button>
               </div>
               <div className="modal-body">
+                {/* O que a pessoa acabou de comprar, pelo nome que o clube
+                    configurou ("Rebuy duplo"). A categoria sozinha não
+                    distingue duas entradas de preços diferentes, e é por aqui
+                    que o operador confere a venda antes de entregar as fichas. */}
+                {meioDeEntradaVendido && (
+                  <p className="cx-ticket-buytype">
+                    {t('cashRegister.ticketBuyType', 'Meio de entrada')}:{' '}
+                    <strong>{meioDeEntradaVendido}</strong>
+                  </p>
+                )}
                 {/* Por que este bilhete saiu sem assento. "Mesas cheias" é fila
                     de alternados de verdade; "nenhuma mesa cadastrada" é a
                     etapa por configurar e o bilhete NÃO significa fila. */}

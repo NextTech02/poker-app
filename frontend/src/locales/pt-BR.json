@@ -169,24 +169,6 @@
     "builtinHint": "Método padrão (traduz automaticamente com o idioma)",
     "namePlaceholderShort": "ex.: Yape, Nequi, Cartão"
   },
-  "buyTypes": {
-    "intro": "Tipos de buy desta etapa. Cada tipo define o rake — o valor da entrada vem da configuração do torneio. Usado ao registrar no Caixa.",
-    "selectStage": "Selecione uma etapa para configurar os tipos de buy.",
-    "add": "Adicionar",
-    "added": "Tipo adicionado.",
-    "updated": "Tipo atualizado.",
-    "confirmDelete": "Excluir o tipo",
-    "nameRequired": "Dê um nome ao tipo.",
-    "namePlaceholder": "Nome (ex.: Buy-in VIP)",
-    "name": "Nome",
-    "category": "Categoria",
-    "amount": "Valor",
-    "rake": "Rake %",
-    "active": "Ativo",
-    "empty": "Nenhum tipo cadastrado nesta etapa.",
-    "namePlaceholderShort": "ex.: Buy-in VIP",
-    "rakeLabel": "Rake (%)"
-  },
   "blindTemplates": {
     "pageTitle": "Templates de Blinds",
     "intro": "Crie e salve estruturas de blinds reutilizáveis. Depois, é só carregá-las em qualquer dia de torneio.",
@@ -272,7 +254,8 @@
     "confirmDeleteEmpty": "Excluir o torneio \"{{name}}\"? Ele não tem nenhum dia, inscrição ou venda registrada.",
     "confirmDeleteImpact": "Excluir o torneio \"{{name}}\"? Serão apagados em cascata: {{days}} dia(s), {{players}} inscrição(ões) e {{cancelled}} venda(s) já cancelada(s). Não há como desfazer.",
     "deleteBlocked": "Este torneio não pode ser excluído: tem {{entries}} entrada(s) vendida(s) somando {{amount}}, {{players}} jogador(es) pago(s) e {{prizes}} pagamento(s) de premiação. Excluir apagaria a venda, o dinheiro recebido e o registro de quem pagou — e o caixa da etapa NÃO seria estornado. Cancele as vendas no Caixa (o estorno devolve o dinheiro e acerta o caixa) antes de excluir.",
-    "deleteBlockedTitle": "Torneio com movimento financeiro"
+    "deleteBlockedTitle": "Torneio com movimento financeiro",
+    "qualifyingBuyTypesPartial": "Dias criados, mas não foi possível cadastrar os meios de entrada. Configure-os na tela de cada dia."
   },
   "tournamentDays": {
     "restarted": "Dia reiniciado.",
@@ -570,9 +553,7 @@
     "registeredAsAlternate": "Jogador Registrado como Alternate!",
     "registeredAndAllocated": "Jogador Registrado e Alocado!",
     "searchPlayer": "Buscar jogador...",
-    "rebuyQuantity": "Quantidade de rebuys",
-    "buyType": "Tipo de Buy",
-    "buyTypeNone": "Padrão (rake do dia)",
+    "buyType": "Meio de entrada",
     "actions": "Ações",
     "reprint": "Reimprimir",
     "reprintTitle": "Reimpressão de Bilhete",
@@ -581,11 +562,10 @@
     "reprintError": "Erro ao buscar o bilhete para reimpressão.",
     "selectType": "Selecione a categoria",
     "categoryRequired": "Escolha a categoria da entrada.",
-    "selectBuyType": "Selecione o tipo de buy",
-    "buyTypeRequired": "Escolha o tipo de buy.",
-    "noBuyTypesTitle": "Nenhum tipo de buy cadastrado",
-    "noBuyTypes": "Esta etapa não tem tipos de buy. As vendas usam a categoria e o rake do dia; cadastre em Financeiro → Tipos de Buy para controlar o rake por entrada.",
-    "goToFinanceiro": "Ir para o Financeiro",
+    "selectBuyType": "Selecione o meio de entrada",
+    "buyTypeRequired": "Escolha o meio de entrada.",
+    "noBuyTypesTitle": "Nenhum meio de entrada cadastrado",
+    "noBuyTypes": "Este dia não tem meios de entrada. A venda usa a categoria e o valor/rake do dia; configure os meios de entrada na edição do dia do torneio.",
     "noStageSelected": "Selecione uma etapa para vender.",
     "changePaymentMethod": "Trocar pagamento",
     "paymentMethodChanged": "Forma de pagamento atualizada",
@@ -618,7 +598,8 @@
     "tablesUnknownTitle": "Sem conexão",
     "tablesUnknownHint": "Sem internet não dá para conferir as mesas. A venda é guardada e o assento é definido na sincronização.",
     "ticketNoTablesHint": "Não há mesa cadastrada neste dia: o jogador não entrou em fila de alternados. Cadastre as mesas em Mesas e aloque o jogador.",
-    "ticketOfflineHint": "Venda guardada sem internet: o assento é definido na sincronização."
+    "ticketOfflineHint": "Venda guardada sem internet: o assento é definido na sincronização.",
+    "ticketBuyType": "Meio de entrada"
   },
   "cashbox": {
     "myCashbox": "Meu Caixa",
@@ -737,7 +718,8 @@
     "impactInCash": "em caixa",
     "impactTournaments": "torneios ficam sem etapa.",
     "legacyNoStartDate": "Esta etapa foi criada sem data de início. Informe a data para poder salvar.",
-    "startDateRequired": "Informe a data de início da etapa"
+    "startDateRequired": "Informe a data de início da etapa",
+    "impactBuyTypes": "meios de entrada"
   },
   "reports": {
     "export": {
@@ -893,7 +875,29 @@
     "saving": "Salvando...",
     "blindsInherited": "Estrutura de blinds herdada dos dias classificatórios.",
     "blindsInheritError": "Dia criado, mas não foi possível herdar a estrutura de blinds. Configure na tela de Blinds.",
-    "currency": "Moeda"
+    "currency": "Moeda",
+    "entryMethods": "Meios de entrada",
+    "entryMethodsIntro": "Cada meio de entrada tem nome, valor, rake e fichas próprios. Cadastre aqui o que este dia vende — inclusive variações como \"Buy-in duplo\" ou \"Rebuy triplo\".",
+    "entryMethodName": "Nome",
+    "entryMethodNamePlaceholder": "Ex: Buy-in duplo",
+    "entryMethodAmount": "Valor",
+    "entryMethodRake": "Rake (%)",
+    "entryMethodChips": "Fichas",
+    "entryMethodCategory": "Categoria",
+    "entryMethodCategoryHint": "A categoria decide o efeito da venda: Entrada soma um jogador novo, Recompra devolve alguém à mesa, Add-on só entrega fichas a quem já joga.",
+    "categoryBuyIn": "Entrada",
+    "categoryRebuy": "Recompra",
+    "categoryAddon": "Add-on",
+    "addEntryMethod": "Adicionar meio de entrada",
+    "removeEntryMethod": "Remover",
+    "removeEntryMethodOf": "Remover meio de entrada {{nome}}",
+    "entryMethodUnnamed": "sem nome",
+    "entryMethodsNeedBuyIn": "É preciso manter ao menos um meio de entrada da categoria \"Entrada\" — sem ele não há como inscrever jogadores neste dia.",
+    "entryMethodsNeedName": "Dê um nome a cada meio de entrada.",
+    "defaultBuyIn": "Buy-in",
+    "defaultRebuy": "Rebuy",
+    "defaultAddon": "Add-on",
+    "playersSection": "Jogadores"
   },
   "rankings": {
     "title": "Rankings",
@@ -1230,7 +1234,7 @@
     "sangriaAmountLabel": "Valor da Sangria",
     "rakePercentLabel": "Percentual de Rake (%)",
     "rakeAutoLabel": "Rake (automático)",
-    "rakeAutoHint": "Calculado a partir do rake dos tipos de buy das entradas desta etapa.",
+    "rakeAutoHint": "Calculado a partir do rake dos meios de entrada vendidos nesta etapa.",
     "notesOptionalLabel": "Observações (opcional)",
     "notesPlaceholder": "Adicione observações sobre esta sangria",
     "sangriaCalculation": "Cálculo da Sangria",
@@ -1358,7 +1362,6 @@
     "paymentMixed": "Misto",
     "paymentTicket": "Ticket",
     "paymentMethodsTab": "Métodos de Pagamento",
-    "buyTypesTab": "Tipos de Buy",
     "title": "Financeiro",
     "subtitle": "DRE e fechamento financeiro",
     "filterStage": "Etapa",

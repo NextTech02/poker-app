@@ -1,22 +1,21 @@
 /**
- * Tipos de compra (buy types) são por ETAPA.
+ * Meios de entrada (buy types) são por DIA do torneio.
  *
- * Cada tipo define nome, categoria e o RAKE próprio daquela entrada — um
- * freeroll com rake zero, uma entrada promocional com rake reduzido. Sem
- * escopo por etapa, o tipo criado num circuito apareceria em outro, e o rake
- * aplicado seria o do evento errado.
+ * Cada meio de entrada define nome, categoria, VALOR, RAKE e FICHAS daquela
+ * entrada — um freeroll com rake zero, um "rebuy duplo" com valor e fichas
+ * próprios. Antes eles pertenciam à ETAPA e só diziam o rake; o valor e as
+ * fichas vinham do dia, e por isso "rebuy duplo" só podia ser rebuy × 2 — o
+ * que nunca foi verdade.
  *
- * O `amount` fica sempre em zero de propósito: o valor da entrada vem da
- * configuração do DIA. Um valor no tipo criaria duas fontes para a mesma
- * informação, e a primeira divergência apareceria como caixa que não fecha.
+ * O escopo por DIA é o que permite um torneio de seis dias cobrar seis coisas
+ * diferentes (o dia final costuma ter buy-in zerado, porque quem chega lá vem
+ * classificado). Sem ele, o dia final cobraria o preço do Dia 1.
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { BuyTypesProvider, useBuyTypes } from './BuyTypesContext';
-import { useStage } from './StageContext';
 import { supabase } from '../config/supabase';
 import { getAllByTable } from '../offline/db';
 
-jest.mock('./StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../offline/db', () => ({ getAllByTable: jest.fn(async () => []) }));
 jest.mock('../config/supabase', () => {
   const cadeia = {};
@@ -26,12 +25,12 @@ jest.mock('../config/supabase', () => {
   return { supabase: cadeia };
 });
 
-const ETAPA = 'etapa-1';
+const DIA = 'dia-1';
 const TIPOS = [
-  { id: 'b1', stage_id: ETAPA, name: 'Buy-in', category: 'buy_in',
-    rake_percentage: 20, active: true, sort_order: 1 },
-  { id: 'b2', stage_id: ETAPA, name: 'Freeroll', category: 'buy_in',
-    rake_percentage: 0, active: false, sort_order: 2 },
+  { id: 'b1', tournament_day_id: DIA, name: 'Buy-in', category: 'buy_in',
+    amount: 1000, rake_percentage: 20, chips: 30000, active: true, sort_order: 1 },
+  { id: 'b2', tournament_day_id: DIA, name: 'Freeroll', category: 'buy_in',
+    amount: 0, rake_percentage: 0, chips: 30000, active: false, sort_order: 2 },
 ];
 
 let api;
@@ -54,42 +53,64 @@ const responder = (dados) => {
   });
 };
 
-const montar = async (esperado = TIPOS.length) => {
+/** Renderiza sem dia nenhum — o estado em que a tela abre. */
+const renderizar = async () => {
   render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
+  await waitFor(() => expect(api).toBeTruthy());
+};
+
+/** Renderiza e avisa o dia escolhido, como o Caixa faz ao abrir a venda. */
+const montar = async (esperado = TIPOS.length) => {
+  await renderizar();
+  await act(async () => api.selectDay(DIA));
   await waitFor(() => expect(screen.getByTestId('qtd')).toHaveTextContent(String(esperado)));
 };
 
 beforeEach(() => {
   api = null;
   getAllByTable.mockResolvedValue([]);
-  useStage.mockReturnValue({ selectedStage: { id: ETAPA } });
   ['from', 'select', 'eq', 'insert', 'update', 'delete'].forEach((m) => {
     supabase[m].mockImplementation(() => supabase);
   });
   responder(TIPOS);
 });
 
-describe('escopo por etapa', () => {
-  it('carrega os tipos da etapa selecionada', async () => {
+describe('escopo por dia', () => {
+  it('carrega os meios de entrada do dia informado', async () => {
     await montar();
-    expect(supabase.eq).toHaveBeenCalledWith('stage_id', ETAPA);
-    expect(api.stageId).toBe(ETAPA);
+    expect(supabase.eq).toHaveBeenCalledWith('tournament_day_id', DIA);
+    expect(api.dayId).toBe(DIA);
   });
 
-  it('sem etapa selecionada a lista fica vazia e nada é consultado', async () => {
-    // Mostrar os tipos de outra etapa aplicaria o rake do evento errado.
-    useStage.mockReturnValue({ selectedStage: null });
-    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
-    await waitFor(() => expect(screen.getByTestId('qtd')).toHaveTextContent('0'));
+  it('sem dia escolhido a lista fica vazia e nada é consultado', async () => {
+    // Mostrar os meios de entrada de outro dia cobraria o preço do dia errado.
+    await renderizar();
+    expect(screen.getByTestId('qtd')).toHaveTextContent('0');
     expect(supabase.from).not.toHaveBeenCalled();
-    expect(api.stageId).toBeNull();
+    expect(api.dayId).toBeNull();
+  });
+
+  it('trocar de dia recarrega a lista', async () => {
+    // O operador troca o dia dentro do próprio formulário de venda; a lista
+    // precisa acompanhar, senão ele vende o preço do dia anterior.
+    await montar();
+    await act(async () => api.selectDay('dia-2'));
+    await waitFor(() => expect(api.dayId).toBe('dia-2'));
+    expect(supabase.eq).toHaveBeenCalledWith('tournament_day_id', 'dia-2');
+  });
+
+  it('limpar o dia esvazia a lista', async () => {
+    await montar();
+    await act(async () => api.selectDay(''));
+    await waitFor(() => expect(screen.getByTestId('qtd')).toHaveTextContent('0'));
+    expect(api.origem).toBeNull();
   });
 
   it('resposta vazia vira lista vazia', async () => {
     responder(null);
     await montar(0);
     expect(api.buyTypes).toEqual([]);
-    // Veio do servidor: aí sim dá para afirmar "esta etapa não cadastrou nada".
+    // Veio do servidor: aí sim dá para afirmar "este dia não cadastrou nada".
     expect(api.tiposCarregados).toBe(true);
   });
 
@@ -97,7 +118,8 @@ describe('escopo por etapa', () => {
     supabase.order.mockImplementation(() => ({
       order: () => ({ order: () => Promise.reject(new Error('sem sessão')) }),
     }));
-    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
+    await renderizar();
+    await act(async () => api.selectDay(DIA));
     await waitFor(() => expect(api.loading).toBe(false));
     expect(api.buyTypes).toEqual([]);
   });
@@ -105,10 +127,10 @@ describe('escopo por etapa', () => {
 
 describe('quando a consulta não volta', () => {
   /**
-   * Lista vazia por falha NÃO é "nenhum tipo cadastrado". O Caixa usa essa
-   * diferença para decidir entre avisar o cadastro faltando e apenas vender
-   * pela categoria — confundir os dois deixa o operador sem vender no meio do
-   * evento, mandado cadastrar o que já existe.
+   * Lista vazia por falha NÃO é "nenhum meio de entrada cadastrado". O Caixa
+   * usa essa diferença para decidir entre avisar o cadastro faltando e apenas
+   * vender pela categoria — confundir os dois deixa o operador sem vender no
+   * meio do evento, mandado cadastrar o que já existe.
    */
   const falharAConsulta = (erro = new Error('Failed to fetch')) => {
     supabase.order.mockImplementation(() => ({
@@ -116,40 +138,43 @@ describe('quando a consulta não volta', () => {
     }));
   };
 
-  it('offline, cai para os últimos tipos vistos na réplica local', async () => {
-    // É o que faz o modo offline do Caixa continuar vendendo com o rake certo.
+  const montarComFalha = async () => {
+    await renderizar();
+    await act(async () => api.selectDay(DIA));
+    await waitFor(() => expect(api.loading).toBe(false));
+  };
+
+  it('offline, cai para os últimos meios de entrada vistos na réplica local', async () => {
+    // É o que faz o modo offline do Caixa continuar vendendo com o valor certo.
     getAllByTable.mockResolvedValue(TIPOS);
     falharAConsulta();
-    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
-    await waitFor(() => expect(api.loading).toBe(false));
+    await montarComFalha();
     expect(api.buyTypes.map((b) => b.id)).toEqual(['b1', 'b2']);
     expect(api.origem).toBe('replica');
     expect(api.tiposCarregados).toBe(false);
   });
 
-  it('a réplica é filtrada pela etapa', async () => {
-    // Tipo de outro circuito aplicaria o rake do evento errado.
+  it('a réplica é filtrada pelo dia', async () => {
+    // Meio de entrada de outro dia cobraria o preço do dia errado.
     getAllByTable.mockResolvedValue([
       ...TIPOS,
-      { id: 'b9', stage_id: 'outra', name: 'Outro', category: 'buy_in', active: true },
+      { id: 'b9', tournament_day_id: 'outro-dia', name: 'Outro', category: 'buy_in', active: true },
     ]);
     falharAConsulta();
-    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
-    await waitFor(() => expect(api.loading).toBe(false));
+    await montarComFalha();
     expect(api.buyTypes.map((b) => b.id)).toEqual(['b1', 'b2']);
   });
 
   it('sem réplica, a origem é erro — e não "cadastro vazio"', async () => {
     falharAConsulta();
-    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
-    await waitFor(() => expect(api.loading).toBe(false));
+    await montarComFalha();
     expect(api.origem).toBe('erro');
     expect(api.tiposCarregados).toBe(false);
   });
 
   it('erro de RLS/sessão não passa por resposta vazia', async () => {
     // O supabase-js NÃO lança nesse caso: devolve { data: null, error }. Sem
-    // olhar o `error`, uma sessão expirada virava "nenhum tipo cadastrado".
+    // olhar o `error`, uma sessão expirada virava "nenhum meio de entrada".
     getAllByTable.mockResolvedValue(TIPOS);
     let restantes = 3;
     supabase.order.mockImplementation(() => {
@@ -160,7 +185,8 @@ describe('quando a consulta não volta', () => {
       }
       return supabase;
     });
-    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
+    await renderizar();
+    await act(async () => api.selectDay(DIA));
     await waitFor(() => expect(api.loading).toBe(false));
     expect(api.tiposCarregados).toBe(false);
     expect(api.buyTypes.map((b) => b.id)).toEqual(['b1', 'b2']);
@@ -168,14 +194,14 @@ describe('quando a consulta não volta', () => {
 });
 
 describe('consulta', () => {
-  it('o caixa só vê os tipos ativos', async () => {
+  it('o caixa só vê os meios de entrada ativos', async () => {
     await montar();
     expect(api.activeBuyTypes.map((b) => b.name)).toEqual(['Buy-in']);
   });
 
   it('busca por id inclui os inativos', async () => {
-    // Transações antigas apontam para tipos que podem ter sido desativados;
-    // sem isso o relatório perderia o nome e o rake da entrada.
+    // Transações antigas apontam para meios de entrada que podem ter sido
+    // desativados; sem isso o relatório perderia o nome e o rake da entrada.
     await montar();
     expect(api.byId('b2').name).toBe('Freeroll');
   });
@@ -187,40 +213,49 @@ describe('consulta', () => {
 });
 
 describe('criação', () => {
-  it('grava com a etapa, ativo e no fim da ordem', async () => {
+  it('grava com o dia, ativo e no fim da ordem', async () => {
     await montar();
     await act(async () => {
-      await api.createBuyType({ name: 'Turbo', category: 'buy_in', rake_percentage: 15 });
+      await api.createBuyType({
+        name: 'Turbo', category: 'buy_in', amount: 500, rake_percentage: 15, chips: 20000,
+      });
     });
     expect(supabase.insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        stage_id: ETAPA,
+        tournament_day_id: DIA,
         name: 'Turbo',
+        amount: 500,
         rake_percentage: 15,
+        chips: 20000,
         active: true,
         sort_order: 3,
       })
     );
   });
 
-  it('o valor fica zerado — quem define é o dia', async () => {
-    // Duas fontes para o valor da entrada apareceriam como caixa que não
-    // fecha na primeira divergência.
+  it('valor e fichas ficam NO meio de entrada', async () => {
+    // É o que permite "rebuy duplo" ser uma venda própria, e não rebuy × 2.
     await montar();
     await act(async () => {
-      await api.createBuyType({ name: 'X', category: 'buy_in', rake_percentage: 0 });
-    });
-    expect(supabase.insert).toHaveBeenCalledWith(expect.objectContaining({ amount: 0 }));
-  });
-
-  it('rake não numérico vira zero em vez de NaN', async () => {
-    // NaN gravado no rake contaminaria todo cálculo de prêmio da etapa.
-    await montar();
-    await act(async () => {
-      await api.createBuyType({ name: 'X', category: 'buy_in', rake_percentage: 'abc' });
+      await api.createBuyType({
+        name: 'Rebuy duplo', category: 'rebuy', amount: 1200, chips: 60000,
+      });
     });
     expect(supabase.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ rake_percentage: 0 })
+      expect.objectContaining({ amount: 1200, chips: 60000 })
+    );
+  });
+
+  it('números não numéricos viram zero em vez de NaN', async () => {
+    // NaN gravado no rake contaminaria todo cálculo de prêmio do dia.
+    await montar();
+    await act(async () => {
+      await api.createBuyType({
+        name: 'X', category: 'buy_in', rake_percentage: 'abc', amount: 'abc', chips: 'abc',
+      });
+    });
+    expect(supabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ rake_percentage: 0, amount: 0, chips: 0 })
     );
   });
 
@@ -234,11 +269,9 @@ describe('criação', () => {
     );
   });
 
-  it('sem etapa não cria', async () => {
-    useStage.mockReturnValue({ selectedStage: null });
-    render(<BuyTypesProvider><Sonda /></BuyTypesProvider>);
-    await waitFor(() => expect(api).toBeTruthy());
-    await expect(api.createBuyType({ name: 'X' })).rejects.toThrow('no-stage');
+  it('sem dia não cria', async () => {
+    await renderizar();
+    await expect(api.createBuyType({ name: 'X' })).rejects.toThrow('no-day');
   });
 
   it('erro do banco sobe para a tela', async () => {
@@ -280,7 +313,7 @@ describe('edição e exclusão', () => {
   });
 
   it('erro ao excluir sobe', async () => {
-    // Tipo já usado em transações não pode sumir em silêncio.
+    // Meio de entrada já usado em transações não pode sumir em silêncio.
     await montar();
     supabase.delete.mockImplementation(() => ({
       eq: () => Promise.resolve({ error: new Error('em uso') }),

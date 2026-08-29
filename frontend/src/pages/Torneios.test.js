@@ -29,7 +29,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), put: jest.fn(), delete: jest.fn() },
 }));
 jest.mock('../utils/apiCache', () => ({ cachedGet: jest.fn(), invalidateCache: jest.fn() }));
 jest.mock('../utils/stageUtils', () => ({ getSelectedStage: jest.fn() }));
@@ -110,6 +110,7 @@ beforeEach(() => {
   getSelectedStage.mockReturnValue(ETAPA);
   api.post.mockResolvedValue({ data: { id: 'novo' } });
   api.patch.mockResolvedValue({ data: {} });
+  api.put.mockResolvedValue({ data: [] });
   api.delete.mockResolvedValue({ data: {} });
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -432,6 +433,44 @@ describe('criar torneio com classificatórios', () => {
     await criarComQuali();
     await waitFor(() => expect(api.post.mock.calls.length).toBeGreaterThan(2));
     expect(api.post.mock.calls.some((c) => c[0] === '/blind-templates/apply')).toBe(false);
+  });
+
+  it('os valores digitados viram os MEIOS DE ENTRADA de cada classificatório', async () => {
+    // Sem isso o dia nasceria sem nenhum meio cadastrado e o Caixa não teria o
+    // que vender: os valores existiriam só nas colunas antigas do dia, que não
+    // carregam nome nem fichas próprias.
+    await montar();
+    await criarComQuali(async () => {
+      await userEvent.type(screen.getByLabelText(/Buy-in por dia classificatório/), '250');
+    });
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    const envios = api.put.mock.calls.filter((c) => c[0].endsWith('/buy-types'));
+    expect(envios).toHaveLength(2); // um por dia classificatório
+    const itens = envios[0][1].items;
+    expect(itens.map((i) => i.category)).toEqual(['buy_in', 'rebuy', 'addon']);
+    expect(itens[0]).toMatchObject({ amount: 250, chips: 10000, active: true });
+  });
+
+  it('o dia FINAL não ganha meio de entrada: quem chega lá vem classificado', async () => {
+    await montar();
+    await criarComQuali();
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(api.put.mock.calls.every((c) => c[0] === '/tournament-days/novo/buy-types')).toBe(true);
+    // 'novo' é o id devolvido para TODOS os posts no mock; o que garante o
+    // recorte é a quantidade: dois classificatórios, e não três dias.
+    expect(api.put.mock.calls).toHaveLength(2);
+  });
+
+  it('falha só nos meios de entrada avisa, sem desfazer os dias', async () => {
+    api.put.mockRejectedValue(new Error('500'));
+    await montar();
+    await criarComQuali();
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith(
+        expect.stringContaining('meios de entrada')
+      )
+    );
+    expect(toast.success).toHaveBeenCalledWith('tournaments.createdSuccess');
   });
 
   it('falha ao gerar os dias NÃO vira erro de criação do torneio', async () => {

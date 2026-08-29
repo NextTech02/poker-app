@@ -41,7 +41,7 @@ def add_rebuy(
     payment_source: Optional[str] = Query("cash"),
     payment_method: Optional[str] = Query("cash"),
     buy_type_id: Optional[str] = Query(None),
-    quantity: int = Query(1, ge=1, le=20, description="Quantas recompras registrar de uma vez (recompra dupla, tripla...)."),
+    quantity: int = Query(1, ge=1, le=20, description="EM DEPRECIAÇÃO — quantas recompras registrar de uma vez. A recompra dupla passou a ser um meio de entrada com valor e fichas próprios."),
     client_mutation_id: Optional[str] = Query(None, description="Identificador gerado no cliente; torna a chamada repetível sem duplicar a venda."),
     current_user: dict = Depends(get_current_user),
 ):
@@ -55,6 +55,12 @@ def add_rebuy(
     `client_mutation_id` era enviado pelo Caixa no CORPO da requisição, mas esta
     rota só lê parâmetros de consulta — ele se perdia, e com ele a proteção
     contra registrar a mesma venda duas vezes numa retentativa.
+
+    `quantity` está EM DEPRECIAÇÃO: a recompra dupla virou um meio de entrada
+    com valor e fichas próprios (multiplicar o rebuy simples só acertava por
+    acidente). Ele fica porque o deploy não é atômico — um Caixa antigo aberto
+    no navegador ainda manda `quantity=3`, e ignorá-lo gravaria uma recompra só
+    onde o jogador pagou três.
     """
     user_id = current_user.get("sub")
     try:

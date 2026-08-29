@@ -12,6 +12,12 @@
  *   de novo. A herança é acessória: se ela falhar, o dia continua criado — só
  *   avisa para configurar à mão.
  *
+ * - **Os MEIOS DE ENTRADA são do dia.** No lugar dos seis campos soltos (buy-in,
+ *   rebuy, add-on e as fichas de cada um) há uma lista com nome, valor, rake e
+ *   fichas próprios por linha — é o que permite "Buy-in duplo" ser uma coisa
+ *   própria, e não buy-in vezes dois. Um dia sem nenhum meio da categoria
+ *   `buy_in` não consegue inscrever ninguém, então isso é bloqueado.
+ *
  * Valores opcionais zerados viram NULO, não zero: "rebuy de R$ 0,00" diria que
  * o rebuy é de graça; nulo diz que não existe.
  */
@@ -25,7 +31,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), put: jest.fn() },
 }));
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
@@ -38,7 +44,17 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 jest.mock('react-i18next', () => {
-  const t = (chave, segundo) => (typeof segundo === 'string' ? segundo : chave);
+  // Interpola {{var}} como o i18next de verdade: o nome acessível do botão de
+  // remover CARREGA o nome do meio de entrada, e um mock que devolvesse o texto
+  // cru deixaria passar seis botões chamados "Remover meio de entrada {{nome}}".
+  const t = (chave, segundo, terceiro) => {
+    const padrao = typeof segundo === 'string' ? segundo : chave;
+    const vars = typeof segundo === 'string' ? terceiro : segundo;
+    if (!vars) return padrao;
+    return padrao.replace(/\{\{(\w+)\}\}/g, (bruto, nome) =>
+      vars[nome] === undefined ? bruto : String(vars[nome])
+    );
+  };
   const traducao = { t, i18n: { language: 'pt-BR' } };
   return { useTranslation: () => traducao };
 });
@@ -64,8 +80,16 @@ const BLINDS_ORIGEM = [
 
 let toast;
 
+// Meios de entrada do dia em edição, fora de ordem de propósito: a tela ordena
+// por sort_order, e é essa ordem que o Caixa mostra.
+const MEIOS = [
+  { id: 'm2', name: 'Rebuy', category: 'rebuy', amount: 300, rake_percentage: 10, chips: 30000, active: true, sort_order: 1 },
+  { id: 'm1', name: 'Buy-in', category: 'buy_in', amount: 500, rake_percentage: 10, chips: 30000, active: true, sort_order: 0 },
+];
+
 const responder = ({
   torneio = TORNEIO, dias = DIAS, dia = DIA_EM_EDICAO, blinds = BLINDS_ORIGEM,
+  meios = MEIOS,
 } = {}) => {
   api.get.mockImplementation((url) => {
     if (url === '/tournaments/t1') {
@@ -74,6 +98,9 @@ const responder = ({
     if (url === '/tournament-days/tournament/t1') return Promise.resolve({ data: dias });
     if (url.endsWith('/blinds')) {
       return blinds instanceof Error ? Promise.reject(blinds) : Promise.resolve({ data: blinds });
+    }
+    if (url.endsWith('/buy-types')) {
+      return meios instanceof Error ? Promise.reject(meios) : Promise.resolve({ data: meios });
     }
     if (url.startsWith('/tournament-days/')) return Promise.resolve({ data: dia });
     return Promise.resolve({ data: [] });
@@ -96,12 +123,38 @@ const trocar = async (nome, valor) => {
   if (valor !== '') await userEvent.type(campo(nome), String(valor));
 };
 
+// ── Meios de entrada ────────────────────────────────────────────────────────
+// As linhas não têm id fixo (uma linha nova ainda não existe no banco), então a
+// busca é pela posição na lista, que é a ordem que o operador vê.
+const linhas = () => Array.from(document.querySelectorAll('.entry-method-row'));
+const linha = (indice) => {
+  const raiz = linhas()[indice];
+  const numeros = raiz.querySelectorAll('input[type="number"]');
+  return {
+    nome: raiz.querySelector('input[type="text"]'),
+    valor: numeros[0],
+    rake: numeros[1],
+    fichas: numeros[2],
+    categoria: raiz.querySelector('select'),
+    remover: raiz.querySelector('button'),
+  };
+};
+const escreverNa = async (indice, qual, valor) => {
+  const alvo = linha(indice)[qual];
+  await userEvent.clear(alvo);
+  if (valor !== '') await userEvent.type(alvo, String(valor));
+};
+const adicionarMeio = () =>
+  userEvent.click(screen.getByRole('button', { name: 'Adicionar meio de entrada' }));
+const itensEnviados = () => api.put.mock.calls[0][1].items;
+
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
   useToast.mockReturnValue({ toast });
   useCurrency.mockReturnValue({ currency: 'BRL' });
   api.post.mockResolvedValue({ data: { id: 'novo' } });
   api.patch.mockResolvedValue({ data: {} });
+  api.put.mockResolvedValue({ data: [] });
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -136,14 +189,16 @@ describe('carga', () => {
   it('editando, o formulário abre com os valores do dia', async () => {
     await montar(undefined, { editando: true });
     expect(campo('day_name')).toHaveValue('Dia 1A');
-    expect(campo('buy_in')).toHaveValue(500);
+    expect(campo('max_players')).toHaveValue(120);
     expect(campo('rebuy_level_limit')).toHaveValue(6);
   });
 
   it('valores opcionais ausentes viram zero no formulário, não "undefined"', async () => {
+    // Um dia migrado antes de ter meios cadastrados cai nos valores do próprio
+    // dia — nulo lá vira 0 aqui, e não um campo com "undefined" escrito.
     await montar({ dia: { ...DIA_EM_EDICAO, rebuy_amount: null, addon_amount: null,
-      rebuy_level_limit: null } }, { editando: true });
-    expect(campo('rebuy_amount')).toHaveValue(0);
+      rebuy_level_limit: null }, meios: [] }, { editando: true });
+    expect(linha(1).valor).toHaveValue(0);
     expect(campo('rebuy_level_limit')).toHaveValue(null);
   });
 
@@ -164,7 +219,7 @@ describe('valores opcionais', () => {
     // "Rebuy de R$ 0,00" diria que o rebuy é de graça; nulo diz que não existe.
     await montar();
     await userEvent.type(campo('day_name'), 'Dia 2');
-    await trocar('rebuy_amount', 0);
+    await escreverNa(1, 'valor', 0);
     await salvar();
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     expect(api.post.mock.calls[0][1].rebuy_amount).toBeNull();
@@ -173,7 +228,7 @@ describe('valores opcionais', () => {
   it('add-on zerado também', async () => {
     await montar();
     await userEvent.type(campo('day_name'), 'Dia 2');
-    await trocar('addon_amount', 0);
+    await escreverNa(2, 'valor', 0);
     await salvar();
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     expect(api.post.mock.calls[0][1].addon_amount).toBeNull();
@@ -299,6 +354,186 @@ describe('herança da estrutura de blinds', () => {
     await userEvent.type(campo('day_name'), 'Final');
     // O tipo "final" só é escolhível na edição; simulamos pelo dia carregado.
     expect(campo('day_type')).toHaveValue('regular');
+  });
+});
+
+describe('meios de entrada', () => {
+  it('um dia novo já vem com Buy-in, Rebuy e Add-on, nessa ordem', async () => {
+    // Sem nenhum meio a tela abriria sem como inscrever ninguém.
+    await montar();
+    expect(linhas()).toHaveLength(3);
+    expect([0, 1, 2].map((i) => linha(i).categoria.value)).toEqual(['buy_in', 'rebuy', 'addon']);
+  });
+
+  it('editando, os meios do dia vêm do servidor, na ordem cadastrada', async () => {
+    // A resposta vem fora de ordem de propósito: quem manda é o sort_order.
+    await montar(undefined, { editando: true });
+    expect(linhas()).toHaveLength(2);
+    expect(linha(0).nome).toHaveValue('Buy-in');
+    expect(linha(1).nome).toHaveValue('Rebuy');
+    expect(linha(1).fichas).toHaveValue(30000);
+  });
+
+  it('dia antigo, ainda sem meios cadastrados, é preenchido com o que ele cobra', async () => {
+    // Tela vazia faria o operador achar que perdeu a configuração do dia.
+    await montar({ meios: [] }, { editando: true });
+    expect(linhas()).toHaveLength(3);
+    expect(linha(0).valor).toHaveValue(500);
+    expect(linha(0).fichas).toHaveValue(30000);
+  });
+
+  it('falha ao buscar os meios não derruba o formulário', async () => {
+    // O dia continua editável; só a lista é que não veio.
+    await montar({ meios: new Error('500') }, { editando: true });
+    expect(campo('day_name')).toHaveValue('Dia 1A');
+    expect(screen.queryByText('common.error')).toBeNull();
+  });
+
+  it('o botão acrescenta uma linha em branco, sem opção pré-pronta', async () => {
+    // "Buy-in duplo" é algo que o clube CADASTRA, não um item de menu.
+    await montar();
+    await adicionarMeio();
+    expect(linhas()).toHaveLength(4);
+    expect(linha(3).nome).toHaveValue('');
+  });
+
+  it('a linha nova é salva com o nome e as fichas que o operador deu', async () => {
+    // O ponto da mudança: "rebuy duplo" tem valor E fichas próprios, não é o
+    // rebuy simples multiplicado por dois.
+    await montar();
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await adicionarMeio();
+    await userEvent.type(linha(3).nome, 'Rebuy duplo');
+    await escreverNa(3, 'valor', 200);
+    await escreverNa(3, 'fichas', 25000);
+    await userEvent.selectOptions(linha(3).categoria, 'rebuy');
+    await salvar();
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(itensEnviados()[3]).toMatchObject({
+      id: null, name: 'Rebuy duplo', category: 'rebuy', amount: 200, chips: 25000,
+    });
+  });
+
+  it('remover tira a linha da lista', async () => {
+    await montar();
+    await userEvent.click(linha(2).remover);
+    expect(linhas()).toHaveLength(2);
+  });
+
+  it('não dá para ficar sem NENHUM meio de entrada', async () => {
+    // Sem meio da categoria "Entrada" não há como inscrever jogador — o
+    // operador descobriria isso no Caixa, com o clube cheio.
+    await montar();
+    await userEvent.click(linha(0).remover);
+    expect(linhas()).toHaveLength(3);
+    expect(screen.getByRole('alert')).toHaveTextContent(/ao menos um meio de entrada/i);
+  });
+
+  it('com dois meios de entrada, dá para remover um', async () => {
+    await montar();
+    await adicionarMeio(); // nasce como "Entrada"
+    await userEvent.click(linha(0).remover);
+    expect(linhas().filter((_, i) => linha(i).categoria.value === 'buy_in')).toHaveLength(1);
+  });
+
+  it('trocar a categoria do único buy-in bloqueia o salvamento', async () => {
+    // A remoção não é o único jeito de ficar sem entrada.
+    await montar();
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await userEvent.selectOptions(linha(0).categoria, 'addon');
+    await salvar();
+    expect(screen.getByRole('alert')).toHaveTextContent(/ao menos um meio de entrada/i);
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('meio sem nome bloqueia o salvamento', async () => {
+    // Um meio sem nome não dá para escolher no Caixa.
+    await montar();
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await escreverNa(0, 'nome', '');
+    await salvar();
+    expect(screen.getByRole('alert')).toHaveTextContent('Dê um nome a cada meio de entrada.');
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('na CRIAÇÃO os meios vão para o dia recém-criado', async () => {
+    // O dia não existe quando o formulário abre: o PUT só pode sair depois do
+    // POST, com o id que voltou.
+    await montar();
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await salvar();
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(api.put.mock.calls[0][0]).toBe('/tournament-days/novo/buy-types');
+    expect(itensEnviados()).toHaveLength(3);
+  });
+
+  it('na EDIÇÃO os meios vão para o dia editado', async () => {
+    await montar(undefined, { editando: true });
+    await salvar();
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(api.put.mock.calls[0][0]).toBe('/tournament-days/d9/buy-types');
+    expect(itensEnviados()[0].id).toBe('m1');
+  });
+
+  it('a ordem da tela vira o sort_order enviado', async () => {
+    // É a ordem em que o Caixa mostra os botões de venda.
+    await montar();
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await salvar();
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(itensEnviados().map((i) => i.sort_order)).toEqual([0, 1, 2]);
+  });
+
+  it('meios DESATIVADOS voltam no envio, em vez de sumirem', async () => {
+    // Vendas antigas apontam para eles; apagá-los deixaria o recibo sem dizer o
+    // que a pessoa comprou.
+    const desativado = { id: 'velho', name: 'Buy-in promo', category: 'buy_in', amount: 50,
+      rake_percentage: 5, chips: 5000, active: false, sort_order: 9 };
+    await montar({ meios: [...MEIOS, desativado] }, { editando: true });
+    expect(linhas()).toHaveLength(2); // o desativado não aparece na tela
+    await salvar();
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(itensEnviados()).toHaveLength(3);
+    expect(itensEnviados()[2]).toMatchObject({ id: 'velho', active: false });
+  });
+
+  it('as colunas antigas do dia seguem o primeiro meio de cada categoria', async () => {
+    // Telas e relatórios que ainda leem day.buy_in não podem contar outra
+    // história diferente da que o Caixa cobra.
+    await montar();
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await escreverNa(0, 'valor', 250);
+    await escreverNa(0, 'fichas', 15000);
+    await salvar();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1]).toMatchObject({ buy_in: 250, starting_chips: 15000 });
+  });
+
+  it('o dia FINAL não tem meios de entrada — nem na tela, nem no envio', async () => {
+    // Quem chega no final vem classificado; não compra entrada.
+    await montar({ dia: { ...DIA_EM_EDICAO, day_type: 'final' } }, { editando: true });
+    expect(linhas()).toHaveLength(0);
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('o botão de remover diz QUAL meio remove', async () => {
+    // Seis botões chamados só "Remover" não dizem nada a quem usa leitor de tela.
+    await montar();
+    expect(
+      screen.getByRole('button', { name: 'Remover meio de entrada Buy-in' })
+    ).toBeInTheDocument();
+  });
+
+  it('a dica da categoria aparece uma vez e vale para todas as linhas', async () => {
+    // Repetir a explicação em cada linha viraria ruído; o aria-describedby liga
+    // todos os selects ao mesmo texto.
+    await montar();
+    expect(document.querySelectorAll('#entry_category_hint')).toHaveLength(1);
+    [0, 1, 2].forEach((i) =>
+      expect(linha(i).categoria).toHaveAttribute('aria-describedby', 'entry_category_hint')
+    );
   });
 });
 

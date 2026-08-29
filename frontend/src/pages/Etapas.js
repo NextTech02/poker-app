@@ -205,7 +205,7 @@ const Etapas = () => {
     somar(impacto.staff_payments, 'stages.impactStaffPayments', 'pagamentos de funcionário');
     somar(impacto.chip_consignments, 'stages.impactConsignments', 'consignações de fichas');
     somar(impacto.cashboxes, 'stages.impactCashboxes', 'caixas de funcionário');
-    somar(impacto.buy_types, 'stages.impactBuyTypes', 'tipos de buy');
+    somar(impacto.buy_types, 'stages.impactBuyTypes', 'meios de entrada');
     if (impacto.cash_balance) {
       partes.push(`${formatCurrency(impacto.cash_balance)} ${t('stages.impactInCash', 'em caixa')}`);
     }
@@ -228,7 +228,7 @@ const Etapas = () => {
   const handleDelete = async (stageId) => {
     // As chaves estrangeiras para `stages` são ON DELETE CASCADE: apagar a
     // etapa apaga junto sangrias, despesas, outras receitas, pagamentos de
-    // funcionário, caixas, tipos de buy e consignações de ficha. Por isso
+    // funcionário, caixas, meios de entrada e consignações de ficha. Por isso
     // perguntamos ao servidor o que seria destruído ANTES de perguntar "tem
     // certeza?" — a confirmação antiga não dizia nada disso.
     let impacto = null;

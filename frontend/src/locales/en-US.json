@@ -169,24 +169,6 @@
     "builtinHint": "Default method (translates automatically with the language)",
     "namePlaceholderShort": "e.g. Yape, Nequi, Card"
   },
-  "buyTypes": {
-    "intro": "Buy types for this stage. Each type sets the rake — the entry amount comes from the tournament setup. Used at the Cashier.",
-    "selectStage": "Select a stage to configure its buy types.",
-    "add": "Add",
-    "added": "Type added.",
-    "updated": "Type updated.",
-    "confirmDelete": "Delete type",
-    "nameRequired": "Give the type a name.",
-    "namePlaceholder": "Name (e.g. VIP Buy-in)",
-    "name": "Name",
-    "category": "Category",
-    "amount": "Amount",
-    "rake": "Rake %",
-    "active": "Active",
-    "empty": "No types registered for this stage.",
-    "namePlaceholderShort": "e.g. VIP buy-in",
-    "rakeLabel": "Rake (%)"
-  },
   "blindTemplates": {
     "pageTitle": "Blind Templates",
     "intro": "Create and save reusable blind structures. Then just load them into any tournament day.",
@@ -272,7 +254,8 @@
     "confirmDeleteEmpty": "Delete tournament \"{{name}}\"? It has no days, registrations or sales recorded.",
     "confirmDeleteImpact": "Delete tournament \"{{name}}\"? This cascade-deletes: {{days}} day(s), {{players}} registration(s) and {{cancelled}} already-cancelled sale(s). There is no undo.",
     "deleteBlocked": "This tournament cannot be deleted: it has {{entries}} entry(ies) sold totalling {{amount}}, {{players}} paid player(s) and {{prizes}} prize payout(s). Deleting would erase the sale, the money taken in and the record of who paid — and the stage cash would NOT be refunded. Cancel the sales in the Cashier (the refund gives the money back and squares the cash) before deleting.",
-    "deleteBlockedTitle": "Tournament with financial activity"
+    "deleteBlockedTitle": "Tournament with financial activity",
+    "qualifyingBuyTypesPartial": "Days created, but the entry methods could not be saved. Set them up on each day's screen."
   },
   "tournamentDays": {
     "restarted": "Day restarted.",
@@ -570,9 +553,7 @@
     "registeredAsAlternate": "Player Registered as Alternate!",
     "registeredAndAllocated": "Player Registered and Allocated!",
     "searchPlayer": "Search player...",
-    "rebuyQuantity": "Number of rebuys",
-    "buyType": "Buy Type",
-    "buyTypeNone": "Default (day's rake)",
+    "buyType": "Entry type",
     "actions": "Actions",
     "reprint": "Reprint",
     "reprintTitle": "Reprint Ticket",
@@ -581,11 +562,10 @@
     "reprintError": "Error fetching the ticket to reprint.",
     "selectType": "Select the category",
     "categoryRequired": "Select the entry category.",
-    "selectBuyType": "Select the buy type",
-    "buyTypeRequired": "Select the buy type.",
-    "noBuyTypesTitle": "No buy types registered",
-    "noBuyTypes": "This stage has no buy types. Sales use the day's category and rake; register them under Financial → Buy Types to control the rake per entry.",
-    "goToFinanceiro": "Go to Financial",
+    "selectBuyType": "Select the entry type",
+    "buyTypeRequired": "Select the entry type.",
+    "noBuyTypesTitle": "No entry types configured",
+    "noBuyTypes": "This day has no entry types. Sales use the category and the day's amount/rake; configure entry types when editing the tournament day.",
     "noStageSelected": "Select a stage to sell.",
     "changePaymentMethod": "Change payment",
     "paymentMethodChanged": "Payment method updated",
@@ -618,7 +598,8 @@
     "tablesUnknownTitle": "No connection",
     "tablesUnknownHint": "Without internet the tables cannot be checked. The sale is stored and the seat is assigned on sync.",
     "ticketNoTablesHint": "No table is registered for this day: the player did not enter the alternates queue. Register the tables under Tables and seat the player.",
-    "ticketOfflineHint": "Sale stored offline: the seat is assigned on sync."
+    "ticketOfflineHint": "Sale stored offline: the seat is assigned on sync.",
+    "ticketBuyType": "Entry type"
   },
   "cashbox": {
     "myCashbox": "My Cashbox",
@@ -737,7 +718,8 @@
     "impactInCash": "in cash",
     "impactTournaments": "tournaments will be left without a stage.",
     "legacyNoStartDate": "This stage was created without a start date. Enter the date to be able to save.",
-    "startDateRequired": "Enter the stage start date"
+    "startDateRequired": "Enter the stage start date",
+    "impactBuyTypes": "entry methods"
   },
   "reports": {
     "export": {
@@ -893,7 +875,29 @@
     "saving": "Saving...",
     "blindsInherited": "Blind structure inherited from the qualifying days.",
     "blindsInheritError": "Day created, but the blind structure could not be inherited. Configure it in the Blinds screen.",
-    "currency": "Currency"
+    "currency": "Currency",
+    "entryMethods": "Entry methods",
+    "entryMethodsIntro": "Each entry method has its own name, amount, rake and chips. Set up here what this day sells — including variations such as \"Double buy-in\" or \"Triple rebuy\".",
+    "entryMethodName": "Name",
+    "entryMethodNamePlaceholder": "E.g.: Double buy-in",
+    "entryMethodAmount": "Amount",
+    "entryMethodRake": "Rake (%)",
+    "entryMethodChips": "Chips",
+    "entryMethodCategory": "Category",
+    "entryMethodCategoryHint": "The category decides what the sale does: Entry adds a new player, Rebuy brings someone back to the table, Add-on only gives chips to who is already playing.",
+    "categoryBuyIn": "Entry",
+    "categoryRebuy": "Rebuy",
+    "categoryAddon": "Add-on",
+    "addEntryMethod": "Add entry method",
+    "removeEntryMethod": "Remove",
+    "removeEntryMethodOf": "Remove entry method {{nome}}",
+    "entryMethodUnnamed": "unnamed",
+    "entryMethodsNeedBuyIn": "Keep at least one entry method in the \"Entry\" category — without it there is no way to register players on this day.",
+    "entryMethodsNeedName": "Give every entry method a name.",
+    "defaultBuyIn": "Buy-in",
+    "defaultRebuy": "Rebuy",
+    "defaultAddon": "Add-on",
+    "playersSection": "Players"
   },
   "rankings": {
     "title": "Rankings",
@@ -1230,7 +1234,7 @@
     "sangriaAmountLabel": "Sangria Amount",
     "rakePercentLabel": "Rake Percentage (%)",
     "rakeAutoLabel": "Rake (automatic)",
-    "rakeAutoHint": "Computed from the buy types' rake on this stage's entries.",
+    "rakeAutoHint": "Calculated from the rake of the entry methods sold in this stage.",
     "notesOptionalLabel": "Notes (optional)",
     "notesPlaceholder": "Add notes about this sangria",
     "sangriaCalculation": "Sangria Calculation",
@@ -1358,7 +1362,6 @@
     "paymentMixed": "Mixed",
     "paymentTicket": "Ticket",
     "paymentMethodsTab": "Payment Methods",
-    "buyTypesTab": "Buy Types",
     "title": "Financial",
     "subtitle": "Income statement and financial closing",
     "filterStage": "Stage",

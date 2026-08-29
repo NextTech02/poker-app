@@ -125,7 +125,7 @@ const Torneios = () => {
               buy_in: qBuyIn,
               rebuy_amount: parseFloat(formData.qualifying_rebuy) || null,
               addon_amount: parseFloat(formData.qualifying_addon) || null,
-              // Rake vem dos "Tipos de Buy" (fonte única) — 0 aqui.
+              // O rake vem do meio de entrada escolhido na venda — 0 aqui.
               rake_percentage: 0,
               // Moeda segue o setting GLOBAL (Financeiro) — sem seleção por torneio.
               currency,
@@ -138,6 +138,57 @@ const Torneios = () => {
                 : null,
             });
             if (dayRes?.data?.id) qualifyingDayIds.push(dayRes.data.id);
+          }
+
+          // O que foi digitado aqui vira os MEIOS DE ENTRADA de cada dia
+          // classificatório. Sem isso o dia nasceria sem nenhum meio cadastrado
+          // e o Caixa não teria o que vender — os valores existiriam só nas
+          // colunas antigas do dia, que não carregam nome nem fichas próprias.
+          // O dia final fica de fora de propósito: quem chega lá vem
+          // classificado, não compra entrada.
+          if (qualifyingDayIds.length > 0) {
+            const meios = [
+              {
+                id: null,
+                name: t('tournamentDayForm.defaultBuyIn', 'Buy-in'),
+                category: 'buy_in',
+                amount: qBuyIn,
+                rake_percentage: 0,
+                chips: parseInt(formData.qualifying_starting_chips, 10) || 10000,
+                active: true,
+                sort_order: 0,
+              },
+              {
+                id: null,
+                name: t('tournamentDayForm.defaultRebuy', 'Rebuy'),
+                category: 'rebuy',
+                amount: parseFloat(formData.qualifying_rebuy) || 0,
+                rake_percentage: 0,
+                chips: parseInt(formData.qualifying_rebuy_chips, 10) || 10000,
+                active: true,
+                sort_order: 1,
+              },
+              {
+                id: null,
+                name: t('tournamentDayForm.defaultAddon', 'Add-on'),
+                category: 'addon',
+                amount: parseFloat(formData.qualifying_addon) || 0,
+                rake_percentage: 0,
+                chips: parseInt(formData.qualifying_addon_chips, 10) || 10000,
+                active: true,
+                sort_order: 2,
+              },
+            ];
+            try {
+              await Promise.all(
+                qualifyingDayIds.map((dayId) =>
+                  api.put(`/tournament-days/${dayId}/buy-types`, { items: meios })
+                )
+              );
+            } catch (btErr) {
+              // Os dias já existem; avisar em vez de derrubar a criação inteira.
+              toast.warning(t('tournaments.qualifyingBuyTypesPartial', 'Dias criados, mas não foi possível cadastrar os meios de entrada. Configure-os na tela de cada dia.'));
+            }
           }
 
           // Aplica o template de blinds escolhido a TODOS os dias classificatórios

@@ -13,6 +13,7 @@ from app.models.tournament import Tournament
 from app.routers import tournament_days as router_mod
 from app.services.tournament_day_service import TournamentDayService as TDS
 from app.services.tournament_service import TournamentService as TS
+from app.services.buy_type_service import BuyTypeService as BTS
 
 
 DIA = "77777777-7777-7777-7777-777777777777"
@@ -538,3 +539,91 @@ class TestBloqueioDeVendasDaEtapa:
         stub(StageService, get_stage=lambda sid: None)
         r = client.post(f"/stages/{ETAPA}/sales-block", json={"blocked": True})
         assert r.status_code == 404
+
+
+class TestMeiosDeEntradaDoDia:
+    """Rotas de configuracao dos meios de entrada do dia.
+
+    Alem do escopo de etapa (o X-Stage-ID vem do cliente, entao a checagem tem
+    que existir aqui), o router e quem barra corpo invalido ANTES de o banco
+    recusar: o CHECK do Postgres devolve uma mensagem que o operador nao tem
+    como entender no meio do cadastro.
+    """
+
+    def _item(self, **kw):
+        base = {"id": None, "name": "Buy-in", "category": "buy_in", "amount": 100,
+                "rake_percentage": 20, "chips": 10000, "active": True,
+                "sort_order": 0}
+        base.update(kw)
+        return base
+
+    def test_lista_os_meios_do_dia(self, client, stub, dia_valido):
+        stub(BTS, listar=lambda did: [{"id": "a", "name": "Buy-in"}])
+        r = client.get(f"/tournament-days/{DIA}/buy-types")
+        assert r.status_code == 200
+        assert r.json()[0]["name"] == "Buy-in"
+
+    def test_dia_inexistente_da_404(self, client, stub):
+        stub(TDS, get_tournament_day=lambda did: None)
+        r = client.get(f"/tournament-days/{DIA}/buy-types")
+        assert r.status_code == 404
+
+    def test_dia_de_outra_etapa_nao_mostra_a_configuracao(self, client, stub):
+        stub(TDS, get_tournament_day=lambda did: _dia())
+        stub(TS, get_tournament=lambda tid: _torneio(stage_id=OUTRA_ETAPA))
+        r = client.get(f"/tournament-days/{DIA}/buy-types",
+                       headers={"X-Stage-ID": ETAPA})
+        assert r.status_code == 403
+
+    def test_substitui_a_lista_inteira(self, client, stub, dia_valido):
+        gravados = {}
+
+        def _substituir(day_id, itens):
+            gravados["itens"] = itens
+            return [{"id": "novo", "name": itens[0]["name"]}]
+
+        stub(BTS, substituir=_substituir)
+        r = client.put(f"/tournament-days/{DIA}/buy-types",
+                       json={"items": [self._item(name="Buy-in duplo", amount=250,
+                                                  chips=30000)]})
+        assert r.status_code == 200
+        assert r.json()[0]["name"] == "Buy-in duplo"
+        assert gravados["itens"][0]["chips"] == 30000
+
+    def test_regra_recusada_vira_400_e_nao_500(self, client, stub, dia_valido):
+        """A mensagem ("falta um buy-in ativo") e o que diz ao operador o que
+        fazer; um 500 a esconderia."""
+        def _explode(day_id, itens):
+            raise ValueError("É preciso ao menos um meio de entrada ativo na categoria buy-in")
+
+        stub(BTS, substituir=_explode)
+        r = client.put(f"/tournament-days/{DIA}/buy-types",
+                       json={"items": [self._item()]})
+        assert r.status_code == 400
+        assert "buy-in" in r.json()["detail"]
+
+    def test_substituir_em_dia_de_outra_etapa_da_403(self, client, stub):
+        stub(TDS, get_tournament_day=lambda did: _dia())
+        stub(TS, get_tournament=lambda tid: _torneio(stage_id=OUTRA_ETAPA))
+        r = client.put(f"/tournament-days/{DIA}/buy-types",
+                       json={"items": [self._item()]}, headers={"X-Stage-ID": ETAPA})
+        assert r.status_code == 403
+
+    def test_substituir_dia_inexistente_da_404(self, client, stub):
+        stub(TDS, get_tournament_day=lambda did: None)
+        r = client.put(f"/tournament-days/{DIA}/buy-types",
+                       json={"items": [self._item()]})
+        assert r.status_code == 404
+
+    @pytest.mark.parametrize("invalido", [
+        {"name": ""},                    # nome vazio nao identifica nada no balcao
+        {"name": "x" * 81},              # o banco corta em 80
+        {"category": "buyin"},           # categoria decide QUAL contador sobe
+        {"amount": -1},                  # venda com valor negativo devolveria dinheiro
+        {"rake_percentage": 101},        # rake acima de 100 comeria a bolsa de premios
+        {"chips": -100},                 # ficha negativa nao existe na mesa
+    ])
+    def test_item_invalido_da_422(self, client, dia_valido, invalido):
+        r = client.put(f"/tournament-days/{DIA}/buy-types",
+                       json={"items": [self._item(**invalido)]})
+        assert r.status_code == 422

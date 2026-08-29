@@ -567,7 +567,7 @@ describe('exclusão de etapa: o que vai junto', () => {
     const texto = await pedirExclusao({
       stage_id: 'e1', stage_name: 'Etapa Rio', buy_types: 2, blocked: false,
     });
-    expect(texto).toContain('2 tipos de buy');
+    expect(texto).toContain('2 meios de entrada');
     expect(texto).not.toContain('0 ');
   });
 

@@ -13,7 +13,6 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import PaymentMethodsManager from '../components/PaymentMethodsManager';
-import BuyTypesManager from '../components/BuyTypesManager';
 import ExpensesManager from '../components/ExpensesManager';
 import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
@@ -233,13 +232,6 @@ const Financeiro = () => {
           >
             {t('financial.paymentMethodsTab', 'Métodos de Pagamento')}
           </button>
-          <button
-            type="button"
-            className={`fn-tab ${tab === 'buytypes' ? 'fn-tab--active' : ''}`}
-            onClick={() => setTab('buytypes')}
-          >
-            {t('financial.buyTypesTab', 'Tipos de Buy')}
-          </button>
         </div>
 
         {tab === 'caixas' && <CashboxAdminPanel />}
@@ -251,8 +243,6 @@ const Financeiro = () => {
         {tab === 'receitas' && <RevenuesManager />}
 
         {tab === 'metodos' && <PaymentMethodsManager />}
-
-        {tab === 'buytypes' && <BuyTypesManager />}
 
         {tab === 'dre' && (
         <>

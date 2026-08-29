@@ -56,11 +56,62 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
 class TournamentPlayerService:
     @staticmethod
     def _get_buy_type(buy_type_id: Optional[str]) -> Optional[dict]:
-        """Busca um tipo de buy (por etapa) — define valor e rake da transação."""
+        """Busca o meio de entrada escolhido — ele diz VALOR, RAKE e FICHAS.
+
+        O nome vem junto porque a venda o congela em `transactions.buy_type_name`:
+        a FK é ON DELETE SET NULL, então apagar o tipo depois deixaria o recibo
+        sem dizer o que a pessoa comprou.
+        """
         if not buy_type_id:
             return None
-        bt = supabase.table("buy_types").select("amount, rake_percentage").eq("id", buy_type_id).execute()
+        bt = (
+            supabase.table("buy_types")
+            .select("tournament_day_id, name, category, amount, rake_percentage, chips")
+            .eq("id", buy_type_id)
+            .execute()
+        )
         return bt.data[0] if bt.data else None
+
+    @staticmethod
+    def _e_legado(buy_type: Optional[dict]) -> bool:
+        """Tipo LEGADO: o da ETAPA, de quando ele só servia para dizer o rake.
+
+        Reconhece-se por não pertencer a nenhum dia — e NÃO por ter `chips`
+        nulo, que era como este código tentava distingui-lo. A coluna nasceu
+        `NOT NULL DEFAULT 0`, então todo tipo legado ficou com `chips = 0` e
+        nenhum com nulo: a distinção nunca acontecia, e vender por um deles
+        entregaria ZERO fichas e cobraria ZERO (quatro têm `amount = 0`, porque
+        naquele desenho o valor vinha sempre do dia).
+
+        Isso chega em produção pelo replay da fila offline: um aparelho que
+        ficou sem rede com vendas apontando para tipos da etapa sincroniza
+        depois do deploy. Para eles, o certo é o comportamento de antes — rake
+        do tipo, valor e fichas do dia.
+        """
+        return bool(buy_type) and not buy_type.get("tournament_day_id")
+
+    @staticmethod
+    def _fichas_do_tipo(buy_type: Optional[dict], fichas_do_dia) -> int:
+        """Fichas que a venda entrega: as do TIPO, ou as do dia quando ele é legado."""
+        if not buy_type or TournamentPlayerService._e_legado(buy_type):
+            return int(fichas_do_dia or 0)
+        fichas = buy_type.get("chips")
+        if fichas is None:
+            return int(fichas_do_dia or 0)
+        return int(fichas)
+
+    @staticmethod
+    def _valor_e_rake(buy_type: Optional[dict], valor_do_dia, rake_do_dia) -> tuple:
+        """(valor, rake) da venda.
+
+        Tipo do dia manda nos dois. Tipo legado manda só no rake — era assim que
+        ele funcionava, e mudar isso agora cobraria o valor errado das vendas que
+        vierem da fila offline de antes da mudança. Sem tipo, tudo vem do dia.
+        """
+        if buy_type and not TournamentPlayerService._e_legado(buy_type):
+            return float(buy_type.get("amount") or 0), float(buy_type.get("rake_percentage") or 0)
+        rake = float((buy_type or {}).get("rake_percentage") or rake_do_dia or 0)
+        return float(valor_do_dia or 0), rake
 
     @staticmethod
     def _detail_from_tp(tp: dict, tournament_name: str = "") -> TournamentPlayerDetail:
@@ -259,17 +310,22 @@ class TournamentPlayerService:
 
         day_info = TournamentPlayerService._carregar_dia_da_inscricao(registration_data, skip_sales_block)
 
-        # Use day-specific values
-        buy_in = float(day_info["buy_in"])
-        starting_chips = day_info["starting_chips"]
-
         TournamentPlayerService._conferir_lotacao_e_duplicidade(registration_data, day_info)
 
-        # O VALOR da entrada vem sempre da configuração do DIA (fonte única).
-        # O tipo de buy (por etapa), quando informado, define apenas o RAKE;
-        # sem tipo, usa o rake do dia.
+        # O MEIO DE ENTRADA manda em tudo: valor, rake e fichas. É ele que faz
+        # um "buy-in duplo" ser uma venda própria, e não o buy-in simples vezes
+        # dois — os campos do dia não têm onde guardar essa diferença.
+        #
+        # SEM tipo escolhido, nada muda: valor, rake e fichas continuam vindo do
+        # dia. É o torneio que ainda não cadastrou meios de entrada, e ele não
+        # pode parar de vender por causa disso.
         buy_type = TournamentPlayerService._get_buy_type(registration_data.buy_type_id)
-        rake_pct = float(buy_type["rake_percentage"]) if buy_type else float(day_info.get("rake_percentage") or 0)
+        buy_in, rake_pct = TournamentPlayerService._valor_e_rake(
+            buy_type, day_info["buy_in"], day_info.get("rake_percentage")
+        )
+        starting_chips = TournamentPlayerService._fichas_do_tipo(
+            buy_type, day_info.get("starting_chips")
+        )
 
         # Calculate initial amounts
         buy_in_amount = buy_in * registration_data.buy_in_count
@@ -313,8 +369,13 @@ class TournamentPlayerService:
             "payment_source": payment_source,
             "payment_method": registration_data.payment_method or "cash",
             "buy_type_id": registration_data.buy_type_id,
+            "buy_type_name": (buy_type or {}).get("name"),
             "rake_percentage": rake_pct,
             "rake_amount": round(buy_in_amount * rake_pct / 100, 2),
+            # Retrato do momento, como já é feito com o rake: editar o tipo
+            # depois (10.000 -> 15.000 fichas) não pode fazer o ESTORNO desta
+            # venda devolver fichas que ela nunca entregou.
+            "chips": total_chips,
             "created_by": user_id,
         }
         if ticket_id:
@@ -353,6 +414,15 @@ class TournamentPlayerService:
         De quebra fica ATÔMICO no que importa: antes, se a segunda recompra
         falhasse, a primeira já tinha sido gravada e o jogador ficava com fichas
         a menos do que pagou.
+
+        EM DEPRECIAÇÃO: `quantity` nasceu para dar conta da "recompra dupla"
+        multiplicando o rebuy simples, e isso é uma conta errada — a recompra
+        dupla tem valor e fichas próprios, que agora vivem no meio de entrada
+        (`buy_types.amount`/`chips`). O parâmetro CONTINUA valendo porque o
+        deploy não é atômico: um Caixa antigo já aberto no navegador segue
+        mandando `quantity=3`, e ignorá-lo registraria UMA recompra onde o
+        jogador pagou três — dinheiro a menos no caixa. Só sai quando não
+        houver mais nenhuma tela antiga em uso.
         """
         quantity = max(1, int(quantity or 1))
         # Get tournament player info with tournament_day data
@@ -386,11 +456,16 @@ class TournamentPlayerService:
                 stage_row=tp.get("tournaments"),
             )
         day_info = tp.get("tournament_days", {}) or {}
-        # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).
+        # O meio de entrada escolhido diz valor, rake E fichas. É daqui que sai
+        # o "rebuy duplo": ele não é o rebuy simples vezes dois, é uma venda com
+        # valor e pilha próprios. Sem tipo escolhido, tudo continua vindo do dia.
         buy_type = TournamentPlayerService._get_buy_type(buy_type_id)
-        rebuy_amount = float(day_info.get("rebuy_amount") or 0)
-        rake_pct = float(buy_type["rake_percentage"]) if buy_type else float(day_info.get("rake_percentage") or 0)
-        rebuy_chips = day_info.get("rebuy_chips") or 10000
+        rebuy_amount, rake_pct = TournamentPlayerService._valor_e_rake(
+            buy_type, day_info.get("rebuy_amount"), day_info.get("rake_percentage")
+        )
+        rebuy_chips = TournamentPlayerService._fichas_do_tipo(
+            buy_type, day_info.get("rebuy_chips") or 10000
+        )
 
         # Check if rebuys are still allowed based on blind level (o nível atual é
         # calculado pelo relógio do dia quando o caixa não informa).
@@ -432,8 +507,12 @@ class TournamentPlayerService:
                 "payment_source": actual_payment_source,
                 "payment_method": payment_method or "cash",
                 "buy_type_id": buy_type_id,
+                "buy_type_name": (buy_type or {}).get("name"),
                 "rake_percentage": rake_pct,
                 "rake_amount": round(rebuy_amount * rake_pct / 100, 2),
+                # Fichas de UMA recompra por linha (o lote grava N linhas): é
+                # exatamente o que o estorno de UMA delas precisa devolver.
+                "chips": rebuy_chips,
                 "created_by": user_id,
             }
             if client_mutation_id:
@@ -527,11 +606,15 @@ class TournamentPlayerService:
                 stage_row=tp.get("tournaments"),
             )
         day_info = tp.get("tournament_days", {}) or {}
-        # Valor sempre do dia; o tipo de buy define apenas o rake (se informado).
+        # Mesma regra da recompra: o meio de entrada escolhido diz valor, rake e
+        # fichas; sem ele, tudo continua vindo do dia.
         buy_type = TournamentPlayerService._get_buy_type(buy_type_id)
-        addon_amount = float(day_info.get("addon_amount") or 0)
-        rake_pct = float(buy_type["rake_percentage"]) if buy_type else float(day_info.get("rake_percentage") or 0)
-        addon_chips = day_info.get("addon_chips") or 10000
+        addon_amount, rake_pct = TournamentPlayerService._valor_e_rake(
+            buy_type, day_info.get("addon_amount"), day_info.get("rake_percentage")
+        )
+        addon_chips = TournamentPlayerService._fichas_do_tipo(
+            buy_type, day_info.get("addon_chips") or 10000
+        )
 
         # Update tournament player
         updated_data = {
@@ -560,8 +643,12 @@ class TournamentPlayerService:
             "payment_source": actual_payment_source,
             "payment_method": payment_method or "cash",
             "buy_type_id": buy_type_id,
+            "buy_type_name": (buy_type or {}).get("name"),
             "rake_percentage": rake_pct,
             "rake_amount": round(addon_amount * rake_pct / 100, 2),
+            # Mesmo motivo do buy-in: o estorno devolve ESTE número, não o que o
+            # tipo disser no dia em que alguém cancelar.
+            "chips": addon_chips,
             "created_by": user_id,
         }
         if client_mutation_id:

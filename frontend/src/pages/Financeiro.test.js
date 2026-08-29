@@ -2,7 +2,7 @@
  * Financeiro — o DRE da operação e o painel de configuração do dinheiro.
  *
  * A tela é sobretudo um roteador de sub-abas (caixas, demonstrativo, despesas,
- * receitas, métodos de pagamento, tipos de buy), com o DRE como aba padrão.
+ * receitas, métodos de pagamento), com o DRE como aba padrão.
  * O que ela tem de próprio e os testes prendem:
  *
  * - **O rótulo da forma de pagamento tem uma hierarquia.** Códigos embutidos
@@ -28,7 +28,6 @@ jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../components/CashboxAdminPanel', () => () => <div data-testid="aba-caixas" />);
 jest.mock('../components/CashboxDemonstrativo', () => () => <div data-testid="aba-demonstrativo" />);
 jest.mock('../components/PaymentMethodsManager', () => () => <div data-testid="aba-metodos" />);
-jest.mock('../components/BuyTypesManager', () => () => <div data-testid="aba-buytypes" />);
 jest.mock('../components/ExpensesManager', () => () => <div data-testid="aba-despesas" />);
 jest.mock('../components/RevenuesManager', () => () => <div data-testid="aba-receitas" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
@@ -132,7 +131,6 @@ describe('sub-abas', () => {
     ['Despesas', 'aba-despesas'],
     ['Outras receitas', 'aba-receitas'],
     ['Métodos de Pagamento', 'aba-metodos'],
-    ['Tipos de Buy', 'aba-buytypes'],
   ])('a aba %s monta o painel correspondente', async (rotulo, id) => {
     await montar();
     await userEvent.click(aba(rotulo));

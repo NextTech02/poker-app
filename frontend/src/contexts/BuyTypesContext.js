@@ -1,39 +1,48 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../config/supabase';
 import { getAllByTable } from '../offline/db';
-import { useStage } from './StageContext';
 
 const BuyTypesContext = createContext({});
 
 export const useBuyTypes = () => useContext(BuyTypesContext);
 
-/** Últimos tipos vistos desta etapa, guardados na réplica offline. */
-const lerDaReplica = async (stageId) => {
+/** Últimos meios de entrada vistos neste DIA, guardados na réplica offline. */
+const lerDaReplica = async (dayId) => {
   try {
     const linhas = await getAllByTable('buy_types');
-    return (linhas || []).filter((b) => b && b.stage_id === stageId);
+    return (linhas || []).filter((b) => b && b.tournament_day_id === dayId);
   } catch (e) {
     return [];
   }
 };
 
-// Tipos de buy são por ETAPA: a lista acompanha a etapa selecionada.
+// Os meios de entrada são por DIA do torneio: cada dia configura os seus, com
+// nome, valor, rake e FICHAS próprios. Antes eram por etapa e só diziam o rake
+// — e por isso "rebuy duplo" precisava ser rebuy × 2, o que nunca foi verdade:
+// ele tem valor e fichas próprios.
+//
+// O dia não vem do StageContext porque não existe "dia selecionado" global: o
+// dia é escolhido dentro do formulário de venda do Caixa. Quem sabe qual é
+// avisa por `selectDay`, no mesmo formato de `selectStage` do StageContext.
 export const BuyTypesProvider = ({ children }) => {
-  const { selectedStage } = useStage();
-  const stageId = selectedStage?.id || null;
+  const [dayId, setDayId] = useState(null);
 
   const [buyTypes, setBuyTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   // DE ONDE veio a lista atual. Lista vazia não é uma informação só: pode ser
-  // "a etapa não cadastrou nenhum tipo" (o Caixa avisa e vende pela categoria)
-  // ou "a consulta não voltou" (sem rede, sessão expirada, RLS) — e nesse
-  // segundo caso travar a venda pararia o clube achando que falta cadastro.
+  // "o dia não cadastrou nenhum meio de entrada" (o Caixa avisa e vende pela
+  // categoria) ou "a consulta não voltou" (sem rede, sessão expirada, RLS) — e
+  // nesse segundo caso travar a venda pararia o clube achando que falta cadastro.
   //   'servidor' = veio do banco  |  'replica' = último visto, offline
-  //   'erro'     = não deu para saber  |  null = sem etapa / ainda carregando
+  //   'erro'     = não deu para saber  |  null = sem dia / ainda carregando
   const [origem, setOrigem] = useState(null);
 
+  // Setter estável: o Caixa avisa o dia escolhido a cada mudança do formulário,
+  // e uma função recriada a cada render faria o efeito dele rodar sem parar.
+  const selectDay = useCallback((id) => setDayId(id || null), []);
+
   const reload = useCallback(async () => {
-    if (!stageId) {
+    if (!dayId) {
       setBuyTypes([]);
       setOrigem(null);
       return;
@@ -43,13 +52,13 @@ export const BuyTypesProvider = ({ children }) => {
       const { data, error } = await supabase
         .from('buy_types')
         .select('*')
-        .eq('stage_id', stageId)
+        .eq('tournament_day_id', dayId)
         .order('category', { ascending: true })
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
       // O supabase-js NÃO lança em erro de RLS/sessão: devolve `error` com
-      // `data` nulo. Sem esta linha, uma sessão expirada virava "nenhum tipo
-      // cadastrado" em silêncio.
+      // `data` nulo. Sem esta linha, uma sessão expirada virava "nenhum meio de
+      // entrada cadastrado" em silêncio.
       if (error) throw error;
       setBuyTypes(data || []);
       setOrigem('servidor');
@@ -58,15 +67,15 @@ export const BuyTypesProvider = ({ children }) => {
       // do Caixa precisa continuar vendendo. A réplica local tem os tipos
       // gravados enquanto havia conexão.
       // O erro precisa aparecer no console: engolido, uma falha de rede/sessão
-      // virava "esta etapa não tem tipo de buy cadastrado" na tela do Caixa.
-      console.error(`[BuyTypes] falha ao carregar tipos de buy da etapa ${stageId}; usando réplica local:`, e);
-      const locais = await lerDaReplica(stageId);
+      // virava "este dia não tem meio de entrada cadastrado" na tela do Caixa.
+      console.error(`[BuyTypes] falha ao carregar os meios de entrada do dia ${dayId}; usando réplica local:`, e);
+      const locais = await lerDaReplica(dayId);
       setBuyTypes(locais);
       setOrigem(locais.length ? 'replica' : 'erro');
     } finally {
       setLoading(false);
     }
-  }, [stageId]);
+  }, [dayId]);
 
   useEffect(() => {
     reload();
@@ -77,24 +86,25 @@ export const BuyTypesProvider = ({ children }) => {
   const byId = useCallback((id) => buyTypes.find((b) => b.id === id) || null, [buyTypes]);
 
   const createBuyType = useCallback(
-    async ({ name, category, rake_percentage }) => {
-      if (!stageId) throw new Error('no-stage');
+    async ({ name, category, amount, rake_percentage, chips }) => {
+      if (!dayId) throw new Error('no-day');
       const maxOrder = buyTypes.reduce((mx, b) => Math.max(mx, b.sort_order || 0), 0);
-      // amount fica 0: o valor da entrada vem da configuração do torneio (dia),
-      // não do tipo de buy. O tipo define só nome/categoria/rake.
+      // Valor, rake e fichas ficam NO meio de entrada: é o que permite um
+      // "rebuy duplo" existir como coisa própria, e não como rebuy vezes dois.
       const { error } = await supabase.from('buy_types').insert({
-        stage_id: stageId,
+        tournament_day_id: dayId,
         name: (name || '').trim(),
         category,
-        amount: 0,
+        amount: Number(amount) || 0,
         rake_percentage: Number(rake_percentage) || 0,
+        chips: Number(chips) || 0,
         active: true,
         sort_order: maxOrder + 1,
       });
       if (error) throw error;
       await reload();
     },
-    [stageId, buyTypes, reload]
+    [dayId, buyTypes, reload]
   );
 
   const updateBuyType = useCallback(
@@ -121,13 +131,14 @@ export const BuyTypesProvider = ({ children }) => {
   return (
     <BuyTypesContext.Provider
       value={{
-        stageId,
+        dayId,
+        selectDay,
         buyTypes,
         activeBuyTypes,
         loading,
         origem,
-        // Só com a lista confirmada pelo servidor dá para afirmar "esta etapa
-        // não tem nenhum tipo cadastrado".
+        // Só com a lista confirmada pelo servidor dá para afirmar "este dia
+        // não tem nenhum meio de entrada cadastrado".
         tiposCarregados: origem === 'servidor',
         reload,
         byId,

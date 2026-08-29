@@ -1398,3 +1398,35 @@ class TestCashbackPeloReciboDoExtrato:
         r = TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert float(fake.store["loyalty_accounts"][0]["cashback_balance"]) == 0.0
         assert any("virado credito" in a.replace("é", "e") for a in r.cancel_warnings)
+
+
+class TestFichasDevolvidasNoEstorno:
+    """O estorno devolve as fichas DAQUELA venda, nao as do campo do dia.
+
+    Desde os meios de entrada por dia, uma "recompra dupla" entrega uma pilha
+    propria. Ler `rebuy_chips` do dia no cancelamento deixaria metade das fichas
+    na mesa de um jogador ja estornado — e o telao passaria a noite mostrando um
+    chipcount maior do que o que esta em jogo.
+    """
+
+    def test_devolve_as_fichas_gravadas_na_venda(self, monkeypatch):
+        """A recompra dupla entregou 25.000; o dia so sabe de 10.000."""
+        fake = _cenario(monkeypatch, venda=_venda(tipo="rebuy", chips=25000))
+        TransactionService.cancel_transaction("tx-1", "admin-9", "recompra indevida")
+        assert fake.store["tournament_players"][0]["total_chips"] == 5000
+
+    def test_venda_antiga_sem_fichas_gravadas_usa_o_campo_do_dia(self, monkeypatch):
+        """Tudo que foi vendido antes da migracao tem `chips` nulo. Devolver
+        zero fichas nesses casos seria um jogador estornado que continua com a
+        pilha inteira."""
+        fake = _cenario(monkeypatch, venda=_venda(tipo="addon", chips=None))
+        TransactionService.cancel_transaction("tx-1", "admin-9", "add-on indevido")
+        assert fake.store["tournament_players"][0]["total_chips"] == 20000
+
+    def test_fichas_zeradas_na_venda_nao_viram_as_do_dia(self, monkeypatch):
+        """Meio de entrada que nao entrega pilha (a entrada do dia final para
+        quem chega classificado) devolve ZERO. Tratar 0 como "nao informado"
+        tiraria 10.000 fichas que a venda nunca deu."""
+        fake = _cenario(monkeypatch, venda=_venda(tipo="rebuy", chips=0))
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro de digitacao")
+        assert fake.store["tournament_players"][0]["total_chips"] == 30000

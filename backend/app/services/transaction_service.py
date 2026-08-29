@@ -445,10 +445,20 @@ class TransactionService:
         if tx["type"] in ("rebuy", "addon"):
             if tx["type"] == "rebuy":
                 campo_conta, campo_total = "rebuy_count", "total_rebuy_amount"
-                fichas_do_tipo = int(dia.get("rebuy_chips") or 0)
+                fichas_do_dia = int(dia.get("rebuy_chips") or 0)
             else:
                 campo_conta, campo_total = "addon_count", "total_addon_amount"
-                fichas_do_tipo = int(dia.get("addon_chips") or 0)
+                fichas_do_dia = int(dia.get("addon_chips") or 0)
+            # As fichas voltam pelo que a VENDA entregou, não pelo que o dia
+            # cobra hoje: desde os meios de entrada por dia, uma "recompra
+            # dupla" entrega o dobro da pilha, e devolver `rebuy_chips` deixaria
+            # metade das fichas na mesa de um jogador que já foi estornado.
+            # Venda antiga não tem o número gravado — aí vale o campo do dia,
+            # que é exatamente o que ela usou quando aconteceu.
+            fichas_da_venda = tx.get("chips")
+            fichas_do_tipo = (
+                int(fichas_da_venda) if fichas_da_venda is not None else fichas_do_dia
+            )
             dados = {
                 campo_conta: max(int(tp.get(campo_conta) or 0) - 1, 0),
                 campo_total: max(round(float(tp.get(campo_total) or 0) - valor, 2), 0.0),

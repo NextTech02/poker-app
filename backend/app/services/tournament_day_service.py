@@ -4,6 +4,9 @@ from datetime import datetime, timezone
 from collections import defaultdict
 import time
 from app.database import supabase
+# Venda estornada não entregou ficha nenhuma: contá-la infla o chipcount do
+# telão com fichas que voltaram para o caixa.
+from app.services.transaction_filters import ler_transacoes_ativas
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -485,34 +488,109 @@ class TournamentDayService:
         return response.data if response.data else []
 
     @staticmethod
+    def _fichas_vendidas_por_jogador(inscritos: List[dict]) -> dict:
+        """Fichas que as vendas ATIVAS entregaram, por inscrito.
+
+        Devolve {tp_id: {"buy_in": (fichas, coberto), ...}}, onde `coberto` diz
+        quantas unidades do contador aquela soma já explica — é isso que evita
+        contar a mesma recompra duas vezes lá em cima.
+
+        UMA consulta para todos os inscritos, de propósito: perguntar as vendas
+        de cada jogador dentro do laço é o N+1 que já derrubou o desempenho
+        deste projeto antes, e um dia final tem centenas de linhas.
+
+        Banco ainda sem a coluna `chips` (o deploy não é atômico com a
+        migração): a consulta falha, devolvemos vazio e o chamador cai na
+        multiplicação de sempre. Melhor um número teórico do que um 500 no meio
+        do evento.
+        """
+        ids = [i["id"] for i in inscritos if i.get("id")]
+        if not ids:
+            return {}
+        try:
+            linhas = ler_transacoes_ativas(
+                lambda colunas: (
+                    supabase.table("transactions")
+                    .select(colunas)
+                    .in_("tournament_player_id", ids)
+                    .in_("type", ["buy_in", "rebuy", "addon"])
+                ),
+                "tournament_player_id, type, chips",
+            )
+        except Exception:
+            logger.warning(
+                "não consegui ler as fichas das vendas; caindo na multiplicação "
+                "pelos contadores do dia", exc_info=True,
+            )
+            return {}
+
+        por_jogador: dict = {}
+        for linha in linhas:
+            fichas = linha.get("chips")
+            if fichas is None:
+                # Venda anterior à migração: não sabemos quantas fichas ela
+                # entregou, então ela fica de fora e o contador dela continua
+                # sendo multiplicado pelo campo do dia — o que já era feito.
+                continue
+            do_jogador = por_jogador.setdefault(linha.get("tournament_player_id"), {})
+            somado, coberto = do_jogador.get(linha.get("type"), (0, 0))
+            # O buy-in é UMA linha para a inscrição inteira (buy_in_count pode
+            # ser 2), então ela cobre o contador todo; recompra e add-on são uma
+            # linha por unidade.
+            do_jogador[linha.get("type")] = (somado + int(fichas), coberto + 1)
+        return por_jogador
+
+    @staticmethod
     def _entradas_do_dia(day) -> tuple:
-        """Entradas e fichas TEÓRICAS concedidas no dia (buy-in/rebuy/add-on).
+        """Entradas e fichas concedidas no dia (buy-in/rebuy/add-on).
 
         É o número que o clube usa quando não conta ficha por jogador: serve de
         referência e alimenta o caminho antigo do avanço.
-        Devolve (total_chips_teorico, total_entries, total_reentradas).
+        Devolve (total_chips, total_entries, total_reentradas).
 
-        As FICHAS somam tudo — cada recompra e cada add-on entrega pilha nova e
-        muda o stack medio. As ENTRADAS, nao: entrada e buy-in. Quem recompra
-        voltou para o torneio, nao entrou nele de novo.
+        As FICHAS vêm das VENDAS, não de contador vezes campo do dia. Desde os
+        meios de entrada por dia, uma "recompra dupla" entrega uma pilha própria
+        — multiplicar `rebuy_chips` pelo número de recompras passaria a MENTIR o
+        chipcount do telão, que é o que decide o stack médio na tela.
+
+        A multiplicação continua valendo para o que as vendas não explicam:
+        vendas antigas (sem `chips` gravado) e inscritos criados sem transação
+        nenhuma — os classificados que o avanço traz do dia anterior.
+
+        As ENTRADAS, não: entrada e buy-in. Quem recompra voltou para o torneio,
+        nao entrou nele de novo.
         """
         players_response = supabase.table("tournament_players")\
-            .select("buy_in_count, rebuy_count, addon_count")\
+            .select("id, buy_in_count, rebuy_count, addon_count")\
             .eq("tournament_day_id", day.id)\
             .execute()
+        inscritos = players_response.data or []
+        vendidas = TournamentDayService._fichas_vendidas_por_jogador(inscritos)
 
+        padrao = {
+            "buy_in": day.starting_chips or 0,
+            "rebuy": day.rebuy_chips or 0,
+            "addon": day.addon_chips or 0,
+        }
         total_chips = 0
         total_entries = 0
         total_reentradas = 0
-        for p in (players_response.data or []):
-            buy_ins = p.get("buy_in_count", 0) or 0
-            rebuys = p.get("rebuy_count", 0) or 0
-            addons = p.get("addon_count", 0) or 0
-            total_chips += buy_ins * (day.starting_chips or 0)
-            total_chips += rebuys * (day.rebuy_chips or 0)
-            total_chips += addons * (day.addon_chips or 0)
-            total_entries += buy_ins
-            total_reentradas += rebuys + addons
+        for p in inscritos:
+            contadores = {
+                "buy_in": p.get("buy_in_count", 0) or 0,
+                "rebuy": p.get("rebuy_count", 0) or 0,
+                "addon": p.get("addon_count", 0) or 0,
+            }
+            do_jogador = vendidas.get(p.get("id"), {})
+            for tipo, quantas in contadores.items():
+                somado, coberto = do_jogador.get(tipo, (0, 0))
+                # O buy-in de uma linha só cobre a inscrição inteira; nas outras
+                # categorias sobra o que não tem venda com fichas gravadas.
+                if tipo == "buy_in" and coberto:
+                    coberto = quantas
+                total_chips += somado + max(0, quantas - coberto) * padrao[tipo]
+            total_entries += contadores["buy_in"]
+            total_reentradas += contadores["rebuy"] + contadores["addon"]
         return total_chips, total_entries, total_reentradas
 
     @staticmethod

@@ -137,13 +137,16 @@ const TRANSACOES = [
 
 const JOGADOR_TORNEIO = { id: 'tp1', player_id: 'p1', tournament_id: 't1', status: 'active' };
 
-// Os tipos de buy são a fonte da categoria e do rake por transação — quando
-// existem. Sem nenhum à mão a tela CONTINUA vendendo, pela categoria e com o
-// rake do dia. O cenário padrão dos testes tem um tipo de cada categoria.
+// Os meios de entrada são a fonte da categoria, do VALOR, do rake e das FICHAS
+// por transação — quando existem. Sem nenhum à mão a tela CONTINUA vendendo,
+// pela categoria e com o valor/rake do dia. Eles pertencem ao DIA: o cenário
+// padrão tem um de cada categoria mais o "Rebuy duplo", que é o caso que fez a
+// mudança existir — ele tem preço e fichas próprios, e NÃO é rebuy × 2.
 const TIPOS = [
-  { id: 'b1', name: 'Entrada normal', category: 'buy_in', rake_percentage: 20, active: true },
-  { id: 'b2', name: 'Recompra turbo', category: 'rebuy', rake_percentage: 10, active: true },
-  { id: 'b3', name: 'Add-on padrão', category: 'addon', rake_percentage: 15, active: true },
+  { id: 'b1', name: 'Entrada normal', category: 'buy_in', amount: 1000, rake_percentage: 20, chips: 30000, active: true },
+  { id: 'b2', name: 'Recompra turbo', category: 'rebuy', amount: 600, rake_percentage: 10, chips: 30000, active: true },
+  { id: 'b3', name: 'Add-on padrão', category: 'addon', amount: 400, rake_percentage: 15, chips: 15000, active: true },
+  { id: 'b4', name: 'Rebuy duplo', category: 'rebuy', amount: 1500, rake_percentage: 10, chips: 70000, active: true },
 ];
 
 const ETAPA = { id: 'e1', name: 'Etapa Rio' };
@@ -155,6 +158,8 @@ const MESA = { id: 'm1', table_number: 1, seats: 9, status: 'active' };
 const DIA_AUTO = { ...DIA, allocation_type: 'automatic' };
 
 let toast;
+/** O Caixa avisa o contexto qual DIA carregar; o espião confere esse aviso. */
+let selectDay;
 
 const responder = ({
   transacoes = TRANSACOES,
@@ -207,14 +212,14 @@ const abrirModal = async () => {
   return screen.getByRole('button', { name: 'cashRegister.register' });
 };
 
-/** Preenche torneio → dia → jogador → tipo de buy, a ordem real de uso. */
+/** Preenche torneio → dia → jogador → meio de entrada, a ordem real de uso. */
 const preencher = async ({ dia = 'd1', jogador = 'p1', tipo = 'b1' } = {}) => {
   await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
   if (dia) {
     await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), dia);
   }
   if (jogador) await userEvent.selectOptions(screen.getByLabelText('jogador'), jogador);
-  if (tipo) await userEvent.selectOptions(screen.getByLabelText('Tipo de Buy'), tipo);
+  if (tipo) await userEvent.selectOptions(screen.getByLabelText('Meio de entrada'), tipo);
 };
 
 const enviar = async () => {
@@ -229,7 +234,10 @@ beforeEach(() => {
   useToast.mockReturnValue({ toast });
   useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
   usePaymentMethods.mockReturnValue({ activeMethods: [] });
-  useBuyTypes.mockReturnValue({ activeBuyTypes: TIPOS, stageId: 'e1', tiposCarregados: true });
+  selectDay = jest.fn();
+  useBuyTypes.mockReturnValue({
+    activeBuyTypes: TIPOS, dayId: 'd1', tiposCarregados: true, selectDay,
+  });
   useStage.mockReturnValue({ selectedStage: ETAPA });
   usePermissions.mockReturnValue({ isAdmin: true, hasPermission: () => true });
   isOnline.mockReturnValue(true);
@@ -394,7 +402,7 @@ describe('escolha do torneio e do dia', () => {
 });
 
 describe('valor cobrado', () => {
-  it('o valor vem do DIA, não do torneio', async () => {
+  it('o valor vem do meio de entrada do DIA, não do torneio', async () => {
     // Cobrar os 500 do torneio num Dia 1A de 1000 é cobrar errado do jogador
     // na frente dele.
     await montar();
@@ -406,19 +414,25 @@ describe('valor cobrado', () => {
   it.each([
     ['b2', 600],
     ['b3', 400],
-  ])('escolher o tipo %s recobra o valor do dia (%i)', async (tipo, valor) => {
-    // A categoria vem do TIPO de buy; o VALOR continua vindo do dia.
+  ])('escolher o meio de entrada %s cobra o preço dele (%i)', async (tipo, valor) => {
+    // Categoria, valor, rake e fichas vêm todos do meio de entrada escolhido.
     await montar();
     await abrirModal();
     await preencher({ tipo });
     expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(valor);
   });
 
-  it('dia sem valor próprio de rebuy cai no buy-in do dia', async () => {
-    await montar({ dias: [{ ...DIA, rebuy_amount: null }] });
+  it('meio de entrada legado, sem valor próprio, cai na configuração do dia', async () => {
+    // Cadastro antigo (por etapa) só dizia o rake. A venda não pode parar por
+    // isso: o dia continua sendo a reserva.
+    useBuyTypes.mockReturnValue({
+      activeBuyTypes: [{ id: 'bL', name: 'Rebuy', category: 'rebuy', rake_percentage: 20, active: true }],
+      dayId: 'd1', tiposCarregados: true, selectDay,
+    });
+    await montar();
     await abrirModal();
-    await preencher({ tipo: 'b2' });
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(1000);
+    await preencher({ tipo: 'bL' });
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
   });
 
   it('sem dia nenhum, o valor vem do torneio', async () => {
@@ -576,37 +590,17 @@ describe('rebuy', () => {
     expect(offlineWrite).not.toHaveBeenCalled();
   });
 
-  it('recompra dupla vai numa chamada só, levando a quantidade', async () => {
-    // O jogador pede três de uma vez. Antes o Caixa disparava três chamadas em
-    // sequência, cada uma esperando a anterior: como o banco fica em outra
-    // região e cada ida custa ~270ms, o operador esperava perto de 6 segundos
-    // com a fila no balcão. Agora vai a quantidade, e o servidor grava as três.
+  it('a recompra não leva mais quantidade nenhuma', async () => {
+    // O campo "quantidade de rebuys" multiplicava valor e fichas do rebuy
+    // simples — a conta certa só por acidente. Um rebuy duplo tem preço e
+    // fichas próprios e hoje é um meio de entrada, escolhido no seletor.
     await montar();
     await comoRebuy();
-    const qtd = screen.getByLabelText('Quantidade de rebuys');
-    await userEvent.clear(qtd);
-    await userEvent.type(qtd, '3');
     await enviar();
-    await waitFor(() =>
-      expect(offlineWrite.mock.calls.filter((c) => c[0].url.includes('/rebuy')).length).toBe(1)
-    );
-    const chamada = offlineWrite.mock.calls.find((c) => c[0].url.includes('/rebuy'))[0];
-    // A quantidade tem de chegar como PARÂMETRO: a rota lê parâmetros de
-    // consulta e descarta o corpo — foi assim que a chave de idempotência
-    // enviada no corpo se perdia.
-    expect(chamada.params.quantity).toBe(3);
-    expect(chamada.body.quantity).toBe(3);
-  });
-
-  it('quantidade inválida vira uma recompra, não zero', async () => {
-    await montar();
-    await comoRebuy();
-    const qtd = screen.getByLabelText('Quantidade de rebuys');
-    await userEvent.clear(qtd);
-    await enviar();
-    await waitFor(() =>
-      expect(offlineWrite.mock.calls.filter((c) => c[0].url.includes('/rebuy')).length).toBe(1)
-    );
+    await waitFor(() => expect(chamada('/rebuy')).toBeTruthy());
+    const enviada = chamada('/rebuy')[0];
+    expect(enviada.params.quantity).toBeUndefined();
+    expect(enviada.body.quantity).toBeUndefined();
   });
 
   it('a recompra leva chave de idempotência, e ela chega ao servidor', async () => {
@@ -615,16 +609,11 @@ describe('rebuy', () => {
     // agora vai também como parâmetro, que é o que o servidor lê.
     await montar();
     await comoRebuy();
-    const qtd = screen.getByLabelText('Quantidade de rebuys');
-    await userEvent.clear(qtd);
-    await userEvent.type(qtd, '2');
     await enviar();
-    await waitFor(() =>
-      expect(offlineWrite.mock.calls.filter((c) => c[0].url.includes('/rebuy')).length).toBe(1)
-    );
-    const chamada = offlineWrite.mock.calls.find((c) => c[0].url.includes('/rebuy'))[0];
-    expect(chamada.clientMutationId).toBeTruthy();
-    expect(chamada.params.client_mutation_id).toBe(chamada.clientMutationId);
+    await waitFor(() => expect(chamada('/rebuy')).toBeTruthy());
+    const enviada = chamada('/rebuy')[0];
+    expect(enviada.clientMutationId).toBeTruthy();
+    expect(enviada.params.client_mutation_id).toBe(enviada.clientMutationId);
   });
 
   it('jogador eliminado sai do ranking antes de voltar ao jogo', async () => {
@@ -822,14 +811,14 @@ describe('reimpressão do bilhete', () => {
   });
 });
 
-describe('tipos de buy', () => {
-  it('só existe o seletor de TIPO — não há mais escolha solta de categoria', async () => {
-    // O tipo de buy é a fonte única da categoria e do rake; um select de
-    // categoria ao lado permitiria vender "add-on" com um tipo de buy-in, com
-    // rake que o financeiro nunca configurou.
+describe('meios de entrada', () => {
+  it('só existe o seletor de MEIO DE ENTRADA — não há escolha solta de categoria', async () => {
+    // O meio de entrada é a fonte única da categoria, do valor e do rake; um
+    // select de categoria ao lado permitiria vender "add-on" com um meio de
+    // buy-in, com rake que o clube nunca configurou.
     await montar();
     await abrirModal();
-    expect(screen.getByLabelText('Tipo de Buy')).toBeInTheDocument();
+    expect(screen.getByLabelText('Meio de entrada')).toBeInTheDocument();
     expect(screen.queryByLabelText('cashRegister.type')).toBeNull();
   });
 
@@ -838,21 +827,88 @@ describe('tipos de buy', () => {
     // não homologada de que o clube reclamou.
     await montar();
     await abrirModal();
-    const select = screen.getByLabelText('Tipo de Buy');
+    const select = screen.getByLabelText('Meio de entrada');
     const opcoes = Array.from(select.querySelectorAll('option'));
-    expect(opcoes.filter((o) => !o.disabled).map((o) => o.value)).toEqual(['b1', 'b2', 'b3']);
+    expect(opcoes.filter((o) => !o.disabled).map((o) => o.value)).toEqual(['b1', 'b2', 'b3', 'b4']);
     expect(opcoes[0].disabled).toBe(true);
   });
 
-  it('o tipo escolhido define a categoria da transação', async () => {
+  it('o meio de entrada escolhido define a categoria da transação', async () => {
     await montar();
     await abrirModal();
     await preencher({ tipo: 'b2' });
-    // categoria virou rebuy → o campo de quantidade de recompras aparece
-    expect(screen.getByLabelText('Quantidade de rebuys')).toBeInTheDocument();
+    await enviar();
+    await waitFor(() => expect(chamada('/rebuy')).toBeTruthy());
   });
 
-  it('o tipo vai junto na transação, porque ele carrega o rake', async () => {
+  it('o valor cobrado vem do MEIO DE ENTRADA, não do dia', async () => {
+    // "Recompra turbo" custa 600 porque é o preço DELE; se o valor viesse do
+    // dia, dois meios de entrada de preços diferentes cobrariam o mesmo.
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b2' });
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
+  });
+
+  it('"Rebuy duplo" cobra o preço dele, e não o dobro do rebuy simples', async () => {
+    // É o caso que fez a mudança existir: 1500 é o que o clube configurou —
+    // o dobro de 600 daria 1200, um número que ninguém aprovou.
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b4' });
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(1500);
+  });
+
+  it('não existe mais campo de quantidade de rebuys', async () => {
+    // Ele multiplicava valor e fichas do rebuy simples; um rebuy duplo tem os
+    // seus próprios e virou um meio de entrada.
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b2' });
+    expect(screen.queryByLabelText(/[Qq]uantidade/)).toBeNull();
+  });
+
+  it('o seletor mostra o nome configurado no dia e o valor do próprio meio', async () => {
+    await montar();
+    await abrirModal();
+    const select = screen.getByLabelText('Meio de entrada');
+    expect(within(select).getByText(/Rebuy duplo/)).toBeInTheDocument();
+    expect(within(select).getByText(/1500\.00/)).toBeInTheDocument();
+  });
+
+  it('a tela avisa o contexto qual DIA carregar', async () => {
+    // Os meios de entrada são do dia, e o dia é escolhido aqui dentro: sem
+    // este aviso a lista ficaria vazia e toda venda cairia no modo categoria.
+    await montar();
+    await abrirModal();
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+    await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), 'd1');
+    await waitFor(() => expect(selectDay).toHaveBeenCalledWith('d1'));
+  });
+
+  it('trocar de dia limpa o meio de entrada escolhido', async () => {
+    // Eles pertencem ao DIA: manter a escolha cobraria o preço do dia anterior,
+    // ou o de um cadastro que nem existe no dia novo.
+    await montar({ dias: [DIA, { ...DIA, id: 'd1b', day_name: 'Dia 1B' }] });
+    await abrirModal();
+    await preencher({ tipo: 'b2' });
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.day'), 'd1b');
+    expect(screen.getByLabelText('Meio de entrada')).toHaveValue('');
+  });
+
+  it('o recibo mostra o nome do meio de entrada vendido', async () => {
+    // É por ele que o jogador confere o que comprou — "Rebuy duplo" e
+    // "Recompra turbo" são vendas diferentes com a mesma categoria.
+    api.post.mockResolvedValue({ data: { player_name: 'Ana', table_number: 3, seat_number: 5 } });
+    await montar({ dias: [DIA_AUTO] });
+    await abrirModal();
+    await preencher({ tipo: 'b1' });
+    await enviar();
+    expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
+    expect(screen.getByText('Entrada normal')).toBeInTheDocument();
+  });
+
+  it('o meio de entrada vai junto na transação, porque ele carrega o rake', async () => {
     await montar();
     await abrirModal();
     await preencher({ tipo: 'b1' });
@@ -861,25 +917,25 @@ describe('tipos de buy', () => {
     expect(chamada('/tournament-players')[0].body.buy_type_id).toBe('b1');
   });
 
-  it('mostra o rake de cada tipo na hora de escolher', async () => {
+  it('mostra o rake de cada meio de entrada na hora de escolher', async () => {
     await montar();
     await abrirModal();
-    const select = screen.getByLabelText('Tipo de Buy');
+    const select = screen.getByLabelText('Meio de entrada');
     expect(within(select).getByText(/20% rake/)).toBeInTheDocument();
   });
 
-  it('enviar sem escolher o tipo é recusado e não chama a API', async () => {
+  it('enviar sem escolher o meio de entrada é recusado e não chama a API', async () => {
     await montar();
     await abrirModal();
     await preencher({ tipo: null });
     fireEvent.submit(document.querySelector('.modal form'));
     await waitFor(() =>
-      expect(toast.warning).toHaveBeenCalledWith('Escolha o tipo de buy.')
+      expect(toast.warning).toHaveBeenCalledWith('Escolha o meio de entrada.')
     );
     expect(offlineWrite).not.toHaveBeenCalled();
   });
 
-  it('o valor é somente leitura: quem manda é a configuração do dia', async () => {
+  it('o valor é somente leitura: quem manda é o meio de entrada', async () => {
     // O backend IGNORA o que for digitado aqui. Editável, o campo prometia um
     // desconto que nunca aconteceria.
     await montar();
@@ -888,48 +944,42 @@ describe('tipos de buy', () => {
     expect(screen.getByLabelText('cashRegister.amount')).toHaveAttribute('readonly');
   });
 
-  it('sem etapa selecionada a mensagem é outra', async () => {
-    // Mandar o operador ao Financeiro quando o problema é não ter etapa
-    // escolhida faz ele procurar um cadastro que já existe.
-    useBuyTypes.mockReturnValue({ activeBuyTypes: [], stageId: null, tiposCarregados: false });
+  it('sem etapa selecionada o aviso é sobre a etapa', async () => {
+    // Falar de cadastro de meio de entrada quando o problema é não ter etapa
+    // escolhida faz o operador procurar um cadastro que já existe.
+    useStage.mockReturnValue({ selectedStage: null });
     await montar();
     expect(screen.getByText('Selecione uma etapa para vender.')).toBeInTheDocument();
-    expect(screen.queryByText(/Tipos de Buy/)).toBeNull();
   });
 
-  it('quem não mexe no financeiro não recebe o atalho', async () => {
-    useBuyTypes.mockReturnValue({ activeBuyTypes: [], stageId: 'e1', tiposCarregados: true });
-    usePermissions.mockReturnValue({ isAdmin: false, hasPermission: () => false });
-    await montar();
-    expect(screen.queryByText('Ir para o Financeiro')).toBeNull();
-  });
-
-  it('o extrato mostra o NOME do tipo vendido', async () => {
+  it('o extrato mostra o NOME congelado na venda', async () => {
+    // A lista carregada é a do dia escolhido no formulário, e o extrato mostra
+    // vendas de todos os dias: procurar nela deixaria a maioria sem nome.
     await montar({
-      transacoes: [{ ...TRANSACOES[0], buy_type_id: 'b1' }],
+      transacoes: [{ ...TRANSACOES[0], buy_type_id: 'bX', buy_type_name: 'Buy-in VIP' }],
     });
-    expect(screen.getByText('Entrada normal')).toBeInTheDocument();
+    expect(screen.getByText('Buy-in VIP')).toBeInTheDocument();
   });
 
-  it('venda antiga sem tipo cai no rótulo da categoria', async () => {
-    // Vendas anteriores aos tipos de buy não podem sumir do extrato.
+  it('venda antiga sem meio de entrada cai no rótulo da categoria', async () => {
+    // Vendas anteriores aos meios de entrada não podem sumir do extrato.
     await montar({ transacoes: [TRANSACOES[1]] });
     expect(screen.getByText('Rebuy')).toBeInTheDocument();
   });
 });
 
-describe('sem tipos de buy à mão o caixa não pode parar', () => {
+describe('sem meios de entrada à mão o caixa não pode parar', () => {
   /**
-   * Lista vazia tinha três causas — etapa sem cadastro, consulta que falhou
+   * Lista vazia tinha três causas — dia sem cadastro, consulta que falhou
    * (sessão/RLS) e modo OFFLINE — e todas travavam a venda com a mesma
-   * mensagem: "cadastre um tipo de buy". No evento isso é o operador sem
+   * mensagem: "cadastre um meio de entrada". No evento isso é o operador sem
    * conseguir registrar ninguém, sendo mandado cadastrar o que já existe.
-   * A saída é vender pela CATEGORIA, com o rake do dia — como antes dos
-   * tipos de buy.
+   * A saída é vender pela CATEGORIA, com o valor e o rake do dia — como antes
+   * dos meios de entrada.
    */
   const semTipos = (extra = {}) =>
     useBuyTypes.mockReturnValue({
-      activeBuyTypes: [], stageId: 'e1', tiposCarregados: true, ...extra,
+      activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay, ...extra,
     });
 
   /** Preenche torneio → dia → jogador → categoria. */
@@ -946,7 +996,7 @@ describe('sem tipos de buy à mão o caixa não pode parar', () => {
     expect(screen.getByRole('button', { name: 'cashRegister.newTransaction' })).toBeEnabled();
   });
 
-  it('registra o jogador escolhendo a categoria, sem tipo de buy', async () => {
+  it('registra o jogador escolhendo a categoria, sem meio de entrada', async () => {
     semTipos();
     await montar();
     await abrirModal();
@@ -981,23 +1031,27 @@ describe('sem tipos de buy à mão o caixa não pode parar', () => {
     expect(offlineWrite).not.toHaveBeenCalled();
   });
 
-  it('etapa sem cadastro avisa, mas o aviso não trava nada', async () => {
+  it('dia sem cadastro avisa dentro do formulário, mas não trava nada', async () => {
+    // O aviso mora no formulário porque é lá que o dia é escolhido: no topo da
+    // tela, antes da escolha, ele seria um palpite.
     semTipos();
     await montar();
-    expect(screen.getByText(/Tipos de Buy/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'cashRegister.newTransaction' })).toBeEnabled();
+    await abrirModal();
+    expect(screen.getByText('Nenhum meio de entrada cadastrado')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeEnabled();
   });
 
-  it('lista vazia por falha de consulta NÃO vira "cadastre um tipo"', async () => {
+  it('lista vazia por falha de consulta NÃO vira "cadastre um meio de entrada"', async () => {
     // Offline / sessão expirada: mandar cadastrar o que já está cadastrado faz
     // o operador perder o evento procurando um problema que não existe.
     semTipos({ tiposCarregados: false });
     await montar();
-    expect(screen.queryByText(/Tipos de Buy/)).toBeNull();
-    expect(screen.getByRole('button', { name: 'cashRegister.newTransaction' })).toBeEnabled();
+    await abrirModal();
+    expect(screen.queryByText('Nenhum meio de entrada cadastrado')).toBeNull();
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeEnabled();
   });
 
-  it('offline, sem os tipos carregados, ainda registra o jogador', async () => {
+  it('offline, sem os meios de entrada carregados, ainda registra o jogador', async () => {
     semTipos({ tiposCarregados: false });
     isOnline.mockReturnValue(false);
     offlineWrite.mockResolvedValue({ offline: true, data: { id: 'uuid-1' } });

@@ -16,6 +16,7 @@ Dois pontos concentram o risco:
   chipcount de um dia na tela de outro.
 """
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -1209,3 +1210,138 @@ class TestContadorDeEliminados:
         _monta(monkeypatch, tournament_days=[])
         with pytest.raises(ValueError, match="not found"):
             S.adjust_eliminations(D1, 1)
+
+
+class TestFichasEmJogoVemDasVendas:
+    """"Fichas em jogo" e a soma do que as VENDAS entregaram.
+
+    Ate os meios de entrada por dia, o numero era `contador x campo do dia` —
+    correto enquanto todo rebuy entregava a mesma pilha. Com "rebuy duplo"
+    entregando 25.000 onde o dia diz 10.000, a multiplicacao passa a mentir o
+    stack medio no telao, que e o numero que o diretor usa para decidir o
+    intervalo.
+
+    A multiplicacao continua valendo para o que as vendas nao explicam: venda
+    anterior a migracao (sem `chips`) e classificado que o avanco criou sem
+    transacao nenhuma.
+    """
+
+    def _dia_obj(self):
+        return SimpleNamespace(id=D1, starting_chips=10000, rebuy_chips=10000,
+                               addon_chips=5000)
+
+    def _venda(self, tp_id, tipo, chips, status="active"):
+        return {"id": f"tx-{tp_id}-{tipo}-{chips}", "tournament_player_id": tp_id,
+                "type": tipo, "chips": chips, "status": status}
+
+    def test_soma_as_fichas_gravadas_em_cada_venda(self, monkeypatch):
+        jogador = _jogador(buy=1, rebuy=1)
+        fake = _monta(monkeypatch, tournament_players=[jogador], transactions=[
+            self._venda(jogador["id"], "buy_in", 10000),
+            self._venda(jogador["id"], "rebuy", 25000),  # recompra dupla
+        ])
+        fichas, entradas, reentradas = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 35000
+        assert (entradas, reentradas) == (1, 1)
+
+    def test_sem_venda_registrada_cai_na_multiplicacao_de_sempre(self, monkeypatch):
+        """O classificado que o avanco cria nao tem transacao nenhuma: exigir
+        venda zeraria as fichas do dia final inteiro."""
+        _monta(monkeypatch, tournament_players=[_jogador(buy=1, rebuy=2, addon=1)])
+        fichas, _, _ = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 10000 + 2 * 10000 + 5000
+
+    def test_venda_antiga_sem_fichas_continua_valendo_o_campo_do_dia(self, monkeypatch):
+        """Tudo que foi vendido antes da migracao tem `chips` nulo — some da
+        soma se a gente exigir o numero gravado."""
+        jogador = _jogador(buy=1, rebuy=1)
+        _monta(monkeypatch, tournament_players=[jogador], transactions=[
+            self._venda(jogador["id"], "buy_in", None),
+            self._venda(jogador["id"], "rebuy", None),
+        ])
+        fichas, _, _ = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 20000
+
+    def test_venda_estornada_nao_entrega_ficha(self, monkeypatch):
+        """O estorno ja devolveu o contador; contar a linha cancelada deixaria
+        o telao com fichas que voltaram para o caixa."""
+        jogador = _jogador(buy=1, rebuy=0)
+        _monta(monkeypatch, tournament_players=[jogador], transactions=[
+            self._venda(jogador["id"], "buy_in", 10000),
+            self._venda(jogador["id"], "rebuy", 25000, status="cancelled"),
+        ])
+        fichas, _, _ = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 10000
+
+    def test_inscricao_de_duas_entradas_conta_a_venda_uma_vez(self, monkeypatch):
+        """O buy-in e UMA linha para a inscricao inteira (buy_in_count=2 entra
+        numa transacao so). Somar a linha E multiplicar o contador daria 30.000
+        onde a venda entregou 20.000."""
+        jogador = _jogador(buy=2)
+        _monta(monkeypatch, tournament_players=[jogador], transactions=[
+            self._venda(jogador["id"], "buy_in", 20000),
+        ])
+        fichas, entradas, _ = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 20000
+        assert entradas == 2
+
+    def test_recompra_sem_venda_gravada_soma_junto_com_a_que_tem(self, monkeypatch):
+        """Dia que atravessou o deploy: uma recompra antes da migracao (sem
+        `chips`) e outra depois. As duas precisam entrar."""
+        jogador = _jogador(buy=1, rebuy=2)
+        _monta(monkeypatch, tournament_players=[jogador], transactions=[
+            self._venda(jogador["id"], "buy_in", 10000),
+            self._venda(jogador["id"], "rebuy", 25000),
+            self._venda(jogador["id"], "rebuy", None),
+        ])
+        fichas, _, _ = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 10000 + 25000 + 10000
+
+    def test_pergunta_as_vendas_de_todos_numa_consulta_so(self, monkeypatch):
+        """A consulta por jogador dentro do laco (N+1) ja derrubou o desempenho
+        deste projeto antes — e um dia final tem centenas de inscritos."""
+        jogadores = [_jogador(buy=1, rebuy=1, status=f"active-{i}") for i in range(5)]
+        fake = _monta(monkeypatch, tournament_players=jogadores, transactions=[
+            self._venda(j["id"], "rebuy", 25000) for j in jogadores
+        ])
+        original, idas = fake.table, []
+
+        def _contando(nome):
+            idas.append(nome)
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _contando)
+        S._entradas_do_dia(self._dia_obj())
+        assert idas.count("transactions") == 1
+        assert idas.count("tournament_players") == 1
+
+    def test_dia_sem_ninguem_nao_pergunta_as_vendas(self, monkeypatch):
+        """Sem inscrito nao ha o que perguntar — e um `in_` com lista vazia e
+        uma ida ao banco jogada fora em cada poll da TV."""
+        fake = _monta(monkeypatch, tournament_players=[])
+        original, idas = fake.table, []
+
+        def _contando(nome):
+            idas.append(nome)
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _contando)
+        assert S._entradas_do_dia(self._dia_obj()) == (0, 0, 0)
+        assert "transactions" not in idas
+
+    def test_banco_sem_a_coluna_de_fichas_volta_a_multiplicar(self, monkeypatch):
+        """O deploy do codigo nao e atomico com a migracao: enquanto `chips` nao
+        existir, a consulta falha. Um numero teorico e melhor que um 500 no meio
+        do evento."""
+        jogador = _jogador(buy=1, rebuy=1)
+        fake = _monta(monkeypatch, tournament_players=[jogador])
+        original = fake.table
+
+        def _sem_a_coluna(nome):
+            if nome == "transactions":
+                raise RuntimeError("column transactions.chips does not exist")
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _sem_a_coluna)
+        fichas, _, _ = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 20000

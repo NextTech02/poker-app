@@ -467,7 +467,7 @@ const CaixaGeral = () => {
                     {formatCurrency(calculateNetAmount().rakeAmount)}
                     {sangriaFormData.amount ? ` (${calculateNetAmount().effectivePct.toFixed(2)}%)` : ''}
                   </div>
-                  <small>{t('generalCash.rakeAutoHint', 'Calculado a partir do rake dos tipos de buy das entradas desta etapa.')}</small>
+                  <small>{t('generalCash.rakeAutoHint', 'Calculado a partir do rake dos meios de entrada vendidos nesta etapa.')}</small>
                 </div>
 
                 {/* Antes de escolher o valor, o operador precisa saber quanto do
