@@ -464,10 +464,10 @@
     "docCnh": "Driver's License",
     "name": "Name",
     "firstName": "First name",
-    "firstNamePlaceholder": "José",
+    "firstNamePlaceholder": "Mary",
     "firstNameRequired": "Enter the player's first name.",
     "lastName": "Last name",
-    "lastNamePlaceholder": "Pinto Faria",
+    "lastNamePlaceholder": "Smith Brown",
     "legacyDocHint": "Legacy record: pick the country's document type when you can."
   },
   "elimination": {

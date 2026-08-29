@@ -464,10 +464,10 @@
     "docCnh": "CNH",
     "name": "Nome",
     "firstName": "Nome",
-    "firstNamePlaceholder": "José",
+    "firstNamePlaceholder": "Maria",
     "firstNameRequired": "Informe o nome do jogador.",
     "lastName": "Sobrenome",
-    "lastNamePlaceholder": "Pinto Faria",
+    "lastNamePlaceholder": "Silva Costa",
     "legacyDocHint": "Cadastro antigo: escolha o tipo de documento do país quando puder."
   },
   "elimination": {

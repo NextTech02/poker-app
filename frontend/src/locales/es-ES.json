@@ -464,10 +464,10 @@
     "docCnh": "Licencia",
     "name": "Nombre",
     "firstName": "Nombre",
-    "firstNamePlaceholder": "José",
+    "firstNamePlaceholder": "María",
     "firstNameRequired": "Ingrese el nombre del jugador.",
     "lastName": "Apellido",
-    "lastNamePlaceholder": "Pinto Faria",
+    "lastNamePlaceholder": "García López",
     "legacyDocHint": "Registro antiguo: elija el tipo de documento del país cuando pueda."
   },
   "elimination": {

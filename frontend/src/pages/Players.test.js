@@ -243,11 +243,11 @@ describe('cadastrar jogador', () => {
     // TV) e o backend anterior ao deploy ainda exige o nome completo.
     await montar();
     await abrirNovo();
-    await preencher({ nome: 'José', sobrenome: 'Pinto Faria' });
+    await preencher({ nome: 'Maria', sobrenome: 'Silva Costa' });
     await salvar();
     await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
     expect(offlineWrite.mock.calls[0][0].body).toMatchObject({
-      first_name: 'José', last_name: 'Pinto Faria', name: 'José Pinto Faria',
+      first_name: 'Maria', last_name: 'Silva Costa', name: 'Maria Silva Costa',
     });
   });
 

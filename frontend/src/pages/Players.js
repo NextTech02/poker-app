@@ -461,7 +461,7 @@ const Players = () => {
                     <input
                       id="first_name" name="first_name" type="text"
                       value={formData.first_name} onChange={handleChange}
-                      required placeholder={t('players.firstNamePlaceholder', 'José')}
+                      required placeholder={t('players.firstNamePlaceholder', 'Maria')}
                     />
                   </div>
                   <div className="pl-field">
@@ -469,7 +469,7 @@ const Players = () => {
                     <input
                       id="last_name" name="last_name" type="text"
                       value={formData.last_name} onChange={handleChange}
-                      placeholder={t('players.lastNamePlaceholder', 'Pinto Faria')}
+                      placeholder={t('players.lastNamePlaceholder', 'Silva Costa')}
                     />
                   </div>
                 </div>
