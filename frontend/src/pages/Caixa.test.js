@@ -222,6 +222,14 @@ const preencher = async ({ dia = 'd1', jogador = 'p1', tipo = 'b1' } = {}) => {
   if (tipo) await userEvent.selectOptions(screen.getByLabelText('Meio de entrada'), tipo);
 };
 
+/** Sem meios de entrada cadastrados, o campo é "Categoria". */
+const porCategoria = async (categoria) => {
+  await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+  await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), 'd1');
+  await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
+  await userEvent.selectOptions(screen.getByLabelText('Categoria'), categoria);
+};
+
 const enviar = async () => {
   await userEvent.click(screen.getByRole('button', { name: 'cashRegister.register' }));
 };
@@ -433,6 +441,51 @@ describe('valor cobrado', () => {
     await abrirModal();
     await preencher({ tipo: 'bL' });
     expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
+  });
+
+  it('add-on SEM valor configurado mostra zero, não o preço do buy-in', async () => {
+    /* O defeito que o dono do clube encontrou: "ADDON está puxando o valor do
+       buyin". Era um `||` — `dia.addon_amount || dia.buy_in` — e zero/nulo é
+       falsy. 31 dos 51 dias têm `addon_amount` NULO, porque o formulário do dia
+       grava zero como nulo.
+
+       O estrago era duplo: a tela mostrava o preço do BUY-IN, e o backend
+       (`valor_do_dia or 0`) registrava ZERO. O operador cobrava 1000 do jogador
+       e o caixa guardava 0 — diferença que só aparece no fechamento da noite.
+
+       Zero na tela é o certo: é o que o servidor vai registrar, e é o que faz
+       alguém perceber que o add-on não foi configurado. */
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    await montar({ dias: [{ ...DIA, addon_amount: null }] });
+    await abrirModal();
+    await porCategoria('addon');
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+  });
+
+  it('rebuy sem valor configurado também mostra zero', async () => {
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    await montar({ dias: [{ ...DIA, rebuy_amount: null }] });
+    await abrirModal();
+    await porCategoria('rebuy');
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+  });
+
+  it('add-on de graça (zero configurado) continua zero', async () => {
+    // Zero é uma decisão — add-on de cortesia existe. Tratá-lo como "não
+    // informado" cobraria o buy-in de quem não devia pagar nada.
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    await montar({ dias: [{ ...DIA, addon_amount: 0 }] });
+    await abrirModal();
+    await porCategoria('addon');
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+  });
+
+  it('com valor configurado, é ele que aparece', async () => {
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    await montar();
+    await abrirModal();
+    await porCategoria('addon');
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(400);
   });
 
   it('sem dia nenhum, o valor vem do torneio', async () => {

@@ -727,22 +727,32 @@ const Caixa = () => {
     }
   };
 
-  // Valor de RESERVA, usado só no modo categoria (nenhum meio de entrada à
-  // mão): vem da configuração do DIA, e do torneio quando o dia não foi
-  // escolhido. Cobrar os 500 do torneio num Dia 1A de 1000 é cobrar errado do
-  // jogador na frente dele. Com meio de entrada escolhido quem manda é ele.
+  /* Valor de RESERVA, usado só no modo categoria (nenhum meio de entrada à
+     mão): vem da configuração do DIA, e do torneio quando o dia não foi
+     escolhido. Cobrar os 500 do torneio num Dia 1A de 1000 é cobrar errado do
+     jogador na frente dele. Com meio de entrada escolhido quem manda é ele.
+
+     NÃO CAI NO BUY-IN quando rebuy/add-on não têm valor. Caía, por causa de um
+     `||`, e o estrago era duplo: 31 dias têm `addon_amount` nulo (o formulário
+     do dia grava zero como NULO), então a tela mostrava o preço do buy-in para
+     um add-on — e o BACKEND, que faz `valor_do_dia or 0`, registrava ZERO. O
+     operador cobrava 100 do jogador e o caixa guardava 0, e a diferença só
+     aparecia no fechamento da noite.
+
+     A tela mostra o que o servidor cobra. Sem valor configurado, é zero — e
+     zero aparecendo na tela é o que faz alguém perceber que falta configurar. */
   const valorDaCategoria = (categoria, diaId, tournamentId) => {
     const dia = tournamentDays.find((d) => d.id === diaId);
     const torneio = tournaments.find((tr) => tr.id === tournamentId);
     if (dia) {
-      if (categoria === 'rebuy') return dia.rebuy_amount || dia.buy_in;
-      if (categoria === 'addon') return dia.addon_amount || dia.buy_in;
-      return dia.buy_in;
+      if (categoria === 'rebuy') return dia.rebuy_amount ?? 0;
+      if (categoria === 'addon') return dia.addon_amount ?? 0;
+      return dia.buy_in ?? 0;
     }
     if (torneio) {
-      if (categoria === 'rebuy') return torneio.rebuy || torneio.buy_in;
-      if (categoria === 'addon') return torneio.addon || torneio.buy_in;
-      return torneio.buy_in;
+      if (categoria === 'rebuy') return torneio.rebuy ?? 0;
+      if (categoria === 'addon') return torneio.addon ?? 0;
+      return torneio.buy_in ?? 0;
     }
     return 0;
   };
