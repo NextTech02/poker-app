@@ -30,6 +30,7 @@ import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useBuyTypes } from '../contexts/BuyTypesContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
+import { CAIXA_MUDOU } from '../utils/eventosDoCaixa';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -519,6 +520,23 @@ describe('registro de buy-in', () => {
     await preencher();
     await enviar();
     await waitFor(() => expect(screen.queryByLabelText('cashRegister.tournament')).toBeNull());
+  });
+
+  it('avisa que o caixa mudou, para o saldo não ficar parado na abertura', async () => {
+    // O saldo aparece no banner, que é outro componente e busca sozinho. Sem
+    // este aviso o operador vende a noite inteira olhando o valor da abertura
+    // e só o F5 mostra o dinheiro que ele mesmo recebeu.
+    const avisos = jest.fn();
+    window.addEventListener(CAIXA_MUDOU, avisos);
+    try {
+      await montar();
+      await abrirModal();
+      await preencher();
+      await enviar();
+      await waitFor(() => expect(avisos).toHaveBeenCalled());
+    } finally {
+      window.removeEventListener(CAIXA_MUDOU, avisos);
+    }
   });
 
   it('alocação automática imprime o bilhete com mesa e assento', async () => {
@@ -1345,6 +1363,21 @@ describe('cancelar venda', () => {
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/transactions/x1/cancel', { reason: 'cobrei duas vezes' })
     );
+  });
+
+  it('o estorno também avisa que o caixa mudou', async () => {
+    // Estornar devolve dinheiro: o saldo cai na hora e o banner precisa saber.
+    const avisos = jest.fn();
+    window.addEventListener(CAIXA_MUDOU, avisos);
+    try {
+      await montar();
+      await abrirCancelamento();
+      await userEvent.type(screen.getByLabelText('Motivo do cancelamento'), 'cobrei duas vezes');
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar a venda' }));
+      await waitFor(() => expect(avisos).toHaveBeenCalled());
+    } finally {
+      window.removeEventListener(CAIXA_MUDOU, avisos);
+    }
   });
 
   it('sem motivo não cancela', async () => {

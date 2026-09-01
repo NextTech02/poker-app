@@ -24,6 +24,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { CAIXA_MUDOU } from '../utils/eventosDoCaixa';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -235,6 +236,21 @@ describe('movimentos no caixa do operador', () => {
 
   const confirmar = () =>
     userEvent.click(document.querySelector('.modal-actions button[type="submit"]'));
+
+  it('suprimento avisa que o caixa mudou', async () => {
+    // Se o operador estiver com a tela de vendas aberta no mesmo navegador, o
+    // saldo dele muda agora — e o banner precisa ser avisado.
+    const avisos = jest.fn();
+    window.addEventListener(CAIXA_MUDOU, avisos);
+    try {
+      await abrirAcao('cashbox.supply');
+      await userEvent.type(screen.getByLabelText('cashbox.supplyAmount'), '300');
+      await confirmar();
+      await waitFor(() => expect(avisos).toHaveBeenCalled());
+    } finally {
+      window.removeEventListener(CAIXA_MUDOU, avisos);
+    }
+  });
 
   it('suprimento envia o valor', async () => {
     await abrirAcao('cashbox.supply');

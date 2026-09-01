@@ -5,6 +5,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import Button from './Button';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
+import usePolling from '../hooks/usePolling';
 import './CashboxBanner.css';
 
 /**
@@ -72,6 +74,22 @@ const CashboxBanner = ({ onStateChange }) => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, selectedStage?.id]);
+
+  // Rede de segurança para o que muda FORA deste navegador: o supervisor lança
+  // um suprimento ou uma sangria do Financeiro, de outro aparelho, e nenhum
+  // evento local chega aqui. Intervalo folgado (o evento acima já cobre o caso
+  // comum, que é a venda do próprio operador) e o hook pausa com a aba oculta.
+  usePolling(load, 15000);
+
+  // Venda, estorno, sangria e sync offline mudam o saldo em telas que não são
+  // pais deste banner. Sem isto o operador vendia a noite inteira vendo o saldo
+  // da abertura, e só o F5 mostrava o valor real.
+  useEffect(
+    // Sem `setCashbox(undefined)` de propósito: aqui o banner já está montado e
+    // apagá-lo para o esqueleto piscaria a cada venda.
+    () => aoMudarOCaixa(() => { load(); }),
+    [load]
+  );
 
   const openModal = (kind) => {
     setNotes('');

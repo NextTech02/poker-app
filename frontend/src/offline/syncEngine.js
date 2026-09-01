@@ -18,6 +18,7 @@ import {
   addConflict,
 } from './db';
 import { notifyQueueChanged } from './queue';
+import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 
 let _flushing = false;
 let _started = false;
@@ -62,12 +63,16 @@ export const flush = async () => {
 
     const results = (res.data && res.data.results) || [];
     const byId = new Map(results.map((r) => [r.clientMutationId, r]));
+    let algoEntrou = false;
 
     for (const m of pending) {
       const r = byId.get(m.clientMutationId);
       if (!r) continue; // servidor parou antes desta (ex.: dependência) — fica pendente
       if (r.status === 'applied' || r.status === 'duplicate') {
         await removeMutation(m.id);
+        // 'duplicate' também conta: o saldo mudou no servidor, só que numa
+        // tentativa anterior — a tela pode não ter visto aquela também.
+        algoEntrou = true;
       } else if (r.status === 'conflict') {
         await updateMutation(m.id, { status: 'conflict', error: r.error || 'conflito' });
         await addConflict({
@@ -87,6 +92,8 @@ export const flush = async () => {
     }
 
     notifyQueueChanged();
+    // As vendas represadas na fila só entram no caixa agora, ao sincronizar.
+    if (algoEntrou) avisarQueOCaixaMudou();
     return { done: true, results };
   } finally {
     _flushing = false;

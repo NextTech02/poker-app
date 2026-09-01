@@ -8,6 +8,7 @@ import Button from './Button';
 import EmptyState from './EmptyState';
 import { SkeletonTableRow } from './SkeletonLoader';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 import './CashboxAdminPanel.css';
 
 // Ações: kind → { field de valor enviado, label da chave i18n }
@@ -160,6 +161,8 @@ const CashboxAdminPanel = () => {
         toast.success(t('cashbox.sangriaToGeneralSuccess'));
         setModal(null);
         await load();
+        // Sem aviso de caixa aqui: esta sangria é da ETAPA (cash_register), não
+        // mexe em `cashboxes.current_balance`.
         return;
       }
 
@@ -181,6 +184,9 @@ const CashboxAdminPanel = () => {
 
       setModal(null);
       await load();
+      // Abrir, fechar, suprir e sangrar mudam o saldo que o operador vê no
+      // banner da tela de vendas — se ele estiver no mesmo navegador.
+      avisarQueOCaixaMudou();
     } catch (err) {
       toast.error(err.userMessage || t('cashbox.actionError'));
     } finally {

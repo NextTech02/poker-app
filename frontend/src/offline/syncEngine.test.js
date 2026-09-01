@@ -16,6 +16,7 @@
  */
 import { flush, startSyncEngine, stopSyncEngine } from './syncEngine';
 import api from '../config/api';
+import { CAIXA_MUDOU } from '../utils/eventosDoCaixa';
 import { isOnline, markOffline, markOnline, subscribe } from './connectivity';
 import {
   getPendingMutations,
@@ -235,6 +236,40 @@ describe('tratamento de cada resultado', () => {
       'm3',
       expect.objectContaining({ status: 'error' })
     );
+  });
+});
+
+/**
+ * As vendas represadas na fila só entram no caixa no momento do sync. Quem
+ * mostra o saldo é o banner, que busca por conta própria e não tem como
+ * adivinhar que a fila acabou de esvaziar.
+ */
+describe('aviso de que o caixa mudou', () => {
+  const avisos = jest.fn();
+  beforeEach(() => { window.addEventListener(CAIXA_MUDOU, avisos); });
+  afterEach(() => { window.removeEventListener(CAIXA_MUDOU, avisos); });
+
+  it('sync que aplicou avisa', async () => {
+    getPendingMutations.mockResolvedValue([mutacao('m1')]);
+    api.post.mockResolvedValue(resposta([{ clientMutationId: 'mut-m1', status: 'applied' }]));
+    await flush();
+    expect(avisos).toHaveBeenCalled();
+  });
+
+  it('duplicada avisa igual: o saldo mudou numa tentativa que a tela não viu', async () => {
+    getPendingMutations.mockResolvedValue([mutacao('m1')]);
+    api.post.mockResolvedValue(resposta([{ clientMutationId: 'mut-m1', status: 'duplicate' }]));
+    await flush();
+    expect(avisos).toHaveBeenCalled();
+  });
+
+  it('lote que não entrou não avisa nada', async () => {
+    // Avisar aqui mandaria o banner buscar um saldo que não mudou — e a cada
+    // ciclo do motor, com a fila presa em erro.
+    getPendingMutations.mockResolvedValue([mutacao('m1')]);
+    api.post.mockResolvedValue(resposta([{ clientMutationId: 'mut-m1', status: 'error', error: '500' }]));
+    await flush();
+    expect(avisos).not.toHaveBeenCalled();
   });
 });
 

@@ -17,13 +17,14 @@
  * "certo" e um que fecha com 200 a menos não podem produzir a mesma
  * mensagem verde.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CashboxBanner from './CashboxBanner';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -52,11 +53,12 @@ const CAIXA = {
 
 let toast;
 let aoMudar;
+let renderResultado;
 
 const montar = async (dados = CAIXA) => {
   api.get.mockResolvedValue({ data: dados });
   aoMudar = jest.fn();
-  render(<CashboxBanner onStateChange={aoMudar} />);
+  renderResultado = render(<CashboxBanner onStateChange={aoMudar} />);
   // Esperar so a chamada nao basta: o componente nao renderiza nada enquanto
   // o estado ainda e `undefined` (carregando).
   await waitFor(() => expect(aoMudar).toHaveBeenCalled());
@@ -326,5 +328,67 @@ describe('fechamento', () => {
     await fechar();
     await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
     expect(api.post).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * O saldo é a única coisa nesta tela que muda sozinha enquanto o operador
+ * trabalha: cada venda registrada no formulário ao lado altera o número aqui.
+ * O banner não é filho de quem vende, então precisa ser avisado — antes disso
+ * o operador passava a noite olhando o saldo da abertura e só o F5 corrigia.
+ */
+describe('saldo em dia', () => {
+  const ABERTO = { ...CAIXA, status: 'open' };
+
+  it('venda registrada em outra tela atualiza o saldo sem F5', async () => {
+    await montar(ABERTO);
+    expect(screen.getByText('R$ 500.00')).toBeInTheDocument();
+
+    api.get.mockResolvedValue({ data: { ...ABERTO, current_balance: 620 } });
+    act(() => { avisarQueOCaixaMudou(); });
+
+    expect(await screen.findByText('R$ 620.00')).toBeInTheDocument();
+  });
+
+  it('o aviso não apaga o saldo enquanto a nova busca não volta', async () => {
+    // O estado "carregando" some com o banner inteiro. Usá-lo a cada venda
+    // faria a barra piscar no meio da operação — e o operador leria um
+    // instante de nada no lugar do dinheiro dele.
+    await montar(ABERTO);
+    api.get.mockReturnValue(new Promise(() => {})); // busca que nunca volta
+    act(() => { avisarQueOCaixaMudou(); });
+
+    expect(screen.getByText('R$ 500.00')).toBeInTheDocument();
+  });
+
+  it('alcança sozinho o que mudou em outro aparelho', async () => {
+    // Suprimento e sangria lançados pelo supervisor, de outra máquina, não
+    // disparam evento nenhum aqui dentro.
+    // Os timers falsos precisam valer ANTES de montar: o intervalo nasce no
+    // efeito de montagem e um `setInterval` já criado com timer real não
+    // responde a `advanceTimersByTime`.
+    jest.useFakeTimers();
+    try {
+      await montar(ABERTO);
+      const buscasAteAgora = api.get.mock.calls.length;
+      api.get.mockResolvedValue({ data: { ...ABERTO, current_balance: 900 } });
+
+      await act(async () => { jest.advanceTimersByTime(15000); });
+      expect(api.get.mock.calls.length).toBeGreaterThan(buscasAteAgora);
+      expect(screen.getByText('R$ 900.00')).toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('deixa de escutar depois de sair da tela', async () => {
+    await montar(ABERTO);
+    const { unmount } = renderResultado;
+    unmount();
+    const buscasAteAgora = api.get.mock.calls.length;
+
+    act(() => { avisarQueOCaixaMudou(); });
+
+    expect(api.get.mock.calls.length).toBe(buscasAteAgora);
   });
 });

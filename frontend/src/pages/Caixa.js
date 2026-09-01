@@ -23,6 +23,7 @@ import { offlineWrite, offlineRead } from '../offline/apiOffline';
 import { applyRegister, applyRebuy, applyAddon } from '../offline/domainRules';
 import { uuid, putEntities, getEntity, getAllByTable } from '../offline/db';
 import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
+import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 import './Caixa.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -657,6 +658,7 @@ const Caixa = () => {
       setPlayerCredit(0);
       setTournamentDays([]);
       loadData();
+      avisarQueOCaixaMudou();
     } catch (error) {
       // ISSUE-004 fix: use userMessage from global interceptor for readable error
       const errorMessage =
@@ -929,6 +931,7 @@ const Caixa = () => {
         toast.success(t('cashRegister.cancelDone', 'Venda cancelada e valores estornados'));
       }
       loadData();
+      avisarQueOCaixaMudou();
     } catch (error) {
       toast.error(
         error.userMessage || error.response?.data?.detail
