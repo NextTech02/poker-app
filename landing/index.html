@@ -450,14 +450,41 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 .btn[aria-busy="true"]{opacity:.65;pointer-events:none}
 
 /* ---------- rodapé ---------- */
-.foot{background:#0A0119;color:#8E85B4;padding:44px 0;font-size:14px}
+/* Os 80px de baixo sao folga para o botao fixo do WhatsApp: sem eles o circulo
+   cobre o "© 2026 AceBlind" de quem chega ao fim da pagina. Vale em toda
+   largura — no desktop o copyright fica encostado a direita, que e justamente
+   o canto onde o botao mora. */
+.foot{background:#0A0119;color:#8E85B4;padding:44px 0 80px;font-size:14px}
 .foot__inner{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
 .foot__links{display:flex;gap:22px}
 .foot__links a:hover{color:#fff}
 .foot__tag{font-style:italic;color:var(--lavanda)}
 
-/* ---------- whatsapp mobile ---------- */
-.wa{display:none}
+/* ---------- whatsapp flutuante ----------
+   Fica no canto durante o scroll inteiro, no desktop e no celular. Antes era
+   uma barra de largura total que só existia abaixo de 720px, e acima disso a
+   página não tinha nenhuma saída fixa para o WhatsApp: quem estava no meio do
+   texto tinha que voltar ao topo ou descer até o formulário. */
+.wa{
+  /* A distancia da borda e uma variavel, e nao um valor direto, porque o
+     celular a diminui para 16px. Se fosse `bottom:16px` la embaixo, aquela
+     regra venceria a do `@supports` daqui (mesma especificidade, e vem depois
+     no arquivo) e o recuo da safe-area sumiria — justo no aparelho que e o
+     unico a precisar dele. Mexendo na variavel, os dois acompanham. */
+  --wa-borda:20px;
+  position:fixed;right:var(--wa-borda);bottom:var(--wa-borda);z-index:99;
+  display:flex;align-items:center;justify-content:center;
+  width:56px;height:56px;border-radius:50%;
+  background:#25D366;color:#fff;
+  box-shadow:0 6px 20px rgba(0,0,0,.28);
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.wa:hover{transform:scale(1.06);box-shadow:0 8px 26px rgba(37,211,102,.45)}
+.wa:active{transform:scale(.97)}
+/* No iPhone a barra de gestos ocupa a faixa de baixo e comeria o recuo. */
+@supports(padding:env(safe-area-inset-bottom)){
+  .wa{bottom:calc(var(--wa-borda) + env(safe-area-inset-bottom))}
+}
 
 /* ---------- reveal ---------- */
 .rv{opacity:0;transform:translateY(12px);transition:opacity .5s ease,transform .5s ease}
@@ -497,15 +524,10 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   .migra{padding:32px 24px}
   .form__grid{grid-template-columns:1fr}
   .foot__inner{flex-direction:column;text-align:center}
-  .wa{
-    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:99;
-    align-items:center;justify-content:center;height:56px;
-    background:var(--violeta);color:#fff;font-weight:500;font-size:16px;
-  }
-  .foot{padding-bottom:80px}
+  .wa{--wa-borda:16px;width:52px;height:52px}
   /* No celular a marca + "Entrar" + o botao nao cabem na mesma linha, e o
      botao ficava cortado na borda. Quem some e o CTA: ele se repete no hero
-     logo abaixo e na barra fixa do rodape. "Entrar" fica, porque e o unico
+     logo abaixo e no botao fixo do WhatsApp. "Entrar" fica, porque e o unico
      caminho para quem JA e cliente e digitou o dominio de cabeca. */
   .nav__acoes .btn{display:none}
   .nav__login{font-size:16px}
@@ -956,7 +978,22 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   </div>
 </footer>
 
-<a class="wa wa-link" href="#demo" data-i18n="hero.whats">Falar no WhatsApp</a>
+<!-- Botão fixo do WhatsApp. Duas coisas aqui não são estilo:
+
+     `wa-link` é a classe que o ligarWhatsApp() procura — é ela que troca o
+     href por wa.me com a mensagem já escrita no idioma da página. O `#demo`
+     fica como destino de reserva: sem número configurado, o botão leva ao
+     formulário em vez de abrir uma conversa quebrada.
+
+     `data-i18n-aria`, e NÃO `data-i18n`: o motor de idioma aplica `data-i18n`
+     com innerHTML, o que apagaria o SVG e escreveria a palavra solta dentro
+     do círculo na primeira troca de idioma. A chave é a mesma do botão do
+     hero, então o rótulo já existe nos três idiomas. -->
+<a class="wa wa-link" href="#demo" data-i18n-aria="hero.whats" aria-label="Falar no WhatsApp">
+  <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true" focusable="false">
+    <path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+  </svg>
+</a>
 
 <!-- As traduções vivem num arquivo à parte: são ~550 linhas de texto, e
      misturá-las com o markup faria toda correção de copy conviver com o
