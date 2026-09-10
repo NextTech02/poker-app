@@ -1,0 +1,160 @@
+/* A mesa. O mapa de assentos ocupa a maior parte da tela porque é assim que o
+   operador pensa: ele não procura "a sessão do jogador X", procura "a cadeira
+   5". Cada cadeira carrega o que ele precisa para decidir sem abrir nada. */
+
+.ctd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.ctd-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.75rem;
+}
+
+.ctd-seat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 0.9rem;
+  min-height: 132px;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+}
+
+/* Ocupada ganha faixa e cor de borda. A faixa (não só a cor) é o que mantém a
+   leitura para quem não distingue verde de cinza. */
+.ctd-seat.occupied {
+  border-color: color-mix(in srgb, var(--success-500, #22c55e) 50%, transparent);
+  border-left-width: 4px;
+}
+.ctd-seat.blocked {
+  opacity: 0.45;
+}
+
+.ctd-seat-number {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.ctd-seat-player {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #e0eaf4);
+  overflow-wrap: anywhere;
+}
+
+.ctd-seat-empty {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.ctd-seat-amount {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.ctd-seat-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.ctd-seat-actions .btn {
+  flex: 1;
+}
+
+/* ── Painel de rake ─────────────────────────────────────────────────── */
+.ctd-rake {
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+}
+
+.ctd-rake-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.ctd-rake-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.ctd-rake-hint,
+.ctd-close-hint {
+  margin: 0 0 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.ctd-empty {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.ctd-rake-list {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.ctd-rake-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.ctd-kind {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-primary, #2a3a4d);
+  color: var(--text-secondary, #8aa0b0);
+}
+.ctd-kind.closing {
+  border-color: var(--success-500, #22c55e);
+  color: var(--success-color, #22c55e);
+}
+
+.ctd-jackpot {
+  font-size: 0.76rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.ctd-rake-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border-primary, #2a3a4d);
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+.ctd-rake-total strong {
+  font-size: 1.15rem;
+  color: var(--success-color, #22c55e);
+}
+
+@media (max-width: 900px) {
+  .ctd-grid {
+    grid-template-columns: 1fr;
+  }
+}

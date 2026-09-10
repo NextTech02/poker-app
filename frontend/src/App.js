@@ -6,6 +6,7 @@ import { StageProvider } from './contexts/StageContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { PermissionProvider, usePermissions } from './contexts/PermissionContext';
 import { ModuleProvider, useModule } from './contexts/ModuleContext';
+import { CashDayProvider } from './contexts/CashDayContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { PaymentMethodsProvider } from './contexts/PaymentMethodsContext';
 import { BuyTypesProvider } from './contexts/BuyTypesContext';
@@ -55,6 +56,13 @@ const Sangi = lazy(() => import('./pages/Sangi'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
 const Funcionarios = lazy(() => import('./pages/Funcionarios'));
 const SelectModule = lazy(() => import('./pages/SelectModule'));
+// Cash game. `CashFloor` fica no bundle principal — é a home do módulo e a
+// tela que o operador abre primeiro; um chunk extra ali seria uma espera no
+// começo de toda noite.
+const CashFloor = lazy(() => import('./pages/CashFloor'));
+const CashTableDetail = lazy(() => import('./pages/CashTableDetail'));
+const CashDays = lazy(() => import('./pages/CashDays'));
+const CashConfig = lazy(() => import('./pages/CashConfig'));
 
 const PageFallback = () => (
   <div className="page-loading-skeleton">
@@ -154,6 +162,44 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <SelectModule />
+          </PrivateRoute>
+        }
+      />
+
+      {/* ── Módulo de CASH GAME ──────────────────────────────────────────
+          `module="cash"` não é permissão: é entitlement do clube. Quem não
+          contratou vai parar na escolha de módulo; quem contratou mas está
+          com o torneio selecionado troca sozinho e segue (um link salvo nos
+          favoritos não pode dar 404 por causa do menu). */}
+      <Route
+        path="/cash"
+        element={
+          <PrivateRoute module="cash" permission="cash.operate">
+            <CashFloor />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/cash/mesas/:tableId"
+        element={
+          <PrivateRoute module="cash" permission="cash.operate">
+            <CashTableDetail />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/cash/dias"
+        element={
+          <PrivateRoute module="cash" anyPermission={['cash.day', 'cash.reports']}>
+            <CashDays />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/cash/configuracao"
+        element={
+          <PrivateRoute module="cash" permission="cash.admin">
+            <CashConfig />
           </PrivateRoute>
         }
       />
@@ -445,22 +491,24 @@ function App() {
         <AuthProvider>
           <PermissionProvider>
             <ModuleProvider>
-              <StageProvider>
-                <CurrencyProvider>
-                  <PaymentMethodsProvider>
-                    <BuyTypesProvider>
-                      <ToastProvider>
-                        <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
-                          <OfflineBanner />
-                          <OrgScopeBanner />
-                          <OrgInviteModal />
-                          <AppRoutes />
-                        </ErrorBoundary>
-                      </ToastProvider>
-                    </BuyTypesProvider>
-                  </PaymentMethodsProvider>
-                </CurrencyProvider>
-              </StageProvider>
+              <CashDayProvider>
+                <StageProvider>
+                  <CurrencyProvider>
+                    <PaymentMethodsProvider>
+                      <BuyTypesProvider>
+                        <ToastProvider>
+                          <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
+                            <OfflineBanner />
+                            <OrgScopeBanner />
+                            <OrgInviteModal />
+                            <AppRoutes />
+                          </ErrorBoundary>
+                        </ToastProvider>
+                      </BuyTypesProvider>
+                    </PaymentMethodsProvider>
+                  </CurrencyProvider>
+                </StageProvider>
+              </CashDayProvider>
             </ModuleProvider>
           </PermissionProvider>
         </AuthProvider>

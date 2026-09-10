@@ -261,9 +261,33 @@ class TestCaixasLeitura:
         assert len(client.get("/cashboxes").json()) == 1
 
     def test_meu_caixa_atual(self, client, stub):
-        stub(CS, get_my_current=lambda uid, sid: _caixa())
+        stub(CS, get_my_current=lambda uid, stage_id=None, cash_day_id=None: _caixa())
         r = client.get("/cashboxes/me/current", headers={"X-Stage-ID": ETAPA})
         assert r.json()["id"] == CAIXA
+
+    def test_meu_caixa_do_dia_de_cash(self, client, stub):
+        """No cash game não há etapa: a âncora é o DIA e viaja na query.
+
+        Sem este caminho o operador de um clube só-cash tomaria 400
+        `etapa_nao_selecionada` no primeiro clique da noite."""
+        vistos = {}
+
+        def _atual(uid, stage_id=None, cash_day_id=None):
+            vistos["stage_id"] = stage_id
+            vistos["cash_day_id"] = cash_day_id
+            return _caixa()
+
+        stub(CS, get_my_current=_atual)
+        r = client.get("/cashboxes/me/current", params={"cash_day_id": "dia-1"})
+        assert r.status_code == 200
+        assert r.json()["id"] == CAIXA
+        assert vistos == {"stage_id": None, "cash_day_id": "dia-1"}
+
+    def test_sem_etapa_e_sem_dia_recusa(self, client, stub):
+        stub(CS, get_my_current=lambda uid, stage_id=None, cash_day_id=None: _caixa())
+        r = client.get("/cashboxes/me/current")
+        assert r.status_code == 400
+        assert r.json()["detail"]["code"] == "etapa_nao_selecionada"
 
     def test_sem_etapa_selecionada_da_400(self, client):
         """O caixa é por etapa; sem etapa a pergunta não tem resposta."""

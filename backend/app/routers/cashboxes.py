@@ -54,12 +54,23 @@ def create_cashbox(
 
 @router.get("/me/current", response_model=Optional[CashboxResponse])
 def get_my_current(
+    cash_day_id: Optional[str] = Query(None),
     stage_id: str = Depends(get_stage_id_optional),
     user=Depends(get_current_user),
 ):
+    """A gaveta do operador na âncora atual.
+
+    No torneio a âncora vem do header X-Stage-ID; no cash game ela vem
+    EXPLÍCITA na query, porque o módulo de cash não tem etapa — a operação é
+    diária, e o dia viaja na URL em vez de num segundo header mágico.
+    """
+    if cash_day_id:
+        return CashboxService.get_my_current(
+            _auth_user_id(user), cash_day_id=cash_day_id
+        )
     if not stage_id:
         raise recusado("etapa_nao_selecionada", "Selecione uma etapa")
-    return CashboxService.get_my_current(_auth_user_id(user), stage_id)
+    return CashboxService.get_my_current(_auth_user_id(user), stage_id=stage_id)
 
 
 @router.get("/aggregated", response_model=CashboxAggregatedSummary)

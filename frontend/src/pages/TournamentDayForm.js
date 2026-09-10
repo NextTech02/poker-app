@@ -92,6 +92,16 @@ const TournamentDayForm = () => {
 
   const isEditing = !!dayId;
 
+  // O tipo do dia só existe em torneio classificatório. Em torneio de dia único
+  // o select teria uma opção só ("Regular"), então o campo não decide nada.
+  // A flag do torneio é a fonte principal, mas dias antigos podem ter sido
+  // marcados como classificatório/final sem ela — nesses casos o bloco continua
+  // visível, senão não haveria como corrigir o vínculo.
+  const eClassificatorio =
+    !!tournament?.has_qualifying ||
+    days.some((d) => d.day_type === 'qualifying' || d.day_type === 'final') ||
+    formData.day_type !== 'regular';
+
   // Um dia começa com os três meios de sempre; o clube renomeia, muda valor e
   // acrescenta quantos quiser. Sem nenhum meio de entrada não há como inscrever
   // ninguém, então a tela nunca abre vazia.
@@ -443,48 +453,50 @@ const TournamentDayForm = () => {
                   />
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="day_type">{t('tournamentDays.dayType')}</label>
-                  <select
-                    id="day_type"
-                    value={formData.day_type}
-                    onChange={(e) => setFormData({ ...formData, day_type: e.target.value, qualifies_to_day_id: '' })}
-                  >
-                    <option value="regular">{t('tournamentDays.regular')}</option>
-                    {/* Classificatório e Final só aparecem ao EDITAR um dia que já
-                        é desse tipo — na criação manual só existe "Regular", pois
-                        classificatórios/final são gerados na criação do torneio. */}
-                    {isEditing && <option value="qualifying">{t('tournamentDays.qualifying')}</option>}
-                    {isEditing && <option value="final">{t('tournamentDays.final')}</option>}
-                  </select>
-                  <small className="form-hint">
-                    {formData.day_type === 'qualifying' && t('tournamentDayForm.qualifyingHint')}
-                    {formData.day_type === 'final' && t('tournamentDayForm.finalHint')}
-                    {formData.day_type === 'regular' && t('tournamentDayForm.regularHint')}
-                  </small>
-                </div>
-                {formData.day_type === 'qualifying' && (
+              {eClassificatorio && (
+                <div className="form-row">
                   <div className="form-group">
-                    <label htmlFor="qualifies_to_day_id">{t('tournamentDays.qualifiesTo')} *</label>
+                    <label htmlFor="day_type">{t('tournamentDays.dayType')}</label>
                     <select
-                      id="qualifies_to_day_id"
-                      value={formData.qualifies_to_day_id}
-                      onChange={(e) => setFormData({ ...formData, qualifies_to_day_id: e.target.value })}
-                      required={formData.day_type === 'qualifying'}
+                      id="day_type"
+                      value={formData.day_type}
+                      onChange={(e) => setFormData({ ...formData, day_type: e.target.value, qualifies_to_day_id: '' })}
                     >
-                      <option value="">{t('tournamentDayForm.selectFinalDay')}</option>
-                      {days
-                        .filter(d => d.id !== dayId && (d.day_type === 'final' || d.day_type === 'regular'))
-                        .map(d => (
-                          <option key={d.id} value={d.id}>{d.day_name}</option>
-                        ))
-                      }
+                      <option value="regular">{t('tournamentDays.regular')}</option>
+                      {/* Classificatório e Final só aparecem ao EDITAR um dia que já
+                          é desse tipo — na criação manual só existe "Regular", pois
+                          classificatórios/final são gerados na criação do torneio. */}
+                      {isEditing && <option value="qualifying">{t('tournamentDays.qualifying')}</option>}
+                      {isEditing && <option value="final">{t('tournamentDays.final')}</option>}
                     </select>
-                    <small className="form-hint">{t('tournamentDayForm.qualifiesToHint')}</small>
+                    <small className="form-hint">
+                      {formData.day_type === 'qualifying' && t('tournamentDayForm.qualifyingHint')}
+                      {formData.day_type === 'final' && t('tournamentDayForm.finalHint')}
+                      {formData.day_type === 'regular' && t('tournamentDayForm.regularHint')}
+                    </small>
                   </div>
-                )}
-              </div>
+                  {formData.day_type === 'qualifying' && (
+                    <div className="form-group">
+                      <label htmlFor="qualifies_to_day_id">{t('tournamentDays.qualifiesTo')} *</label>
+                      <select
+                        id="qualifies_to_day_id"
+                        value={formData.qualifies_to_day_id}
+                        onChange={(e) => setFormData({ ...formData, qualifies_to_day_id: e.target.value })}
+                        required={formData.day_type === 'qualifying'}
+                      >
+                        <option value="">{t('tournamentDayForm.selectFinalDay')}</option>
+                        {days
+                          .filter(d => d.id !== dayId && (d.day_type === 'final' || d.day_type === 'regular'))
+                          .map(d => (
+                            <option key={d.id} value={d.id}>{d.day_name}</option>
+                          ))
+                        }
+                      </select>
+                      <small className="form-hint">{t('tournamentDayForm.qualifiesToHint')}</small>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Meios de entrada — só para dias que vendem entrada (o Final não vende) */}

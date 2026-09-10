@@ -1,0 +1,52 @@
+/* Catálogo de modalidades. O formulário é denso de propósito: quem cadastra
+   um stake está comparando números entre si (blind × buy-in × rake), e
+   espalhá-los em uma coluna obrigaria a rolar para conferir. */
+
+.cc-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+.cc-row .form-group {
+  margin-bottom: 0.75rem;
+}
+
+.cc-variant {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cc-cap {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* Inativa continua na lista (o histórico fala dela), mas recuada. */
+.cc-inactive {
+  opacity: 0.55;
+}
+
+.cc-actions {
+  display: flex;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.cc-note {
+  margin: 0.25rem 0 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cc-check label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}

@@ -1,0 +1,36 @@
+/* Histórico de dias. A tabela é por DATA porque a pergunta que o cliente faz é
+   "quanto faturamos ontem?" — não "quanto faturamos no mês". */
+
+.cd-filters {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.cd-filters .form-group {
+  margin: 0;
+  min-width: 160px;
+}
+
+/* O dia aberto é a linha que ainda pode mudar — a borda avisa antes da leitura. */
+.cd-open td:first-child {
+  border-left: 3px solid var(--success-color, #22c55e);
+}
+
+.cd-label {
+  font-size: 0.76rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* Faturamento é a coluna que a tela existe para mostrar. */
+.cd-revenue {
+  font-weight: 700;
+  color: var(--success-color, #22c55e);
+}
+
+.cd-note {
+  margin: 0.9rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #8aa0b0);
+}

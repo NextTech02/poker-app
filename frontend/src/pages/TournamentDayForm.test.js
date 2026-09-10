@@ -292,7 +292,10 @@ describe('dia final', () => {
   it('dia novo criado à mão é sempre regular', async () => {
     // Classificatórios e final são gerados na criação do torneio.
     await montar();
-    expect(campo('day_type')).toHaveValue('regular');
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await salvar();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1].day_type).toBe('regular');
   });
 });
 
@@ -353,7 +356,43 @@ describe('herança da estrutura de blinds', () => {
     await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
     await userEvent.type(campo('day_name'), 'Final');
     // O tipo "final" só é escolhível na edição; simulamos pelo dia carregado.
-    expect(campo('day_type')).toHaveValue('regular');
+    await salvar();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1].day_type).toBe('regular');
+  });
+});
+
+describe('tipo do dia', () => {
+  const DIA_UNICO = [{ id: 'd1', day_name: 'Único', day_type: 'regular' }];
+
+  it('torneio de dia único não mostra o campo — só teria a opção "Regular"', async () => {
+    await montar({ torneio: { ...TORNEIO, has_qualifying: false }, dias: DIA_UNICO });
+    expect(campo('day_type')).toBeNull();
+  });
+
+  it('escondido, o dia ainda é salvo como regular', async () => {
+    // Sumir com o campo não pode sumir com o valor: o backend exige o tipo.
+    await montar({ torneio: { ...TORNEIO, has_qualifying: false }, dias: DIA_UNICO });
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await salvar();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1].day_type).toBe('regular');
+  });
+
+  it('torneio classificatório mostra o campo', async () => {
+    await montar({ torneio: { ...TORNEIO, has_qualifying: true }, dias: DIA_UNICO });
+    expect(campo('day_type')).not.toBeNull();
+  });
+
+  it('dia já marcado como classificatório mostra o campo mesmo sem a flag', async () => {
+    // Torneio antigo, convertido na mão: esconder aqui tiraria o único jeito
+    // de arrumar o vínculo com o dia final.
+    await montar(
+      { torneio: { ...TORNEIO, has_qualifying: false }, dias: DIA_UNICO,
+        dia: { ...DIA_EM_EDICAO, day_type: 'qualifying' } },
+      { editando: true }
+    );
+    expect(campo('day_type')).toHaveValue('qualifying');
   });
 });
 

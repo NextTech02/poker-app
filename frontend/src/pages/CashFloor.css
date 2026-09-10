@@ -1,0 +1,190 @@
+/* Salão de cash game.
+
+   O grid de mesas é a peça central: o operador olha para ele a noite inteira
+   procurando lugar livre. Por isso a ocupação é DESENHADA (as bolinhas dos
+   assentos) e não escrita — a leitura tem que ser instantânea, de pé, a dois
+   metros do balcão. */
+
+.cf-warning {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--warning-500, #d99a2b);
+  background: var(--warning-bg, rgba(217, 154, 43, 0.12));
+  color: var(--text-primary, #e0eaf4);
+  font-size: 0.9rem;
+}
+
+/* ── Indicadores do dia ─────────────────────────────────────────────── */
+/* Estrutura própria (label/value/hint), mais simples que a do .stat-card do
+   torneio: aqui não há ícone, e a hint carrega o contexto que impede a leitura
+   errada ("giro", "não é receita"). */
+.stats-grid .stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+}
+
+.stat-card .stat-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.stat-card .stat-value {
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--text-primary, #e0eaf4);
+  line-height: 1.15;
+}
+
+.stat-card .stat-hint {
+  font-size: 0.76rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* O faturamento é a única linha que é receita da casa — e a única destacada. */
+.stat-card--highlight {
+  border-color: color-mix(in srgb, var(--success-500, #22c55e) 55%, transparent);
+}
+.stat-card--highlight .stat-value {
+  color: var(--success-color, #22c55e);
+}
+
+/* ── Grid de mesas ──────────────────────────────────────────────────── */
+.cf-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.cf-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.05s ease;
+}
+.cf-table:hover {
+  border-color: var(--accent-color, #7233f8);
+}
+.cf-table:active {
+  transform: translateY(1px);
+}
+.cf-table:focus-visible {
+  outline: 2px solid var(--accent-color, #7233f8);
+  outline-offset: 2px;
+}
+
+.cf-table-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* O número é o maior elemento do cartão: é por ele que o operador acha a mesa
+   no salão, e é a primeira coisa que ele procura. */
+.cf-table-number {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-primary, #e0eaf4);
+}
+
+.cf-table-stakes {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cf-table-name {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* ── Assentos ───────────────────────────────────────────────────────── */
+.cf-seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.cf-seat {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--border-primary, #2a3a4d);
+}
+/* Livre = vazado, ocupado = cheio. A diferença é de PREENCHIMENTO, não só de
+   cor: quem não distingue verde de cinza continua lendo a mesa. */
+.cf-seat.free {
+  background: transparent;
+}
+.cf-seat.busy {
+  background: var(--success-color, #22c55e);
+  border-color: var(--success-color, #22c55e);
+}
+
+.cf-table-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cf-table-rake {
+  font-weight: 600;
+  color: var(--success-color, #22c55e);
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.modal h2 {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+}
+
+/* O modal global não tem padding próprio — as telas antigas põem o seu. */
+.modal > h2,
+.modal > form {
+  padding-inline: var(--spacing-xl, 1.5rem);
+}
+.modal > h2 {
+  padding-top: var(--spacing-lg, 1.25rem);
+}
+.modal > form {
+  padding-bottom: var(--spacing-lg, 1.25rem);
+}
+
+@media (max-width: 640px) {
+  .cf-tables {
+    grid-template-columns: 1fr;
+  }
+}

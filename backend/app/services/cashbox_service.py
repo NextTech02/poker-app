@@ -409,16 +409,30 @@ class CashboxService:
         return CashboxService._enrich_many(resp.data or [])
 
     @staticmethod
-    def get_my_current(auth_user_id: str, stage_id: str) -> Optional[CashboxResponse]:
-        """Caixa do operador requisitante na etapa atual (qualquer status)."""
+    def get_my_current(
+        auth_user_id: str,
+        stage_id: Optional[str] = None,
+        cash_day_id: Optional[str] = None,
+    ) -> Optional[CashboxResponse]:
+        """Caixa do operador requisitante na âncora atual (qualquer status).
+
+        A âncora é a etapa (torneio) ou o dia (cash game) — é uma gaveta só, no
+        mesmo balcão, e o que muda é o período que ela cobre.
+        """
         staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
         if not staff_id:
             return None
+        coluna = "cash_day_id" if cash_day_id else "stage_id"
+        valor = cash_day_id or stage_id
         resp = supabase.table("cashboxes").select("*") \
-            .eq("staff_id", staff_id).eq("stage_id", stage_id).execute()
+            .eq("staff_id", staff_id).eq(coluna, valor).execute()
         if not resp.data:
             # Auto-create on-demand for staff that gained permission after migration
-            row = CashboxService._get_or_create(staff_id, stage_id)
+            row = CashboxService._get_or_create(
+                staff_id,
+                stage_id=None if cash_day_id else stage_id,
+                cash_day_id=cash_day_id,
+            )
             return CashboxService._enrich(row)
         return CashboxService._enrich(resp.data[0])
 

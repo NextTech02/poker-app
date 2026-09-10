@@ -10,15 +10,24 @@ import usePolling from '../hooks/usePolling';
 import './CashboxBanner.css';
 
 /**
- * Banner do caixa modular do operador na etapa selecionada.
- * - Busca GET /cashboxes/me/current (usa X-Stage-ID do interceptor).
- * - Resposta null = super-admin / sem vínculo de funcionário → não renderiza nada
- *   e reporta `null` ao pai (que então NÃO bloqueia operações).
- * - Resposta com caixa → mostra status/saldo + abrir/fechar.
+ * Banner do caixa modular do operador.
+ *
+ * A gaveta tem UMA âncora: a etapa (torneio) ou o dia (cash game). É o mesmo
+ * balcão e o mesmo dinheiro — o que muda é o período que ela cobre. Por isso
+ * um componente só: duplicá-lo daria duas telas que precisariam ser corrigidas
+ * juntas para sempre.
+ *
+ * - Torneio: a etapa vai no header X-Stage-ID, posto pelo interceptor.
+ * - Cash game: o dia vem em `cashDayId` e viaja explícito na query. Sem ele o
+ *   operador de um clube só-cash tomaria 400 `etapa_nao_selecionada` no
+ *   primeiro clique da noite.
+ * - Resposta null = super-admin / sem vínculo de funcionário → não renderiza
+ *   nada e reporta `null` ao pai (que então NÃO bloqueia operações).
  *
  * @param {(cashbox: object|null) => void} onStateChange  recebe o caixa atual (ou null).
+ * @param {string} [cashDayId]  âncora do módulo de cash game.
  */
-const CashboxBanner = ({ onStateChange }) => {
+const CashboxBanner = ({ onStateChange, cashDayId }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
@@ -51,13 +60,17 @@ const CashboxBanner = ({ onStateChange }) => {
 
   const load = useCallback(async () => {
     try {
-      const res = await api.get('/cashboxes/me/current', { _silentError: true });
+      const res = await api.get('/cashboxes/me/current', {
+        _silentError: true,
+        ...(cashDayId ? { params: { cash_day_id: cashDayId } } : {}),
+      });
       setNeedsStage(false);
       setCashbox(res.data || null);
       report(res.data || null);
     } catch (err) {
       if (err?.response?.status === 400) {
-        // Nenhuma etapa selecionada
+        // Nenhuma âncora: sem etapa no torneio. No cash isso não acontece —
+        // a tela só monta o banner depois que o dia está aberto.
         setNeedsStage(true);
         setCashbox(null);
         report(null);
@@ -66,14 +79,15 @@ const CashboxBanner = ({ onStateChange }) => {
         report(null);
       }
     }
-  }, [report]);
+  }, [report, cashDayId]);
 
   useEffect(() => {
-    // Re-busca ao montar e sempre que a etapa selecionada mudar.
+    // Re-busca ao montar e sempre que a ÂNCORA mudar — trocar de etapa ou de
+    // dia é trocar de gaveta, e mostrar o saldo da anterior seria mentira.
     setCashbox(undefined);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load, selectedStage?.id]);
+  }, [load, selectedStage?.id, cashDayId]);
 
   // Rede de segurança para o que muda FORA deste navegador: o supervisor lança
   // um suprimento ou uma sangria do Financeiro, de outro aparelho, e nenhum
