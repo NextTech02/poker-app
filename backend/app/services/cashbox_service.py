@@ -747,24 +747,40 @@ class CashboxService:
             elif t_type == "adjustment":
                 agg.total_adjustments += float(t["signed_amount"])
 
+        # ── Saldo esperado ────────────────────────────────────────────────
+        # Vem do LEDGER (soma dos `signed_amount`), e não da soma dos campos de
+        # exibição acima. Os campos são para a tela; o esperado é dinheiro.
+        #
+        # Somar campo a campo custou dois bugs:
+        #   1. o saldo de abertura era contado DUAS vezes — `open_session` o
+        #      grava na sessão (`initial_balance`) E no ledger como `supply`;
+        #   2. um tipo NOVO no ledger sumia da conta em silêncio, enquanto o
+        #      trigger já o tinha somado em `current_balance`. Foi a armadilha
+        #      que os movimentos de cash game encontraram.
+        #
+        # `signed_amount` é a MESMA fonte que o trigger usa para manter
+        # `current_balance`, então esperado e contado passam a ser comparáveis
+        # por construção, e um tipo novo entra sozinho.
+        movimentos = txs
+        sessao_atual = cb_row.get("current_session_id")
+        if sessao_atual and not date_from and not date_to:
+            # Sem recorte de datas a conferência é da SESSÃO ABERTA: a gaveta
+            # que o operador tem na mão agora. `open_session` REDEFINE o saldo
+            # a cada abertura em vez de acumular, então incluir as sessões
+            # anteriores daria um número que nunca bate com o que está lá.
+            movimentos = [t for t in txs if t.get("session_id") == sessao_atual]
+
         agg.expected_balance = round(
-            agg.initial_balance
-            + agg.total_supply
-            - agg.total_sangria
-            + agg.total_buy_ins
-            + agg.total_rebuys
-            + agg.total_addons
-            - agg.total_prizes_paid
-            # Cash game. Sem estas duas linhas o esperado ignora o dinheiro que
-            # o trigger JÁ somou em current_balance, e o relatório acusa sobra
-            # de caixa no primeiro dia de operação.
-            + agg.total_cash_buy_ins
-            - agg.total_cash_outs
-            # O estorno tem de descer do esperado: a venda cancelada continua
-            # somada em total_buy_ins/rebuys/addons (a linha da venda segue no
-            # ledger, que é append-only) e o dinheiro já voltou para o jogador.
-            - agg.total_refunds
-            + agg.total_adjustments,
+            sum(
+                float(t["signed_amount"])
+                for t in movimentos
+                # O ajuste de FECHAMENTO fica de fora: ele existe justamente
+                # para igualar o saldo ao contado, e incluí-lo faria o esperado
+                # ser sempre igual ao contado — a diferença sumiria da tela.
+                # (O estorno de venda cancelada NÃO é ajuste: é saída real e
+                # continua na conta — ver _eh_estorno.)
+                if not (t.get("type") == "adjustment" and not _eh_estorno(t))
+            ),
             2,
         )
 

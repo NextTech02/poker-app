@@ -479,7 +479,11 @@ class TestHistorico:
 class TestResumo:
     def _com_movimentos(self, monkeypatch):
         return _monta(monkeypatch,
-                      cashboxes=[_caixa(status="open", saldo=730.0, sessao=SESSAO)],
+                      # 200 de abertura + 300 + 100 + 50 − 120 − 30 + 30 de
+                      # ajuste = 530, que é o que o trigger de saldo teria
+                      # somado. O 730 daqui vinha da fórmula antiga, que
+                      # contava a abertura duas vezes.
+                      cashboxes=[_caixa(status="open", saldo=530.0, sessao=SESSAO)],
                       cashbox_sessions=[_sessao(inicial=200.0)],
                       cashbox_transactions=[
                           _mov("supply", 200.0),        # abertura
@@ -500,11 +504,72 @@ class TestResumo:
         assert r.total_sangria == 30.0
         assert r.total_adjustments == 30.0
 
-    def test_saldo_esperado_segue_a_formula_do_extrato(self, monkeypatch):
-        """200 inicial + 200 suprimento − 30 sangria + 300 + 100 + 50 − 120
-        + 30 de ajuste = 730."""
+    def test_saldo_esperado_e_o_que_deveria_estar_na_gaveta(self, monkeypatch):
+        """200 de abertura + 300 + 100 + 50 − 120 de prêmio − 30 de sangria = 500.
+
+        O ajuste de fechamento (+30) fica FORA: ele existe para igualar o saldo
+        ao que foi contado, e incluí-lo faria o esperado ser sempre igual ao
+        contado — a diferença sumiria da tela.
+
+        Este teste já afirmou 730, somando o saldo de abertura DUAS vezes: uma
+        como `initial_balance` da sessão e outra como o movimento `supply` que
+        a própria abertura grava no ledger. O número não correspondia a
+        dinheiro nenhum.
+        """
         self._com_movimentos(monkeypatch)
-        assert S.get_summary(CAIXA).expected_balance == 730.0
+        assert S.get_summary(CAIXA).expected_balance == 500.0
+
+    def test_o_esperado_bate_com_o_saldo_quando_a_contagem_fecha(self, monkeypatch):
+        """A razão de o esperado existir: comparar com a gaveta.
+
+        `current_balance` é mantido pelo trigger somando `signed_amount`; o
+        esperado sai da MESMA fonte. A diferença entre os dois é, por
+        construção, só o ajuste de fechamento — nunca um artefato da fórmula.
+        """
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=350.0, sessao=SESSAO)],
+               cashbox_sessions=[_sessao(inicial=200.0)],
+               cashbox_transactions=[
+                   _mov("supply", 200.0),      # abertura
+                   _mov("buy_in", 150.0),
+               ])
+        r = S.get_summary(CAIXA)
+        assert r.expected_balance == 350.0
+        assert r.current_balance == 350.0
+
+    def test_tipo_novo_no_ledger_entra_sozinho_no_esperado(self, monkeypatch):
+        """A outra metade do bug: somar campo a campo por tipo fazia um
+        movimento desconhecido sumir da conta, enquanto o trigger já o tinha
+        somado no saldo. O relatório então acusava sobra de caixa."""
+        movimento = _mov("cash_buy_in", 400.0)
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=600.0, sessao=SESSAO)],
+               cashbox_sessions=[_sessao(inicial=200.0)],
+               cashbox_transactions=[_mov("supply", 200.0), movimento])
+        r = S.get_summary(CAIXA)
+        assert r.expected_balance == 600.0
+        assert r.current_balance == 600.0
+
+    def test_so_a_sessao_aberta_entra_na_conferencia(self, monkeypatch):
+        """`open_session` REDEFINE o saldo a cada abertura em vez de acumular.
+
+        Somar as sessões anteriores daria um esperado que nunca bate com a
+        gaveta — e o caixa de uma etapa é reaberto todo dia.
+        """
+        anterior = _mov("buy_in", 900.0, sessao="sessao-de-ontem")
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=350.0, sessao=SESSAO)],
+               cashbox_sessions=[_sessao(inicial=200.0)],
+               cashbox_transactions=[
+                   anterior,
+                   _mov("supply", 200.0),
+                   _mov("buy_in", 150.0),
+               ])
+        r = S.get_summary(CAIXA)
+        assert r.expected_balance == 350.0
+        # Os totais por tipo seguem sendo de TODA a vida do caixa: é o que o
+        # consolidado do admin mostra ("quanto este operador vendeu").
+        assert r.total_buy_ins == 1050.0
 
     def test_periodo_filtrado_nao_usa_o_saldo_de_abertura(self, monkeypatch):
         """Num recorte de datas o saldo inicial do dia não se aplica — o
@@ -701,7 +766,12 @@ class TestEstornoDeVendaCancelada:
         _monta(monkeypatch,
                cashboxes=[_caixa(status="open", saldo=200.0, sessao=SESSAO)],
                cashbox_sessions=[_sessao(inicial=200.0)],
-               cashbox_transactions=[_mov("buy_in", 100.0), estorno])
+               # O suprimento da abertura entra no ledger porque é isso
+               # que `open_session` faz — sem ele a fixture não representa
+               # nenhum caixa que exista de verdade.
+               cashbox_transactions=[
+                   _mov("supply", 200.0), _mov("buy_in", 100.0), estorno,
+               ])
         r = S.get_summary(CAIXA)
         assert r.total_refunds == 100.0
         assert r.refund_count == 1

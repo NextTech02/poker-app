@@ -2,11 +2,15 @@
 
 ESTE ARQUIVO EXISTE POR CAUSA DE UM BUG QUE SERIA GARANTIDO.
 
-`get_summary` monta o `expected_balance` somando campo a campo por tipo, com
-if/elif. Um tipo que não casa com nenhum ramo é DESCARTADO EM SILÊNCIO — mas o
-trigger de saldo já somou aquele dinheiro em `current_balance`. Resultado no
-primeiro dia de cash: esperado menor que o contado, e o relatório acusando
-SOBRA de caixa que ninguém consegue explicar.
+`get_summary` montava o `expected_balance` somando campo a campo por tipo, com
+if/elif. Um tipo que não casasse com nenhum ramo era DESCARTADO EM SILÊNCIO —
+enquanto o trigger de saldo já somara aquele dinheiro em `current_balance`.
+Resultado no primeiro dia de cash: esperado menor que o contado, e o relatório
+acusando SOBRA de caixa que ninguém consegue explicar.
+
+Hoje o esperado sai do LEDGER (soma dos `signed_amount`), que é a mesma fonte
+do trigger — um tipo novo entra sozinho. Estes testes garantem que continue
+assim.
 
 Não é hipótese: os comentários de `_compute_session_report` registram que um
 tipo mal classificado já fez o relatório ACUSAR UM OPERADOR DE FURTO por um
@@ -91,29 +95,17 @@ NOITE = [
 # Sumário do caixa
 # ══════════════════════════════════════════════════════════════════════
 
-# Só a abertura, sem nenhum movimento de cash. Serve de linha de base.
-ABERTURA = [_mov("supply", 500, n=0)]
+def test_esperado_bate_com_a_gaveta(monkeypatch):
+    """500 de abertura + 600 comprados − 470 devolvidos = 630.
 
-
-def _esperado(monkeypatch, movimentos, saldo):
-    _banco(monkeypatch, movimentos, saldo=saldo)
-    return CS.get_summary(CAIXA).expected_balance
-
-
-def test_esperado_inclui_o_dinheiro_do_cash(monkeypatch):
-    """Mede a CONTRIBUIÇÃO do cash ao esperado, e não o valor absoluto.
-
-    O absoluto embutiria uma convenção pré-existente desta função (ela soma o
-    saldo de abertura duas vezes — uma como `initial_balance`, outra como o
-    `supply` do ledger), que é assunto do torneio e não deste trabalho.
-
-    O que precisa ser verdade: 600 entraram e 470 saíram pelo cash, então o
-    esperado tem de subir exatamente 130. SEM os ramos de cash_buy_in/cash_out
-    esta diferença seria ZERO e o relatório acusaria sobra de caixa.
+    É a razão de o esperado existir: comparar com o que está na gaveta. Ele sai
+    da MESMA fonte que o trigger usa para manter o saldo (`signed_amount`), e
+    por isso os dois são comparáveis por construção.
     """
-    base = _esperado(monkeypatch, ABERTURA, saldo=500)
-    com_cash = _esperado(monkeypatch, NOITE, saldo=630)
-    assert com_cash - base == 130
+    _banco(monkeypatch, NOITE, saldo=630)
+    s = CS.get_summary(CAIXA)
+    assert s.expected_balance == 630
+    assert s.current_balance == 630
 
 
 def test_separa_o_cash_do_torneio(monkeypatch):
@@ -153,12 +145,10 @@ def test_estorno_de_cash_desce_do_esperado(monkeypatch):
     movimentos = NOITE + [
         _mov("refund", 200, assinado=-200, n=6, cash_transaction_id="ct-1"),
     ]
-    com_estorno = _esperado(monkeypatch, movimentos, saldo=430)
-    sem_estorno = _esperado(monkeypatch, NOITE, saldo=630)
-    assert sem_estorno - com_estorno == 200
-
     _banco(monkeypatch, movimentos, saldo=430)
-    assert CS.get_summary(CAIXA).total_refunds == 200
+    s = CS.get_summary(CAIXA)
+    assert s.total_refunds == 200
+    assert s.expected_balance == 430
 
 
 def test_torneio_e_cash_na_mesma_gaveta(monkeypatch):
@@ -174,10 +164,8 @@ def test_torneio_e_cash_na_mesma_gaveta(monkeypatch):
     assert s.total_prizes_paid == 100
     assert s.total_cash_buy_ins == 600
     assert s.total_cash_outs == 470
-
-    so_cash = _esperado(monkeypatch, NOITE, saldo=630)
-    com_torneio = _esperado(monkeypatch, movimentos, saldo=680)
-    assert com_torneio - so_cash == 50   # +150 de entrada, -100 de prêmio
+    # 630 do cash + 150 de entrada de torneio − 100 de prêmio pago.
+    assert s.expected_balance == 680
 
 
 # ══════════════════════════════════════════════════════════════════════
