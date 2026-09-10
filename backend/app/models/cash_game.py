@@ -345,3 +345,79 @@ class SitPlayerResult(BaseModel):
     player_session: CashPlayerSessionResponse
     transaction: CashTransactionResponse
     seat: CashSeatResponse
+
+# ────────────────────────────────────────────────
+# Fila de espera
+# ────────────────────────────────────────────────
+
+class CashWaitlistCreate(BaseModel):
+    """Entrar na fila.
+
+    `player_id` OU `guest_name`: o visitante que chega pela primeira vez entra
+    na fila ANTES de virar cadastro. Exigir o cadastro primeiro faria o operador
+    digitar documento com cinco pessoas esperando no balcão — e na prática ele
+    anotaria num papel, que é o que a fila veio substituir.
+    """
+    player_id: Optional[str] = None
+    guest_name: Optional[str] = Field(None, max_length=160)
+    # Fila por modalidade (quero NLH 1/2 em qualquer mesa) ou por mesa
+    # específica. Nenhum dos dois = fila geral.
+    game_type_id: Optional[str] = None
+    table_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CashWaitlistUpdate(BaseModel):
+    # A posição é editável porque na sala real alguém cede a vez. O que não se
+    # faz é reordenar sozinho: a ordem é o combinado com quem está esperando.
+    position: Optional[int] = Field(None, ge=1)
+    notes: Optional[str] = None
+
+
+class CashWaitlistSeat(BaseModel):
+    table_id: str
+    seat_number: int = Field(..., gt=0)
+    # Minutos de reserva. A cadeira fica presa enquanto o jogador vem do bar;
+    # sem prazo, uma chamada esquecida travaria o lugar a noite inteira.
+    minutes: int = Field(10, ge=1, le=120)
+
+
+class CashWaitlistResponse(BaseModel):
+    id: str
+    organization_id: Optional[str] = None
+    cash_day_id: str
+    game_type_id: Optional[str] = None
+    table_id: Optional[str] = None
+    player_id: Optional[str] = None
+    guest_name: Optional[str] = None
+    position: int
+    status: str
+    called_at: Optional[datetime] = None
+    seated_at: Optional[datetime] = None
+    seat_id: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = None
+    # Enriquecido
+    player_name: Optional[str] = None
+    game_type_name: Optional[str] = None
+    table_number: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SeatReserve(BaseModel):
+    player_id: Optional[str] = None
+    minutes: int = Field(10, ge=1, le=120)
+
+
+class MovePlayer(BaseModel):
+    """Trocar o jogador de mesa sem passar pelo caixa.
+
+    O dinheiro NÃO se mexe: ele levou as fichas com ele. A sessão antiga fecha
+    encadeada na nova (`moved_to_id`), e o resultado da noite dele soma a
+    corrente inteira — tratar como cash-out + buy-in inflaria o giro do dia com
+    dinheiro que nunca passou pela gaveta.
+    """
+    to_table_id: str
+    to_seat: int = Field(..., gt=0)

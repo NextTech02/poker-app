@@ -153,6 +153,13 @@
   color: var(--success-color, #22c55e);
 }
 
+/* Mover de mesa fica numa linha própria, abaixo de recompra/levantar: é a ação
+   menos frequente das três e não pode disputar o toque com elas no tablet. */
+.ctd-move {
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
 @media (max-width: 900px) {
   .ctd-grid {
     grid-template-columns: 1fr;

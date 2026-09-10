@@ -78,14 +78,23 @@ const assento = (n, ocupado = false) => ({
   total_buy_in: ocupado ? 300 : null,
 });
 
+const OUTRA_MESA = {
+  id: 'mesa-2', cash_day_id: 'dia-1', table_number: 5, seats: 6,
+  game_type_name: 'PLO 2/5', status: 'open', free_seats: 4,
+};
+
 const montar = ({
   mesa = MESA, assentos = [assento(1, true), assento(2), assento(3)],
   rakes = [], caixa = { status: 'open' },
+  outras = [MESA, OUTRA_MESA],
 } = {}) => {
   global.__caixa = caixa;
-  api.get.mockImplementation((url) => {
+  api.get.mockImplementation((url, config) => {
     if (url.endsWith('/seats')) return Promise.resolve({ data: assentos });
     if (url.endsWith('/rake-entries')) return Promise.resolve({ data: rakes });
+    // A listagem do dia (com params) alimenta o destino da troca de mesa; a
+    // busca por id devolve esta mesa.
+    if (config?.params?.cash_day_id) return Promise.resolve({ data: outras });
     return Promise.resolve({ data: mesa });
   });
   return render(<CashTableDetail />);
@@ -286,5 +295,51 @@ describe('fechar a mesa', () => {
     (await screen.findAllByRole('button', { name: 'Sentar' }))
       .forEach((b) => expect(b).toBeDisabled());
     expect(screen.getByText(/Rake apurado: R\$ 130\.00/)).toBeInTheDocument();
+  });
+});
+
+describe('trocar de mesa', () => {
+  it('não gera lançamento de dinheiro', async () => {
+    // O jogador leva as fichas com ele. Tratar como cash-out + buy-in inflaria
+    // o giro do dia com dinheiro que nunca passou pela gaveta.
+    montar();
+    await userEvent.click(await screen.findByRole('button', { name: 'Mover de mesa' }));
+    await userEvent.selectOptions(screen.getByLabelText('Lugar'), '2');
+    const dialogo = screen.getByRole('dialog');
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Mover de mesa' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/cash-game/player-sessions/s1/move',
+      { to_table_id: 'mesa-2', to_seat: 2 },
+    ));
+    // Nenhuma chamada de venda, recompra ou cash-out.
+    expect(api.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('o modal explica que o dinheiro não se mexe', async () => {
+    montar();
+    await userEvent.click(await screen.findByRole('button', { name: 'Mover de mesa' }));
+    expect(screen.getByText(/Nada entra nem sai do caixa/)).toBeInTheDocument();
+  });
+
+  it('a própria mesa não é destino', async () => {
+    montar();
+    await userEvent.click(await screen.findByRole('button', { name: 'Mover de mesa' }));
+    const destino = screen.getByLabelText('Mesa de destino');
+    expect(within(destino).queryByText(/Mesa 3/)).toBeNull();
+    expect(within(destino).getByText(/Mesa 5/)).toBeInTheDocument();
+  });
+
+  it('sem outra mesa aberta a ação não aparece', async () => {
+    // Mover para lugar nenhum não é uma opção; o botão só confundiria.
+    montar({ outras: [MESA] });
+    await screen.findByText('Ana');
+    expect(screen.queryByRole('button', { name: 'Mover de mesa' })).toBeNull();
+  });
+
+  it('mesa fechada não oferece mover', async () => {
+    montar({ mesa: { ...MESA, status: 'closed' } });
+    await screen.findByText('Ana');
+    expect(screen.queryByRole('button', { name: 'Mover de mesa' })).toBeNull();
   });
 });

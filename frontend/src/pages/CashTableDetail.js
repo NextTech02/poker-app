@@ -42,6 +42,7 @@ const CashTableDetail = () => {
   const [table, setTable] = useState(null);
   const [seats, setSeats] = useState([]);
   const [rakeEntries, setRakeEntries] = useState([]);
+  const [outrasMesas, setOutrasMesas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [myCashbox, setMyCashbox] = useState(undefined);
   const [modal, setModal] = useState(null); // {kind, seat?, session?}
@@ -63,6 +64,15 @@ const CashTableDetail = () => {
     setSeats(cadeiras.data || []);
     setRakeEntries(apuracoes.data || []);
     setLoading(false);
+
+    // As outras mesas abertas do dia: é para onde o jogador pode ir.
+    const dia = mesa?.data?.cash_day_id;
+    if (dia) {
+      const todas = await api
+        .get('/cash-game/tables', { params: { cash_day_id: dia, status: 'open' }, _silentError: true })
+        .catch(() => ({ data: [] }));
+      setOutrasMesas((todas.data || []).filter((m) => m.id !== tableId));
+    }
   }, [tableId]);
 
   useEffect(() => { setLoading(true); load(); }, [load]);
@@ -80,6 +90,8 @@ const CashTableDetail = () => {
       jackpot_amount: '',
       reason: '',
       notes: '',
+      to_table_id: outrasMesas[0]?.id || '',
+      to_seat: '',
     });
     setModal({ kind, seat });
   };
@@ -153,6 +165,26 @@ const CashTableDetail = () => {
       await depois(t('cash.playerStood', 'Jogador levantou'));
     } catch (err) {
       erro(err, t('cash.standError', 'Não foi possível levantar o jogador'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const mover = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.post(`/cash-game/player-sessions/${modal.seat.player_session_id}/move`, {
+        to_table_id: form.to_table_id,
+        to_seat: parseInt(form.to_seat, 10),
+      });
+      // Sem `avisarQueOCaixaMudou`: a troca NÃO move dinheiro — o jogador
+      // levou as fichas com ele, e nada entrou nem saiu da gaveta.
+      toast.success(t('cash.playerMoved', 'Jogador movido'));
+      setModal(null);
+      await load();
+    } catch (err) {
+      erro(err, t('cash.moveError', 'Não foi possível mover o jogador'));
     } finally {
       setSubmitting(false);
     }
@@ -295,6 +327,16 @@ const CashTableDetail = () => {
                           {t('cash.stand', 'Levantar')}
                         </button>
                       </div>
+                      {outrasMesas.length > 0 && !fechada && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm ctd-move"
+                          onClick={() => abrir('move', s)}
+                          disabled={bloqueado}
+                        >
+                          {t('cash.move', 'Mover de mesa')}
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -428,6 +470,55 @@ const CashTableDetail = () => {
                     </div>
                     {MetodoDePagamento({ t, form, setForm, activeMethods })}
                     {Acoes({ t, submitting, setModal, rotulo: t('cash.stand', 'Levantar') })}
+                  </form>
+                </>
+              )}
+
+              {modal.kind === 'move' && (
+                <>
+                  <h2>{t('cash.moveFor', 'Mover de mesa — {{name}}', { name: modal.seat.player_name })}</h2>
+                  <form onSubmit={mover}>
+                    {/* A frase existe para o operador NÃO fazer cash-out +
+                        buy-in: isso inflaria o giro do dia com dinheiro que
+                        nunca passou pela gaveta. */}
+                    <p className="ctd-close-hint">
+                      {t('cash.moveHint', 'O jogador leva as fichas com ele. Nada entra nem sai do caixa, e o resultado da noite dele continua o mesmo.')}
+                    </p>
+                    <div className="form-group">
+                      <label htmlFor="ctd-to-table">{t('cash.toTable', 'Mesa de destino')}</label>
+                      <select
+                        id="ctd-to-table" required
+                        value={form.to_table_id || ''}
+                        onChange={(ev) => setForm({ ...form, to_table_id: ev.target.value, to_seat: '' })}
+                      >
+                        {outrasMesas.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {t('cash.tableN', 'Mesa {{n}}', { n: m.table_number })} — {m.game_type_name}
+                            {' · '}
+                            {t('cash.seatsFree', '{{free}} de {{total}} livres', {
+                              free: m.free_seats, total: m.seats,
+                            })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="ctd-to-seat">{t('cash.toSeat', 'Lugar')}</label>
+                      <select
+                        id="ctd-to-seat" required
+                        value={form.to_seat || ''}
+                        onChange={(ev) => setForm({ ...form, to_seat: ev.target.value })}
+                      >
+                        <option value="">{t('cashWaitlist.pickSeat', 'Escolha o lugar')}</option>
+                        {Array.from(
+                          { length: outrasMesas.find((m) => m.id === form.to_table_id)?.seats || 0 },
+                          (_, i) => i + 1,
+                        ).map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {Acoes({ t, submitting, setModal, rotulo: t('cash.move', 'Mover de mesa') })}
                   </form>
                 </>
               )}

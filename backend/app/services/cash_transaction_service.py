@@ -348,6 +348,119 @@ class CashTransactionService:
         return sessao
 
     # ============================================================
+    # Trocar de mesa
+    # ============================================================
+
+    @staticmethod
+    def move(
+        player_session_id: str,
+        to_table_id: str,
+        to_seat: int,
+        auth_user_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
+    ) -> CashPlayerSessionResponse:
+        """Move o jogador para outra mesa SEM passar pelo caixa.
+
+        O DINHEIRO NÃO SE MEXE: ele levou as fichas com ele. Tratar a troca como
+        cash-out + buy-in inflaria o giro do dia com dinheiro que nunca passou
+        pela gaveta, e a conferência do caixa acusaria uma entrada e uma saída
+        que ninguém contou.
+
+        A sessão antiga fecha encadeada na nova (`moved_to_id`): o resultado da
+        noite do jogador soma a corrente inteira, e a mesa de origem mantém o
+        histórico de quem passou por ela.
+        """
+        origem = CashTransactionService._sessao_ativa(player_session_id)
+        destino = CashTableService.get_table(to_table_id)
+        if destino.get("status") == "closed":
+            raise ErroDeNegocio("mesa_ja_fechada", "A mesa de destino já foi fechada.", status=409)
+        if destino["id"] == origem["table_id"] and to_seat == origem["seat_number"]:
+            raise ErroDeNegocio(
+                "mesa_de_destino_igual",
+                "O jogador já está neste lugar.",
+                status=409,
+            )
+        CashDayService.require_open_day(destino["cash_day_id"])
+
+        assento = CashTransactionService._assento(to_table_id, to_seat)
+        reservado_para = assento.get("reserved_for")
+        if assento.get("status") == "reserved" and reservado_para and reservado_para != origem["player_id"]:
+            raise ErroDeNegocio(
+                "assento_reservado",
+                "Este lugar está reservado para outro jogador.",
+                status=409, seat_number=to_seat,
+            )
+
+        org = organization_id or destino.get("organization_id") or origem.get("organization_id")
+
+        # Toma a cadeira de destino ANTES de mexer na origem: se a corrida for
+        # perdida, o jogador continua exatamente onde estava.
+        tomada = supabase.table("cash_seats").update({
+            "status": "occupied", "reserved_for": None, "reserved_until": None,
+            "updated_at": _agora(),
+        }).eq("id", assento["id"]).in_("status", ["free", "reserved"]).execute()
+        if not tomada.data:
+            raise ErroDeNegocio(
+                "assento_ocupado", "Este lugar acabou de ser ocupado.",
+                status=409, seat_number=to_seat,
+            )
+
+        payload = {
+            "cash_day_id": destino["cash_day_id"],
+            "table_id": to_table_id,
+            "player_id": origem["player_id"],
+            "seat_number": to_seat,
+            "status": "active",
+            # Os totais VIAJAM com o jogador: as fichas foram com ele, e o
+            # resultado da noite continua sendo cash-out menos buy-in.
+            "total_buy_in": origem.get("total_buy_in") or 0,
+            "total_cash_out": origem.get("total_cash_out") or 0,
+            "result": origem.get("result") or 0,
+            "notes": origem.get("notes"),
+        }
+        if org:
+            payload["organization_id"] = org
+
+        # A origem sai de 'active' PRIMEIRO: o índice parcial não deixa o mesmo
+        # jogador ter duas sessões ativas no dia, e é essa trava que garante que
+        # ninguém acumule buy-in em duas mesas ao mesmo tempo.
+        supabase.table("cash_player_sessions").update({
+            "status": "moved", "ended_at": _agora(),
+            # Os totais ZERAM na origem porque as vendas viajam com o jogador
+            # (logo abaixo). Deixá-los ali faria a mesa de origem continuar
+            # somando dinheiro que já está noutra mesa — e o salão contaria o
+            # mesmo buy-in duas vezes.
+            "total_buy_in": 0, "total_cash_out": 0, "result": 0,
+        }).eq("id", player_session_id).execute()
+
+        try:
+            nova = supabase.table("cash_player_sessions").insert(payload).execute().data[0]
+        except Exception:
+            # Desfaz: o jogador volta a estar sentado onde estava.
+            supabase.table("cash_player_sessions").update({
+                "status": "active", "ended_at": None,
+            }).eq("id", player_session_id).execute()
+            CashTransactionService._liberar_assento(assento["id"])
+            raise
+
+        supabase.table("cash_seats").update({
+            "player_session_id": nova["id"], "updated_at": _agora(),
+        }).eq("id", assento["id"]).execute()
+
+        supabase.table("cash_player_sessions").update({
+            "moved_to_id": nova["id"],
+        }).eq("id", player_session_id).execute()
+
+        # As vendas seguem a sessão nova: é onde o jogador está agora, e é por
+        # ela que a mesa de destino soma o dinheiro em jogo.
+        supabase.table("cash_transactions").update({
+            "player_session_id": nova["id"], "table_id": to_table_id,
+        }).eq("player_session_id", player_session_id).execute()
+
+        CashTransactionService._liberar_assento_da_sessao(player_session_id)
+        return CashTransactionService.get_player_session(nova["id"])
+
+    # ============================================================
     # Inserção crua
     # ============================================================
 

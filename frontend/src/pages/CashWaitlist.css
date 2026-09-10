@@ -1,0 +1,126 @@
+/* Fila de espera.
+
+   A POSIÇÃO é o elemento mais forte da linha porque é o que o jogador quer
+   saber ("sou o quarto") e o que o operador confere quando alguém reclama da
+   ordem. Ela não é o índice da lista: é o número que ficou gravado quando a
+   pessoa chegou, e quem sai da fila não faz os outros subirem. */
+
+.cw-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.cw-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+}
+
+/* Chamado ganha faixa: é quem o operador está esperando aparecer, e precisa
+   saltar da lista mesmo com vinte nomes na tela. */
+.cw-item.called {
+  border-left-width: 4px;
+  border-left-color: var(--success-color, #22c55e);
+}
+
+.cw-position {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary, #e0eaf4);
+  background: var(--secondary-bg, #0a0f17);
+  border: 1px solid var(--border-primary, #2a3a4d);
+}
+
+.cw-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.cw-name {
+  font-weight: 700;
+  color: var(--text-primary, #e0eaf4);
+  overflow-wrap: anywhere;
+}
+
+.cw-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cw-badge {
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border: 1px solid var(--success-500, #22c55e);
+  color: var(--success-color, #22c55e);
+}
+.cw-badge--seat {
+  border-color: var(--accent-color, #7233f8);
+  color: var(--accent-color, #7233f8);
+}
+/* Sem cadastro é informação, não alerta: o visitante é bem-vindo na fila. */
+.cw-badge--guest {
+  border-color: var(--border-primary, #2a3a4d);
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cw-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Histórico ──────────────────────────────────────────────────────── */
+/* Fechado por padrão: quem já saiu não compete por atenção com a fila viva,
+   mas continua auditável quando alguém contesta a ordem. */
+.cw-history {
+  margin-top: 1.5rem;
+}
+.cw-history summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+  padding: 0.4rem 0;
+}
+.cw-list--past {
+  margin-top: 0.6rem;
+}
+.cw-item.past {
+  opacity: 0.6;
+}
+
+@media (max-width: 720px) {
+  .cw-item {
+    flex-wrap: wrap;
+  }
+  .cw-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

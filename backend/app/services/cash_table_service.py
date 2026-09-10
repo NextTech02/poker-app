@@ -11,7 +11,7 @@ amanhã reescreveria a apuração das mesas de ontem, e o fechamento que o
 operador assinou deixaria de bater.
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from app.database import supabase
@@ -368,6 +368,71 @@ class CashTableService:
     # ============================================================
     # Assentos
     # ============================================================
+
+    @staticmethod
+    def reserve_seat(
+        table_id: str,
+        seat_number: int,
+        player_id: Optional[str] = None,
+        minutes: int = 10,
+    ) -> CashSeatResponse:
+        """Segura a cadeira enquanto o jogador vem do bar.
+
+        A tomada é compare-and-set (`WHERE status='free'`): duas reservas
+        simultâneas não podem virar duas pessoas chamadas para o mesmo lugar.
+        O prazo é obrigatório — uma reserva sem vencimento travaria a cadeira a
+        noite inteira, e numa sala cheia isso é um lugar que não gira.
+        """
+        mesa = CashTableService.get_table(table_id)
+        if mesa.get("status") == "closed":
+            raise ErroDeNegocio("mesa_ja_fechada", "Esta mesa já foi fechada.", status=409)
+
+        assentos = supabase.table("cash_seats").select("*")             .eq("table_id", table_id).eq("seat_number", seat_number).limit(1).execute()
+        if not assentos.data:
+            raise ErroDeNegocio(
+                "assento_invalido", "Este lugar não existe nesta mesa.",
+                status=404, seat_number=seat_number,
+            )
+
+        vence = (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat()
+        tomada = supabase.table("cash_seats").update({
+            "status": "reserved",
+            "reserved_for": player_id,
+            "reserved_until": vence,
+            "updated_at": _agora(),
+        }).eq("id", assentos.data[0]["id"]).eq("status", "free").execute()
+        if not tomada.data:
+            raise ErroDeNegocio(
+                "assento_ocupado", "Este lugar já está ocupado.",
+                status=409, seat_number=seat_number,
+            )
+        return CashSeatResponse(**tomada.data[0])
+
+    @staticmethod
+    def release_seat(table_id: str, seat_number: int) -> CashSeatResponse:
+        """Devolve à sala uma cadeira RESERVADA.
+
+        Só mexe em reserva: se o jogador já sentou, marcar 'free' aqui apagaria
+        a ligação com a sessão dele e ele sumiria da tela ainda sentado na mesa.
+        """
+        assentos = supabase.table("cash_seats").select("*")             .eq("table_id", table_id).eq("seat_number", seat_number).limit(1).execute()
+        if not assentos.data:
+            raise ErroDeNegocio(
+                "assento_invalido", "Este lugar não existe nesta mesa.",
+                status=404, seat_number=seat_number,
+            )
+        atual = assentos.data[0]
+        if atual.get("status") != "reserved":
+            raise ErroDeNegocio(
+                "assento_nao_reservado",
+                "Este lugar não está reservado.",
+                status=409, seat_number=seat_number, status_atual=atual.get("status"),
+            )
+        liberado = supabase.table("cash_seats").update({
+            "status": "free", "reserved_for": None, "reserved_until": None,
+            "updated_at": _agora(),
+        }).eq("id", atual["id"]).execute()
+        return CashSeatResponse(**liberado.data[0])
 
     @staticmethod
     def list_seats(table_id: str) -> List[CashSeatResponse]:

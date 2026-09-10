@@ -38,6 +38,12 @@ from app.models.cash_game import (
     CashTableUpdate,
     CashTransactionCancel,
     CashTransactionResponse,
+    CashWaitlistCreate,
+    CashWaitlistResponse,
+    CashWaitlistSeat,
+    CashWaitlistUpdate,
+    MovePlayer,
+    SeatReserve,
     SitPlayer,
     SitPlayerResult,
     StandPlayer,
@@ -46,6 +52,7 @@ from app.services.cash_day_service import CashDayService
 from app.services.cash_game_type_service import CashGameTypeService
 from app.services.cash_table_service import CashTableService
 from app.services.cash_transaction_service import CashTransactionService
+from app.services.cash_waitlist_service import CashWaitlistService
 from app.utils.erros import da_excecao
 
 router = APIRouter(prefix="/cash-game", tags=["cash-game"])
@@ -272,6 +279,58 @@ def sit_player(
         raise da_excecao(e)
 
 
+@router.post("/tables/{table_id}/seats/{seat_number}/reserve", response_model=CashSeatResponse)
+def reserve_seat(
+    table_id: str,
+    seat_number: int,
+    data: SeatReserve,
+    user=_operar,
+):
+    """Segura a cadeira enquanto o jogador vem do bar.
+
+    Reservar NÃO é sentar: sentar é vender fichas, e isso passa pelo caixa.
+    A reserva tem prazo — uma chamada esquecida travaria o lugar a noite
+    inteira, e numa sala cheia isso é uma cadeira que não gira.
+    """
+    try:
+        return CashTableService.reserve_seat(
+            table_id, seat_number, data.player_id, data.minutes
+        )
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.delete("/tables/{table_id}/seats/{seat_number}/reserve", response_model=CashSeatResponse)
+def release_seat(table_id: str, seat_number: int, user=_operar):
+    """Devolve a cadeira reservada à sala."""
+    try:
+        return CashTableService.release_seat(table_id, seat_number)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/player-sessions/{player_session_id}/move", response_model=CashPlayerSessionResponse)
+def move_player(
+    player_session_id: str,
+    data: MovePlayer,
+    user=_operar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Troca o jogador de mesa. O DINHEIRO NÃO SE MEXE — ele levou as fichas.
+
+    Tratar como cash-out + buy-in inflaria o giro do dia com dinheiro que nunca
+    passou pela gaveta, e a conferência acusaria uma entrada e uma saída que
+    ninguém contou.
+    """
+    try:
+        return CashTransactionService.move(
+            player_session_id, data.to_table_id, data.to_seat,
+            user.get("sub"), organization_id,
+        )
+    except ValueError as e:
+        raise da_excecao(e)
+
+
 @router.get("/player-sessions", response_model=List[CashPlayerSessionResponse])
 def list_player_sessions(
     cash_day_id: Optional[str] = None,
@@ -347,5 +406,101 @@ def cancel_transaction(transaction_id: str, data: CashTransactionCancel, user=_a
     que explica a diferença no fechamento do caixa."""
     try:
         return CashTransactionService.cancel(transaction_id, data.reason, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Fila de espera
+# ══════════════════════════════════════════════════════════════════════
+
+@router.get("/waitlist", response_model=List[CashWaitlistResponse])
+def list_waitlist(
+    cash_day_id: str,
+    status: Optional[str] = None,
+    game_type_id: Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    """A fila do dia, em ordem de chegada.
+
+    A leitura também DEVOLVE À SALA as cadeiras cuja reserva venceu. Fica aqui,
+    e não num job, porque o clube não tem agendador — e uma cadeira presa por
+    uma chamada esquecida é um lugar que a sala perde a noite inteira.
+    """
+    try:
+        CashWaitlistService.release_expired(cash_day_id)
+    except Exception:  # pragma: no cover - a limpeza não pode derrubar a fila
+        pass
+    return CashWaitlistService.list_entries(cash_day_id, status, game_type_id)
+
+
+@router.post("/waitlist", response_model=CashWaitlistResponse)
+def add_to_waitlist(
+    cash_day_id: str,
+    data: CashWaitlistCreate,
+    user=_operar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Entra na fila. Aceita jogador cadastrado OU só um nome — o visitante que
+    chega pela primeira vez não pode ficar esperando um cadastro para ser
+    anotado."""
+    try:
+        return CashWaitlistService.add(cash_day_id, data, organization_id)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.patch("/waitlist/{entry_id}", response_model=CashWaitlistResponse)
+def update_waitlist_entry(entry_id: str, data: CashWaitlistUpdate, user=_operar):
+    try:
+        return CashWaitlistService.update(entry_id, data)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/waitlist/{entry_id}/call", response_model=CashWaitlistResponse)
+def call_from_waitlist(entry_id: str, user=_operar):
+    """Anuncia a vez. A cadeira ainda não é reservada — o operador grita o nome
+    antes de saber em qual mesa vai abrir o lugar."""
+    try:
+        return CashWaitlistService.call(entry_id)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/waitlist/{entry_id}/seat", response_model=CashWaitlistResponse)
+def reserve_from_waitlist(entry_id: str, data: CashWaitlistSeat, user=_operar):
+    """Reserva a cadeira para quem foi chamado. A venda das fichas continua
+    sendo feita no caixa."""
+    try:
+        return CashWaitlistService.seat(entry_id, data)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/waitlist/{entry_id}/seated", response_model=CashWaitlistResponse)
+def mark_waitlist_seated(entry_id: str, user=_operar):
+    """Encerra a espera depois que o jogador comprou as fichas."""
+    try:
+        return CashWaitlistService.mark_seated(entry_id)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/waitlist/{entry_id}/no-show", response_model=CashWaitlistResponse)
+def waitlist_no_show(entry_id: str, user=_operar):
+    """Chamado e não apareceu. Estado PRÓPRIO, separado da desistência: é o que
+    explica ao próximo da fila por que ele passou na frente de alguém."""
+    try:
+        return CashWaitlistService.give_up(entry_id, no_show=True)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.delete("/waitlist/{entry_id}", response_model=CashWaitlistResponse)
+def leave_waitlist(entry_id: str, user=_operar):
+    """Desistiu. A linha fica (a fila é histórico da noite), com status próprio."""
+    try:
+        return CashWaitlistService.give_up(entry_id, no_show=False)
     except ValueError as e:
         raise da_excecao(e)

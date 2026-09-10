@@ -62,6 +62,7 @@ const SelectModule = lazy(() => import('./pages/SelectModule'));
 const CashFloor = lazy(() => import('./pages/CashFloor'));
 const CashTableDetail = lazy(() => import('./pages/CashTableDetail'));
 const CashDays = lazy(() => import('./pages/CashDays'));
+const CashWaitlist = lazy(() => import('./pages/CashWaitlist'));
 const CashConfig = lazy(() => import('./pages/CashConfig'));
 
 const PageFallback = () => (
@@ -184,6 +185,14 @@ function AppRoutes() {
         element={
           <PrivateRoute module="cash" permission="cash.operate">
             <CashTableDetail />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/cash/fila"
+        element={
+          <PrivateRoute module="cash" permission="cash.operate">
+            <CashWaitlist />
           </PrivateRoute>
         }
       />
