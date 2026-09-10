@@ -24,6 +24,16 @@ class CashboxTransactionType(str, Enum):
     # admin devolveu ao jogador.
     refund = "refund"
     adjustment = "adjustment"
+    # Cash game: a compra e a devolução de fichas na mesa. Tipos PRÓPRIOS, e
+    # não reuso de buy_in/prize, porque o Financeiro e o relatório de torneio
+    # agregam por literal de tipo — reusar misturaria as duas receitas em toda
+    # tela existente, sem forma de separar depois.
+    #
+    # O rake e o jackpot de cash NÃO aparecem aqui: eles saem do POTE, em
+    # fichas, e já estão na gaveta como a diferença entre estes dois. Lançá-los
+    # seria contar o mesmo dinheiro duas vezes.
+    cash_buy_in = "cash_buy_in"
+    cash_out = "cash_out"
 
 
 # ────────────────────────────────────────────────
@@ -33,7 +43,11 @@ class CashboxTransactionType(str, Enum):
 class CashboxResponse(BaseModel):
     id: str
     staff_id: str
-    stage_id: str
+    # Âncora do caixa: uma etapa (torneio) OU um dia (cash game), nunca as duas.
+    # No cash a operação é diária, então a gaveta abre e fecha por dia — e a
+    # conferência já sai no recorte que o clube usa.
+    stage_id: Optional[str] = None
+    cash_day_id: Optional[str] = None
     status: CashboxStatus
     current_balance: float
     current_session_id: Optional[str] = None
@@ -46,6 +60,7 @@ class CashboxResponse(BaseModel):
     staff_name: Optional[str] = None
     staff_email: Optional[str] = None
     stage_name: Optional[str] = None
+    cash_day_label: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -136,6 +151,8 @@ class CashboxSummary(BaseModel):
     cashbox_id: str
     staff_name: Optional[str] = None
     stage_name: Optional[str] = None
+    cash_day_id: Optional[str] = None
+    cash_day_label: Optional[str] = None
     status: CashboxStatus
     initial_balance: float = 0.0
     total_supply: float = 0.0
@@ -148,6 +165,12 @@ class CashboxSummary(BaseModel):
     addon_count: int = 0
     total_prizes_paid: float = 0.0
     prize_count: int = 0
+    # Cash game: fichas vendidas na mesa (entrada) e pagas no cash-out (saída).
+    # Contam no esperado como qualquer outro dinheiro da gaveta.
+    total_cash_buy_ins: float = 0.0
+    cash_buy_in_count: int = 0
+    total_cash_outs: float = 0.0
+    cash_out_count: int = 0
     # Vendas canceladas (dinheiro devolvido ao jogador). Saída REAL da gaveta —
     # entra no saldo esperado, ao contrário de total_adjustments.
     total_refunds: float = 0.0
@@ -165,6 +188,8 @@ class CashboxAggregatedSummary(BaseModel):
     grand_total_prizes: float = 0.0
     grand_total_supply: float = 0.0
     grand_total_sangria: float = 0.0
+    grand_total_cash_buy_ins: float = 0.0
+    grand_total_cash_outs: float = 0.0
 
 
 # ────────────────────────────────────────────────
@@ -179,6 +204,7 @@ class CashboxSessionReport(BaseModel):
     cashbox_id: str
     staff_name: Optional[str] = None
     stage_name: Optional[str] = None
+    cash_day_label: Optional[str] = None
     opened_at: datetime
     closed_at: Optional[datetime] = None
     is_open: bool = False
@@ -193,6 +219,14 @@ class CashboxSessionReport(BaseModel):
     addon_count: int = 0
     total_prizes_paid: float = 0.0
     prize_count: int = 0
+    # Cash game. Sem estas colunas o esperado continuaria CERTO (a conta da
+    # sessão soma signed_amount), mas o conferente veria um esperado que não
+    # bate com a soma das colunas na tela — e é assim que um relatório passa a
+    # parecer errado sem estar.
+    total_cash_buy_ins: float = 0.0
+    cash_buy_in_count: int = 0
+    total_cash_outs: float = 0.0
+    cash_out_count: int = 0
     # Estornos de vendas canceladas ocorridos DENTRO da sessão: saída real da
     # gaveta, ENTRA no esperado.
     total_refunds: float = 0.0
@@ -218,6 +252,8 @@ class CashboxDemonstrativo(BaseModel):
     grand_sangria: float = 0.0
     grand_buy_ins: float = 0.0
     grand_prizes: float = 0.0
+    grand_cash_buy_ins: float = 0.0
+    grand_cash_outs: float = 0.0
     grand_refunds: float = 0.0
     # Devoluções lançadas depois do fechamento das sessões do período — fora
     # de grand_expected/grand_difference de propósito.

@@ -22,10 +22,14 @@ LEGACY_ADMIN_PERMISSIONS = ("financial", "general_cash", "employees")
 
 
 # Signed-amount sign by movement type
-_INFLOW_TYPES = {"buy_in", "rebuy", "addon", "supply"}
+# `cash_buy_in` é a compra de fichas na mesa (entra na gaveta); `cash_out` é a
+# devolução na saída do jogador (sai da gaveta). Rake e jackpot de cash não
+# entram aqui: saem do pote, em fichas, e já estão na gaveta como a diferença
+# entre os dois — lançá-los contaria o mesmo dinheiro duas vezes.
+_INFLOW_TYPES = {"buy_in", "rebuy", "addon", "supply", "cash_buy_in"}
 # `refund` é o estorno de uma venda cancelada: o dinheiro SAI da gaveta e volta
 # para o jogador, igual a um prêmio pago.
-_OUTFLOW_TYPES = {"prize", "sangria", "refund"}
+_OUTFLOW_TYPES = {"prize", "sangria", "refund", "cash_out"}
 
 
 def _signed(amount: float, tx_type: str) -> float:
@@ -54,7 +58,10 @@ def _eh_estorno(tx: dict) -> bool:
     """
     if tx.get("type") == "refund":
         return True
-    return tx.get("type") == "adjustment" and tx.get("transaction_id") is not None
+    return tx.get("type") == "adjustment" and (
+        tx.get("transaction_id") is not None
+        or tx.get("cash_transaction_id") is not None
+    )
 
 
 def _instante(valor) -> Optional[datetime]:
@@ -161,19 +168,42 @@ class CashboxService:
         return resp.data[0]["id"] if resp.data else None
 
     @staticmethod
-    def _get_or_create(staff_id: str, stage_id: str) -> dict:
+    def _get_or_create(
+        staff_id: str,
+        stage_id: Optional[str] = None,
+        cash_day_id: Optional[str] = None,
+    ) -> dict:
+        """A gaveta do operador numa ÂNCORA: a etapa (torneio) ou o dia (cash).
+
+        Exatamente uma das duas — é o que o CHECK `cashboxes_ancora_unica`
+        garante no banco. No cash a operação é diária, então a gaveta abre e
+        fecha por dia e a conferência já sai no recorte que o clube usa.
+        """
+        if bool(stage_id) == bool(cash_day_id):
+            raise ErroDeNegocio(
+                "ancora_de_caixa_invalida",
+                "O caixa precisa pertencer a uma etapa OU a um dia de cash game.",
+            )
+        coluna = "stage_id" if stage_id else "cash_day_id"
+        valor = stage_id or cash_day_id
+
         existing = supabase.table("cashboxes").select("*") \
-            .eq("staff_id", staff_id).eq("stage_id", stage_id).execute()
+            .eq("staff_id", staff_id).eq(coluna, valor).execute()
         if existing.data:
             return existing.data[0]
 
         inserted = supabase.table("cashboxes").insert({
             "staff_id": staff_id,
-            "stage_id": stage_id,
+            coluna: valor,
             "status": "closed",
             "current_balance": 0.0,
         }).execute()
         return inserted.data[0]
+
+    @staticmethod
+    def get_or_create_for_cash_day(staff_id: str, cash_day_id: str) -> dict:
+        """Gaveta do operador no dia de cash. Idempotente."""
+        return CashboxService._get_or_create(staff_id, cash_day_id=cash_day_id)
 
     @staticmethod
     def auto_create_for_staff(staff_id: str, stage_ids: Optional[List[str]] = None) -> List[CashboxResponse]:
@@ -211,6 +241,44 @@ class CashboxService:
             .eq("staff_id", staff_id).eq("stage_id", stage_id) \
             .eq("status", "open").execute()
         return resp.data[0] if resp.data else None
+
+    @staticmethod
+    def find_active_for_operator_cash_day(auth_user_id: str, cash_day_id: str) -> Optional[dict]:
+        """A gaveta ABERTA do operador neste dia de cash, ou None."""
+        staff_id = CashboxService.get_staff_id_for_user(auth_user_id)
+        if not staff_id:
+            return None
+        resp = supabase.table("cashboxes").select("*") \
+            .eq("staff_id", staff_id).eq("cash_day_id", cash_day_id) \
+            .eq("status", "open").execute()
+        return resp.data[0] if resp.data else None
+
+    @staticmethod
+    def require_open_cashbox_for_cash_day(
+        auth_user_id: str, cash_day_id: str
+    ) -> Optional[dict]:
+        """Irmã de `require_open_cashbox` para o cash game.
+
+        Mesmo contrato: devolve a gaveta aberta, ou levanta. Super-admin de
+        plataforma (sem linha em staff) passa direto, como no torneio — senão
+        o fluxo de teste do dono do sistema pararia no primeiro clique.
+        """
+        staff_id, _, is_super = CashboxService._staff_permissions(auth_user_id)
+        if is_super:
+            return None
+        if not staff_id:
+            raise ErroDeNegocio(
+                "sem_vinculo_de_funcionario",
+                "Sua conta não está vinculada a um funcionário.",
+                status=403,
+            )
+        caixa = CashboxService.find_active_for_operator_cash_day(auth_user_id, cash_day_id)
+        if not caixa:
+            raise ErroDeNegocio(
+                "caixa_fechado",
+                "Abra o seu caixa antes de movimentar dinheiro.",
+            )
+        return caixa
 
     @staticmethod
     def require_open_cashbox_for_tournament(auth_user_id: str, tournament_id: str) -> Optional[dict]:
@@ -652,6 +720,12 @@ class CashboxService:
             elif t_type == "prize":
                 agg.total_prizes_paid += amt
                 agg.prize_count += 1
+            elif t_type == "cash_buy_in":
+                agg.total_cash_buy_ins += amt
+                agg.cash_buy_in_count += 1
+            elif t_type == "cash_out":
+                agg.total_cash_outs += amt
+                agg.cash_out_count += 1
             elif _eh_estorno(t):
                 # Venda cancelada: o dinheiro saiu da gaveta de verdade.
                 agg.total_refunds += abs(float(t["signed_amount"]))
@@ -667,6 +741,11 @@ class CashboxService:
             + agg.total_rebuys
             + agg.total_addons
             - agg.total_prizes_paid
+            # Cash game. Sem estas duas linhas o esperado ignora o dinheiro que
+            # o trigger JÁ somou em current_balance, e o relatório acusa sobra
+            # de caixa no primeiro dia de operação.
+            + agg.total_cash_buy_ins
+            - agg.total_cash_outs
             # O estorno tem de descer do esperado: a venda cancelada continua
             # somada em total_buy_ins/rebuys/addons (a linha da venda segue no
             # ledger, que é append-only) e o dinheiro já voltou para o jogador.
@@ -684,6 +763,14 @@ class CashboxService:
             st = supabase.table("stages").select("name").eq("id", cb_row["stage_id"]).execute()
             if st.data:
                 agg.stage_name = st.data[0].get("name")
+        if cb_row.get("cash_day_id"):
+            agg.cash_day_id = cb_row["cash_day_id"]
+            cd = supabase.table("cash_days").select("business_date, label") \
+                .eq("id", cb_row["cash_day_id"]).execute()
+            if cd.data:
+                agg.cash_day_label = (
+                    cd.data[0].get("label") or str(cd.data[0].get("business_date") or "")
+                )
 
         return agg
 
@@ -707,6 +794,8 @@ class CashboxService:
             out.grand_total_prizes += s.total_prizes_paid
             out.grand_total_supply += s.total_supply
             out.grand_total_sangria += s.total_sangria
+            out.grand_total_cash_buy_ins += s.total_cash_buy_ins
+            out.grand_total_cash_outs += s.total_cash_outs
         return out
 
     @staticmethod
@@ -715,14 +804,19 @@ class CashboxService:
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         staff_id: Optional[str] = None,
+        cash_day_id: Optional[str] = None,
     ) -> CashboxDemonstrativo:
         """Session-based reconciliation report. Each cashbox_session is one
         open→close cycle that reconciles on its own. Filterable by stage,
         period (session opened_at) and employee."""
         # 1. Cashboxes in scope
-        cbq = supabase.table("cashboxes").select("id, staff_id, stage_id, status, current_balance")
+        cbq = supabase.table("cashboxes").select(
+            "id, staff_id, stage_id, cash_day_id, status, current_balance"
+        )
         if stage_id:
             cbq = cbq.eq("stage_id", stage_id)
+        if cash_day_id:
+            cbq = cbq.eq("cash_day_id", cash_day_id)
         if staff_id:
             cbq = cbq.eq("staff_id", staff_id)
         cashboxes = cbq.execute().data or []
@@ -752,7 +846,8 @@ class CashboxService:
         # ou depois do fechamento da sessão (o de depois não altera o
         # fechamento — ver _compute_session_report).
         txs = supabase.table("cashbox_transactions").select(
-            "session_id, type, amount, signed_amount, transaction_id, created_at"
+            "session_id, type, amount, signed_amount, transaction_id, "
+            "cash_transaction_id, created_at"
         ).in_("session_id", session_ids).execute().data or []
         for tx in txs:
             tx_by_session.setdefault(tx["session_id"], []).append(tx)
@@ -768,6 +863,15 @@ class CashboxService:
         if stage_ids:
             strows = supabase.table("stages").select("id, name").in_("id", stage_ids).execute().data or []
             stage_names = {r["id"]: r.get("name") for r in strows}
+        day_ids = list({c["cash_day_id"] for c in cashboxes if c.get("cash_day_id")})
+        day_labels: dict = {}
+        if day_ids:
+            drows = supabase.table("cash_days").select("id, business_date, label") \
+                .in_("id", day_ids).execute().data or []
+            day_labels = {
+                r["id"]: (r.get("label") or str(r.get("business_date") or ""))
+                for r in drows
+            }
 
         # 5. Build per-session rows
         for s in sessions:
@@ -778,6 +882,7 @@ class CashboxService:
                 tx_by_session.get(s["id"], []),
                 staff_name=staff_names.get(cb.get("staff_id")),
                 stage_name=stage_names.get(cb.get("stage_id")),
+                cash_day_label=day_labels.get(cb.get("cash_day_id")),
             )
             out.sessions.append(report)
 
@@ -786,6 +891,8 @@ class CashboxService:
             out.grand_sangria += report.total_sangria
             out.grand_buy_ins += report.total_buy_ins + report.total_rebuys + report.total_addons
             out.grand_prizes += report.total_prizes_paid
+            out.grand_cash_buy_ins += report.total_cash_buy_ins
+            out.grand_cash_outs += report.total_cash_outs
             out.grand_refunds += report.total_refunds
             out.grand_refunds_after_close += report.total_refunds_after_close
             out.grand_adjustments += report.total_adjustments
@@ -798,7 +905,8 @@ class CashboxService:
                 out.open_session_count += 1
 
         for field in ("grand_initial", "grand_supply", "grand_sangria", "grand_buy_ins",
-                      "grand_prizes", "grand_refunds", "grand_refunds_after_close",
+                      "grand_prizes", "grand_cash_buy_ins", "grand_cash_outs",
+                      "grand_refunds", "grand_refunds_after_close",
                       "grand_adjustments",
                       "grand_expected", "grand_actual", "grand_difference"):
             setattr(out, field, round(getattr(out, field), 2))
@@ -812,6 +920,7 @@ class CashboxService:
         transactions: List[dict],
         staff_name: Optional[str] = None,
         stage_name: Optional[str] = None,
+        cash_day_label: Optional[str] = None,
     ) -> CashboxSessionReport:
         """Pure reconciliation of one session from its transactions. No DB access.
 
@@ -848,7 +957,9 @@ class CashboxService:
 
         supply = sangria = buy_ins = rebuys = addons = prizes = adjustments = 0.0
         refunds = refunds_after = 0.0
+        cash_buy_ins = cash_outs = 0.0
         buy_in_count = rebuy_count = addon_count = prize_count = refund_count = 0
+        cash_buy_in_count = cash_out_count = 0
         refund_after_count = 0
         signed_total = 0.0
         for tx in transactions:
@@ -873,6 +984,10 @@ class CashboxService:
                 addons += amt; addon_count += 1
             elif ttype == "prize":
                 prizes += amt; prize_count += 1
+            elif ttype == "cash_buy_in":
+                cash_buy_ins += amt; cash_buy_in_count += 1
+            elif ttype == "cash_out":
+                cash_outs += amt; cash_out_count += 1
             elif _eh_estorno(tx):
                 refunds += abs(float(tx["signed_amount"])); refund_count += 1
             elif ttype == "adjustment":
@@ -908,6 +1023,7 @@ class CashboxService:
             cashbox_id=session["cashbox_id"],
             staff_name=staff_name,
             stage_name=stage_name,
+            cash_day_label=cash_day_label,
             opened_at=session["opened_at"],
             closed_at=session.get("closed_at"),
             is_open=is_open,
@@ -922,6 +1038,10 @@ class CashboxService:
             addon_count=addon_count,
             total_prizes_paid=prizes,
             prize_count=prize_count,
+            total_cash_buy_ins=round(cash_buy_ins, 2),
+            cash_buy_in_count=cash_buy_in_count,
+            total_cash_outs=round(cash_outs, 2),
+            cash_out_count=cash_out_count,
             total_refunds=round(refunds, 2),
             refund_count=refund_count,
             total_refunds_after_close=round(refunds_after, 2),

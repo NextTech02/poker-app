@@ -206,6 +206,36 @@ class FakeQuery:
                     row.setdefault("total_buy_in_amount", 0)
                     row.setdefault("total_rebuy_amount", 0)
                     row.setdefault("total_addon_amount", 0)
+                # Cash game. Aqui o DEFAULT do banco importa mais do que nas
+                # outras tabelas: `opened_at`/`started_at` sao obrigatorios nos
+                # modelos de resposta, entao sem eles todo teste de servico
+                # morreria na validacao em vez de exercitar a regra.
+                if table == "cash_days":
+                    row.setdefault("status", "open")
+                    row.setdefault("opened_at", "2026-06-08T21:00:00Z")
+                if table == "cash_tables":
+                    row.setdefault("status", "open")
+                    row.setdefault("opened_at", "2026-06-08T21:00:00Z")
+                    row.setdefault("ante", 0)
+                    row.setdefault("rake_percent", 0)
+                    row.setdefault("rake_cap", 0)
+                    row.setdefault("jackpot_per_pot", 0)
+                if table == "cash_player_sessions":
+                    row.setdefault("status", "active")
+                    row.setdefault("started_at", "2026-06-08T21:00:00Z")
+                    row.setdefault("total_buy_in", 0)
+                    row.setdefault("total_cash_out", 0)
+                    row.setdefault("result", 0)
+                if table == "cash_transactions":
+                    row.setdefault("status", "active")
+                    row.setdefault("cancel_steps", [])
+                if table == "cash_rake_entries":
+                    row.setdefault("kind", "partial")
+                    row.setdefault("counted_at", "2026-06-08T23:00:00Z")
+                    row.setdefault("rake_amount", 0)
+                    row.setdefault("jackpot_amount", 0)
+                if table == "cash_seats":
+                    row.setdefault("status", "free")
                 self._rows.append(row)
                 out.append(row)
             return SimpleNamespace(data=out)
@@ -298,11 +328,20 @@ def client(monkeypatch):
     from app.auth.jwt import get_current_user, verify_token
     from app.models.staff import MyPermissions
     from app.services.staff_service import StaffService
+    from app.services.module_service import ModuleService
 
     # is_admin=True faz require_permission/forbid_permission liberarem tudo.
     monkeypatch.setattr(
         StaffService, "get_my_permissions",
         staticmethod(lambda uid: MyPermissions(is_admin=True, permissions=[])),
+    )
+    # Modulos contratados sai do caminho pelo mesmo motivo que o RBAC: sem isto,
+    # `require_module` iria ao BANCO DE VERDADE em toda rota de cash game.
+    # O teste que exercita a guarda em si e o test_modulos.py, que troca o
+    # ModuleService por um fake proprio.
+    monkeypatch.setattr(
+        ModuleService, "list_for_org",
+        staticmethod(lambda org: ["tournament", "cash"]),
     )
 
     usuario = dict(USUARIO_TESTE)

@@ -6,16 +6,22 @@ import logging
 import httpx
 from app.config import get_settings
 from app.auth.permissions import forbid_permission
+from app.auth.modules import require_module
 from app.database.supabase_client import set_request_jwt, reset_request_jwt
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, organizations, loyalty, expenses, leads
+from app.routers import cash_game
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
 # API level (the frontend already hides these screens). Non-sangi roles and
 # super-admins are unaffected (forbid_permission only blocks users whose sole
 # permission is 'sangi').
 _no_sangi = [Depends(forbid_permission("sangi"))]
+# Cash game: além de manter o sangeur fora do financeiro, exige que o clube
+# tenha CONTRATADO o módulo. Permissão diz quem opera; módulo diz se a
+# funcionalidade existe para este cliente. Fail-closed => 403.
+_cash_game = [Depends(forbid_permission("sangi")), Depends(require_module("cash"))]
 
 settings = get_settings()
 
@@ -135,6 +141,7 @@ app.include_router(organizations.router)
 app.include_router(loyalty.router)
 app.include_router(expenses.router, dependencies=_no_sangi)
 app.include_router(expenses.revenues_router, dependencies=_no_sangi)
+app.include_router(cash_game.router, dependencies=_cash_game)
 
 
 @app.exception_handler(httpx.LocalProtocolError)

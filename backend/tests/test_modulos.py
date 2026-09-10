@@ -27,6 +27,11 @@ from app.services.module_service import ModuleService, DEFAULT_MODULES
 
 from tests.conftest import FakeSupabase
 
+# A fixture `client` troca `list_for_org` por um stub, para as rotas de cash
+# game não irem ao banco de verdade. Os dois testes de contrato com a tela
+# precisam da implementação REAL — sem isso mediriam o stub, não o código.
+LISTAGEM_REAL = ModuleService.__dict__["list_for_org"]
+
 
 ORG = "33333333-3333-3333-3333-333333333333"
 OUTRA_ORG = "44444444-4444-4444-4444-444444444444"
@@ -148,6 +153,7 @@ def test_permissoes_do_usuario_trazem_os_modulos(client, monkeypatch):
     """A tela monta a sidebar com esta resposta. Um request extra só para saber
     o módulo atrasaria o primeiro paint de toda sessão."""
     _banco(monkeypatch, [_linha("tournament"), _linha("cash")])
+    monkeypatch.setattr(ModuleService, "list_for_org", LISTAGEM_REAL)
     resp = client.get("/staff/me/permissions")
     assert resp.status_code == 200
     assert resp.json()["modules"] == ["cash", "tournament"]
@@ -155,6 +161,7 @@ def test_permissoes_do_usuario_trazem_os_modulos(client, monkeypatch):
 
 def test_permissoes_caem_no_torneio_quando_nao_ha_modulo(client, monkeypatch):
     _banco(monkeypatch, [])
+    monkeypatch.setattr(ModuleService, "list_for_org", LISTAGEM_REAL)
     resp = client.get("/staff/me/permissions")
     assert resp.status_code == 200
     assert resp.json()["modules"] == ["tournament"]
