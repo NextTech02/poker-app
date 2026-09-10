@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../config/supabase';
 
 const PaymentMethodsContext = createContext({});
@@ -40,17 +40,23 @@ export const PaymentMethodsProvider = ({ children }) => {
   }, [reload]);
 
   // Apenas os ativos vão para o dropdown do Caixa.
-  const activeMethods = methods.filter((m) => m.active);
+  // Memoizado: sem isso o array nasce com identidade nova a cada render e
+  // qualquer `<select>` ou `useEffect` que dependa dele refaz trabalho a toa.
+  const activeMethods = useMemo(() => methods.filter((m) => m.active), [methods]);
+
+  // Indice por codigo. O Extrato chama `labelFor` uma vez por linha; com
+  // `.find()` cada linha varria a lista inteira de meios de pagamento.
+  const porCodigo = useMemo(() => new Map(methods.map((m) => [m.code, m])), [methods]);
 
   // Resolve código -> rótulo (usado no Extrato). Inclui inativos para não
   // "perder" o rótulo de transações antigas.
   const labelFor = useCallback(
     (code) => {
       if (!code) return null;
-      const m = methods.find((x) => x.code === code);
+      const m = porCodigo.get(code);
       return m ? m.label : null;
     },
-    [methods]
+    [porCodigo]
   );
 
   const createMethod = useCallback(
@@ -93,19 +99,17 @@ export const PaymentMethodsProvider = ({ children }) => {
     [reload]
   );
 
+  const value = useMemo(
+    () => ({
+      methods, activeMethods, loading, reload, labelFor,
+      createMethod, updateMethod, deleteMethod,
+    }),
+    [methods, activeMethods, loading, reload, labelFor,
+     createMethod, updateMethod, deleteMethod],
+  );
+
   return (
-    <PaymentMethodsContext.Provider
-      value={{
-        methods,
-        activeMethods,
-        loading,
-        reload,
-        labelFor,
-        createMethod,
-        updateMethod,
-        deleteMethod,
-      }}
-    >
+    <PaymentMethodsContext.Provider value={value}>
       {children}
     </PaymentMethodsContext.Provider>
   );

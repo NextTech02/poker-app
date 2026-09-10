@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../config/supabase';
 import { getAllByTable } from '../offline/db';
 
@@ -81,9 +81,13 @@ export const BuyTypesProvider = ({ children }) => {
     reload();
   }, [reload]);
 
-  const activeBuyTypes = buyTypes.filter((b) => b.active);
+  const activeBuyTypes = useMemo(() => buyTypes.filter((b) => b.active), [buyTypes]);
 
-  const byId = useCallback((id) => buyTypes.find((b) => b.id === id) || null, [buyTypes]);
+  // Indice por id. A lista de vendas do Caixa resolve o tipo de CADA linha por
+  // aqui: com `.find()` o custo do render era (linhas x tipos cadastrados).
+  const porId = useMemo(() => new Map(buyTypes.map((b) => [b.id, b])), [buyTypes]);
+
+  const byId = useCallback((id) => porId.get(id) || null, [porId]);
 
   const createBuyType = useCallback(
     async ({ name, category, amount, rake_percentage, chips }) => {
@@ -128,25 +132,29 @@ export const BuyTypesProvider = ({ children }) => {
     [reload]
   );
 
-  return (
-    <BuyTypesContext.Provider
-      value={{
-        dayId,
-        selectDay,
-        buyTypes,
-        activeBuyTypes,
-        loading,
-        origem,
+  const value = useMemo(
+    () => ({
+      dayId,
+      selectDay,
+      buyTypes,
+      activeBuyTypes,
+      loading,
+      origem,
         // Só com a lista confirmada pelo servidor dá para afirmar "este dia
         // não tem nenhum meio de entrada cadastrado".
-        tiposCarregados: origem === 'servidor',
-        reload,
-        byId,
-        createBuyType,
-        updateBuyType,
-        deleteBuyType,
-      }}
-    >
+      tiposCarregados: origem === 'servidor',
+      reload,
+      byId,
+      createBuyType,
+      updateBuyType,
+      deleteBuyType,
+    }),
+    [dayId, selectDay, buyTypes, activeBuyTypes, loading, origem, reload, byId,
+     createBuyType, updateBuyType, deleteBuyType],
+  );
+
+  return (
+    <BuyTypesContext.Provider value={value}>
       {children}
     </BuyTypesContext.Provider>
   );

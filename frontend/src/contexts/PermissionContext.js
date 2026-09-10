@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import api from '../config/api';
 
@@ -72,14 +72,30 @@ export const PermissionProvider = ({ children }) => {
     loadPermissions();
   }, [user]);
 
-  const hasPermission = (permission) => {
-    if (isAdmin) return true;
-    if (!permission) return true;
-    return permissions.includes(permission);
-  };
+  // Set, e nao o array cru: `hasPermission` e chamado uma vez por item da
+  // barra lateral, uma por aba e uma por botao protegido — dezenas de vezes por
+  // render. Com `includes` isso era uma varredura linear sobre ~40 permissoes a
+  // cada chamada; aqui e uma consulta de tabela hash.
+  const conjunto = useMemo(() => new Set(permissions), [permissions]);
+
+  const hasPermission = useCallback(
+    (permission) => {
+      if (isAdmin) return true;
+      if (!permission) return true;
+      return conjunto.has(permission);
+    },
+    [isAdmin, conjunto],
+  );
+
+  // O value era um objeto literal montado direto no JSX: identidade nova a cada
+  // render, e com ela um re-render de TODA tela que le permissao.
+  const value = useMemo(
+    () => ({ permissions, isAdmin, isPlatformAdmin, modules, groupName, loading, hasPermission }),
+    [permissions, isAdmin, isPlatformAdmin, modules, groupName, loading, hasPermission],
+  );
 
   return (
-    <PermissionContext.Provider value={{ permissions, isAdmin, isPlatformAdmin, modules, groupName, loading, hasPermission }}>
+    <PermissionContext.Provider value={value}>
       {children}
     </PermissionContext.Provider>
   );

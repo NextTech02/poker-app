@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import './PlayerMultiSelect.css';
@@ -46,13 +46,30 @@ const PlayerMultiSelect = ({ values = [], onChange, disabled = false }) => {
   const label = (p) => `${p.name}${apelido(p)}`;
 
   const q = norm(query).trim();
-  const filtered = q
-    ? players.filter((p) => norm(p.name).includes(q) || norm(p.nickname).includes(q))
-    : players;
+  // Memoizado pela busca: sem isso a lista era refiltrada a cada render do
+  // componente, e nao apenas quando o texto digitado muda.
+  const filtered = useMemo(
+    () =>
+      q
+        ? players.filter((p) => norm(p.name).includes(q) || norm(p.nickname).includes(q))
+        : players,
+    [players, q],
+  );
 
-  const escolhidos = values
-    .map((id) => players.find((p) => p.id === id) || { id, name: id })
-    .filter(Boolean);
+  // Indice por id, montado uma vez por lista de jogadores.
+  //
+  // Antes, cada jogador escolhido disparava um `players.find()` -- uma varredura
+  // completa do cadastro. Com 800 jogadores e 20 escolhidos isso dava 16 mil
+  // comparacoes, refeitas a cada tecla digitada na busca.
+  const porId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+
+  const escolhidos = useMemo(
+    () => values.map((id) => porId.get(id) || { id, name: id }),
+    [values, porId],
+  );
+
+  // Set para o teste de "ja selecionado" que roda uma vez POR LINHA da lista.
+  const selecionados = useMemo(() => new Set(values), [values]);
 
   const alternar = (id) => {
     if (disabled) return;
@@ -99,7 +116,7 @@ const PlayerMultiSelect = ({ values = [], onChange, disabled = false }) => {
             <li className="pms-empty">{t('players.noResults', 'Nenhum jogador encontrado')}</li>
           ) : (
             filtered.map((p) => {
-              const marcado = values.includes(p.id);
+              const marcado = selecionados.has(p.id);
               return (
                 <li
                   key={p.id}

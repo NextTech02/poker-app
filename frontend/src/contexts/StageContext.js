@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { clearCache } from '../utils/apiCache';
 
 const StageContext = createContext({});
@@ -23,26 +23,26 @@ export const StageProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const selectStage = (stage) => {
+  const selectStage = useCallback((stage) => {
     // Drop cached responses from the previous stage so the next reads can't
     // serve another stage's data (the stage lives in a header, not the URL).
     clearCache();
     setSelectedStage(stage);
     localStorage.setItem('selected_stage', JSON.stringify(stage));
-  };
+  }, []);
 
-  const clearStage = () => {
+  const clearStage = useCallback(() => {
     clearCache();
     setSelectedStage(null);
     localStorage.removeItem('selected_stage');
-  };
+  }, []);
 
-  const value = {
-    selectedStage,
-    selectStage,
-    clearStage,
-    loading,
-  };
+  // A etapa selecionada e lida por quase toda tela do modulo de torneio: sem
+  // memo, qualquer render deste provider repintava todas elas.
+  const value = useMemo(
+    () => ({ selectedStage, selectStage, clearStage, loading }),
+    [selectedStage, loading, selectStage, clearStage],
+  );
 
   return <StageContext.Provider value={value}>{children}</StageContext.Provider>;
 };

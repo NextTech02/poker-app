@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../config/supabase';
 import { clearCache } from '../utils/apiCache';
 import { isOnline } from '../offline/connectivity';
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email, password, captchaToken) => {
+  const signIn = useCallback(async (email, password, captchaToken) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -48,30 +48,30 @@ export const AuthProvider = ({ children }) => {
       ...(captchaToken ? { options: { captchaToken } } : {}),
     });
     return { data, error };
-  };
+  }, []);
 
-  const signUp = async (email, password) => {
+  const signUp = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
     return { data, error };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     localStorage.removeItem('supabase_token');
     clearCache(); // B3: limpa cache ao sair
     return { error };
-  };
+  }, []);
 
-  const value = {
-    user,
-    signIn,
-    signUp,
-    signOut,
-    loading,
-  };
+  // As tres funcoes sao estaveis (useCallback sem dependencias), entao na
+  // pratica o value so muda quando `user` ou `loading` mudam — que e
+  // exatamente quando um consumidor precisa mesmo re-renderizar.
+  const value = useMemo(
+    () => ({ user, signIn, signUp, signOut, loading }),
+    [user, loading, signIn, signUp, signOut],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { usePermissions } from './PermissionContext';
 import { clearCache } from '../utils/apiCache';
 
@@ -68,7 +68,7 @@ export const ModuleProvider = ({ children }) => {
     }
   }, [permsLoading, stored, module]);
 
-  const selectModule = (proximo) => {
+  const selectModule = useCallback((proximo) => {
     if (!disponiveis.includes(proximo) || proximo === module) return;
     clearCache();
     setStored(proximo);
@@ -77,19 +77,24 @@ export const ModuleProvider = ({ children }) => {
     } catch {
       /* storage bloqueado */
     }
-  };
+  }, [disponiveis, module]);
 
-  const value = {
-    module,
-    modules: disponiveis,
-    // Só faz sentido oferecer a troca (e a tela de escolha) para quem tem mais
-    // de um. Com um módulo só, o clube nunca vê que isso existe.
-    hasMultipleModules: disponiveis.length > 1,
-    hasModule: (nome) => disponiveis.includes(nome),
-    homePath: HOME_DO_MODULO[module] || '/',
-    selectModule,
-    loading: permsLoading,
-  };
+  // O modulo decide QUAL barra lateral existe: este value e lido no topo da
+  // arvore, entao recria-lo a cada render custava o app inteiro.
+  const value = useMemo(
+    () => ({
+      module,
+      modules: disponiveis,
+      // Só faz sentido oferecer a troca (e a tela de escolha) para quem tem mais
+      // de um. Com um módulo só, o clube nunca vê que isso existe.
+      hasMultipleModules: disponiveis.length > 1,
+      hasModule: (nome) => disponiveis.includes(nome),
+      homePath: HOME_DO_MODULO[module] || '/',
+      selectModule,
+      loading: permsLoading,
+    }),
+    [module, disponiveis, selectModule, permsLoading],
+  );
 
   return <ModuleContext.Provider value={value}>{children}</ModuleContext.Provider>;
 };

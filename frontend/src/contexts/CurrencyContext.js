@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import i18n from '../config/i18n';
 import { supabase } from '../config/supabase';
 import {
@@ -110,16 +110,13 @@ export const CurrencyProvider = ({ children }) => {
   // identidade nova a cada render viraria laço infinito.
   const formatCurrency = useCallback((value) => fmt(value, currency), [currency]);
 
+  const value = useMemo(
+    () => ({ currency, setCurrency, formatCurrency, currencies: CURRENCIES, language }),
+    [currency, setCurrency, formatCurrency, language],
+  );
+
   return (
-    <CurrencyContext.Provider
-      value={{
-        currency,
-        setCurrency,
-        formatCurrency,
-        currencies: CURRENCIES,
-        language,
-      }}
-    >
+    <CurrencyContext.Provider value={value}>
       {children}
     </CurrencyContext.Provider>
   );

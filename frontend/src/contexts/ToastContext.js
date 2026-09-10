@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import '../components/Toast.css';
 import { registerToast } from '../utils/toastEmitter';
 
@@ -102,12 +102,18 @@ export const ToastProvider = ({ children }) => {
   }, [aplicar, removeToast]);
 
   // useCallback nao funciona com objeto literal, entao a API vai como objeto simples.
-  const toastApi = {
-    success: (message, options) => addToast('success', message, options),
-    error: (message, options) => addToast('error', message, options),
-    warning: (message, options) => addToast('warning', message, options),
-    info: (message, options) => addToast('info', message, options),
-  };
+  // useCallback nao funciona com objeto literal -- mas useMemo sim, e aqui ele
+  // importa: este objeto e registrado no emissor global (registerToast) e vai
+  // no value do contexto. Recria-lo a cada render dava identidade nova a ambos.
+  const toastApi = useMemo(
+    () => ({
+      success: (message, options) => addToast('success', message, options),
+      error: (message, options) => addToast('error', message, options),
+      warning: (message, options) => addToast('warning', message, options),
+      info: (message, options) => addToast('info', message, options),
+    }),
+    [addToast],
+  );
 
   const confirm = useCallback((message, options = {}) => {
     return new Promise((resolve) => {
@@ -145,8 +151,10 @@ export const ToastProvider = ({ children }) => {
     registerToast(toastApi);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const value = useMemo(() => ({ toast: toastApi, confirm }), [toastApi, confirm]);
+
   return (
-    <ToastContext.Provider value={{ toast: toastApi, confirm }}>
+    <ToastContext.Provider value={value}>
       {children}
 
       {/* Toast container */}

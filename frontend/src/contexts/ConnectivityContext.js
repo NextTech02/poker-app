@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import {
   isOnline as isOnlineNow,
   subscribe as subscribeConnectivity,
@@ -59,10 +59,16 @@ export const ConnectivityProvider = ({ children }) => {
     };
   }, [refreshPending]);
 
+  // Este provider e o mais externo E o que mais muda de estado: heartbeat de
+  // conectividade e cada mudanca na fila offline batem aqui. Sem memo, cada um
+  // desses eventos repintava a aplicacao inteira.
+  const value = useMemo(
+    () => ({ isOnline: online, pendingCount, conflictCount, lastSyncAt, recheck }),
+    [online, pendingCount, conflictCount, lastSyncAt],
+  );
+
   return (
-    <ConnectivityContext.Provider
-      value={{ isOnline: online, pendingCount, conflictCount, lastSyncAt, recheck }}
-    >
+    <ConnectivityContext.Provider value={value}>
       {children}
     </ConnectivityContext.Provider>
   );

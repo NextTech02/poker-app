@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../config/api';
 import { useModule, MODULO_CASH } from './ModuleContext';
 import { invalidateCacheByPrefix } from '../utils/apiCache';
@@ -54,14 +54,17 @@ export const CashDayProvider = ({ children }) => {
     reload();
   }, [module, reload]);
 
-  const value = {
-    day: day || null,
-    cashDayId: day?.id || null,
-    isOpen: !!day && day.status === 'open',
-    loading,
-    reload,
-    setDay,
-  };
+  const value = useMemo(
+    () => ({
+      day: day || null,
+      cashDayId: day?.id || null,
+      isOpen: !!day && day.status === 'open',
+      loading,
+      reload,
+      setDay,
+    }),
+    [day, loading, reload],
+  );
 
   return <CashDayContext.Provider value={value}>{children}</CashDayContext.Provider>;
 };

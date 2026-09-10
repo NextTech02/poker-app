@@ -1,15 +1,29 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/index.css';
-import './config/i18n'; // Initialize i18n
+import i18n, { garantirIdioma } from './config/i18n';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+
+// O idioma detectado agora pode vir num chunk separado (ver config/i18n.js).
+// Esperar por ele antes do primeiro render evita o pior efeito colateral de
+// carregar traducao sob demanda: a tela aparecer em portugues e trocar para
+// espanhol meio segundo depois, na frente do operador.
+//
+// Para quem usa pt-BR — a maioria — a promessa ja nasce resolvida e o render
+// acontece no mesmo tick. Para os outros, o chunk custa ~25 KB comprimidos,
+// contra os ~250 KB que sairam do bundle principal.
+//
+// `garantirIdioma` nunca rejeita; o `.then` sozinho basta e nao ha caminho de
+// erro que deixe a tela em branco.
+garantirIdioma(i18n.language).then(() => {
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+});
 
 // ── Service Worker: é o que faz o app ABRIR sem internet ─────────────────────
 // Sem ele, todo o modo offline (IndexedDB + fila de sync) era inútil na prática:
