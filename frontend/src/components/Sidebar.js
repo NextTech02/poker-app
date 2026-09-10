@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
+import { useModule, MODULO_TORNEIO, MODULO_CASH } from '../contexts/ModuleContext';
 import OrgSwitcher from './OrgSwitcher';
+import ModuleSwitcher from './ModuleSwitcher';
 import LanguageSelector from './LanguageSelector';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Sidebar.css';
@@ -15,12 +17,13 @@ const Sidebar = () => {
   const { signOut } = useAuth();
   const { selectedStage } = useStage();
   const { hasPermission, isPlatformAdmin } = usePermissions();
+  const { module } = useModule();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
-  const [openGroups, setOpenGroups] = useState(new Set(['caixa', 'torneios']));
+  const [openGroups, setOpenGroups] = useState(new Set(['caixa', 'torneios', 'cashGestao']));
 
   // Handle window resize
   useEffect(() => {
@@ -75,39 +78,69 @@ const Sidebar = () => {
     };
   }, [isOpen, isMobile]);
 
-  const allMenuItems = [
-    { path: '/home', labelKey: 'sidebar.periods', icon: 'home', permission: 'dashboard' },
-    { path: '/etapas', labelKey: 'sidebar.stages', icon: 'calendar', permission: 'stages' },
-    {
-      type: 'group',
-      groupKey: 'caixa',
-      labelKey: 'sidebar.cashRegister',
-      icon: 'dollar',
-      permission: 'cashier',
-      children: [
-        { path: '/caixa', labelKey: 'sidebar.sales', icon: 'dollar', permission: 'cashier' },
-        { path: '/caixa/jogadores', labelKey: 'sidebar.playerLimit', icon: 'users', permission: 'cashier_players' },
-        { path: '/caixa/tickets', labelKey: 'sidebar.tournamentTickets', icon: 'ticket', permission: 'cashier_tickets' },
-        { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'cashier' },
-      ],
-    },
-    // Restricted entry for the pure sangi role: their only screen. Hidden for
-    // anyone who already sees Sangi nested under the Caixa group (has `cashier`),
-    // so admins/cashiers don't get a duplicate top-level item.
-    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
-    { path: '/caixa-geral', labelKey: 'sidebar.generalCash', icon: 'wallet', permission: 'general_cash' },
-    {
-      type: 'group',
-      groupKey: 'torneios',
-      labelKey: 'sidebar.tournaments',
-      icon: 'trophy',
-      permission: 'tournaments',
-      children: [
-        { path: '/torneios', labelKey: 'sidebar.tournamentsList', icon: 'trophy', permission: 'tournaments' },
-        { path: '/blinds-templates', labelKey: 'sidebar.blindTemplates', icon: 'clock', permission: 'tournaments' },
-        { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
-      ],
-    },
+  // MENU POR MÓDULO. Torneio e cash game são operações diferentes, com telas
+  // diferentes; uma lista só daria um menu do dobro do tamanho no qual metade
+  // dos itens não serve para o que a pessoa está fazendo agora.
+  //
+  // `/etapas` fica SÓ no torneio: no cash a unidade de operação é o DIA, e uma
+  // etapa/circuito ali não significa nada.
+  const MENUS_POR_MODULO = {
+    [MODULO_TORNEIO]: [
+      { path: '/home', labelKey: 'sidebar.periods', icon: 'home', permission: 'dashboard' },
+      { path: '/etapas', labelKey: 'sidebar.stages', icon: 'calendar', permission: 'stages' },
+      {
+        type: 'group',
+        groupKey: 'caixa',
+        labelKey: 'sidebar.cashRegister',
+        icon: 'dollar',
+        permission: 'cashier',
+        children: [
+          { path: '/caixa', labelKey: 'sidebar.sales', icon: 'dollar', permission: 'cashier' },
+          { path: '/caixa/jogadores', labelKey: 'sidebar.playerLimit', icon: 'users', permission: 'cashier_players' },
+          { path: '/caixa/tickets', labelKey: 'sidebar.tournamentTickets', icon: 'ticket', permission: 'cashier_tickets' },
+          { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'cashier' },
+        ],
+      },
+      // Restricted entry for the pure sangi role: their only screen. Hidden for
+      // anyone who already sees Sangi nested under the Caixa group (has `cashier`),
+      // so admins/cashiers don't get a duplicate top-level item.
+      { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
+      { path: '/caixa-geral', labelKey: 'sidebar.generalCash', icon: 'wallet', permission: 'general_cash' },
+      {
+        type: 'group',
+        groupKey: 'torneios',
+        labelKey: 'sidebar.tournaments',
+        icon: 'trophy',
+        permission: 'tournaments',
+        children: [
+          { path: '/torneios', labelKey: 'sidebar.tournamentsList', icon: 'trophy', permission: 'tournaments' },
+          { path: '/blinds-templates', labelKey: 'sidebar.blindTemplates', icon: 'clock', permission: 'tournaments' },
+          { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
+        ],
+      },
+    ],
+    [MODULO_CASH]: [
+      { path: '/cash', labelKey: 'cash.floor', icon: 'chips', permission: 'cash.operate' },
+      { path: '/cash/fila', labelKey: 'cash.waitlist', icon: 'queue', permission: 'cash.operate' },
+      {
+        type: 'group',
+        groupKey: 'cashGestao',
+        labelKey: 'cash.management',
+        icon: 'clock',
+        permission: 'cash.day',
+        children: [
+          { path: '/cash/dias', labelKey: 'cash.days', icon: 'calendar', permission: 'cash.day' },
+          { path: '/cash/configuracao', labelKey: 'cash.config', icon: 'settings', permission: 'cash.admin' },
+          { path: '/cash/jackpot', labelKey: 'cash.jackpot', icon: 'award', permission: 'cash.admin' },
+        ],
+      },
+      { path: '/cash/relatorios', labelKey: 'cash.reports', icon: 'document', permission: 'cash.reports' },
+    ],
+  };
+
+  // Itens que existem nos DOIS módulos: cadastro de jogadores, equipe e
+  // financeiro são do CLUBE, não de uma modalidade.
+  const MENU_COMUM = [
     { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
     { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
     { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
@@ -115,6 +148,11 @@ const Sidebar = () => {
     // Só a NextHub: cadastro dos clubes clientes. `platformAdminOnly` não é
     // permissão de grupo — vem do claim do JWT. O backend valida o mesmo claim.
     { path: '/organizacoes', labelKey: 'sidebar.organizations', icon: 'briefcase', platformAdminOnly: true },
+  ];
+
+  const allMenuItems = [
+    ...(MENUS_POR_MODULO[module] || MENUS_POR_MODULO[MODULO_TORNEIO]),
+    ...MENU_COMUM,
   ];
 
   // Filter menu items based on permissions
@@ -261,6 +299,7 @@ const Sidebar = () => {
         )}
 
         {/* Só aparece para quem pertence a mais de uma organização. */}
+        <ModuleSwitcher collapsed={!isMobile && isCollapsed} />
         <OrgSwitcher collapsed={!isMobile && isCollapsed} />
 
         <nav className="sidebar-nav">

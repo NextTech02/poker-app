@@ -2,10 +2,18 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import api from '../config/api';
 
+// Piso de módulos. Toda organização que existia antes do módulo de cash fazia
+// torneio, então é o único padrão que não muda o mundo de ninguém — e é o que
+// impede a sidebar de ficar EM BRANCO quando esta chamada falha (o `catch`
+// abaixo já trata o usuário como admin; com `modules: []` ele veria um menu
+// vazio, que é indistinguível de um sistema quebrado).
+const MODULOS_PADRAO = ['tournament'];
+
 const PermissionContext = createContext({
   permissions: [],
   isAdmin: false,
   isPlatformAdmin: false,
+  modules: MODULOS_PADRAO,
   loading: true,
   hasPermission: () => true,
 });
@@ -20,6 +28,9 @@ export const PermissionProvider = ({ children }) => {
   // false — o backend valida o mesmo claim, então esconder a tela é só UX.
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [groupName, setGroupName] = useState(null);
+  // Módulos contratados pelo clube (tournament/cash). Entitlement comercial,
+  // não permissão: decide QUAIS telas existem, não quem pode usá-las.
+  const [modules, setModules] = useState(MODULOS_PADRAO);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +38,7 @@ export const PermissionProvider = ({ children }) => {
       setPermissions([]);
       setIsAdmin(true);
       setIsPlatformAdmin(false);
+      setModules(MODULOS_PADRAO);
       setLoading(false);
       return;
     }
@@ -38,6 +50,9 @@ export const PermissionProvider = ({ children }) => {
         setIsAdmin(res.data.is_admin);
         setIsPlatformAdmin(res.data.is_platform_admin === true);
         setGroupName(res.data.group_name);
+        // Backend antigo (deploy não é atômico) não manda o campo: cair no
+        // padrão mantém o app exatamente como era.
+        setModules(res.data.modules?.length ? res.data.modules : MODULOS_PADRAO);
       } catch (err) {
         // Retry once after 3s on server errors (503, 500)
         const status = err?.response?.status;
@@ -48,6 +63,7 @@ export const PermissionProvider = ({ children }) => {
         // If endpoint fails (e.g. table doesn't exist yet), treat as admin
         setPermissions([]);
         setIsAdmin(true);
+        setModules(MODULOS_PADRAO);
       } finally {
         setLoading(false);
       }
@@ -63,7 +79,7 @@ export const PermissionProvider = ({ children }) => {
   };
 
   return (
-    <PermissionContext.Provider value={{ permissions, isAdmin, isPlatformAdmin, groupName, loading, hasPermission }}>
+    <PermissionContext.Provider value={{ permissions, isAdmin, isPlatformAdmin, modules, groupName, loading, hasPermission }}>
       {children}
     </PermissionContext.Provider>
   );

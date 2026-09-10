@@ -25,6 +25,9 @@ ALL_PERMISSIONS = [
     'blinds', 'tables', 'broadcast', 'employees',
     'cashbox.operate', 'cashbox.admin',
     'sangi',
+    # Módulo de cash game. Ter a chave não basta: o clube precisa ter o módulo
+    # contratado (org_modules) — ver app/auth/modules.py.
+    'cash.operate', 'cash.tables', 'cash.day', 'cash.reports', 'cash.admin',
 ]
 
 # Permissions that imply the staff member can have their own cashbox

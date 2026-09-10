@@ -10,6 +10,7 @@ from app.models.staff import (
     MyPermissions,
 )
 from app.services.staff_service import StaffService
+from app.services.module_service import ModuleService
 from app.auth.jwt import get_current_user
 from app.auth.permissions import require_permission
 from app.utils.erros import da_excecao, nao_encontrado
@@ -30,6 +31,9 @@ def get_my_permissions(user=Depends(get_current_user)):
     perms = StaffService.get_my_permissions(user.get("sub"))
     # O claim vem assinado pelo servidor de auth — não dá para o cliente forjar.
     perms.is_platform_admin = user.get("platform_admin") is True
+    # Módulos contratados viajam junto: a tela já espera por esta resposta para
+    # montar a sidebar, e um segundo request só atrasaria o primeiro paint.
+    perms.modules = ModuleService.list_for_org(user.get("organization_id"))
     return perms
 
 

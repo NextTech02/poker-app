@@ -10,7 +10,7 @@ formas de pagamento). Assim um cliente nunca nasce pela metade.
 import logging
 import re
 from datetime import datetime, timezone, timedelta
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,6 +22,10 @@ from app.database.supabase_client import supabase_admin
 from app.utils.erros import conflito, erro_http, nao_encontrado, recusado, sem_permissao
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
+
+# Espelha o CHECK de org_modules.module. Manter os dois em sincronia é o preço
+# de validar aqui — e vale, porque um typo do painel viraria erro 500 do banco.
+VALID_MODULES = ("tournament", "cash")
 settings = get_settings()
 
 # Texto de erro de TERCEIRO (Supabase, Postgres) nao vai para a tela do cliente:
@@ -92,6 +96,15 @@ def list_organizations():
             active[oid] = active.get(oid, 0) + 1
 
     plans = {p["code"]: p for p in (supabase_admin.table("plans").select("*").execute().data or [])}
+
+    # Módulos contratados, numa consulta só (a lista de orgs é pequena e a de
+    # módulos é no máximo 2 por org — um IN por organização seria N+1 à toa).
+    modules: dict = {}
+    for m in (supabase_admin.table("org_modules")
+              .select("organization_id, module, enabled").execute().data or []):
+        if m.get("enabled"):
+            modules.setdefault(m["organization_id"], []).append(m["module"])
+
     for o in orgs:
         p = plans.get(o.get("plan_code")) or {}
         o["staff_count"] = total.get(o["id"], 0)            # total (drill-down)
@@ -105,6 +118,9 @@ def list_organizations():
         o["max_tournaments_month"] = p.get("max_tournaments_month")
         o["max_tables_tournament"] = p.get("max_tables_tournament")
         o["max_clients"] = p.get("max_clients")
+        o["max_cash_tables"] = p.get("max_cash_tables")
+        # Org sem linha nenhuma é anterior ao backfill: ela sempre fez torneio.
+        o["modules"] = sorted(modules.get(o["id"]) or ["tournament"])
     return orgs
 
 
@@ -209,6 +225,76 @@ def update_organization_plan(org_id: str, data: OrganizationPlanUpdate):
 
     res = supabase_admin.table("organizations").update(update).eq("id", org_id).execute()
     return (res.data or [{}])[0]
+
+
+class OrganizationModulesUpdate(BaseModel):
+    # Lista COMPLETA do que a org passa a ter. Módulo fora da lista é
+    # desabilitado, não apagado: a linha guarda `activated_at` e serve de
+    # histórico de quando o clube teve aquilo.
+    modules: List[str] = Field(..., min_length=1)
+
+
+@router.get("/{org_id}/modules", dependencies=[Depends(require_platform_admin)])
+def list_organization_modules(org_id: str):
+    """Módulos contratados por uma organização (torneio / cash game)."""
+    org = supabase_admin.table("organizations").select("id").eq("id", org_id).execute()
+    if not org.data:
+        raise nao_encontrado("organizacao_nao_encontrada", "Organização não encontrada.")
+    rows = (
+        supabase_admin.table("org_modules")
+        .select("module, enabled, activated_at")
+        .eq("organization_id", org_id)
+        .order("module")
+        .execute().data or []
+    )
+    return {"modules": [r["module"] for r in rows if r.get("enabled")], "all": rows}
+
+
+@router.patch("/{org_id}/modules", dependencies=[Depends(require_platform_admin)])
+def update_organization_modules(org_id: str, data: OrganizationModulesUpdate):
+    """Liga/desliga módulos de uma organização.
+
+    Não é retroativo nem destrutivo: desligar o cash não apaga um único dia de
+    operação já registrado — só fecha a porta das telas e das rotas (a guarda
+    está em app/auth/modules.py). Religar devolve tudo como estava.
+
+    A lista precisa ter ao menos um módulo: uma org sem nenhum ficaria com a
+    sidebar vazia e sem nenhuma rota acessível, o que é indistinguível de um
+    sistema quebrado para quem está do outro lado.
+    """
+    invalidos = sorted(set(data.modules) - set(VALID_MODULES))
+    if invalidos:
+        # Os códigos vão como dado nomeado para a tela poder dizer QUAIS.
+        raise recusado(
+            "modulo_invalido",
+            f"Módulo(s) inválido(s): {', '.join(invalidos)}.",
+            modulos=invalidos,
+        )
+
+    org = supabase_admin.table("organizations").select("id").eq("id", org_id).execute()
+    if not org.data:
+        raise nao_encontrado("organizacao_nao_encontrada", "Organização não encontrada.")
+
+    agora = datetime.now(timezone.utc).isoformat()
+    for modulo in VALID_MODULES:
+        habilitado = modulo in data.modules
+        existente = (
+            supabase_admin.table("org_modules")
+            .select("id, enabled")
+            .eq("organization_id", org_id).eq("module", modulo)
+            .execute().data
+        )
+        if existente:
+            if bool(existente[0].get("enabled")) != habilitado:
+                supabase_admin.table("org_modules").update(
+                    {"enabled": habilitado, "updated_at": agora}
+                ).eq("id", existente[0]["id"]).execute()
+        elif habilitado:
+            supabase_admin.table("org_modules").insert({
+                "organization_id": org_id, "module": modulo, "enabled": True,
+            }).execute()
+
+    return list_organization_modules(org_id)
 
 
 class OrganizationStatusUpdate(BaseModel):

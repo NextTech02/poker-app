@@ -1131,7 +1131,9 @@
     "credito_ja_utilizado": "Este crédito ya fue utilizado.",
     "sem_credito_disponivel": "El jugador no tiene crédito disponible.",
     "saldo_insuficiente_na_etapa": "Saldo insuficiente en la caja de la etapa: hay {{disponivel}} y se pidieron {{solicitado}}.",
-    "caixa_da_etapa_nao_encontrado": "Esta etapa todavía no tiene caja abierta."
+    "caixa_da_etapa_nao_encontrado": "Esta etapa todavía no tiene caja abierta.",
+    "modulo_nao_contratado": "Tu club no tiene contratado este módulo.",
+    "modulo_invalido": "Módulo inválido."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",
@@ -2351,5 +2353,23 @@
     "errorCedulaLength": "La cédula de Colombia debe tener de 6 a 10 dígitos.",
     "errorPassportLength": "El pasaporte debe tener de 6 a 12 caracteres (letras y números).",
     "errorDriverLicenseLength": "La licencia de conducir debe tener de 5 a 20 caracteres."
+  },
+  "modules": {
+    "selectTitle": "Elige el módulo",
+    "selectSubtitle": "Tu club opera torneo y cash game. Selecciona dónde quieres trabajar ahora — puedes cambiar cuando quieras desde el menú.",
+    "current": "Módulo",
+    "tournamentTitle": "Torneos",
+    "tournamentHint": "Etapas, ciegas, premios, ranking y caja del torneo.",
+    "cashTitle": "Cash Game",
+    "cashHint": "Mesas abiertas, lista de espera, buy-in y cash-out, facturación por día."
+  },
+  "cash": {
+    "floor": "Sala",
+    "waitlist": "Lista de espera",
+    "management": "Gestión",
+    "days": "Días de operación",
+    "config": "Modalidades",
+    "jackpot": "Jackpot",
+    "reports": "Informes"
   }
 }

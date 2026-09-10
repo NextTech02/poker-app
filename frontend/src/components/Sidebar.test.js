@@ -13,6 +13,11 @@
  * 3. **O item de organizações vem do CLAIM, não do RBAC do clube.** Ele
  *    abre o cadastro de CLIENTES: um grupo de permissão do clube jamais
  *    pode concedê-lo.
+ * 4. **O menu troca inteiro conforme o MÓDULO.** Torneio e cash game são
+ *    operações diferentes; ver os dois menus ao mesmo tempo dobraria a
+ *    lista com itens que não servem para o que a pessoa está fazendo. E
+ *    módulo não é permissão: o admin de um clube que só faz torneio tem
+ *    todas as chaves e mesmo assim não pode ver as telas de cash.
  */
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -21,11 +26,20 @@ import Sidebar from './Sidebar';
 import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
+import { useModule } from '../contexts/ModuleContext';
 
 jest.mock('../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
+// O mock precisa devolver as CONSTANTES junto: a Sidebar indexa os menus por
+// elas, e um mock sem esses valores montaria o objeto com chave `undefined`.
+jest.mock('../contexts/ModuleContext', () => ({
+  useModule: jest.fn(),
+  MODULO_TORNEIO: 'tournament',
+  MODULO_CASH: 'cash',
+}));
 jest.mock('./OrgSwitcher', () => () => <div data-testid="org-switcher" />);
+jest.mock('./ModuleSwitcher', () => () => <div data-testid="module-switcher" />);
 jest.mock('./LanguageSelector', () => () => <div data-testid="language-selector" />);
 jest.mock('../assets/aceblind-logo-white.png', () => 'logo.png');
 jest.mock('react-i18next', () => ({
@@ -34,11 +48,15 @@ jest.mock('react-i18next', () => ({
 
 let sair;
 
-const montar = ({ rota = '/home', permissoes = null, plataforma = false, etapa = null } = {}) => {
+const montar = ({
+  rota = '/home', permissoes = null, plataforma = false, etapa = null,
+  modulo = 'tournament',
+} = {}) => {
   usePermissions.mockReturnValue({
     hasPermission: permissoes ? (p) => !p || permissoes.includes(p) : () => true,
     isPlatformAdmin: plataforma,
   });
+  useModule.mockReturnValue({ module: modulo });
   useStage.mockReturnValue({ selectedStage: etapa });
   return render(
     <MemoryRouter initialEntries={[rota]}>
@@ -290,5 +308,60 @@ describe('sair', () => {
     const botao = screen.getByText(/sidebar.logout/i).closest('button');
     await userEvent.click(botao);
     expect(sair).toHaveBeenCalled();
+  });
+});
+
+describe('menu por módulo', () => {
+  it('o módulo de torneio mostra as telas de torneio', () => {
+    montar({ modulo: 'tournament' });
+    expect(screen.getByRole('link', { name: /sidebar.tournamentsList/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sidebar.stages/ })).toBeInTheDocument();
+  });
+
+  it('o módulo de cash troca o menu inteiro', () => {
+    montar({ modulo: 'cash', rota: '/cash' });
+    expect(screen.getByRole('link', { name: /cash.floor/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /cash.waitlist/ })).toBeInTheDocument();
+    // As telas de torneio somem — não é permissão negada, é outra operação.
+    expect(screen.queryByRole('link', { name: /sidebar.tournamentsList/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /sidebar.sales/ })).toBeNull();
+  });
+
+  it('etapa é conceito de torneio e não aparece no cash', () => {
+    // No cash a unidade de operação é o DIA. Um item de etapa ali levaria a
+    // uma tela que não organiza nada do que aquele operador faz.
+    montar({ modulo: 'cash', rota: '/cash' });
+    expect(screen.queryByRole('link', { name: /sidebar.stages/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /cash.days/ })).toBeInTheDocument();
+  });
+
+  it('jogadores, equipe e financeiro seguem nos dois módulos', () => {
+    // São do CLUBE, não da modalidade: o mesmo jogador senta na mesa de cash e
+    // se inscreve no torneio, e o financeiro consolida os dois.
+    montar({ modulo: 'cash', rota: '/cash' });
+    expect(screen.getByRole('link', { name: /sidebar.registerPlayer/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sidebar.staff/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sidebar.financial/ })).toBeInTheDocument();
+  });
+
+  it('módulo desconhecido cai no de torneio', () => {
+    // Vale para o estado inicial (antes de as permissões carregarem) e para um
+    // valor velho no localStorage. Menu vazio seria indistinguível de app
+    // quebrado.
+    montar({ modulo: undefined });
+    expect(screen.getByRole('link', { name: /sidebar.tournamentsList/ })).toBeInTheDocument();
+  });
+
+  it('permissão de cash não vaza para o menu de torneio', () => {
+    montar({ modulo: 'tournament', permissoes: ['cash.operate', 'cash.day'] });
+    expect(screen.queryByRole('link', { name: /cash.floor/ })).toBeNull();
+  });
+
+  it('no cash o menu ainda filtra por permissão', () => {
+    // Módulo diz QUAIS telas existem; permissão diz quem entra nelas.
+    montar({ modulo: 'cash', rota: '/cash', permissoes: ['cash.operate'] });
+    expect(screen.getByRole('link', { name: /cash.floor/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /cash.reports/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /cash.config/ })).toBeNull();
   });
 });

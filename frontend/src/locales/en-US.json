@@ -1131,7 +1131,9 @@
     "credito_ja_utilizado": "This credit was already used.",
     "sem_credito_disponivel": "The player has no credit available.",
     "saldo_insuficiente_na_etapa": "Not enough balance in the stage cash register: {{disponivel}} available, {{solicitado}} requested.",
-    "caixa_da_etapa_nao_encontrado": "This stage has no cash register open yet."
+    "caixa_da_etapa_nao_encontrado": "This stage has no cash register open yet.",
+    "modulo_nao_contratado": "Your club has not subscribed to this module.",
+    "modulo_invalido": "Invalid module."
   },
   "premiacao": {
     "loadError": "Error loading prize data",
@@ -2351,5 +2353,23 @@
     "errorCedulaLength": "The Colombian cédula must have 6 to 10 digits.",
     "errorPassportLength": "The passport must have 6 to 12 characters (letters and numbers).",
     "errorDriverLicenseLength": "The driver's license must have 5 to 20 characters."
+  },
+  "modules": {
+    "selectTitle": "Choose a module",
+    "selectSubtitle": "Your club runs both tournaments and cash games. Pick where you want to work now — you can switch anytime from the menu.",
+    "current": "Module",
+    "tournamentTitle": "Tournaments",
+    "tournamentHint": "Stages, blinds, prizes, rankings and the tournament cash desk.",
+    "cashTitle": "Cash Game",
+    "cashHint": "Open tables, waiting list, buy-in and cash-out, daily revenue."
+  },
+  "cash": {
+    "floor": "Floor",
+    "waitlist": "Waiting list",
+    "management": "Management",
+    "days": "Operating days",
+    "config": "Game types",
+    "jackpot": "Jackpot",
+    "reports": "Reports"
   }
 }

@@ -1,0 +1,23 @@
+/* Escolha de módulo (torneio × cash game) após o login.
+   Herda quase tudo de SelectOrg.css; aqui ficam só as diferenças. */
+
+/* O item tem duas linhas de texto e a segunda é uma frase inteira, não um
+   rótulo curto como o nome de um clube — precisa respirar mais. */
+.sm-item {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  align-items: flex-start;
+}
+
+.sm-item .so-meta {
+  white-space: normal;
+  line-height: 1.45;
+}
+
+/* O naipe substitui a inicial do clube. Fonte maior porque o glifo ocupa menos
+   da caixa do que uma letra. */
+.sm-avatar {
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1;
+}

@@ -77,3 +77,8 @@ class MyPermissions(BaseModel):
     # quem enxerga a tela de cadastro de clientes. Vem do claim do JWT, não do
     # banco — quem decide é o Auth Hook.
     is_platform_admin: bool = False
+    # Módulos contratados pelo clube (tournament/cash). Entitlement
+    # comercial, não isolamento de dados — viaja aqui porque a tela já
+    # chama este endpoint uma vez e não vale um request extra nem um
+    # claim novo no JWT (ver app/services/module_service.py).
+    modules: List[str] = ["tournament"]

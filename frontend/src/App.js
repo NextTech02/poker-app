@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StageProvider } from './contexts/StageContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { PermissionProvider, usePermissions } from './contexts/PermissionContext';
+import { ModuleProvider, useModule } from './contexts/ModuleContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { PaymentMethodsProvider } from './contexts/PaymentMethodsContext';
 import { BuyTypesProvider } from './contexts/BuyTypesContext';
@@ -53,6 +54,7 @@ const RelatorioTorneio = lazy(() => import('./pages/RelatorioTorneio'));
 const Sangi = lazy(() => import('./pages/Sangi'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
 const Funcionarios = lazy(() => import('./pages/Funcionarios'));
+const SelectModule = lazy(() => import('./pages/SelectModule'));
 
 const PageFallback = () => (
   <div className="page-loading-skeleton">
@@ -62,10 +64,11 @@ const PageFallback = () => (
   </div>
 );
 
-const PrivateRoute = ({ children, permission, anyPermission }) => {
+const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
   const { hasPermission, loading: permLoading } = usePermissions();
+  const { module: activeModule, hasModule, selectModule, homePath } = useModule();
   const { toast } = useToast();
   const toastedRef = useRef(false);
 
@@ -109,7 +112,19 @@ const PrivateRoute = ({ children, permission, anyPermission }) => {
   }
 
   if (denied) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={homePath} replace />;
+  }
+
+  // GUARD DE MÓDULO. Duas situações diferentes, e só uma é recusa:
+  //  - o clube NÃO contratou o módulo => manda escolher (a tela de escolha
+  //    entra direto na operação quando só existe um, então isso vira um
+  //    redirecionamento silencioso para o lugar certo);
+  //  - o clube tem, mas está com o outro selecionado => troca e segue. Um
+  //    link salvo nos favoritos não pode dar 404 só porque o menu estava
+  //    em outra modalidade.
+  if (module && module !== activeModule) {
+    if (!hasModule(module)) return <Navigate to="/selecionar-modulo" replace />;
+    selectModule(module);
   }
 
   return children;
@@ -129,6 +144,16 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <SelectOrg />
+          </PrivateRoute>
+        }
+      />
+      {/* Escolha do módulo (só para quem contratou torneio E cash game).
+          Com um módulo só a própria tela entra direto na operação. */}
+      <Route
+        path="/selecionar-modulo"
+        element={
+          <PrivateRoute>
+            <SelectModule />
           </PrivateRoute>
         }
       />
@@ -419,22 +444,24 @@ function App() {
       <ConnectivityProvider>
         <AuthProvider>
           <PermissionProvider>
-            <StageProvider>
-              <CurrencyProvider>
-                <PaymentMethodsProvider>
-                  <BuyTypesProvider>
-                    <ToastProvider>
-                      <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
-                        <OfflineBanner />
-                        <OrgScopeBanner />
-                        <OrgInviteModal />
-                        <AppRoutes />
-                      </ErrorBoundary>
-                    </ToastProvider>
-                  </BuyTypesProvider>
-                </PaymentMethodsProvider>
-              </CurrencyProvider>
-            </StageProvider>
+            <ModuleProvider>
+              <StageProvider>
+                <CurrencyProvider>
+                  <PaymentMethodsProvider>
+                    <BuyTypesProvider>
+                      <ToastProvider>
+                        <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
+                          <OfflineBanner />
+                          <OrgScopeBanner />
+                          <OrgInviteModal />
+                          <AppRoutes />
+                        </ErrorBoundary>
+                      </ToastProvider>
+                    </BuyTypesProvider>
+                  </PaymentMethodsProvider>
+                </CurrencyProvider>
+              </StageProvider>
+            </ModuleProvider>
           </PermissionProvider>
         </AuthProvider>
       </ConnectivityProvider>
