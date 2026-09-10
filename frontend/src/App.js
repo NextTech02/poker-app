@@ -63,6 +63,8 @@ const CashFloor = lazy(() => import('./pages/CashFloor'));
 const CashTableDetail = lazy(() => import('./pages/CashTableDetail'));
 const CashDays = lazy(() => import('./pages/CashDays'));
 const CashWaitlist = lazy(() => import('./pages/CashWaitlist'));
+const CashRelatorios = lazy(() => import('./pages/CashRelatorios'));
+const CashJackpot = lazy(() => import('./pages/CashJackpot'));
 const CashConfig = lazy(() => import('./pages/CashConfig'));
 
 const PageFallback = () => (
@@ -201,6 +203,22 @@ function AppRoutes() {
         element={
           <PrivateRoute module="cash" anyPermission={['cash.day', 'cash.reports']}>
             <CashDays />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/cash/relatorios"
+        element={
+          <PrivateRoute module="cash" anyPermission={['cash.reports', 'cash.day']}>
+            <CashRelatorios />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/cash/jackpot"
+        element={
+          <PrivateRoute module="cash" permission="cash.admin">
+            <CashJackpot />
           </PrivateRoute>
         }
       />

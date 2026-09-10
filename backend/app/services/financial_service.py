@@ -8,6 +8,7 @@ from app.models.financial import (
     TransactionEntry,
     ExpenseCategoryTotal,
 )
+from app.services.cash_report_service import CashReportService
 from app.services.expense_service import ExpenseService
 from app.services.transaction_filters import sem_canceladas
 
@@ -45,12 +46,19 @@ class FinancialService:
                 rev = ExpenseService.summarize_revenues(
                     organization_id, stage_id, tournament_id, start_date, end_date
                 )
+                # Um clube que só faz cash game cai SEMPRE aqui: ele não
+                # tem torneio nenhum. Devolver zerado faria o DRE dele mostrar
+                # nada para sempre — e é o único DRE que ele tem.
+                cash = CashReportService.summarize(
+                    organization_id, start_date, end_date
+                )
                 return FinancialSummary(
                     revenue=RevenueBreakdown(),
-                    gross_revenue=0,
+                    gross_revenue=cash["cash_revenue"],
                     prizes=0,
-                    operational_result=0,
-                    rake=0,
+                    operational_result=cash["cash_revenue"],
+                    rake=cash["cash_revenue"],
+                    **cash,
                     expenses=exp["total"],
                     expenses_paid=exp["paid"],
                     expenses_pending=exp["pending"],
@@ -59,7 +67,7 @@ class FinancialService:
                     other_revenue_received=rev["received"],
                     other_revenue_pending=rev["pending"],
                     other_revenue_by_source=[ExpenseCategoryTotal(**c) for c in rev["by_source"]],
-                    net_result=rev["total"] - exp["total"],
+                    net_result=cash["cash_revenue"] + rev["total"] - exp["total"],
                 )
 
         # Filtro por torneio específico (compõe com etapa/datas).
@@ -232,7 +240,14 @@ class FinancialService:
             organization_id, stage_id, tournament_id, start_date, end_date
         )
 
-        gross_revenue = revenue_total
+        # ── 10. Cash game ──
+        # O rake do cash é receita como a entrada de torneio. O buy-in NÃO: é
+        # troca de dinheiro por ficha, e a maior parte volta ao jogador.
+        cash = CashReportService.summarize(organization_id, start_date, end_date)
+
+        gross_revenue = revenue_total + cash["cash_revenue"]
+        # O cash não paga prêmio: o dinheiro que sai é cash-out, que é a
+        # devolução das fichas do próprio jogador.
         operational_result = gross_revenue - prize_total
         net_result = operational_result + rev["total"] - exp["total"]
 
@@ -247,7 +262,8 @@ class FinancialService:
             gross_revenue=gross_revenue,
             prizes=prize_total,
             operational_result=operational_result,
-            rake=rake_total,
+            rake=rake_total + cash["cash_revenue"],
+            **cash,
             expenses=exp["total"],
             expenses_paid=exp["paid"],
             expenses_pending=exp["pending"],

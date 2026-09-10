@@ -236,6 +236,15 @@ class FakeQuery:
                     row.setdefault("jackpot_amount", 0)
                 if table == "cash_seats":
                     row.setdefault("status", "free")
+                if table == "cash_waitlist":
+                    row.setdefault("status", "waiting")
+                if table == "cash_jackpot_payouts":
+                    row.setdefault("kind", "bad_beat")
+                    row.setdefault("paid_at", "2026-06-08T23:30:00Z")
+                if table == "cash_jackpot_fund":
+                    row.setdefault("current_balance", 0)
+                    row.setdefault("total_collected", 0)
+                    row.setdefault("total_paid", 0)
                 self._rows.append(row)
                 out.append(row)
             return SimpleNamespace(data=out)

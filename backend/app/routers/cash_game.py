@@ -38,10 +38,17 @@ from app.models.cash_game import (
     CashTableUpdate,
     CashTransactionCancel,
     CashTransactionResponse,
+    CashDailyRow,
+    CashPlayerRow,
+    CashTableRow,
+    CashWeekdayRow,
     CashWaitlistCreate,
     CashWaitlistResponse,
     CashWaitlistSeat,
     CashWaitlistUpdate,
+    JackpotFundResponse,
+    JackpotPayoutCreate,
+    JackpotPayoutResponse,
     MovePlayer,
     SeatReserve,
     SitPlayer,
@@ -52,6 +59,8 @@ from app.services.cash_day_service import CashDayService
 from app.services.cash_game_type_service import CashGameTypeService
 from app.services.cash_table_service import CashTableService
 from app.services.cash_transaction_service import CashTransactionService
+from app.services.cash_jackpot_service import CashJackpotService
+from app.services.cash_report_service import CashReportService
 from app.services.cash_waitlist_service import CashWaitlistService
 from app.utils.erros import da_excecao
 
@@ -502,5 +511,118 @@ def leave_waitlist(entry_id: str, user=_operar):
     """Desistiu. A linha fica (a fila é histórico da noite), com status próprio."""
     try:
         return CashWaitlistService.give_up(entry_id, no_show=False)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Faturamento
+# ══════════════════════════════════════════════════════════════════════
+#
+# TRÊS NÚMEROS QUE NÃO SE MISTURAM em nenhuma destas rotas:
+#   `revenue`  = o RAKE contado na caixa da mesa — a receita da casa;
+#   `buy_ins`  = giro, troca de dinheiro por ficha (a maior parte volta ao
+#                jogador no cash-out) — NÃO é receita;
+#   `jackpot`  = passivo, dinheiro dos jogadores retido para pagamento futuro.
+
+@router.get("/reports/daily", response_model=List[CashDailyRow])
+def report_daily(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Faturamento por DIA — a pergunta que motivou o módulo."""
+    return CashReportService.daily(date_from, date_to, organization_id)
+
+
+@router.get("/reports/best-days", response_model=List[CashDailyRow])
+def report_best_days(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = Query(10, ge=1, le=100),
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Os dias que mais renderam, por RAKE.
+
+    Ordenar por buy-ins responderia "qual noite girou mais dinheiro", que é
+    outra pergunta — e levaria o clube a repetir a noite que movimentou muito e
+    ganhou pouco.
+    """
+    return CashReportService.best_days(date_from, date_to, limit, organization_id)
+
+
+@router.get("/reports/weekday", response_model=List[CashWeekdayRow])
+def report_weekday(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Média por dia da semana — a resposta de "vale abrir na terça?"."""
+    return CashReportService.by_weekday(date_from, date_to, organization_id)
+
+
+@router.get("/reports/tables", response_model=List[CashTableRow])
+def report_tables(
+    cash_day_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Rake por mesa — é o que diz qual stake vale manter aberto."""
+    return CashReportService.by_table(cash_day_id, date_from, date_to, organization_id)
+
+
+@router.get("/reports/players", response_model=List[CashPlayerRow])
+def report_players(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=500),
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    return CashReportService.by_player(date_from, date_to, limit, organization_id)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Jackpot
+# ══════════════════════════════════════════════════════════════════════
+
+@router.get("/jackpot", response_model=JackpotFundResponse)
+def get_jackpot(
+    user=Depends(get_current_user),
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """O fundo acumulado. PASSIVO — dinheiro dos jogadores, não receita."""
+    return CashJackpotService.get_fund(organization_id)
+
+
+@router.get("/jackpot/payouts", response_model=List[JackpotPayoutResponse])
+def list_jackpot_payouts(
+    cash_day_id: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    return CashJackpotService.list_payouts(organization_id, cash_day_id, limit)
+
+
+@router.post("/jackpot/payouts", response_model=JackpotPayoutResponse)
+def pay_jackpot(
+    data: JackpotPayoutCreate,
+    user=_admin,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Paga o jackpot a um jogador. O dinheiro SAI da gaveta.
+
+    Passa por `cash_transactions` porque é saída real de caixa: o operador
+    entrega o dinheiro e isso precisa aparecer na conferência do fim da noite.
+    Baixar só no fundo deixaria o caixa acusando falta sem explicação.
+    """
+    try:
+        return CashJackpotService.pay(data, user.get("sub"), organization_id)
     except ValueError as e:
         raise da_excecao(e)

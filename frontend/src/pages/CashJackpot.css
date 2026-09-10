@@ -1,0 +1,17 @@
+/* Jackpot.
+
+   O fundo NÃO é verde. Verde, nesta aplicação, é receita — e este dinheiro é
+   dos jogadores, retido para pagamento futuro. Pintá-lo como faturamento seria
+   dizer com a cor o contrário do que a legenda diz. */
+
+.cj-fund {
+  border-color: color-mix(in srgb, var(--accent-color, #7233f8) 55%, transparent);
+}
+.cj-fund .stat-value {
+  color: var(--accent-color, #7233f8);
+}
+
+.cj-title {
+  margin: 2rem 0 0.9rem;
+  font-size: 1.05rem;
+}

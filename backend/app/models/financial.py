@@ -58,6 +58,23 @@ class FinancialSummary(BaseModel):
     other_revenue_received: float = 0
     other_revenue_pending: float = 0
     other_revenue_by_source: List[ExpenseCategoryTotal] = []
+    # ── Cash game ──────────────────────────────────────────────────────
+    # `cash_revenue` é o RAKE apurado na caixa das mesas — a ÚNICA linha de
+    # cash que é receita. Ela entra em `gross_revenue`.
+    cash_revenue: float = 0
+    # Giro: entrou e saiu da gaveta. INFORMATIVO — buy-in é troca de dinheiro
+    # por ficha e a maior parte volta ao jogador no cash-out. Somar aqui
+    # multiplicaria o faturamento do clube por dez.
+    cash_buy_ins: float = 0
+    cash_cash_outs: float = 0
+    # PASSIVO: dinheiro dos jogadores retido para pagamento futuro. Fora de
+    # `gross_revenue` e de `net_result` — contabilizá-lo como lucro seria
+    # registrar como ganho algo que o clube vai devolver.
+    cash_jackpot_collected: float = 0
+    cash_jackpot_paid: float = 0
+    cash_days_count: int = 0
+    cash_tables_count: int = 0
+    cash_players_count: int = 0
     net_result: float = 0           # operacional + outras receitas − despesas
     pending_credits: float = 0
     available_tickets: int = 0

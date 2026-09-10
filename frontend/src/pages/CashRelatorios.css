@@ -1,0 +1,119 @@
+/* Faturamento do cash game.
+
+   A tela toda é organizada para não confundir RAKE (o que o clube ficou) com
+   GIRO (o que passou pela gaveta). Por isso só o faturamento é verde, e o giro
+   carrega sempre a legenda "movimentação, não receita". */
+
+.cr-export {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.cr-block {
+  margin-top: 2rem;
+}
+.cr-block h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.cr-hint {
+  margin: 0 0 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* ── Melhores dias ──────────────────────────────────────────────────── */
+/* A barra é comparativa, não uma escala absoluta: a pergunta é "qual dia rende
+   mais que os outros", e o número exato fica ao lado. */
+.cr-rank {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cr-rank li {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 120px;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cr-rank-date {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cr-rank-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--secondary-bg, #0a0f17);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  overflow: hidden;
+}
+.cr-rank-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--success-color, #22c55e);
+}
+
+.cr-rank-value {
+  text-align: right;
+  font-weight: 700;
+  color: var(--success-color, #22c55e);
+}
+
+/* ── Dia da semana ──────────────────────────────────────────────────── */
+.cr-week {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.6rem;
+}
+
+.cr-week-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+}
+/* O dia sem operação continua na grade: o clube precisa VER que a segunda está
+   vazia para decidir se vale abrir. */
+.cr-week-day.off {
+  opacity: 0.45;
+}
+
+.cr-week-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cr-week-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary, #e0eaf4);
+}
+
+.cr-week-days {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* ── Resultado do jogador ───────────────────────────────────────────── */
+/* Não é lucro nem prejuízo do CLUBE: o dinheiro veio dos outros jogadores da
+   mesa. A cor marca a direção, e a legenda da seção explica de quem é. */
+.cr-win {
+  color: var(--success-color, #22c55e);
+}
+.cr-loss {
+  color: var(--danger-color, #ef4444);
+}

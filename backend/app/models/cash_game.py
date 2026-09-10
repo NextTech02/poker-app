@@ -421,3 +421,114 @@ class MovePlayer(BaseModel):
     """
     to_table_id: str
     to_seat: int = Field(..., gt=0)
+
+# ────────────────────────────────────────────────
+# Jackpot
+# ────────────────────────────────────────────────
+
+class JackpotFundResponse(BaseModel):
+    """O fundo acumulado.
+
+    PASSIVO, não receita: é dinheiro dos jogadores retido para pagamento
+    futuro. Não entra em nenhuma soma de faturamento do clube.
+    """
+    id: Optional[str] = None
+    organization_id: Optional[str] = None
+    current_balance: float = 0.0
+    total_collected: float = 0.0
+    total_paid: float = 0.0
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class JackpotPayoutCreate(BaseModel):
+    cash_day_id: str
+    player_id: str
+    amount: float = Field(..., gt=0)
+    kind: str = Field("bad_beat", pattern="^(bad_beat|high_hand|promo|other)$")
+    table_id: Optional[str] = None
+    description: Optional[str] = None
+
+
+class JackpotPayoutResponse(BaseModel):
+    id: str
+    organization_id: Optional[str] = None
+    cash_day_id: Optional[str] = None
+    table_id: Optional[str] = None
+    player_id: Optional[str] = None
+    kind: str
+    amount: float
+    description: Optional[str] = None
+    cash_transaction_id: Optional[str] = None
+    paid_at: datetime
+    paid_by: Optional[str] = None
+    player_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ────────────────────────────────────────────────
+# Relatórios
+# ────────────────────────────────────────────────
+
+class CashDailyRow(BaseModel):
+    """Uma linha do faturamento diário.
+
+    `revenue` é o RAKE. `buy_ins` é GIRO — troca de dinheiro por ficha, e a
+    maior parte volta ao jogador. Trocar um pelo outro multiplica a receita do
+    clube por dez no papel.
+    """
+    cash_day_id: str
+    business_date: str
+    status: str
+    revenue: float = 0.0
+    jackpot: float = 0.0
+    buy_ins: float = 0.0
+    cash_outs: float = 0.0
+    tables_count: int = 0
+    players_count: int = 0
+
+
+class CashWeekdayRow(BaseModel):
+    """Média por dia da semana — a resposta de 'vale abrir na terça?'.
+
+    MÉDIA e não total: o período quase nunca tem o mesmo número de sextas e de
+    terças, e o total premiaria o dia que apareceu mais vezes no recorte.
+    """
+    weekday: int          # 0 = segunda, como o weekday() do Python
+    weekday_key: str
+    days: int
+    total_revenue: float = 0.0
+    avg_revenue: float = 0.0
+    avg_players: float = 0.0
+
+
+class CashTableRow(BaseModel):
+    table_id: str
+    cash_day_id: str
+    table_number: Optional[int] = None
+    game_type_name: Optional[str] = None
+    small_blind: float = 0.0
+    big_blind: float = 0.0
+    status: Optional[str] = None
+    revenue: float = 0.0
+    jackpot: float = 0.0
+    buy_ins: float = 0.0
+    players_count: int = 0
+    hours: float = 0.0
+
+
+class CashPlayerRow(BaseModel):
+    """`result` é o resultado do JOGADOR, não despesa do clube: o dinheiro veio
+    dos outros jogadores da mesa, não do caixa."""
+    player_id: str
+    player_name: Optional[str] = None
+    sessions: int = 0
+    days: int = 0
+    buy_ins: float = 0.0
+    cash_outs: float = 0.0
+    result: float = 0.0
+    hours: float = 0.0

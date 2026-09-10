@@ -350,10 +350,42 @@ const Financeiro = () => {
                     <span>{fmt(data.tickets_redeemed_value)}</span>
                   </div>
                 )}
+                {data.cash_revenue > 0 && (
+                  <div className="fn-dre-row">
+                    {/* O rake do cash é receita como a entrada de torneio: é o
+                        que o clube ficou. Entra no bruto. */}
+                    <span>{t('financial.dreCashRake', 'Rake do cash game')}</span>
+                    <span>{fmt(data.cash_revenue)}</span>
+                  </div>
+                )}
                 <div className="fn-dre-row fn-dre-row--total">
                   <span>{t('financial.dreGrossRevenue')}</span>
                   <span>{fmt(data.gross_revenue)}</span>
                 </div>
+                {data.cash_buy_ins > 0 && (
+                  <>
+                    {/* Fora do total, e dito com todas as letras: buy-in é
+                        troca de dinheiro por ficha e quase tudo volta ao
+                        jogador no cash-out. Somá-lo aqui multiplicaria o
+                        faturamento do clube. */}
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreCashTurnover', 'Giro do cash (não é receita)')}</span>
+                      <span>{fmt(data.cash_buy_ins)}</span>
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreCashPaid', 'Cash-outs pagos')}</span>
+                      <span>{fmt(data.cash_cash_outs)}</span>
+                    </div>
+                  </>
+                )}
+                {data.cash_jackpot_collected > 0 && (
+                  /* PASSIVO: dinheiro dos jogadores retido para pagamento
+                     futuro. Fora do bruto e fora do resultado. */
+                  <div className="fn-dre-row fn-dre-row--muted">
+                    <span>{t('financial.dreCashJackpot', 'Jackpot arrecadado (passivo, não é receita)')}</span>
+                    <span>{fmt(data.cash_jackpot_collected)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="fn-dre-section">
