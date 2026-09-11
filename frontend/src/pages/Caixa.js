@@ -17,7 +17,7 @@ import { useBuyTypes } from '../contexts/BuyTypesContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { methodLabel } from '../utils/paymentMethodLabels';
-import { usePolling } from '../hooks/usePolling';
+import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
 import { applyRegister, applyRebuy, applyAddon } from '../offline/domainRules';
@@ -168,8 +168,20 @@ const Caixa = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Polling que pausa quando a aba está oculta (reduz carga em produção).
-  usePolling(() => loadData(), 5000);
+  // O banco avisa quando muda, em vez de esta tela perguntar de 5 em 5
+  // segundos. Perguntando, ela refazia `/transactions` + `/tournaments` +
+  // `/players` (a lista inteira de jogadores) doze vezes por minuto, por
+  // operador logado, e quase sempre recebia de volta exatamente o que já
+  // tinha. O poll segue como rede de segurança, em intervalo folgado.
+  //
+  // Sem filtro de propósito: o RLS já limita os eventos ao clube de quem está
+  // logado, e o Caixa mostra a venda de TODOS os operadores — filtrar pela
+  // etapa esconderia a venda do colega até o próximo poll.
+  useRealtimeRefresh({
+    canal: `caixa-${selectedStage?.id || 'sem-etapa'}`,
+    tabelas: [{ table: 'transactions' }, { table: 'tournaments' }],
+    aoMudar: () => loadData(),
+  });
 
   // Os meios de entrada são do DIA, e o dia é escolhido aqui dentro, no
   // formulário de venda: é esta tela que avisa o contexto qual carregar. Sem

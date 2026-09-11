@@ -7,7 +7,7 @@ import PlayerSelect from '../components/PlayerSelect';
 import { SkeletonBlock } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCashDay } from '../contexts/CashDayContext';
-import usePolling from '../hooks/usePolling';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './CashFloor.css';
 import './CashWaitlist.css';
@@ -60,7 +60,15 @@ const CashWaitlist = () => {
   useEffect(() => { setLoading(true); load(); }, [load]);
   // A fila é estado compartilhado: outro operador chama alguém e esta tela
   // precisa saber antes de o mesmo nome ser chamado duas vezes.
-  usePolling(load, 5000);
+  useRealtimeRefresh({
+    canal: `cash-fila-${cashDayId || 'sem-dia'}`,
+    tabelas: [
+      { table: 'cash_waitlist', filter: cashDayId ? `cash_day_id=eq.${cashDayId}` : undefined },
+      { table: 'cash_seats' },
+    ],
+    aoMudar: () => load(),
+    ativo: !!cashDayId,
+  });
 
   const agir = async (fn, mensagem, erroPadrao) => {
     setSubmitting(true);

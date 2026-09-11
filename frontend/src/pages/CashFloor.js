@@ -10,7 +10,7 @@ import { SkeletonStatCard, SkeletonBlock } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useCashDay } from '../contexts/CashDayContext';
-import usePolling from '../hooks/usePolling';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
 import { hojeLocal } from '../utils/datasLocais';
@@ -77,8 +77,22 @@ const CashFloor = () => {
   useEffect(() => { setLoading(true); loadFloor(); }, [loadFloor]);
 
   // O salão é estado COMPARTILHADO: outro caixa senta alguém na mesa 3 e esta
-  // tela precisa saber. Por isso polling, e não só recarga após ação própria.
-  usePolling(loadFloor, 5000);
+  // tela precisa saber. Agora quem avisa é o banco, e não um relógio — sentar
+  // um jogador aparece aqui em ~100ms em vez de levar até 5 segundos.
+  //
+  // Sentar alguém escreve em três tabelas de uma vez; o hook junta a rajada
+  // num único refetch.
+  useRealtimeRefresh({
+    canal: `cash-floor-${cashDayId || 'sem-dia'}`,
+    tabelas: [
+      { table: 'cash_tables', filter: cashDayId ? `cash_day_id=eq.${cashDayId}` : undefined },
+      { table: 'cash_seats' },
+      { table: 'cash_player_sessions', filter: cashDayId ? `cash_day_id=eq.${cashDayId}` : undefined },
+      { table: 'cash_days' },
+    ],
+    aoMudar: () => loadFloor(),
+    ativo: !!cashDayId,
+  });
   useEffect(() => aoMudarOCaixa(() => loadFloor()), [loadFloor]);
 
   const abrirDia = async (e) => {

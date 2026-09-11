@@ -11,7 +11,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useCashDay } from '../contexts/CashDayContext';
-import usePolling from '../hooks/usePolling';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { methodLabel } from '../utils/paymentMethodLabels';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
@@ -77,7 +77,20 @@ const CashTableDetail = () => {
 
   useEffect(() => { setLoading(true); load(); }, [load]);
   // A mesa é estado compartilhado: outro caixa senta ou levanta alguém aqui.
-  usePolling(load, 5000);
+  // Tudo aqui é da MESA: assento, sessão do jogador, compra de fichas e
+  // contagem de rake. O filtro corta os eventos das outras mesas do salão
+  // antes de chegarem ao navegador.
+  useRealtimeRefresh({
+    canal: `cash-mesa-${tableId}`,
+    tabelas: [
+      { table: 'cash_seats', filter: `table_id=eq.${tableId}` },
+      { table: 'cash_player_sessions', filter: `table_id=eq.${tableId}` },
+      { table: 'cash_transactions', filter: `table_id=eq.${tableId}` },
+      { table: 'cash_rake_entries', filter: `table_id=eq.${tableId}` },
+    ],
+    aoMudar: () => load(),
+    ativo: !!tableId,
+  });
 
   const abrir = (kind, seat) => {
     const padrao = activeMethods[0]?.code || 'cash';

@@ -12,7 +12,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { currencySymbol } from '../utils/currencyUtils';
-import { usePolling } from '../hooks/usePolling';
+import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Torneios.css';
 
@@ -42,7 +42,15 @@ const Torneios = () => {
   }, []);
 
   // Polling que pausa quando a aba está oculta (reduz carga em produção).
-  usePolling(() => loadTournaments(), 5000);
+  // A lista muda pouco: o que a movimenta é o status derivado dos dias
+  // (pendente -> ativo -> encerrado). Perguntar de 5 em 5 segundos por isso
+  // era o pior negócio do app.
+  useRealtimeRefresh({
+    canal: `torneios-${selectedStage?.id || 'sem-etapa'}`,
+    tabelas: [{ table: 'tournaments' }, { table: 'tournament_days' }],
+    aoMudar: () => loadTournaments(),
+    ativo: hasStage,
+  });
 
   const loadSponsors = async () => {
     try {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { usePolling } from '../hooks/usePolling';
+import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -84,7 +84,15 @@ const EliminacaoJogadores = () => {
 
   // Polling de 3s que pausa quando a aba está oculta (substitui o controle
   // manual de visibilitychange por um hook reutilizável).
-  usePolling(() => loadData(), tournamentId ? 3000 : 0);
+  // Era a tela mais sedenta do sistema: recarregava a cada 3 segundos. É
+  // também a que mais ganha com o aviso do banco — eliminar alguém aparece
+  // nas outras telas na hora.
+  useRealtimeRefresh({
+    canal: `eliminacao-${tournamentId}`,
+    tabelas: [{ table: 'tournament_players', filter: `tournament_id=eq.${tournamentId}` }],
+    aoMudar: () => loadData(),
+    ativo: !!tournamentId,
+  });
 
   const handleEliminate = async (tournamentPlayerId, playerName) => {
     const ok = await confirm(t('elimination.confirmEliminate', { name: playerName }), { variant: 'danger', confirmText: t('elimination.eliminate') });

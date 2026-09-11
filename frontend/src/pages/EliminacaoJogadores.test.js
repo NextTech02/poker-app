@@ -371,15 +371,21 @@ describe('troca de dia', () => {
 });
 
 describe('atualização periódica', () => {
-  it('recarrega a cada 3s', async () => {
+  it('alcança sozinho quem foi eliminado em outra estação', async () => {
     // Outra estação pode estar eliminando ao mesmo tempo.
+    //
+    // Quem avisa agora é o banco, via Realtime — esta tela recarregava a cada
+    // 3 SEGUNDOS para descobrir sozinha, e quase sempre recebia de volta
+    // exatamente a lista que já tinha. O que continua garantido, e é o que
+    // este teste protege, é que ela NÃO depende de uma ação local para
+    // atualizar: mesmo sem evento nenhum, a rede de segurança a alcança.
     jest.useFakeTimers();
     responder();
     render(<MemoryRouter><EliminacaoJogadores /></MemoryRouter>);
     await act(async () => {});
     const antes = api.get.mock.calls.length;
     await act(async () => {
-      jest.advanceTimersByTime(3000);
+      jest.advanceTimersByTime(30000 + 200); // intervalo + debounce do hook
     });
     expect(api.get.mock.calls.length).toBeGreaterThan(antes);
     jest.useRealTimers();

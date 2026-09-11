@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { usePolling } from '../hooks/usePolling';
+import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -99,7 +99,15 @@ const TableManagement = () => {
   }, [loadData]);
 
   // Polling de 5s que pausa quando a aba está oculta.
-  usePolling(loadData, 5000);
+  useRealtimeRefresh({
+    canal: `mesas-dia-${dayId}`,
+    tabelas: [
+      { table: 'tournament_tables' },
+      { table: 'tournament_players', filter: `tournament_day_id=eq.${dayId}` },
+    ],
+    aoMudar: () => loadData(),
+    ativo: !!dayId,
+  });
 
   // ── Lock Toggle ───────────────────────────────────────────────────────────
   const handleToggleLock = async () => {

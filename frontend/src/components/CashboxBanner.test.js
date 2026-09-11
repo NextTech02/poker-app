@@ -373,7 +373,10 @@ describe('saldo em dia', () => {
       const buscasAteAgora = api.get.mock.calls.length;
       api.get.mockResolvedValue({ data: { ...ABERTO, current_balance: 900 } });
 
-      await act(async () => { jest.advanceTimersByTime(15000); });
+      // 60s: este banner fica em TODA tela do sistema, então era o polling
+      // mais caro que existia. Com o aviso do banco no caminho rápido, o
+      // intervalo aqui é só rede de segurança e pode ser folgado.
+      await act(async () => { jest.advanceTimersByTime(60000 + 200); });
       expect(api.get.mock.calls.length).toBeGreaterThan(buscasAteAgora);
       expect(screen.getByText('R$ 900.00')).toBeInTheDocument();
     } finally {

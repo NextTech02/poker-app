@@ -6,7 +6,7 @@ import { useStage } from '../contexts/StageContext';
 import Button from './Button';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
-import usePolling from '../hooks/usePolling';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import './CashboxBanner.css';
 
 /**
@@ -89,11 +89,19 @@ const CashboxBanner = ({ onStateChange, cashDayId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, selectedStage?.id, cashDayId]);
 
-  // Rede de segurança para o que muda FORA deste navegador: o supervisor lança
-  // um suprimento ou uma sangria do Financeiro, de outro aparelho, e nenhum
-  // evento local chega aqui. Intervalo folgado (o evento acima já cobre o caso
-  // comum, que é a venda do próprio operador) e o hook pausa com a aba oculta.
-  usePolling(load, 15000);
+  // Para o que muda FORA deste navegador: o supervisor lança um suprimento ou
+  // uma sangria do Financeiro, de outro aparelho, e nenhum evento local chega
+  // aqui. Agora o banco avisa, o que além de mais barato é mais rápido — o
+  // saldo aparece na hora, não até quinze segundos depois.
+  //
+  // Este banner fica em TODA tela do sistema, então ele era o polling mais
+  // caro que existia: rodava o tempo inteiro, em qualquer lugar do app.
+  useRealtimeRefresh({
+    canal: `cashbox-${selectedStage?.id || cashDayId || 'sem-ancora'}`,
+    tabelas: [{ table: 'cashboxes' }],
+    aoMudar: () => load(),
+    intervaloDeSeguranca: 60000,
+  });
 
   // Venda, estorno, sangria e sync offline mudam o saldo em telas que não são
   // pais deste banner. Sem isto o operador vendia a noite inteira vendo o saldo

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { usePolling } from '../hooks/usePolling';
+import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -26,7 +26,12 @@ const TournamentRankings = () => {
   }, [tournamentId]);
 
   // Polling de 5s que pausa quando a aba está oculta.
-  usePolling(() => loadData(), 5000);
+  useRealtimeRefresh({
+    canal: `ranking-${tournamentId}`,
+    tabelas: [{ table: 'tournament_players', filter: `tournament_id=eq.${tournamentId}` }],
+    aoMudar: () => loadData(),
+    ativo: !!tournamentId,
+  });
 
   const loadData = async () => {
     try {

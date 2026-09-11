@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import api from '../config/api';
-import { usePolling } from '../hooks/usePolling';
+import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentDashboard.css';
 
@@ -63,7 +63,16 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   }, [tournamentId]);
 
   // Polling de 5s que pausa quando a aba está oculta (reduz carga em produção).
-  usePolling(refresh, tournamentId ? 5000 : 0);
+  useRealtimeRefresh({
+    canal: `painel-torneio-${tournamentId}`,
+    tabelas: [
+      { table: 'tournament_players', filter: `tournament_id=eq.${tournamentId}` },
+      { table: 'tournament_days', filter: `tournament_id=eq.${tournamentId}` },
+      { table: 'transactions', filter: `tournament_id=eq.${tournamentId}` },
+    ],
+    aoMudar: () => refresh(),
+    ativo: !!tournamentId,
+  });
 
   // Financeiro do torneio — memoizado (só recalcula quando jogadores/dias mudam)
   // e usando um Map dia→jogadores (O(n)) em vez de filtrar por dia (O(n²)).

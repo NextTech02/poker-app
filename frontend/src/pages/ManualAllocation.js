@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { usePolling } from '../hooks/usePolling';
+import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -56,7 +56,18 @@ const ManualAllocation = () => {
   }, [tournamentId]);
 
   // Polling que pausa quando a aba está oculta (era 3s, agora 5s).
-  usePolling(() => loadData(), 5000);
+  // Duas pessoas alocando ao mesmo tempo é o caso normal numa mesa final:
+  // aqui o aviso do banco vale mais que em qualquer outra tela, porque 5
+  // segundos de atraso é tempo de sobra para dois cliques no mesmo lugar.
+  useRealtimeRefresh({
+    canal: `alocacao-${tournamentId}`,
+    tabelas: [
+      { table: 'tournament_tables' },
+      { table: 'tournament_players', filter: `tournament_id=eq.${tournamentId}` },
+    ],
+    aoMudar: () => loadData(),
+    ativo: !!tournamentId,
+  });
 
   const loadData = async () => {
     try {
