@@ -3,11 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
+import time
 import httpx
 from app.config import get_settings
 from app.auth.permissions import forbid_permission
 from app.auth.modules import require_module
-from app.database.supabase_client import set_request_jwt, reset_request_jwt
+from app.database.supabase_client import set_request_jwt, reset_request_jwt, start_query_counter
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, organizations, loyalty, expenses, leads
@@ -91,7 +92,41 @@ class SupabaseUserContextMiddleware(BaseHTTPMiddleware):
             reset_request_jwt(ctx)  # nunca vaza o token para a próxima request
 
 
+class PerfLogMiddleware(BaseHTTPMiddleware):
+    """Registra tempo e número de idas ao banco por requisição.
+
+    O número de consultas é o que importa: daqui até o Supabase o RTT é de ~50ms,
+    então uma requisição com sete consultas sequenciais custa um terço de segundo
+    de pura espera, por mais rápido que o Postgres responda cada uma.
+
+    Ligar com PERF_LOG=1. Fica de fora por padrão porque é ferramenta de
+    diagnóstico: em produção seria uma linha por requisição que ninguém lê.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        contador = start_query_counter()
+        inicio = time.perf_counter()
+        try:
+            resposta = await call_next(request)
+        finally:
+            ms = (time.perf_counter() - inicio) * 1000
+            n = len(contador)
+            if ms >= 400 or n >= 6:
+                marca = "  <-- LENTO"
+            else:
+                marca = ""
+            logger.info(
+                "[perf] %-6s %-42s %6.0fms  %2d consultas%s",
+                request.method, request.url.path, ms, n, marca,
+            )
+        return resposta
+
+
 app.add_middleware(SupabaseUserContextMiddleware)
+if get_settings().perf_log:
+    # Adicionado DEPOIS do de contexto => fica por fora dele, então mede a
+    # requisição inteira, inclusive o tempo do próprio contexto.
+    app.add_middleware(PerfLogMiddleware)
 app.add_middleware(CatchAllExceptionMiddleware)
 
 # Configure CORS (added last → outermost)

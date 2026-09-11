@@ -145,9 +145,46 @@ _REST_TIMEOUT = httpx.Timeout(connect=15.0, read=60.0, write=15.0, pool=30.0)
 # endpoints sync num threadpool e o anyio propaga o contexto para a thread.
 _request_jwt: ContextVar[Optional[str]] = ContextVar("supabase_request_jwt", default=None)
 
+# Cliente PostgREST JÁ MONTADO desta request.
+#
+# Antes, `_active()` montava um cliente NOVO a cada `.table()`. Um endpoint com
+# seis consultas construía seis SyncClient + seis SyncPostgrestClient e
+# descartava todos — por requisição, em todo o sistema. O pool TCP nunca foi o
+# problema (o transporte sempre foi compartilhado); o desperdício era CPU e
+# alocação, multiplicados pelo número de consultas.
+_request_pg: ContextVar[Optional[SyncPostgrestClient]] = ContextVar(
+    "supabase_request_pg", default=None
+)
+
+# Contador de idas ao banco desta request, para a medição abaixo.
+#
+# Guarda uma LISTA (objeto mutável), e não um número: o endpoint sync roda numa
+# thread do pool, que recebe uma CÓPIA do contexto. Reatribuir um int lá dentro
+# não voltaria para quem mede; mutar a lista que os dois apontam, sim.
+_request_queries: ContextVar[Optional[list]] = ContextVar(
+    "supabase_request_queries", default=None
+)
+
+
+def start_query_counter() -> list:
+    """Zera e devolve o contador de consultas da request atual."""
+    contador = []
+    _request_queries.set(contador)
+    return contador
+
+
+def _conta(alvo: str) -> None:
+    contador = _request_queries.get()
+    if contador is not None:
+        contador.append(alvo)
+
 
 def set_request_jwt(token: Optional[str]) -> Token:
     """Define o JWT da request atual. Devolve o Token para reset()."""
+    # O cliente montado pertence a UM token. Trocar de request sem limpar aqui
+    # faria a próxima requisição herdar o PostgREST da anterior — ou seja,
+    # consultar como outro usuário. É a limpeza que torna o cache seguro.
+    _request_pg.set(None)
     return _request_jwt.set(token)
 
 
@@ -195,14 +232,23 @@ class _SupabaseProxy:
         jwt = _request_jwt.get()
         if not jwt:
             return self._admin.postgrest
-        return _build_user_postgrest(jwt)
+
+        # Uma vez por REQUISIÇÃO, não uma por consulta.
+        pronto = _request_pg.get()
+        if pronto is not None:
+            return pronto
+        pronto = _build_user_postgrest(jwt)
+        _request_pg.set(pronto)
+        return pronto
 
     def table(self, name: str):
+        _conta(name)
         return self._active().table(name)
 
     from_ = table
 
     def rpc(self, fn: str, params: dict | None = None):
+        _conta("rpc:" + fn)
         return self._active().rpc(fn, params or {})
 
     def __getattr__(self, item):
