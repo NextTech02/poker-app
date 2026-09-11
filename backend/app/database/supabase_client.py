@@ -1,5 +1,8 @@
 import contextlib
+import hashlib
 import re
+import threading
+from collections import OrderedDict
 from contextvars import ContextVar, Token
 from typing import Optional
 
@@ -192,8 +195,38 @@ def reset_request_jwt(token: Token) -> None:
     _request_jwt.reset(token)
 
 
+# Clientes já montados, por token. Ver `_build_user_postgrest`.
+#
+# Um operador faz centenas de requisições com o MESMO token ao longo do turno;
+# sem isto, cada uma paga 236ms para montar um cliente idêntico ao anterior.
+#
+# A chave é o hash do token, não o token: o cache vive muito mais que a
+# requisição, e não há por que manter a credencial em texto como chave de um
+# dicionário de longa duração (ela já está, inevitavelmente, dentro do cliente).
+#
+# Limite baixo de propósito: o que precisa caber aqui são os operadores logados
+# ao mesmo tempo, não o histórico. Token novo (renovação de sessão) entra como
+# chave nova e o antigo cai por desuso.
+_CLIENTES_MAX = 64
+_clientes: "OrderedDict[str, SyncPostgrestClient]" = OrderedDict()
+# Lock porque o FastAPI executa os endpoints sync num threadpool: sem ele, duas
+# threads mexem no OrderedDict ao mesmo tempo.
+_clientes_lock = threading.Lock()
+
+
 def _build_user_postgrest(jwt: str) -> SyncPostgrestClient:
-    """PostgREST autenticado como o usuário (RLS aplicado)."""
+    """PostgREST autenticado como o usuário (RLS aplicado).
+
+    Reaproveitado entre requisições do MESMO token — ver `_clientes` acima.
+    """
+    chave = hashlib.sha256(jwt.encode("utf-8")).hexdigest()
+
+    with _clientes_lock:
+        pronto = _clientes.get(chave)
+        if pronto is not None:
+            _clientes.move_to_end(chave)
+            return pronto
+
     session = SyncClient(
         base_url=f"{settings.supabase_url}/rest/v1",
         headers={
@@ -212,7 +245,15 @@ def _build_user_postgrest(jwt: str) -> SyncPostgrestClient:
         schema="public",
         timeout=_REST_TIMEOUT,
     )
+    # O construtor acima montou um httpx.Client próprio (contexto SSL + CAs do
+    # sistema: ~236ms medidos). É ele que estamos descartando aqui, trocando
+    # pelo `session` que usa o transporte compartilhado.
     client.session = session
+
+    with _clientes_lock:
+        _clientes[chave] = client
+        while len(_clientes) > _CLIENTES_MAX:
+            _clientes.popitem(last=False)   # o mais antigo sem uso
     return client
 
 
