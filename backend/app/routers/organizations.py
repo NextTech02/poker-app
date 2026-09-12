@@ -454,14 +454,92 @@ def switch_organization(data: SwitchOrgRequest, current_user: dict = Depends(get
     return {"organization_id": data.organization_id, "refresh_required": True}
 
 
+# Assunto e corpo do convite, no idioma escolhido para a organização. O clube
+# colombiano não pode receber o primeiro e-mail do sistema em português — é o
+# primeiro contato dele com o produto.
+_CONVITE = {
+    "pt-BR": (
+        "Seu acesso ao {org}",
+        "Olá, {nome}.\n\n"
+        "Sua conta de administrador do clube {org} está pronta.\n"
+        "Defina sua senha por este link (ele é de uso único):\n\n{link}\n\n"
+        "Se você não esperava este e-mail, pode ignorá-lo.",
+    ),
+    "en-US": (
+        "Your access to {org}",
+        "Hello, {nome}.\n\n"
+        "Your admin account for {org} is ready.\n"
+        "Set your password with this link (single use):\n\n{link}\n\n"
+        "If you were not expecting this email, you can ignore it.",
+    ),
+    "es-ES": (
+        "Su acceso a {org}",
+        "Hola, {nome}.\n\n"
+        "Su cuenta de administrador del club {org} está lista.\n"
+        "Defina su contraseña con este enlace (de un solo uso):\n\n{link}\n\n"
+        "Si no esperaba este correo, puede ignorarlo.",
+    ),
+}
+
+
+def _enviar_convite(email: str, nome: str, org: str, link: str, idioma: str):
+    """Manda o convite. Devolve (enviado, motivo_se_nao).
+
+    NUNCA levanta: neste ponto a organização JÁ existe, e derrubar a resposta
+    faria o operador achar que nada foi criado — e tentar de novo, esbarrando
+    no slug em uso. Convite que não sai é problema de reenviar; organização
+    fantasma é problema de suporte.
+    """
+    if not settings.resend_api_key:
+        return False, ("A organização foi criada, mas o e-mail de convite não foi "
+                       "enviado: RESEND_API_KEY não está configurada. Reenvie o "
+                       "convite pela tela de funcionários.")
+
+    assunto, corpo = _CONVITE.get(idioma) or _CONVITE["pt-BR"]
+    try:
+        r = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+            json={
+                "from": settings.leads_email_from,
+                "to": [email],
+                "subject": assunto.format(org=org),
+                "text": corpo.format(nome=nome, org=org, link=link),
+            },
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            # O corpo da resposta pode trazer chave e detalhe do provedor: log.
+            logger.warning("Resend recusou o convite de %s: %s", email, r.text[:300])
+            return False, ("A organização foi criada, mas o e-mail de convite foi "
+                           "recusado pelo provedor. Reenvie o convite.")
+    except Exception:
+        logger.exception("falha ao enviar o convite de %s", email)
+        return False, ("A organização foi criada, mas não foi possível enviar o "
+                       "e-mail de convite. Reenvie o convite.")
+    return True, None
+
+
 @router.post("", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(require_platform_admin)])
 def create_organization(data: OrganizationCreate):
     """Cria a organização e convida o dono por e-mail.
 
-    Ordem importa: primeiro o convite (cria o usuário no auth), depois o
-    provisionamento — que exige um auth_user existente. Se o provisionamento
-    falhar, o usuário criado é removido para não deixar lixo no auth.
+    ORDEM IMPORTA, E O E-MAIL VEM POR ÚLTIMO.
+
+    O provisionamento exige um `auth.users` existente, então o usuário precisa
+    nascer antes. Mas criá-lo com `/auth/v1/invite` ENVIA o e-mail na hora — e
+    se o provisionamento falhasse depois, o cliente já teria recebido um
+    convite para uma organização que não existe. O código apagava o usuário e
+    chamava isso de rollback; e-mail não tem rollback.
+
+    Não é hipótese: `provision_organization` ficou ambígua (duas sobrecargas,
+    ver database_migration_fix_provision_organization_ambigua.sql) e toda
+    criação passou a falhar — cada tentativa mandando um e-mail com um link
+    para um usuário que era apagado em seguida.
+
+    Agora: `admin/generate_link` cria o usuário e DEVOLVE o link sem enviar
+    nada; provisiona; e só então envia. O único passo irreversível é o último.
     """
     slug = _slugify(data.slug or data.name)
 
@@ -480,9 +558,14 @@ def create_organization(data: OrganizationCreate):
         "Content-Type": "application/json",
     }
 
-    # 1) Convite: o Supabase cria o usuário e manda o e-mail para ele DEFINIR a
-    #    própria senha. A senha nunca passa por nós.
+    # 1) Cria o usuário e OBTÉM o link, sem enviar nada.
+    #
+    #    `admin/generate_link` existe exatamente para isto: "generates an email
+    #    link for a specific action without sending it". Com `type=invite` ele
+    #    também CRIA o usuário — que é o que o provisionamento exige logo
+    #    abaixo. A senha nunca passa por nós: o link leva o dono a defini-la.
     auth_user_id = None
+    action_link = None
     invite_sent = False
     invite_error = None
     try:
@@ -493,9 +576,10 @@ def create_organization(data: OrganizationCreate):
         # ⚠️ A URL também precisa estar na allowlist de Redirect URLs do
         # Supabase; fora dela, ele ignora e volta a usar o Site URL.
         r = httpx.post(
-            f"{base}/auth/v1/invite",
+            f"{base}/auth/v1/admin/generate_link",
             headers=headers,
             json={
+                "type": "invite",
                 "email": data.admin_email,
                 # `organization_name` marca a conta como criada por convite: o
                 # app usa isso (com `onboarded_at`) para exigir a definicao da
@@ -510,16 +594,23 @@ def create_organization(data: OrganizationCreate):
             timeout=20,
         )
         if r.status_code in (200, 201):
-            auth_user_id = r.json().get("id")
-            invite_sent = True
+            corpo = r.json()
+            # O GoTrue já devolveu esse payload em dois formatos ao longo das
+            # versões (campos do usuário na raiz, ou aninhados em `user` com o
+            # link em `properties`). Aceitar os dois evita que uma atualização
+            # do Supabase quebre a criação de clientes.
+            auth_user_id = corpo.get("id") or (corpo.get("user") or {}).get("id")
+            action_link = (
+                corpo.get("action_link")
+                or (corpo.get("properties") or {}).get("action_link")
+            )
         elif r.status_code == 429:
-            # Limite de envio de e-mail do Supabase (SMTP padrão manda pouquíssimos
-            # por hora). Mensagem explícita: sem isso o operador só via "erro".
+            # O GoTrue limita este endpoint junto com os de e-mail, mesmo ele não
+            # enviando nada. Mensagem explícita: sem isso o operador só via "erro".
             raise recusado(
                 "limite_de_envio_de_email",
-                "Limite de envio de e-mails do Supabase atingido. Configure um SMTP "
-                "próprio em Authentication → Emails para convidar clientes sem limite, "
-                "ou aguarde e tente novamente.",
+                "Limite de requisições de autenticação do Supabase atingido. "
+                "Aguarde alguns minutos e tente novamente.",
             )
         elif r.status_code in (409, 422):
             # Usuário já existe no auth — reaproveita (o provisionamento recusa
@@ -532,7 +623,9 @@ def create_organization(data: OrganizationCreate):
                 if (u.get("email") or "").lower() == data.admin_email.lower():
                     auth_user_id = u.get("id")
                     break
-            invite_error = "Usuário já existia no sistema; vinculado sem novo convite."
+            invite_error = ("Usuário já existia no sistema; vinculado à nova "
+                            "organização sem novo convite. Ele entra com a senha "
+                            "que já usava.")
         else:
             # A resposta CRUA do serviço de auth ia para a tela: inglês, JSON e
             # nenhuma ação possível para quem lê. Fica no log.
@@ -574,17 +667,26 @@ def create_organization(data: OrganizationCreate):
         }).execute()
         org_id = result.data if isinstance(result.data, str) else (result.data or [None])[0]
     except Exception as exc:
-        # Rollback do convite: sem organização, o usuário criado agora é lixo.
-        if invite_sent:
+        # Desfaz o usuário que acabamos de criar — e agora isso é um rollback de
+        # verdade, porque NENHUM e-mail saiu ainda. Só apaga quem nós criamos:
+        # um usuário que já existia pertence a outra coisa.
+        if action_link:
             try:
                 httpx.delete(f"{base}/auth/v1/admin/users/{auth_user_id}", headers=headers, timeout=20)
             except Exception:
-                pass
+                logger.exception("falha ao remover o usuário órfão %s", auth_user_id)
         # A mensagem do Postgres (constraint, função, coluna) fica no log.
         logger.error("Falha ao provisionar a organização '%s': %s", slug, exc)
         raise recusado(
             "falha_ao_provisionar_organizacao",
             "Não foi possível criar a organização. Consulte o suporte.",
+        )
+
+    # 3) A organização existe. Só AGORA o passo irreversível.
+    if action_link:
+        invite_sent, invite_error = _enviar_convite(
+            email=data.admin_email, nome=data.admin_name,
+            org=data.name, link=action_link, idioma=data.language,
         )
 
     return OrganizationOut(

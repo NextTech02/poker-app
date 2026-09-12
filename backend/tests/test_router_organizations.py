@@ -257,27 +257,119 @@ class _RespostaFalsa:
 
 
 class TestCriacao:
-    """Ordem: convite (cria o auth user) → provisionamento (precisa dele)."""
+    """Ordem: gerar o link (cria o auth user, NAO envia) → provisionar → enviar.
+
+    O e-mail e o unico passo irreversivel, entao e o ultimo. Ver a docstring de
+    `create_organization` para o incidente que essa ordem evita.
+    """
 
     def _corpo(self, **kw):
         base = {"name": "Clube Novo", "admin_name": "Dono", "admin_email": "dono@novo.com"}
         base.update(kw)
         return base
 
-    def test_cria_e_convida(self, admin, banco, monkeypatch):
-        chamadas = []
-
+    def _post_falso(self, chamadas, status_link=200, status_email=200):
+        """Um `httpx.post` que sabe distinguir gerar-o-link de enviar-o-e-mail."""
         def _post(url, **kw):
             chamadas.append(url)
-            return _RespostaFalsa(200, {"id": "auth-1"})
+            if "resend.com" in url:
+                return _RespostaFalsa(status_email, {"id": "email-1"})
+            return _RespostaFalsa(status_link, {
+                "id": "auth-1",
+                "action_link": "https://exemplo/definir-senha#token=abc",
+            })
+        return _post
 
-        monkeypatch.setattr(mod.httpx, "post", _post)
+    @staticmethod
+    def _com_resend(monkeypatch):
+        """Sem chave, o envio nem e tentado — e metade dos testes ficaria cega."""
+        monkeypatch.setattr(mod.settings, "resend_api_key", "re_teste", raising=False)
+        monkeypatch.setattr(mod.settings, "leads_email_from", "AceBlind <n@x.com>", raising=False)
+
+    def test_cria_e_convida(self, admin, banco, monkeypatch):
+        chamadas = []
+        self._com_resend(monkeypatch)
+        monkeypatch.setattr(mod.httpx, "post", self._post_falso(chamadas))
         banco.rpcs["provision_organization"] = "org-nova"
+
         r = admin.post("/organizations", json=self._corpo())
         assert r.status_code == 201
         assert r.json()["invite_sent"] is True
         assert r.json()["slug"] == "clube-novo"
-        assert any("/auth/v1/invite" in u for u in chamadas)
+
+        # `generate_link` e nao `invite`: aquele CRIA o usuario e devolve o
+        # link sem enviar; este enviaria na hora, antes de a organizacao
+        # existir.
+        assert any("/auth/v1/admin/generate_link" in u for u in chamadas)
+        assert not any("/auth/v1/invite" in u for u in chamadas)
+
+    def test_o_email_so_sai_DEPOIS_de_a_organizacao_existir(self, admin, banco, monkeypatch):
+        """A ordem e a correcao inteira: o passo irreversivel vem por ultimo."""
+        chamadas = []
+        self._com_resend(monkeypatch)
+        monkeypatch.setattr(mod.httpx, "post", self._post_falso(chamadas))
+
+        momento_do_email = {}
+
+        def _provisiona(_):
+            # Quando o banco e chamado, o e-mail ainda nao pode ter saido.
+            momento_do_email["email_antes"] = any("resend.com" in u for u in chamadas)
+            return "org-nova"
+
+        banco.rpcs["provision_organization"] = _provisiona
+
+        assert admin.post("/organizations", json=self._corpo()).status_code == 201
+        assert momento_do_email["email_antes"] is False
+        assert any("resend.com" in u for u in chamadas)   # saiu, mas depois
+
+    def test_provisionamento_falho_NAO_manda_email(self, admin, banco, monkeypatch):
+        """O BUG que isto protege.
+
+        `provision_organization` ficou ambigua (duas sobrecargas) e toda criacao
+        passou a falhar. Como o e-mail era enviado ANTES, cada tentativa mandava
+        um convite para um cliente cuja organizacao nunca existiu -- com um link
+        para um usuario que o rollback apagava em seguida.
+
+        Usuario apagado tem rollback. E-mail nao tem. Por isso ele e o ultimo.
+        """
+        chamadas = []
+        self._com_resend(monkeypatch)
+        monkeypatch.setattr(mod.httpx, "post", self._post_falso(chamadas))
+        monkeypatch.setattr(mod.httpx, "delete", lambda url, **k: _RespostaFalsa(200))
+
+        def _estoura(_):
+            raise Exception("function is not unique")
+        banco.rpcs["provision_organization"] = _estoura
+
+        r = admin.post("/organizations", json=self._corpo())
+        assert r.status_code == 400
+        assert not any("resend.com" in u for u in chamadas)
+
+    def test_organizacao_criada_sobrevive_a_falha_do_email(self, admin, banco, monkeypatch):
+        """Convite que nao sai e problema de reenviar; organizacao fantasma e
+        problema de suporte. Entao a falha do envio NAO derruba a criacao --
+        ela e relatada."""
+        chamadas = []
+        self._com_resend(monkeypatch)
+        monkeypatch.setattr(mod.httpx, "post", self._post_falso(chamadas, status_email=500))
+        banco.rpcs["provision_organization"] = "org-nova"
+
+        r = admin.post("/organizations", json=self._corpo())
+        assert r.status_code == 201
+        assert r.json()["invite_sent"] is False
+        assert "criada" in r.json()["invite_error"]
+
+    def test_sem_chave_de_email_a_organizacao_ainda_e_criada(self, admin, banco, monkeypatch):
+        chamadas = []
+        monkeypatch.setattr(mod.settings, "resend_api_key", "", raising=False)
+        monkeypatch.setattr(mod.httpx, "post", self._post_falso(chamadas))
+        banco.rpcs["provision_organization"] = "org-nova"
+
+        r = admin.post("/organizations", json=self._corpo())
+        assert r.status_code == 201
+        assert r.json()["invite_sent"] is False
+        assert "RESEND_API_KEY" in r.json()["invite_error"]
+        assert not any("resend.com" in u for u in chamadas)
 
     def test_idioma_vai_para_o_provisionamento(self, admin, banco, monkeypatch):
         """O idioma nao e so a interface: o provisionamento grava os nomes dos
@@ -319,13 +411,13 @@ class TestCriacao:
         r = admin.post("/organizations", json=self._corpo(name="Clube  do  Zé!!"))
         assert r.json()["slug"] == "clube-do-z"
 
-    def test_limite_de_email_do_supabase_vira_mensagem_acionavel(self, admin, banco, monkeypatch):
-        """429 do Supabase: o operador precisa saber que é cota de e-mail e
-        que a saída é configurar SMTP próprio — não um "erro" genérico."""
+    def test_limite_do_supabase_vira_mensagem_acionavel(self, admin, banco, monkeypatch):
+        """429: o operador precisa saber que e limite e que a saida e esperar --
+        nao um "erro" generico sem acao possivel."""
         monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(429))
         r = admin.post("/organizations", json=self._corpo())
         assert r.status_code == 400
-        assert "SMTP" in r.json()["detail"]["message"]
+        assert "Limite" in r.json()["detail"]["message"]
 
     def test_usuario_ja_existente_no_auth_e_reaproveitado(self, admin, banco, monkeypatch):
         monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(422))
@@ -358,7 +450,8 @@ class TestCriacao:
         """Sem esse rollback fica uma conta órfã no auth, e o mesmo e-mail não
         pode mais ser convidado."""
         apagados = []
-        monkeypatch.setattr(mod.httpx, "post", lambda *a, **k: _RespostaFalsa(200, {"id": "auth-1"}))
+        self._com_resend(monkeypatch)
+        monkeypatch.setattr(mod.httpx, "post", self._post_falso([]))
         monkeypatch.setattr(mod.httpx, "delete",
                             lambda url, **k: apagados.append(url) or _RespostaFalsa(200))
 
