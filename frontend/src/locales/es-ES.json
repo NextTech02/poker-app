@@ -2576,9 +2576,13 @@
     "statusCancelled": "Se fue",
     "statusNoShow": "No compareció",
     "statusSeated": "Se sentó",
-    "subtitle": "{{count}} en la lista. El orden es de llegada y no se renumera — quien sale no hace subir a los demás.",
+    "subtitle": "{{count}} en la fila, por modalidad. El orden es de llegada; el número es el lugar en la fila y sube solo cuando alguien se sienta.",
     "table": "Mesa",
-    "wants": "Quiere jugar"
+    "wants": "Quiere jugar",
+    "tablesRunning": "Mesas {{lista}}",
+    "noTableForGame": "Ninguna mesa abierta",
+    "freeSeats": "{{count}} lugares libres",
+    "waitingCount": "{{count}} esperando"
   },
   "cashJackpot": {
     "balance": "Acumulado ahora",

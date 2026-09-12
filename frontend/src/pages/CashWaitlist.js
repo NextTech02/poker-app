@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import Sidebar from '../components/Sidebar';
@@ -19,9 +19,15 @@ import './CashWaitlist.css';
  * papel na mão de alguém — que se perde, some, e vira discussão na frente da
  * mesa. Esta tela existe para essa ordem ser a mesma para todo mundo que olhar.
  *
- * A POSIÇÃO NÃO É RECICLADA: quem senta ou desiste sai da fila, mas os que
- * estão atrás mantêm o número. É o registro de quem chegou quando — e é
- * exatamente isso que o jogador contesta no balcão.
+ * O NÚMERO NA TELA É O LUGAR NA FILA (1, 2, 3...), recalculado a cada carga.
+ * Não é a posição de chegada: essa continua gravada no banco, imutável, e é
+ * ela que ORDENA a fila — é o registro de quem chegou quando. A tela mostra a
+ * resposta à pergunta que o jogador faz ("sou o quantos?"); o banco guarda a
+ * resposta à pergunta que ele contesta ("quem chegou antes?").
+ *
+ * A FILA É POR MODALIDADE, não por mesa física. Quem espera pelo NLH 1/2 pode
+ * sentar em qualquer mesa que rode NLH 1/2 — agrupar por mesa faria a mesma
+ * pessoa aparecer em três listas ao mesmo tempo.
  *
  * O visitante entra só com o NOME. Exigir cadastro com cinco pessoas esperando
  * faria o operador voltar para o papel, que é o que a fila veio substituir.
@@ -138,8 +144,69 @@ const CashWaitlist = () => {
     t('cashWaitlist.actionError', 'Não foi possível concluir'),
   );
 
-  const esperando = entries.filter((e) => e.status === 'waiting' || e.status === 'called');
-  const encerrados = entries.filter((e) => e.status !== 'waiting' && e.status !== 'called');
+  const esperando = useMemo(
+    () => entries.filter((e) => e.status === 'waiting' || e.status === 'called'),
+    [entries],
+  );
+  const encerrados = useMemo(
+    () => entries.filter((e) => e.status !== 'waiting' && e.status !== 'called'),
+    [entries],
+  );
+
+  /**
+   * A fila, dividida por modalidade.
+   *
+   * Cada pessoa aparece UMA vez: ela espera por um stake, não por uma mesa. O
+   * cabeçalho do grupo diz quais mesas rodam aquele stake e quantos lugares
+   * estão livres entre elas — é o que o operador precisa para decidir se tem
+   * quem chamar agora.
+   *
+   * Quem entrou como "qualquer mesa" fica num grupo próprio, no fim: essa
+   * pessoa serve para qualquer lugar que abrir, então ela não pertence a
+   * stake nenhum.
+   *
+   * `entries` já vem do servidor ordenado por posição de chegada, e agrupar
+   * preserva essa ordem — por isso o índice dentro do grupo JÁ É o lugar na
+   * fila, sem precisar reordenar nada aqui.
+   */
+  const grupos = useMemo(() => {
+    // Índice das mesas abertas por modalidade. Sem ele seria uma varredura da
+    // lista de mesas por pessoa na fila.
+    const mesasPorTipo = new Map();
+    let livresNoSalao = 0;
+    tables.forEach((m) => {
+      livresNoSalao += m.free_seats || 0;
+      if (!m.game_type_id) return;
+      const atual = mesasPorTipo.get(m.game_type_id) || { numeros: [], livres: 0 };
+      atual.numeros.push(m.table_number);
+      atual.livres += m.free_seats || 0;
+      mesasPorTipo.set(m.game_type_id, atual);
+    });
+
+    const porTipo = new Map();
+    esperando.forEach((e) => {
+      const chave = e.game_type_id || 'qualquer';
+      if (!porTipo.has(chave)) {
+        const mesas = e.game_type_id ? mesasPorTipo.get(e.game_type_id) : null;
+        porTipo.set(chave, {
+          chave,
+          qualquerMesa: !e.game_type_id,
+          titulo: e.game_type_name || null,
+          // "Qualquer mesa" enxerga o salão inteiro, porque é isso que ela é.
+          numeros: e.game_type_id ? (mesas?.numeros || []) : tables.map((m) => m.table_number),
+          livres: e.game_type_id ? (mesas?.livres || 0) : livresNoSalao,
+          itens: [],
+        });
+      }
+      porTipo.get(chave).itens.push(e);
+    });
+
+    // Quem espera há mais tempo aparece em cima: é o grupo que tem alguém
+    // prestes a reclamar. "Qualquer mesa" entra nessa ordem como os outros.
+    return [...porTipo.values()].sort(
+      (a, b) => (a.itens[0]?.position || 0) - (b.itens[0]?.position || 0),
+    );
+  }, [esperando, tables]);
 
   const abrirEntrada = () => {
     setForm({ player_id: '', guest_name: '', game_type_id: '' });
@@ -173,7 +240,7 @@ const CashWaitlist = () => {
           <div>
             <h1>{t('cash.waitlist', 'Fila de espera')}</h1>
             <p className="subtitle">
-              {t('cashWaitlist.subtitle', '{{count}} na fila. A ordem é a de chegada e não é renumerada — quem sai não faz os outros subirem de número.', {
+              {t('cashWaitlist.subtitle', '{{count}} na fila, por modalidade. A ordem é a de chegada; o número é o lugar na fila e sobe sozinho quando alguém senta.', {
                 count: esperando.length,
               })}
             </p>
@@ -202,10 +269,45 @@ const CashWaitlist = () => {
             onCta={abrirEntrada}
           />
         ) : (
-          <ol className="cw-list">
-            {esperando.map((e) => (
+          grupos.map((grupo) => (
+            <section key={grupo.chave} className="cw-group">
+              <header className="cw-group-head">
+                <h2 className="cw-group-title">
+                  {grupo.qualquerMesa
+                    ? t('cashWaitlist.anyGame', 'Qualquer mesa')
+                    : grupo.titulo}
+                </h2>
+                <span className="cw-group-meta">
+                  {/* O que o operador precisa saber para decidir se chama
+                      alguém agora: onde essa gente pode sentar, e se há lugar. */}
+                  {grupo.numeros.length === 0
+                    ? t('cashWaitlist.noTableForGame', 'Nenhuma mesa aberta')
+                    : t('cashWaitlist.tablesRunning', 'Mesas {{lista}}', {
+                        lista: grupo.numeros.join(', '),
+                      })}
+                  {grupo.numeros.length > 0 && (
+                    <>
+                      {' · '}
+                      <span className={grupo.livres > 0 ? 'cw-free' : undefined}>
+                        {t('cashWaitlist.freeSeats', '{{count}} lugares livres', {
+                          count: grupo.livres,
+                        })}
+                      </span>
+                    </>
+                  )}
+                  {' · '}
+                  {t('cashWaitlist.waitingCount', '{{count}} esperando', {
+                    count: grupo.itens.length,
+                  })}
+                </span>
+              </header>
+              <ol className="cw-list">
+                {grupo.itens.map((e, indice) => (
               <li key={e.id} className={`cw-item ${e.status}`}>
-                <span className="cw-position" aria-hidden="true">{e.position}</span>
+                {/* O LUGAR na fila, não o número de chegada: é a resposta à
+                    pergunta que o jogador faz no balcão ("sou o quantos?").
+                    A chegada continua gravada, e é ela que ordena esta lista. */}
+                <span className="cw-position" aria-hidden="true">{indice + 1}</span>
                 <div className="cw-info">
                   <span className="cw-name">{e.player_name}</span>
                   <span className="cw-meta">
@@ -259,8 +361,10 @@ const CashWaitlist = () => {
                   </button>
                 </div>
               </li>
-            ))}
-          </ol>
+                ))}
+              </ol>
+            </section>
+          ))
         )}
 
         {encerrados.length > 0 && (
@@ -271,10 +375,10 @@ const CashWaitlist = () => {
             <ul className="cw-list cw-list--past">
               {encerrados.map((e) => (
                 <li key={e.id} className="cw-item past">
-                  <span className="cw-position" aria-hidden="true">{e.position}</span>
                   <div className="cw-info">
                     <span className="cw-name">{e.player_name}</span>
                     <span className="cw-meta">
+                      {e.game_type_name && <>{e.game_type_name}{' · '}</>}
                       {e.status === 'seated' && t('cashWaitlist.statusSeated', 'Sentou')}
                       {e.status === 'no_show' && t('cashWaitlist.statusNoShow', 'Não compareceu')}
                       {e.status === 'cancelled' && t('cashWaitlist.statusCancelled', 'Desistiu')}

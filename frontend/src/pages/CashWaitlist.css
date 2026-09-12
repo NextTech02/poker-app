@@ -1,9 +1,47 @@
 /* Fila de espera.
 
-   A POSIÇÃO é o elemento mais forte da linha porque é o que o jogador quer
-   saber ("sou o quarto") e o que o operador confere quando alguém reclama da
-   ordem. Ela não é o índice da lista: é o número que ficou gravado quando a
-   pessoa chegou, e quem sai da fila não faz os outros subirem. */
+   O LUGAR NA FILA é o elemento mais forte da linha porque é o que o jogador
+   quer saber ("sou o quarto"). Ele É o índice dentro do grupo: quem sai faz
+   os outros subirem, como numa fila de verdade. A posição de CHEGADA continua
+   gravada no banco e é ela que ordena a lista — some da tela, não do registro.
+
+   A lista é dividida por MODALIDADE, não por mesa: quem espera pelo NLH 1/2
+   senta em qualquer mesa que rode NLH 1/2, então agrupar por mesa faria a
+   mesma pessoa aparecer em três listas ao mesmo tempo. */
+
+/* O cabeçalho responde, de relance, a única pergunta que faz o operador agir:
+   "tem lugar livre para essa gente agora?" */
+.cw-group {
+  margin-bottom: 1.6rem;
+}
+
+.cw-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border-primary, #2a3a4d);
+}
+
+.cw-group-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary, #e0eaf4);
+}
+
+.cw-group-meta {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8ba0b6);
+}
+
+/* Lugar livre é a deixa para chamar alguém: destaca. */
+.cw-free {
+  color: var(--success-color, #22c55e);
+  font-weight: 600;
+}
 
 .cw-list {
   list-style: none;
@@ -123,4 +161,9 @@
     width: 100%;
     justify-content: flex-start;
   }
+}
+
+/* Sem o número de chegada, a linha do histórico não tem a coluna da esquerda. */
+.cw-item.past .cw-info {
+  padding-left: 0;
 }

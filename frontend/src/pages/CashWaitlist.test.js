@@ -48,8 +48,16 @@ const DIA = 'dia-1';
 
 const MESA = {
   id: 'mesa-1', table_number: 3, seats: 9, free_seats: 5,
-  game_type_name: 'NLH 1/2', status: 'open',
+  game_type_id: 'gt-nlh', game_type_name: 'NLH 1/2', status: 'open',
 };
+
+/** Os números que aparecem na coluna da esquerda, de cima para baixo. */
+const lugares = () =>
+  [...document.querySelectorAll('.cw-position')].map((n) => n.textContent);
+
+/** Os títulos das seções, na ordem em que aparecem. */
+const secoes = () =>
+  [...document.querySelectorAll('.cw-group-title')].map((n) => n.textContent);
 
 const entrada = (over = {}) => ({
   id: 'f1', cash_day_id: DIA, player_id: 'p1', guest_name: null,
@@ -80,12 +88,86 @@ beforeEach(() => {
 });
 
 describe('a fila', () => {
-  it('mostra a posição que veio do servidor', async () => {
-    // O primeiro da lista é o número 4: quem estava à frente já sentou. Numerar
-    // pelo índice mostraria "1" e contradiria o que o jogador ouviu no balcão.
+  it('o número é o LUGAR na fila, não o de chegada', async () => {
+    // Ana chegou em quarto lugar (position 4) e os três da frente já sentaram:
+    // ela é a primeira da fila agora, e é isso que a tela diz.
+    //
+    // Já foi o contrário aqui — a tela mostrava o número de chegada, para que
+    // ele servisse de prova da ordem no balcão. O cliente preferiu responder à
+    // pergunta que o jogador faz ("sou o quantos?"). A prova não se perdeu: a
+    // posição de chegada continua gravada e continua ORDENANDO esta lista.
     montar();
-    expect(await screen.findByText('4')).toBeInTheDocument();
-    expect(screen.getByText('Ana')).toBeInTheDocument();
+    await screen.findByText('Ana');
+    expect(lugares()).toEqual(['1']);
+  });
+
+  it('quem sai faz os outros subirem', async () => {
+    montar({
+      fila: [
+        entrada(),
+        entrada({ id: 'f2', position: 9, player_name: 'Bruno' }),
+        entrada({ id: 'f3', position: 12, player_name: 'Célia' }),
+      ],
+    });
+    await screen.findByText('Célia');
+    // Chegadas 4, 9 e 12 — lugares 1, 2 e 3.
+    expect(lugares()).toEqual(['1', '2', '3']);
+  });
+
+  it('divide a fila por modalidade, e cada uma numera do 1', async () => {
+    // Quem espera pelo NLH 1/2 senta em QUALQUER mesa que rode NLH 1/2: a fila
+    // é do stake, não da mesa física.
+    montar({
+      fila: [
+        entrada({ id: 'f1', position: 4, player_name: 'Ana',
+                  game_type_id: 'gt-nlh', game_type_name: 'NLH 1/2' }),
+        entrada({ id: 'f2', position: 6, player_name: 'Bruno',
+                  game_type_id: 'gt-plo', game_type_name: 'PLO 2/5' }),
+        entrada({ id: 'f3', position: 9, player_name: 'Célia',
+                  game_type_id: 'gt-nlh', game_type_name: 'NLH 1/2' }),
+      ],
+    });
+    await screen.findByText('Célia');
+
+    expect(secoes()).toEqual(['NLH 1/2', 'PLO 2/5']);
+    // Ana e Célia são 1 e 2 do NLH; Bruno é o 1 do PLO.
+    expect(lugares()).toEqual(['1', '2', '1']);
+  });
+
+  it('o cabeçalho da modalidade diz onde essa gente pode sentar', async () => {
+    // É o que decide se o operador chama alguém agora ou não.
+    montar({
+      fila: [entrada({ game_type_id: 'gt-nlh', game_type_name: 'NLH 1/2' })],
+    });
+    await screen.findByText('Ana');
+    const cabecalho = document.querySelector('.cw-group-meta').textContent;
+    expect(cabecalho).toContain('Mesas 3');
+    expect(cabecalho).toContain('5 lugares livres');
+  });
+
+  it('modalidade sem mesa aberta avisa, em vez de sumir da tela', async () => {
+    // Quem espera por um stake que ninguém está rodando continua esperando —
+    // e o operador precisa ver isso para decidir abrir a mesa.
+    montar({
+      fila: [entrada({ game_type_id: 'gt-plo', game_type_name: 'PLO 5/10' })],
+      mesas: [MESA],
+    });
+    await screen.findByText('Ana');
+    expect(document.querySelector('.cw-group-meta').textContent)
+      .toContain('Nenhuma mesa aberta');
+  });
+
+  it('quem aceita qualquer mesa fica em grupo próprio', async () => {
+    montar({
+      fila: [
+        entrada({ id: 'f1', position: 4, player_name: 'Ana',
+                  game_type_id: 'gt-nlh', game_type_name: 'NLH 1/2' }),
+        entrada({ id: 'f2', position: 6, player_name: 'Bruno',
+                  game_type_id: null, game_type_name: null }),
+      ],
+    });
+    await screen.findByText('Bruno');
+    expect(secoes()).toEqual(['NLH 1/2', 'Qualquer mesa']);
   });
 
   it('conta quantos estão esperando', async () => {

@@ -2576,9 +2576,13 @@
     "statusCancelled": "Left",
     "statusNoShow": "No show",
     "statusSeated": "Sat down",
-    "subtitle": "{{count}} waiting. The order is by arrival and is never renumbered — someone leaving does not move the others up.",
+    "subtitle": "{{count}} in line, by game. Order is by arrival; the number is the place in line and moves up on its own when someone sits.",
     "table": "Table",
-    "wants": "Wants to play"
+    "wants": "Wants to play",
+    "tablesRunning": "Tables {{lista}}",
+    "noTableForGame": "No table open",
+    "freeSeats": "{{count}} seats open",
+    "waitingCount": "{{count}} waiting"
   },
   "cashJackpot": {
     "balance": "Pot right now",
