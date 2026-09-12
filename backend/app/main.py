@@ -115,9 +115,12 @@ class PerfLogMiddleware(BaseHTTPMiddleware):
                 marca = "  <-- LENTO"
             else:
                 marca = ""
+            # Com HORA: sem ela o log diz quanto cada requisição custou, mas
+            # não com que frequência ela acontece — e numa tela que se atualiza
+            # sozinha a frequência é metade da resposta.
             logger.info(
-                "[perf] %-6s %-42s %6.0fms  %2d consultas%s",
-                request.method, request.url.path, ms, n, marca,
+                "[perf] %s %-6s %-42s %6.0fms  %2d consultas%s",
+                time.strftime("%H:%M:%S"), request.method, request.url.path, ms, n, marca,
             )
         return resposta
 
