@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { usePermissions } from './PermissionContext';
 import { clearCache } from '../utils/apiCache';
 
@@ -56,17 +56,19 @@ export const ModuleProvider = ({ children }) => {
   // mantém a sessão utilizável sem exigir logout.
   const module = disponiveis.includes(stored) ? stored : disponiveis[0];
 
-  useEffect(() => {
-    if (permsLoading) return;
-    if (stored !== module) {
-      setStored(module);
-      try {
-        localStorage.setItem(ARMAZENAMENTO, module);
-      } catch {
-        /* storage bloqueado — a escolha vale só nesta aba */
-      }
-    }
-  }, [permsLoading, stored, module]);
+  // NÃO existe efeito que grave `module` de volta no localStorage, e isso é
+  // deliberado: só uma ESCOLHA EXPLÍCITA (`selectModule`) grava.
+  //
+  // Havia um, que normalizava o armazenamento quando o módulo guardado não
+  // estava mais disponível. O problema é que "não disponível" também acontece
+  // por um instante enquanto a lista real não chegou — e naquele instante ele
+  // apagava a escolha do usuário de forma permanente. Um valor derivado
+  // sobrescrevendo um valor escolhido é sempre uma troca ruim: o derivado se
+  // recalcula, o escolhido não volta.
+  //
+  // Deixar `stored` desatualizado não custa nada: `module` já resolve para o
+  // primeiro disponível a cada render. Se o clube recontratar o cash, o
+  // usuário volta para onde estava, em vez de ter de escolher de novo.
 
   const selectModule = useCallback((proximo) => {
     if (!disponiveis.includes(proximo) || proximo === module) return;

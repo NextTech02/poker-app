@@ -45,6 +45,12 @@ const montar = ({ modules = ['tournament'], loading = false } = {}) => {
   return render(<ModuleProvider><Sonda /></ModuleProvider>);
 };
 
+/** As permissões chegam DEPOIS da primeira pintura, como no recarregar. */
+const permissoesChegam = (utils, modules) => {
+  usePermissions.mockReturnValue({ modules, loading: false });
+  utils.rerender(<ModuleProvider><Sonda /></ModuleProvider>);
+};
+
 beforeEach(() => {
   localStorage.clear();
   clearCache.mockClear();
@@ -84,11 +90,45 @@ describe('escolha inicial', () => {
 
   it('módulo guardado que o clube não tem mais é descartado', () => {
     // O cash foi desligado: a escolha velha levaria a telas que o backend
-    // recusa com 403.
+    // recusa com 403. O ATIVO passa a ser o torneio.
+    //
+    // O que este teste NÃO afirma mais, de propósito: que o localStorage seja
+    // reescrito. Ele era, e essa gravação era o bug do F5 — ver
+    // "o F5 não pode apagar a escolha" abaixo. Deixar o valor velho guardado
+    // não custa nada, porque o módulo ativo é derivado a cada render.
     localStorage.setItem('selected_module', 'cash');
     montar({ modules: ['tournament'] });
     expect(screen.getByTestId('module')).toHaveTextContent('tournament');
-    expect(localStorage.getItem('selected_module')).toBe('tournament');
+  });
+
+  it('o F5 não pode apagar a escolha enquanto as permissões não chegam', () => {
+    // O BUG. Ao recarregar, `getSession` ainda não respondeu: o
+    // PermissionContext não tem usuário e devolve a lista PADRÃO. Se o módulo
+    // ativo fosse gravado nesse instante, o cash guardado viraria torneio —
+    // permanentemente, porque telas comuns aos dois módulos (Jogadores,
+    // Financeiro) não carregam `module="cash"` e nada corrigiria de volta.
+    localStorage.setItem('selected_module', 'cash');
+
+    // `loading: false` de propósito, e é ISSO que reproduz o bug: o
+    // PermissionContext AFIRMAVA ter carregado nesse instante (ele tratava
+    // "sessão ainda resolvendo" como "ninguém logado"). O efeito antigo se
+    // protegia de `loading: true`, então a proteção nunca entrava — o guarda
+    // era contra a situação errada.
+    const utils = montar({ modules: ['tournament'], loading: false });
+    expect(localStorage.getItem('selected_module')).toBe('cash');
+
+    permissoesChegam(utils, ['tournament', 'cash']);
+    expect(screen.getByTestId('module')).toHaveTextContent('cash');
+    expect(localStorage.getItem('selected_module')).toBe('cash');
+  });
+
+  it('só uma escolha explícita grava', () => {
+    // A regra que fecha a classe inteira de bug: valor derivado nunca
+    // sobrescreve valor escolhido. O derivado se recalcula; o escolhido não
+    // volta.
+    localStorage.setItem('selected_module', 'cash');
+    montar({ modules: ['tournament'] });
+    expect(localStorage.getItem('selected_module')).toBe('cash');
   });
 });
 

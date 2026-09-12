@@ -18,6 +18,7 @@ import { useAuth } from './AuthContext';
 import api from '../config/api';
 
 jest.mock('./AuthContext', () => ({ useAuth: jest.fn() }));
+
 jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn() } }));
 
 let ctx;
@@ -198,5 +199,25 @@ describe('falhas ao carregar', () => {
     await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
     expect(screen.getByTestId('plataforma')).toHaveTextContent('false');
     jest.useRealTimers();
+  });
+});
+
+describe('sessão ainda carregando', () => {
+  it('não anuncia "carregou" antes de a sessão resolver', async () => {
+    // No F5, `getSession` demora: `user` é null por FALTA DE RESPOSTA, não por
+    // logout. Dizer que carregou aqui entrega aos consumidores um padrão
+    // fabricado como se fosse definitivo — foi assim que o módulo de cash
+    // guardado virava torneio a cada recarregar.
+    useAuth.mockReturnValue({ user: null, loading: true });
+    render(<PermissionProvider><Sonda /></PermissionProvider>);
+    expect(screen.getByTestId('loading')).toHaveTextContent('true');
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('logout de verdade (sessão resolvida, sem usuário) encerra o carregamento', async () => {
+    useAuth.mockReturnValue({ user: null, loading: false });
+    render(<PermissionProvider><Sonda /></PermissionProvider>);
+    await waitFor(() =>
+      expect(screen.getByTestId('loading')).toHaveTextContent('false'));
   });
 });

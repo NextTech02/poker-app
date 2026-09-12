@@ -21,7 +21,7 @@ const PermissionContext = createContext({
 export const usePermissions = () => useContext(PermissionContext);
 
 export const PermissionProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [permissions, setPermissions] = useState([]);
   const [isAdmin, setIsAdmin] = useState(true);
   // Platform admin (NextHub): quem enxerga o cadastro de organizações. Começa
@@ -34,6 +34,19 @@ export const PermissionProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // A sessão ainda está sendo restaurada (`getSession` no F5). Aqui `user` é
+    // null por FALTA DE RESPOSTA, não por logout — e tratar os dois casos igual
+    // faz este contexto anunciar "carregou" com um padrão fabricado.
+    //
+    // Quem pagou por isso foi o ModuleContext: ele confia neste `loading` para
+    // saber quando a lista de módulos é real. Recebendo `['tournament']` como
+    // se fosse definitivo, ele descartava o cash guardado pelo usuário e
+    // gravava a troca — a escolha morria a cada F5.
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     if (!user) {
       setPermissions([]);
       setIsAdmin(true);
@@ -70,7 +83,7 @@ export const PermissionProvider = ({ children }) => {
     };
 
     loadPermissions();
-  }, [user]);
+  }, [user, authLoading]);
 
   // Set, e nao o array cru: `hasPermission` e chamado uma vez por item da
   // barra lateral, uma por aba e uma por botao protegido — dezenas de vezes por
