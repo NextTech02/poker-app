@@ -53,9 +53,28 @@ const Seguranca = () => {
   const comecarAtivacao = async () => {
     setEnviando(true);
     try {
+      // Limpa as ativações inacabadas antes de começar.
+      //
+      // O Supabase grava o fator como `unverified` já no `enroll`, e só o
+      // promove quando o código é conferido. Quem fecha a tela, recarrega ou
+      // clica duas vezes deixa um pendente para trás — e a tentativa seguinte
+      // era recusada por nome repetido, com uma mensagem que não dizia isso.
+      //
+      // `.all` e não `.totp`: o `listFactors` só põe os VERIFICADOS em `.totp`,
+      // então os pendentes — justamente os que precisam sair — ficam de fora.
+      const listados = await supabase.auth.mfa.listFactors();
+      const pendentes = (listados.data?.all || []).filter((f) => f.status === 'unverified');
+      for (const f of pendentes) {
+        // Falhar aqui não pode impedir a ativação: seguimos e deixamos o
+        // `enroll` decidir.
+        await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => {});
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: `AceBlind ${new Date().toLocaleDateString()}`,
+        // Com hora, não só a data: dois aparelhos cadastrados no mesmo dia
+        // colidiriam, e o erro de nome repetido voltaria pelo outro caminho.
+        friendlyName: `AceBlind ${new Date().toLocaleString()}`,
       });
       if (error) throw error;
       setAtivando({
@@ -64,7 +83,13 @@ const Seguranca = () => {
         secret: data.totp.secret,
       });
     } catch (err) {
-      toast.error(t('security.errorStartEnroll', 'Não foi possível iniciar a ativação.'));
+      // A MENSAGEM DO SERVIDOR VAI PARA A TELA. A versão anterior trocava tudo
+      // por "não foi possível iniciar" — e um erro que dizia exatamente qual
+      // era o problema virou uma investigação no banco.
+      const detalhe = err?.message || err?.userMessage;
+      toast.error(detalhe
+        ? `${t('security.errorStartEnroll', 'Não foi possível iniciar a ativação.')} ${detalhe}`
+        : t('security.errorStartEnroll', 'Não foi possível iniciar a ativação.'));
     } finally {
       setEnviando(false);
     }
@@ -94,8 +119,13 @@ const Seguranca = () => {
       await carregar();
       toast.success(t('security.enabled', 'Verificação em duas etapas ativada'));
     } catch (err) {
-      toast.error(err.userMessage
-        || t('security.errorInvalidCode', 'Código inválido. Confira o aplicativo e tente de novo.'));
+      // Idem: o motivo do servidor vai junto. "Código inválido" é o caso
+      // comum, mas não é o único — chave errada, fator expirado e relógio
+      // fora de hora dão mensagens diferentes, e cada uma pede uma ação.
+      const detalhe = err?.message || err?.userMessage;
+      toast.error(detalhe
+        ? `${t('security.errorInvalidCode', 'Código inválido. Confira o aplicativo e tente de novo.')} ${detalhe}`
+        : t('security.errorInvalidCode', 'Código inválido. Confira o aplicativo e tente de novo.'));
       setCodigo('');
     } finally {
       setEnviando(false);
