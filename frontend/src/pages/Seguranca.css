@@ -1,0 +1,143 @@
+/* Segurança da conta.
+
+   A lista de códigos de recuperação usa fonte monoespaçada porque eles são
+   COPIADOS À MÃO para um papel: fonte proporcional junta caracteres parecidos
+   e faz a pessoa anotar errado — e ela só descobre no dia em que precisa. */
+
+.sec-card {
+  max-width: 34rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+}
+
+.sec-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sec-card-head h2 { margin: 0; font-size: 1.05rem; }
+
+.sec-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.sec-badge.on  { background: rgba(34,197,94,0.15); color: var(--success-color, #22c55e); }
+.sec-badge.off { background: rgba(138,160,176,0.15); color: var(--text-secondary, #8aa0b0); }
+
+.sec-texto {
+  margin: 0 0 1rem;
+  color: var(--text-secondary, #8aa0b0);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.sec-ativacao { display: flex; flex-direction: column; }
+
+/* Fundo branco no QR: o leitor precisa de contraste, e sobre o tema escuro
+   muitos aplicativos não conseguem ler. */
+.sec-qr {
+  align-self: center;
+  width: 12rem;
+  height: 12rem;
+  padding: 0.75rem;
+  background: #ffffff;
+  border-radius: var(--radius-md, 8px);
+  margin-bottom: 1rem;
+}
+
+.sec-manual { margin-bottom: 1rem; }
+.sec-manual summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.sec-secret {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+  background: var(--secondary-bg, #0a0f17);
+  border-radius: var(--radius-md, 8px);
+}
+
+.sec-label {
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.sec-input {
+  padding: 0.7rem 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.15rem;
+  letter-spacing: 0.18em;
+  text-align: center;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--secondary-bg, #0a0f17);
+  color: var(--text-primary, #e0eaf4);
+}
+
+.sec-fatores { list-style: none; margin: 0 0 1.25rem; padding: 0; }
+.sec-fatores li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border-primary, #2a3a4d);
+}
+
+.sec-recuperacao {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-primary, #2a3a4d);
+}
+
+/* Poucos códigos restantes é um aviso de verdade: a pessoa ainda consegue
+   entrar AGORA para gerar mais, e depois do último não consegue. */
+.sec-recuperacao.alerta .sec-texto { color: var(--warning-color, #f59e0b); }
+
+.sec-aviso {
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  border-left: 3px solid var(--warning-color, #f59e0b);
+  background: rgba(245, 158, 11, 0.08);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.sec-lista-codigos {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.sec-lista-codigos code {
+  display: block;
+  padding: 0.55rem;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  background: var(--secondary-bg, #0a0f17);
+  border-radius: var(--radius-md, 8px);
+}
+
+@media (max-width: 520px) {
+  .sec-lista-codigos { grid-template-columns: 1fr; }
+}

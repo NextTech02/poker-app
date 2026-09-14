@@ -1,0 +1,95 @@
+/* A segunda etapa do login.
+
+   Tela cheia e centralizada de propósito: não é um modal, porque não é algo que
+   se fecha. Quem chega aqui não tem para onde ir a não ser confirmar, recuperar
+   ou sair — e as três saídas estão visíveis. */
+
+.mfa-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--primary-bg, #0a0f17);
+}
+
+.mfa-card {
+  width: 100%;
+  max-width: 26rem;
+  padding: 2rem;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #0e1620);
+}
+
+.mfa-card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+}
+
+.mfa-hint {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary, #8aa0b0);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.mfa-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* Fonte monoespaçada e letras espaçadas: o código é conferido DÍGITO A DÍGITO
+   contra a tela do celular ou contra um papel. Fonte proporcional junta
+   caracteres parecidos e faz errar a digitação. */
+.mfa-input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.25rem;
+  letter-spacing: 0.18em;
+  text-align: center;
+  text-transform: uppercase;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--secondary-bg, #0e1620);
+  color: var(--text-primary, #e0eaf4);
+}
+
+.mfa-input:focus-visible {
+  outline: 2px solid var(--accent-color, #7233f8);
+  outline-offset: 2px;
+}
+
+.mfa-submit {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.mfa-erro {
+  margin: 0.75rem 0 0;
+  color: var(--danger-color, #ef4444);
+  font-size: 0.85rem;
+}
+
+.mfa-saidas {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.mfa-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #8aa0b0);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.mfa-link:hover { color: var(--text-primary, #e0eaf4); }

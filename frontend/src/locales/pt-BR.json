@@ -69,7 +69,8 @@
     "staff": "Funcionários",
     "reports": "Relatórios",
     "logout": "Sair",
-    "goHome": "Ir para o início"
+    "goHome": "Ir para o início",
+    "security": "Segurança"
   },
   "selectOrg": {
     "title": "Escolha a organização",
@@ -2645,5 +2646,50 @@
     "weekday_fri": "Sex",
     "weekday_sat": "Sáb",
     "weekday_sun": "Dom"
+  },
+  "mfa": {
+    "challengeTitle": "Verificação em duas etapas",
+    "challengeHint": "Digite o código de 6 dígitos do seu aplicativo autenticador.",
+    "recoveryHint": "Digite um dos códigos de recuperação que você guardou. Ele vale uma vez só e vai DESLIGAR a verificação em duas etapas — você poderá cadastrar um aparelho novo em seguida.",
+    "codeLabel": "Código do aplicativo",
+    "recoveryCodeLabel": "Código de recuperação",
+    "confirm": "Confirmar",
+    "lostDevice": "Perdi o celular",
+    "useApp": "Usar o aplicativo autenticador",
+    "signOut": "Sair",
+    "errorInvalidCode": "Código inválido ou expirado. Confira o aplicativo e tente de novo.",
+    "errorInvalidRecovery": "Código de recuperação inválido ou já utilizado.",
+    "errorLoadFactors": "Não foi possível carregar seus métodos de verificação."
+  },
+  "security": {
+    "title": "Segurança da conta",
+    "subtitle": "A verificação em duas etapas pede um código do seu celular além da senha.",
+    "twoFactor": "Verificação em duas etapas",
+    "on": "Ativa",
+    "off": "Desativada",
+    "offHint": "Com ela ligada, alguém que descubra sua senha ainda não entra na sua conta sem o seu celular.",
+    "enable": "Ativar",
+    "disable": "Desativar",
+    "confirmEnable": "Confirmar e ativar",
+    "scanHint": "Leia o código com seu aplicativo autenticador (Google Authenticator, Authy, 1Password) e digite o número de 6 dígitos que ele mostrar.",
+    "qrAlt": "QR code para o aplicativo autenticador",
+    "cantScan": "Não consigo ler o código",
+    "codeLabel": "Código do aplicativo",
+    "device": "Aparelho",
+    "enabled": "Verificação em duas etapas ativada",
+    "disabled": "Verificação em duas etapas desativada",
+    "confirmDisable": "Desativar a verificação em duas etapas? Sua conta volta a ser protegida apenas pela senha.",
+    "errorStartEnroll": "Não foi possível iniciar a ativação.",
+    "errorInvalidCode": "Código inválido. Confira o aplicativo e tente de novo.",
+    "errorDisable": "Não foi possível desativar.",
+    "errorCodes": "Não foi possível gerar novos códigos.",
+    "codesRemaining": "{{count}} códigos de recuperação restantes.",
+    "codesLow": "Gere uma lista nova enquanto ainda consegue entrar.",
+    "newCodes": "Gerar novos códigos",
+    "yourCodes": "Seus códigos de recuperação",
+    "codesWarning": "Anote estes códigos agora e guarde fora do celular. Eles não serão mostrados de novo, e cada um serve uma vez. Sem eles, perder o celular significa perder o acesso à conta.",
+    "copy": "Copiar",
+    "copied": "Códigos copiados",
+    "savedThem": "Guardei os códigos"
   }
 }

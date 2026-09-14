@@ -94,6 +94,10 @@ const MENU_COMUM = [
   { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
   { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
   { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
+  // Da CONTA, não do clube: aparece nos dois módulos e para todo mundo, sem
+  // permissão. Quem só tem a tela da sangeur também precisa poder ativar a
+  // verificação em duas etapas.
+  { path: '/seguranca', labelKey: 'sidebar.security', icon: 'id-badge' },
   // Só a NextHub: cadastro dos clubes clientes. `platformAdminOnly` não é
   // permissão de grupo — vem do claim do JWT. O backend valida o mesmo claim.
   { path: '/organizacoes', labelKey: 'sidebar.organizations', icon: 'briefcase', platformAdminOnly: true },

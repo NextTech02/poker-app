@@ -6,6 +6,8 @@ import { StageProvider } from './contexts/StageContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { PermissionProvider, usePermissions } from './contexts/PermissionContext';
 import { ModuleProvider, useModule } from './contexts/ModuleContext';
+import MfaChallenge from './components/MfaChallenge';
+import useMfaGate from './hooks/useMfaGate';
 import { CashDayProvider } from './contexts/CashDayContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { PaymentMethodsProvider } from './contexts/PaymentMethodsContext';
@@ -30,6 +32,7 @@ import './styles/App.css';
 import './components/SkeletonLoader.css';
 
 // Lazy-load less-frequented pages (B4)
+const Seguranca = lazy(() => import('./pages/Seguranca'));
 const TournamentBroadcast = lazy(() => import('./pages/TournamentBroadcast'));
 const TournamentDetail = lazy(() => import('./pages/TournamentDetail'));
 const ManualAllocation = lazy(() => import('./pages/ManualAllocation'));
@@ -90,6 +93,10 @@ const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
   const { hasPermission, loading: permLoading } = usePermissions();
+  // VERIFICAÇÃO EM DUAS ETAPAS. Mora aqui, e não em cada tela, pelo mesmo
+  // motivo da guarda de módulo: uma trava por rota depende de alguém não
+  // esquecer nenhuma das quarenta que existem.
+  const { precisaConfirmar, verificando: mfaVerificando, reavaliar } = useMfaGate(user);
   const { module: activeModule, hasModule, selectModule, homePath } = useModule();
   const { toast } = useToast();
   const toastedRef = useRef(false);
@@ -113,7 +120,7 @@ const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   // Show loading while auth or permissions are resolving, or while we have a token
   // but user hasn't loaded yet (token refresh in progress) — só ONLINE; offline não
   // adianta esperar refresh.
-  if (loading || permLoading || (!user && hasToken && isOnline())) {
+  if (loading || permLoading || mfaVerificando || (!user && hasToken && isOnline())) {
     return <div className="loading">{t('common.loading')}</div>;
   }
 
@@ -122,6 +129,18 @@ const PrivateRoute = ({ children, permission, anyPermission, module }) => {
     // (o operador não consegue re-autenticar offline). Online sem user = login.
     if (!isOnline() && hasToken) return children;
     return <Navigate to="/login" />;
+  }
+
+  // Falta o segundo fator. Vem ANTES de qualquer outra checagem de tela: sem
+  // `aal2` o banco recusa toda leitura (política RESTRICTIVE em todas as
+  // tabelas), então deixar passar daqui só levaria a pessoa a telas vazias com
+  // cara de sistema quebrado.
+  //
+  // Não é um redirect: a segunda etapa não tem URL própria de propósito. Um
+  // endereço para ela seria mais uma coisa a proteger, e um favorito salvo nele
+  // não significaria nada.
+  if (user && precisaConfirmar) {
+    return <MfaChallenge aoConfirmar={reavaliar} />;
   }
 
   // Convidado que ainda não definiu a própria senha: completa o cadastro antes
@@ -493,6 +512,17 @@ function AppRoutes() {
         element={
           <PrivateRoute permission="financial">
             <Financeiro />
+          </PrivateRoute>
+        }
+      />
+      {/* Segurança da conta: sem permissão e sem módulo. Proteger a própria
+          conta não é privilégio de cargo — e quem tem o menor acesso do
+          sistema precisa chegar aqui tanto quanto o dono do clube. */}
+      <Route
+        path="/seguranca"
+        element={
+          <PrivateRoute>
+            <Seguranca />
           </PrivateRoute>
         }
       />

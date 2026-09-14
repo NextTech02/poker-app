@@ -69,7 +69,8 @@
     "staff": "Personal",
     "reports": "Informes",
     "logout": "Salir",
-    "goHome": "Ir al inicio"
+    "goHome": "Ir al inicio",
+    "security": "Seguridad"
   },
   "selectOrg": {
     "title": "Elige la organización",
@@ -2645,5 +2646,50 @@
     "weekday_fri": "Vie",
     "weekday_sat": "Sáb",
     "weekday_sun": "Dom"
+  },
+  "mfa": {
+    "challengeTitle": "Verificación en dos pasos",
+    "challengeHint": "Escriba el código de 6 dígitos de su aplicación de autenticación.",
+    "recoveryHint": "Escriba uno de los códigos de recuperación que guardó. Sirve una sola vez y DESACTIVARÁ la verificación en dos pasos — podrá registrar un aparato nuevo enseguida.",
+    "codeLabel": "Código de la aplicación",
+    "recoveryCodeLabel": "Código de recuperación",
+    "confirm": "Confirmar",
+    "lostDevice": "Perdí el celular",
+    "useApp": "Usar la aplicación de autenticación",
+    "signOut": "Salir",
+    "errorInvalidCode": "Código inválido o vencido. Revise la aplicación e intente de nuevo.",
+    "errorInvalidRecovery": "Código de recuperación inválido o ya utilizado.",
+    "errorLoadFactors": "No se pudieron cargar sus métodos de verificación."
+  },
+  "security": {
+    "title": "Seguridad de la cuenta",
+    "subtitle": "La verificación en dos pasos pide un código de su celular además de la contraseña.",
+    "twoFactor": "Verificación en dos pasos",
+    "on": "Activa",
+    "off": "Desactivada",
+    "offHint": "Con ella activa, alguien que descubra su contraseña todavía no entra en su cuenta sin su celular.",
+    "enable": "Activar",
+    "disable": "Desactivar",
+    "confirmEnable": "Confirmar y activar",
+    "scanHint": "Lea el código con su aplicación de autenticación (Google Authenticator, Authy, 1Password) y escriba el número de 6 dígitos que muestre.",
+    "qrAlt": "Código QR para la aplicación de autenticación",
+    "cantScan": "No puedo leer el código",
+    "codeLabel": "Código de la aplicación",
+    "device": "Aparato",
+    "enabled": "Verificación en dos pasos activada",
+    "disabled": "Verificación en dos pasos desactivada",
+    "confirmDisable": "¿Desactivar la verificación en dos pasos? Su cuenta vuelve a estar protegida solo por la contraseña.",
+    "errorStartEnroll": "No se pudo iniciar la activación.",
+    "errorInvalidCode": "Código inválido. Revise la aplicación e intente de nuevo.",
+    "errorDisable": "No se pudo desactivar.",
+    "errorCodes": "No se pudieron generar códigos nuevos.",
+    "codesRemaining": "{{count}} códigos de recuperación restantes.",
+    "codesLow": "Genere una lista nueva mientras todavía puede entrar.",
+    "newCodes": "Generar códigos nuevos",
+    "yourCodes": "Sus códigos de recuperación",
+    "codesWarning": "Anote estos códigos ahora y guárdelos fuera del celular. No se mostrarán de nuevo, y cada uno sirve una vez. Sin ellos, perder el celular significa perder el acceso a la cuenta.",
+    "copy": "Copiar",
+    "copied": "Códigos copiados",
+    "savedThem": "Guardé los códigos"
   }
 }
