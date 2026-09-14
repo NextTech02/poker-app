@@ -207,3 +207,76 @@ describe('operações de conta', () => {
     expect(localStorage.getItem('supabase_token')).toBeNull();
   });
 });
+
+describe('identidade do usuário entre renovações de token', () => {
+  it('renovar o token NÃO troca o objeto do usuário', async () => {
+    // O token é renovado sozinho o tempo todo: ao voltar para a aba, a cada
+    // hora, depois de suspender o aparelho. Cada renovação trazia um objeto
+    // `user` novo para a MESMA pessoa, e isso fazia todo efeito que depende de
+    // `user` rodar de novo — em cascata, até desmontar a página aberta e apagar
+    // o formulário que estava sendo preenchido.
+    let aoMudar;
+    supabase.auth.onAuthStateChange.mockImplementation((cb) => {
+      aoMudar = cb;
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    });
+    const pessoa = { id: 'u1', email: 'a@b.com', updated_at: '2026-09-14T10:00:00Z' };
+    supabase.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: 't1', user: pessoa } },
+    });
+
+    const vistos = [];
+    function Sonda() {
+      const { user } = useAuth();
+      vistos.push(user);
+      return <span data-testid="id">{user?.id || ''}</span>;
+    }
+    render(<AuthProvider><Sonda /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('id')).toHaveTextContent('u1'));
+    const antes = vistos[vistos.length - 1];
+
+    // Mesma pessoa, objeto novo, token novo — é o que o Supabase entrega.
+    await act(async () => {
+      aoMudar('TOKEN_REFRESHED', {
+        access_token: 't2',
+        user: { id: 'u1', email: 'a@b.com', updated_at: '2026-09-14T10:00:00Z' },
+      });
+    });
+
+    expect(vistos[vistos.length - 1]).toBe(antes);   // MESMA referência
+  });
+
+  it('mudança real de metadados TROCA o objeto', async () => {
+    // O contrário também precisa valer: é assim que `onboarded_at` aparece
+    // depois que o convidado define a senha. Comparar só o id faria essa
+    // mudança passar batida, e a pessoa ficaria presa na tela de cadastro.
+    let aoMudar;
+    supabase.auth.onAuthStateChange.mockImplementation((cb) => {
+      aoMudar = cb;
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    });
+    supabase.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: 't1',
+                         user: { id: 'u1', updated_at: '2026-09-14T10:00:00Z' } } },
+    });
+
+    const vistos = [];
+    function Sonda() {
+      const { user } = useAuth();
+      vistos.push(user);
+      return <span data-testid="id">{user?.id || ''}</span>;
+    }
+    render(<AuthProvider><Sonda /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('id')).toHaveTextContent('u1'));
+    const antes = vistos[vistos.length - 1];
+
+    await act(async () => {
+      aoMudar('USER_UPDATED', {
+        access_token: 't2',
+        user: { id: 'u1', updated_at: '2026-09-14T11:30:00Z' },
+      });
+    });
+
+    expect(vistos[vistos.length - 1]).not.toBe(antes);
+  });
+});

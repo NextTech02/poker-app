@@ -81,6 +81,48 @@ describe('useMfaGate', () => {
     expect(result.current.precisaConfirmar).toBe(false);
   });
 
+  it('a segunda verificação NÃO segura a tela', async () => {
+    // O BUG QUE ISTO PROTEGE.
+    //
+    // `verificando` faz o PrivateRoute mostrar "Carregando", e mostrar isso é
+    // DESMONTAR a página aberta. A verificação roda de novo toda vez que o
+    // token é renovado — ao voltar para a aba, por exemplo — e na ativação do
+    // 2FA isso apagava o QR code e o factorId no meio do processo.
+    //
+    // O estrago não era do 2FA: qualquer tela com formulário aberto perdia o
+    // preenchimento ao trocar de aba.
+    nivel('aal1', 'aal1');
+    const { result, rerender } = renderHook(({ u }) => useMfaGate(u), {
+      initialProps: { u: { id: 'u1' } },
+    });
+    await waitFor(() => expect(result.current.verificando).toBe(false));
+
+    // Token renovado: o AuthContext entrega um objeto novo para a MESMA pessoa.
+    rerender({ u: { id: 'u1' } });
+    expect(result.current.verificando).toBe(false);
+  });
+
+  it('a primeira verificação SEGURA a tela', async () => {
+    // A primeira precisa segurar: pintar a tela antes de saber se falta o
+    // segundo fator mostraria o sistema a quem ainda não passou por ele.
+    //
+    // A consulta fica PENDENTE de propósito. A primeira versão deste teste
+    // afirmava `verificando === true` logo após o render e passava por sorte
+    // de temporização — o `.finally()` da correção adia a resolução num tique
+    // de microtask, e era esse tique que a asserção enxergava. Um teste que
+    // depende de ordem de microtask não protege nada.
+    let resolver;
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel.mockReturnValue(
+      new Promise((r) => { resolver = r; }),
+    );
+
+    const { result } = renderHook(() => useMfaGate({ id: 'u1' }));
+    expect(result.current.verificando).toBe(true);
+
+    resolver({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null });
+    await waitFor(() => expect(result.current.verificando).toBe(false));
+  });
+
   it('reavaliar relê o nível — é como a tela destrava depois do código', async () => {
     nivel('aal1', 'aal2');
     const { result } = await montar();

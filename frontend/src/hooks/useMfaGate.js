@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../config/supabase';
 
 /**
@@ -24,6 +24,15 @@ import { supabase } from '../config/supabase';
 export function useMfaGate(user) {
   const [precisaConfirmar, setPrecisaConfirmar] = useState(false);
   const [verificando, setVerificando] = useState(true);
+  // Só a PRIMEIRA verificação segura a tela.
+  //
+  // O `verificando` faz o PrivateRoute mostrar "Carregando" — e mostrar isso é
+  // DESMONTAR a página que estava aberta. Na primeira vez é o certo: não dá
+  // para pintar a tela antes de saber se falta o segundo fator. Nas seguintes
+  // seria destrutivo, porque elas acontecem quando o token é renovado (ao
+  // voltar para a aba, por exemplo) e apagariam o formulário que a pessoa
+  // estava preenchendo.
+  const jaVerificou = useRef(false);
 
   const reavaliar = useCallback(async () => {
     if (!user) {
@@ -49,8 +58,8 @@ export function useMfaGate(user) {
   }, [user]);
 
   useEffect(() => {
-    setVerificando(true);
-    reavaliar();
+    if (!jaVerificou.current) setVerificando(true);
+    reavaliar().finally(() => { jaVerificou.current = true; });
   }, [reavaliar]);
 
   return { precisaConfirmar, verificando, reavaliar };

@@ -24,7 +24,27 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.access_token) {
-        setUser(session.user ?? null);
+        // MESMA PESSOA => MESMO OBJETO.
+        //
+        // O token é renovado sozinho o tempo todo — ao voltar para a aba, a
+        // cada hora, depois de suspender o aparelho. Cada renovação traz um
+        // objeto `user` novo, e trocar a identidade por um objeto diferente
+        // com o mesmo conteúdo fazia todo efeito que depende de `user` rodar
+        // de novo, em cascata, até desmontar a página aberta e apagar o
+        // formulário que estava sendo preenchido.
+        //
+        // `updated_at` entra na comparação junto com o id: metadados mudam de
+        // verdade (é assim que `onboarded_at` aparece depois que o convidado
+        // define a senha), e comparar só o id faria essa mudança passar batida.
+        setUser((anterior) => {
+          const novo = session.user ?? null;
+          if (anterior && novo
+              && anterior.id === novo.id
+              && anterior.updated_at === novo.updated_at) {
+            return anterior;
+          }
+          return novo;
+        });
         localStorage.setItem('supabase_token', session.access_token);
       } else if (isOnline()) {
         // Sessão nula ESTANDO ONLINE = logout real → limpa.
