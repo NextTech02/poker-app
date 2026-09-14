@@ -43,6 +43,11 @@ const MENUS_POR_MODULO = {
       ],
     },
     { path: '/caixa-geral', labelKey: 'sidebar.generalCash', icon: 'wallet', permission: 'general_cash' },
+    // RELATÓRIOS DE TORNEIO, e não item comum: a tela mostra "Total de
+    // Torneios", "Receita por Torneio" e "Jogadores por Torneio". No menu
+    // comum ela aparecia também no cash — ao lado de `/cash/relatorios` e com
+    // rótulo idêntico, dois "Relatórios" na mesma barra lateral.
+    { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document', permission: 'reports' },
     {
       type: 'group',
       groupKey: 'torneios',
@@ -89,7 +94,6 @@ const MENU_COMUM = [
   { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
   { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
   { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
-  { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document', permission: 'reports' },
   // Só a NextHub: cadastro dos clubes clientes. `platformAdminOnly` não é
   // permissão de grupo — vem do claim do JWT. O backend valida o mesmo claim.
   { path: '/organizacoes', labelKey: 'sidebar.organizations', icon: 'briefcase', platformAdminOnly: true },
@@ -101,7 +105,7 @@ const Sidebar = () => {
   const { signOut } = useAuth();
   const { selectedStage } = useStage();
   const { hasPermission, isPlatformAdmin } = usePermissions();
-  const { module } = useModule();
+  const { module, homePath } = useModule();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -275,7 +279,10 @@ const Sidebar = () => {
             <span className="hamburger-line"></span>
             <span className="hamburger-line"></span>
           </button>
-          <Link to="/home" className="mobile-logo-link" aria-label={t('sidebar.goHome', 'Ir para o início')} onClick={() => setIsOpen(false)}>
+          {/* A casa do MÓDULO ATIVO, não `/home` fixo. Apontado para o
+              torneio, o logo era o caminho mais curto para cair no Dashboard
+              de torneios estando no cash — que é como o problema apareceu. */}
+          <Link to={homePath} className="mobile-logo-link" aria-label={t('sidebar.goHome', 'Ir para o início')} onClick={() => setIsOpen(false)}>
             <img src={aceblindLogo} alt="AceBlind" className="mobile-logo" />
           </Link>
           {selectedStage && (
@@ -295,7 +302,7 @@ const Sidebar = () => {
       <aside className={`sidebar ${isMobile ? 'mobile' : ''} ${isOpen ? 'open' : ''} ${!isMobile && isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <Link
-            to="/home"
+            to={homePath}
             className="sidebar-logo-link"
             aria-label={t('sidebar.goHome', 'Ir para o início')}
             onClick={() => isMobile && setIsOpen(false)}

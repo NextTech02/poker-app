@@ -56,7 +56,10 @@ const montar = ({
     hasPermission: permissoes ? (p) => !p || permissoes.includes(p) : () => true,
     isPlatformAdmin: plataforma,
   });
-  useModule.mockReturnValue({ module: modulo });
+  useModule.mockReturnValue({
+    module: modulo,
+    homePath: modulo === 'cash' ? '/cash' : '/home',
+  });
   useStage.mockReturnValue({ selectedStage: etapa });
   return render(
     <MemoryRouter initialEntries={[rota]}>
@@ -116,6 +119,42 @@ describe('itens por permissão', () => {
     // Dois itens "Sangi" no menu seriam ruído puro.
     montar({ permissoes: ['cashier', 'sangi'], modulo: 'cash' });
     expect(screen.getAllByRole('link', { name: /sidebar.sangi/ })).toHaveLength(1);
+  });
+
+  it('o menu de cash não leva a NENHUMA tela de torneio', () => {
+    // O caso que motivou isto: estando no cash, a barra lateral mostrava
+    // "Relatórios" duas vezes — o `/cash/relatorios` e o `/relatorios`, que é
+    // a tela de relatórios de TORNEIO ("Total de Torneios", "Receita por
+    // Torneio") e estava no menu comum.
+    //
+    // O teste é sobre a REGRA, não sobre aquele item: qualquer tela de torneio
+    // que escorregue para o menu comum cai aqui.
+    montar({ modulo: 'cash' });
+    const soDoTorneio = [
+      '/home', '/etapas', '/torneios', '/caixa', '/caixa-geral',
+      '/relatorios', '/premiacao', '/ranking', '/alocacao', '/blinds',
+    ];
+    const destinos = [...document.querySelectorAll('a[href]')]
+      .map((a) => a.getAttribute('href'));
+    destinos.forEach((href) => {
+      soDoTorneio.forEach((prefixo) => {
+        // `/cash/relatorios` não pode ser confundido com `/relatorios`.
+        const ehDoTorneio = href === prefixo || href.startsWith(prefixo + '/');
+        expect(ehDoTorneio).toBe(false);
+      });
+    });
+  });
+
+  it('nenhum rótulo aparece duas vezes no menu', () => {
+    // Dois itens com o mesmo nome são indistinguíveis para quem opera: a
+    // pessoa clica num, não é o que queria, e não tem como saber qual é qual.
+    ['cash', 'tournament'].forEach((modulo) => {
+      const { unmount } = montar({ modulo });
+      const rotulos = [...document.querySelectorAll('.nav-label')]
+        .map((n) => n.textContent.trim());
+      expect(rotulos.length).toBe(new Set(rotulos).size);
+      unmount();
+    });
   });
 
   it('a sangeur NÃO aparece no menu de torneio', () => {

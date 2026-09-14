@@ -162,9 +162,23 @@ describe('troca de módulo', () => {
 
   it('a home acompanha o módulo', () => {
     montar({ modules: ['tournament', 'cash'] });
-    expect(screen.getByTestId('home')).toHaveTextContent('/');
+    // `toHaveTextContent('/')` casaria com QUALQUER caminho — foi por isso que
+    // este teste não percebeu quando a home do torneio mudou de `/` para
+    // `/home`. Comparação exata.
+    expect(screen.getByTestId('home').textContent).toBe('/home');
     act(() => api.selectModule('cash'));
-    expect(screen.getByTestId('home')).toHaveTextContent('/cash');
+    expect(screen.getByTestId('home').textContent).toBe('/cash');
+  });
+
+  it('nenhuma home é a raiz — senão a raiz redireciona para si mesma', () => {
+    // A raiz é NEUTRA: ela manda para a casa do módulo aberto. Se alguma casa
+    // fosse `/`, o redirecionamento entraria em laço e a tela ficaria branca.
+    [['tournament'], ['cash'], ['tournament', 'cash']].forEach((modules) => {
+      localStorage.clear();
+      const { unmount } = montar({ modules });
+      expect(screen.getByTestId('home').textContent).not.toBe('/');
+      unmount();
+    });
   });
 });
 

@@ -75,6 +75,17 @@ const PageFallback = () => (
   </div>
 );
 
+/** Leva para a casa do módulo ativo. Usado só na raiz.
+ *
+ * Fica DENTRO de um PrivateRoute de propósito: ele já segura o render até as
+ * permissões carregarem, e é delas que sai a lista de módulos. Sem essa espera,
+ * `homePath` seria calculado sobre o padrão (torneio) e o redirect mandaria
+ * todo mundo para o lugar errado — exatamente o bug que isto corrige. */
+const HomeDoModulo = () => {
+  const { homePath } = useModule();
+  return <Navigate to={homePath} replace />;
+};
+
 const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
@@ -230,18 +241,26 @@ function AppRoutes() {
           </PrivateRoute>
         }
       />
+      {/* A RAIZ NÃO PERTENCE A MÓDULO NENHUM: ela leva para a casa de quem
+          está aberto. Antes ela era o Dashboard de torneio direto, então quem
+          estava no cash e abria "/" (o link do logo, um favorito, o redirect
+          pós-login) via torneios ativos e receita de torneio dentro do módulo
+          de cash.
+
+          Redirecionar em vez de escolher o componente aqui mantém a barra de
+          endereço honesta: a URL passa a dizer onde a pessoa está. */}
       <Route
         path="/"
         element={
           <PrivateRoute>
-            <Dashboard />
+            <HomeDoModulo />
           </PrivateRoute>
         }
       />
       <Route
         path="/etapas"
         element={
-          <PrivateRoute permission="stages">
+          <PrivateRoute module="tournament" permission="stages">
             <Etapas />
           </PrivateRoute>
         }
@@ -249,7 +268,7 @@ function AppRoutes() {
       <Route
         path="/torneios"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <Torneios />
           </PrivateRoute>
         }
@@ -257,7 +276,7 @@ function AppRoutes() {
       <Route
         path="/blinds-templates"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <BlindTemplates />
           </PrivateRoute>
         }
@@ -265,7 +284,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:id"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <TournamentDetail />
           </PrivateRoute>
         }
@@ -273,7 +292,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:tournamentId/dia/novo"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <TournamentDayForm />
           </PrivateRoute>
         }
@@ -281,7 +300,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:tournamentId/dia/editar/:dayId"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <TournamentDayForm />
           </PrivateRoute>
         }
@@ -289,7 +308,7 @@ function AppRoutes() {
       <Route
         path="/torneios/:tournamentId/dia/:dayId/broadcast"
         element={
-          <PrivateRoute permission="broadcast">
+          <PrivateRoute module="tournament" permission="broadcast">
             <BroadcastSettings />
           </PrivateRoute>
         }
@@ -297,7 +316,7 @@ function AppRoutes() {
       <Route
         path="/torneios/dia/:dayId/estatisticas"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <TournamentDayStats />
           </PrivateRoute>
         }
@@ -305,7 +324,7 @@ function AppRoutes() {
       <Route
         path="/torneios/dia/:dayId/fichas"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <FichasClassificados />
           </PrivateRoute>
         }
@@ -329,7 +348,7 @@ function AppRoutes() {
       <Route
         path="/caixa"
         element={
-          <PrivateRoute permission="cashier">
+          <PrivateRoute module="tournament" permission="cashier">
             <Caixa />
           </PrivateRoute>
         }
@@ -337,7 +356,7 @@ function AppRoutes() {
       <Route
         path="/caixa/jogadores"
         element={
-          <PrivateRoute permission="cashier_players">
+          <PrivateRoute module="tournament" permission="cashier_players">
             <CaixaJogadores />
           </PrivateRoute>
         }
@@ -345,7 +364,7 @@ function AppRoutes() {
       <Route
         path="/caixa/tickets"
         element={
-          <PrivateRoute permission="cashier_tickets">
+          <PrivateRoute module="tournament" permission="cashier_tickets">
             <SatelliteTickets />
           </PrivateRoute>
         }
@@ -353,7 +372,7 @@ function AppRoutes() {
       <Route
         path="/caixa-geral"
         element={
-          <PrivateRoute permission="general_cash">
+          <PrivateRoute module="tournament" permission="general_cash">
             <CaixaGeral />
           </PrivateRoute>
         }
@@ -361,7 +380,7 @@ function AppRoutes() {
       <Route
         path="/relatorios"
         element={
-          <PrivateRoute permission="reports">
+          <PrivateRoute module="tournament" permission="reports">
             <Relatorios />
           </PrivateRoute>
         }
@@ -369,7 +388,7 @@ function AppRoutes() {
       <Route
         path="/relatorios/torneio/:tournamentId"
         element={
-          <PrivateRoute permission="reports">
+          <PrivateRoute module="tournament" permission="reports">
             <RelatorioTorneio />
           </PrivateRoute>
         }
@@ -377,7 +396,7 @@ function AppRoutes() {
       <Route
         path="/sangi"
         element={
-          <PrivateRoute anyPermission={["sangi", "cashier", "general_cash"]}>
+          <PrivateRoute module="cash" anyPermission={["sangi", "cashier", "general_cash"]}>
             <Sangi />
           </PrivateRoute>
         }
@@ -385,7 +404,7 @@ function AppRoutes() {
       <Route
         path="/alocacao/:tournamentId"
         element={
-          <PrivateRoute permission="tables">
+          <PrivateRoute module="tournament" permission="tables">
             <ManualAllocation />
           </PrivateRoute>
         }
@@ -393,7 +412,7 @@ function AppRoutes() {
       <Route
         path="/alocacao/dia/:dayId"
         element={
-          <PrivateRoute permission="tables">
+          <PrivateRoute module="tournament" permission="tables">
             <TableManagement />
           </PrivateRoute>
         }
@@ -401,7 +420,7 @@ function AppRoutes() {
       <Route
         path="/ranking/:tournamentId"
         element={
-          <PrivateRoute permission="rankings">
+          <PrivateRoute module="tournament" permission="rankings">
             <TournamentRankings />
           </PrivateRoute>
         }
@@ -409,7 +428,7 @@ function AppRoutes() {
       <Route
         path="/blinds/:dayId"
         element={
-          <PrivateRoute permission="blinds">
+          <PrivateRoute module="tournament" permission="blinds">
             <BlindManagement />
           </PrivateRoute>
         }
@@ -417,7 +436,7 @@ function AppRoutes() {
       <Route
         path="/control/:dayId"
         element={
-          <PrivateRoute permission="tournaments">
+          <PrivateRoute module="tournament" permission="tournaments">
             <TournamentControl />
           </PrivateRoute>
         }
@@ -447,7 +466,7 @@ function AppRoutes() {
       <Route
         path="/home"
         element={
-          <PrivateRoute>
+          <PrivateRoute module="tournament">
             <Dashboard />
           </PrivateRoute>
         }
@@ -455,7 +474,7 @@ function AppRoutes() {
       <Route
         path="/premiacao"
         element={
-          <PrivateRoute permission="prizes">
+          <PrivateRoute module="tournament" permission="prizes">
             <PremiacaoSelector />
           </PrivateRoute>
         }
@@ -463,7 +482,7 @@ function AppRoutes() {
       <Route
         path="/premiacao/:tournamentId"
         element={
-          <PrivateRoute permission="prizes">
+          <PrivateRoute module="tournament" permission="prizes">
             <Premiacao />
           </PrivateRoute>
         }

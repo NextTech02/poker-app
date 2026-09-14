@@ -26,9 +26,15 @@ export const MODULO_CASH = 'cash';
 
 const ARMAZENAMENTO = 'selected_module';
 
-/** Onde cada módulo começa. Usado na troca e pelo guard de rota. */
+/** Onde cada módulo começa. Usado na troca e pelo guard de rota.
+ *
+ * O torneio aponta para `/home`, não para `/`. A raiz virou NEUTRA: ela
+ * redireciona para a casa do módulo aberto, e apontá-la de volta para si mesma
+ * seria um laço. `/home` sempre foi o Dashboard de torneio — é o item "Início"
+ * do menu — então isto não inventa tela nenhuma, só deixa de usar a raiz como
+ * apelido dele. */
 export const HOME_DO_MODULO = {
-  [MODULO_TORNEIO]: '/',
+  [MODULO_TORNEIO]: '/home',
   [MODULO_CASH]: '/cash',
 };
 
