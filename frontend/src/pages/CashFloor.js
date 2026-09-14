@@ -153,7 +153,10 @@ const CashFloor = () => {
     setOpenTableModal(true);
   };
 
-  const abertas = tables.filter((m) => m.status !== 'closed');
+  // Memoizado: esta tela recarrega a cada evento do salão (Realtime), e a
+  // lista alimenta o grid de mesas — identidade nova a cada render refaz
+  // trabalho em toda a árvore abaixo.
+  const abertas = useMemo(() => tables.filter((m) => m.status !== 'closed'), [tables]);
 
   return (
     <div className="app-container">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -143,24 +143,39 @@ const EliminacaoJogadores = () => {
     }
   };
 
-  // Filter by status
-  const statusFilteredPlayers = players.filter(player => {
-    if (statusFilter === 'active') return player.status !== 'eliminated';
-    if (statusFilter === 'eliminated') return player.status === 'eliminated';
-    return true; // 'all'
-  });
+  // Contagens: UMA passada, não duas. Elas dependem só da lista, então não
+  // são refeitas quando o operador digita na busca.
+  const { activePlayers, eliminatedPlayers } = useMemo(() => {
+    let ativos = 0;
+    for (const p of players) if (p.status !== 'eliminated') ativos += 1;
+    return { activePlayers: ativos, eliminatedPlayers: players.length - ativos };
+  }, [players]);
 
-  // Filter by search term
-  const filteredPlayers = statusFilteredPlayers.filter(player =>
-    player.player_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (player.player_nickname && player.player_nickname.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  const activePlayers = players.filter(p => p.status !== 'eliminated').length;
-  const eliminatedPlayers = players.filter(p => p.status === 'eliminated').length;
   const totalPlayers = players.length;
 
-  const selectedDay = tournamentDays.find(d => d.id === selectedDayId);
+  // Status + busca numa passada só.
+  //
+  // Eram duas varreduras encadeadas, refeitas a cada render — e esta tela
+  // re-renderiza a cada tecla digitada E a cada evento do banco. Pior: o
+  // `searchTerm.toLowerCase()` estava DENTRO do filtro, então uma string nova
+  // era alocada por jogador comparado, não uma por busca.
+  const filteredPlayers = useMemo(() => {
+    const termo = searchTerm.trim().toLowerCase();
+    return players.filter((player) => {
+      if (statusFilter === 'active' && player.status === 'eliminated') return false;
+      if (statusFilter === 'eliminated' && player.status !== 'eliminated') return false;
+      if (!termo) return true;
+      return (
+        player.player_name.toLowerCase().includes(termo)
+        || (player.player_nickname || '').toLowerCase().includes(termo)
+      );
+    });
+  }, [players, statusFilter, searchTerm]);
+
+  const selectedDay = useMemo(
+    () => tournamentDays.find((d) => d.id === selectedDayId),
+    [tournamentDays, selectedDayId],
+  );
 
   const handleDayChange = (e) => {
     setSelectedDayId(e.target.value);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
@@ -13,6 +13,14 @@ import { supabase } from '../config/supabase';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Funcionarios.css';
 
+// Índice por chave, montado uma vez no carregamento do módulo.
+//
+// A lista de permissões é FIXA — não depende de estado nenhum — então varrê-la
+// a cada etiqueta de cargo desenhada era trabalho puro. Com ~26 permissões e
+// uma tela que mostra quatro etiquetas por cargo, isso é uma varredura
+// completa por etiqueta, a cada render.
+//
+// Declarado depois do array (`PERMISSAO_POR_CHAVE`, no fim deste bloco).
 const ALL_PERMISSIONS = [
   { key: 'dashboard', label: 'staff.perm.dashboard' },
   { key: 'stages', label: 'staff.perm.stages' },
@@ -39,6 +47,9 @@ const ALL_PERMISSIONS = [
   { key: 'broadcast', label: 'staff.perm.broadcast' },
   { key: 'employees', label: 'staff.perm.employees' },
 ];
+
+// Ver a nota acima do array: a busca por chave vira consulta de tabela hash.
+const PERMISSAO_POR_CHAVE = new Map(ALL_PERMISSIONS.map((p) => [p.key, p]));
 
 // Convite não é o mesmo que funcionário desativado — e a tela tratava os dois
 // pelo mesmo `active`. Um convite pendente fica `active = false` de propósito
@@ -473,11 +484,29 @@ const Funcionarios = () => {
   // cadastro) fica SEMPRE visível: é uma pendência do admin, não um arquivo
   // morto — era justamente por cair no filtro de desativados que a pessoa
   // "sumia" da lista e o problema ficava sem dono.
-  const desativados = staffList.filter((s) => !s.active && !ehConvite(s));
-  const visiveis = staffList.filter((s) => verInativos || s.active || ehConvite(s));
+  // As permissões marcadas no formulário, em Set: este teste roda uma vez por
+  // caixa desenhada (~26) a cada tecla e a cada clique dentro do editor de
+  // cargo. Com `includes` era uma varredura do array marcado por caixa.
+  const permissoesMarcadas = useMemo(
+    () => new Set(groupForm.permissions || []),
+    [groupForm.permissions],
+  );
 
-  // Derived values for the Pagamentos tab
-  const activeStaff = staffList.filter((s) => s.active);
+  const { desativados, visiveis, activeStaff } = useMemo(() => {
+    // UMA passada na lista, três respostas. Eram três varreduras completas,
+    // refeitas a cada render — inclusive ao digitar na busca.
+    const inativos = [];
+    const naTela = [];
+    const ativos = [];
+    for (const s of staffList) {
+      const convite = ehConvite(s);
+      if (!s.active && !convite) inativos.push(s);
+      if (verInativos || s.active || convite) naTela.push(s);
+      if (s.active) ativos.push(s);
+    }
+    return { desativados: inativos, visiveis: naTela, activeStaff: ativos };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staffList, verInativos]);
   const totalPaid = Object.values(payments).reduce(
     (a, p) => a + (p.status === 'paid' ? parseFloat(p.amount) || 0 : 0),
     0
@@ -834,7 +863,7 @@ const Funcionarios = () => {
                               <span className="func-perm-tag func-perm-tag--none">{t('staff.noPermissions')}</span>
                             ) : (
                               g.permissions.slice(0, 4).map((p) => {
-                                const found = ALL_PERMISSIONS.find((ap) => ap.key === p);
+                                const found = PERMISSAO_POR_CHAVE.get(p);
                                 return (
                                   <span key={p} className="func-perm-tag">
                                     {found ? t(found.label, found.fallback) : p}
@@ -956,7 +985,7 @@ const Funcionarios = () => {
                         ? t('staff.deselectAll')
                         : t('staff.selectAll')}
                     >
-                      {ALL_PERMISSIONS.every((p) => groupForm.permissions.includes(p.key))
+                      {permissoesMarcadas.size === ALL_PERMISSIONS.length
                         ? t('staff.deselectAll')
                         : t('staff.selectAll')}
                     </button>
@@ -966,7 +995,7 @@ const Funcionarios = () => {
                       <label key={perm.key} className="func-perm-check">
                         <input
                           type="checkbox"
-                          checked={groupForm.permissions.includes(perm.key)}
+                          checked={permissoesMarcadas.has(perm.key)}
                           onChange={() => togglePermission(perm.key)}
                         />
                         <span>{t(perm.label, perm.fallback)}</span>

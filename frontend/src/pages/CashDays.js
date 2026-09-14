@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import Sidebar from '../components/Sidebar';
@@ -72,7 +72,10 @@ const CashDays = () => {
   };
 
   // Rake apurado × giro: dois números diferentes, e só o primeiro é receita.
-  const totalRake = days.reduce((s, d) => s + (d.total_rake || 0), 0);
+  const totalRake = useMemo(
+    () => days.reduce((s, d) => s + (d.total_rake || 0), 0),
+    [days],
+  );
 
   return (
     <div className="app-container">

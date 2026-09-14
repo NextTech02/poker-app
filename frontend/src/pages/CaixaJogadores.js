@@ -13,6 +13,12 @@ import { useTranslation } from 'react-i18next';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './CaixaJogadores.css';
 
+
+// Set de MÓDULO, não array literal dentro da função: o literal era reconstruído
+// a cada linha do extrato desenhada, só para responder "esse tipo é entrada?".
+// Alocar três strings e varrê-las por linha, a cada render, para uma lista que
+// nunca muda.
+const TIPOS_DE_ENTRADA = new Set(['credit_granted', 'prize', 'credit_refund']);
 const CaixaJogadores = () => {
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
@@ -210,7 +216,7 @@ const CaixaJogadores = () => {
     return <span className={`cj-status-badge ${s.cls}`}>{s.label}</span>;
   };
 
-  const isIncoming = (type) => ['credit_granted', 'prize', 'credit_refund'].includes(type);
+  const isIncoming = (type) => TIPOS_DE_ENTRADA.has(type);
 
   return (
     <div className="app-container">

@@ -156,6 +156,39 @@ select option:checked {
   color: #ffffff;
 }
 
+/* ── O spinner do <input type="number"> ─────────────────────────────────────
+   Mesma história do <select>, e a mesma correção: o widget que o SISTEMA
+   desenha não pode aparecer cru dentro do tema escuro. Aqui era a setinha
+   dupla, espremida numa caixinha colada na lateral direita do campo — o
+   controle de "Número da mesa" e "Lugares" do cash, e o de lugares por mesa do
+   torneio, todos com a mesma aparência de caixa de diálogo antiga.
+
+   Por que REMOVER e não repintar, ao contrário do select: a seta do select é
+   informação — ela avisa que aquilo abre uma lista. A do number é só um atalho
+   redundante, num campo onde você digita o número. E ela nem existe em celular
+   e tablet, que é onde o operador trabalha: iOS e Android não desenham
+   spinner nenhum. Repintá-la também não é realmente possível — o navegador só
+   deixa mexer em opacidade e filtro do pseudo-elemento, nunca no desenho.
+
+   O incremento continua existindo pelas SETAS DO TECLADO (↑/↓), que é o
+   caminho que o leitor de tela já anuncia. `min`/`max`/`step` seguem valendo e
+   sendo validados pelo navegador.
+
+   GLOBAL de propósito. A regra do select nasceu depois de dezesseis blocos de
+   CSS repetidos pelas telas; esta nasce no lugar certo da primeira vez, e vale
+   para os dois módulos sem ninguém precisar lembrar. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;   /* Firefox tem o seu, e é o mesmo problema */
+  appearance: textfield;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',

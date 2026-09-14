@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
@@ -238,7 +238,7 @@ const CashTableDetail = () => {
     }
   };
 
-  const ocupados = seats.filter((s) => s.status === 'occupied');
+  const ocupados = useMemo(() => seats.filter((s) => s.status === 'occupied'), [seats]);
 
   if (loading) {
     return (
