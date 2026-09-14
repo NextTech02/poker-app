@@ -2115,7 +2115,9 @@
     "noSalesYet": "No sales registered yet.",
     "colBuyer": "Buyer",
     "colValue": "Value",
-    "colWhen": "When"
+    "colWhen": "When",
+    "tableLabel": "Table",
+    "pickTable": "Pick the table"
   },
   "manualAllocation": {
     "eliminatePlayer": "Eliminate player",

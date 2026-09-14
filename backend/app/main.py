@@ -22,7 +22,14 @@ _no_sangi = [Depends(forbid_permission("sangi"))]
 # Cash game: além de manter o sangeur fora do financeiro, exige que o clube
 # tenha CONTRATADO o módulo. Permissão diz quem opera; módulo diz se a
 # funcionalidade existe para este cliente. Fail-closed => 403.
-_cash_game = [Depends(forbid_permission("sangi")), Depends(require_module("cash"))]
+# O SANGEUR NÃO É BARRADO AQUI, e isso é uma correção: ele é papel DO CASH.
+# Barrá-lo do próprio módulo (o que esta linha fazia com `forbid_permission`)
+# deixava a sangeur sem as telas de mesa que ela precisa para vender.
+#
+# O que o protege continua sendo a permissão de cada rota: o cargo padrão
+# "Sangeur" tem só `sangi`, então ele não abre dia, não apura rake e não mexe
+# em configuração — `require_permission` recusa antes de chegar no serviço.
+_cash_game = [Depends(require_module("cash"))]
 
 settings = get_settings()
 
@@ -171,7 +178,9 @@ app.include_router(player_credits.router, dependencies=_no_sangi)
 app.include_router(satellite_tickets.router, dependencies=_no_sangi)
 app.include_router(staff.router)
 app.include_router(cashboxes.router, dependencies=_no_sangi)
-app.include_router(chip_consignments.router)
+# A consignação é do módulo de cash. Sem `forbid_permission("sangi")`: esta é
+# justamente a tela da sangeur.
+app.include_router(chip_consignments.router, dependencies=[Depends(require_module("cash"))])
 app.include_router(sync.router)
 app.include_router(public_tv.router)
 app.include_router(leads.router)

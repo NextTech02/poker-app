@@ -12,9 +12,15 @@ from app.services.chip_consignment_service import ChipConsignmentService
 from app.services.staff_service import StaffService
 from app.auth.jwt import get_current_user
 from app.auth.permissions import require_permission
-from app.dependencies import get_stage_id_optional
+# Sem `get_stage_id_optional`: o escopo do módulo de cash viaja EXPLÍCITO
+# (`cash_day_id` na query ou no corpo), nunca num header. Ver o cabeçalho de
+# routers/cash_game.py.
 
 router = APIRouter(prefix="/sangi", tags=["sangi"])
+
+# O SANGEUR É PAPEL DO CASH. Ele circula pelas mesas vendendo fichas de uma
+# consignação; no torneio a venda acontece no caixa, com o jogador indo até lá.
+# A consignação nasceu ancorada em etapa porque na época só existia torneio.
 
 # Permission groups
 MANAGE_PERMS = ("cashier", "general_cash", "cashbox.admin", "employees")  # cashier-side ops
@@ -33,10 +39,10 @@ def _is_manager(auth_user_id: str) -> bool:
 @router.get("/me", response_model=Optional[ConsignmentResponse])
 def my_open_consignment(
     current_user: dict = Depends(require_permission(*SELL_PERMS)),
-    stage_id: Optional[str] = Depends(get_stage_id_optional),
+    cash_day_id: Optional[str] = None,
 ):
-    """The open consignment assigned to the current sangi (if any)."""
-    return ChipConsignmentService.get_my_open(current_user.get("sub"), stage_id)
+    """A consignação aberta da sangeur logada, se houver."""
+    return ChipConsignmentService.get_my_open(current_user.get("sub"), cash_day_id)
 
 
 @router.post("/consignments/{consignment_id}/sales", response_model=SaleResponse, status_code=status.HTTP_201_CREATED)
@@ -61,10 +67,10 @@ def register_sale(
 def release_consignment(
     data: ConsignmentRelease,
     current_user: dict = Depends(require_permission(*MANAGE_PERMS)),
-    stage_id: Optional[str] = Depends(get_stage_id_optional),
+    cash_day_id: Optional[str] = None,
 ):
-    """Cashier releases a chip value to a sangi (opens a consignment)."""
-    return ChipConsignmentService.release(data, stage_id, opened_by=current_user.get("sub"))
+    """O caixa libera um valor em fichas para a sangeur (abre a consignação)."""
+    return ChipConsignmentService.release(data, cash_day_id, opened_by=current_user.get("sub"))
 
 
 @router.get("/consignments", response_model=List[ConsignmentResponse])
@@ -72,9 +78,9 @@ def list_consignments(
     sangi_staff_id: Optional[str] = None,
     status_filter: Optional[str] = None,
     current_user: dict = Depends(require_permission(*MANAGE_PERMS)),
-    stage_id: Optional[str] = Depends(get_stage_id_optional),
+    cash_day_id: Optional[str] = None,
 ):
-    return ChipConsignmentService.list(stage_id=stage_id, sangi_staff_id=sangi_staff_id,
+    return ChipConsignmentService.list(cash_day_id=cash_day_id, sangi_staff_id=sangi_staff_id,
                                        status_filter=status_filter)
 
 

@@ -42,6 +42,15 @@ jest.mock('../components/PlayerSelect', () => ({ value, onChange }) => (
 jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+// A consignação é do DIA de cash: a sangeur é papel do cash game.
+jest.mock('../contexts/CashDayContext', () => ({
+  useCashDay: () => ({ cashDayId: 'dia-1' }),
+}));
+
+const MESAS = [
+  { id: 'm1', table_number: 3, game_type_name: 'NLH 1/2' },
+  { id: 'm2', table_number: 5, game_type_name: 'PLO 2/5' },
+];
 jest.mock('react-i18next', () => {
   const t = (chave, vars) =>
     vars && typeof vars === 'object' ? `${chave}:${Object.values(vars).join(',')}` : chave;
@@ -82,6 +91,7 @@ const responder = ({ minha = CONSIGNACAO, lista = [CONSIGNACAO], staff = FUNCION
       return minha instanceof Error ? Promise.reject(minha) : Promise.resolve({ data: minha });
     }
     if (url === '/staff') return Promise.resolve({ data: staff });
+    if (url === '/cash-game/tables') return Promise.resolve({ data: MESAS });
     if (url === '/sangi/consignments') {
       return lista instanceof Error ? Promise.reject(lista) : Promise.resolve({ data: lista });
     }
@@ -164,18 +174,35 @@ describe('vendedor', () => {
     expect(screen.getByText('sangi.noConsignmentOpen')).toBeInTheDocument();
   });
 
-  it('registra a venda com valor e comprador', async () => {
+  it('registra a venda com valor, comprador e MESA', async () => {
+    // A mesa é obrigatória porque a venda vira uma recompra do jogador ali:
+    // sem ela não há em qual sessão o dinheiro entra, e o resultado da noite
+    // do jogador sairia errado.
+    await montar();
+    await userEvent.type(screen.getByRole('spinbutton'), '300');
+    await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
+    await userEvent.selectOptions(screen.getByLabelText('sangi.tableLabel'), 'm1');
+    await userEvent.click(screen.getByRole('button', { name: 'sangi.registerBtn' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+
+    const [rota, corpo] = api.post.mock.calls[0];
+    expect(rota).toBe('/sangi/consignments/c1/sales');
+    expect(corpo).toMatchObject({
+      amount: 300, buyer_player_id: 'p1', table_id: 'm1',
+    });
+    // Duplo clique e retry não podem virar duas vendas — aqui isso custaria
+    // fichas de verdade E um lançamento a mais no dinheiro do dia.
+    expect(corpo.client_mutation_id).toBeTruthy();
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('venda sem mesa é recusada antes de sair da tela', async () => {
     await montar();
     await userEvent.type(screen.getByRole('spinbutton'), '300');
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
     await userEvent.click(screen.getByRole('button', { name: 'sangi.registerBtn' }));
-    await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/sangi/consignments/c1/sales', {
-        amount: 300,
-        buyer_player_id: 'p1',
-      })
-    );
-    expect(toast.success).toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalled();
   });
 
   it('venda sem comprador é recusada', async () => {
@@ -202,6 +229,7 @@ describe('vendedor', () => {
     await montar();
     await userEvent.type(screen.getByRole('spinbutton'), '99999');
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
+    await userEvent.selectOptions(screen.getByLabelText('sangi.tableLabel'), 'm1');
     await userEvent.click(screen.getByRole('button', { name: 'sangi.registerBtn' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Fichas insuficientes'));
   });
@@ -212,8 +240,12 @@ describe('vendedor', () => {
     await montar();
     await userEvent.type(screen.getByRole('spinbutton'), '300');
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
+    await userEvent.selectOptions(screen.getByLabelText('sangi.tableLabel'), 'm1');
     await userEvent.click(screen.getByRole('button', { name: 'sangi.registerBtn' }));
     await waitFor(() => expect(screen.getByRole('spinbutton')).toHaveValue(null));
+    // A mesa também: a venda seguinte pode ser em outra, e herdar a anterior
+    // lançaria o dinheiro na sessão errada.
+    expect(screen.getByLabelText('sangi.tableLabel')).toHaveValue('');
   });
 
   it('lista as vendas já registradas', async () => {

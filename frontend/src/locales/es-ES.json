@@ -2115,7 +2115,9 @@
     "noSalesYet": "Ninguna venta registrada aún.",
     "colBuyer": "Comprador",
     "colValue": "Valor",
-    "colWhen": "Cuándo"
+    "colWhen": "Cuándo",
+    "tableLabel": "Mesa",
+    "pickTable": "Elija la mesa"
   },
   "manualAllocation": {
     "eliminatePlayer": "Eliminar jugador",

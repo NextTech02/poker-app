@@ -6,6 +6,7 @@ import api from '../config/api';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useCashDay } from '../contexts/CashDayContext';
 import './Sangi.css';
 
 const Sangi = () => {
@@ -33,28 +34,41 @@ const SellerView = ({ toast }) => {
   const { formatCurrency } = useCurrency();
   const [cons, setCons] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { cashDayId } = useCashDay();
   const [amount, setAmount] = useState('');
   const [buyer, setBuyer] = useState('');
+  // A venda acontece NUMA MESA: ela vira uma recompra do jogador ali. Sem a
+  // mesa não dá para dizer em qual sessão o dinheiro entra, e o resultado da
+  // noite do jogador sairia errado.
+  const [tableId, setTableId] = useState('');
+  const [tables, setTables] = useState([]);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/sangi/me');
+      const [res, mesas] = await Promise.all([
+        api.get('/sangi/me', { params: { cash_day_id: cashDayId } }),
+        api.get('/cash-game/tables', {
+          params: { cash_day_id: cashDayId, status: 'open' }, _silentError: true,
+        }).catch(() => ({ data: [] })),
+      ]);
       setCons(res.data || null);
+      setTables(mesas.data || []);
     } catch (err) {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, []);
+    // Depende do dia: trocar de dia é trocar de consignação e de mesas.
+  }, [cashDayId]);
 
   useEffect(() => { load(); }, [load]);
 
   const registerSale = async (e) => {
     e.preventDefault();
     if (!cons) return;
-    if (!amount || !buyer) {
+    if (!amount || !buyer || !tableId) {
       toast.error(t('sangi.errorAmountBuyer'));
       return;
     }
@@ -63,10 +77,16 @@ const SellerView = ({ toast }) => {
       await api.post(`/sangi/consignments/${cons.id}/sales`, {
         amount: parseFloat(amount),
         buyer_player_id: buyer,
+        table_id: tableId,
+        // Duplo clique e retry não podem virar duas vendas — aqui isso custaria
+        // fichas de verdade, e um lançamento a mais no dinheiro do dia.
+        client_mutation_id: (crypto.randomUUID && crypto.randomUUID())
+          || String(Date.now()),
       });
       toast.success(t('sangi.saleRegistered'));
       setAmount('');
       setBuyer('');
+      setTableId('');
       await load();
     } catch (err) {
       toast.error(err.userMessage || err.response?.data?.detail || t('sangi.errorRegisterSale'));
@@ -104,6 +124,19 @@ const SellerView = ({ toast }) => {
           <div className="sangi-field">
             <label>{t('sangi.buyerLabel')}</label>
             <PlayerSelect value={buyer} onChange={(e) => setBuyer(e.target.value)} required />
+        </div>
+        <div className="form-group">
+          <label htmlFor="sangi-mesa">{t('sangi.tableLabel', 'Mesa')}</label>
+          <select id="sangi-mesa" value={tableId} required
+                  onChange={(e) => setTableId(e.target.value)}>
+            <option value="">{t('sangi.pickTable', 'Escolha a mesa')}</option>
+            {tables.map((m) => (
+              <option key={m.id} value={m.id}>
+                {t('cash.tableN', 'Mesa {{n}}', { n: m.table_number })}
+                {m.game_type_name ? ` — ${m.game_type_name}` : ''}
+              </option>
+            ))}
+          </select>
           </div>
           <button type="submit" className="sangi-btn" disabled={saving}>
             {saving ? t('sangi.saving') : t('sangi.registerBtn')}

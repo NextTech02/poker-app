@@ -39,6 +39,7 @@ from app.models.tournament import Tournament
 from app.utils.erros import ErroDeNegocio
 
 from tests.conftest import FakeSupabase
+from app.services.cash_day_service import CashDayService
 
 
 AUTH = "88888888-8888-8888-8888-888888888888"
@@ -543,12 +544,28 @@ class TestRotasDeDespesas:
 # Consignação de fichas (sangeur)
 # ══════════════════════════════════════════════════════════════════════
 
+DIA_CASH = "22222222-2222-2222-2222-222222222222"
+MESA = "33333333-3333-3333-3333-333333333333"
+
+
 def _banco_da_consignacao(monkeypatch, **tabelas):
+    # A venda agora acontece NUMA MESA, para um jogador SENTADO: é o que diz em
+    # qual sessão o dinheiro entra. Por isso a base já traz mesa e sessão.
     base = {"staff": [], "chip_consignments": [], "chip_consignment_sales": [],
-            "players": [{"id": JOGADOR, "name": "Fulano"}]}
+            "players": [{"id": JOGADOR, "name": "Fulano"}],
+            "cash_days": [{"id": DIA_CASH, "status": "open"}],
+            "cash_tables": [{"id": MESA, "cash_day_id": DIA_CASH,
+                             "table_number": 3, "status": "open"}],
+            "cash_player_sessions": [{"id": "sess-1", "table_id": MESA,
+                                      "player_id": JOGADOR, "status": "active"}],
+            "cash_transactions": []}
     base.update(tabelas)
     fake = FakeSupabase(base)
     monkeypatch.setattr(consignacao_mod, "supabase", fake)
+    # `require_open_day` consulta o dia por conta própria; aqui o que se mede
+    # são as recusas da consignação, não a abertura do dia.
+    monkeypatch.setattr(CashDayService, "require_open_day",
+                        staticmethod(lambda dia: {"id": dia, "status": "open"}))
     return fake
 
 
@@ -558,7 +575,7 @@ def _sangeur(permissoes=("sangi",), ativo=True):
 
 
 def _consignacao(status="open", liberado=1000.0, vendido=0.0):
-    return {"id": "cons-1", "sangi_staff_id": STAFF, "stage_id": ETAPA,
+    return {"id": "cons-1", "sangi_staff_id": STAFF, "cash_day_id": DIA_CASH,
             "released_amount": liberado, "total_sold": vendido, "status": status,
             "opened_at": "2026-06-08T00:00:00Z", "created_at": "2026-06-08T00:00:00Z"}
 
@@ -567,25 +584,26 @@ class TestRecusasDaConsignacao:
     def _libera(self):
         return ConsignmentRelease(sangi_staff_id=STAFF, released_amount=1000)
 
-    def test_sem_etapa_usa_o_mesmo_codigo_do_caixa(self, monkeypatch):
-        """A saída para o operador é a mesma dos dois lados — escolher a etapa
-        na barra do topo — então o código é o mesmo e a tela traduz uma vez só."""
+    def test_sem_dia_aberto_a_recusa_diz_o_que_fazer(self, monkeypatch):
+        """O sangeur é papel do CASH, e a consignação é do DIA. Sem dia aberto
+        não há onde pendurar as fichas liberadas — e a saída para o operador é
+        abrir o dia, que é o que a mensagem manda fazer."""
         _banco_da_consignacao(monkeypatch)
         with pytest.raises(Exception) as e:
-            CCS.release(self._libera(), stage_id=None, opened_by="u")
-        assert e.value.detail["code"] == "etapa_nao_selecionada"
+            CCS.release(self._libera(), cash_day_id=None, opened_by="u")
+        assert e.value.detail["code"] == "dia_nao_aberto"
 
     def test_sangeur_inexistente_e_404(self, monkeypatch):
         _banco_da_consignacao(monkeypatch)
         with pytest.raises(Exception) as e:
-            CCS.release(self._libera(), stage_id=ETAPA, opened_by="u")
+            CCS.release(self._libera(), cash_day_id=DIA_CASH, opened_by="u")
         assert e.value.status_code == 404
         assert e.value.detail["code"] == "sangeur_nao_encontrado"
 
     def test_funcionario_inativo(self, monkeypatch):
         _banco_da_consignacao(monkeypatch, staff=[_sangeur(ativo=False)])
         with pytest.raises(Exception) as e:
-            CCS.release(self._libera(), stage_id=ETAPA, opened_by="u")
+            CCS.release(self._libera(), cash_day_id=DIA_CASH, opened_by="u")
         assert e.value.detail["code"] == "funcionario_inativo"
 
     def test_funcionario_sem_a_permissao_de_sangeur(self, monkeypatch):
@@ -593,7 +611,7 @@ class TestRecusasDaConsignacao:
         vale também em chamada direta à API, não só na tela."""
         _banco_da_consignacao(monkeypatch, staff=[_sangeur(permissoes=("cashier",))])
         with pytest.raises(Exception) as e:
-            CCS.release(self._libera(), stage_id=ETAPA, opened_by="u")
+            CCS.release(self._libera(), cash_day_id=DIA_CASH, opened_by="u")
         assert e.value.detail["code"] == "funcionario_nao_e_sangeur"
 
     def test_consignacao_aberta_e_409_e_aponta_a_existente(self, monkeypatch):
@@ -602,7 +620,7 @@ class TestRecusasDaConsignacao:
         _banco_da_consignacao(monkeypatch, staff=[_sangeur()],
                               chip_consignments=[_consignacao()])
         with pytest.raises(Exception) as e:
-            CCS.release(self._libera(), stage_id=ETAPA, opened_by="u")
+            CCS.release(self._libera(), cash_day_id=DIA_CASH, opened_by="u")
         assert e.value.status_code == 409
         assert e.value.detail["code"] == "consignacao_aberta_existente"
         assert e.value.detail["consignment_id"] == "cons-1"
@@ -611,7 +629,7 @@ class TestRecusasDaConsignacao:
         _banco_da_consignacao(monkeypatch,
                               chip_consignments=[_consignacao(liberado=1000, vendido=900)])
         with pytest.raises(Exception) as e:
-            CCS.register_sale("cons-1", SaleCreate(amount=200, buyer_player_id=JOGADOR),
+            CCS.register_sale("cons-1", SaleCreate(table_id=MESA, amount=200, buyer_player_id=JOGADOR),
                               sold_by="u")
         detalhe = e.value.detail
         assert detalhe["code"] == "venda_excede_o_liberado"
@@ -621,7 +639,7 @@ class TestRecusasDaConsignacao:
         _banco_da_consignacao(monkeypatch,
                               chip_consignments=[_consignacao(status="reconciled")])
         with pytest.raises(Exception) as e:
-            CCS.register_sale("cons-1", SaleCreate(amount=10, buyer_player_id=JOGADOR),
+            CCS.register_sale("cons-1", SaleCreate(table_id=MESA, amount=10, buyer_player_id=JOGADOR),
                               sold_by="u")
         assert e.value.status_code == 409
         assert e.value.detail["code"] == "consignacao_ja_reconciliada"
@@ -630,7 +648,7 @@ class TestRecusasDaConsignacao:
         _banco_da_consignacao(monkeypatch, players=[],
                               chip_consignments=[_consignacao()])
         with pytest.raises(Exception) as e:
-            CCS.register_sale("cons-1", SaleCreate(amount=10, buyer_player_id=JOGADOR),
+            CCS.register_sale("cons-1", SaleCreate(table_id=MESA, amount=10, buyer_player_id=JOGADOR),
                               sold_by="u")
         assert e.value.status_code == 404
         assert e.value.detail["code"] == "comprador_nao_encontrado"
@@ -638,7 +656,7 @@ class TestRecusasDaConsignacao:
     def test_venda_em_consignacao_inexistente(self, monkeypatch):
         _banco_da_consignacao(monkeypatch)
         with pytest.raises(Exception) as e:
-            CCS.register_sale("cons-1", SaleCreate(amount=10, buyer_player_id=JOGADOR),
+            CCS.register_sale("cons-1", SaleCreate(table_id=MESA, amount=10, buyer_player_id=JOGADOR),
                               sold_by="u")
         assert e.value.status_code == 404
         assert e.value.detail["code"] == "consignacao_nao_encontrada"
@@ -659,9 +677,17 @@ class TestRecusasDaConsignacao:
         monkeypatch.setattr(consignacao_mod, "supabase", BancoComTrigger({
             "chip_consignments": [_consignacao()],
             "players": [{"id": JOGADOR, "name": "Fulano"}],
+            # Mesa e sessão precisam existir para a venda CHEGAR no trigger: as
+            # validações do serviço barram antes, e o teste passaria sem nunca
+            # exercitar a corrida que ele mede.
+            "cash_tables": [{"id": MESA, "cash_day_id": DIA_CASH,
+                             "table_number": 3, "status": "open"}],
+            "cash_player_sessions": [{"id": "sess-1", "table_id": MESA,
+                                      "player_id": JOGADOR, "status": "active"}],
+            "cash_transactions": [],
         }))
         with pytest.raises(Exception) as e:
-            CCS.register_sale("cons-1", SaleCreate(amount=10, buyer_player_id=JOGADOR),
+            CCS.register_sale("cons-1", SaleCreate(table_id=MESA, amount=10, buyer_player_id=JOGADOR),
                               sold_by="u")
         assert e.value.status_code == 400
         assert e.value.detail["code"] == "venda_excede_o_liberado"

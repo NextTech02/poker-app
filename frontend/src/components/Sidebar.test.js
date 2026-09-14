@@ -106,14 +106,23 @@ describe('itens por permissão', () => {
 
   it('o sangi puro vê a própria tela no primeiro nível', () => {
     // É a única tela dele; sem o item de topo, ficaria sem acesso.
-    montar({ permissoes: ['sangi'] });
+    // No módulo de CASH: a sangeur circula pelas mesas vendendo fichas, e no
+    // torneio a venda acontece no caixa, com o jogador indo até lá.
+    montar({ permissoes: ['sangi'], modulo: 'cash' });
     expect(screen.getByRole('link', { name: /sidebar.sangi/ })).toBeInTheDocument();
   });
 
-  it('quem tem caixa vê a sangria só dentro do grupo, sem duplicar', () => {
+  it('quem tem caixa vê a sangria uma vez só, sem duplicar', () => {
     // Dois itens "Sangi" no menu seriam ruído puro.
-    montar({ permissoes: ['cashier', 'sangi'] });
+    montar({ permissoes: ['cashier', 'sangi'], modulo: 'cash' });
     expect(screen.getAllByRole('link', { name: /sidebar.sangi/ })).toHaveLength(1);
+  });
+
+  it('a sangeur NÃO aparece no menu de torneio', () => {
+    // A migração em uma linha: o papel é do cash. Deixá-la no torneio faria o
+    // operador procurar a consignação numa operação onde ela não existe.
+    montar({ permissoes: ['cashier', 'sangi'], modulo: 'tournament' });
+    expect(screen.queryByRole('link', { name: /sidebar.sangi/ })).not.toBeInTheDocument();
   });
 
   it('cadastro de organizações só com o claim da plataforma', () => {

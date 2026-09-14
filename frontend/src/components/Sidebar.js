@@ -40,13 +40,8 @@ const MENUS_POR_MODULO = {
         { path: '/caixa', labelKey: 'sidebar.sales', icon: 'dollar', permission: 'cashier' },
         { path: '/caixa/jogadores', labelKey: 'sidebar.playerLimit', icon: 'users', permission: 'cashier_players' },
         { path: '/caixa/tickets', labelKey: 'sidebar.tournamentTickets', icon: 'ticket', permission: 'cashier_tickets' },
-        { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'cashier' },
       ],
     },
-    // Restricted entry for the pure sangi role: their only screen. Hidden for
-    // anyone who already sees Sangi nested under the Caixa group (has `cashier`),
-    // so admins/cashiers don't get a duplicate top-level item.
-    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
     { path: '/caixa-geral', labelKey: 'sidebar.generalCash', icon: 'wallet', permission: 'general_cash' },
     {
       type: 'group',
@@ -77,6 +72,14 @@ const MENUS_POR_MODULO = {
       ],
     },
     { path: '/cash/relatorios', labelKey: 'cash.reports', icon: 'document', permission: 'cash.reports' },
+    // A SANGEUR É DO CASH. É ela que circula pelas mesas vendendo fichas de uma
+    // consignação; no torneio a venda acontece no caixa, com o jogador indo até
+    // lá. Estava no menu de torneio porque a consignação nasceu antes do módulo
+    // de cash existir.
+    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'cashier' },
+    // Entrada própria para quem SÓ é sangeur: é a única tela dela. Escondida de
+    // quem já vê a de cima (tem `cashier`), para não duplicar o item.
+    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
   ],
 };
 
