@@ -5,6 +5,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import { SkeletonTableRow } from '../components/SkeletonLoader';
+import ActivityLogTable from '../components/ActivityLogTable';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
@@ -35,6 +36,12 @@ const Organizacoes = () => {
   const [expandedOrg, setExpandedOrg] = useState(null);
   const [staffByOrg, setStaffByOrg] = useState({});
   const [staffLoading, setStaffLoading] = useState(null);
+  // Log de acessos aberto (uma org por vez, dentro do drill-down dela).
+  const [logsOrg, setLogsOrg] = useState(null);
+  const fetchLogsDaOrg = useCallback(
+    (params) => api.get(`/organizations/${logsOrg}/activity-logs`, { params }).then((r) => r.data),
+    [logsOrg],
+  );
 
   const [orgs, setOrgs] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -79,9 +86,11 @@ const Organizacoes = () => {
   const toggleStaff = async (org) => {
     if (expandedOrg === org.id) {
       setExpandedOrg(null);
+      setLogsOrg(null);
       return;
     }
     setExpandedOrg(org.id);
+    setLogsOrg(null);
     if (staffByOrg[org.id]) return; // já em cache
     setStaffLoading(org.id);
     try {
@@ -450,6 +459,23 @@ const Organizacoes = () => {
                               ))}
                             </tbody>
                           </table>
+                        </div>
+                      )}
+                      {staffLoading !== o.id && (
+                        <div className="org-logs">
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            aria-expanded={logsOrg === o.id}
+                            onClick={() => setLogsOrg(logsOrg === o.id ? null : o.id)}
+                          >
+                            {logsOrg === o.id
+                              ? t('organizations.hideAccess', 'Ocultar acessos')
+                              : t('organizations.viewAccess', 'Ver acessos')}
+                          </button>
+                          {logsOrg === o.id && (
+                            <ActivityLogTable users={staffByOrg[o.id]} fetchPage={fetchLogsDaOrg} />
+                          )}
                         </div>
                       )}
                     </td>

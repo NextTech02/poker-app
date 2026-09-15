@@ -13,11 +13,13 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Literal, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.jwt import get_current_user
 from app.config import get_settings
+from app.routers.activity_logs import DATE_PATTERN, EVENT_TYPE_PATTERN
+from app.services.activity_log_service import ActivityLogService
 from app.database.supabase_client import supabase_admin
 from app.utils.erros import conflito, erro_http, nao_encontrado, recusado, sem_permissao
 
@@ -139,7 +141,7 @@ def list_organization_staff(org_id: str):
 
     rows = (
         supabase_admin.table("staff")
-        .select("id, name, email, active, created_at, permission_group_id, permission_groups(name)")
+        .select("id, auth_user_id, name, email, active, created_at, permission_group_id, permission_groups(name)")
         .eq("organization_id", org_id)
         .order("name")
         .execute()
@@ -152,6 +154,34 @@ def list_organization_staff(org_id: str):
         s["permission_group_name"] = group.get("name")
         staff.append(s)
     return staff
+
+
+@router.get("/{org_id}/activity-logs", dependencies=[Depends(require_platform_admin)])
+def list_organization_activity_logs(
+    org_id: str,
+    user_id: Optional[str] = Query(None),
+    event_type: Optional[str] = Query(None, pattern=EVENT_TYPE_PATTERN),
+    date_from: Optional[str] = Query(None, pattern=DATE_PATTERN),
+    date_to: Optional[str] = Query(None, pattern=DATE_PATTERN),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+):
+    """Log de acessos e atividade de uma organização, para o platform_admin.
+
+    Mesma tela que o admin do clube vê em Funcionários → Acessos, só que sem
+    precisar ENTRAR na org (o que, aliás, também ficaria registrado lá)."""
+    org = supabase_admin.table("organizations").select("id").eq("id", org_id).execute()
+    if not org.data:
+        raise nao_encontrado("organizacao_nao_encontrada", "Organização não encontrada.")
+    return ActivityLogService.list(
+        org_id,
+        user_id=user_id,
+        event_type=event_type,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/{org_id}/usage", dependencies=[Depends(require_platform_admin)])
@@ -420,7 +450,9 @@ class SwitchOrgRequest(BaseModel):
 
 
 @router.post("/switch")
-def switch_organization(data: SwitchOrgRequest, current_user: dict = Depends(get_current_user)):
+def switch_organization(
+    data: SwitchOrgRequest, request: Request, current_user: dict = Depends(get_current_user)
+):
     """Troca a organização ativa do usuário.
 
     Grava a escolha; o CLAIM só muda no próximo token, então o frontend precisa
@@ -451,6 +483,14 @@ def switch_organization(data: SwitchOrgRequest, current_user: dict = Depends(get
         raise sem_permissao(
             "sem_vinculo_com_a_organizacao", "Você não pertence a esta organização."
         )
+    # Fica no log da org DE DESTINO: o admin do clube vê quem entrou lá —
+    # inclusive a NextHub, de propósito (transparência de "suporte acessou").
+    ActivityLogService.record(
+        ActivityLogService.EVENT_ORG_SWITCH,
+        current_user,
+        request=request,
+        organization_id=data.organization_id,
+    )
     return {"organization_id": data.organization_id, "refresh_required": True}
 
 

@@ -29,6 +29,10 @@ jest.mock('../config/api', () => ({
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
+jest.mock('../components/ActivityLogTable', () => (props) => {
+  props.fetchPage({ page: 1 });
+  return <div data-testid="activity-log" />;
+});
 jest.mock('../utils/orgScope', () => ({ currentOrgId: jest.fn(), enterOrg: jest.fn() }));
 jest.mock('react-i18next', () => {
   const t = (chave, segundo, terceiro) => {
@@ -255,6 +259,22 @@ describe('funcionários por organização', () => {
     await userEvent.click(within(linhaDe('Clube Royal')).getByTitle('Ver funcionários'));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Erro ao carregar funcionários'));
     expect(document.querySelector('.org-staff-row')).toBeNull();
+  });
+});
+
+describe('acessos por organização', () => {
+  it('o log é buscado só quando o admin pede, e da org certa', async () => {
+    await montar();
+    await userEvent.click(within(linhaDe('Clube Royal')).getByTitle('Ver funcionários'));
+    await waitFor(() => document.querySelector('.org-staff-table'));
+    expect(api.get).not.toHaveBeenCalledWith('/organizations/o1/activity-logs', expect.anything());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ver acessos' }));
+    expect(screen.getByTestId('activity-log')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/organizations/o1/activity-logs', { params: { page: 1 } });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ocultar acessos' }));
+    expect(screen.queryByTestId('activity-log')).toBeNull();
   });
 });
 

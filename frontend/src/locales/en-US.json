@@ -1874,7 +1874,8 @@
       "blinds": "Blinds",
       "tables": "Tables",
       "broadcast": "Broadcast",
-      "employees": "Employees"
+      "employees": "Employees",
+      "accessLog": "Access log"
     },
     "inviteEmployee": "Invite employee",
     "inviteHint": "The employee gets an email and sets their own name and password. You never create or share a password.",
@@ -1912,7 +1913,8 @@
     "effectivated": "{{name}} is now part of the team.",
     "errEffectivate": "Could not activate the invite.",
     "inviteCancelledFree": "Invite cancelled. This e-mail can be invited again.",
-    "joinedDirectly": "{{email}} already had an account and joined the team directly — just ask them to sign in."
+    "joinedDirectly": "{{email}} already had an account and joined the team directly — just ask them to sign in.",
+    "tabAccess": "Access log"
   },
   "stageBar": {
     "selectedStage": "Selected Stage:",
@@ -2066,7 +2068,9 @@
     "leave": "Exit",
     "errorLeave": "Could not leave this organization",
     "unknownOrg": "another organization",
-    "language": "Language"
+    "language": "Language",
+    "viewAccess": "View access log",
+    "hideAccess": "Hide access log"
   },
   "sangi": {
     "pageTitle": "Sangeur — Consignment Chip Sales",
@@ -2691,5 +2695,110 @@
     "copy": "Copy",
     "copied": "Codes copied",
     "savedThem": "I saved the codes"
+  },
+  "activityLog": {
+    "filters": {
+      "user": "User",
+      "allUsers": "All",
+      "userIdHint": "User ID",
+      "event": "Event",
+      "allEvents": "All"
+    },
+    "columns": {
+      "when": "When",
+      "user": "User",
+      "event": "Event",
+      "details": "Details"
+    },
+    "system": "System",
+    "empty": "No records in this period",
+    "emptyHint": "Widen the period or clear the filters.",
+    "error": "Could not load the log",
+    "prev": "Previous",
+    "next": "Next",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "events": {
+      "login": "Signed in",
+      "logout": "Signed out",
+      "orgSwitch": "Entered the organization"
+    },
+    "ops": {
+      "insert": "Created",
+      "update": "Updated",
+      "delete": "Deleted"
+    },
+    "tables": {
+      "tournaments": "tournament",
+      "tournament_days": "tournament day",
+      "stages": "stage",
+      "transactions": "cashier sale",
+      "sangria_transactions": "cash pull",
+      "cashbox_sessions": "cashbox session",
+      "cashbox_transactions": "cashbox movement",
+      "staff": "employee",
+      "permission_groups": "permission group",
+      "staff_payments": "staff payment",
+      "expenses": "expense",
+      "other_revenues": "other revenue",
+      "buy_types": "buy type",
+      "payment_methods": "payment method",
+      "app_settings": "settings",
+      "cash_days": "cash game day",
+      "cash_transactions": "cash game transaction"
+    },
+    "fields": {
+      "name": "name",
+      "status": "status",
+      "amount": "amount",
+      "active": "active",
+      "email": "email",
+      "permission_group_id": "group",
+      "permissions": "permissions",
+      "description": "description",
+      "notes": "notes",
+      "payment_method": "payment method",
+      "paid_at": "paid at",
+      "closed_at": "closed at",
+      "initial_balance": "initial balance",
+      "actual_final_balance": "final balance",
+      "cancel_reason": "cancel reason",
+      "buy_in": "buy-in",
+      "rebuy_amount": "rebuy",
+      "addon_amount": "add-on",
+      "rake_percentage": "rake %",
+      "max_players": "max players",
+      "starting_chips": "starting chips",
+      "guaranteed_prize": "guaranteed",
+      "start_time": "start time",
+      "tournament_date": "date",
+      "day_name": "day name",
+      "label": "label",
+      "code": "code",
+      "currency": "currency",
+      "language": "language",
+      "supplier": "supplier",
+      "due_date": "due date",
+      "category_id": "category",
+      "source": "source",
+      "received_at": "received at",
+      "chips": "chips",
+      "category": "category",
+      "location": "location",
+      "start_date": "start",
+      "end_date": "end",
+      "sales_blocked": "sales blocked",
+      "type": "type",
+      "buy_type_name": "buy type",
+      "player_id": "player",
+      "tournament_id": "tournament",
+      "stage_id": "stage",
+      "invite_status": "invite",
+      "paid_from_cash": "paid from cash",
+      "to_cash": "to cash",
+      "tables_locked": "tables locked",
+      "blind_duration": "blind duration",
+      "day_type": "day type",
+      "day_number": "day number"
+    }
   }
 }

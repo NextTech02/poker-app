@@ -28,6 +28,10 @@ ALL_PERMISSIONS = [
     # Módulo de cash game. Ter a chave não basta: o clube precisa ter o módulo
     # contratado (org_modules) — ver app/auth/modules.py.
     'cash.operate', 'cash.tables', 'cash.day', 'cash.reports', 'cash.admin',
+    # Log de acessos e atividade: quem entrou e quem fez o quê. Chave própria
+    # porque "dono do clube" não existe como flag (is_admin é só da plataforma);
+    # concedida no backfill a quem já tinha `employees`.
+    'access_log',
 ]
 
 # Permissions that imply the staff member can have their own cashbox

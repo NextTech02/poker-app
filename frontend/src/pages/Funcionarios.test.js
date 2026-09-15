@@ -20,6 +20,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePermissions } from '../contexts/PermissionContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -29,6 +30,13 @@ jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
+// A tabela do log tem teste próprio; aqui só interessa se a aba existe e o
+// que ela pede ao backend.
+jest.mock('../components/ActivityLogTable', () => (props) => {
+  props.fetchPage({ page: 1 });
+  return <div data-testid="activity-log" />;
+});
 
 // Fake do supabase-js: a aba de pagamentos escreve DIRETO na base, sem passar
 // pelo backend. O fake registra cada operação para os testes conferirem o que
@@ -132,6 +140,7 @@ beforeEach(() => {
   useToast.mockReturnValue({ toast, confirm: confirmar });
   useStage.mockReturnValue({ selectedStage: ETAPA });
   useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
+  usePermissions.mockReturnValue({ hasPermission: () => false });
   api.post.mockResolvedValue({ data: {} });
   api.patch.mockResolvedValue({ data: {} });
   api.delete.mockResolvedValue({ data: { acao: 'removido' } });
@@ -513,9 +522,10 @@ describe('grupos de permissão', () => {
 
   it('grupo com todas as permissões é sinalizado como total', async () => {
     await montar({
-      // O total acompanha ALL_PERMISSIONS da tela — hoje 21 chaves, com a
-      // emissão de ticket em lote ('cashier_tickets.master').
-      grupos: [{ id: 'g9', name: 'Admin', permissions: Array.from({ length: 21 }, (_, i) => `p${i}`) }],
+      // O total acompanha ALL_PERMISSIONS da tela — hoje 22 chaves, com a
+      // emissão de ticket em lote ('cashier_tickets.master') e o log de
+      // acessos ('access_log').
+      grupos: [{ id: 'g9', name: 'Admin', permissions: Array.from({ length: 22 }, (_, i) => `p${i}`) }],
     });
     await irGrupos();
     expect(screen.getByText('staff.allPermissions')).toBeInTheDocument();
@@ -814,5 +824,24 @@ describe('pagamentos da equipe', () => {
     await montar();
     await irPagamentos();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('staff.errLoadPayments'));
+  });
+});
+
+describe('aba de acessos', () => {
+  // O log mostra o que CADA funcionário fez — só quem tem a chave `access_log`.
+  it('sem a permissão nem vê a aba', async () => {
+    await montar();
+    expect(screen.queryByRole('button', { name: 'Acessos' })).toBeNull();
+  });
+
+  it('com a permissão a aba abre e o log da própria organização é buscado', async () => {
+    usePermissions.mockReturnValue({ hasPermission: (k) => k === 'access_log' });
+    await montar();
+    await irPara('Acessos');
+    expect(screen.getByTestId('activity-log')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/activity-logs', { params: { page: 1 } });
+    // Nesta aba não há o que criar: nem funcionário, nem grupo.
+    expect(screen.queryByRole('button', { name: /staff.newGroup/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /staff.newEmployee/ })).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../config/supabase';
+import api from '../config/api';
 import { clearCache } from '../utils/apiCache';
 import { isOnline } from '../offline/connectivity';
 
@@ -79,6 +80,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Avisa o log de acessos ANTES de encerrar a sessão: o interceptor lê o
+    // token do localStorage, e depois do signOut ele já não existe. Melhor
+    // esforço — sem rede, sair continua saindo.
+    try {
+      await api.post('/activity-logs/logout', null, { _silentError: true, timeout: 3000 });
+    } catch (_) {
+      // sem log não é motivo para prender o usuário dentro
+    }
     const { error } = await supabase.auth.signOut();
     localStorage.removeItem('supabase_token');
     clearCache(); // B3: limpa cache ao sair

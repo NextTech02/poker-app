@@ -1,0 +1,71 @@
+/* Log de acessos e atividade — mesma gramática das listas com filtro (CashDays). */
+.al-filters {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.al-filters .form-group {
+  margin: 0;
+  min-width: 160px;
+}
+
+.al-table td {
+  vertical-align: top;
+}
+.al-when {
+  white-space: nowrap;
+  color: var(--text-secondary, #8aa0b0);
+  font-size: 0.85rem;
+}
+.al-user {
+  word-break: break-all;
+}
+.al-details {
+  font-size: 0.85rem;
+}
+.al-entity {
+  font-weight: 600;
+}
+.al-muted {
+  color: var(--text-secondary, #8aa0b0);
+}
+
+/* O diff é a parte que responde "mudou o quê?" — lista curta, sem marcadores. */
+.al-diff {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+.al-diff li {
+  line-height: 1.4;
+}
+.al-field {
+  color: var(--text-secondary, #8aa0b0);
+}
+.al-old {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.al-new {
+  color: var(--text-info, #93c5fd);
+}
+
+.al-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+.al-pagination-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .al-filters .form-group {
+    min-width: 100%;
+  }
+}

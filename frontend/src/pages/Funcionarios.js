@@ -9,6 +9,8 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePermissions } from '../contexts/PermissionContext';
+import ActivityLogTable from '../components/ActivityLogTable';
 import { supabase } from '../config/supabase';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Funcionarios.css';
@@ -46,6 +48,9 @@ const ALL_PERMISSIONS = [
   { key: 'tables', label: 'staff.perm.tables' },
   { key: 'broadcast', label: 'staff.perm.broadcast' },
   { key: 'employees', label: 'staff.perm.employees' },
+  // Log de acessos e atividade: quem entrou e quem fez o quê. Separado de
+  // `employees` para o clube poder dar a um auditor sem deixá-lo mexer na equipe.
+  { key: 'access_log', label: 'staff.perm.accessLog', fallback: 'Log de acessos' },
 ];
 
 // Ver a nota acima do array: a busca por chave vira consulta de tabela hash.
@@ -58,12 +63,18 @@ const PERMISSAO_POR_CHAVE = new Map(ALL_PERMISSIONS.map((p) => [p.key, p]));
 // ninguém ia procurar. Aqui o convite passa a ser um estado próprio.
 const ehConvite = (s) => s.invite_status === 'pending' || s.invite_status === 'awaiting_signup';
 
+// Fora do componente de propósito: a tabela de acessos refaz a busca quando
+// esta função muda de identidade, e uma arrow inline mudaria a cada render.
+const fetchActivityLogs = (params) => api.get('/activity-logs', { params }).then((r) => r.data);
+
 const Funcionarios = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
   const notify = (msg, type = 'error') => toast[type](msg);
   const { selectedStage } = useStage();
   const { formatCurrency } = useCurrency();
+  const { hasPermission } = usePermissions();
+  const podeVerAcessos = hasPermission('access_log');
 
   const [activeTab, setActiveTab] = useState('staff');
   const [staffList, setStaffList] = useState([]);
@@ -625,7 +636,7 @@ const Funcionarios = () => {
           <div className="page-header-actions">
             {activeTab === 'staff' ? (
               <Button onClick={openCreateStaff}>+ {t('staff.newEmployee')}</Button>
-            ) : (
+            ) : activeTab === 'acessos' ? null : (
               <Button onClick={openCreateGroup}>+ {t('staff.newGroup')}</Button>
             )}
           </div>
@@ -654,6 +665,16 @@ const Funcionarios = () => {
           >
             {t('staff.tabPayments')}
           </button>
+          {/* Chave própria: o log mostra o que CADA funcionário fez. */}
+          {podeVerAcessos && (
+            <button
+              type="button"
+              className={`func-tab ${activeTab === 'acessos' ? 'active' : ''}`}
+              onClick={() => setActiveTab('acessos')}
+            >
+              {t('staff.tabAccess', 'Acessos')}
+            </button>
+          )}
         </div>
 
         {/* ── Staff Tab ── */}
@@ -890,6 +911,13 @@ const Funcionarios = () => {
                 </table>
               </div>
             )}
+          </Card>
+        )}
+
+        {/* ── Acessos (log de acessos e atividade) ── */}
+        {activeTab === 'acessos' && podeVerAcessos && (
+          <Card>
+            <ActivityLogTable users={staffList} fetchPage={fetchActivityLogs} />
           </Card>
         )}
 

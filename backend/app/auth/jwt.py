@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from jose.exceptions import JWKError, ExpiredSignatureError
@@ -22,7 +22,22 @@ def get_jwks():
         return ()
 
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def _registrar_sessao(payload: dict, request: Request) -> dict:
+    """Primeira requisição de cada sessão vira uma linha de `login` no log de
+    acessos. Fica aqui, e não no frontend, porque este é o único ponto por onde
+    TODA requisição autenticada passa — inclusive as de quem chama a API na mão.
+    Nunca pode falhar: o log é acessório da autenticação, não o contrário."""
+    try:
+        # Import tardio: `services` importa o cliente do banco, que importa
+        # config; manter fora do topo evita ciclo com `permissions.py`.
+        from app.services.activity_log_service import ActivityLogService
+        ActivityLogService.touch_session(payload, request)
+    except Exception:  # noqa: BLE001
+        pass
+    return payload
+
+
+def verify_token(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Verify Supabase JWT token — supports both HS256 (legacy) and ES256/RS256 (new)."""
     token = credentials.credentials
 
@@ -38,7 +53,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
             user_id: str = payload.get("sub")
             if user_id is None:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
-            return payload
+            return _registrar_sessao(payload, request)
         except JWTError:
             pass
 
@@ -72,7 +87,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         user_id: str = payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials")
-        return payload
+        return _registrar_sessao(payload, request)
     except (JWTError, JWKError) as e:
         # JWKError precisa entrar aqui junto com JWTError: um token EXPIRADO
         # falha no caminho HS256, cai para o JWKS e estoura JWKError ("Expected

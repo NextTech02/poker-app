@@ -294,3 +294,11 @@
   .org-table tr { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0.5rem 0; }
   .org-table td { border: none; padding: 0.35rem 1rem; }
 }
+
+/* Log de acessos dentro do drill-down da organização. */
+.org-logs {
+  margin-top: 0.75rem;
+}
+.org-logs .activity-log {
+  margin-top: 0.75rem;
+}

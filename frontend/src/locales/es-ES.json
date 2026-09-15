@@ -1874,7 +1874,8 @@
       "blinds": "Blinds",
       "tables": "Mesas",
       "broadcast": "Broadcast",
-      "employees": "Empleados"
+      "employees": "Empleados",
+      "accessLog": "Registro de accesos"
     },
     "inviteEmployee": "Invitar empleado",
     "inviteHint": "El empleado recibe un correo y define su propio nombre y contraseña. No necesitas crear ni compartir contraseñas.",
@@ -1912,7 +1913,8 @@
     "effectivated": "{{name}} ahora forma parte del equipo.",
     "errEffectivate": "No se pudo efectivar la invitación.",
     "inviteCancelledFree": "Invitación cancelada. Este correo puede ser invitado de nuevo.",
-    "joinedDirectly": "{{email}} ya tenía cuenta y entró directo al equipo — solo pídale que inicie sesión."
+    "joinedDirectly": "{{email}} ya tenía cuenta y entró directo al equipo — solo pídale que inicie sesión.",
+    "tabAccess": "Accesos"
   },
   "stageBar": {
     "selectedStage": "Etapa Seleccionada:",
@@ -2066,7 +2068,9 @@
     "leave": "Salir",
     "errorLeave": "No se pudo salir de esta organización",
     "unknownOrg": "otra organización",
-    "language": "Idioma"
+    "language": "Idioma",
+    "viewAccess": "Ver accesos",
+    "hideAccess": "Ocultar accesos"
   },
   "sangi": {
     "pageTitle": "Sangeur — Venta de Fichas en Consignación",
@@ -2691,5 +2695,110 @@
     "copy": "Copiar",
     "copied": "Códigos copiados",
     "savedThem": "Guardé los códigos"
+  },
+  "activityLog": {
+    "filters": {
+      "user": "Usuario",
+      "allUsers": "Todos",
+      "userIdHint": "ID del usuario",
+      "event": "Evento",
+      "allEvents": "Todos"
+    },
+    "columns": {
+      "when": "Cuándo",
+      "user": "Usuario",
+      "event": "Evento",
+      "details": "Detalles"
+    },
+    "system": "Sistema",
+    "empty": "Sin registros en el período",
+    "emptyHint": "Amplíe el período o limpie los filtros.",
+    "error": "No se pudo cargar el registro",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "range": "{{from}}–{{to}} de {{total}}",
+    "events": {
+      "login": "Ingresó al sistema",
+      "logout": "Salió del sistema",
+      "orgSwitch": "Ingresó a la organización"
+    },
+    "ops": {
+      "insert": "Creó",
+      "update": "Modificó",
+      "delete": "Eliminó"
+    },
+    "tables": {
+      "tournaments": "torneo",
+      "tournament_days": "día de torneo",
+      "stages": "etapa",
+      "transactions": "venta en caja",
+      "sangria_transactions": "sangría",
+      "cashbox_sessions": "sesión de caja",
+      "cashbox_transactions": "movimiento de caja",
+      "staff": "empleado",
+      "permission_groups": "grupo de permisos",
+      "staff_payments": "pago de empleado",
+      "expenses": "gasto",
+      "other_revenues": "otro ingreso",
+      "buy_types": "tipo de entrada",
+      "payment_methods": "medio de pago",
+      "app_settings": "configuración",
+      "cash_days": "día de cash game",
+      "cash_transactions": "transacción de cash game"
+    },
+    "fields": {
+      "name": "nombre",
+      "status": "estado",
+      "amount": "importe",
+      "active": "activo",
+      "email": "correo",
+      "permission_group_id": "grupo",
+      "permissions": "permisos",
+      "description": "descripción",
+      "notes": "notas",
+      "payment_method": "medio de pago",
+      "paid_at": "pagado el",
+      "closed_at": "cerrado el",
+      "initial_balance": "saldo inicial",
+      "actual_final_balance": "saldo final",
+      "cancel_reason": "motivo de cancelación",
+      "buy_in": "buy-in",
+      "rebuy_amount": "rebuy",
+      "addon_amount": "add-on",
+      "rake_percentage": "rake %",
+      "max_players": "máx. jugadores",
+      "starting_chips": "fichas iniciales",
+      "guaranteed_prize": "garantizado",
+      "start_time": "hora",
+      "tournament_date": "fecha",
+      "day_name": "nombre del día",
+      "label": "etiqueta",
+      "code": "código",
+      "currency": "moneda",
+      "language": "idioma",
+      "supplier": "proveedor",
+      "due_date": "vencimiento",
+      "category_id": "categoría",
+      "source": "origen",
+      "received_at": "recibido el",
+      "chips": "fichas",
+      "category": "categoría",
+      "location": "lugar",
+      "start_date": "inicio",
+      "end_date": "fin",
+      "sales_blocked": "ventas bloqueadas",
+      "type": "tipo",
+      "buy_type_name": "tipo de entrada",
+      "player_id": "jugador",
+      "tournament_id": "torneo",
+      "stage_id": "etapa",
+      "invite_status": "invitación",
+      "paid_from_cash": "pagado desde caja",
+      "to_cash": "a caja",
+      "tables_locked": "mesas bloqueadas",
+      "blind_duration": "duración del blind",
+      "day_type": "tipo de día",
+      "day_number": "número del día"
+    }
   }
 }

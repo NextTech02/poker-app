@@ -40,7 +40,7 @@ api.interceptors.request.use((config) => {
 
 // Endpoints voláteis/ruidosos: não vale cachear (mudam a cada segundo ou têm
 // lógica offline própria).
-const NO_CACHE = ['/timer/', '/health', '/sync/', '/broadcast-code'];
+const NO_CACHE = ['/timer/', '/health', '/sync/', '/broadcast-code', '/activity-logs'];
 
 const isNetworkError = (error) =>
   !error?.response &&

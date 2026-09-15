@@ -35,3 +35,9 @@ export function primeiroDiaDoMes(d = new Date()) {
 export function hojeLocal() {
   return dataLocalISO();
 }
+
+/** `n` dias atrás, no calendário local (n = 0 é hoje). */
+export function diasAtras(n, d = new Date()) {
+  const copia = new Date(d.getFullYear(), d.getMonth(), d.getDate() - n);
+  return dataLocalISO(copia);
+}
