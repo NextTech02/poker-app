@@ -12,7 +12,7 @@ from app.database.supabase_client import set_request_jwt, reset_request_jwt, sta
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, organizations, loyalty, expenses, leads, activity_logs
-from app.routers import cash_game, mfa
+from app.routers import cash_game, mfa, bar
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
 # API level (the frontend already hides these screens). Non-sangi roles and
@@ -30,6 +30,9 @@ _no_sangi = [Depends(forbid_permission("sangi"))]
 # "Sangeur" tem só `sangi`, então ele não abre dia, não apura rake e não mexe
 # em configuração — `require_permission` recusa antes de chegar no serviço.
 _cash_game = [Depends(require_module("cash"))]
+# Bar: mesma guarda de entitlement. Sangeur não opera o bar (só `sangi`),
+# e require_permission já recusa antes de chegar no serviço.
+_bar = [Depends(require_module("bar"))]
 
 settings = get_settings()
 
@@ -195,6 +198,7 @@ app.include_router(loyalty.router)
 app.include_router(expenses.router, dependencies=_no_sangi)
 app.include_router(expenses.revenues_router, dependencies=_no_sangi)
 app.include_router(cash_game.router, dependencies=_cash_game)
+app.include_router(bar.router, dependencies=_bar)
 
 
 @app.exception_handler(httpx.LocalProtocolError)

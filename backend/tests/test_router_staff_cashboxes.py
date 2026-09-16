@@ -257,11 +257,11 @@ class TestFuncionarios:
 
 class TestCaixasLeitura:
     def test_lista_os_caixas(self, client, stub):
-        stub(CS, list_cashboxes=lambda uid, stage_id=None, status=None: [_caixa()])
+        stub(CS, list_cashboxes=lambda uid, stage_id=None, status=None, **ancoras: [_caixa()])
         assert len(client.get("/cashboxes").json()) == 1
 
     def test_meu_caixa_atual(self, client, stub):
-        stub(CS, get_my_current=lambda uid, stage_id=None, cash_day_id=None: _caixa())
+        stub(CS, get_my_current=lambda uid, stage_id=None, cash_day_id=None, bar_shift_id=None: _caixa())
         r = client.get("/cashboxes/me/current", headers={"X-Stage-ID": ETAPA})
         assert r.json()["id"] == CAIXA
 
@@ -284,7 +284,7 @@ class TestCaixasLeitura:
         assert vistos == {"stage_id": None, "cash_day_id": "dia-1"}
 
     def test_sem_etapa_e_sem_dia_recusa(self, client, stub):
-        stub(CS, get_my_current=lambda uid, stage_id=None, cash_day_id=None: _caixa())
+        stub(CS, get_my_current=lambda uid, stage_id=None, cash_day_id=None, bar_shift_id=None: _caixa())
         r = client.get("/cashboxes/me/current")
         assert r.status_code == 400
         assert r.json()["detail"]["code"] == "etapa_nao_selecionada"
@@ -340,7 +340,7 @@ class TestCaixasSoAdmin:
 
     def test_cria_caixa(self, client, stub):
         stub(CS, can_admin=lambda uid: True,
-             create_for_staff=lambda sid, stage: _caixa())
+             create_for_staff=lambda sid, stage, **ancoras: _caixa())
         r = client.post("/cashboxes", json={"staff_id": STAFF},
                         headers={"X-Stage-ID": ETAPA})
         assert r.status_code == 200
@@ -350,7 +350,7 @@ class TestCaixasSoAdmin:
         assert client.post("/cashboxes", json={"staff_id": STAFF}).status_code == 403
 
     def test_funcionario_que_ja_tem_caixa_na_etapa_da_400(self, client, stub):
-        def _estoura(sid, stage):
+        def _estoura(sid, stage, **ancoras):
             raise ValueError("já possui caixa nesta etapa")
         stub(CS, can_admin=lambda uid: True, create_for_staff=_estoura)
         assert client.post("/cashboxes", json={"staff_id": STAFF}).status_code == 400
@@ -367,7 +367,7 @@ class TestCaixasSoAdmin:
 
     def test_demonstrativo(self, client, stub):
         stub(CS, can_admin=lambda uid: True,
-             get_demonstrativo=lambda stage_id=None, date_from=None, date_to=None,
+             get_demonstrativo=lambda stage_id=None, date_from=None, date_to=None, cash_day_id=None, bar_shift_id=None,
              staff_id=None: CashboxDemonstrativo())
         assert client.get("/cashboxes/demonstrativo").status_code == 200
 

@@ -22,10 +22,19 @@ const ACTION_CONFIG = {
   stageSangria: { payloadKey: 'amount', labelKey: 'generalCash.sangriaAmountLabel', titleKey: 'cashbox.sangriaToGeneral' },
 };
 
-const CashboxAdminPanel = () => {
+/**
+ * `anchor` (opcional): `{ barShiftId }` ou `{ cashDayId }` escopa o painel a
+ * uma gaveta por turno/dia em vez da etapa do header. Sem `anchor`, nada muda
+ * para o Financeiro. Com ela, a sangria da ETAPA some (não há etapa) e o caixa
+ * novo nasce na âncora informada.
+ */
+const CashboxAdminPanel = ({ anchor = null }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
+  const anchorParams = anchor?.barShiftId
+    ? { bar_shift_id: anchor.barShiftId }
+    : anchor?.cashDayId ? { cash_day_id: anchor.cashDayId } : null;
   const { formatCurrency } = useCurrency();
 
   const [cashboxes, setCashboxes] = useState([]);
@@ -64,17 +73,21 @@ const CashboxAdminPanel = () => {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [modal, createOpen, submitting, creating]);
 
+  const anchorKey = anchorParams ? JSON.stringify(anchorParams) : '';
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/cashboxes', { _silentError: true });
+      const res = await api.get('/cashboxes', {
+        params: anchorKey ? JSON.parse(anchorKey) : undefined,
+        _silentError: true,
+      });
       setCashboxes(res.data || []);
     } catch (err) {
       setCashboxes([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [anchorKey]);
 
   const loadStaff = useCallback(async () => {
     try {
@@ -99,7 +112,7 @@ const CashboxAdminPanel = () => {
     if (!newStaffId) return;
     setCreating(true);
     try {
-      await api.post('/cashboxes', { staff_id: newStaffId });
+      await api.post('/cashboxes', { staff_id: newStaffId, ...(anchorParams || {}) });
       toast.success(t('cashbox.createdSuccess'));
       setCreateOpen(false);
       setNewStaffId('');
@@ -220,9 +233,13 @@ const CashboxAdminPanel = () => {
 
       <div className="cb-admin__context">
         <span>
-          {selectedStage
-            ? t('cashbox.stageContext', { stage: selectedStage.name })
-            : t('cashbox.allStagesContext')}
+          {anchor?.barShiftId
+            ? t('cashbox.barShiftContext', 'Caixas do turno do bar')
+            : anchor?.cashDayId
+              ? t('cashbox.cashDayContext', 'Caixas do dia de cash')
+              : selectedStage
+                ? t('cashbox.stageContext', { stage: selectedStage.name })
+                : t('cashbox.allStagesContext')}
         </span>
         {!loading && cashboxes.length > 0 && (
           <span className="cb-admin__total">
@@ -292,9 +309,12 @@ const CashboxAdminPanel = () => {
                             <Button size="small" variant="secondary" onClick={() => openModal('sangria', cb)}>
                               {t('cashbox.sangria')}
                             </Button>
-                            <Button size="small" variant="secondary" onClick={() => openModal('stageSangria', cb)}>
-                              {t('cashbox.sangriaToGeneral')}
-                            </Button>
+                            {/* Sangria da ETAPA não existe fora do torneio. */}
+                            {!anchorParams && (
+                              <Button size="small" variant="secondary" onClick={() => openModal('stageSangria', cb)}>
+                                {t('cashbox.sangriaToGeneral')}
+                              </Button>
+                            )}
                             <Button size="small" variant="secondary" onClick={() => openModal('close', cb)}>
                               {t('cashbox.closeCashbox')}
                             </Button>

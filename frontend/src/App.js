@@ -9,6 +9,7 @@ import { ModuleProvider, useModule } from './contexts/ModuleContext';
 import MfaChallenge from './components/MfaChallenge';
 import useMfaGate from './hooks/useMfaGate';
 import { CashDayProvider } from './contexts/CashDayContext';
+import { BarShiftProvider } from './contexts/BarShiftContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { PaymentMethodsProvider } from './contexts/PaymentMethodsContext';
 import { BuyTypesProvider } from './contexts/BuyTypesContext';
@@ -71,6 +72,9 @@ const CashJackpot = lazy(() => import('./pages/CashJackpot'));
 const CashConfig = lazy(() => import('./pages/CashConfig'));
 // Bar (comandas). A POS é a home do módulo, mesma lógica do CashFloor.
 const BarPOS = lazy(() => import('./pages/BarPOS'));
+const BarProducts = lazy(() => import('./pages/BarProducts'));
+const BarShifts = lazy(() => import('./pages/BarShifts'));
+const BarShiftDetail = lazy(() => import('./pages/BarShiftDetail'));
 
 const PageFallback = () => (
   <div className="page-loading-skeleton">
@@ -279,6 +283,30 @@ function AppRoutes() {
         element={
           <PrivateRoute module="bar" permission="bar.operate">
             <BarPOS />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/bar/produtos"
+        element={
+          <PrivateRoute module="bar" permission="bar.admin">
+            <BarProducts />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/bar/turnos"
+        element={
+          <PrivateRoute module="bar" anyPermission={['bar.shift', 'bar.reports']}>
+            <BarShifts />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/bar/turnos/:id"
+        element={
+          <PrivateRoute module="bar" anyPermission={['bar.shift', 'bar.reports']}>
+            <BarShiftDetail />
           </PrivateRoute>
         }
       />
@@ -590,6 +618,7 @@ function App() {
           <PermissionProvider>
             <ModuleProvider>
               <CashDayProvider>
+              <BarShiftProvider>
                 <StageProvider>
                   <CurrencyProvider>
                     <PaymentMethodsProvider>
@@ -606,6 +635,7 @@ function App() {
                     </PaymentMethodsProvider>
                   </CurrencyProvider>
                 </StageProvider>
+              </BarShiftProvider>
               </CashDayProvider>
             </ModuleProvider>
           </PermissionProvider>

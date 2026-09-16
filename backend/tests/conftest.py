@@ -245,6 +245,43 @@ class FakeQuery:
                     row.setdefault("current_balance", 0)
                     row.setdefault("total_collected", 0)
                     row.setdefault("total_paid", 0)
+                # Bar. O fake NAO roda trigger: o numero da comanda (que o banco
+                # tira de bar_shifts.last_tab_number) e os totais recontados
+                # ganham aqui um default simples, so para o modelo de resposta
+                # validar. A CONTA dos totais e exercitada pelo servico, que
+                # a refaz em Python para a resposta.
+                if table == "bar_shifts":
+                    row.setdefault("status", "open")
+                    row.setdefault("opened_at", "2026-06-08T19:00:00Z")
+                    row.setdefault("last_tab_number", 0)
+                if table == "bar_product_categories":
+                    row.setdefault("active", True)
+                    row.setdefault("sort_order", 0)
+                if table == "bar_products":
+                    row.setdefault("active", True)
+                    row.setdefault("track_stock", False)
+                    row.setdefault("stock_qty", 0)
+                    row.setdefault("min_stock", 0)
+                    row.setdefault("cost_price", 0)
+                    row.setdefault("sort_order", 0)
+                if table == "bar_tabs":
+                    row.setdefault("status", "open")
+                    row.setdefault("opened_at", "2026-06-08T20:00:00Z")
+                    row.setdefault("number", len(self._rows) + 1)
+                    for campo in ("subtotal", "courtesy_amount", "discount_amount",
+                                  "total", "paid_amount"):
+                        row.setdefault(campo, 0)
+                if table == "bar_tab_items":
+                    row.setdefault("status", "pending")
+                    row.setdefault("quantity", 1)
+                    row.setdefault("is_courtesy", False)
+                    row.setdefault("unit_cost", 0)
+                    row.setdefault("line_total",
+                                   round(float(row.get("unit_price") or 0) * int(row.get("quantity") or 1), 2))
+                if table == "bar_tab_payments":
+                    row.setdefault("status", "active")
+                    row.setdefault("payment_source", "cash")
+                    row.setdefault("cancel_steps", [])
                 self._rows.append(row)
                 out.append(row)
             return SimpleNamespace(data=out)

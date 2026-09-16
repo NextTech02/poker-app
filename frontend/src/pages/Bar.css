@@ -1,0 +1,184 @@
+/* Módulo de bar — classes compartilhadas por todas as telas (prefixo `bar-`).
+   Os utilitários de modal/stat-card vêm de CashFloor.css, importado junto. */
+
+.bar-tabs-nav {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-primary, #2a3a4d);
+}
+.bar-tabs-nav button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary, #8aa0b0);
+  padding: 0.55rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.bar-tabs-nav button.active {
+  color: var(--text-primary, #e0eaf4);
+  border-bottom-color: var(--accent-color, #7233f8);
+}
+
+.bar-filters {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 1.25rem;
+}
+.bar-filters .form-group {
+  margin: 0;
+  min-width: 160px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+.bar-row .form-group {
+  margin-bottom: 0.75rem;
+}
+
+.bar-inactive {
+  opacity: 0.55;
+}
+
+.bar-actions {
+  display: flex;
+  gap: 0.4rem;
+  white-space: nowrap;
+  flex-wrap: wrap;
+}
+
+.bar-muted {
+  font-size: 0.76rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.bar-note {
+  margin: 0.25rem 0 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.bar-check label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+/* Estoque baixo: a linha avisa antes da leitura. */
+.bar-low-stock td:first-child {
+  border-left: 3px solid var(--warning-color, #f59e0b);
+}
+.bar-stock-pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--warning-bg, rgba(245, 158, 11, 0.15));
+  color: var(--warning-color, #f59e0b);
+}
+.bar-stock-pill--neg {
+  background: var(--danger-bg, rgba(239, 68, 68, 0.15));
+  color: var(--danger-color, #ef4444);
+}
+
+/* Turno aberto na lista. */
+.bar-open td:first-child {
+  border-left: 3px solid var(--success-color, #22c55e);
+}
+.bar-revenue {
+  font-weight: 700;
+  color: var(--success-color, #22c55e);
+}
+
+/* Seções da tela de detalhe do turno. */
+.bar-section {
+  margin-top: 1.5rem;
+}
+.bar-section h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+.bar-warning {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--warning-color, #f59e0b);
+  background: var(--warning-bg, rgba(245, 158, 11, 0.12));
+  color: var(--text-primary, #e0eaf4);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.bar-status-open,
+.bar-status-closed,
+.bar-status-cancelled,
+.bar-status-pending,
+.bar-status-delivered {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.bar-status-open,
+.bar-status-delivered {
+  background: var(--success-bg, rgba(34, 197, 94, 0.15));
+  color: var(--success-color, #22c55e);
+}
+.bar-status-closed {
+  background: var(--gray-700, #374151);
+  color: var(--text-secondary, #8aa0b0);
+}
+.bar-status-cancelled {
+  background: var(--danger-bg, rgba(239, 68, 68, 0.15));
+  color: var(--danger-color, #ef4444);
+}
+.bar-status-pending {
+  background: var(--warning-bg, rgba(245, 158, 11, 0.15));
+  color: var(--warning-color, #f59e0b);
+}
+
+.bar-kpi-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+.bar-kpi-list li {
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-md, 10px);
+  background: var(--card-bg, #1e2d3d);
+  border: 1px solid var(--border-primary, #2a3a4d);
+}
+.bar-kpi-list .bar-muted {
+  display: block;
+}
+.bar-kpi-list strong {
+  font-size: 1.05rem;
+}
+
+.bar-inline-form {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.bar-inline-form .form-group {
+  margin: 0;
+}

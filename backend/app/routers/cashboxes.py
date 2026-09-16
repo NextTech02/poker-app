@@ -30,10 +30,18 @@ def _auth_user_id(user: dict) -> str:
 @router.get("", response_model=List[CashboxResponse])
 def list_cashboxes(
     status: Optional[str] = Query(None),
+    cash_day_id: Optional[str] = Query(None),
+    bar_shift_id: Optional[str] = Query(None),
     stage_id: str = Depends(get_stage_id_optional),
     user=Depends(get_current_user),
 ):
-    return CashboxService.list_cashboxes(_auth_user_id(user), stage_id=stage_id, status=status)
+    """Âncora explícita na query (dia de cash, turno do bar) vence a etapa do
+    header: a etapa selecionada por acaso não pode esconder as gavetas do
+    turno."""
+    return CashboxService.list_cashboxes(
+        _auth_user_id(user), stage_id=stage_id, status=status,
+        cash_day_id=cash_day_id, bar_shift_id=bar_shift_id,
+    )
 
 
 @router.post("", response_model=CashboxResponse)
@@ -45,7 +53,10 @@ def create_cashbox(
     if not CashboxService.can_admin(_auth_user_id(user)):
         raise sem_permissao("sem_permissao_criar_caixa", "Sem permissão para criar caixas")
     try:
-        return CashboxService.create_for_staff(data.staff_id, stage_id)
+        return CashboxService.create_for_staff(
+            data.staff_id, stage_id,
+            cash_day_id=data.cash_day_id, bar_shift_id=data.bar_shift_id,
+        )
     except ValueError as exc:
         # `da_excecao` respeita o status que a regra escolheu (funcionário
         # inexistente é 404, não 400); o 400 fica só como padrão.
@@ -55,15 +66,20 @@ def create_cashbox(
 @router.get("/me/current", response_model=Optional[CashboxResponse])
 def get_my_current(
     cash_day_id: Optional[str] = Query(None),
+    bar_shift_id: Optional[str] = Query(None),
     stage_id: str = Depends(get_stage_id_optional),
     user=Depends(get_current_user),
 ):
     """A gaveta do operador na âncora atual.
 
-    No torneio a âncora vem do header X-Stage-ID; no cash game ela vem
-    EXPLÍCITA na query, porque o módulo de cash não tem etapa — a operação é
-    diária, e o dia viaja na URL em vez de num segundo header mágico.
+    No torneio a âncora vem do header X-Stage-ID; no cash game e no bar ela
+    vem EXPLÍCITA na query, porque esses módulos não têm etapa — a operação é
+    por dia/turno, que viaja na URL em vez de num segundo header mágico.
     """
+    if bar_shift_id:
+        return CashboxService.get_my_current(
+            _auth_user_id(user), bar_shift_id=bar_shift_id
+        )
     if cash_day_id:
         return CashboxService.get_my_current(
             _auth_user_id(user), cash_day_id=cash_day_id
@@ -92,6 +108,8 @@ def get_demonstrativo(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     staff_id: Optional[str] = Query(None),
+    cash_day_id: Optional[str] = Query(None),
+    bar_shift_id: Optional[str] = Query(None),
     stage_id: str = Depends(get_stage_id_optional),
     user=Depends(get_current_user),
 ):
@@ -101,7 +119,8 @@ def get_demonstrativo(
             "Sem permissão para ver o demonstrativo dos caixas",
         )
     return CashboxService.get_demonstrativo(
-        stage_id=stage_id, date_from=date_from, date_to=date_to, staff_id=staff_id
+        stage_id=stage_id, date_from=date_from, date_to=date_to, staff_id=staff_id,
+        cash_day_id=cash_day_id, bar_shift_id=bar_shift_id,
     )
 
 

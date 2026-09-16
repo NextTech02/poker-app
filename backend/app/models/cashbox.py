@@ -34,6 +34,11 @@ class CashboxTransactionType(str, Enum):
     # seria contar o mesmo dinheiro duas vezes.
     cash_buy_in = "cash_buy_in"
     cash_out = "cash_out"
+    # Bar: pagamento de comanda com dinheiro REAL (qualquer meio). Tipo próprio
+    # pelo mesmo motivo do cash. A perna paga com crédito do jogador NÃO entra
+    # aqui — crédito não é dinheiro na gaveta. O estorno reusa `refund`, com
+    # `bar_payment_id` preenchido.
+    bar_sale = "bar_sale"
 
 
 # ────────────────────────────────────────────────
@@ -43,11 +48,13 @@ class CashboxTransactionType(str, Enum):
 class CashboxResponse(BaseModel):
     id: str
     staff_id: str
-    # Âncora do caixa: uma etapa (torneio) OU um dia (cash game), nunca as duas.
-    # No cash a operação é diária, então a gaveta abre e fecha por dia — e a
-    # conferência já sai no recorte que o clube usa.
+    # Âncora do caixa: uma etapa (torneio), um dia (cash game) OU um turno do
+    # bar — exatamente uma. No cash e no bar a operação é por dia/turno, então
+    # a gaveta abre e fecha nesse recorte — e a conferência já sai como o
+    # clube usa.
     stage_id: Optional[str] = None
     cash_day_id: Optional[str] = None
+    bar_shift_id: Optional[str] = None
     status: CashboxStatus
     current_balance: float
     current_session_id: Optional[str] = None
@@ -61,6 +68,7 @@ class CashboxResponse(BaseModel):
     staff_email: Optional[str] = None
     stage_name: Optional[str] = None
     cash_day_label: Optional[str] = None
+    bar_shift_label: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -72,8 +80,13 @@ class CashboxResponse(BaseModel):
 
 class CashboxCreate(BaseModel):
     """Manually ensure a cashbox exists for a staff member in the current stage
-    (idempotent — returns the existing one if already present)."""
+    (idempotent — returns the existing one if already present).
+
+    `cash_day_id`/`bar_shift_id` trocam a âncora: sem eles, vale a etapa do
+    header X-Stage-ID."""
     staff_id: str
+    cash_day_id: Optional[str] = None
+    bar_shift_id: Optional[str] = None
 
 
 class CashboxOpen(BaseModel):
@@ -134,6 +147,8 @@ class CashboxTransactionResponse(BaseModel):
     amount: float
     signed_amount: float
     transaction_id: Optional[str] = None
+    cash_transaction_id: Optional[str] = None
+    bar_payment_id: Optional[str] = None
     performed_by: Optional[str] = None
     notes: Optional[str] = None
     created_at: datetime
@@ -153,6 +168,8 @@ class CashboxSummary(BaseModel):
     stage_name: Optional[str] = None
     cash_day_id: Optional[str] = None
     cash_day_label: Optional[str] = None
+    bar_shift_id: Optional[str] = None
+    bar_shift_label: Optional[str] = None
     status: CashboxStatus
     initial_balance: float = 0.0
     total_supply: float = 0.0
@@ -171,6 +188,9 @@ class CashboxSummary(BaseModel):
     cash_buy_in_count: int = 0
     total_cash_outs: float = 0.0
     cash_out_count: int = 0
+    # Bar: pagamentos de comanda em dinheiro real (entrada).
+    total_bar_sales: float = 0.0
+    bar_sale_count: int = 0
     # Vendas canceladas (dinheiro devolvido ao jogador). Saída REAL da gaveta —
     # entra no saldo esperado, ao contrário de total_adjustments.
     total_refunds: float = 0.0
@@ -190,6 +210,7 @@ class CashboxAggregatedSummary(BaseModel):
     grand_total_sangria: float = 0.0
     grand_total_cash_buy_ins: float = 0.0
     grand_total_cash_outs: float = 0.0
+    grand_total_bar_sales: float = 0.0
 
 
 # ────────────────────────────────────────────────
@@ -205,6 +226,7 @@ class CashboxSessionReport(BaseModel):
     staff_name: Optional[str] = None
     stage_name: Optional[str] = None
     cash_day_label: Optional[str] = None
+    bar_shift_label: Optional[str] = None
     opened_at: datetime
     closed_at: Optional[datetime] = None
     is_open: bool = False
@@ -227,6 +249,10 @@ class CashboxSessionReport(BaseModel):
     cash_buy_in_count: int = 0
     total_cash_outs: float = 0.0
     cash_out_count: int = 0
+    # Bar: pagamentos de comanda em dinheiro real. Mesma razão das colunas de
+    # cash: o esperado já os soma; sem a coluna a tela não bate com a conta.
+    total_bar_sales: float = 0.0
+    bar_sale_count: int = 0
     # Estornos de vendas canceladas ocorridos DENTRO da sessão: saída real da
     # gaveta, ENTRA no esperado.
     total_refunds: float = 0.0
@@ -254,6 +280,7 @@ class CashboxDemonstrativo(BaseModel):
     grand_prizes: float = 0.0
     grand_cash_buy_ins: float = 0.0
     grand_cash_outs: float = 0.0
+    grand_bar_sales: float = 0.0
     grand_refunds: float = 0.0
     # Devoluções lançadas depois do fechamento das sessões do período — fora
     # de grand_expected/grand_difference de propósito.

@@ -14,11 +14,19 @@ import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 const firstOfMonth = () => primeiroDiaDoMes();
 const today = () => hojeLocal();
 
-const CashboxDemonstrativo = () => {
+/**
+ * `anchor` (opcional): `{ barShiftId }` ou `{ cashDayId }` escopa o
+ * demonstrativo a uma gaveta por turno/dia em vez da etapa do header.
+ */
+const CashboxDemonstrativo = ({ anchor = null }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
   const { formatCurrency } = useCurrency();
+  const anchorParams = anchor?.barShiftId
+    ? { bar_shift_id: anchor.barShiftId }
+    : anchor?.cashDayId ? { cash_day_id: anchor.cashDayId } : {};
+  const anchorKey = JSON.stringify(anchorParams);
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +40,7 @@ const CashboxDemonstrativo = () => {
   // Lista de funcionários (derivada dos caixas da etapa) para o filtro.
   const loadStaff = useCallback(async () => {
     try {
-      const res = await api.get('/cashboxes', { _silentError: true });
+      const res = await api.get('/cashboxes', { params: JSON.parse(anchorKey), _silentError: true });
       const seen = new Map();
       (res.data || []).forEach((cb) => {
         if (cb.staff_id && !seen.has(cb.staff_id)) {
@@ -43,12 +51,12 @@ const CashboxDemonstrativo = () => {
     } catch (_) {
       setStaffOptions([]);
     }
-  }, []);
+  }, [anchorKey]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { ...JSON.parse(anchorKey) };
       if (filters.start) params.date_from = `${filters.start}T00:00:00`;
       if (filters.end) params.date_to = `${filters.end}T23:59:59`;
       if (filters.staff_id) params.staff_id = filters.staff_id;
@@ -61,7 +69,7 @@ const CashboxDemonstrativo = () => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, t]);
+  }, [filters, t, anchorKey]);
 
   // Recarrega lista de funcionários ao trocar de etapa.
   useEffect(() => {
@@ -72,11 +80,18 @@ const CashboxDemonstrativo = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStage?.id]);
+  }, [selectedStage?.id, anchorKey]);
 
   const sessions = data?.sessions || [];
-  const entradas = (s) => (s.total_buy_ins || 0) + (s.total_rebuys || 0) + (s.total_addons || 0);
-  const grandEntradas = data?.grand_buy_ins || 0;
+  // TODAS as entradas da gaveta (torneio, cash e bar) e TODAS as saídas
+  // (prêmios, cash-outs, estornos). O esperado soma o ledger inteiro; se a
+  // tela mostrasse só o torneio, o conferente veria um esperado que não bate
+  // com a soma das colunas — e é assim que um relatório parece errado sem estar.
+  const entradas = (s) => (s.total_buy_ins || 0) + (s.total_rebuys || 0) + (s.total_addons || 0)
+    + (s.total_cash_buy_ins || 0) + (s.total_bar_sales || 0);
+  const saidas = (s) => (s.total_prizes_paid || 0) + (s.total_cash_outs || 0) + (s.total_refunds || 0);
+  const grandEntradas = (data?.grand_buy_ins || 0) + (data?.grand_cash_buy_ins || 0) + (data?.grand_bar_sales || 0);
+  const grandSaidas = (data?.grand_prizes || 0) + (data?.grand_cash_outs || 0) + (data?.grand_refunds || 0);
 
   const diffClass = (d) => {
     if (d === null || d === undefined) return '';
@@ -137,8 +152,8 @@ const CashboxDemonstrativo = () => {
             </Card>
             <Card className="stat-card">
               <div className="stat-info">
-                <h3>{formatCurrency(data.grand_prizes)}</h3>
-                <p>{t('cashbox.totalPrizes')}</p>
+                <h3>{formatCurrency(grandSaidas)}</h3>
+                <p>{t('cashbox.totalOutflows', 'Saídas (prêmios, cash-outs, estornos)')}</p>
               </div>
             </Card>
             <Card className="stat-card">
@@ -166,7 +181,7 @@ const CashboxDemonstrativo = () => {
                 <tr>
                   <th>{t('cashbox.staff')}</th><th>{t('cashbox.opening')}</th><th>{t('cashbox.closing')}</th>
                   <th>{t('cashbox.initialBalanceShort')}</th><th>{t('cashbox.supply')}</th><th>{t('cashbox.sangria')}</th>
-                  <th>{t('cashbox.entries')}</th><th>{t('cashbox.prizes')}</th>
+                  <th>{t('cashbox.entries')}</th><th>{t('cashbox.outflows', 'Saídas')}</th>
                   <th>{t('cashbox.expectedShort')}</th><th>{t('cashbox.countedShort')}</th><th>{t('cashbox.difference')}</th>
                 </tr>
               </thead>
@@ -195,7 +210,7 @@ const CashboxDemonstrativo = () => {
                   <th className="amount">{t('cashbox.supply')}</th>
                   <th className="amount">{t('cashbox.sangria')}</th>
                   <th className="amount">{t('cashbox.entries')}</th>
-                  <th className="amount">{t('cashbox.prizes')}</th>
+                  <th className="amount">{t('cashbox.outflows', 'Saídas')}</th>
                   <th className="amount">{t('cashbox.expectedShort')}</th>
                   <th className="amount">{t('cashbox.countedShort')}</th>
                   <th className="amount">{t('cashbox.difference')}</th>
@@ -217,7 +232,7 @@ const CashboxDemonstrativo = () => {
                     <td className="amount">{formatCurrency(s.total_supply)}</td>
                     <td className="amount">{formatCurrency(s.total_sangria)}</td>
                     <td className="amount">{formatCurrency(entradas(s))}</td>
-                    <td className="amount">{formatCurrency(s.total_prizes_paid)}</td>
+                    <td className="amount">{formatCurrency(saidas(s))}</td>
                     <td className="amount">{formatCurrency(s.expected_balance)}</td>
                     <td className="amount">
                       {s.actual_balance === null || s.actual_balance === undefined
@@ -237,7 +252,7 @@ const CashboxDemonstrativo = () => {
                   <td className="amount">{formatCurrency(data.grand_supply)}</td>
                   <td className="amount">{formatCurrency(data.grand_sangria)}</td>
                   <td className="amount">{formatCurrency(grandEntradas)}</td>
-                  <td className="amount">{formatCurrency(data.grand_prizes)}</td>
+                  <td className="amount">{formatCurrency(grandSaidas)}</td>
                   <td className="amount">{formatCurrency(data.grand_expected)}</td>
                   <td className="amount">{formatCurrency(data.grand_actual)}</td>
                   <td className={`amount ${diffClass(data.grand_difference)}`}>{formatCurrency(data.grand_difference)}</td>

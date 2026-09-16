@@ -26,8 +26,9 @@ import './CashboxBanner.css';
  *
  * @param {(cashbox: object|null) => void} onStateChange  recebe o caixa atual (ou null).
  * @param {string} [cashDayId]  âncora do módulo de cash game.
+ * @param {string} [barShiftId]  âncora do módulo de bar (turno).
  */
-const CashboxBanner = ({ onStateChange, cashDayId }) => {
+const CashboxBanner = ({ onStateChange, cashDayId, barShiftId }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
@@ -62,7 +63,9 @@ const CashboxBanner = ({ onStateChange, cashDayId }) => {
     try {
       const res = await api.get('/cashboxes/me/current', {
         _silentError: true,
-        ...(cashDayId ? { params: { cash_day_id: cashDayId } } : {}),
+        ...(barShiftId
+          ? { params: { bar_shift_id: barShiftId } }
+          : cashDayId ? { params: { cash_day_id: cashDayId } } : {}),
       });
       setNeedsStage(false);
       setCashbox(res.data || null);
@@ -79,7 +82,7 @@ const CashboxBanner = ({ onStateChange, cashDayId }) => {
         report(null);
       }
     }
-  }, [report, cashDayId]);
+  }, [report, cashDayId, barShiftId]);
 
   useEffect(() => {
     // Re-busca ao montar e sempre que a ÂNCORA mudar — trocar de etapa ou de
@@ -87,7 +90,7 @@ const CashboxBanner = ({ onStateChange, cashDayId }) => {
     setCashbox(undefined);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load, selectedStage?.id, cashDayId]);
+  }, [load, selectedStage?.id, cashDayId, barShiftId]);
 
   // Para o que muda FORA deste navegador: o supervisor lança um suprimento ou
   // uma sangria do Financeiro, de outro aparelho, e nenhum evento local chega
@@ -97,7 +100,7 @@ const CashboxBanner = ({ onStateChange, cashDayId }) => {
   // Este banner fica em TODA tela do sistema, então ele era o polling mais
   // caro que existia: rodava o tempo inteiro, em qualquer lugar do app.
   useRealtimeRefresh({
-    canal: `cashbox-${selectedStage?.id || cashDayId || 'sem-ancora'}`,
+    canal: `cashbox-${barShiftId || cashDayId || selectedStage?.id || 'sem-ancora'}`,
     tabelas: [{ table: 'cashboxes' }],
     aoMudar: () => load(),
     intervaloDeSeguranca: 60000,
