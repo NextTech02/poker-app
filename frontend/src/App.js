@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { StageProvider } from './contexts/StageContext';
@@ -69,6 +69,8 @@ const CashWaitlist = lazy(() => import('./pages/CashWaitlist'));
 const CashRelatorios = lazy(() => import('./pages/CashRelatorios'));
 const CashJackpot = lazy(() => import('./pages/CashJackpot'));
 const CashConfig = lazy(() => import('./pages/CashConfig'));
+// Bar (comandas). A POS é a home do módulo, mesma lógica do CashFloor.
+const BarPOS = lazy(() => import('./pages/BarPOS'));
 
 const PageFallback = () => (
   <div className="page-loading-skeleton">
@@ -99,6 +101,7 @@ const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   const { precisaConfirmar, verificando: mfaVerificando, reavaliar } = useMfaGate(user);
   const { module: activeModule, hasModule, selectModule, homePath } = useModule();
   const { toast } = useToast();
+  const location = useLocation();
   const toastedRef = useRef(false);
 
   // Check if there's a token in localStorage — Supabase may be refreshing the session
@@ -153,6 +156,14 @@ const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   }
 
   if (denied) {
+    // Recusa na PRÓPRIA home do módulo aberto: redirecionar levaria à mesma
+    // URL, e o guard recusaria de novo — em laço, sem nunca pintar a tela.
+    // Acontece com um cargo sem a permissão da home (ex.: "Bar" sem
+    // bar.operate, ou um módulo guardado que o cargo não opera). Mostra a
+    // recusa com o menu ao lado, para a pessoa trocar de módulo.
+    if (homePath === location.pathname) {
+      return <ComingSoon variant="forbidden" />;
+    }
     return <Navigate to={homePath} replace />;
   }
 
@@ -257,6 +268,17 @@ function AppRoutes() {
         element={
           <PrivateRoute module="cash" permission="cash.admin">
             <CashConfig />
+          </PrivateRoute>
+        }
+      />
+      {/* ── Módulo de BAR ────────────────────────────────────────────────
+          Mesma guarda do cash: `module="bar"` é entitlement do clube, a
+          permissão é do cargo. */}
+      <Route
+        path="/bar"
+        element={
+          <PrivateRoute module="bar" permission="bar.operate">
+            <BarPOS />
           </PrivateRoute>
         }
       />

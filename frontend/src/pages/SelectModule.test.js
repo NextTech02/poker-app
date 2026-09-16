@@ -13,9 +13,10 @@ import { useModule } from '../contexts/ModuleContext';
 
 jest.mock('../contexts/ModuleContext', () => ({
   useModule: jest.fn(),
-  HOME_DO_MODULO: { tournament: '/', cash: '/cash' },
+  HOME_DO_MODULO: { tournament: '/', cash: '/cash', bar: '/bar' },
   MODULO_TORNEIO: 'tournament',
   MODULO_CASH: 'cash',
+  MODULO_BAR: 'bar',
 }));
 
 // Prefixo `mock` obrigatório: o factory de jest.mock é içado para o topo do
@@ -86,6 +87,21 @@ describe('escolha', () => {
     await userEvent.click(screen.getByText('Cash Game'));
     expect(selecionar).toHaveBeenCalledWith('cash');
     expect(mockNavegar).toHaveBeenCalledWith('/cash', { replace: true });
+  });
+
+  it('clube com os três módulos vê o bar, e escolhê-lo entra na POS', async () => {
+    useModule.mockReturnValue({
+      module: 'tournament',
+      modules: ['tournament', 'cash', 'bar'],
+      hasMultipleModules: true,
+      selectModule: selecionar,
+      loading: false,
+    });
+    render(<SelectModule />);
+    expect(screen.getByText('Bar')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Bar'));
+    expect(selecionar).toHaveBeenCalledWith('bar');
+    expect(mockNavegar).toHaveBeenCalledWith('/bar', { replace: true });
   });
 
   it('não lista módulo que o clube não contratou', () => {

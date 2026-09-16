@@ -37,6 +37,7 @@ jest.mock('../contexts/ModuleContext', () => ({
   useModule: jest.fn(),
   MODULO_TORNEIO: 'tournament',
   MODULO_CASH: 'cash',
+  MODULO_BAR: 'bar',
 }));
 jest.mock('./OrgSwitcher', () => () => <div data-testid="org-switcher" />);
 jest.mock('./ModuleSwitcher', () => () => <div data-testid="module-switcher" />);
@@ -58,7 +59,7 @@ const montar = ({
   });
   useModule.mockReturnValue({
     module: modulo,
-    homePath: modulo === 'cash' ? '/cash' : '/home',
+    homePath: { cash: '/cash', bar: '/bar' }[modulo] || '/home',
   });
   useStage.mockReturnValue({ selectedStage: etapa });
   return render(
@@ -145,10 +146,43 @@ describe('itens por permissão', () => {
     });
   });
 
+  it('o menu do bar não leva a tela de torneio nem de cash', () => {
+    // Mesma regra do cash: o bar é a terceira operação, com telas próprias.
+    // O que é do CLUBE (jogadores, funcionários, financeiro) continua; o que é
+    // de outra modalidade não pode escorregar para cá.
+    montar({ modulo: 'bar' });
+    const deOutroModulo = [
+      '/home', '/etapas', '/torneios', '/caixa', '/caixa-geral',
+      '/relatorios', '/premiacao', '/ranking', '/alocacao', '/blinds',
+      '/cash', '/sangi',
+    ];
+    const destinos = [...document.querySelectorAll('a[href]')]
+      .map((a) => a.getAttribute('href'));
+    expect(destinos).toContain('/bar');
+    destinos.forEach((href) => {
+      deOutroModulo.forEach((prefixo) => {
+        const ehDeOutro = href === prefixo || href.startsWith(prefixo + '/');
+        expect(ehDeOutro).toBe(false);
+      });
+    });
+  });
+
+  it('o barman vê só a operação do bar e os itens do clube', () => {
+    // Cargo padrão "Bar": bar.operate + cashbox.operate + players. Turnos e
+    // produtos são gestão — não aparecem para ele.
+    montar({ modulo: 'bar', permissoes: ['bar.operate', 'cashbox.operate', 'players'] });
+    expect(screen.getByRole('link', { name: /bar.pos/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /bar.orders/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sidebar.registerPlayer/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /bar.products/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /bar.shifts/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /sidebar.financial/ })).toBeNull();
+  });
+
   it('nenhum rótulo aparece duas vezes no menu', () => {
     // Dois itens com o mesmo nome são indistinguíveis para quem opera: a
     // pessoa clica num, não é o que queria, e não tem como saber qual é qual.
-    ['cash', 'tournament'].forEach((modulo) => {
+    ['bar', 'cash', 'tournament'].forEach((modulo) => {
       const { unmount } = montar({ modulo });
       const rotulos = [...document.querySelectorAll('.nav-label')]
         .map((n) => n.textContent.trim());

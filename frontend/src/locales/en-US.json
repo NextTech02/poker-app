@@ -1710,7 +1710,9 @@
   "app": {
     "permissionDenied": "You do not have permission to access this page.",
     "errorTitle": "Application error",
-    "errorSubtitle": "Reload the page to continue."
+    "errorSubtitle": "Reload the page to continue.",
+    "forbiddenTitle": "No access to this area",
+    "forbiddenSubtitle": "Your role has no permission for this screen. Ask the club administrator or switch modules from the menu."
   },
   "tournamentDashboard": {
     "tournamentNotFound": "Tournament not found",
@@ -2405,12 +2407,14 @@
   },
   "modules": {
     "selectTitle": "Choose a module",
-    "selectSubtitle": "Your club runs both tournaments and cash games. Pick where you want to work now — you can switch anytime from the menu.",
+    "selectSubtitle": "Your club runs more than one module. Pick where you want to work now — you can switch anytime from the menu.",
     "current": "Module",
     "tournamentTitle": "Tournaments",
     "tournamentHint": "Stages, blinds, prizes, rankings and the tournament cash desk.",
     "cashTitle": "Cash Game",
-    "cashHint": "Open tables, waiting list, buy-in and cash-out, daily revenue."
+    "cashHint": "Open tables, waiting list, buy-in and cash-out, daily revenue.",
+    "barTitle": "Bar",
+    "barHint": "Products, per-player tabs, orders, stock and the bar cash drawer."
   },
   "cash": {
     "floor": "Floor",
@@ -2800,5 +2804,14 @@
       "day_type": "day type",
       "day_number": "day number"
     }
+  },
+  "bar": {
+    "title": "Bar",
+    "pos": "Tabs",
+    "orders": "Orders",
+    "management": "Management",
+    "shifts": "Shifts",
+    "products": "Products",
+    "reports": "Reports"
   }
 }

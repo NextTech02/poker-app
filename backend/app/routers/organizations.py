@@ -21,13 +21,15 @@ from app.config import get_settings
 from app.routers.activity_logs import DATE_PATTERN, EVENT_TYPE_PATTERN
 from app.services.activity_log_service import ActivityLogService
 from app.database.supabase_client import supabase_admin
+from app.services.module_service import ALL_MODULES, ModuleService
 from app.utils.erros import conflito, erro_http, nao_encontrado, recusado, sem_permissao
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 # Espelha o CHECK de org_modules.module. Manter os dois em sincronia é o preço
 # de validar aqui — e vale, porque um typo do painel viraria erro 500 do banco.
-VALID_MODULES = ("tournament", "cash")
+# A fonte é ALL_MODULES (module_service.py): é lá que a ORDEM canônica mora.
+VALID_MODULES = ALL_MODULES
 settings = get_settings()
 
 # Texto de erro de TERCEIRO (Supabase, Postgres) nao vai para a tela do cliente:
@@ -100,7 +102,7 @@ def list_organizations():
     plans = {p["code"]: p for p in (supabase_admin.table("plans").select("*").execute().data or [])}
 
     # Módulos contratados, numa consulta só (a lista de orgs é pequena e a de
-    # módulos é no máximo 2 por org — um IN por organização seria N+1 à toa).
+    # módulos é no máximo 3 por org — um IN por organização seria N+1 à toa).
     modules: dict = {}
     for m in (supabase_admin.table("org_modules")
               .select("organization_id, module, enabled").execute().data or []):
@@ -122,7 +124,7 @@ def list_organizations():
         o["max_clients"] = p.get("max_clients")
         o["max_cash_tables"] = p.get("max_cash_tables")
         # Org sem linha nenhuma é anterior ao backfill: ela sempre fez torneio.
-        o["modules"] = sorted(modules.get(o["id"]) or ["tournament"])
+        o["modules"] = ModuleService.ordenar(set(modules.get(o["id"]) or ["tournament"]))
     return orgs
 
 

@@ -1,4 +1,4 @@
-"""Módulos contratados pela organização (torneio × cash game).
+"""Módulos contratados pela organização (torneio × cash game × bar).
 
 O sistema nasceu só com torneio. Cash game é um módulo IRMÃO: o clube contrata
 um, o outro ou os dois, e escolhe qual acessar ao entrar.
@@ -24,7 +24,14 @@ logger = logging.getLogger(__name__)
 
 MODULE_TOURNAMENT = "tournament"
 MODULE_CASH = "cash"
-ALL_MODULES = (MODULE_TOURNAMENT, MODULE_CASH)
+MODULE_BAR = "bar"
+# A ORDEM aqui é a ordem canônica em que os módulos são devolvidos — e o
+# frontend abre o PRIMEIRO da lista para quem nunca escolheu. Um `sorted()`
+# alfabético punha 'bar' (e 'cash') na frente de 'tournament': todo caixa de
+# torneio que nunca gravou escolha cairia na home do bar, sem permissão para
+# ela, e o guard de rota o mandaria de volta para a mesma home — em laço.
+# Torneio primeiro é o único padrão que não muda o mundo de ninguém.
+ALL_MODULES = (MODULE_TOURNAMENT, MODULE_CASH, MODULE_BAR)
 
 # Piso usado quando não dá para saber: é o que toda organização já tinha antes
 # de existir a tabela, então é o único padrão que não muda o mundo de ninguém.
@@ -49,10 +56,21 @@ class ModuleService:
             logger.warning("org_modules indisponível; assumindo %s", DEFAULT_MODULES)
             return list(DEFAULT_MODULES)
 
-        modules = sorted({r.get("module") for r in (resp.data or []) if r.get("module")})
+        modules = ModuleService.ordenar(
+            {r.get("module") for r in (resp.data or []) if r.get("module")}
+        )
         # Organização sem NENHUMA linha é uma que nasceu antes da migração de
         # backfill (ou cujo trigger de seed falhou). Tratar como torneio.
         return modules or list(DEFAULT_MODULES)
+
+    @staticmethod
+    def ordenar(modulos) -> List[str]:
+        """Ordem canônica (ALL_MODULES) na frente; um módulo que este backend
+        ainda não conhece vai para o fim, em ordem alfabética, em vez de sumir
+        — esconder seria pior do que exibir."""
+        conhecidos = [m for m in ALL_MODULES if m in modulos]
+        desconhecidos = sorted(m for m in modulos if m not in ALL_MODULES)
+        return conhecidos + desconhecidos
 
     @staticmethod
     def has_module(organization_id: str, module: str) -> bool:

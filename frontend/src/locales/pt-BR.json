@@ -1710,7 +1710,9 @@
   "app": {
     "permissionDenied": "Você não tem permissão para acessar esta página.",
     "errorTitle": "Erro na aplicação",
-    "errorSubtitle": "Recarregue a página para continuar."
+    "errorSubtitle": "Recarregue a página para continuar.",
+    "forbiddenTitle": "Sem acesso a esta área",
+    "forbiddenSubtitle": "Seu cargo não tem permissão para esta tela. Peça ao administrador do clube ou troque de módulo pelo menu."
   },
   "tournamentDashboard": {
     "tournamentNotFound": "Torneio não encontrado",
@@ -2405,12 +2407,14 @@
   },
   "modules": {
     "selectTitle": "Escolha o módulo",
-    "selectSubtitle": "Seu clube opera torneio e cash game. Selecione onde quer trabalhar agora — dá para trocar a qualquer momento pelo menu.",
+    "selectSubtitle": "Seu clube opera mais de um módulo. Selecione onde quer trabalhar agora — dá para trocar a qualquer momento pelo menu.",
     "current": "Módulo",
     "tournamentTitle": "Torneios",
     "tournamentHint": "Etapas, blinds, premiação, ranking e caixa do torneio.",
     "cashTitle": "Cash Game",
-    "cashHint": "Mesas abertas, fila de espera, buy-in e cash-out, faturamento por dia."
+    "cashHint": "Mesas abertas, fila de espera, buy-in e cash-out, faturamento por dia.",
+    "barTitle": "Bar",
+    "barHint": "Produtos, comandas por jogador, pedidos, estoque e caixa do bar."
   },
   "cash": {
     "floor": "Salão",
@@ -2800,5 +2804,14 @@
       "day_type": "tipo de dia",
       "day_number": "número do dia"
     }
+  },
+  "bar": {
+    "title": "Bar",
+    "pos": "Comandas",
+    "orders": "Pedidos",
+    "management": "Gestão",
+    "shifts": "Turnos",
+    "products": "Produtos",
+    "reports": "Relatórios"
   }
 }

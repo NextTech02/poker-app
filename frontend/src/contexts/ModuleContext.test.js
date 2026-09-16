@@ -76,10 +76,32 @@ describe('escolha inicial', () => {
     expect(screen.getByTestId('module')).toHaveTextContent('cash');
   });
 
-  it('sem escolha guardada, com dois módulos, fica no primeiro', () => {
+  it('sem escolha guardada, com dois módulos, fica no torneio', () => {
     montar({ modules: ['tournament', 'cash'] });
     expect(screen.getByTestId('module')).toHaveTextContent('tournament');
     expect(screen.getByTestId('multiplos')).toHaveTextContent('true');
+  });
+
+  it('o padrão é o torneio MESMO que a lista chegue em ordem alfabética', () => {
+    // O BUG: um backend antigo devolvia `sorted()`, e 'bar' < 'cash' <
+    // 'tournament'. Quem só tinha um módulo nunca gravou escolha (a tela de
+    // escolha pula sem gravar), então "o primeiro da lista" mandava o caixa de
+    // torneio para a home do bar — sem permissão para ela, e o guard de rota o
+    // devolvia para a mesma home, em laço.
+    montar({ modules: ['bar', 'cash', 'tournament'] });
+    expect(screen.getByTestId('module')).toHaveTextContent('tournament');
+    expect(screen.getByTestId('home')).toHaveTextContent('/home');
+  });
+
+  it('clube só de bar abre no bar', () => {
+    montar({ modules: ['bar'] });
+    expect(screen.getByTestId('module')).toHaveTextContent('bar');
+    expect(screen.getByTestId('home')).toHaveTextContent('/bar');
+  });
+
+  it('sem torneio, o cash vem antes do bar', () => {
+    montar({ modules: ['bar', 'cash'] });
+    expect(screen.getByTestId('module')).toHaveTextContent('cash');
   });
 
   it('lista vazia cai no torneio', () => {

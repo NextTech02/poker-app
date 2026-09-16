@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
-import { useModule, MODULO_TORNEIO, MODULO_CASH } from '../contexts/ModuleContext';
+import { useModule, MODULO_TORNEIO, MODULO_CASH, MODULO_BAR } from '../contexts/ModuleContext';
 import OrgSwitcher from './OrgSwitcher';
 import ModuleSwitcher from './ModuleSwitcher';
 import LanguageSelector from './LanguageSelector';
@@ -20,9 +20,9 @@ import './Sidebar.css';
    de rota. E, sendo arrays novos toda vez, impediam qualquer memoização abaixo
    de acertar: as dependências nunca eram as mesmas duas vezes. */
 
-// MENU POR MÓDULO. Torneio e cash game são operações diferentes, com telas
-// diferentes; uma lista só daria um menu do dobro do tamanho no qual metade
-// dos itens não serve para o que a pessoa está fazendo agora.
+// MENU POR MÓDULO. Torneio, cash game e bar são operações diferentes, com
+// telas diferentes; uma lista só daria um menu do triplo do tamanho no qual a
+// maior parte dos itens não serve para o que a pessoa está fazendo agora.
 //
 // `/etapas` fica SÓ no torneio: no cash a unidade de operação é o DIA, e uma
 // etapa/circuito ali não significa nada.
@@ -86,9 +86,27 @@ const MENUS_POR_MODULO = {
     // quem já vê a de cima (tem `cashier`), para não duplicar o item.
     { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
   ],
+  // BAR. A POS (comandas) é a home; "Pedidos" é a tela do balcão/cozinha.
+  // Turnos e produtos são gestão; o barman do dia a dia não precisa vê-los.
+  [MODULO_BAR]: [
+    { path: '/bar', labelKey: 'bar.pos', icon: 'cocktail', permission: 'bar.operate' },
+    { path: '/bar/pedidos', labelKey: 'bar.orders', icon: 'bell', permission: 'bar.operate' },
+    {
+      type: 'group',
+      groupKey: 'barGestao',
+      labelKey: 'bar.management',
+      icon: 'clock',
+      permission: 'bar.shift',
+      children: [
+        { path: '/bar/turnos', labelKey: 'bar.shifts', icon: 'calendar', permission: 'bar.shift' },
+        { path: '/bar/produtos', labelKey: 'bar.products', icon: 'box', permission: 'bar.admin' },
+      ],
+    },
+    { path: '/bar/relatorios', labelKey: 'bar.reports', icon: 'document', permission: 'bar.reports' },
+  ],
 };
 
-// Itens que existem nos DOIS módulos: cadastro de jogadores, equipe e
+// Itens que existem em TODOS os módulos: cadastro de jogadores, equipe e
 // financeiro são do CLUBE, não de uma modalidade.
 const MENU_COMUM = [
   { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
@@ -115,7 +133,7 @@ const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
-  const [openGroups, setOpenGroups] = useState(new Set(['caixa', 'torneios', 'cashGestao']));
+  const [openGroups, setOpenGroups] = useState(new Set(['caixa', 'torneios', 'cashGestao', 'barGestao']));
 
   // Handle window resize
   useEffect(() => {

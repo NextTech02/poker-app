@@ -23,6 +23,17 @@ const ModuleContext = createContext({});
 
 export const MODULO_TORNEIO = 'tournament';
 export const MODULO_CASH = 'cash';
+export const MODULO_BAR = 'bar';
+
+/** Qual módulo abrir para quem NUNCA escolheu (e quem só tinha um nunca
+ * escolheu — a tela de escolha pula sem gravar). Torneio primeiro: é o que toda
+ * organização já tinha, então é o único padrão que não muda o mundo de ninguém.
+ *
+ * Não confiar na ordem em que a lista chega: um backend antigo devolvia em
+ * ordem alfabética, e 'bar' < 'cash' < 'tournament' mandava o caixa de torneio
+ * para a home do bar — sem permissão para ela, e o guard de rota o devolvia
+ * para a mesma home, em laço. */
+const PRIORIDADE_PADRAO = [MODULO_TORNEIO, MODULO_CASH, MODULO_BAR];
 
 const ARMAZENAMENTO = 'selected_module';
 
@@ -36,6 +47,7 @@ const ARMAZENAMENTO = 'selected_module';
 export const HOME_DO_MODULO = {
   [MODULO_TORNEIO]: '/home',
   [MODULO_CASH]: '/cash',
+  [MODULO_BAR]: '/bar',
 };
 
 export const useModule = () => useContext(ModuleContext);
@@ -60,7 +72,9 @@ export const ModuleProvider = ({ children }) => {
   // desligado (ou o funcionário mudou de clube), a escolha antiga apontaria
   // para telas que o backend recusa — cair no primeiro disponível é o que
   // mantém a sessão utilizável sem exigir logout.
-  const module = disponiveis.includes(stored) ? stored : disponiveis[0];
+  const module = disponiveis.includes(stored)
+    ? stored
+    : (PRIORIDADE_PADRAO.find((m) => disponiveis.includes(m)) || disponiveis[0]);
 
   // NÃO existe efeito que grave `module` de volta no localStorage, e isso é
   // deliberado: só uma ESCOLHA EXPLÍCITA (`selectModule`) grava.

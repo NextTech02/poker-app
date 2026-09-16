@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useModule, HOME_DO_MODULO, MODULO_TORNEIO, MODULO_CASH } from '../contexts/ModuleContext';
+import { useModule, HOME_DO_MODULO, MODULO_TORNEIO, MODULO_CASH, MODULO_BAR } from '../contexts/ModuleContext';
 import LanguageSelector from '../components/LanguageSelector';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
@@ -9,7 +9,7 @@ import './SelectOrg.css';
 import './SelectModule.css';
 
 /**
- * Escolha do módulo logo após o login, para o clube que contratou os dois.
+ * Escolha do módulo logo após o login, para o clube que contratou mais de um.
  *
  * Quem contratou UM só nunca vê esta tela: o efeito abaixo entra direto na
  * operação. Isso é deliberado — todo clube que já usa o sistema tem só o
@@ -32,6 +32,14 @@ const MODULOS = [
     titleFallback: 'Cash Game',
     hintKey: 'modules.cashHint',
     hintFallback: 'Mesas abertas, fila de espera, buy-in e cash-out, faturamento por dia.',
+  },
+  {
+    key: MODULO_BAR,
+    icon: '♦',
+    titleKey: 'modules.barTitle',
+    titleFallback: 'Bar',
+    hintKey: 'modules.barHint',
+    hintFallback: 'Produtos, comandas por jogador, pedidos, estoque e caixa do bar.',
   },
 ];
 
@@ -65,7 +73,7 @@ const SelectModule = () => {
 
         <h2 className="so-title">{t('modules.selectTitle', 'Escolha o módulo')}</h2>
         <p className="so-hint">
-          {t('modules.selectSubtitle', 'Seu clube opera torneio e cash game. Selecione onde quer trabalhar agora — dá para trocar a qualquer momento pelo menu.')}
+          {t('modules.selectSubtitle', 'Seu clube opera mais de um módulo. Selecione onde quer trabalhar agora — dá para trocar a qualquer momento pelo menu.')}
         </p>
 
         {loading ? (

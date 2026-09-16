@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useModule, HOME_DO_MODULO, MODULO_TORNEIO, MODULO_CASH } from '../contexts/ModuleContext';
+import { useModule, HOME_DO_MODULO, MODULO_TORNEIO, MODULO_CASH, MODULO_BAR } from '../contexts/ModuleContext';
 import './OrgSwitcher.css';
 import './ModuleSwitcher.css';
 
 /**
- * Seletor de módulo (torneio × cash game) no topo do menu lateral.
+ * Seletor de módulo (torneio × cash game × bar) no topo do menu lateral.
  *
  * Diferença deliberada para o `OrgSwitcher` ao lado: trocar de organização
  * exige `refreshSession()` + reload, porque o RLS decide pelo claim assinado e
@@ -20,6 +20,7 @@ import './ModuleSwitcher.css';
 const ROTULOS = {
   [MODULO_TORNEIO]: ['modules.tournamentTitle', 'Torneios'],
   [MODULO_CASH]: ['modules.cashTitle', 'Cash Game'],
+  [MODULO_BAR]: ['modules.barTitle', 'Bar'],
 };
 
 const ModuleSwitcher = ({ collapsed }) => {

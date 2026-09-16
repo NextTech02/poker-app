@@ -19,9 +19,10 @@ import { useModule } from '../contexts/ModuleContext';
 
 jest.mock('../contexts/ModuleContext', () => ({
   useModule: jest.fn(),
-  HOME_DO_MODULO: { tournament: '/', cash: '/cash' },
+  HOME_DO_MODULO: { tournament: '/', cash: '/cash', bar: '/bar' },
   MODULO_TORNEIO: 'tournament',
   MODULO_CASH: 'cash',
+  MODULO_BAR: 'bar',
 }));
 
 // Prefixo `mock` obrigatório: o factory de jest.mock é içado para o topo do

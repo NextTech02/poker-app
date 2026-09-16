@@ -9,13 +9,21 @@ const ComingSoon = ({ variant = 'comingSoon' }) => {
   const { t } = useTranslation();
 
   const isNotFound = variant === 'notFound';
-  const icon = isNotFound ? '404' : '🚧';
+  // 'forbidden': a pessoa NÃO tem permissão para a home do próprio módulo. É
+  // o único lugar onde o guard de rota não pode redirecionar (o destino seria
+  // a mesma URL, em laço) — então mostra a recusa e oferece sair dela.
+  const isForbidden = variant === 'forbidden';
+  const icon = isNotFound ? '404' : isForbidden ? '🔒' : '🚧';
   const title = isNotFound
     ? t('notFound.title', 'Página não encontrada')
-    : t('comingSoon.title', 'Em Construção');
+    : isForbidden
+      ? t('app.forbiddenTitle', 'Sem acesso a esta área')
+      : t('comingSoon.title', 'Em Construção');
   const subtitle = isNotFound
     ? t('notFound.subtitle', 'A página que você tentou acessar não existe ou foi movida.')
-    : t('comingSoon.subtitle', 'Esta funcionalidade está sendo desenvolvida e em breve estará disponível.');
+    : isForbidden
+      ? t('app.forbiddenSubtitle', 'Seu cargo não tem permissão para esta tela. Peça ao administrador do clube ou troque de módulo pelo menu.')
+      : t('comingSoon.subtitle', 'Esta funcionalidade está sendo desenvolvida e em breve estará disponível.');
 
   return (
     <div className="app-layout">

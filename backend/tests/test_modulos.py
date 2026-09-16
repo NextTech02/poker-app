@@ -1,4 +1,4 @@
-"""MÓDULOS contratados: torneio × cash game.
+"""MÓDULOS contratados: torneio × cash game × bar.
 
 O sistema nasceu só com torneio. Agora o clube contrata um módulo, o outro ou
 os dois — e essa escolha decide quais rotas respondem e qual menu a tela monta.
@@ -18,6 +18,11 @@ O que estes testes travam, e que uma refatoração distraída desfaz:
 4. **Módulo desabilitado some da lista.** Desligar o cash é operação de
    cobrança, não exclusão: as linhas ficam (com `activated_at` como histórico),
    mas não valem acesso.
+5. **A ORDEM é canônica (torneio, cash, bar), nunca alfabética.** O frontend
+   abre o PRIMEIRO da lista para quem nunca escolheu módulo — e quem só tinha
+   um nunca escolheu. Com `sorted()`, 'bar' vinha na frente: o caixa de torneio
+   caía na home do bar sem permissão, e o guard de rota o devolvia para a
+   mesma home, em laço.
 """
 import pytest
 
@@ -59,7 +64,21 @@ def recusa(excecao):
 
 def test_lista_os_modulos_habilitados(monkeypatch):
     _banco(monkeypatch, [_linha("tournament"), _linha("cash")])
-    assert ModuleService.list_for_org(ORG) == ["cash", "tournament"]
+    assert ModuleService.list_for_org(ORG) == ["tournament", "cash"]
+
+
+def test_ordem_e_canonica_e_nao_alfabetica(monkeypatch):
+    """'bar' < 'cash' < 'tournament' no alfabeto. Se o torneio não vier
+    PRIMEIRO, quem nunca escolheu módulo abre o bar sem permissão e entra em
+    laço de redirect (ver docstring do módulo, item 5)."""
+    _banco(monkeypatch, [_linha("bar"), _linha("cash"), _linha("tournament")])
+    assert ModuleService.list_for_org(ORG) == ["tournament", "cash", "bar"]
+
+
+def test_modulo_que_o_backend_nao_conhece_vai_para_o_fim(monkeypatch):
+    """Esconder um módulo novo seria pior do que exibi-lo fora de ordem."""
+    _banco(monkeypatch, [_linha("zzz-futuro"), _linha("bar"), _linha("tournament")])
+    assert ModuleService.list_for_org(ORG) == ["tournament", "bar", "zzz-futuro"]
 
 
 def test_modulo_desabilitado_nao_da_acesso(monkeypatch):
@@ -111,6 +130,24 @@ def test_guarda_libera_o_modulo_contratado(monkeypatch):
     assert _guarda("cash")["organization_id"] == ORG
 
 
+def test_guarda_do_bar_segue_a_mesma_regra(monkeypatch):
+    _banco(monkeypatch, [_linha("tournament"), _linha("bar")])
+    assert _guarda("bar")["organization_id"] == ORG
+    with pytest.raises(Exception) as exc:
+        _guarda("cash")
+    assert recusa(exc.value)["modulo"] == "cash"
+
+
+def test_guarda_recusa_o_bar_nao_contratado(monkeypatch):
+    _banco(monkeypatch, [_linha("tournament"), _linha("cash")])
+    with pytest.raises(Exception) as exc:
+        _guarda("bar")
+    detalhe = recusa(exc.value)
+    assert exc.value.status_code == 403
+    assert detalhe["code"] == "modulo_nao_contratado"
+    assert detalhe["modulo"] == "bar"
+
+
 def test_guarda_recusa_o_modulo_nao_contratado(monkeypatch):
     _banco(monkeypatch, [_linha("tournament")])
     with pytest.raises(Exception) as exc:
@@ -156,7 +193,7 @@ def test_permissoes_do_usuario_trazem_os_modulos(client, monkeypatch):
     monkeypatch.setattr(ModuleService, "list_for_org", LISTAGEM_REAL)
     resp = client.get("/staff/me/permissions")
     assert resp.status_code == 200
-    assert resp.json()["modules"] == ["cash", "tournament"]
+    assert resp.json()["modules"] == ["tournament", "cash"]
 
 
 def test_permissoes_caem_no_torneio_quando_nao_ha_modulo(client, monkeypatch):

@@ -32,6 +32,9 @@ ALL_PERMISSIONS = [
     # porque "dono do clube" não existe como flag (is_admin é só da plataforma);
     # concedida no backfill a quem já tinha `employees`.
     'access_log',
+    # Módulo de bar (comandas). Mesma regra do cash: a chave só vale com o
+    # módulo contratado (org_modules) — ver app/auth/modules.py.
+    'bar.operate', 'bar.shift', 'bar.admin', 'bar.reports',
 ]
 
 # Permissions that imply the staff member can have their own cashbox

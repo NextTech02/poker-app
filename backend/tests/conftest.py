@@ -350,7 +350,7 @@ def client(monkeypatch):
     # ModuleService por um fake proprio.
     monkeypatch.setattr(
         ModuleService, "list_for_org",
-        staticmethod(lambda org: ["tournament", "cash"]),
+        staticmethod(lambda org: ["tournament", "cash", "bar"]),
     )
 
     usuario = dict(USUARIO_TESTE)
