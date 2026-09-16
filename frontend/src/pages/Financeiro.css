@@ -245,3 +245,14 @@
   font-weight: 600;
   min-width: 190px;
 }
+
+/* Texto de apoio dentro dos cards do Financeiro (aba Bar). */
+.fn-muted {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #8aa0b0);
+}
+.fn-bar-card .stats-grid {
+  margin-top: 0.5rem;
+}

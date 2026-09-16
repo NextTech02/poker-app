@@ -33,6 +33,7 @@ jest.mock('../components/RevenuesManager', () => () => <div data-testid="aba-rec
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
 jest.mock('../contexts/PaymentMethodsContext', () => ({ usePaymentMethods: jest.fn() }));
+jest.mock('../contexts/ModuleContext', () => ({ useModule: () => ({ hasModule: () => false }) }));
 jest.mock('react-i18next', () => {
   const t = (chave, segundo) => (typeof segundo === 'string' ? segundo : chave);
   const traducao = { t, i18n: { language: 'pt-BR' } };

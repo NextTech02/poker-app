@@ -8,6 +8,7 @@ era igual ao operacional, e a etapa "fechava" com lucro que nao existia.
 import pytest
 
 from app.services import cash_report_service
+from app.services import bar_report_service
 from app.services import financial_service
 from app.services.financial_service import FinancialService
 from app.services.expense_service import ExpenseService
@@ -39,12 +40,15 @@ def _monta(monkeypatch, transacoes=None, torneios=None, despesas=None, receitas=
         "prize_allocations": [],
         "satellite_tickets": [],
         "player_credits": [],
+        "bar_shifts": [],
     }
     fake = FakeSupabase(tabelas)
     monkeypatch.setattr(financial_service, "supabase", fake)
     # O DRE soma o cash game. Sem este patch o relatório iria ao banco DE
     # VERDADE atrás de `cash_days` — o teste passaria a depender de rede.
     monkeypatch.setattr(cash_report_service, "supabase", fake)
+    # Idem para o bar: `bar_shifts` no fake, ou o DRE vai à rede.
+    monkeypatch.setattr(bar_report_service, "supabase", fake)
     monkeypatch.setattr(ExpenseService, "summarize",
                         staticmethod(lambda *a, **k: despesas or _resumo_despesas()))
     monkeypatch.setattr(ExpenseService, "summarize_revenues",

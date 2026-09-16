@@ -12,7 +12,9 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { useModule } from '../contexts/ModuleContext';
 import PaymentMethodsManager from '../components/PaymentMethodsManager';
+import BarSummaryCard from '../components/BarSummaryCard';
 import ExpensesManager from '../components/ExpensesManager';
 import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
@@ -23,6 +25,10 @@ const Financeiro = () => {
   const { t } = useTranslation();
   const { currency, setCurrency, currencies, formatCurrency } = useCurrency();
   const { labelFor: paymentLabelFor } = usePaymentMethods();
+  // A aba Bar só existe para quem contratou o módulo. `hasModule` pode não
+  // existir fora do provider (testes antigos) — sem ele, sem aba.
+  const { hasModule } = useModule();
+  const temBar = typeof hasModule === 'function' && hasModule('bar');
   const fmt = formatCurrency;
 
   const [tab, setTab] = useState('dre'); // 'dre' | 'caixas'
@@ -215,7 +221,18 @@ const Financeiro = () => {
           >
             {t('financial.paymentMethodsTab', 'Métodos de Pagamento')}
           </button>
+          {temBar && (
+            <button
+              type="button"
+              className={`fn-tab ${tab === 'bar' ? 'fn-tab--active' : ''}`}
+              onClick={() => setTab('bar')}
+            >
+              {t('financial.barTab', 'Bar')}
+            </button>
+          )}
         </div>
+
+        {tab === 'bar' && temBar && <BarSummaryCard period={{ start: filters.start, end: filters.end }} />}
 
         {tab === 'caixas' && <CashboxAdminPanel />}
 
@@ -358,10 +375,32 @@ const Financeiro = () => {
                     <span>{fmt(data.cash_revenue)}</span>
                   </div>
                 )}
+                {data.bar_revenue > 0 && (
+                  <div className="fn-dre-row">
+                    {/* Comanda fechada é receita como a entrada de torneio.
+                        Entra no bruto. */}
+                    <span>{t('financial.dreBarRevenue', 'Vendas do bar')}</span>
+                    <span>{fmt(data.bar_revenue)}</span>
+                  </div>
+                )}
                 <div className="fn-dre-row fn-dre-row--total">
                   <span>{t('financial.dreGrossRevenue')}</span>
                   <span>{fmt(data.gross_revenue)}</span>
                 </div>
+                {data.bar_revenue > 0 && (
+                  <>
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreBarDiscounts', 'Descontos e cortesias do bar (já abatidos)')}</span>
+                      <span>{fmt(data.bar_discounts)}</span>
+                    </div>
+                    {/* INFORMATIVO: a compra da mercadoria já entra como
+                        despesa; subtrair o CMV também contaria duas vezes. */}
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreBarCogs', 'Custo das mercadorias do bar (informativo — a compra já é despesa)')}</span>
+                      <span>{fmt(data.bar_cogs)}</span>
+                    </div>
+                  </>
+                )}
                 {data.cash_buy_ins > 0 && (
                   <>
                     {/* Fora do total, e dito com todas as letras: buy-in é

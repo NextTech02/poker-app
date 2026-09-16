@@ -44,8 +44,13 @@ from app.models.bar import (
     BarTabOpen,
     BarTabPay,
     BarTabResponse,
+    BarDailyRow,
+    BarPlayerRow,
+    BarProductRow,
+    BarReportSummary,
 )
 from app.services.bar_product_service import BarProductService
+from app.services.bar_report_service import BarReportService
 from app.services.bar_shift_service import BarShiftService
 from app.services.bar_tab_service import BarTabService
 from app.services.staff_service import StaffService
@@ -418,3 +423,49 @@ def cancel_tab(tab_id: str, data: BarTabCancel, user=_admin):
         return BarTabService.cancel_tab(tab_id, data.reason, user.get("sub"))
     except ValueError as e:
         raise da_excecao(e)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Relatórios (por período, pela business_date do turno)
+# ══════════════════════════════════════════════════════════════════════
+
+@router.get("/reports/summary", response_model=BarReportSummary)
+def report_summary(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    return BarReportService.summary(organization_id, date_from, date_to)
+
+
+@router.get("/reports/daily", response_model=List[BarDailyRow])
+def report_daily(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    return BarReportService.daily(organization_id, date_from, date_to)
+
+
+@router.get("/reports/products", response_model=List[BarProductRow])
+def report_products(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=500),
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    return BarReportService.products(organization_id, date_from, date_to, limit)
+
+
+@router.get("/reports/players", response_model=List[BarPlayerRow])
+def report_players(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=500),
+    user=_relatar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    return BarReportService.players(organization_id, date_from, date_to, limit)

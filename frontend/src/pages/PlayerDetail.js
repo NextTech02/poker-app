@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
@@ -11,6 +11,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './PlayerDetail.css';
+import './Bar.css';
 
 const getInitials = (name = '') =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('');
@@ -50,6 +51,9 @@ const PlayerDetail = () => {
   const [stats, setStats] = useState(null);
   const [history, setHistory] = useState([]);
   const [tickets, setTickets] = useState([]);
+  // Comandas do bar (só existe para quem tem o módulo; a chamada é acessória
+  // e um 403/404 aqui não pode derrubar o perfil).
+  const [barTabs, setBarTabs] = useState([]);
   const [loyalty, setLoyalty] = useState(null);
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
   const [loyaltyBusy, setLoyaltyBusy] = useState(false);
@@ -72,7 +76,7 @@ const PlayerDetail = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pRes, sRes, hRes, tkRes, cfgRes, loyRes] = await Promise.all([
+      const [pRes, sRes, hRes, tkRes, cfgRes, loyRes, barRes] = await Promise.all([
         api.get(`/players/${id}`),
         api.get('/players/statistics', { params: { player_id: id } }),
         api.get(`/players/${id}/history`),
@@ -81,11 +85,13 @@ const PlayerDetail = () => {
         api.get(`/players/${id}/tickets`).catch(() => ({ data: [] })),
         api.get('/loyalty/config').catch(() => ({ data: { enabled: false } })),
         api.get(`/loyalty/players/${id}`).catch(() => ({ data: null })),
+        api.get(`/bar/players/${id}/tabs`, { _silentError: true }).catch(() => ({ data: [] })),
       ]);
       setPlayer(pRes.data);
       setStats((sRes.data && sRes.data[0]) || null);
       setHistory(hRes.data || []);
       setTickets(tkRes.data || []);
+      setBarTabs(Array.isArray(barRes?.data) ? barRes.data : []);
       setLoyaltyEnabled(!!cfgRes.data?.enabled);
       setLoyalty(loyRes.data);
     } catch (err) {
@@ -314,6 +320,51 @@ const PlayerDetail = () => {
                 </div>
               )}
             </div>
+
+            {/* ── Comandas do bar (só aparece se houver alguma) ── */}
+            {barTabs.length > 0 && (
+              <div className="pd-history-card pd-bar-card">
+                <div className="pd-history-header">
+                  <h2>{t('playerDetail.barTabsTitle', 'Comandas do bar')}</h2>
+                  <span className="pd-history-count">
+                    {t('playerDetail.barTabsSpent', '{{value}} em {{count}} comanda(s)', {
+                      value: formatCurrency(barTabs.filter((c) => c.status === 'closed').reduce((s, c) => s + (c.total || 0), 0)),
+                      count: barTabs.filter((c) => c.status === 'closed').length,
+                    })}
+                  </span>
+                </div>
+                <div className="pd-table-wrap">
+                  <table className="pd-table">
+                    <thead>
+                      <tr>
+                        <th>{t('playerDetail.colDate', 'Data')}</th>
+                        <th>#</th>
+                        <th className="pd-num">{t('playerDetail.colBarItems', 'Itens')}</th>
+                        <th className="pd-num">{t('playerDetail.colBarTotal', 'Total')}</th>
+                        <th>{t('playerDetail.colTicketStatus', 'Situação')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {barTabs.map((c) => (
+                        <tr key={c.id}>
+                          <td data-label={t('playerDetail.colDate', 'Data')}>{fmtDate(c.opened_at, i18n.language)}</td>
+                          <td data-label="#"><Link to={`/bar/comandas/${c.id}`}>#{c.number}</Link></td>
+                          <td className="pd-num" data-label={t('playerDetail.colBarItems', 'Itens')}>{c.items_count}</td>
+                          <td className="pd-num" data-label={t('playerDetail.colBarTotal', 'Total')}>{formatCurrency(c.total || 0)}</td>
+                          <td data-label={t('playerDetail.colTicketStatus', 'Situação')}>
+                            <span className={`bar-status-${c.status}`}>
+                              {c.status === 'open' ? t('bar.statusOpen', 'Aberta')
+                                : c.status === 'closed' ? t('bar.statusClosed', 'Fechada')
+                                  : t('bar.statusCancelled', 'Cancelada')}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* ── Fidelidade (só PRO/PREMIUM) ── */}
             {loyaltyEnabled && (

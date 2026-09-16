@@ -77,6 +77,7 @@ const BarShifts = lazy(() => import('./pages/BarShifts'));
 const BarShiftDetail = lazy(() => import('./pages/BarShiftDetail'));
 const BarTabDetail = lazy(() => import('./pages/BarTabDetail'));
 const BarOrders = lazy(() => import('./pages/BarOrders'));
+const BarRelatorios = lazy(() => import('./pages/BarRelatorios'));
 
 const PageFallback = () => (
   <div className="page-loading-skeleton">
@@ -325,6 +326,14 @@ function AppRoutes() {
         element={
           <PrivateRoute module="bar" anyPermission={['bar.shift', 'bar.reports']}>
             <BarShiftDetail />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/bar/relatorios"
+        element={
+          <PrivateRoute module="bar" anyPermission={['bar.reports', 'bar.shift']}>
+            <BarRelatorios />
           </PrivateRoute>
         }
       />

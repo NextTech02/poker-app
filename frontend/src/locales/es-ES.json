@@ -411,7 +411,11 @@
     "colTicketFundedBy": "Financiado por",
     "ticketStatusAvailable": "Disponible",
     "ticketStatusRedeemed": "Canjeado",
-    "ticketStatusCancelled": "Cancelado"
+    "ticketStatusCancelled": "Cancelado",
+    "barTabsTitle": "Comandas del bar",
+    "barTabsSpent": "{{value}} en {{count}} comanda(s)",
+    "colBarItems": "Ítems",
+    "colBarTotal": "Total"
   },
   "players": {
     "title": "Jugadores",
@@ -1597,7 +1601,13 @@
     "dreCashJackpot": "Jackpot recaudado (pasivo, no es ingreso)",
     "dreCashPaid": "Cash-outs pagados",
     "dreCashRake": "Rake del cash game",
-    "dreCashTurnover": "Movimiento del cash (no es ingreso)"
+    "dreCashTurnover": "Movimiento del cash (no es ingreso)",
+    "barTab": "Bar",
+    "barTabHint": "El bar es por turno, no por etapa: solo las fechas del filtro valen aquí.",
+    "barFullReport": "Informe completo del bar →",
+    "dreBarRevenue": "Ventas del bar",
+    "dreBarDiscounts": "Descuentos y cortesías del bar (ya descontados)",
+    "dreBarCogs": "Costo de las mercancías del bar (informativo — la compra ya es gasto)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneo",
@@ -3013,5 +3023,34 @@
     "ordersSubtitle": "{{count}} ítem(s) esperando entrega",
     "noPendingOrders": "Todo entregado",
     "noPendingOrdersHint": "Los ítems cargados en la POS aparecen aquí hasta ser entregados."
+  },
+  "barReports": {
+    "title": "Facturación del bar",
+    "subtitle": "Las ventas son las comandas cerradas, después del descuento. El margen descuenta el costo de las mercancías — cortesía incluida, porque la bebida salió del stock.",
+    "summary": "Resumen del período",
+    "gross": "Bruto (antes de descuentos)",
+    "discountsAndCourtesy": "Descuentos y cortesías",
+    "cogs": "Costo de las mercancías (CMV)",
+    "cogsShort": "CMV",
+    "cogsHint": "CMV {{value}} (cortesía incluida)",
+    "grossHint": "bruto {{value}}",
+    "paidCash": "Recibido en efectivo/PIX/tarjeta",
+    "paidCredit": "Recibido en crédito del jugador",
+    "received": "Recibido",
+    "averageTab": "Ticket promedio",
+    "averageTabHint": "Ticket promedio {{value}} · {{count}} comanda(s)",
+    "shifts": "Turnos",
+    "items": "Ítems",
+    "byDay": "Ventas por día",
+    "byProduct": "Por producto",
+    "byMethod": "Por forma de pago",
+    "byPlayer": "Por jugador",
+    "courtesyQty": "Cortesías",
+    "payments": "Pagos",
+    "spent": "Gasto",
+    "bestDays": "Mejores días",
+    "bestDaysHint": "Ordenado por ventas, después del descuento.",
+    "empty": "Ninguna comanda cerrada en el período",
+    "emptyHint": "Elige otro período o cierra comandas en la POS."
   }
 }

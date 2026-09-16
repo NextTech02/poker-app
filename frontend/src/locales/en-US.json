@@ -411,7 +411,11 @@
     "colTicketFundedBy": "Funded by",
     "ticketStatusAvailable": "Available",
     "ticketStatusRedeemed": "Redeemed",
-    "ticketStatusCancelled": "Cancelled"
+    "ticketStatusCancelled": "Cancelled",
+    "barTabsTitle": "Bar tabs",
+    "barTabsSpent": "{{value}} across {{count}} tab(s)",
+    "colBarItems": "Items",
+    "colBarTotal": "Total"
   },
   "players": {
     "title": "Players",
@@ -1597,7 +1601,13 @@
     "dreCashJackpot": "Jackpot collected (liability, not revenue)",
     "dreCashPaid": "Cash-outs paid",
     "dreCashRake": "Cash game rake",
-    "dreCashTurnover": "Cash turnover (not revenue)"
+    "dreCashTurnover": "Cash turnover (not revenue)",
+    "barTab": "Bar",
+    "barTabHint": "The bar runs by shift, not by stage: only the filter dates apply here.",
+    "barFullReport": "Full bar report →",
+    "dreBarRevenue": "Bar sales",
+    "dreBarDiscounts": "Bar discounts and courtesies (already deducted)",
+    "dreBarCogs": "Bar cost of goods (informational — the purchase is already an expense)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -3013,5 +3023,34 @@
     "ordersSubtitle": "{{count}} item(s) waiting to be delivered",
     "noPendingOrders": "All delivered",
     "noPendingOrdersHint": "Items added on the POS show up here until they are delivered."
+  },
+  "barReports": {
+    "title": "Bar revenue",
+    "subtitle": "Sales are the closed tabs, after discounts. Margin deducts the cost of goods — courtesy included, because the drink left the stock.",
+    "summary": "Period summary",
+    "gross": "Gross (before discounts)",
+    "discountsAndCourtesy": "Discounts and courtesies",
+    "cogs": "Cost of goods sold (COGS)",
+    "cogsShort": "COGS",
+    "cogsHint": "COGS {{value}} (courtesy included)",
+    "grossHint": "gross {{value}}",
+    "paidCash": "Received in money/PIX/card",
+    "paidCredit": "Received in player credit",
+    "received": "Received",
+    "averageTab": "Average tab",
+    "averageTabHint": "Average tab {{value}} · {{count}} tab(s)",
+    "shifts": "Shifts",
+    "items": "Items",
+    "byDay": "Sales per day",
+    "byProduct": "By product",
+    "byMethod": "By payment method",
+    "byPlayer": "By player",
+    "courtesyQty": "Courtesies",
+    "payments": "Payments",
+    "spent": "Spent",
+    "bestDays": "Best days",
+    "bestDaysHint": "Ordered by sales, after discounts.",
+    "empty": "No closed tabs in this period",
+    "emptyHint": "Pick another period or close tabs on the POS."
   }
 }

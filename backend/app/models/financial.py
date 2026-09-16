@@ -75,6 +75,19 @@ class FinancialSummary(BaseModel):
     cash_days_count: int = 0
     cash_tables_count: int = 0
     cash_players_count: int = 0
+    # ── Bar ────────────────────────────────────────────────────────────
+    # `bar_revenue` = Σ total das comandas fechadas do período (depois do
+    # desconto). Entra em `gross_revenue`. `bar_cogs` (custo das mercadorias)
+    # é INFORMATIVO: a compra da mercadoria já entra como despesa, e subtrair
+    # o CMV também contaria duas vezes — o mesmo princípio de
+    # `guarantee_committed`. A margem do bar vive no relatório do bar.
+    bar_revenue: float = 0
+    bar_gross: float = 0
+    bar_discounts: float = 0
+    bar_cogs: float = 0
+    bar_gross_margin: float = 0
+    bar_tabs_count: int = 0
+    bar_shifts_count: int = 0
     net_result: float = 0           # operacional + outras receitas − despesas
     pending_credits: float = 0
     available_tickets: int = 0
