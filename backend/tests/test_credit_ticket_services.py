@@ -188,11 +188,24 @@ class TestConsumoFIFO:
         ("buy_in", "credit_used_buyin"),
         ("rebuy", "credit_used_rebuy"),
         ("addon", "credit_used_addon"),
+        ("bar", "credit_used_bar"),
     ])
     def test_o_razao_diz_para_que_o_credito_foi_usado(self, monkeypatch, entrada, tipo):
         fake = _monta_credito(monkeypatch)
         C.use_credit(JOGADOR, 50, TOUR, DIA, entrada, AUTOR)
         assert fake.store["credit_transactions"][0]["type"] == tipo
+
+    def test_perna_do_bar_nao_tem_torneio_e_aponta_para_o_pagamento(self, monkeypatch):
+        """A comanda não é de torneio nenhum: `tournament_id` vai nulo (a
+        coluna aceita). `bar_payment_id` é o que deixa um estorno futuro
+        achar o lançamento."""
+        fake = _monta_credito(monkeypatch)
+        r = C.use_credit(JOGADOR, 50, None, None, "bar", AUTOR, bar_payment_id="bp-1")
+        assert r["credit_used"] == 50
+        lanc = fake.store["credit_transactions"][0]
+        assert lanc["type"] == "credit_used_bar"
+        assert lanc["tournament_id"] is None
+        assert lanc["bar_payment_id"] == "bp-1"
 
     def test_tipo_desconhecido_cai_em_buy_in(self, monkeypatch):
         fake = _monta_credito(monkeypatch)

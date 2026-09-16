@@ -1,0 +1,95 @@
+/* A POS: comandas à esquerda, produtos no meio, comanda selecionada à direita. */
+
+.pos {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 360px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.pos-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.pos-open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.pos-open__hint {
+  margin: 0;
+}
+
+.pos-tabs {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 60vh;
+  overflow: auto;
+}
+.pos-tabs__empty {
+  padding: 0.5rem 0;
+}
+.pos-tab {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  background: var(--card-bg, #1e2d3d);
+  color: var(--text-primary, #e0eaf4);
+  text-align: left;
+  cursor: pointer;
+}
+.pos-tab.active {
+  border-color: var(--accent-color, #7233f8);
+  box-shadow: 0 0 0 1px var(--accent-color, #7233f8) inset;
+}
+.pos-tab__number {
+  font-weight: 700;
+  color: var(--text-secondary, #8aa0b0);
+}
+.pos-tab__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pos-tab__due {
+  font-weight: 700;
+  color: var(--success-color, #22c55e);
+}
+.pos-tab__pending {
+  min-width: 1.4rem;
+  text-align: center;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--warning-bg, rgba(245, 158, 11, 0.15));
+  color: var(--warning-color, #f59e0b);
+}
+
+.pos-main {
+  min-width: 0;
+}
+
+.pos-detail {
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .pos {
+    grid-template-columns: 1fr;
+  }
+  .pos-detail {
+    position: static;
+  }
+}

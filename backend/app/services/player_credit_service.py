@@ -172,14 +172,17 @@ class PlayerCreditService:
     def use_credit(
         player_id: str,
         amount: float,
-        tournament_id: str,
+        tournament_id: Optional[str],
         tournament_day_id: Optional[str],
         entry_type: str,
         user_id: str,
         stage_id: Optional[str] = None,
+        bar_payment_id: Optional[str] = None,
     ) -> dict:
         """
-        Consume credit for a buy-in/rebuy/addon.
+        Consume credit for a buy-in/rebuy/addon — ou para uma perna de
+        pagamento do BAR (`entry_type='bar'`, sem torneio; `bar_payment_id`
+        amarra o lançamento à perna, para um estorno futuro achá-lo).
         Uses FIFO: oldest active credits first.
         Returns {'credit_used': X, 'cash_remaining': Y}
         """
@@ -210,6 +213,7 @@ class PlayerCreditService:
             "buy_in": "credit_used_buyin",
             "rebuy": "credit_used_rebuy",
             "addon": "credit_used_addon",
+            "bar": "credit_used_bar",
         }
         tx_type = type_map.get(entry_type, "credit_used_buyin")
 
@@ -233,7 +237,7 @@ class PlayerCreditService:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", credit["id"]).execute()
 
-            supabase.table("credit_transactions").insert({
+            lancamento = {
                 "credit_id": credit["id"],
                 "player_id": player_id,
                 "tournament_id": tournament_id,
@@ -242,7 +246,10 @@ class PlayerCreditService:
                 "amount": deduct,
                 "balance_after": new_remaining,
                 "created_by": user_id,
-            }).execute()
+            }
+            if bar_payment_id:
+                lancamento["bar_payment_id"] = bar_payment_id
+            supabase.table("credit_transactions").insert(lancamento).execute()
 
             remaining_to_deduct -= deduct
 

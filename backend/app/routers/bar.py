@@ -23,6 +23,10 @@ from app.models.bar import (
     BarCategoryCreate,
     BarCategoryResponse,
     BarCategoryUpdate,
+    BarItemCancel,
+    BarItemCourtesy,
+    BarPaymentCancel,
+    BarPendingOrder,
     BarProductCreate,
     BarProductResponse,
     BarProductUpdate,
@@ -32,9 +36,19 @@ from app.models.bar import (
     BarShiftSummary,
     BarStockMovementCreate,
     BarStockMovementResponse,
+    BarTabCancel,
+    BarTabClose,
+    BarTabDetail,
+    BarTabDiscount,
+    BarTabItemCreate,
+    BarTabOpen,
+    BarTabPay,
+    BarTabResponse,
 )
 from app.services.bar_product_service import BarProductService
 from app.services.bar_shift_service import BarShiftService
+from app.services.bar_tab_service import BarTabService
+from app.services.staff_service import StaffService
 from app.utils.erros import da_excecao
 
 router = APIRouter(prefix="/bar", tags=["bar"])
@@ -238,5 +252,169 @@ def list_stock_movements(
 ):
     try:
         return BarProductService.list_movements(product_id, limit)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Comandas
+# ══════════════════════════════════════════════════════════════════════
+
+def _pode_administrar_o_bar(user: dict) -> bool:
+    """Para as ações que dependem do CARGO dentro da mesma rota (cancelar item
+    já entregue): operador e gerente batem na mesma URL."""
+    perms = StaffService.get_my_permissions(user.get("sub"))
+    return bool(perms.is_admin or "bar.admin" in (perms.permissions or []))
+
+
+@router.post("/tabs/open", response_model=BarTabResponse)
+def open_tab(
+    data: BarTabOpen,
+    user=_operar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Devolve a comanda aberta do jogador ou cria uma (comanda ÚNICA por
+    jogador — o banco garante, o serviço relê)."""
+    try:
+        return BarTabService.open_tab(data, user.get("sub"), organization_id)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.get("/tabs", response_model=List[BarTabResponse])
+def list_tabs(
+    bar_shift_id: Optional[str] = None,
+    status: Optional[str] = None,
+    player_id: Optional[str] = None,
+    limit: int = Query(200, ge=1, le=1000),
+    user=_operar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    return BarTabService.list_tabs(organization_id, bar_shift_id, status, player_id, limit)
+
+
+@router.get("/orders", response_model=List[BarPendingOrder])
+def pending_orders(
+    bar_shift_id: str,
+    user=_operar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Os itens ainda não entregues do turno — a tela do balcão/cozinha."""
+    return BarTabService.pending_orders(organization_id, bar_shift_id)
+
+
+@router.get("/players/{player_id}/tabs", response_model=List[BarTabResponse])
+def player_tabs(
+    player_id: str,
+    limit: int = Query(50, ge=1, le=500),
+    user=Depends(require_permission("players", "bar.operate")),
+):
+    return BarTabService.player_history(player_id, limit)
+
+
+@router.get("/tabs/{tab_id}", response_model=BarTabDetail)
+def get_tab(tab_id: str, user=_operar):
+    try:
+        return BarTabService.detail(tab_id)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/items", response_model=BarTabDetail)
+def add_item(tab_id: str, data: BarTabItemCreate, user=_operar):
+    try:
+        return BarTabService.add_item(tab_id, data, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/items/{item_id}/deliver", response_model=BarTabDetail)
+def deliver_item(tab_id: str, item_id: str, user=_operar):
+    try:
+        return BarTabService.deliver_item(tab_id, item_id, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/deliver-all", response_model=BarTabDetail)
+def deliver_all(tab_id: str, user=_operar):
+    try:
+        return BarTabService.deliver_all(tab_id, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/items/{item_id}/cancel", response_model=BarTabDetail)
+def cancel_item(tab_id: str, item_id: str, data: BarItemCancel, user=_operar):
+    """Pendente: o operador cancela. Entregue: só bar.admin — o item já saiu
+    do balcão, e tirá-lo da conta é decisão de gerente."""
+    try:
+        return BarTabService.cancel_item(
+            tab_id, item_id, data.reason, user.get("sub"), _pode_administrar_o_bar(user)
+        )
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/items/{item_id}/courtesy", response_model=BarTabDetail)
+def set_courtesy(tab_id: str, item_id: str, data: BarItemCourtesy, user=_admin):
+    try:
+        return BarTabService.set_courtesy(tab_id, item_id, data, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/discount", response_model=BarTabDetail)
+def set_discount(tab_id: str, data: BarTabDiscount, user=_admin):
+    try:
+        return BarTabService.set_discount(tab_id, data, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/payments", response_model=BarTabDetail)
+def pay_tab(
+    tab_id: str,
+    data: BarTabPay,
+    user=_operar,
+    organization_id: Optional[str] = Depends(get_org_id_optional),
+):
+    """Uma ou várias pernas (parcial e/ou dividido). Perna `cash` (qualquer
+    meio) exige a gaveta do barman aberta; perna `credit` consome o crédito do
+    jogador e não passa pela gaveta."""
+    try:
+        return BarTabService.pay(tab_id, data, user.get("sub"), organization_id)
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/payments/{payment_id}/cancel", response_model=BarTabDetail)
+def cancel_payment(tab_id: str, payment_id: str, data: BarPaymentCancel, user=_admin):
+    try:
+        return BarTabService.cancel_payment(tab_id, payment_id, data.reason, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/close", response_model=BarTabResponse)
+def close_tab(tab_id: str, data: BarTabClose, user=_operar):
+    try:
+        return BarTabService.close_tab(tab_id, data, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/reopen", response_model=BarTabResponse)
+def reopen_tab(tab_id: str, user=_admin):
+    try:
+        return BarTabService.reopen_tab(tab_id, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/tabs/{tab_id}/cancel", response_model=BarTabResponse)
+def cancel_tab(tab_id: str, data: BarTabCancel, user=_admin):
+    try:
+        return BarTabService.cancel_tab(tab_id, data.reason, user.get("sub"))
     except ValueError as e:
         raise da_excecao(e)
