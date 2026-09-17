@@ -2123,7 +2123,16 @@
     "unknownOrg": "otra organización",
     "language": "Idioma",
     "viewAccess": "Ver accesos",
-    "hideAccess": "Ocultar accesos"
+    "hideAccess": "Ocultar accesos",
+    "colModules": "Módulos",
+    "modules": "Módulos",
+    "changeModules": "Elegir los módulos contratados",
+    "changeModulesTitle": "Módulos contratados",
+    "changeModulesHint": "Define lo que \"{{name}}\" puede usar. Apagar un módulo cierra sus pantallas y rutas — no borra nada; volver a encenderlo lo devuelve todo como estaba.",
+    "atLeastOneModule": "Al menos un módulo debe quedar encendido.",
+    "saveModules": "Guardar módulos",
+    "modulesUpdated": "Módulos actualizados.",
+    "errorModules": "Error al cambiar los módulos"
   },
   "sangi": {
     "pageTitle": "Sangeur — Venta de Fichas en Consignación",

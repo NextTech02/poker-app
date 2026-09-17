@@ -623,3 +623,93 @@ describe('mudar de plano', () => {
     expect(api.patch).not.toHaveBeenCalled();
   });
 });
+
+describe('módulos contratados', () => {
+  // O que a tela afirma: o chip na linha diz o que o clube tem; o modal
+  // liga/desliga e nunca deixa a org sem nenhum módulo (o backend também
+  // recusa a lista vazia — uma org sem módulo fica com a sidebar em branco).
+  const ORGS_COM_MODULOS = [
+    { ...ORGS[0], modules: ['tournament', 'cash'] },
+    { ...ORGS[1], modules: ['bar'] },
+    { ...ORGS[2] },                       // sem a chave: org anterior ao backfill
+  ];
+  const abrir = async (nome) =>
+    userEvent.click(within(linhaDe(nome)).getByRole('button', { name: 'Módulos' }));
+
+  it('a linha mostra os módulos que o clube tem', async () => {
+    await montar({ orgs: ORGS_COM_MODULOS });
+    const royal = linhaDe('Clube Royal');
+    expect(within(royal).getByText('Torneios')).toBeInTheDocument();
+    expect(within(royal).getByText('Cash Game')).toBeInTheDocument();
+    expect(within(royal).queryByText('Bar')).toBeNull();
+    expect(within(linhaDe('Clube Suspenso')).getByText('Bar')).toBeInTheDocument();
+  });
+
+  it('org sem a chave de módulos é tratada como torneio', async () => {
+    await montar({ orgs: ORGS_COM_MODULOS });
+    expect(within(linhaDe('Clube Cancelado')).getByText('Torneios')).toBeInTheDocument();
+  });
+
+  it('o modal abre com o que está ligado e explica que desligar não apaga', async () => {
+    await montar({ orgs: ORGS_COM_MODULOS });
+    await abrir('Clube Royal');
+    const caixas = screen.getAllByRole('checkbox');
+    expect(caixas.map((c) => c.checked)).toEqual([true, true, false]);
+    expect(document.querySelector('.org-modal-hint')).toHaveTextContent('organizations.changeModulesHint:Clube Royal');
+  });
+
+  it('ligar o bar e salvar manda a lista completa, e a linha atualiza na hora', async () => {
+    api.patch.mockResolvedValue({ data: { modules: ['tournament', 'cash', 'bar'] } });
+    await montar({ orgs: ORGS_COM_MODULOS });
+    await abrir('Clube Royal');
+    await userEvent.click(screen.getAllByRole('checkbox')[2]);
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar módulos' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/organizations/o1/modules', {
+        modules: ['tournament', 'cash', 'bar'],
+      })
+    );
+    expect(toast.success).toHaveBeenCalledWith('Módulos atualizados.');
+    expect(document.querySelector('.org-modal')).toBeNull();
+    expect(within(linhaDe('Clube Royal')).getByText('Bar')).toBeInTheDocument();
+  });
+
+  it('desligar um módulo tira ele da lista enviada', async () => {
+    api.patch.mockResolvedValue({ data: { modules: ['tournament'] } });
+    await montar({ orgs: ORGS_COM_MODULOS });
+    await abrir('Clube Royal');
+    await userEvent.click(screen.getAllByRole('checkbox')[1]);   // cash
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar módulos' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/organizations/o1/modules', { modules: ['tournament'] })
+    );
+    expect(within(linhaDe('Clube Royal')).queryByText('Cash Game')).toBeNull();
+  });
+
+  it('o último módulo ligado não pode ser desligado', async () => {
+    await montar({ orgs: ORGS_COM_MODULOS });
+    await abrir('Clube Suspenso');                                 // só bar
+    const caixas = screen.getAllByRole('checkbox');
+    expect(caixas[2]).toBeChecked();
+    expect(caixas[2]).toBeDisabled();
+    expect(screen.getByText('Ao menos um módulo precisa ficar ligado.')).toBeInTheDocument();
+  });
+
+  it('erro ao salvar avisa e mantém o modal aberto', async () => {
+    api.patch.mockRejectedValue({ userMessage: 'Módulo inválido' });
+    await montar({ orgs: ORGS_COM_MODULOS });
+    await abrir('Clube Royal');
+    await userEvent.click(screen.getAllByRole('checkbox')[2]);
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar módulos' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Módulo inválido'));
+    expect(document.querySelector('.org-modal')).toBeInTheDocument();
+  });
+
+  it('cancelar fecha sem salvar', async () => {
+    await montar({ orgs: ORGS_COM_MODULOS });
+    await abrir('Clube Royal');
+    await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
+    expect(document.querySelector('.org-modal')).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+});

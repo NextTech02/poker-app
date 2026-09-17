@@ -302,3 +302,52 @@
 .org-logs .activity-log {
   margin-top: 0.75rem;
 }
+
+
+/* ── Módulos contratados ── */
+.org-modules-cell {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.org-module-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.org-module-chip.module-tournament { background: rgba(114, 51, 248, 0.15); color: var(--badge-text-accent, #c79cfa); }
+.org-module-chip.module-cash       { background: rgba(56, 189, 248, 0.15);  color: #38bdf8; }
+.org-module-chip.module-bar        { background: rgba(245, 158, 11, 0.15);  color: #f59e0b; }
+
+.org-modules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.org-module-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border-primary, #2a3a4d);
+  cursor: pointer;
+}
+.org-module-option.on {
+  border-color: var(--accent-color, #7233f8);
+}
+.org-module-option input {
+  margin-top: 3px;
+}
+.org-module-option__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.org-module-option__body small {
+  color: var(--text-secondary, #8aa0b0);
+  line-height: 1.4;
+}

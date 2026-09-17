@@ -51,6 +51,7 @@ def banco(monkeypatch):
              "permission_group_id": None, "permission_groups": None},
         ],
         "players": [], "tournaments": [],
+        "org_modules": [{"id": "m1", "organization_id": ORG, "module": "tournament", "enabled": True}],
     })
     monkeypatch.setattr(mod, "supabase_admin", fake)
     return fake
@@ -466,3 +467,39 @@ class TestCriacao:
     def test_email_invalido_da_422(self, admin, banco):
         r = admin.post("/organizations", json=self._corpo(admin_email="nao-e-email"))
         assert r.status_code == 422
+
+
+class TestModulos:
+    """O toggle de módulos do painel. A lista enviada é a lista COMPLETA do
+    que a org passa a ter; módulo fora dela é DESABILITADO, não apagado."""
+
+    def test_lista_vem_na_ordem_canonica(self, admin, banco):
+        banco.store["org_modules"].append({"id": "m2", "organization_id": ORG, "module": "bar", "enabled": True})
+        banco.store["org_modules"].append({"id": "m3", "organization_id": ORG, "module": "cash", "enabled": True})
+        assert admin.get("/organizations").json()[0]["modules"] == ["tournament", "cash", "bar"]
+
+    def test_liga_o_bar(self, admin, banco):
+        r = admin.patch(f"/organizations/{ORG}/modules", json={"modules": ["tournament", "bar"]})
+        assert r.status_code == 200
+        assert r.json()["modules"] == ["bar", "tournament"]      # o endpoint ordena por nome
+        linhas = {m["module"]: m["enabled"] for m in banco.store["org_modules"]}
+        assert linhas == {"tournament": True, "bar": True}
+
+    def test_desligar_desabilita_sem_apagar(self, admin, banco):
+        banco.store["org_modules"].append({"id": "m2", "organization_id": ORG, "module": "bar", "enabled": True})
+        r = admin.patch(f"/organizations/{ORG}/modules", json={"modules": ["tournament"]})
+        assert r.status_code == 200
+        linhas = {m["module"]: m["enabled"] for m in banco.store["org_modules"]}
+        assert linhas == {"tournament": True, "bar": False}   # a linha ficou, como histórico
+
+    def test_modulo_desconhecido_da_400_nomeando(self, admin, banco):
+        r = admin.patch(f"/organizations/{ORG}/modules", json={"modules": ["tournament", "sinuca"]})
+        assert r.status_code == 400
+        assert r.json()["detail"]["code"] == "modulo_invalido"
+        assert r.json()["detail"]["modulos"] == ["sinuca"]
+
+    def test_lista_vazia_da_422(self, admin, banco):
+        assert admin.patch(f"/organizations/{ORG}/modules", json={"modules": []}).status_code == 422
+
+    def test_exige_platform_admin(self, client, banco):
+        assert client.patch(f"/organizations/{ORG}/modules", json={"modules": ["bar"]}).status_code == 403

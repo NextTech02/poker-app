@@ -2123,7 +2123,16 @@
     "unknownOrg": "another organization",
     "language": "Language",
     "viewAccess": "View access log",
-    "hideAccess": "Hide access log"
+    "hideAccess": "Hide access log",
+    "colModules": "Modules",
+    "modules": "Modules",
+    "changeModules": "Choose the contracted modules",
+    "changeModulesTitle": "Contracted modules",
+    "changeModulesHint": "Sets what \"{{name}}\" can use. Turning a module off closes its screens and routes — nothing is deleted; turning it back on restores everything.",
+    "atLeastOneModule": "At least one module must stay on.",
+    "saveModules": "Save modules",
+    "modulesUpdated": "Modules updated.",
+    "errorModules": "Error updating the modules"
   },
   "sangi": {
     "pageTitle": "Sangeur — Consignment Chip Sales",

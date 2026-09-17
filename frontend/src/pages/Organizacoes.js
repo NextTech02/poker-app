@@ -23,6 +23,18 @@ import './Organizacoes.css';
  * O dono do clube recebe um CONVITE por e-mail e define a própria senha; a
  * senha nunca passa por aqui.
  */
+// O que a plataforma vende. Ordem canônica (a mesma do ModuleContext e do
+// backend): torneio, cash, bar. Fora daqui, o CHECK de org_modules e
+// VALID_MODULES no backend são as outras duas cópias desta lista.
+const MODULOS = [
+  { code: 'tournament', labelKey: 'modules.tournamentTitle', fallback: 'Torneios',
+    hintKey: 'modules.tournamentHint', hintFallback: 'Etapas, blinds, premiação, ranking e caixa do torneio.' },
+  { code: 'cash', labelKey: 'modules.cashTitle', fallback: 'Cash Game',
+    hintKey: 'modules.cashHint', hintFallback: 'Mesas abertas, fila de espera, buy-in e cash-out, faturamento por dia.' },
+  { code: 'bar', labelKey: 'modules.barTitle', fallback: 'Bar',
+    hintKey: 'modules.barHint', hintFallback: 'Produtos, comandas por jogador, pedidos, estoque e caixa do bar.' },
+];
+
 const Organizacoes = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
@@ -55,9 +67,16 @@ const Organizacoes = () => {
   const [planModal, setPlanModal] = useState(null); // { org, plan_code, max_users_override }
   const [savingPlan, setSavingPlan] = useState(false);
 
+  // Módulos contratados: { org, modules: string[] }. Mesma ordem canônica do
+  // ModuleContext (torneio, cash, bar) — é a ordem em que a tela do clube os
+  // oferece, e a que o backend devolve.
+  const [modulesModal, setModulesModal] = useState(null);
+  const [savingModules, setSavingModules] = useState(false);
+
   // Esc fecha os modais — é o equivalente de teclado ao clique no fundo escuro.
   useEscapeKey(showForm && !saving, () => setShowForm(false));
   useEscapeKey(!!planModal && !savingPlan, () => setPlanModal(null));
+  useEscapeKey(!!modulesModal && !savingModules, () => setModulesModal(null));
 
   const load = useCallback(async () => {
     try {
@@ -131,6 +150,40 @@ const Organizacoes = () => {
     } catch (err) {
       toast.error(err.userMessage || t('organizations.errorEnter', 'Não foi possível entrar nesta organização'));
       setBusyId(null);
+    }
+  };
+
+  /** Liga/desliga os módulos de uma org. Não é destrutivo: desligar fecha as
+   *  telas e as rotas, os dados ficam. Ao menos um módulo precisa sobrar —
+   *  uma org sem nenhum fica com a sidebar vazia, indistinguível de sistema
+   *  quebrado (o backend recusa a lista vazia pelo mesmo motivo). */
+  const toggleModule = (code) => {
+    if (!modulesModal) return;
+    const atual = modulesModal.modules;
+    const proximo = atual.includes(code) ? atual.filter((m) => m !== code) : [...atual, code];
+    if (proximo.length === 0) return;
+    setModulesModal({ ...modulesModal, modules: proximo });
+  };
+
+  const saveModules = async () => {
+    if (!modulesModal) return;
+    setSavingModules(true);
+    try {
+      const res = await api.patch(`/organizations/${modulesModal.org.id}/modules`, {
+        modules: MODULOS.filter((m) => modulesModal.modules.includes(m.code)).map((m) => m.code),
+      });
+      const habilitados = res.data?.modules;
+      setModulesModal(null);
+      toast.success(t('organizations.modulesUpdated', 'Módulos atualizados.'));
+      // Atualiza a linha na hora com o que o servidor devolveu; a recarga
+      // completa não é necessária (nada mais muda na org).
+      if (Array.isArray(habilitados)) {
+        setOrgs((prev) => prev.map((o) => (o.id === modulesModal.org.id ? { ...o, modules: habilitados } : o)));
+      }
+    } catch (err) {
+      toast.error(err.userMessage || t('organizations.errorModules', 'Erro ao alterar os módulos'));
+    } finally {
+      setSavingModules(false);
     }
   };
 
@@ -307,6 +360,7 @@ const Organizacoes = () => {
                 <th>{t('organizations.colName', 'Organização')}</th>
                 <th>{t('organizations.colSlug', 'Identificador')}</th>
                 <th>{t('organizations.colPlan', 'Plano')}</th>
+                <th>{t('organizations.colModules', 'Módulos')}</th>
                 <th>{t('organizations.colStaff', 'Funcionários')}</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.actions')}</th>
@@ -343,6 +397,15 @@ const Organizacoes = () => {
                           : t('organizations.trialExpired', 'Trial expirado')}
                       </div>
                     )}
+                  </td>
+                  <td>
+                    <div className="org-modules-cell">
+                      {MODULOS.filter((m) => (o.modules || ['tournament']).includes(m.code)).map((m) => (
+                        <span key={m.code} className={`org-module-chip module-${m.code}`}>
+                          {t(m.labelKey, m.fallback)}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td>
                     <div className="org-staff-cell">
@@ -393,6 +456,15 @@ const Organizacoes = () => {
                         title={t('organizations.changePlan', 'Alterar plano')}
                       >
                         {t('organizations.plan', 'Plano')}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onClick={() => setModulesModal({ org: o, modules: [...(o.modules || ['tournament'])] })}
+                        disabled={busyId === o.id}
+                        title={t('organizations.changeModules', 'Escolher os módulos contratados')}
+                      >
+                        {t('organizations.modules', 'Módulos')}
                       </Button>
                       {o.status !== 'cancelled' && (
                         <Button
@@ -567,6 +639,48 @@ const Organizacoes = () => {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {modulesModal && (
+          <div className="org-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !savingModules) setModulesModal(null); }}>
+            <div className="org-modal" role="dialog" aria-modal="true" aria-label={t('organizations.changeModulesTitle', 'Módulos contratados')}>
+              <h2>{t('organizations.changeModulesTitle', 'Módulos contratados')}</h2>
+              <p className="org-modal-hint">
+                {t('organizations.changeModulesHint', 'Define o que "{{name}}" pode usar. Desligar um módulo fecha as telas e as rotas — não apaga nada; religar devolve tudo como estava.', { name: modulesModal.org.name })}
+              </p>
+              <div className="org-field org-modules-list" role="group" aria-label={t('organizations.colModules', 'Módulos')}>
+                {MODULOS.map((m) => {
+                  const ligado = modulesModal.modules.includes(m.code);
+                  const ultimo = ligado && modulesModal.modules.length === 1;
+                  return (
+                    <label key={m.code} className={`org-module-option ${ligado ? 'on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={ligado}
+                        disabled={savingModules || ultimo}
+                        onChange={() => toggleModule(m.code)}
+                      />
+                      <span className="org-module-option__body">
+                        <strong>{t(m.labelKey, m.fallback)}</strong>
+                        <small>{t(m.hintKey, m.hintFallback)}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+                <span className="org-plan-hint">
+                  {t('organizations.atLeastOneModule', 'Ao menos um módulo precisa ficar ligado.')}
+                </span>
+              </div>
+              <div className="org-modal-actions">
+                <Button type="button" variant="secondary" onClick={() => setModulesModal(null)} disabled={savingModules}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="button" onClick={saveModules} disabled={savingModules}>
+                  {savingModules ? t('common.saving') : t('organizations.saveModules', 'Salvar módulos')}
+                </Button>
+              </div>
             </div>
           </div>
         )}
