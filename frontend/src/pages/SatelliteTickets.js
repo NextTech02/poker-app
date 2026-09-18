@@ -230,7 +230,15 @@ const SatelliteTickets = () => {
     if (!tournamentId) { setCreateDays([]); return; }
     try {
       const res = await api.get(`/tournament-days/tournament/${tournamentId}`);
-      setCreateDays(res.data || []);
+      const dias = res.data || [];
+      setCreateDays(dias);
+      // Torneio de dia único: o dia alvo é implícito — entra sozinho e o
+      // seletor não aparece. A guarda descarta a resposta de uma troca antiga.
+      if (dias.length === 1) {
+        setCreateForm((p) => (p.target_tournament_id === tournamentId
+          ? { ...p, target_tournament_day_id: dias[0].id }
+          : p));
+      }
     } catch (err) {
       setCreateDays([]);
     }
@@ -499,6 +507,9 @@ const SatelliteTickets = () => {
                     {tournaments.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
+                {/* Só o torneio com mais de um dia pergunta qual; no de dia
+                    único o dia entra sozinho e a caixa abaixo mostra o valor. */}
+                {createDays.length !== 1 && (
                 <div className="form-group">
                   <label>{t('satelliteTickets.targetDayLabel')}</label>
                   <select
@@ -521,6 +532,7 @@ const SatelliteTickets = () => {
                     ))}
                   </select>
                 </div>
+                )}
                 {selectedCreateDay && (
                   <div className="st-info-box">
                     <span>{t('satelliteTickets.ticketValueLabel')}</span>

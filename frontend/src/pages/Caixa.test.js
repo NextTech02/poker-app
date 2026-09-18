@@ -213,12 +213,21 @@ const abrirModal = async () => {
   return screen.getByRole('button', { name: 'cashRegister.register' });
 };
 
+/** Espera os dias do torneio chegarem e escolhe um. Torneio de dia único
+ *  entra com o dia já escolhido (linha "dia-unico", sem seletor); só o
+ *  multi-day mostra o seletor. */
+const escolherDia = async (dia) => {
+  await waitFor(() =>
+    expect(screen.queryByLabelText('cashRegister.day') || screen.queryByTestId('dia-unico')).not.toBeNull()
+  );
+  const seletor = screen.queryByLabelText('cashRegister.day');
+  if (seletor) await userEvent.selectOptions(seletor, dia);
+};
+
 /** Preenche torneio → dia → jogador → meio de entrada, a ordem real de uso. */
 const preencher = async ({ dia = 'd1', jogador = 'p1', tipo = 'b1' } = {}) => {
   await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-  if (dia) {
-    await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), dia);
-  }
+  if (dia) await escolherDia(dia);
   if (jogador) await userEvent.selectOptions(screen.getByLabelText('jogador'), jogador);
   if (tipo) await userEvent.selectOptions(screen.getByLabelText('Meio de entrada'), tipo);
 };
@@ -226,10 +235,13 @@ const preencher = async ({ dia = 'd1', jogador = 'p1', tipo = 'b1' } = {}) => {
 /** Sem meios de entrada cadastrados, o campo é "Categoria". */
 const porCategoria = async (categoria) => {
   await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-  await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), 'd1');
+  await escolherDia('d1');
   await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
   await userEvent.selectOptions(screen.getByLabelText('Categoria'), categoria);
 };
+
+/** Dois dias que ainda vendem — é o caso em que o seletor aparece. */
+const DOIS_DIAS = [DIA, { ...DIA, id: 'd1b', day_name: 'Dia 1B' }];
 
 const enviar = async () => {
   await userEvent.click(screen.getByRole('button', { name: 'cashRegister.register' }));
@@ -353,20 +365,33 @@ describe('caixa modular do operador', () => {
 });
 
 describe('escolha do torneio e do dia', () => {
-  it('escolher o torneio carrega os dias', async () => {
+  it('torneio de dia único entra com o dia já escolhido, sem seletor', async () => {
+    // O operador não tem o que escolher: perguntar "qual dia?" num torneio de
+    // um dia só é um clique a mais na fila do caixa.
     await montar();
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-    expect(await screen.findByLabelText('cashRegister.day')).toBeInTheDocument();
+    expect(await screen.findByTestId('dia-unico')).toHaveTextContent('Dia 1A');
+    expect(screen.queryByLabelText('cashRegister.day')).toBeNull();
+    await waitFor(() => expect(selectDay).toHaveBeenCalledWith('d1'));
+  });
+
+  it('torneio com mais de um dia mostra o seletor, sem escolher por conta', async () => {
+    await montar({ dias: DOIS_DIAS });
+    await abrirModal();
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+    expect(await screen.findByLabelText('cashRegister.day')).toHaveValue('');
+    expect(screen.queryByTestId('dia-unico')).toBeNull();
   });
 
   it('só oferece dias que ainda recebem entrada', async () => {
     // Dia encerrado e FINAL não vendem buy-in; oferecê-los é convidar ao erro.
-    await montar();
+    await montar({ dias: [...DOIS_DIAS, ...DIAS.slice(1)] });
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
     const dia = await screen.findByLabelText('cashRegister.day');
     expect(within(dia).getByText(/Dia 1A/)).toBeInTheDocument();
+    expect(within(dia).getByText(/Dia 1B/)).toBeInTheDocument();
     expect(within(dia).queryByText(/Dia 2/)).toBeNull();
     expect(within(dia).queryByText(/Final/)).toBeNull();
   });
@@ -375,8 +400,7 @@ describe('escolha do torneio e do dia', () => {
     await montar();
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-    const dia = await screen.findByLabelText('cashRegister.day');
-    expect(within(dia).getByText(/10\/100/)).toBeInTheDocument();
+    expect(await screen.findByTestId('dia-unico')).toHaveTextContent('10/100');
   });
 
   it('torneio sem dia nenhum não mostra o seletor', async () => {
@@ -394,11 +418,11 @@ describe('escolha do torneio e do dia', () => {
     expect(screen.getByLabelText('cashRegister.tournament')).toHaveValue('t1');
   });
 
-  it('havendo dias, enviar sem escolher um é recusado', async () => {
+  it('havendo mais de um dia, enviar sem escolher um é recusado', async () => {
     // O dia é quem define o valor e a lotação; sem ele a entrada não tem onde
     // ser contada. (fireEvent.submit pula a validação nativa do navegador,
     // que aqui esconderia a regra da aplicação.)
-    await montar();
+    await montar({ dias: DOIS_DIAS });
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
     await screen.findByLabelText('cashRegister.day');
@@ -953,7 +977,7 @@ describe('meios de entrada', () => {
     await montar();
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-    await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), 'd1');
+    await escolherDia('d1');
     await waitFor(() => expect(selectDay).toHaveBeenCalledWith('d1'));
   });
 
@@ -1056,7 +1080,7 @@ describe('sem meios de entrada à mão o caixa não pode parar', () => {
   /** Preenche torneio → dia → jogador → categoria. */
   const preencherPorCategoria = async (categoria = 'buy_in') => {
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-    await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), 'd1');
+    await escolherDia('d1');
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
     await userEvent.selectOptions(screen.getByLabelText('Categoria'), categoria);
   };
@@ -1093,7 +1117,7 @@ describe('sem meios de entrada à mão o caixa não pode parar', () => {
     await montar();
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-    await userEvent.selectOptions(await screen.findByLabelText('cashRegister.day'), 'd1');
+    await escolherDia('d1');
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
     fireEvent.submit(document.querySelector('.modal form'));
     await waitFor(() =>

@@ -307,6 +307,15 @@ const Caixa = () => {
         (day.status === 'active' || day.status === 'pending') && day.day_type !== 'final'
       );
       setTournamentDays(activeDays);
+      // Torneio de dia único: o dia é implícito. Entra sozinho no formulário
+      // e o seletor não aparece — só o multi-day pergunta "qual dia?". A
+      // guarda pelo torneio descarta a resposta de uma troca já superada.
+      if (activeDays.length === 1) {
+        const unico = activeDays[0];
+        setFormData((prev) => (prev.tournament_id === tournamentId
+          ? { ...prev, tournament_day_id: unico.id, buy_type_id: '', amount: valorDoDia(prev.type, unico) }
+          : prev));
+      }
       // Hidrata os dias na réplica (buy_in/rake/chips/registered_players offline)
       if (response.data?.length) putEntities('tournament_days', response.data);
     } catch (error) {
@@ -755,14 +764,16 @@ const Caixa = () => {
 
      A tela mostra o que o servidor cobra. Sem valor configurado, é zero — e
      zero aparecendo na tela é o que faz alguém perceber que falta configurar. */
+  const valorDoDia = (categoria, dia) => {
+    if (categoria === 'rebuy') return dia.rebuy_amount ?? 0;
+    if (categoria === 'addon') return dia.addon_amount ?? 0;
+    return dia.buy_in ?? 0;
+  };
+
   const valorDaCategoria = (categoria, diaId, tournamentId) => {
     const dia = tournamentDays.find((d) => d.id === diaId);
     const torneio = tournaments.find((tr) => tr.id === tournamentId);
-    if (dia) {
-      if (categoria === 'rebuy') return dia.rebuy_amount ?? 0;
-      if (categoria === 'addon') return dia.addon_amount ?? 0;
-      return dia.buy_in ?? 0;
-    }
+    if (dia) return valorDoDia(categoria, dia);
     if (torneio) {
       if (categoria === 'rebuy') return torneio.rebuy ?? 0;
       if (categoria === 'addon') return torneio.addon ?? 0;
@@ -1250,7 +1261,10 @@ const Caixa = () => {
                   </select>
                 </div>
 
-                {tournamentDays.length > 0 && (
+                {/* Só o torneio com MAIS de um dia pergunta qual; no de dia
+                    único o dia entra sozinho (loadTournamentDays) e aqui fica
+                    só a linha com lotação e valor, para o operador conferir. */}
+                {tournamentDays.length > 1 && (
                   <div className="form-group">
                     <label htmlFor="tournament_day_id">{t('cashRegister.day')}</label>
                     <select
@@ -1267,15 +1281,20 @@ const Caixa = () => {
                         </option>
                       ))}
                     </select>
-                    {/* O dia só é escolhido aqui dentro, então o bloqueio por
-                        DIA só pode ser avisado depois da escolha. */}
-                    {salesBlockedDay && (
-                      <p className="cx-credit-warning" role="alert">
-                        {diaSelecionado?.sales_blocked_reason
-                          || t('sales.blockedDayHint', 'Vendas encerradas para este dia.')}
-                      </p>
-                    )}
                   </div>
+                )}
+                {tournamentDays.length === 1 && diaSelecionado && (
+                  <p className="cx-day-auto" data-testid="dia-unico">
+                    {t('cashRegister.day')}: {diaSelecionado.day_name} - {formatCurrency(diaSelecionado.buy_in)} ({diaSelecionado.registered_players}/{diaSelecionado.max_players} {t('cashRegister.playersLabel')})
+                  </p>
+                )}
+                {/* O dia só é escolhido aqui dentro, então o bloqueio por
+                    DIA só pode ser avisado depois da escolha. */}
+                {salesBlockedDay && (
+                  <p className="cx-credit-warning" role="alert">
+                    {diaSelecionado?.sales_blocked_reason
+                      || t('sales.blockedDayHint', 'Vendas encerradas para este dia.')}
+                  </p>
                 )}
 
                 {/* Estado das MESAS, avisado ANTES de vender. Fica aqui e não

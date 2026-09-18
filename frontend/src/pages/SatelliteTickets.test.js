@@ -70,6 +70,8 @@ const TICKETS = [
 
 const TORNEIOS = [{ id: 't1', name: 'Main Event' }];
 const DIAS = [{ id: 'd1', day_name: 'Dia Final', buy_in: 1000 }];
+/** Dois dias: é o caso em que o seletor de dia aparece. */
+const DOIS_DIAS = [{ id: 'd1', day_name: 'Dia 1', buy_in: 1000 }, { id: 'd2', day_name: 'Dia Final', buy_in: 1500 }];
 const RESUMO = { total_available: 4, total_redeemed: 7, total_cancelled: 1 };
 
 const DISPONIVEIS = [
@@ -260,12 +262,22 @@ describe('emitir ticket', () => {
   it('escolher o dia revela o valor do ticket', async () => {
     // O valor é o buy-in daquele dia; é a conferência de que a vaga vale o
     // que se espera.
+    await montar({ dias: DOIS_DIAS });
+    await abrir();
+    await userEvent.selectOptions(seletorComOpcao('t1'), 't1');
+    await waitFor(() => expect(seletorComOpcao('d2')).toBeTruthy());
+    expect(document.querySelector('.st-info-box')).toBeNull();
+    await userEvent.selectOptions(seletorComOpcao('d2'), 'd2');
+    expect(document.querySelector('.st-info-box')).toHaveTextContent('R$ 1500.00');
+  });
+
+  it('torneio de dia único: o dia entra sozinho, sem seletor', async () => {
+    // Perguntar "qual dia?" quando só existe um é um clique a mais.
     await montar();
     await abrir();
     await userEvent.selectOptions(seletorComOpcao('t1'), 't1');
-    await waitFor(() => expect(seletorComOpcao('d1')).toBeTruthy());
-    await userEvent.selectOptions(seletorComOpcao('d1'), 'd1');
-    expect(document.querySelector('.st-info-box')).toHaveTextContent('R$ 1000.00');
+    await waitFor(() => expect(document.querySelector('.st-info-box')).toHaveTextContent('R$ 1000.00'));
+    expect(seletorComOpcao('d1')).toBeUndefined();
   });
 
   it('emite o ticket com jogador, destino e financiador', async () => {
@@ -273,8 +285,7 @@ describe('emitir ticket', () => {
     await abrir();
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
     await userEvent.selectOptions(seletorComOpcao('t1'), 't1');
-    await waitFor(() => expect(seletorComOpcao('d1')).toBeTruthy());
-    await userEvent.selectOptions(seletorComOpcao('d1'), 'd1');
+    await waitFor(() => expect(document.querySelector('.st-info-box')).toBeTruthy());
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.wonAtPlaceholder'), 'Satélite de quarta');
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.fundedByPlaceholder'), 'Clube');
     await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.submitCreate' }));
@@ -293,8 +304,7 @@ describe('emitir ticket', () => {
     await abrir();
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
     await userEvent.selectOptions(seletorComOpcao('t1'), 't1');
-    await waitFor(() => expect(seletorComOpcao('d1')).toBeTruthy());
-    await userEvent.selectOptions(seletorComOpcao('d1'), 'd1');
+    await waitFor(() => expect(document.querySelector('.st-info-box')).toBeTruthy());
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.wonAtPlaceholder'), 'Satélite');
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.fundedByPlaceholder'), 'Clube');
     await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.submitCreate' }));
@@ -307,8 +317,7 @@ describe('emitir ticket', () => {
     await abrir();
     await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p1');
     await userEvent.selectOptions(seletorComOpcao('t1'), 't1');
-    await waitFor(() => expect(seletorComOpcao('d1')).toBeTruthy());
-    await userEvent.selectOptions(seletorComOpcao('d1'), 'd1');
+    await waitFor(() => expect(document.querySelector('.st-info-box')).toBeTruthy());
     expect(screen.getByRole('button', { name: 'satelliteTickets.submitCreate' })).toBeDisabled();
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.wonAtPlaceholder'), 'Satélite');
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.fundedByPlaceholder'), 'Clube');
@@ -331,8 +340,7 @@ describe('emitir em lote (só master)', () => {
 
   const preencherDestino = async () => {
     await userEvent.selectOptions(seletorComOpcao('t1'), 't1');
-    await waitFor(() => expect(seletorComOpcao('d1')).toBeTruthy());
-    await userEvent.selectOptions(seletorComOpcao('d1'), 'd1');
+    await waitFor(() => expect(document.querySelector('.st-info-box')).toBeTruthy());
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.wonAtPlaceholder'), 'Satélite');
     await userEvent.type(screen.getByPlaceholderText('satelliteTickets.fundedByPlaceholder'), 'Clube');
   };
