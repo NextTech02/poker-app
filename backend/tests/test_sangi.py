@@ -135,6 +135,45 @@ class TestConsignmentService:
         assert exc.value.status_code == 409
         assert exc.value.detail["code"] == "consignacao_aberta_existente"
 
+    def test_release_sem_id_cai_no_dia_aberto(self, monkeypatch):
+        # A tela do caixa liberava sem mandar o dia e o serviço recusava com
+        # "dia_nao_aberto" — que a tela traduz como "o dia está fechado", com o
+        # dia aberto na frente do operador. Sem id, vale o dia aberto agora.
+        tables = {
+            "staff": [{"id": "s1", "active": True,
+                       "permission_groups": {"permissions": ["sangi"]}}],
+            "chip_consignments": [],
+            "cash_days": [{"id": "d-aberto", "status": "open", "business_date": "2026-09-18",
+                           "organization_id": "org1", "opened_at": "2026-09-18T19:00:00Z"}],
+        }
+        fake = FakeSupabase(tables)
+        monkeypatch.setattr(chip_consignment_service, "supabase", fake)
+        from app.services import cash_day_service
+        monkeypatch.setattr(cash_day_service, "supabase", FakeSupabase(tables))
+        monkeypatch.setattr(CashDayService, "require_open_day",
+                            staticmethod(lambda dia: {"id": dia, "status": "open"}))
+        monkeypatch.setattr(ChipConsignmentService, "get",
+                            staticmethod(lambda cid: {"id": cid}))
+        data = ConsignmentRelease(sangi_staff_id="s1", released_amount=1000)
+        ChipConsignmentService.release(data, cash_day_id=None, opened_by="u", organization_id="org1")
+        gravado = fake.store["chip_consignments"][-1]
+        assert gravado["cash_day_id"] == "d-aberto"
+
+    def test_release_sem_dia_aberto_recusa(self, monkeypatch):
+        tables = {
+            "staff": [{"id": "s1", "active": True,
+                       "permission_groups": {"permissions": ["sangi"]}}],
+            "chip_consignments": [],
+            "cash_days": [{"id": "d-fechado", "status": "closed"}],
+        }
+        monkeypatch.setattr(chip_consignment_service, "supabase", FakeSupabase(tables))
+        from app.services import cash_day_service
+        monkeypatch.setattr(cash_day_service, "supabase", FakeSupabase(tables))
+        data = ConsignmentRelease(sangi_staff_id="s1", released_amount=1000)
+        with pytest.raises(HTTPException) as exc:
+            ChipConsignmentService.release(data, cash_day_id=None, opened_by="u")
+        assert exc.value.detail["code"] == "dia_nao_aberto"
+
     def test_sale_cannot_exceed_released(self, monkeypatch):
         tables = {
             "chip_consignments": [{

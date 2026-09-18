@@ -43,8 +43,9 @@ jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() })
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
 // A consignação é do DIA de cash: a sangeur é papel do cash game.
+const diaDeCash = { cashDayId: 'dia-1', isOpen: true };
 jest.mock('../contexts/CashDayContext', () => ({
-  useCashDay: () => ({ cashDayId: 'dia-1' }),
+  useCashDay: () => diaDeCash,
 }));
 
 const MESAS = [
@@ -298,8 +299,24 @@ describe('gerente — liberação de fichas', () => {
       expect(api.post).toHaveBeenCalledWith('/sangi/consignments', {
         sangi_staff_id: 'f1',
         released_amount: 5000,
+        // A consignação é do DIA: o id vai explícito, e não fica por conta do
+        // backend adivinhar — era assim que a liberação caía em "dia fechado".
+        cash_day_id: 'dia-1',
       })
     );
+  });
+
+  it('sem dia aberto avisa e não deixa liberar', async () => {
+    diaDeCash.cashDayId = null;
+    diaDeCash.isOpen = false;
+    try {
+      await montar();
+      expect(screen.getByRole('alert')).toHaveTextContent('sangi.noDayOpen');
+      expect(screen.getByRole('button', { name: 'sangi.releaseBtn' })).toBeDisabled();
+    } finally {
+      diaDeCash.cashDayId = 'dia-1';
+      diaDeCash.isOpen = true;
+    }
   });
 
   it('sem sangi escolhido é recusado', async () => {

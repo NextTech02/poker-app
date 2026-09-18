@@ -2190,7 +2190,8 @@
     "colValue": "Valor",
     "colWhen": "Cuándo",
     "tableLabel": "Mesa",
-    "pickTable": "Elija la mesa"
+    "pickTable": "Elija la mesa",
+    "noDayOpen": "Ningún día de operación abierto. Abre el día en el Salón para liberar fichas."
   },
   "manualAllocation": {
     "eliminatePlayer": "Eliminar jugador",

@@ -76,3 +76,13 @@
   border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 12px;
 }
 .sangi-empty h3 { margin: 0 0 6px; }
+
+/* Sem dia aberto não há o que liberar: o aviso vem ANTES do clique. */
+.sangi-warning {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: var(--warning-bg);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}

@@ -153,6 +153,10 @@ const SellerView = ({ toast }) => {
 const ManagerView = ({ toast, confirm }) => {
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
+  // A consignação é do DIA de cash: sem dia aberto não há o que liberar. O id
+  // vai explícito no pedido (o backend cai no dia aberto se faltar, mas a
+  // tela não deve depender disso), e o aviso aparece antes de tentar.
+  const { cashDayId, isOpen: diaAberto } = useCashDay();
   const [staff, setStaff] = useState([]);
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -192,6 +196,7 @@ const ManagerView = ({ toast, confirm }) => {
       await api.post('/sangi/consignments', {
         sangi_staff_id: sangiId,
         released_amount: parseFloat(releaseAmount),
+        cash_day_id: cashDayId || null,
       });
       toast.success(t('sangi.valueReleased'));
       setSangiId('');
@@ -235,6 +240,11 @@ const ManagerView = ({ toast, confirm }) => {
     <>
       <form className="sangi-card" onSubmit={release}>
         <h3>{t('sangi.releaseChipsTitle')}</h3>
+        {!diaAberto && (
+          <p className="sangi-warning" role="alert">
+            {t('sangi.noDayOpen', 'Nenhum dia de operação aberto. Abra o dia no Salão para liberar fichas.')}
+          </p>
+        )}
         <div className="sangi-form-row">
           <div className="sangi-field">
             <label>{t('sangi.sangiLabel')}</label>
@@ -252,7 +262,7 @@ const ManagerView = ({ toast, confirm }) => {
             <input type="number" min="0" step="0.01" value={releaseAmount}
               onChange={(e) => setReleaseAmount(e.target.value)} placeholder={t('sangi.chipsAmountPlaceholder')} required />
           </div>
-          <button type="submit" className="sangi-btn" disabled={saving}>
+          <button type="submit" className="sangi-btn" disabled={saving || !diaAberto}>
             {saving ? t('sangi.releasing') : t('sangi.releaseBtn')}
           </button>
         </div>

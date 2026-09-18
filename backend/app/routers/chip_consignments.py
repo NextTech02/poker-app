@@ -70,7 +70,10 @@ def release_consignment(
     cash_day_id: Optional[str] = None,
 ):
     """O caixa libera um valor em fichas para a sangeur (abre a consignação)."""
-    return ChipConsignmentService.release(data, cash_day_id, opened_by=current_user.get("sub"))
+    return ChipConsignmentService.release(
+        data, cash_day_id, opened_by=current_user.get("sub"),
+        organization_id=current_user.get("organization_id"),
+    )
 
 
 @router.get("/consignments", response_model=List[ConsignmentResponse])

@@ -2190,7 +2190,8 @@
     "colValue": "Value",
     "colWhen": "When",
     "tableLabel": "Table",
-    "pickTable": "Pick the table"
+    "pickTable": "Pick the table",
+    "noDayOpen": "No operating day is open. Open the day on the Floor to release chips."
   },
   "manualAllocation": {
     "eliminatePlayer": "Eliminate player",

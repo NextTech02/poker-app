@@ -59,11 +59,18 @@ class ChipConsignmentService:
     # ================================================
 
     @staticmethod
-    def release(data: ConsignmentRelease, cash_day_id: Optional[str], opened_by: str) -> ConsignmentResponse:
+    def release(data: ConsignmentRelease, cash_day_id: Optional[str], opened_by: str,
+                organization_id: Optional[str] = None) -> ConsignmentResponse:
         # A consignação é do DIA de cash. O sangeur é papel do cash: ele circula
         # pelas mesas vendendo fichas, enquanto no torneio a venda acontece no
         # caixa, com o jogador indo até lá.
         dia = data.cash_day_id or cash_day_id
+        if not dia:
+            # Sem id, vale o dia aberto AGORA (é o que o modelo promete e o que
+            # a tela do caixa espera): a consulta roda como o usuário, então
+            # o RLS já restringe ao clube dele. Sem dia aberto, aí sim recusa.
+            atual = CashDayService.get_current(organization_id)
+            dia = atual.id if atual else None
         if not dia:
             raise recusado(
                 "dia_nao_aberto",
