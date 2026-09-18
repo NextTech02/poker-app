@@ -1,133 +1,69 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useModule, MODULO_TORNEIO, MODULO_CASH, MODULO_BAR } from '../contexts/ModuleContext';
+import { MENUS_POR_MODULO, MENU_COMUM } from './menus';
 import OrgSwitcher from './OrgSwitcher';
-import ModuleSwitcher from './ModuleSwitcher';
 import LanguageSelector from './LanguageSelector';
+import TopBar from './TopBar';
+import Icon from './Icon';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
+import aceblindMark from '../assets/aceblind-icon.png';
 import './Sidebar.css';
 
-/* As duas estruturas abaixo são DADOS PUROS: caminho, chave de tradução e nome
-   da permissão. Nada aqui depende de estado, de props ou do idioma — a
-   tradução acontece no render, por `labelKey`.
+/* A casca do app tem duas colunas fixas à esquerda:
 
-   Estavam dentro do componente, e por isso o menu inteiro dos dois módulos era
-   reconstruído a cada render — numa barra lateral que re-renderiza a cada troca
-   de rota. E, sendo arrays novos toda vez, impediam qualquer memoização abaixo
-   de acertar: as dependências nunca eram as mesmas duas vezes. */
+   - o TRILHO (64px): a marca, um botão por módulo contratado (torneio, cash,
+     bar — cada um com a sua tinta), e no rodapé a saída e as iniciais de
+     quem está logado. É o que responde "em que módulo estou?" de qualquer
+     tela, e troca de módulo num toque, sem perder o lugar;
+   - o MENU (228px): os itens do módulo ativo, depois a seção do CLUBE
+     (financeiro, jogadores, equipe, segurança), que é a mesma em todos.
 
-// MENU POR MÓDULO. Torneio, cash game e bar são operações diferentes, com
-// telas diferentes; uma lista só daria um menu do triplo do tamanho no qual a
-// maior parte dos itens não serve para o que a pessoa está fazendo agora.
-//
-// `/etapas` fica SÓ no torneio: no cash a unidade de operação é o DIA, e uma
-// etapa/circuito ali não significa nada.
-const MENUS_POR_MODULO = {
-  [MODULO_TORNEIO]: [
-    { path: '/home', labelKey: 'sidebar.periods', icon: 'home', permission: 'dashboard' },
-    { path: '/etapas', labelKey: 'sidebar.stages', icon: 'calendar', permission: 'stages' },
-    {
-      type: 'group',
-      groupKey: 'caixa',
-      labelKey: 'sidebar.cashRegister',
-      icon: 'dollar',
-      permission: 'cashier',
-      children: [
-        { path: '/caixa', labelKey: 'sidebar.sales', icon: 'dollar', permission: 'cashier' },
-        { path: '/caixa/jogadores', labelKey: 'sidebar.playerLimit', icon: 'users', permission: 'cashier_players' },
-        { path: '/caixa/tickets', labelKey: 'sidebar.tournamentTickets', icon: 'ticket', permission: 'cashier_tickets' },
-      ],
-    },
-    { path: '/caixa-geral', labelKey: 'sidebar.generalCash', icon: 'wallet', permission: 'general_cash' },
-    // RELATÓRIOS DE TORNEIO, e não item comum: a tela mostra "Total de
-    // Torneios", "Receita por Torneio" e "Jogadores por Torneio". No menu
-    // comum ela aparecia também no cash — ao lado de `/cash/relatorios` e com
-    // rótulo idêntico, dois "Relatórios" na mesma barra lateral.
-    { path: '/relatorios', labelKey: 'sidebar.reports', icon: 'document', permission: 'reports' },
-    {
-      type: 'group',
-      groupKey: 'torneios',
-      labelKey: 'sidebar.tournaments',
-      icon: 'trophy',
-      permission: 'tournaments',
-      children: [
-        { path: '/torneios', labelKey: 'sidebar.tournamentsList', icon: 'trophy', permission: 'tournaments' },
-        { path: '/blinds-templates', labelKey: 'sidebar.blindTemplates', icon: 'clock', permission: 'tournaments' },
-        { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
-      ],
-    },
-  ],
-  [MODULO_CASH]: [
-    { path: '/cash', labelKey: 'cash.floor', icon: 'chips', permission: 'cash.operate' },
-    { path: '/cash/fila', labelKey: 'cash.waitlist', icon: 'queue', permission: 'cash.operate' },
-    {
-      type: 'group',
-      groupKey: 'cashGestao',
-      labelKey: 'cash.management',
-      icon: 'clock',
-      permission: 'cash.day',
-      children: [
-        { path: '/cash/dias', labelKey: 'cash.days', icon: 'calendar', permission: 'cash.day' },
-        { path: '/cash/configuracao', labelKey: 'cash.config', icon: 'settings', permission: 'cash.admin' },
-        { path: '/cash/jackpot', labelKey: 'cash.jackpot', icon: 'award', permission: 'cash.admin' },
-      ],
-    },
-    { path: '/cash/relatorios', labelKey: 'cash.reports', icon: 'document', permission: 'cash.reports' },
-    // A SANGEUR É DO CASH. É ela que circula pelas mesas vendendo fichas de uma
-    // consignação; no torneio a venda acontece no caixa, com o jogador indo até
-    // lá. Estava no menu de torneio porque a consignação nasceu antes do módulo
-    // de cash existir.
-    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'cashier' },
-    // Entrada própria para quem SÓ é sangeur: é a única tela dela. Escondida de
-    // quem já vê a de cima (tem `cashier`), para não duplicar o item.
-    { path: '/sangi', labelKey: 'sidebar.sangi', icon: 'briefcase', permission: 'sangi', hideIfPermission: 'cashier' },
-  ],
-  // BAR. A POS (comandas) é a home; "Pedidos" é a tela do balcão/cozinha.
-  // Turnos e produtos são gestão; o barman do dia a dia não precisa vê-los.
-  [MODULO_BAR]: [
-    { path: '/bar', labelKey: 'bar.pos', icon: 'cocktail', permission: 'bar.operate' },
-    { path: '/bar/pedidos', labelKey: 'bar.orders', icon: 'bell', permission: 'bar.operate' },
-    {
-      type: 'group',
-      groupKey: 'barGestao',
-      labelKey: 'bar.management',
-      icon: 'clock',
-      permission: 'bar.shift',
-      children: [
-        { path: '/bar/turnos', labelKey: 'bar.shifts', icon: 'calendar', permission: 'bar.shift' },
-        { path: '/bar/produtos', labelKey: 'bar.products', icon: 'box', permission: 'bar.admin' },
-      ],
-    },
-    { path: '/bar/relatorios', labelKey: 'bar.reports', icon: 'document', permission: 'bar.reports' },
-  ],
+   "Recolher" esconde só o menu; o trilho fica — é ele que segura a marca e a
+   troca de módulo. A barra do topo (TopBar) é irmã destas colunas: fixa,
+   ocupa a largura restante, e é renderizada daqui para que TODA tela ganhe o
+   contexto (etapa / dia / turno) sem ter de lembrar de incluí-la. */
+
+const ICONE_DO_MODULO = {
+  [MODULO_TORNEIO]: 'trophy-cup',
+  [MODULO_CASH]: 'chips',
+  [MODULO_BAR]: 'cocktail',
 };
 
-// Itens que existem em TODOS os módulos: cadastro de jogadores, equipe e
-// financeiro são do CLUBE, não de uma modalidade.
-const MENU_COMUM = [
-  { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
-  { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
-  { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
-  // Da CONTA, não do clube: aparece nos dois módulos e para todo mundo, sem
-  // permissão. Quem só tem a tela da sangeur também precisa poder ativar a
-  // verificação em duas etapas.
-  { path: '/seguranca', labelKey: 'sidebar.security', icon: 'id-badge' },
-  // Só a NextHub: cadastro dos clubes clientes. `platformAdminOnly` não é
-  // permissão de grupo — vem do claim do JWT. O backend valida o mesmo claim.
-  { path: '/organizacoes', labelKey: 'sidebar.organizations', icon: 'briefcase', platformAdminOnly: true },
-];
+const ROTULO_DO_MODULO = {
+  [MODULO_TORNEIO]: ['modules.tournamentTitle', 'Torneios'],
+  [MODULO_CASH]: ['modules.cashTitle', 'Cash Game'],
+  [MODULO_BAR]: ['modules.barTitle', 'Bar'],
+};
+
+// Casa de cada módulo. O ModuleContext exporta o mesmo mapa; a cópia local é
+// a rede de segurança para quem renderiza a barra com o contexto parcial.
+const CASA_DO_MODULO = {
+  [MODULO_TORNEIO]: '/home',
+  [MODULO_CASH]: '/cash',
+  [MODULO_BAR]: '/bar',
+};
+
+const iniciais = (user) => {
+  const nome = user?.user_metadata?.full_name || user?.user_metadata?.name || '';
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length >= 2) return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (user?.email || '?').slice(0, 2).toUpperCase();
+};
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useTranslation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { selectedStage } = useStage();
-  const { hasPermission, isPlatformAdmin } = usePermissions();
-  const { module, homePath } = useModule();
+  const { hasPermission, isPlatformAdmin, organizationName } = usePermissions();
+  const { module, homePath, modules, selectModule } = useModule();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -188,13 +124,8 @@ const Sidebar = () => {
     };
   }, [isOpen, isMobile]);
 
-
-
-  const allMenuItems = useMemo(
-    () => [
-      ...(MENUS_POR_MODULO[module] || MENUS_POR_MODULO[MODULO_TORNEIO]),
-      ...MENU_COMUM,
-    ],
+  const menuDoModulo = useMemo(
+    () => MENUS_POR_MODULO[module] || MENUS_POR_MODULO[MODULO_TORNEIO],
     [module],
   );
 
@@ -204,7 +135,7 @@ const Sidebar = () => {
   // filtro percorre o menu inteiro chamando `hasPermission` por item e por
   // filho de grupo. `hasPermission` agora consulta um Set (ver
   // PermissionContext), mas o trabalho de remontar o array continuava.
-  const menuItems = useMemo(() => allMenuItems.filter((item) => {
+  const filtrar = (itens) => itens.filter((item) => {
     // Itens exclusivos da plataforma ignoram o RBAC de organização.
     if (item.platformAdminOnly) return isPlatformAdmin;
     if (item.type === 'group') {
@@ -224,7 +155,11 @@ const Sidebar = () => {
       };
     }
     return item;
-  }), [allMenuItems, hasPermission, isPlatformAdmin]);
+  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const itensDoModulo = useMemo(() => filtrar(menuDoModulo), [menuDoModulo, hasPermission, isPlatformAdmin]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const itensDoClube = useMemo(() => filtrar(MENU_COMUM), [hasPermission, isPlatformAdmin]);
 
   const toggleGroup = (groupKey) => {
     setOpenGroups(prev => {
@@ -250,7 +185,7 @@ const Sidebar = () => {
   // path must NOT match when the user is actually inside the longer one.
   const allMenuPaths = (() => {
     const paths = [];
-    for (const item of allMenuItems) {
+    for (const item of [...menuDoModulo, ...MENU_COMUM]) {
       if (item.type === 'group') {
         for (const c of item.children) paths.push(c.path);
       } else {
@@ -285,6 +220,64 @@ const Sidebar = () => {
     const next = !isCollapsed;
     setIsCollapsed(next);
     localStorage.setItem('sidebar-collapsed', String(next));
+  };
+
+  // Trilho: um botão por módulo contratado. Com um módulo só, o botão fica lá
+  // do mesmo jeito (ativo) — é a âncora visual de "onde estou".
+  const modulosDoTrilho = modules && modules.length ? modules : [module];
+  const trocarModulo = (proximo) => {
+    if (!proximo || proximo === module) return;
+    if (typeof selectModule === 'function') selectModule(proximo);
+    navigate(CASA_DO_MODULO[proximo] || '/', { replace: true });
+    if (isMobile) setIsOpen(false);
+  };
+  const [chaveModulo, reservaModulo] = ROTULO_DO_MODULO[module] || ROTULO_DO_MODULO[MODULO_TORNEIO];
+
+  const renderItem = (item) => {
+    if (item.type === 'group') {
+      const open = isGroupOpen(item);
+      const groupActive = item.children.some(c => isPathActive(c.path));
+      return (
+        <div className="nav-item-group" key={item.groupKey}>
+          <button
+            type="button"
+            className={`nav-item ${groupActive ? 'active' : ''}`}
+            onClick={() => toggleGroup(item.groupKey)}
+            aria-expanded={open}
+          >
+            <span className={`nav-icon ${item.icon}`}><Icon name={item.icon} /></span>
+            <span className="nav-label">{t(item.labelKey)}</span>
+            <span className={`nav-arrow ${open ? 'expanded' : ''}`}><Icon name="chevron-right" /></span>
+          </button>
+          {open && (
+            <div className="sub-menu">
+              {item.children.map((child) => (
+                <Link
+                  key={child.path}
+                  to={child.path}
+                  className={`sub-menu-item ${isPathActive(child.path) ? 'active' : ''}`}
+                  onClick={() => isMobile && setIsOpen(false)}
+                >
+                  <span className={`nav-icon ${child.icon}`}><i className="nav-dot" /></span>
+                  <span className="nav-label">{t(child.labelKey)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return (
+      <Link
+        key={item.path}
+        to={item.path}
+        className={`nav-item ${isPathActive(item.path) ? 'active' : ''}`}
+        onClick={() => isMobile && setIsOpen(false)}
+      >
+        <span className={`nav-icon ${item.icon}`}><Icon name={item.icon} /></span>
+        <span className="nav-label">{t(item.labelKey)}</span>
+      </Link>
+    );
   };
 
   return (
@@ -322,94 +315,88 @@ const Sidebar = () => {
 
       {/* Sidebar */}
       <aside className={`sidebar ${isMobile ? 'mobile' : ''} ${isOpen ? 'open' : ''} ${!isMobile && isCollapsed ? 'collapsed' : ''}`}>
-        <div className="sidebar-header">
+        <div className="rail">
           <Link
             to={homePath}
-            className="sidebar-logo-link"
+            className="rail-mark"
             aria-label={t('sidebar.goHome', 'Ir para o início')}
             onClick={() => isMobile && setIsOpen(false)}
           >
-            <img src={aceblindLogo} alt="AceBlind" className="sidebar-logo" />
+            <img src={aceblindMark} alt="AceBlind" />
           </Link>
-          {selectedStage && !isCollapsed && (
-            <div className="selected-stage-sidebar">
-              {selectedStage.name}
-            </div>
+
+          <div className="rail-modules">
+            {modulosDoTrilho.map((m) => {
+              const [chave, reserva] = ROTULO_DO_MODULO[m] || [null, m];
+              const rotulo = chave ? t(chave, reserva) : reserva;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  className={`rail-btn mod-${m} ${m === module ? 'active' : ''}`}
+                  onClick={() => trocarModulo(m)}
+                  aria-pressed={m === module}
+                  title={rotulo}
+                >
+                  <Icon name={ICONE_DO_MODULO[m] || 'grid'} />
+                  <span className="rail-lbl">{rotulo}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="rail-spacer" />
+
+          {/* Collapse toggle button (desktop only) */}
+          {!isMobile && (
+            <button type="button"
+              className="sidebar-collapse-btn"
+              onClick={toggleCollapse}
+              title={isCollapsed ? t('sidebar.expand', 'Expandir') : t('sidebar.collapse', 'Recolher')}
+              aria-label={isCollapsed ? t('sidebar.expand', 'Expandir') : t('sidebar.collapse', 'Recolher')}
+            >
+              <span className={`collapse-arrow ${isCollapsed ? 'rotated' : ''}`}><Icon name="chevron-left" /></span>
+            </button>
           )}
+
+          <button type="button" onClick={handleLogout} className="logout-btn" title={t('sidebar.logout')} aria-label={t('sidebar.logout')}>
+            <Icon name="logout" />
+          </button>
+          <div className="rail-avatar" title={user?.email || ''}>{iniciais(user)}</div>
         </div>
 
-        {/* Collapse toggle button (desktop only) */}
-        {!isMobile && (
-          <button type="button"
-            className="sidebar-collapse-btn"
-            onClick={toggleCollapse}
-            title={isCollapsed ? t('sidebar.expand', 'Expandir') : t('sidebar.collapse', 'Recolher')}
-          >
-            <span className={`collapse-arrow ${isCollapsed ? 'rotated' : ''}`}>«</span>
-          </button>
-        )}
+        <div className="side-panel">
+          <div className="sidebar-header">
+            <div className={`side-mod mod-${module}`}>
+              <i className="side-mod-dot" />
+              <span>{t(chaveModulo, reservaModulo)}</span>
+            </div>
+            {organizationName && <div className="side-org">{organizationName}</div>}
+            {selectedStage && !isCollapsed && (
+              <div className="selected-stage-sidebar">
+                {selectedStage.name}
+              </div>
+            )}
+          </div>
 
-        {/* Só aparece para quem pertence a mais de uma organização. */}
-        <ModuleSwitcher collapsed={!isMobile && isCollapsed} />
-        <OrgSwitcher collapsed={!isMobile && isCollapsed} />
+          {/* Só aparece para quem pertence a mais de uma organização. */}
+          <OrgSwitcher collapsed={false} />
 
-        <nav className="sidebar-nav">
-          {menuItems.map((item) => {
-            if (item.type === 'group') {
-              const open = isGroupOpen(item);
-              const groupActive = item.children.some(c => isPathActive(c.path));
-              return (
-                <div className="nav-item-group" key={item.groupKey}>
-                  <button
-                    type="button"
-                    className={`nav-item ${groupActive ? 'active' : ''}`}
-                    onClick={() => toggleGroup(item.groupKey)}
-                    aria-expanded={open}
-                  >
-                    <span className={`nav-icon ${item.icon}`}></span>
-                    <span className="nav-label">{t(item.labelKey)}</span>
-                    <span className={`nav-arrow ${open ? 'expanded' : ''}`}>▼</span>
-                  </button>
-                  {open && (
-                    <div className="sub-menu">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.path}
-                          to={child.path}
-                          className={`sub-menu-item ${isPathActive(child.path) ? 'active' : ''}`}
-                          onClick={() => isMobile && setIsOpen(false)}
-                        >
-                          <span className={`nav-icon ${child.icon}`}></span>
-                          <span className="nav-label">{t(child.labelKey)}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`nav-item ${isPathActive(item.path) ? 'active' : ''}`}
-                onClick={() => isMobile && setIsOpen(false)}
-              >
-                <span className={`nav-icon ${item.icon}`}></span>
-                <span className="nav-label">{t(item.labelKey)}</span>
-              </Link>
-            );
-          })}
-        </nav>
+          <nav className="sidebar-nav">
+            {itensDoModulo.map(renderItem)}
+            {itensDoClube.length > 0 && (
+              <div className="side-sec">{t('sidebar.clubSection', 'Clube')}</div>
+            )}
+            {itensDoClube.map(renderItem)}
+          </nav>
 
-        <div className="sidebar-footer">
-          <LanguageSelector dropDirection="up" />
-          <button type="button" onClick={handleLogout} className="logout-btn">
-            <span className="nav-icon">logout</span>
-            <span className="nav-label">{t('sidebar.logout')}</span>
-          </button>
+          <div className="sidebar-footer">
+            <LanguageSelector dropDirection="up" />
+          </div>
         </div>
       </aside>
+
+      {!isMobile && <TopBar />}
     </>
   );
 };

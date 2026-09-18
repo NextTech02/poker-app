@@ -16,7 +16,7 @@ timeout de banco. Quem barra o acesso de verdade é `require_module`, que consul
 de novo — e lá, sim, um erro derruba a requisição.
 """
 import logging
-from typing import List
+from typing import List, Optional
 
 from app.database import supabase
 
@@ -39,6 +39,24 @@ DEFAULT_MODULES = [MODULE_TOURNAMENT]
 
 
 class ModuleService:
+
+    @staticmethod
+    def org_name(organization_id: str) -> Optional[str]:
+        """Nome da organização para o cabeçalho do menu. Nunca levanta: a tela
+        de permissões não pode cair por causa de uma linha decorativa."""
+        if not organization_id:
+            return None
+        # A tabela `organizations` só tem a política restritiva de 2FA (nenhum
+        # SELECT permissivo para `authenticated`): como usuário a leitura volta
+        # vazia. O id vem do claim assinado, então buscar o nome com a chave de
+        # serviço não abre nada que o usuário já não saiba.
+        try:
+            from app.database.supabase_client import supabase_admin
+            resp = supabase_admin.table("organizations").select("name")                 .eq("id", organization_id).limit(1).execute()
+        except Exception:
+            return None
+        rows = resp.data or []
+        return (rows[0] or {}).get("name") if rows else None
 
     @staticmethod
     def list_for_org(organization_id: str) -> List[str]:

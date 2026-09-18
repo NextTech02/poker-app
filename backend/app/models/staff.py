@@ -82,3 +82,6 @@ class MyPermissions(BaseModel):
     # chama este endpoint uma vez e não vale um request extra nem um
     # claim novo no JWT (ver app/services/module_service.py).
     modules: List[str] = ["tournament"]
+    # Nome do clube, para o cabeçalho do menu. Opcional: um backend que não
+    # mande o campo deixa o cabeçalho sem a linha, e nada mais muda.
+    organization_name: Optional[str] = None

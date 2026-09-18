@@ -40,7 +40,8 @@ jest.mock('../contexts/ModuleContext', () => ({
   MODULO_BAR: 'bar',
 }));
 jest.mock('./OrgSwitcher', () => () => <div data-testid="org-switcher" />);
-jest.mock('./ModuleSwitcher', () => () => <div data-testid="module-switcher" />);
+// A barra do topo é uma irmã com os próprios contextos e o próprio teste.
+jest.mock('./TopBar', () => () => <div data-testid="topbar" />);
 jest.mock('./LanguageSelector', () => () => <div data-testid="language-selector" />);
 jest.mock('../assets/aceblind-logo-white.png', () => 'logo.png');
 jest.mock('react-i18next', () => ({
@@ -387,7 +388,8 @@ describe('celular', () => {
 describe('sair', () => {
   it('encerra a sessão', async () => {
     montar();
-    const botao = screen.getByText(/sidebar.logout/i).closest('button');
+    // Sair agora é só ícone no trilho: o nome acessível vem do aria-label.
+    const botao = screen.getByRole('button', { name: /sidebar.logout/i });
     await userEvent.click(botao);
     expect(sair).toHaveBeenCalled();
   });

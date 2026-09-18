@@ -34,6 +34,7 @@ def get_my_permissions(user=Depends(get_current_user)):
     # Módulos contratados viajam junto: a tela já espera por esta resposta para
     # montar a sidebar, e um segundo request só atrasaria o primeiro paint.
     perms.modules = ModuleService.list_for_org(user.get("organization_id"))
+    perms.organization_name = ModuleService.org_name(user.get("organization_id"))
     return perms
 
 

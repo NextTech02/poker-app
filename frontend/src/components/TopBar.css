@@ -1,0 +1,108 @@
+/* Barra do topo: irmã fixa do trilho + menu, ocupa a largura restante. Quando
+   o menu recolhe, App.css muda `--shell-offset` e ela acompanha. */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: var(--shell-offset, var(--shell-width));
+  right: 0;
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 28px;
+  background: var(--primary-bg);
+  border-bottom: 1px solid var(--border-primary);
+  z-index: 90;
+  transition: left 0.25s ease;
+}
+
+.topbar-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.topbar-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar-sep {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.topbar-crumb-current {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.topbar-ctx {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.topbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--card-bg-hover);
+  border: 1px solid var(--border-primary);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.topbar-chip:hover {
+  border-color: var(--border-lighter);
+  color: var(--text-secondary);
+}
+
+.topbar-chip b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.topbar-chip svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-tertiary);
+}
+
+.topbar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* Tinta do módulo no chip de contexto — a mesma do trilho. */
+.mod-tournament .topbar-chip.tone-mod,
+.topbar-chip.tone-mod {
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+.topbar-chip.tone-mod svg { color: var(--badge-text-accent); }
+
+.topbar-chip.tone-ok svg,
+.topbar-chip.tone-ok .topbar-dot { color: var(--text-success); }
+.topbar-chip.tone-warn { background: var(--warning-bg); border-color: transparent; color: var(--text-primary); }
+.topbar-chip.tone-warn svg { color: var(--text-warning); }
+.topbar-chip.tone-danger { background: var(--danger-bg); border-color: transparent; color: var(--text-danger); }
+.topbar-chip.tone-danger b { color: var(--text-danger); }

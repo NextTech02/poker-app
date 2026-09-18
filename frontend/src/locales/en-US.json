@@ -70,7 +70,8 @@
     "reports": "Reports",
     "logout": "Logout",
     "goHome": "Go to home",
-    "security": "Security"
+    "security": "Security",
+    "clubSection": "Club"
   },
   "selectOrg": {
     "title": "Choose the organization",
@@ -3061,5 +3062,18 @@
     "bestDaysHint": "Ordered by sales, after discounts.",
     "empty": "No closed tabs in this period",
     "emptyHint": "Pick another period or close tabs on the POS."
+  },
+  "topbar": {
+    "breadcrumb": "You are in",
+    "stage": "Stage",
+    "noStage": "Select a stage",
+    "day": "Day",
+    "noDay": "No day open",
+    "shift": "Shift",
+    "noShift": "No shift open",
+    "open": "open",
+    "closed": "closed",
+    "offline": "Offline",
+    "pending": "{{count}} queued"
   }
 }

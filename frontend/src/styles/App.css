@@ -18,17 +18,22 @@
   min-height: 100vh;
 }
 
-.main-content {
-  flex: 1;
-  margin-left: 250px;
-  padding: 2rem;
-  transition: margin-left 0.3s ease, padding-top 0.3s ease;
-  min-width: 0; /* Fix for flex child overflow */
+/* A casca fixa à esquerda mede trilho + menu (ver Sidebar.css); recolhido,
+   só o trilho. A barra do topo é fixa também, daí o padding-top. */
+:root {
+  --shell-offset: var(--shell-width);
 }
 
-/* Adjust main-content when sidebar is collapsed */
-[data-sidebar-collapsed="true"] .main-content {
-  margin-left: 60px;
+:root[data-sidebar-collapsed="true"] {
+  --shell-offset: var(--rail-width);
+}
+
+.main-content {
+  flex: 1;
+  margin-left: var(--shell-offset);
+  padding: calc(var(--topbar-height) + 22px) 28px 28px;
+  transition: margin-left 0.25s ease, padding-top 0.3s ease;
+  min-width: 0; /* Fix for flex child overflow */
 }
 
 .main-content.with-stage-bar {
@@ -42,9 +47,20 @@
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
+  align-items: flex-end;
+  margin-bottom: 1.25rem;
   gap: 1rem;
+}
+
+.page-header h1 {
+  font-size: 1.625rem;
+  margin: 0;
+}
+
+.page-header p {
+  margin: 0.3rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 
 .header-actions {

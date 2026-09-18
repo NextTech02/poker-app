@@ -70,7 +70,8 @@
     "reports": "Relatórios",
     "logout": "Sair",
     "goHome": "Ir para o início",
-    "security": "Segurança"
+    "security": "Segurança",
+    "clubSection": "Clube"
   },
   "selectOrg": {
     "title": "Escolha a organização",
@@ -3061,5 +3062,18 @@
     "bestDaysHint": "Ordenado pelas vendas, depois do desconto.",
     "empty": "Nenhuma comanda fechada no período",
     "emptyHint": "Escolha outro período ou feche comandas na POS."
+  },
+  "topbar": {
+    "breadcrumb": "Você está em",
+    "stage": "Etapa",
+    "noStage": "Selecione uma etapa",
+    "day": "Dia",
+    "noDay": "Nenhum dia aberto",
+    "shift": "Turno",
+    "noShift": "Nenhum turno aberto",
+    "open": "aberto",
+    "closed": "encerrado",
+    "offline": "Offline",
+    "pending": "{{count}} na fila"
   }
 }

@@ -53,24 +53,22 @@ describe('Icon', () => {
     expect(container.querySelector('svg')).toHaveClass('meu-icone');
   });
 
-  // Guarda contra divergência entre cabeçalho (JS) e menu lateral (CSS):
-  // se alguém mudar um traçado só num lugar, este teste falha.
-  test('todos os traçados são idênticos aos do Sidebar.css', () => {
-    const fs = require('fs');
-    const path = require('path');
-    const css = fs.readFileSync(path.join(__dirname, 'Sidebar.css'), 'utf8');
+  // O menu lateral e a barra do topo desenham os ícones por NOME (menus.js).
+  // Um nome sem traçado renderiza nada — e o item fica sem ícone em silêncio.
+  test('todo ícone citado no menu tem traçado', () => {
+    const { MENUS_POR_MODULO, MENU_COMUM } = require('./menus');
+    const nomes = new Set();
+    const coletar = (item) => {
+      if (item.icon) nomes.add(item.icon);
+      if (item.children) item.children.forEach(coletar);
+    };
+    Object.values(MENUS_POR_MODULO).forEach((itens) => itens.forEach(coletar));
+    MENU_COMUM.forEach(coletar);
+    ['trophy-cup', 'chips', 'cocktail', 'logout', 'chevron-left', 'chevron-right'].forEach((n) => nomes.add(n));
 
-    const doCss = {};
-    const regra = /\.nav-icon\[class\*="([^"]+)"\]::before[\s\S]*?d='([^']+)'/g;
-    let m = regra.exec(css);
-    while (m) {
-      doCss[m[1]] = m[2];
-      m = regra.exec(css);
-    }
-
-    expect(Object.keys(doCss).length).toBeGreaterThan(0);
-    Object.entries(doCss).forEach(([name, d]) => {
-      expect(ICON_PATHS[name]).toBe(d);
+    expect(nomes.size).toBeGreaterThan(10);
+    nomes.forEach((name) => {
+      expect(ICON_PATHS[name]).toEqual(expect.any(String));
     });
   });
 });
