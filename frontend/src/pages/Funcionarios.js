@@ -23,34 +23,60 @@ import './Funcionarios.css';
 // completa por etiqueta, a cada render.
 //
 // Declarado depois do array (`PERMISSAO_POR_CHAVE`, no fim deste bloco).
+//
+// Cada chave pertence a um MÓDULO (torneio, cash, bar) ou ao CLUBE (vale em
+// todos). A tela agrupa por módulo e só oferece os módulos contratados pela
+// organização: dar `cash.operate` a alguém num clube sem cash game não abre
+// nada — a guarda do backend é o entitlement (org_modules), não a chave.
 const ALL_PERMISSIONS = [
-  { key: 'dashboard', label: 'staff.perm.dashboard' },
-  { key: 'stages', label: 'staff.perm.stages' },
-  { key: 'tournaments', label: 'staff.perm.tournaments' },
-  { key: 'players', label: 'staff.perm.players' },
-  { key: 'cashier', label: 'staff.perm.cashier' },
-  { key: 'cashier_players', label: 'staff.perm.cashierPlayers' },
-  { key: 'cashier_tickets', label: 'staff.perm.cashierTickets' },
+  { key: 'dashboard', label: 'staff.perm.dashboard', modulo: 'tournament' },
+  { key: 'stages', label: 'staff.perm.stages', modulo: 'tournament' },
+  { key: 'tournaments', label: 'staff.perm.tournaments', modulo: 'tournament' },
+  { key: 'players', label: 'staff.perm.players', modulo: 'club' },
+  { key: 'cashier', label: 'staff.perm.cashier', modulo: 'tournament' },
+  { key: 'cashier_players', label: 'staff.perm.cashierPlayers', modulo: 'tournament' },
+  { key: 'cashier_tickets', label: 'staff.perm.cashierTickets', modulo: 'tournament' },
   // Emissão de ticket em LOTE. Fica separada de `cashier_tickets` porque um
   // erro no lote multiplica o prejuízo por dezenas de entradas já pagas — é
   // decisão de dono, não de operador de caixa.
-  { key: 'cashier_tickets.master', label: 'staff.perm.cashierTicketsMaster', fallback: 'Tickets em lote (master)' },
-  { key: 'sangi', label: 'staff.perm.sangi' },
-  { key: 'prizes', label: 'staff.perm.prizes' },
-  { key: 'prizes_release', label: 'staff.perm.prizesRelease' },
-  { key: 'financial', label: 'staff.perm.financial' },
-  { key: 'reports', label: 'staff.perm.reports' },
-  { key: 'general_cash', label: 'staff.perm.generalCash' },
-  { key: 'cashbox.operate', label: 'staff.perm.cashboxOperate' },
-  { key: 'cashbox.admin', label: 'staff.perm.cashboxAdmin' },
-  { key: 'rankings', label: 'staff.perm.rankings' },
-  { key: 'blinds', label: 'staff.perm.blinds' },
-  { key: 'tables', label: 'staff.perm.tables' },
-  { key: 'broadcast', label: 'staff.perm.broadcast' },
-  { key: 'employees', label: 'staff.perm.employees' },
+  { key: 'cashier_tickets.master', label: 'staff.perm.cashierTicketsMaster', fallback: 'Tickets em lote (master)', modulo: 'tournament' },
+  { key: 'prizes', label: 'staff.perm.prizes', modulo: 'tournament' },
+  { key: 'prizes_release', label: 'staff.perm.prizesRelease', modulo: 'tournament' },
+  { key: 'financial', label: 'staff.perm.financial', modulo: 'club' },
+  { key: 'reports', label: 'staff.perm.reports', modulo: 'tournament' },
+  { key: 'general_cash', label: 'staff.perm.generalCash', modulo: 'tournament' },
+  { key: 'cashbox.operate', label: 'staff.perm.cashboxOperate', modulo: 'club' },
+  { key: 'cashbox.admin', label: 'staff.perm.cashboxAdmin', modulo: 'club' },
+  { key: 'rankings', label: 'staff.perm.rankings', modulo: 'tournament' },
+  { key: 'blinds', label: 'staff.perm.blinds', modulo: 'tournament' },
+  { key: 'tables', label: 'staff.perm.tables', modulo: 'tournament' },
+  { key: 'broadcast', label: 'staff.perm.broadcast', modulo: 'tournament' },
+  { key: 'employees', label: 'staff.perm.employees', modulo: 'club' },
   // Log de acessos e atividade: quem entrou e quem fez o quê. Separado de
   // `employees` para o clube poder dar a um auditor sem deixá-lo mexer na equipe.
-  { key: 'access_log', label: 'staff.perm.accessLog', fallback: 'Log de acessos' },
+  { key: 'access_log', label: 'staff.perm.accessLog', fallback: 'Log de acessos', modulo: 'club' },
+  // Cash game (mesmas chaves de backend/app/services/staff_service.py). A
+  // sangeur é do cash: ela circula pelas mesas vendendo fichas em consignação.
+  { key: 'cash.operate', label: 'staff.perm.cashOperate', fallback: 'Salão: sentar, rebuy, cash-out e fila', modulo: 'cash' },
+  { key: 'cash.tables', label: 'staff.perm.cashTables', fallback: 'Mesas: abrir, fechar e apurar', modulo: 'cash' },
+  { key: 'cash.day', label: 'staff.perm.cashDay', fallback: 'Dia de operação: abrir e encerrar', modulo: 'cash' },
+  { key: 'cash.admin', label: 'staff.perm.cashAdmin', fallback: 'Modalidades, jackpot e cancelamentos', modulo: 'cash' },
+  { key: 'cash.reports', label: 'staff.perm.cashReports', fallback: 'Relatórios do cash', modulo: 'cash' },
+  { key: 'sangi', label: 'staff.perm.sangi', modulo: 'cash' },
+  // Bar (comandas).
+  { key: 'bar.operate', label: 'staff.perm.barOperate', fallback: 'Comandas e pedidos (POS)', modulo: 'bar' },
+  { key: 'bar.shift', label: 'staff.perm.barShift', fallback: 'Turnos: abrir e fechar', modulo: 'bar' },
+  { key: 'bar.admin', label: 'staff.perm.barAdmin', fallback: 'Produtos, estoque, desconto e estorno', modulo: 'bar' },
+  { key: 'bar.reports', label: 'staff.perm.barReports', fallback: 'Relatórios do bar', modulo: 'bar' },
+];
+
+// Seções do quadro de permissões, na ordem em que aparecem. O título de cada
+// módulo é o mesmo do trilho e da tela de escolha de módulo.
+const SECOES_DE_PERMISSAO = [
+  { modulo: 'tournament', label: 'modules.tournamentTitle', fallback: 'Torneios' },
+  { modulo: 'cash', label: 'modules.cashTitle', fallback: 'Cash Game' },
+  { modulo: 'bar', label: 'modules.barTitle', fallback: 'Bar' },
+  { modulo: 'club', label: 'sidebar.clubSection', fallback: 'Clube' },
 ];
 
 // Ver a nota acima do array: a busca por chave vira consulta de tabela hash.
@@ -73,7 +99,13 @@ const Funcionarios = () => {
   const notify = (msg, type = 'error') => toast[type](msg);
   const { selectedStage } = useStage();
   const { formatCurrency } = useCurrency();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, modules } = usePermissions();
+  // Permissões que este clube pode distribuir: as do clube + as dos módulos
+  // contratados. Sem a lista (backend antigo), fica só o torneio, como sempre.
+  const permissoesDisponiveis = useMemo(() => {
+    const contratados = new Set(modules && modules.length ? modules : ['tournament']);
+    return ALL_PERMISSIONS.filter((p) => p.modulo === 'club' || contratados.has(p.modulo));
+  }, [modules]);
   const podeVerAcessos = hasPermission('access_log');
 
   const [activeTab, setActiveTab] = useState('staff');
@@ -448,10 +480,10 @@ const Funcionarios = () => {
 
   const toggleAllPermissions = () => {
     setGroupForm((prev) => {
-      const allSelected = ALL_PERMISSIONS.every((p) => prev.permissions.includes(p.key));
+      const allSelected = permissoesDisponiveis.every((p) => prev.permissions.includes(p.key));
       return {
         ...prev,
-        permissions: allSelected ? [] : ALL_PERMISSIONS.map((p) => p.key),
+        permissions: allSelected ? [] : permissoesDisponiveis.map((p) => p.key),
       };
     });
   };
@@ -878,7 +910,7 @@ const Funcionarios = () => {
                         <td>{g.description || '—'}</td>
                         <td>
                           <div className="func-perm-tags">
-                            {g.permissions.length === ALL_PERMISSIONS.length ? (
+                            {permissoesDisponiveis.every((p) => g.permissions.includes(p.key)) ? (
                               <span className="func-perm-tag func-perm-tag--all">{t('staff.allPermissions')}</span>
                             ) : g.permissions.length === 0 ? (
                               <span className="func-perm-tag func-perm-tag--none">{t('staff.noPermissions')}</span>
@@ -1009,27 +1041,42 @@ const Funcionarios = () => {
                       type="button"
                       className="func-select-all-btn"
                       onClick={toggleAllPermissions}
-                      aria-label={ALL_PERMISSIONS.every((p) => groupForm.permissions.includes(p.key))
+                      aria-label={permissoesDisponiveis.every((p) => groupForm.permissions.includes(p.key))
                         ? t('staff.deselectAll')
                         : t('staff.selectAll')}
                     >
-                      {permissoesMarcadas.size === ALL_PERMISSIONS.length
+                      {permissoesDisponiveis.every((p) => permissoesMarcadas.has(p.key))
                         ? t('staff.deselectAll')
                         : t('staff.selectAll')}
                     </button>
                   </label>
-                  <div className="func-perm-grid">
-                    {ALL_PERMISSIONS.map((perm) => (
-                      <label key={perm.key} className="func-perm-check">
-                        <input
-                          type="checkbox"
-                          checked={permissoesMarcadas.has(perm.key)}
-                          onChange={() => togglePermission(perm.key)}
-                        />
-                        <span>{t(perm.label, perm.fallback)}</span>
-                      </label>
-                    ))}
-                  </div>
+                  {/* Uma seção por módulo contratado (+ o clube): quem monta
+                      o cargo "Bar" acha as chaves do bar juntas, em vez de
+                      garimpá-las numa lista única. */}
+                  {SECOES_DE_PERMISSAO.map((secao) => {
+                    const daSecao = permissoesDisponiveis.filter((p) => p.modulo === secao.modulo);
+                    if (daSecao.length === 0) return null;
+                    return (
+                      <div key={secao.modulo} className="func-perm-section">
+                        <div className={`func-perm-section-title mod-${secao.modulo}`}>
+                          <i />
+                          {t(secao.label, secao.fallback)}
+                        </div>
+                        <div className="func-perm-grid">
+                          {daSecao.map((perm) => (
+                            <label key={perm.key} className="func-perm-check">
+                              <input
+                                type="checkbox"
+                                checked={permissoesMarcadas.has(perm.key)}
+                                onChange={() => togglePermission(perm.key)}
+                              />
+                              <span>{t(perm.label, perm.fallback)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div className="modal-footer">

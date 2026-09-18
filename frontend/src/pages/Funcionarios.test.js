@@ -522,10 +522,13 @@ describe('grupos de permissão', () => {
 
   it('grupo com todas as permissões é sinalizado como total', async () => {
     await montar({
-      // O total acompanha ALL_PERMISSIONS da tela — hoje 22 chaves, com a
-      // emissão de ticket em lote ('cashier_tickets.master') e o log de
-      // acessos ('access_log').
-      grupos: [{ id: 'g9', name: 'Admin', permissions: Array.from({ length: 22 }, (_, i) => `p${i}`) }],
+      // "Todas" = todas as chaves que este clube pode distribuir: as do
+      // torneio (único módulo contratado aqui) e as do clube.
+      grupos: [{ id: 'g9', name: 'Admin', permissions: [
+        'dashboard', 'stages', 'tournaments', 'players', 'cashier', 'cashier_players', 'cashier_tickets',
+        'cashier_tickets.master', 'prizes', 'prizes_release', 'financial', 'reports', 'general_cash',
+        'cashbox.operate', 'cashbox.admin', 'rankings', 'blinds', 'tables', 'broadcast', 'employees', 'access_log',
+      ] }],
     });
     await irGrupos();
     expect(screen.getByText('staff.allPermissions')).toBeInTheDocument();
@@ -596,6 +599,52 @@ describe('grupos de permissão', () => {
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/staff/groups/g1', expect.objectContaining({ permissions: ['players'] }))
     );
+  });
+
+  it('sem cash e bar contratados, o quadro só oferece torneio e clube', async () => {
+    // Dar `cash.operate` a um cargo num clube sem cash game não abre tela
+    // nenhuma — a chave só vale com o módulo contratado.
+    await montar();
+    await irGrupos();
+    await userEvent.click(screen.getByRole('button', { name: '+ staff.newGroup' }));
+    expect(screen.getByText('Torneios')).toBeInTheDocument();
+    expect(screen.getByText('Clube')).toBeInTheDocument();
+    expect(screen.queryByText('Cash Game')).toBeNull();
+    expect(screen.queryByLabelText('Salão: sentar, rebuy, cash-out e fila')).toBeNull();
+    expect(screen.queryByLabelText('Comandas e pedidos (POS)')).toBeNull();
+  });
+
+  it('com cash e bar contratados, as chaves de cada módulo aparecem na sua seção', async () => {
+    // Era o que faltava: o quadro só listava o torneio, e o cargo "Bar" ou
+    // "Cash" não tinha como ganhar acesso às telas do próprio módulo.
+    usePermissions.mockReturnValue({ hasPermission: () => false, modules: ['tournament', 'cash', 'bar'] });
+    await montar();
+    await irGrupos();
+    await userEvent.click(screen.getByRole('button', { name: '+ staff.newGroup' }));
+    expect(screen.getByText('Cash Game')).toBeInTheDocument();
+    expect(screen.getByText('Bar')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Comandas e pedidos (POS)'));
+    await userEvent.click(screen.getByLabelText('Dia de operação: abrir e encerrar'));
+    // A sangeur é do cash: mora na seção do cash, não na do torneio.
+    expect(screen.getByLabelText('staff.perm.sangi')).toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText('staff.groupNamePlaceholder'), 'Bar');
+    await userEvent.click(screen.getByRole('button', { name: 'staff.createGroup' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/staff/groups', expect.objectContaining({
+        permissions: ['bar.operate', 'cash.day'],
+      }))
+    );
+  });
+
+  it('"selecionar todas" só marca o que o clube contratou', async () => {
+    usePermissions.mockReturnValue({ hasPermission: () => false, modules: ['tournament', 'bar'] });
+    await montar();
+    await irGrupos();
+    await userEvent.click(screen.getByRole('button', { name: '+ staff.newGroup' }));
+    await userEvent.click(screen.getByRole('button', { name: 'staff.selectAll' }));
+    expect(screen.getByLabelText('Turnos: abrir e fechar')).toBeChecked();
+    expect(screen.queryByLabelText('Salão: sentar, rebuy, cash-out e fila')).toBeNull();
+    expect(screen.getByRole('button', { name: 'staff.deselectAll' })).toBeInTheDocument();
   });
 
   it('"selecionar todas" marca tudo e vira "desmarcar todas"', async () => {

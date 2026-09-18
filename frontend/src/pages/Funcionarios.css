@@ -425,3 +425,32 @@
   font-size: 0.7rem;
   color: var(--text-tertiary, #6b8299);
 }
+
+/* Quadro de permissões por módulo: título com a tinta do módulo (a mesma do
+   trilho), grade de caixas abaixo. */
+.func-perm-section {
+  margin-top: 0.75rem;
+}
+
+.func-perm-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 0.4rem;
+}
+
+.func-perm-section-title i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.func-perm-section-title.mod-tournament i { background: var(--mod-tournament); }
+.func-perm-section-title.mod-cash i       { background: var(--mod-cash); }
+.func-perm-section-title.mod-bar i        { background: var(--mod-bar); }

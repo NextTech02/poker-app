@@ -1934,7 +1934,16 @@
       "tables": "Mesas",
       "broadcast": "Broadcast",
       "employees": "Funcionários",
-      "accessLog": "Log de acessos"
+      "accessLog": "Log de acessos",
+      "cashOperate": "Salão: sentar, rebuy, cash-out e fila",
+      "cashTables": "Mesas: abrir, fechar e apurar",
+      "cashDay": "Dia de operação: abrir e encerrar",
+      "cashAdmin": "Modalidades, jackpot e cancelamentos",
+      "cashReports": "Relatórios do cash",
+      "barOperate": "Comandas e pedidos (POS)",
+      "barShift": "Turnos: abrir e fechar",
+      "barAdmin": "Produtos, estoque, desconto e estorno",
+      "barReports": "Relatórios do bar"
     },
     "inviteEmployee": "Convidar funcionário",
     "inviteHint": "O funcionário recebe um e-mail e define o próprio nome e senha. Você não precisa criar nem repassar senha.",

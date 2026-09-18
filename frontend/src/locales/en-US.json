@@ -1934,7 +1934,16 @@
       "tables": "Tables",
       "broadcast": "Broadcast",
       "employees": "Employees",
-      "accessLog": "Access log"
+      "accessLog": "Access log",
+      "cashOperate": "Floor: seat, rebuy, cash-out and waitlist",
+      "cashTables": "Tables: open, close and count rake",
+      "cashDay": "Operating day: open and close",
+      "cashAdmin": "Game types, jackpot and cancellations",
+      "cashReports": "Cash reports",
+      "barOperate": "Tabs and orders (POS)",
+      "barShift": "Shifts: open and close",
+      "barAdmin": "Products, stock, discount and refund",
+      "barReports": "Bar reports"
     },
     "inviteEmployee": "Invite employee",
     "inviteHint": "The employee gets an email and sets their own name and password. You never create or share a password.",
