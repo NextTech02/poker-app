@@ -190,9 +190,8 @@ input[type="number"] {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--primary-bg);
@@ -203,14 +202,15 @@ body {
 /* Global text styles */
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
+  font-family: var(--font-display);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.025em;
-  line-height: 1.3;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 h1 {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
+  font-size: 1.75rem;
+  font-weight: var(--font-weight-semibold);
 }
 
 h2 {
@@ -240,8 +240,7 @@ p, span, div {
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: var(--font-mono);
   background: var(--card-bg);
   padding: 0.125rem 0.375rem;
   border-radius: var(--radius-xs);
@@ -727,15 +726,34 @@ tbody td {
      Premium dark theme for tournament management
      ======================================== */
 
+  /* ── Redesign set/2026 ───────────────────────────────────────────────────
+     Tipografia própria (Sora nos títulos e números, IBM Plex Sans na
+     interface, IBM Plex Mono só onde o alinhamento é o conteúdo: relógio,
+     códigos) e uma tinta por módulo, usada SÓ para orientação (trilho,
+     chip de contexto) — nunca em botão. As fontes vêm empacotadas
+     (@fontsource, importadas em index.js): o app precisa abrir offline. */
+  --font-display: 'Sora', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  --mod-tournament: #8b5cff;
+  --mod-tournament-soft: rgba(139, 92, 255, 0.18);
+  --mod-cash: #5b7cff;
+  --mod-cash-soft: rgba(91, 124, 255, 0.18);
+  --mod-bar: #f2a33a;
+  --mod-bar-soft: rgba(242, 163, 58, 0.18);
+  --accent-soft: rgba(114, 48, 251, 0.18);
+  --surface-hi: linear-gradient(135deg, rgba(114, 48, 251, 0.26), rgba(58, 6, 166, 0.14));
+  --surface-hi-border: rgba(114, 48, 251, 0.4);
+
   /* Background Layers - Sophisticated depth hierarchy */
-  --primary-bg: #0a0f17;
-  --secondary-bg: #0e1620;
-  --tertiary-bg: #16202e;
-  --card-bg: #1e2d3d;
-  --card-bg-hover: #243648;
-  --card-bg-active: #2a3f5f;
-  --surface-elevated: #233143;
-  --surface-overlay: #1e2d3d;
+  --primary-bg: #0b0a12;
+  --secondary-bg: #0f0e17;
+  --tertiary-bg: #15141e;
+  --card-bg: #15141e;
+  --card-bg-hover: #1b1a26;
+  --card-bg-active: #23212f;
+  --surface-elevated: #1b1a26;
+  --surface-overlay: #1b1a26;
 
   /* Premium Poker Green - Professional casino aesthetic */
   --poker-green-50: #efeafe;
@@ -748,8 +766,8 @@ tbody td {
   --poker-green-700: #5019c9;
   --poker-green-800: #4015a0;
   --poker-green-900: #2f1076;
-  --poker-green: #7233f8;
-  --poker-green-light: #9a70f9;
+  --poker-green: #7230fb;
+  --poker-green-light: #8b5cff;
   --poker-green-dark: #5b21e0;
 
   /* Luxurious Gold Accents - Championship tier */
@@ -778,8 +796,8 @@ tbody td {
   --primary-700: #5019c9;
   --primary-800: #4015a0;
   --primary-900: #2f1076;
-  --accent-color: #7233f8;
-  --accent-hover: #9a70f9;
+  --accent-color: #7230fb;
+  --accent-hover: #8b5cff;
   --accent-active: #5b21e0;
 
   /* Text Hierarchy - Enhanced readability
@@ -789,68 +807,68 @@ tbody td {
      --text-quaternary e --text-disabled ficam de fora de proposito:
      quaternary nao e' usado em lugar nenhum hoje e disabled e' isento pela WCAG
      (controle desabilitado) — clarea-lo faria o desabilitado parecer ativo. */
-  --text-primary: #e0eaf4;
-  --text-secondary: #8aa0b0;
-  --text-tertiary: #8b9fad;   /* era #5a7080 (2,40:1) -> 4,52:1 */
-  --text-quaternary: #4b5563;
-  --text-disabled: #374151;
+  --text-primary: #f3f1f8;
+  --text-secondary: #aaa7bb;
+  --text-tertiary: #8f8ba3;   /* era #5a7080 (2,40:1) -> 4,52:1 */
+  --text-quaternary: #5f5b72;
+  --text-disabled: #3f3c4e;
   --text-gold: #9393f0;       /* era #5b5be8 (2,42:1) -> 4,52:1 */
-  --text-success: #ab88fa;    /* era #9a70f9 (3,57:1) -> 4,50:1 */
-  --text-danger: #f37676;     /* era #ef4444 (3,29:1) -> 4,52:1 */
-  --text-warning: #f59e0b;
-  --text-info: #649cf8;       /* era #3b82f6 (3,37:1) -> 4,51:1 */
+  --text-success: #3ecf8e;    /* era #9a70f9 (3,57:1) -> 4,50:1 */
+  --text-danger: #ff7b86;     /* era #ef4444 (3,29:1) -> 4,52:1 */
+  --text-warning: #f5b942;
+  --text-info: #8fa5ff;       /* era #3b82f6 (3,37:1) -> 4,51:1 */
 
   /* Texto de "chip"/badge sobre fundo TRANSLUCIDO.
      O tint (rgba de 10-20%) clareia o fundo antes do texto compor, entao os
      --text-* acima, calibrados no limite dos 4,5:1, nao sobram margem aqui.
      Estes tons ficam >= 4,5:1 mesmo sobre o tint aplicado em --card-bg-hover. */
-  --badge-text-danger: #f19191;
-  --badge-text-info: #7cbde8;
-  --badge-text-accent: #c79cfa;
-  --badge-text-neutral: #b1bcc4;
+  --badge-text-danger: #ff8f98;
+  --badge-text-info: #9fb2ff;
+  --badge-text-accent: #c4aaff;
+  --badge-text-neutral: #c2bfd0;
   --badge-text-gold: #a5a5f4;  /* mesmo matiz de --brand-gold (240deg), 4,67:1 no pior tint (gold .20) */
 
   /* Border & Dividers - Subtle definition */
-  --border-primary: #2a3a4d;
-  --border-secondary: #1e2d3d;
-  --border-light: #3a4452;
-  --border-lighter: #4a5568;
-  --border-dark: #1e2530;
-  --border-color: #2a3a4d;
-  --divider-color: #232b38;
+  --border-primary: #262433;
+  --border-secondary: #1b1a26;
+  --border-light: #302e3f;
+  --border-lighter: #3d3a4d;
+  --border-dark: #15141e;
+  --border-color: #262433;
+  --divider-color: #1f1e2a;
 
   /* Status Colors - Professional feedback system */
   --success-50: #efeafe;
   --success-100: #d6c7fc;
   --success-500: #7233f8;
   --success-700: #5019c9;
-  --success-color: #10b981;
+  --success-color: #3ecf8e;
   --success-light: #d1fae5;
-  --success-bg: rgba(16, 185, 129, 0.1);
+  --success-bg: rgba(62, 207, 142, 0.14);
 
   --danger-50: #fef2f2;
   --danger-100: #fee2e2;
-  --danger-500: #ef4444;
+  --danger-500: #ff5f6d;
   --danger-700: #b91c1c;
-  --danger-color: #ef4444;
+  --danger-color: #ff5f6d;
   --danger-light: #fee2e2;
-  --danger-bg: rgba(239, 68, 68, 0.1);
+  --danger-bg: rgba(255, 95, 109, 0.14);
 
   --warning-50: #fffbeb;
   --warning-100: #fef3c7;
-  --warning-500: #f59e0b;
+  --warning-500: #f5b942;
   --warning-700: #d97706;
-  --warning-color: #f59e0b;
+  --warning-color: #f5b942;
   --warning-light: #fef3c7;
-  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-bg: rgba(245, 185, 66, 0.15);
 
   --info-50: #eff6ff;
   --info-100: #dbeafe;
-  --info-500: #3b82f6;
+  --info-500: #5b7cff;
   --info-700: #1d4ed8;
-  --info-color: #3b82f6;
+  --info-color: #5b7cff;
   --info-light: #dbeafe;
-  --info-bg: rgba(59, 130, 246, 0.1);
+  --info-bg: rgba(91, 124, 255, 0.15);
 
   /* Extended Gray Scale - Comprehensive neutral palette */
   --gray-50: #f9fafb;
@@ -872,16 +890,16 @@ tbody td {
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
-  --overlay-dark: rgba(11, 15, 22, 0.85);
-  --overlay-darker: rgba(11, 15, 22, 0.95);
+  --overlay-dark: rgba(8, 7, 14, 0.85);
+  --overlay-darker: rgba(8, 7, 14, 0.95);
 
   /* Premium Gradients - Luxurious visual effects */
   --gradient-primary: linear-gradient(135deg, #7233f8 0%, #5019c9 100%);
   --gradient-primary-hover: linear-gradient(135deg, #854ff8 0%, #7233f8 100%);
   --gradient-gold: linear-gradient(135deg, #8a8ae6 0%, #6a6ae0 50%, #2525b9 100%);
   --gradient-gold-hover: linear-gradient(135deg, #b0b0ef 0%, #8a8ae6 50%, #6a6ae0 100%);
-  --gradient-card: linear-gradient(180deg, #1e2530 0%, #1a212d 100%);
-  --gradient-card-hover: linear-gradient(180deg, #252d3b 0%, #1e2530 100%);
+  --gradient-card: linear-gradient(180deg, #15141e 0%, #131219 100%);
+  --gradient-card-hover: linear-gradient(180deg, #1b1a26 0%, #15141e 100%);
   --gradient-overlay: linear-gradient(180deg, rgba(11, 15, 22, 0) 0%, rgba(11, 15, 22, 0.8) 100%);
   --gradient-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
 
@@ -897,9 +915,9 @@ tbody td {
   /* Border Radius - Modern curves */
   --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-2xl: 24px;
   --radius-full: 9999px;
 
@@ -961,20 +979,20 @@ tbody td {
    --warning fica de fora: ja passa (6,53:1) como texto.
    ============================================================ */
 :root {
-  --brand-green: #7233f8;
+  --brand-green: #7230fb;
   --brand-green-600: #5b21e0;
   --brand-gold: #5b5be8;
-  --danger: #ef4444;
-  --bg: #0e1620;
-  --surface: #1e2d3d;
-  --text: #e0eaf4;
-  --text-muted: #3a5068;
+  --danger: #ff5f6d;
+  --bg: #0b0a12;
+  --surface: #15141e;
+  --text: #f3f1f8;
+  --text-muted: #5f5b72;
 }
 
 /* Accent tokens (missing-from-canonical-block fix) */
 :root {
-  --info: #3b82f6;
-  --warning: #f59e0b;
+  --info: #5b7cff;
+  --warning: #f5b942;
   --warning-yellow: #eab308;
   --brand-gold-dark: #2525b9;
 }

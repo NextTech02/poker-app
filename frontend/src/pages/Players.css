@@ -221,7 +221,7 @@
 
 .pl-table-header {
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #1a2740;
+  border-bottom: 1px solid var(--card-bg-active);
   display: flex;
   align-items: center;
 }
@@ -257,7 +257,7 @@
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--text-muted);
-  border-bottom: 1px solid #1a2740;
+  border-bottom: 1px solid var(--card-bg-active);
   white-space: nowrap;
 }
 
@@ -375,7 +375,7 @@
   font-family: 'Courier New', monospace;
 }
 
-.pl-empty-val { color: #2a3d50; }
+.pl-empty-val { color: var(--border-light); }
 
 /* Action buttons */
 .pl-actions {
@@ -461,7 +461,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #1a2740;
+  border-bottom: 1px solid var(--card-bg-active);
 }
 
 .pl-modal-title-group {
@@ -561,7 +561,7 @@
 }
 
 .pl-field input::placeholder,
-.pl-textarea::placeholder { color: #2a3d50; }
+.pl-textarea::placeholder { color: var(--border-light); }
 
 .pl-field input:focus,
 .pl-textarea:focus {
@@ -593,7 +593,7 @@
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #1a2740;
+  border-top: 1px solid var(--card-bg-active);
   margin-top: 0.5rem;
   position: sticky;
   bottom: 0;
@@ -614,7 +614,7 @@
 }
 
 .pl-btn-cancel:hover {
-  border-color: #2a3d50;
+  border-color: var(--border-light);
   color: var(--text);
 }
 
@@ -662,7 +662,7 @@
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
-  color: #fca5a5;
+  color: var(--badge-text-danger);
   padding: 0.65rem 0.875rem;
   font-size: 0.85rem;
   margin-bottom: 0.5rem;

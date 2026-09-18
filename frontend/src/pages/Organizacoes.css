@@ -43,7 +43,7 @@
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .org-actions {
@@ -78,7 +78,7 @@
   background: rgba(255, 255, 255, 0.08);
   color: #cbd5e1;
 }
-/* #94a3b8 dava 4,20:1 e #9a70f9 dava 3,63:1 sobre os proprios tints */
+/* var(--text-secondary) dava 4,20:1 e var(--accent-hover) dava 3,63:1 sobre os proprios tints */
 .org-plan-badge.plan-free     { background: rgba(148, 163, 184, 0.15); color: var(--badge-text-neutral, #b1bcc4); }
 .org-plan-badge.plan-standard { background: rgba(56, 189, 248, 0.15);  color: #38bdf8; }
 .org-plan-badge.plan-pro      { background: rgba(114, 51, 248, 0.18);  color: var(--badge-text-accent, #c79cfa); }
@@ -88,29 +88,29 @@
   margin-top: 4px;
   font-size: 0.68rem;
   font-weight: 600;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .org-trial.soon    { color: #eab308; }
-.org-trial.expired { color: #ef4444; }
+.org-trial.expired { color: var(--danger-color); }
 
 .org-staff-cell { display: flex; align-items: center; gap: 0.6rem; }
 .org-usage {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.05);
 }
-/* #ef4444 sobre o proprio tint dava 3,37:1 */
+/* var(--danger-color) sobre o proprio tint dava 3,37:1 */
 .org-usage.at-limit { color: var(--badge-text-danger, #f19191); background: rgba(239, 68, 68, 0.12); }
 
 .org-plan-hint {
   display: block;
   margin-top: 6px;
   font-size: 0.72rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -134,7 +134,7 @@
 .org-staff-chevron {
   display: inline-block;
   font-size: 0.7rem;
-  color: #7233f8;
+  color: var(--accent-color);
   transition: transform 0.18s ease;
 }
 .org-staff-chevron.open { transform: rotate(90deg); }
@@ -150,7 +150,7 @@
 .org-staff-empty {
   padding: 1rem 1.25rem;
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .org-staff-wrap { padding: 0.5rem 1.25rem 1rem; overflow-x: auto; }
@@ -190,8 +190,8 @@
   font-weight: 700;
   text-transform: uppercase;
 }
-.org-staff-badge.active   { background: rgba(16, 185, 129, 0.15); color: #10b981; }
-/* #ef4444 sobre o proprio tint dava 3,59:1 */
+.org-staff-badge.active   { background: rgba(16, 185, 129, 0.15); color: var(--success-color); }
+/* var(--danger-color) sobre o proprio tint dava 3,59:1 */
 .org-staff-badge.inactive { background: rgba(239, 68, 68, 0.15);  color: var(--badge-text-danger, #f19191); }
 
 /* No mobile, a media query base transforma td em block; preservar a tabela
@@ -234,7 +234,7 @@
 .org-modal-hint {
   margin: 0 0 20px;
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -251,7 +251,7 @@
 .org-field input {
   width: 100%;
   padding: 0.65rem 0.8rem;
-  background: #0e1620;
+  background: var(--secondary-bg);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   color: #fff;
@@ -272,7 +272,7 @@
   box-sizing: border-box;
 }
 
-.org-field input:focus { border-color: #7233f8; }
+.org-field input:focus { border-color: var(--accent-color); }
 
 .org-error {
   display: block;
@@ -320,7 +320,7 @@
 }
 .org-module-chip.module-tournament { background: rgba(114, 51, 248, 0.15); color: var(--badge-text-accent, #c79cfa); }
 .org-module-chip.module-cash       { background: rgba(56, 189, 248, 0.15);  color: #38bdf8; }
-.org-module-chip.module-bar        { background: rgba(245, 158, 11, 0.15);  color: #f59e0b; }
+.org-module-chip.module-bar        { background: rgba(245, 158, 11, 0.15);  color: var(--warning-color); }
 
 .org-modules-list {
   display: flex;

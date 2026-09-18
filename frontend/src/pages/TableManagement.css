@@ -21,7 +21,7 @@
   gap: 16px;
   padding: 20px 24px 16px;
   background: #0d1520;
-  border-bottom: 1px solid #1e2d45;
+  border-bottom: 1px solid var(--card-bg-active);
   flex-shrink: 0;
 }
 
@@ -52,7 +52,7 @@
   border-radius: 12px;
   font-size: 0.78rem;
   font-weight: 600;
-  background: #1e2d45;
+  background: var(--card-bg-active);
   color: #64b5f6;
 }
 
@@ -140,9 +140,9 @@
 
 .tm-btn-secondary {
   padding: 8px 16px;
-  background: #1e2d45;
+  background: var(--card-bg-active);
   color: #b0c4de;
-  border: 1px solid #2a3f5f;
+  border: 1px solid var(--card-bg-active);
   border-radius: 8px;
   font-size: 0.9rem;
   cursor: pointer;
@@ -155,7 +155,7 @@
   padding: 8px 14px;
   background: transparent;
   color: #7a93b8;
-  border: 1px solid #2a3f5f;
+  border: 1px solid var(--card-bg-active);
   border-radius: 8px;
   font-size: 0.9rem;
   cursor: pointer;
@@ -179,7 +179,7 @@
 
 .tm-players-panel {
   background: #0d1520;
-  border-right: 1px solid #1e2d45;
+  border-right: 1px solid var(--card-bg-active);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -190,7 +190,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px 10px;
-  border-bottom: 1px solid #1e2d45;
+  border-bottom: 1px solid var(--card-bg-active);
   flex-shrink: 0;
 }
 
@@ -202,7 +202,7 @@
 }
 
 .tm-count-badge {
-  background: #1e2d45;
+  background: var(--card-bg-active);
   color: #64b5f6;
   border-radius: 12px;
   padding: 2px 10px;
@@ -240,7 +240,7 @@
   gap: 8px;
   padding: 10px 12px;
   background: #111d2e;
-  border: 1px solid #1e2d45;
+  border: 1px solid var(--card-bg-active);
   border-radius: 8px;
   margin-bottom: 6px;
   cursor: grab;
@@ -248,7 +248,7 @@
 }
 
 .tm-player-card:active { cursor: grabbing; }
-.tm-player-card:hover { background: #162030; border-color: #2a3f5f; }
+.tm-player-card:hover { background: #162030; border-color: var(--card-bg-active); }
 
 .tm-player-card.alternate {
   border-color: #3d2200;
@@ -301,7 +301,7 @@
 .tm-tables-panel {
   overflow-y: auto;
   padding: 16px;
-  background: #0a0e13;
+  background: var(--primary-bg);
 }
 
 .tm-no-tables {
@@ -323,13 +323,13 @@
 
 .tm-table {
   background: #111d2e;
-  border: 1px solid #1e2d45;
+  border: 1px solid var(--card-bg-active);
   border-radius: 12px;
   overflow: hidden;
   transition: border-color 0.2s;
 }
 
-.tm-table:hover { border-color: #2a3f5f; }
+.tm-table:hover { border-color: var(--card-bg-active); }
 
 .tm-table-inactive {
   opacity: 0.65;
@@ -342,7 +342,7 @@
   justify-content: space-between;
   padding: 10px 14px;
   background: #0d1520;
-  border-bottom: 1px solid #1e2d45;
+  border-bottom: 1px solid var(--card-bg-active);
 }
 
 .tm-table-title {
@@ -390,7 +390,7 @@
   white-space: nowrap;
 }
 
-.tm-btn-icon:hover { background: #1e2d45; border-color: #2a3f5f; }
+.tm-btn-icon:hover { background: var(--card-bg-active); border-color: var(--card-bg-active); }
 .tm-btn-icon.btn-green { color: var(--brand-green); }
 .tm-btn-icon.btn-green:hover { background: #0d1f0d; border-color: var(--brand-green); }
 .tm-btn-icon.btn-orange { color: #ff9800; }
@@ -454,7 +454,7 @@
 
 .tm-seat-empty {
   font-size: 0.7rem;
-  color: #2a3f5f;
+  color: var(--card-bg-active);
   margin-top: 10px;
 }
 
@@ -511,7 +511,7 @@
 
 .tm-modal {
   background: #111d2e;
-  border: 1px solid #2a3f5f;
+  border: 1px solid var(--card-bg-active);
   border-radius: 16px;
   max-width: 560px;
   width: 90%;
@@ -530,7 +530,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #1e2d45;
+  border-bottom: 1px solid var(--card-bg-active);
 }
 
 .tm-modal-header h3 {
@@ -550,7 +550,7 @@
   transition: all 0.15s;
 }
 
-.tm-close-btn:hover { color: #e8f0fe; background: #1e2d45; }
+.tm-close-btn:hover { color: #e8f0fe; background: var(--card-bg-active); }
 
 .tm-modal-body {
   padding: 20px;
@@ -563,7 +563,7 @@
   gap: 10px;
   justify-content: flex-end;
   padding: 14px 20px;
-  border-top: 1px solid #1e2d45;
+  border-top: 1px solid var(--card-bg-active);
 }
 
 /* ── Form Elements ───────────────────────────────────────────── */
@@ -586,7 +586,7 @@
   width: 90px;
   padding: 8px 10px;
   background: #0d1520;
-  border: 1px solid #2a3f5f;
+  border: 1px solid var(--card-bg-active);
   border-radius: 8px;
   color: #e8f0fe;
   font-size: 0.9rem;
@@ -636,13 +636,13 @@
   color: inherit;
   padding: 12px;
   background: #0d1520;
-  border: 1.5px solid #1e2d45;
+  border: 1.5px solid var(--card-bg-active);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.tm-mode-card:hover { border-color: #2a3f5f; }
+.tm-mode-card:hover { border-color: var(--card-bg-active); }
 
 .tm-mode-card.selected {
   border-color: #1976d2;
@@ -653,7 +653,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid #2a3f5f;
+  border: 2px solid var(--card-bg-active);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -695,7 +695,7 @@
 
   .tm-players-panel {
     border-right: none;
-    border-bottom: 1px solid #1e2d45;
+    border-bottom: 1px solid var(--card-bg-active);
     max-height: 220px;
   }
 

@@ -18,17 +18,17 @@
 }
 
 .offline-banner--off {
-  background: linear-gradient(90deg, #f59e0b, #f97316);
+  background: linear-gradient(90deg, var(--warning-color), #f97316);
 }
 
 .offline-banner--sync {
-  background: linear-gradient(90deg, #7233f8, #5b21e0);
+  background: linear-gradient(90deg, var(--accent-color), #5b21e0);
   /* tinta escura sobre o roxo dava 2,88:1 na ponta clara do gradiente */
   color: var(--text-primary, #e0eaf4);
 }
 
 .offline-banner--conflict {
-  /* o #ef4444 da ponta clara so' dava 3,76:1 com texto branco; #dc2626 da' 4,83:1 */
+  /* o var(--danger-color) da ponta clara so' dava 3,76:1 com texto branco; #dc2626 da' 4,83:1 */
   background: linear-gradient(90deg, #dc2626, #b91c1c);
   color: #fff;
   text-decoration: none;

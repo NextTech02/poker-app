@@ -244,7 +244,7 @@
 
 .tr-status--active  { background: rgba(114,51,248,0.12);  color: var(--brand-green); }
 .tr-status--pending { background: rgba(234,179,8,0.12);   color: var(--warning-yellow); }
-.tr-status--done    { background: rgba(100,116,139,0.12); color: #94a3b8; }
+.tr-status--done    { background: rgba(100,116,139,0.12); color: var(--text-secondary); }
 .tr-status--cancelled { background: rgba(239,68,68,0.12); color: var(--badge-text-danger); }
 
 .tr-badge-qualifying {
@@ -256,7 +256,7 @@
   border-radius: 20px;
   font-size: 0.68rem;
   font-weight: 600;
-  color: #fbbf24;
+  color: var(--warning-color);
   letter-spacing: 0.3px;
 }
 
@@ -392,7 +392,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #1a2740;
+  border-bottom: 1px solid var(--card-bg-active);
 }
 
 .tr-modal-title-group {
@@ -479,7 +479,7 @@
   box-sizing: border-box;
 }
 
-.tr-field input::placeholder { color: #2a3d50; }
+.tr-field input::placeholder { color: var(--border-light); }
 
 /* Pintura, chevron e foco vêm do padrão global (styles/index.css). O antigo
    `option { color:#111; background:#fff }` saiu junto: aquilo era o remendo
@@ -502,7 +502,7 @@
 
 .tr-field small {
   font-size: 0.75rem;
-  color: #2a3d50;
+  color: var(--border-light);
 }
 
 /* Qualifying-day values: section label + 2-col grid */
@@ -550,7 +550,7 @@
 
 .tr-toggle-card:hover {
   background: rgba(255,255,255,0.05);
-  border-color: #2a3d50;
+  border-color: var(--border-light);
 }
 
 .tr-toggle-card.active {
@@ -570,7 +570,7 @@
   color: #c0d0e0;
 }
 
-.tr-toggle-card.active .tr-toggle-title { color: #fbbf24; }
+.tr-toggle-card.active .tr-toggle-title { color: var(--warning-color); }
 
 .tr-toggle-hint {
   font-size: 0.75rem;
@@ -611,7 +611,7 @@
   justify-content: flex-end;
   gap: 0.75rem;
   padding-top: 0.5rem;
-  border-top: 1px solid #1a2740;
+  border-top: 1px solid var(--card-bg-active);
   margin-top: 0.25rem;
 }
 
@@ -628,7 +628,7 @@
 }
 
 .tr-btn-cancel:hover {
-  border-color: #2a3d50;
+  border-color: var(--border-light);
   color: var(--text);
 }
 
@@ -668,7 +668,7 @@
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
-  color: #fca5a5;
+  color: var(--badge-text-danger);
   padding: 0.65rem 0.875rem;
   font-size: 0.85rem;
   margin-bottom: 0.5rem;

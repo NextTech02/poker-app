@@ -37,7 +37,7 @@
   background: rgba(239, 68, 68, 0.15);
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
-  color: #fca5a5;
+  color: var(--badge-text-danger);
   padding: 0.6rem 1.25rem;
   font-size: 0.875rem;
   font-weight: 600;

@@ -71,7 +71,7 @@
   font-weight: 800;
   font-size: 1.05rem;
   color: #fff;
-  /* a ponta clara (#9a70f9) so' dava 3,47:1 com a inicial em branco;
+  /* a ponta clara (var(--accent-hover)) so' dava 3,47:1 com a inicial em branco;
      fechando no --accent-active o pior par vira 5,92:1 */
   background: linear-gradient(135deg, var(--accent-color, #7233f8), var(--accent-active, #5b21e0));
 }

@@ -122,7 +122,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-gold) 0%, #764ba2 100%);
   border-radius: 16px 16px 0 0;
 }
 
@@ -179,11 +179,11 @@
 .form-group input {
   width: 100%;
   padding: 0.875rem 1rem;
-  border: 2px solid #4a5568;
+  border: 2px solid var(--border-lighter);
   border-radius: 8px;
   font-size: 1rem;
   color: #ffffff;
-  background: #2d3748;
+  background: var(--border-light);
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
@@ -194,13 +194,13 @@
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-gold);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
-  background: #2d3748;
+  background: var(--border-light);
 }
 
 .form-group input:hover {
-  border-color: #667eea;
+  border-color: var(--brand-gold);
 }
 
 .form-row {
@@ -216,7 +216,7 @@
   gap: 1rem;
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 2px solid #4a5568;
+  border-top: 2px solid var(--border-lighter);
 }
 
 /* Empty State */
@@ -234,13 +234,13 @@
 .empty-state p {
   margin-bottom: 1.5rem;
   font-size: 1.125rem;
-  color: #4a5568;
+  color: var(--border-lighter);
 }
 
 .empty-state p:first-child {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--border-light);
 }
 
 /* A barra de rolagem vem do padrão global em styles/index.css.
@@ -293,7 +293,7 @@
   }
 
   .blinds-table thead {
-    background: #667eea !important;
+    background: var(--brand-gold) !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -313,7 +313,7 @@
 
 /* Focus visible for accessibility */
 *:focus-visible {
-  outline: 2px solid #667eea;
+  outline: 2px solid var(--brand-gold);
   outline-offset: 2px;
 }
 
@@ -374,7 +374,7 @@
 
 .break-info p {
   margin: 0;
-  color: #fbbf24;
+  color: var(--warning-color);
   font-size: 0.95rem;
 }
 
@@ -450,8 +450,8 @@
 }
 
 /* Escolha do nível de blind. Pintura, chevron, foco e lista escura vêm do
-   padrão global (styles/index.css) — este bloco tinha cinza-azulado #2d3748 e
-   foco lilás #667eea de uma paleta antiga, que não é a da marca. */
+   padrão global (styles/index.css) — este bloco tinha cinza-azulado var(--border-light) e
+   foco lilás var(--brand-gold) de uma paleta antiga, que não é a da marca. */
 .level-select {
   width: 100%;
   padding-top: 0.875rem;
@@ -496,14 +496,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.25rem;
-  background: #2d3748;
+  background: var(--border-light);
   border-radius: 8px;
-  border: 1px solid #4a5568;
+  border: 1px solid var(--border-lighter);
   transition: all 0.2s ease;
 }
 
 .template-item:hover {
-  border-color: #667eea;
+  border-color: var(--brand-gold);
   background: #374151;
 }
 
@@ -544,11 +544,11 @@
 .form-group textarea {
   width: 100%;
   padding: 0.875rem 1rem;
-  border: 2px solid #4a5568;
+  border: 2px solid var(--border-lighter);
   border-radius: 8px;
   font-size: 1rem;
   color: #ffffff;
-  background: #2d3748;
+  background: var(--border-light);
   transition: all 0.2s ease;
   box-sizing: border-box;
   resize: vertical;
@@ -557,7 +557,7 @@
 
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-gold);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
 }
 
@@ -575,7 +575,7 @@
 
 .save-template-info p {
   margin: 0;
-  color: #a5b4fc;
+  color: var(--text-gold);
   font-size: 0.9rem;
 }
 

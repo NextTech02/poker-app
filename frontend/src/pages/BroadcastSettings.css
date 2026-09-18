@@ -89,8 +89,8 @@
   gap: 0.55rem;
   padding: 0.5rem 1rem;
   border-radius: 8px;
-  border: 1px solid #7233f8;
-  background: #7233f8;
+  border: 1px solid var(--accent-color);
+  background: var(--accent-color);
   cursor: pointer;
   transition: all 0.18s;
   user-select: none;
@@ -104,7 +104,7 @@
   border-color: #5b21e0;
 }
 
-/* o par tinta escura sobre o roxo #7233f8 do .bs-tv-code dava 2,88:1
+/* o par tinta escura sobre o roxo var(--accent-color) do .bs-tv-code dava 2,88:1
    (o Sonar nao pegou porque o fundo vem do elemento pai) */
 .bs-tv-code-label {
   font-size: 0.82rem;
@@ -558,7 +558,7 @@
   padding: 0.6rem 1.5rem;
   border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #1a7a4a 0%, #7233f8 100%);
+  background: linear-gradient(135deg, #1a7a4a 0%, var(--accent-color) 100%);
   color: #fff;
   font-size: 0.85rem;
   font-weight: 600;

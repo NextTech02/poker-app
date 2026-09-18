@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 30%, #10202e 0%, #0a0e13 70%);
+  background: radial-gradient(circle at 50% 30%, #10202e 0%, var(--primary-bg) 70%);
   padding: 24px;
 }
 
@@ -20,14 +20,14 @@
 
 .tv-code__title {
   margin: 0 0 8px;
-  color: #5b5be8;
+  color: var(--brand-gold);
   font-size: 1.8rem;
   letter-spacing: 1px;
 }
 
 .tv-code__subtitle {
   margin: 0 0 28px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -46,8 +46,8 @@
   text-align: center;
   text-transform: uppercase;
   color: #fff;
-  background: #0a0e13;
-  border: 2px solid #7233f8;
+  background: var(--primary-bg);
+  border: 2px solid var(--accent-color);
   border-radius: 10px;
   outline: none;
   box-sizing: border-box;
@@ -61,7 +61,7 @@
   font-weight: 700;
   /* tinta escura sobre o roxo dava 2,88:1 na ponta clara do gradiente */
   color: var(--text-primary, #e0eaf4);
-  background: linear-gradient(90deg, #7233f8, #5b21e0);
+  background: linear-gradient(90deg, var(--accent-color), #5b21e0);
   border: none;
   border-radius: 10px;
   cursor: pointer;

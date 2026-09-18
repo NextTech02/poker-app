@@ -380,8 +380,8 @@
 
 .day-status-badge.completed {
   background: rgba(99, 102, 241, 0.12);
-  /* #818cf8 sobre o proprio tint dava 4,14:1; #a5b4fc mantem o indigo em 6,20:1 */
-  color: #a5b4fc;
+  /* #818cf8 sobre o proprio tint dava 4,14:1; var(--text-gold) mantem o indigo em 6,20:1 */
+  color: var(--text-gold);
   border: 1px solid rgba(99, 102, 241, 0.25);
 }
 
@@ -412,7 +412,7 @@
 
 .day-type-badge.final {
   background: rgba(251, 191, 36, 0.1);
-  color: #fbbf24;
+  color: var(--warning-color);
   border: 1px solid rgba(251, 191, 36, 0.2);
 }
 
@@ -440,7 +440,7 @@
 }
 
 .section-title-final {
-  color: #fbbf24 !important;
+  color: var(--warning-color) !important;
   border-bottom-color: rgba(251, 191, 36, 0.3) !important;
 }
 

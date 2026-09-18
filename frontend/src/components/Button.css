@@ -169,8 +169,8 @@
 
 .btn-ghost:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
-  color: #c9d5e0;
-  border-color: #2a3f5f;
+  color: var(--text-primary);
+  border-color: var(--card-bg-active);
   transform: translateY(-1px);
   box-shadow: none;
 }

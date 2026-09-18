@@ -51,7 +51,7 @@
    irmas acima (7,0:1). */
 .cb-admin__pill--archived {
   background: var(--text-tertiary);
-  color: #0a0f17;
+  color: var(--primary-bg);
 }
 
 .cb-admin__staff {
