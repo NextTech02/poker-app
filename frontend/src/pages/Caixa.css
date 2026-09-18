@@ -74,7 +74,12 @@
 }
 
 .cx-stat-total {
-  color: var(--accent-color, var(--warning-yellow)) !important;
+  color: var(--text-primary) !important;
+}
+
+.stat-card:has(.cx-stat-total) {
+  background: var(--surface-hi);
+  border-color: var(--surface-hi-border);
 }
 
 /* ── Table ── */

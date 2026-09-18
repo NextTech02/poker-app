@@ -73,8 +73,14 @@
 }
 
 /* Valor em destaque dourado */
+/* Número em branco: cor é para estado, não para grandeza. */
 .rl-accent {
-  color: var(--accent-color, var(--warning-yellow)) !important;
+  color: var(--text-primary) !important;
+}
+
+.stat-card:has(.rl-accent):first-child {
+  background: var(--surface-hi);
+  border-color: var(--surface-hi-border);
 }
 
 .section-title {

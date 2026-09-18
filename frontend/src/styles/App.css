@@ -75,11 +75,11 @@
   margin-right: 4px;
 }
 
-.page-header .cx-header-icon,
-.page-header .tr-header-icon,
-.page-header .rl-header-icon,
-.page-header .pl-header-icon,
-.page-header .et-header-icon {
+.main-content .cx-header-icon,
+.main-content .tr-header-icon,
+.main-content .rl-header-icon,
+.main-content .pl-header-icon,
+.main-content .et-header-icon {
   display: none;
 }
 
@@ -116,7 +116,9 @@
   min-width: 0;
 }
 
-.stat-card .card-body > :not(.stat-info) {
+/* Só o tile "ícone + .stat-info" ganha o ícone no canto: cartões que usam
+   .stat-card com outro miolo (Caixa Geral) ficam como estão. */
+.stat-card .card-body:has(> .stat-info) > :not(.stat-info) {
   position: absolute;
   top: 14px;
   right: 14px;
@@ -133,7 +135,7 @@
   opacity: 0.8;
 }
 
-.stat-card .card-body > :not(.stat-info) svg {
+.stat-card .card-body:has(> .stat-info) > :not(.stat-info) svg {
   width: 20px;
   height: 20px;
 }

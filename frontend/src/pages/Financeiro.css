@@ -23,30 +23,16 @@
   padding-bottom: 0.25rem;
 }
 
-/* Stat colors */
-.fn-stat-revenue {
-  color: var(--brand-green) !important;
-}
-
-.fn-stat-prize {
-  color: var(--warning) !important;
-}
-
-.fn-stat-result {
-  color: var(--text-info) !important;
-}
-
-.fn-stat-rake {
-  color: #a855f7 !important;
-}
-
-.fn-stat-credits {
-  color: #f97316 !important;
-}
-
-/* Despesa é saída de caixa: vermelho, o mesmo código do negativo no DRE. */
+/* KPIs: número em branco (o sistema visual reserva cor para ESTADO, não para
+   grandeza). Só o que é saída de caixa fica em vermelho, o mesmo código do
+   negativo no DRE; e a receita bruta é o tile destacado. */
 .fn-stat-expense {
-  color: var(--danger-color, #ef4444) !important;
+  color: var(--text-danger) !important;
+}
+
+.stat-card:has(.fn-stat-revenue) {
+  background: var(--surface-hi);
+  border-color: var(--surface-hi-border);
 }
 
 /* DRE Card */
