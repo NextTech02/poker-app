@@ -1,9 +1,101 @@
+/* Login em duas colunas: à esquerda o painel da marca (violeta do manual,
+   assinatura, os três módulos); à direita o formulário. No celular o painel
+   vira uma faixa curta em cima. */
 .login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   min-height: 100vh;
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  background: var(--primary-bg);
+}
+
+.login-brand {
+  background: linear-gradient(160deg, #7230fb 0%, #3a06a6 100%);
+  position: relative;
+  overflow: hidden;
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #fff;
+}
+
+.login-brand::after {
+  content: '';
+  position: absolute;
+  right: -160px;
+  bottom: -200px;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 62%);
+  pointer-events: none;
+}
+
+.login-brand-logo {
+  width: 190px;
+  height: auto;
+  display: block;
+  position: relative;
+}
+
+.login-tagline {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  max-width: 440px;
+  margin: 0;
+  color: #fff;
+  position: relative;
+}
+
+.login-tagline-sub {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 420px;
+  margin: 14px 0 0;
+  line-height: 1.5;
+  position: relative;
+}
+
+.login-modules {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+  position: relative;
+}
+
+.login-modules span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.login-modules svg {
+  width: 16px;
+  height: 16px;
+}
+
+.login-brand-foot {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.6);
+  position: relative;
+}
+
+.login-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
   position: relative;
 }
 
@@ -15,155 +107,189 @@
 }
 
 .login-card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 3rem;
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .login-header {
-  text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 0.25rem;
 }
 
 .login-header h1 {
-  color: var(--accent-color);
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.875rem;
+  margin: 0;
 }
 
+/* O logotipo só entra no cabeçalho do formulário no celular, onde o painel
+   da marca some. */
 .login-logo {
-  height: 46px;
+  display: none;
+  height: 34px;
   width: auto;
-  max-width: 80%;
-  object-fit: contain;
+  margin-bottom: 1rem;
 }
 
 .login-header p {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  margin: 6px 0 0;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.125rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
+  margin: 0;
 }
 
 .form-group label {
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  font-size: 12.5px;
   font-weight: 500;
-  font-size: 0.9rem;
 }
 
 .form-group input {
-  padding: 0.75rem 1rem;
-  background-color: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  padding: 0 0.85rem;
+  height: 44px;
+  background-color: var(--card-bg-hover);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
   color: var(--text-primary);
-  font-size: 1rem;
-  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-group input:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(114, 51, 248, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .form-group input::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
 .error-message {
-  padding: 0.75rem 1rem;
-  background-color: rgba(231, 76, 60, 0.1);
-  border: 1px solid var(--danger-color);
-  border-radius: 4px;
-  color: var(--danger-color);
-  font-size: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  background-color: var(--danger-bg);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text-danger);
+  font-size: 0.875rem;
 }
 
 .login-btn {
   width: 100%;
-  margin-top: 1rem;
+  height: 48px;
+  font-size: 15px;
+  border-radius: 12px;
+  margin-top: 0.25rem;
 }
 
-/* Recuperação de senha: link de alternância, aviso e texto de apoio */
 .login-link {
-  display: block;
-  margin: 0.9rem auto 0;
   background: none;
   border: none;
   color: var(--text-secondary, #8aa0b0);
-  font-size: 0.84rem;
+  font-size: 0.875rem;
   cursor: pointer;
+  padding: 0;
+  align-self: flex-start;
   text-decoration: underline;
-  padding: 0.3rem;
+  text-underline-offset: 3px;
 }
+
 .login-link:hover { color: var(--text-primary, #e0eaf4); }
 .login-link:focus-visible {
-  outline: 2px solid var(--accent-color, #7233f8);
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 .login-forgot-hint {
-  margin: 0 0 1rem;
-  font-size: 0.86rem;
-  line-height: 1.5;
+  margin: 0;
   color: var(--text-secondary, #8aa0b0);
-  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .login-notice {
-  margin-bottom: 1rem;
   padding: 0.75rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
   line-height: 1.45;
-  color: var(--success-color, #10b981);
-  background: color-mix(in srgb, var(--success-color, #10b981) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--success-color, #10b981) 32%, transparent);
+  color: var(--text-success, #10b981);
+  background: var(--success-bg);
+  border: 1px solid transparent;
 }
 
-/* Seletor de idioma no canto superior direito: o menu abre alinhado à ESQUERDA
-   do botão por padrão, o que o fazia crescer para fora da tela e ficar cortado.
-   Aqui ele é ancorado à direita e cresce para dentro. Vale também para as telas
-   de convite e de escolha de organização, que reaproveitam este layout. */
 .login-language-selector .language-dropdown {
-  left: auto;
-  right: 0;
-}
-.login-language-selector .language-name {
-  white-space: nowrap;
+  min-width: 140px;
 }
 
-/* Aviso do hCaptcha: no modo invisível não há widget, então este texto é a
-   única indicação de que a proteção existe (e é exigido pelo hCaptcha). */
+.login-language-selector .language-name {
+  display: inline;
+}
+
 .login-captcha-aviso {
-  margin-top: 1.1rem;
+  margin: 0;
+  font-size: 0.75rem;
   text-align: center;
-  font-size: 0.72rem;
   color: var(--text-tertiary, #5a7080);
-  line-height: 1.5;
 }
 
 .login-captcha-aviso a {
   color: var(--text-secondary, #8aa0b0);
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .login-captcha-aviso a:hover {
   color: var(--accent-hover, #9a70f9);
+}
+
+/* Telas de entrada sem o painel da marca (escolha de clube/módulo, definir
+   senha): uma coluna, centrada, com o brilho violeta no topo. */
+.login-container.login-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  position: relative;
+  background: radial-gradient(55% 45% at 50% 0%, rgba(114, 48, 251, 0.28), transparent 60%), var(--primary-bg);
+}
+
+.login-container.login-centered .login-logo {
+  display: block;
+  height: 40px;
+  margin: 0 auto 0.5rem;
+}
+
+.login-container.login-centered .login-header {
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .login-container {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .login-brand {
+    display: none;
+  }
+
+  .login-logo {
+    display: block;
+  }
+
+  .login-side {
+    padding: 72px 20px 32px;
+  }
 }

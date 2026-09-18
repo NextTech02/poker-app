@@ -11,13 +11,21 @@
 }
 
 .es-icon {
-  font-size: 3rem;
-  width: 64px;
-  height: 64px;
+  font-size: 2rem;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  border-radius: 14px;
+  background: var(--card-bg-active);
+  color: var(--text-tertiary);
+}
+
+.es-icon svg {
+  width: 26px;
+  height: 26px;
 }
 
 .es-icon svg {

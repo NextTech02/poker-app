@@ -44,6 +44,7 @@ export const ICON_PATHS = {
   receipt: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z',
   // Casca do redesign (trilho, menu e barra do topo).
   'trophy-cup': 'M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z M7 6H4a3 3 0 003 3M17 6h3a3 3 0 01-3 3',
+  check: 'M5 12l4 4L19 7',
   grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   'chevron-right': 'M9 6l6 6-6 6',
   'chevron-left': 'M15 6l-6 6 6 6',

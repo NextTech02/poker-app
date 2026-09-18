@@ -1,23 +1,91 @@
-/* Escolha de módulo (torneio × cash game) após o login.
-   Herda quase tudo de SelectOrg.css; aqui ficam só as diferenças. */
+/* Escolha de módulo após o login: um cartão por módulo contratado, com a
+   tinta do módulo no ícone (a mesma do trilho). Herda o container centrado e o
+   cabeçalho de SelectOrg.css; a grade e o cartão são daqui. */
+.so-card.sm-wide {
+  max-width: 980px;
+}
 
-/* O item tem duas linhas de texto e a segunda é uma frase inteira, não um
-   rótulo curto como o nome de um clube — precisa respirar mais. */
-.sm-item {
-  padding-top: 1rem;
-  padding-bottom: 1rem;
+.sm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sm-card {
+  width: 100%;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
   align-items: flex-start;
+  gap: 12px;
+  padding: 24px 22px;
+  border: 1px solid var(--border-primary);
+  border-radius: 18px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.sm-item .so-meta {
+.sm-card:hover {
+  border-color: var(--border-lighter);
+  background: var(--card-bg-hover);
+}
+
+.sm-card:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.sm-ico {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--badge-text-accent);
+}
+
+.sm-ico svg {
+  width: 24px;
+  height: 24px;
+}
+
+.sm-card.mod-tournament .sm-ico { background: var(--mod-tournament-soft); color: var(--mod-tournament); }
+.sm-card.mod-cash .sm-ico       { background: var(--mod-cash-soft);       color: var(--mod-cash); }
+.sm-card.mod-bar .sm-ico        { background: var(--mod-bar-soft);        color: var(--mod-bar); }
+
+.sm-card .so-name {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.sm-card .so-meta {
   white-space: normal;
-  line-height: 1.45;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  flex: 1;
 }
 
-/* O naipe substitui a inicial do clube. Fonte maior porque o glifo ocupa menos
-   da caixa do que uma letra. */
-.sm-avatar {
-  font-size: 1.5rem;
-  font-weight: 400;
-  line-height: 1;
+.sm-enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--badge-text-accent);
+}
+
+.sm-enter svg {
+  width: 16px;
+  height: 16px;
 }

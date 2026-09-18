@@ -63,6 +63,26 @@
   font-size: 0.875rem;
 }
 
+/* Ícone no título: discreto e do tamanho do texto. As caixinhas de ícone que
+   algumas telas põem antes do título (cx-/tr-/rl-/pl-/et-header-icon) saem:
+   a hierarquia agora vem do tamanho do título, não de um selo ao lado. */
+.page-header h1 svg,
+.page-header .page-header-icon {
+  width: 22px;
+  height: 22px;
+  vertical-align: -3px;
+  color: var(--text-tertiary);
+  margin-right: 4px;
+}
+
+.page-header .cx-header-icon,
+.page-header .tr-header-icon,
+.page-header .rl-header-icon,
+.page-header .pl-header-icon,
+.page-header .et-header-icon {
+  display: none;
+}
+
 .header-actions {
   display: flex;
   gap: 0.75rem;

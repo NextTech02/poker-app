@@ -70,7 +70,7 @@ const SelectOrg = () => {
   };
 
   return (
-    <div className="login-container">
+    <div className="login-container login-centered">
       <div className="login-language-selector">
         <LanguageSelector />
       </div>

@@ -21,6 +21,7 @@ import { novoId, saldoDaComanda } from '../utils/barTotais';
 import './CashFloor.css';
 import './Bar.css';
 import './BarPOS.css';
+import Icon from '../components/Icon';
 
 /**
  * A POS do bar — a tela-mãe do módulo.
@@ -202,7 +203,7 @@ const BarPOS = () => {
           <div className="stats-grid"><SkeletonStatCard /><SkeletonStatCard /></div>
         ) : !isOpen ? (
           <EmptyState
-            icon="🍹"
+            icon={<Icon name="cocktail" />}
             title={t('bar.noShiftTitle', 'O bar está fechado')}
             subtitle={t('bar.noShiftHint', 'Abra o turno para começar a lançar comandas. A data é a do turno — a noite que vira meia-noite é um turno só.')}
             ctaLabel={hasPermission('bar.shift') ? t('bar.openShift', 'Abrir turno') : undefined}

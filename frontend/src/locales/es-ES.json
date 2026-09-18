@@ -131,7 +131,12 @@
     "captchaFailed": "No se pudo completar la verificación de seguridad. Inténtalo de nuevo.",
     "captchaNotice": "Protegido por hCaptcha —",
     "captchaPrivacy": "Privacidad",
-    "captchaTerms": "Términos"
+    "captchaTerms": "Términos",
+    "enter": "Entrar",
+    "enterHint": "Usa el correo registrado por el administrador de tu club.",
+    "tagline1": "Más control.",
+    "tagline2": "Menos complicación.",
+    "taglineSub": "El sistema operativo del póker que mantiene tu operación en juego — torneos, cash game y bar en un solo lugar."
   },
   "dashboard": {
     "loadError": "No se pudieron cargar los datos. Reintentando...",
@@ -2475,7 +2480,8 @@
     "cashTitle": "Cash Game",
     "cashHint": "Mesas abiertas, lista de espera, buy-in y cash-out, facturación por día.",
     "barTitle": "Bar",
-    "barHint": "Productos, comandas por jugador, pedidos, stock y caja del bar."
+    "barHint": "Productos, comandas por jugador, pedidos, stock y caja del bar.",
+    "enter": "Entrar"
   },
   "cash": {
     "floor": "Sala",

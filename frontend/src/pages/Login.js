@@ -9,6 +9,7 @@ import LanguageSelector from '../components/LanguageSelector';
 import Captcha, { captchaAtivo } from '../components/Captcha';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
+import Icon from '../components/Icon';
 
 const Login = () => {
   const { t } = useTranslation();
@@ -130,12 +131,35 @@ const Login = () => {
 
   return (
     <div className="login-container">
+      {/* Painel da marca: a assinatura do manual de identidade e os três
+          módulos. É a primeira tela que um clube novo vê. */}
+      <aside className="login-brand" aria-hidden="true">
+        <img src={aceblindLogo} alt="" className="login-brand-logo" />
+        <div>
+          <p className="login-tagline">
+            {t('login.tagline1', 'Mais controle.')}<br />{t('login.tagline2', 'Menos complicação.')}
+          </p>
+          <p className="login-tagline-sub">
+            {t('login.taglineSub', 'O sistema operacional do poker que mantém sua operação em jogo — torneios, cash game e bar num só lugar.')}
+          </p>
+          <div className="login-modules">
+            <span><Icon name="trophy-cup" />{t('modules.tournamentTitle', 'Torneios')}</span>
+            <span><Icon name="chips" />{t('modules.cashTitle', 'Cash Game')}</span>
+            <span><Icon name="cocktail" />{t('modules.barTitle', 'Bar')}</span>
+          </div>
+        </div>
+        <div className="login-brand-foot">aceblind.net · Poker Management</div>
+      </aside>
+
+      <div className="login-side">
       <div className="login-language-selector">
         <LanguageSelector />
       </div>
       <div className="login-card">
         <div className="login-header">
           <img src={aceblindLogo} alt="AceBlind" className="login-logo" />
+          <h1>{mode === 'signin' ? t('login.enter', 'Entrar') : t('login.forgotPassword')}</h1>
+          {mode === 'signin' && <p>{t('login.enterHint', 'Use o e-mail cadastrado pelo administrador do seu clube.')}</p>}
         </div>
 
         {mode === 'signin' ? (
@@ -225,6 +249,7 @@ const Login = () => {
             </a>
           </p>
         )}
+      </div>
       </div>
     </div>
   );

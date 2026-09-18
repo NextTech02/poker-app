@@ -10,6 +10,7 @@ import { SkeletonBlock } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import './FichasClassificados.css';
+import Icon from '../components/Icon';
 
 // A partir de quantos classificados a busca por nome passa a valer a pena.
 // Abaixo disso o campo só ocupa espaço; acima, achar um jogador na lista vira
@@ -305,7 +306,7 @@ const FichasClassificados = () => {
 
       {!naoEClassificatorio && sobreviventes.length === 0 && (
         <EmptyState
-          icon="🃏"
+          icon={<Icon name="chips" />}
           title={t('tournamentDays.noSurvivors', 'Nenhum classificado neste dia')}
           subtitle={t('tournamentDays.noSurvivorsHint',
             'Enquanto todos os jogadores estiverem eliminados (ou nenhum tiver sido inscrito), não há fichas a registrar.')}

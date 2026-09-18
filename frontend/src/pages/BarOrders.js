@@ -11,6 +11,7 @@ import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import './CashFloor.css';
 import './Bar.css';
 import './BarOrders.css';
+import Icon from '../components/Icon';
 
 /**
  * PEDIDOS: o que foi lançado e ainda não saiu do balcão/cozinha.
@@ -110,7 +111,7 @@ const BarOrders = () => {
         ) : !isOpen ? (
           <EmptyState icon={null} title={t('bar.noShiftTitle', 'O bar está fechado')} />
         ) : porComanda.length === 0 ? (
-          <EmptyState icon="✅" title={t('bar.noPendingOrders', 'Tudo entregue')}
+          <EmptyState icon={<Icon name="check" />} title={t('bar.noPendingOrders', 'Tudo entregue')}
                       subtitle={t('bar.noPendingOrdersHint', 'Os itens lançados na POS aparecem aqui até serem entregues.')} />
         ) : (
           <div className="bo-grid">

@@ -131,7 +131,12 @@
     "captchaFailed": "We could not complete the security check. Please try again.",
     "captchaNotice": "Protected by hCaptcha —",
     "captchaPrivacy": "Privacy",
-    "captchaTerms": "Terms"
+    "captchaTerms": "Terms",
+    "enter": "Sign in",
+    "enterHint": "Use the e-mail registered by your club's administrator.",
+    "tagline1": "More control.",
+    "tagline2": "Less hassle.",
+    "taglineSub": "The poker operating system that keeps your operation in play — tournaments, cash game and bar in one place."
   },
   "dashboard": {
     "loadError": "Could not load the data. Retrying...",
@@ -2475,7 +2480,8 @@
     "cashTitle": "Cash Game",
     "cashHint": "Open tables, waiting list, buy-in and cash-out, daily revenue.",
     "barTitle": "Bar",
-    "barHint": "Products, per-player tabs, orders, stock and the bar cash drawer."
+    "barHint": "Products, per-player tabs, orders, stock and the bar cash drawer.",
+    "enter": "Enter"
   },
   "cash": {
     "floor": "Floor",

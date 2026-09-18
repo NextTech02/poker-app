@@ -7,6 +7,7 @@ import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
 import './SelectOrg.css';
 import './SelectModule.css';
+import Icon from '../components/Icon';
 
 /**
  * Escolha do módulo logo após o login, para o clube que contratou mais de um.
@@ -19,7 +20,7 @@ import './SelectModule.css';
 const MODULOS = [
   {
     key: MODULO_TORNEIO,
-    icon: '♠',
+    icon: 'trophy-cup',
     titleKey: 'modules.tournamentTitle',
     titleFallback: 'Torneios',
     hintKey: 'modules.tournamentHint',
@@ -27,7 +28,7 @@ const MODULOS = [
   },
   {
     key: MODULO_CASH,
-    icon: '♣',
+    icon: 'chips',
     titleKey: 'modules.cashTitle',
     titleFallback: 'Cash Game',
     hintKey: 'modules.cashHint',
@@ -35,7 +36,7 @@ const MODULOS = [
   },
   {
     key: MODULO_BAR,
-    icon: '♦',
+    icon: 'cocktail',
     titleKey: 'modules.barTitle',
     titleFallback: 'Bar',
     hintKey: 'modules.barHint',
@@ -61,12 +62,12 @@ const SelectModule = () => {
   const disponiveis = MODULOS.filter((m) => modules.includes(m.key));
 
   return (
-    <div className="login-container">
+    <div className="login-container login-centered">
       <div className="login-language-selector">
         <LanguageSelector />
       </div>
 
-      <div className="login-card so-card">
+      <div className="login-card so-card sm-wide">
         <div className="login-header">
           <img src={aceblindLogo} alt="AceBlind" className="login-logo" />
         </div>
@@ -79,20 +80,18 @@ const SelectModule = () => {
         {loading ? (
           <p className="so-loading">{t('common.loading', 'Carregando...')}</p>
         ) : (
-          <ul className="so-list">
+          <ul className="so-list sm-grid">
             {disponiveis.map((m) => (
               <li key={m.key}>
                 <button
                   type="button"
-                  className="so-item sm-item"
+                  className={`sm-card mod-${m.key}`}
                   onClick={() => entrar(m.key)}
                 >
-                  <span className="so-avatar sm-avatar" aria-hidden="true">{m.icon}</span>
-                  <span className="so-info">
-                    <span className="so-name">{t(m.titleKey, m.titleFallback)}</span>
-                    <span className="so-meta">{t(m.hintKey, m.hintFallback)}</span>
-                  </span>
-                  <span className="so-arrow" aria-hidden="true">›</span>
+                  <span className="sm-ico" aria-hidden="true"><Icon name={m.icon} /></span>
+                  <span className="so-name">{t(m.titleKey, m.titleFallback)}</span>
+                  <span className="so-meta">{t(m.hintKey, m.hintFallback)}</span>
+                  <span className="sm-enter">{t('modules.enter', 'Entrar')} <Icon name="chevron-right" /></span>
                 </button>
               </li>
             ))}
