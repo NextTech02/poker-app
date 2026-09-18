@@ -73,6 +73,10 @@ class FinancialService:
                     other_revenue_pending=rev["pending"],
                     other_revenue_by_source=[ExpenseCategoryTotal(**c) for c in rev["by_source"]],
                     net_result=bruto + rev["total"] - exp["total"],
+                    # Etapa sem torneio: o DRE de torneio é só o que já se
+                    # gastou (e as outras receitas lançadas nela).
+                    tournament_net_result=rev["total"] - exp["total"],
+                    cash_net_result=cash["cash_revenue"],
                 )
 
         # Filtro por torneio específico (compõe com etapa/datas).
@@ -287,6 +291,11 @@ class FinancialService:
             other_revenue_pending=rev["pending"],
             other_revenue_by_source=[ExpenseCategoryTotal(**c) for c in rev["by_source"]],
             net_result=net_result,
+            tournament_gross_revenue=revenue_total,
+            tournament_rake=rake_total,
+            tournament_operational_result=revenue_total - prize_total,
+            tournament_net_result=revenue_total - prize_total + rev["total"] - exp["total"],
+            cash_net_result=cash["cash_revenue"],
             pending_credits=pending_credits,
             available_tickets=available_tickets,
             by_tournament=by_tournament,

@@ -102,6 +102,32 @@ class TestResultadoDaEtapa:
         assert s.operational_result == 600
         assert s.net_result == 1300
 
+    def test_cada_modulo_tem_o_seu_resultado(self, monkeypatch):
+        # O DRE e por modulo: o de torneio fecha com entradas, premios, outras
+        # receitas e despesas da etapa; o do cash e o rake; o do bar e a margem.
+        # O consolidado continua somando os tres brutos.
+        _monta(monkeypatch,
+               transacoes=[_entrada("buy_in", 1000), _entrada("prize", 400)],
+               despesas=_resumo_despesas(total=800, pago=800),
+               receitas=_resumo_receitas(total=1500, recebido=1500))
+        monkeypatch.setattr(cash_report_service.CashReportService, "summarize",
+                            staticmethod(lambda *a, **k: {
+                                "cash_revenue": 250.0, "cash_jackpot_collected": 30.0, "cash_jackpot_paid": 0.0,
+                                "cash_buy_ins": 5000.0, "cash_cash_outs": 4700.0, "cash_days_count": 1,
+                                "cash_tables_count": 2, "cash_players_count": 9}))
+        monkeypatch.setattr(bar_report_service.BarReportService, "summarize",
+                            staticmethod(lambda *a, **k: {
+                                "bar_revenue": 300.0, "bar_gross": 320.0, "bar_discounts": 20.0,
+                                "bar_cogs": 120.0, "bar_gross_margin": 180.0, "bar_tabs_count": 6, "bar_shifts_count": 1}))
+        s = FinancialService.get_financial_summary(stage_id=STAGE, organization_id=ORG)
+        assert s.tournament_gross_revenue == 1000
+        assert s.tournament_operational_result == 600
+        assert s.tournament_net_result == 600 + 1500 - 800
+        assert s.cash_net_result == 250
+        assert s.bar_gross_margin == 180
+        # consolidado: os brutos dos tres somados
+        assert s.gross_revenue == 1000 + 250 + 300
+
     def test_despesa_pendente_conta_no_resultado(self, monkeypatch):
         """DRE por competencia: o que foi assumido pesa, mesmo sem ter sido pago."""
         _monta(monkeypatch,

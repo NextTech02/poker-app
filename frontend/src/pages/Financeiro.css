@@ -242,3 +242,56 @@
 .fn-bar-card .stats-grid {
   margin-top: 0.5rem;
 }
+
+/* Seletor do DRE por módulo: segmentado, com o ponto na tinta do módulo. */
+.fn-mod-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 1rem;
+  background: var(--card-bg-hover);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+}
+
+.fn-mod-seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fn-mod-seg__btn i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.fn-mod-seg__btn--on {
+  background: var(--card-bg-active);
+  color: var(--text-primary);
+}
+
+.fn-mod-seg__btn.mod-tournament i { background: var(--mod-tournament); opacity: 1; }
+.fn-mod-seg__btn.mod-cash i       { background: var(--mod-cash); opacity: 1; }
+.fn-mod-seg__btn.mod-bar i        { background: var(--mod-bar); opacity: 1; }
+
+.fn-filters-hint {
+  margin: 0.5rem 0 0;
+  font-size: 12.5px;
+}
+
+.fn-dre-link {
+  margin: 0.75rem 0 0;
+  text-align: right;
+}

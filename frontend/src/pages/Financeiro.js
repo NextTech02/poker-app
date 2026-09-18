@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Icon from '../components/Icon';
@@ -14,21 +15,42 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useModule } from '../contexts/ModuleContext';
 import PaymentMethodsManager from '../components/PaymentMethodsManager';
-import BarSummaryCard from '../components/BarSummaryCard';
 import ExpensesManager from '../components/ExpensesManager';
 import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+
+// Os mesmos ids de MODULO_* do ModuleContext, repetidos aqui de propósito: os
+// testes desta tela substituem o contexto inteiro e as constantes sumiriam.
+const MODULO_TORNEIO = 'tournament';
+const MODULO_CASH = 'cash';
+const MODULO_BAR = 'bar';
+
+const ROTULO_DO_MODULO = {
+  [MODULO_TORNEIO]: ['modules.tournamentTitle', 'Torneios'],
+  [MODULO_CASH]: ['modules.cashTitle', 'Cash Game'],
+  [MODULO_BAR]: ['modules.barTitle', 'Bar'],
+};
 
 const Financeiro = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { currency, setCurrency, currencies, formatCurrency } = useCurrency();
   const { labelFor: paymentLabelFor } = usePaymentMethods();
-  // A aba Bar só existe para quem contratou o módulo. `hasModule` pode não
-  // existir fora do provider (testes antigos) — sem ele, sem aba.
-  const { hasModule } = useModule();
-  const temBar = typeof hasModule === 'function' && hasModule('bar');
+  // O DRE é POR MÓDULO: cada um tem o seu, independente. O seletor oferece
+  // só os módulos contratados e abre no módulo em que a pessoa está.
+  // `modules`/`module` podem não existir fora do provider (testes antigos):
+  // aí sobra o torneio, como sempre foi.
+  const { module: moduloAtivo, modules: modulosDoClube } = useModule();
+  const modulosDoDre = useMemo(() => {
+    const ordem = [MODULO_TORNEIO, MODULO_CASH, MODULO_BAR];
+    const tem = Array.isArray(modulosDoClube) && modulosDoClube.length ? modulosDoClube : [MODULO_TORNEIO];
+    return ordem.filter((m) => tem.includes(m));
+  }, [modulosDoClube]);
+  const [moduloEscolhido, setModuloEscolhido] = useState(null);
+  const moduloDre = modulosDoDre.includes(moduloEscolhido)
+    ? moduloEscolhido
+    : (modulosDoDre.includes(moduloAtivo) ? moduloAtivo : modulosDoDre[0]);
   const fmt = formatCurrency;
 
   const [tab, setTab] = useState('dre'); // 'dre' | 'caixas'
@@ -221,18 +243,7 @@ const Financeiro = () => {
           >
             {t('financial.paymentMethodsTab', 'Métodos de Pagamento')}
           </button>
-          {temBar && (
-            <button
-              type="button"
-              className={`fn-tab ${tab === 'bar' ? 'fn-tab--active' : ''}`}
-              onClick={() => setTab('bar')}
-            >
-              {t('financial.barTab', 'Bar')}
-            </button>
-          )}
         </div>
-
-        {tab === 'bar' && temBar && <BarSummaryCard period={{ start: filters.start, end: filters.end }} />}
 
         {tab === 'caixas' && <CashboxAdminPanel />}
 
@@ -246,9 +257,30 @@ const Financeiro = () => {
 
         {tab === 'dre' && (
         <>
-        {/* Filters */}
+        {/* Um DRE por módulo. O seletor só aparece com mais de um contratado. */}
+        {modulosDoDre.length > 1 && (
+          <div className="fn-mod-seg" role="tablist" aria-label={t('financial.byModule', 'DRE por módulo')}>
+            {modulosDoDre.map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={moduloDre === m}
+                className={`fn-mod-seg__btn mod-${m} ${moduloDre === m ? 'fn-mod-seg__btn--on' : ''}`}
+                onClick={() => setModuloEscolhido(m)}
+              >
+                <i />
+                {t(ROTULO_DO_MODULO[m][0], ROTULO_DO_MODULO[m][1])}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Filters. Etapa e torneio só valem para o torneio: o cash é por dia
+            de operação e o bar por turno — para eles só as datas contam. */}
         <Card className="fn-filters-card">
           <div className="fn-filters">
+            {moduloDre === MODULO_TORNEIO && (
             <div className="form-group">
               <label>{t('financial.filterStage')}</label>
               <select value={filters.stage_id} onChange={(e) => setFilters(p => ({ ...p, stage_id: e.target.value, tournament_id: '' }))}>
@@ -258,6 +290,8 @@ const Financeiro = () => {
                 ))}
               </select>
             </div>
+            )}
+            {moduloDre === MODULO_TORNEIO && (
             <div className="form-group">
               <label>{t('financial.filterTournament', 'Torneio')}</label>
               <select value={filters.tournament_id} onChange={(e) => setFilters(p => ({ ...p, tournament_id: e.target.value }))}>
@@ -269,6 +303,7 @@ const Financeiro = () => {
                   ))}
               </select>
             </div>
+            )}
             <div className="form-group">
               <label>{t('financial.filterStart')}</label>
               <input type="date" value={filters.start} onChange={(e) => setFilters(p => ({ ...p, start: e.target.value }))} />
@@ -281,8 +316,193 @@ const Financeiro = () => {
               <Button onClick={handleFilter}>{t('common.generate')}</Button>
             </div>
           </div>
+          {moduloDre === MODULO_CASH && (
+            <p className="fn-muted fn-filters-hint">{t('financial.cashTabHint', 'O cash game é por dia de operação, não por etapa: só as datas do filtro valem aqui.')}</p>
+          )}
+          {moduloDre === MODULO_BAR && (
+            <p className="fn-muted fn-filters-hint">{t('financial.barTabHint', 'O bar é por turno, não por etapa: só as datas do filtro valem aqui.')}</p>
+          )}
         </Card>
 
+        {/* ── CASH GAME: receita é o RAKE; buy-in é giro, jackpot é passivo ── */}
+        {moduloDre === MODULO_CASH && (
+          <>
+            <div className="stats-grid">
+              {loading ? (
+                <><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></>
+              ) : data ? (
+                <>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3 className="fn-stat-revenue">{fmt(data.cash_revenue || 0)}</h3>
+                      <p>{t('financial.cashRevenueKpi', 'Receita (rake)')}</p>
+                    </div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3>{fmt(data.cash_buy_ins || 0)}</h3>
+                      <p>{t('financial.cashTurnoverKpi', 'Giro de buy-ins (não é receita)')}</p>
+                    </div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3>{fmt((data.cash_jackpot_collected || 0) - (data.cash_jackpot_paid || 0))}</h3>
+                      <p>{t('financial.cashJackpotKpi', 'Jackpot em fundo (passivo)')}</p>
+                    </div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3>{data.cash_days_count || 0}</h3>
+                      <p>{t('financial.cashDaysKpi', 'Dias operados')}</p>
+                    </div>
+                  </Card>
+                </>
+              ) : null}
+            </div>
+            {!loading && data && (
+              <Card title={t('financial.dreCashTitle', 'DRE do cash game')} className="fn-dre-card">
+                <div className="fn-dre">
+                  <div className="fn-dre-section">
+                    <div className="fn-dre-title">{t('financial.dreRevenues')}</div>
+                    <div className="fn-dre-row">
+                      <span>{t('financial.dreCashRevenue', 'Rake apurado nas mesas')}</span>
+                      <span>{fmt(data.cash_revenue || 0)}</span>
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--total">
+                      <span>{t('financial.dreCashGross', '= RECEITA BRUTA (rake)')}</span>
+                      <span>{fmt(data.cash_revenue || 0)}</span>
+                    </div>
+                    {/* Fora do total, e dito com todas as letras: buy-in é troca
+                        de dinheiro por ficha e quase tudo volta no cash-out. */}
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreCashTurnover', 'Giro do cash (não é receita)')}</span>
+                      <span>{fmt(data.cash_buy_ins || 0)}</span>
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreCashPaid', 'Cash-outs pagos')}</span>
+                      <span>{fmt(data.cash_cash_outs || 0)}</span>
+                    </div>
+                  </div>
+                  <div className="fn-dre-section">
+                    <div className="fn-dre-title">{t('financial.dreCashJackpotTitle', 'JACKPOT (passivo — dinheiro dos jogadores)')}</div>
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreCashJackpotCollected', 'Arrecadado no período')}</span>
+                      <span>{fmt(data.cash_jackpot_collected || 0)}</span>
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreCashJackpotPaid', 'Pago no período')}</span>
+                      <span>{fmt(data.cash_jackpot_paid || 0)}</span>
+                    </div>
+                  </div>
+                  <div className="fn-dre-section">
+                    <div className="fn-dre-title">{t('financial.dreResult', 'RESULTADO')}</div>
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreCashOperation', '{{days}} dia(s) · {{tables}} mesa(s) · {{players}} jogador(es)', {
+                        days: data.cash_days_count || 0, tables: data.cash_tables_count || 0, players: data.cash_players_count || 0,
+                      })}</span>
+                      <span />
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--highlight">
+                      <span>{t('financial.dreCashNet', '= RESULTADO DO CASH (rake)')}</span>
+                      <span className={(data.cash_net_result ?? data.cash_revenue ?? 0) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
+                        {fmt(data.cash_net_result ?? data.cash_revenue ?? 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="fn-muted fn-dre-link">
+                  <Link to="/cash/relatorios">{t('financial.cashFullReport', 'Faturamento completo do cash →')}</Link>
+                </p>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* ── BAR: vendas líquidas − CMV = margem bruta ── */}
+        {moduloDre === MODULO_BAR && (
+          <>
+            <div className="stats-grid">
+              {loading ? (
+                <><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></>
+              ) : data ? (
+                <>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3 className="fn-stat-revenue">{fmt(data.bar_revenue || 0)}</h3>
+                      <p>{t('financial.barNetKpi', 'Vendas líquidas')}</p>
+                    </div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3>{fmt(data.bar_gross_margin || 0)}</h3>
+                      <p>{t('financial.barMarginKpi', 'Margem bruta')}</p>
+                    </div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3>{fmt(data.bar_discounts || 0)}</h3>
+                      <p>{t('financial.barDiscountsKpi', 'Descontos e cortesias')}</p>
+                    </div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className="stat-info">
+                      <h3>{data.bar_tabs_count || 0}</h3>
+                      <p>{t('financial.barTabsKpi', 'Comandas fechadas')}</p>
+                    </div>
+                  </Card>
+                </>
+              ) : null}
+            </div>
+            {!loading && data && (
+              <Card title={t('financial.dreBarTitle', 'DRE do bar')} className="fn-dre-card">
+                <div className="fn-dre">
+                  <div className="fn-dre-section">
+                    <div className="fn-dre-title">{t('financial.dreRevenues')}</div>
+                    <div className="fn-dre-row">
+                      <span>{t('financial.dreBarGross', 'Vendas brutas')}</span>
+                      <span>{fmt(data.bar_gross || 0)}</span>
+                    </div>
+                    <div className="fn-dre-row">
+                      <span>{t('financial.dreBarDiscountsLine', '(−) Descontos e cortesias')}</span>
+                      <span className="fn-dre-negative">{fmt(data.bar_discounts || 0)}</span>
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--total">
+                      <span>{t('financial.dreBarNet', '= VENDAS LÍQUIDAS')}</span>
+                      <span>{fmt(data.bar_revenue || 0)}</span>
+                    </div>
+                  </div>
+                  <div className="fn-dre-section">
+                    <div className="fn-dre-title">{t('financial.dreDeductions')}</div>
+                    {/* A cortesia também sai do estoque: o CMV a inclui. */}
+                    <div className="fn-dre-row">
+                      <span>{t('financial.dreBarCogsLine', '(−) Custo das mercadorias vendidas (CMV, cortesia inclusa)')}</span>
+                      <span className="fn-dre-negative">{fmt(data.bar_cogs || 0)}</span>
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--highlight">
+                      <span>{t('financial.dreBarMargin', '= MARGEM BRUTA DO BAR')}</span>
+                      <span className={(data.bar_gross_margin || 0) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
+                        {fmt(data.bar_gross_margin || 0)}
+                      </span>
+                    </div>
+                    <div className="fn-dre-row fn-dre-row--muted">
+                      <span>{t('financial.dreBarOperation', '{{tabs}} comanda(s) fechada(s) · {{shifts}} turno(s)', {
+                        tabs: data.bar_tabs_count || 0, shifts: data.bar_shifts_count || 0,
+                      })}</span>
+                      <span />
+                    </div>
+                  </div>
+                </div>
+                <p className="fn-muted fn-dre-link">
+                  <Link to="/bar/relatorios">{t('financial.barFullReport', 'Relatório completo do bar →')}</Link>
+                </p>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* ── TORNEIOS ── */}
+        {moduloDre === MODULO_TORNEIO && (
+        <>
         {/* KPI Cards */}
         <div className="stats-grid">
           {loading ? (
@@ -291,7 +511,7 @@ const Financeiro = () => {
             <>
               <Card className="stat-card">
                 <div className="stat-info">
-                  <h3 className="fn-stat-revenue">{fmt(data.gross_revenue)}</h3>
+                  <h3 className="fn-stat-revenue">{fmt(data.tournament_gross_revenue ?? data.gross_revenue ?? 0)}</h3>
                   <p>{t('financial.grossRevenue')}</p>
                 </div>
               </Card>
@@ -303,7 +523,7 @@ const Financeiro = () => {
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
-                  <h3 className="fn-stat-result">{fmt(data.operational_result)}</h3>
+                  <h3 className="fn-stat-result">{fmt(data.tournament_operational_result ?? data.operational_result)}</h3>
                   <p>{t('financial.operationalResult')}</p>
                 </div>
               </Card>
@@ -315,15 +535,15 @@ const Financeiro = () => {
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
-                  <h3 className={(data.net_result || 0) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
-                    {fmt(data.net_result)}
+                  <h3 className={(data.tournament_net_result ?? data.net_result ?? 0) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
+                    {fmt(data.tournament_net_result ?? data.net_result)}
                   </h3>
                   <p>{t('financial.netResult', 'Resultado líquido')}</p>
                 </div>
               </Card>
               <Card className="stat-card">
                 <div className="stat-info">
-                  <h3 className="fn-stat-rake">{fmt(data.rake)}</h3>
+                  <h3 className="fn-stat-rake">{fmt(data.tournament_rake ?? data.rake)}</h3>
                   <p>{t('financial.accumulatedRake')}</p>
                 </div>
               </Card>
@@ -343,9 +563,9 @@ const Financeiro = () => {
           ) : null}
         </div>
 
-        {/* DRE */}
+        {/* DRE de torneios */}
         {!loading && data && (
-          <Card title={t('financial.incomeStatementTitle')} className="fn-dre-card">
+          <Card title={t('financial.dreTournamentTitle', 'DRE de torneios')} className="fn-dre-card">
             <div className="fn-dre">
               <div className="fn-dre-section">
                 <div className="fn-dre-title">{t('financial.dreRevenues')}</div>
@@ -367,64 +587,10 @@ const Financeiro = () => {
                     <span>{fmt(data.tickets_redeemed_value)}</span>
                   </div>
                 )}
-                {data.cash_revenue > 0 && (
-                  <div className="fn-dre-row">
-                    {/* O rake do cash é receita como a entrada de torneio: é o
-                        que o clube ficou. Entra no bruto. */}
-                    <span>{t('financial.dreCashRake', 'Rake do cash game')}</span>
-                    <span>{fmt(data.cash_revenue)}</span>
-                  </div>
-                )}
-                {data.bar_revenue > 0 && (
-                  <div className="fn-dre-row">
-                    {/* Comanda fechada é receita como a entrada de torneio.
-                        Entra no bruto. */}
-                    <span>{t('financial.dreBarRevenue', 'Vendas do bar')}</span>
-                    <span>{fmt(data.bar_revenue)}</span>
-                  </div>
-                )}
                 <div className="fn-dre-row fn-dre-row--total">
                   <span>{t('financial.dreGrossRevenue')}</span>
-                  <span>{fmt(data.gross_revenue)}</span>
+                  <span>{fmt(data.tournament_gross_revenue ?? data.gross_revenue ?? 0)}</span>
                 </div>
-                {data.bar_revenue > 0 && (
-                  <>
-                    <div className="fn-dre-row fn-dre-row--muted">
-                      <span>{t('financial.dreBarDiscounts', 'Descontos e cortesias do bar (já abatidos)')}</span>
-                      <span>{fmt(data.bar_discounts)}</span>
-                    </div>
-                    {/* INFORMATIVO: a compra da mercadoria já entra como
-                        despesa; subtrair o CMV também contaria duas vezes. */}
-                    <div className="fn-dre-row fn-dre-row--muted">
-                      <span>{t('financial.dreBarCogs', 'Custo das mercadorias do bar (informativo — a compra já é despesa)')}</span>
-                      <span>{fmt(data.bar_cogs)}</span>
-                    </div>
-                  </>
-                )}
-                {data.cash_buy_ins > 0 && (
-                  <>
-                    {/* Fora do total, e dito com todas as letras: buy-in é
-                        troca de dinheiro por ficha e quase tudo volta ao
-                        jogador no cash-out. Somá-lo aqui multiplicaria o
-                        faturamento do clube. */}
-                    <div className="fn-dre-row fn-dre-row--muted">
-                      <span>{t('financial.dreCashTurnover', 'Giro do cash (não é receita)')}</span>
-                      <span>{fmt(data.cash_buy_ins)}</span>
-                    </div>
-                    <div className="fn-dre-row fn-dre-row--muted">
-                      <span>{t('financial.dreCashPaid', 'Cash-outs pagos')}</span>
-                      <span>{fmt(data.cash_cash_outs)}</span>
-                    </div>
-                  </>
-                )}
-                {data.cash_jackpot_collected > 0 && (
-                  /* PASSIVO: dinheiro dos jogadores retido para pagamento
-                     futuro. Fora do bruto e fora do resultado. */
-                  <div className="fn-dre-row fn-dre-row--muted">
-                    <span>{t('financial.dreCashJackpot', 'Jackpot arrecadado (passivo, não é receita)')}</span>
-                    <span>{fmt(data.cash_jackpot_collected)}</span>
-                  </div>
-                )}
               </div>
 
               <div className="fn-dre-section">
@@ -435,8 +601,8 @@ const Financeiro = () => {
                 </div>
                 <div className="fn-dre-row fn-dre-row--total">
                   <span>{t('financial.dreOperationalResult')}</span>
-                  <span className={data.operational_result >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
-                    {fmt(data.operational_result)}
+                  <span className={(data.tournament_operational_result ?? data.operational_result) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
+                    {fmt(data.tournament_operational_result ?? data.operational_result)}
                   </span>
                 </div>
               </div>
@@ -506,12 +672,12 @@ const Financeiro = () => {
                 <div className="fn-dre-title">{t('financial.dreRake')}</div>
                 <div className="fn-dre-row">
                   <span>{t('financial.dreRakeAccumulated')}</span>
-                  <span>{fmt(data.rake)}</span>
+                  <span>{fmt(data.tournament_rake ?? data.rake)}</span>
                 </div>
                 <div className="fn-dre-row fn-dre-row--highlight">
                   <span>{t('financial.dreNetResult')}</span>
-                  <span className={data.net_result >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
-                    {fmt(data.net_result)}
+                  <span className={(data.tournament_net_result ?? data.net_result) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>
+                    {fmt(data.tournament_net_result ?? data.net_result)}
                   </span>
                 </div>
               </div>
@@ -620,6 +786,8 @@ const Financeiro = () => {
               </div>
             )}
           </Card>
+        )}
+        </>
         )}
         </>
         )}

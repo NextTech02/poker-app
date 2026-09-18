@@ -89,6 +89,16 @@ class FinancialSummary(BaseModel):
     bar_tabs_count: int = 0
     bar_shifts_count: int = 0
     net_result: float = 0           # operacional + outras receitas − despesas
+    # ── Por módulo ─────────────────────────────────────────────────────
+    # Cada módulo tem o seu DRE, independente; o consolidado acima continua
+    # para quem o lê. Torneio: entradas − premiação + outras receitas −
+    # despesas da etapa. Cash: o rake (não existe despesa por dia de cash).
+    # Bar: vendas líquidas − CMV = margem bruta (bar_gross_margin).
+    tournament_gross_revenue: float = 0
+    tournament_rake: float = 0
+    tournament_operational_result: float = 0
+    tournament_net_result: float = 0
+    cash_net_result: float = 0
     pending_credits: float = 0
     available_tickets: int = 0
     by_tournament: List[TournamentFinancial] = []

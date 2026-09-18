@@ -16,6 +16,7 @@
  *   daria a leitura oposta da realidade.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import Financeiro from './Financeiro';
 import api from '../config/api';
@@ -33,7 +34,10 @@ jest.mock('../components/RevenuesManager', () => () => <div data-testid="aba-rec
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
 jest.mock('../contexts/PaymentMethodsContext', () => ({ usePaymentMethods: jest.fn() }));
-jest.mock('../contexts/ModuleContext', () => ({ useModule: () => ({ hasModule: () => false }) }));
+// O DRE é por módulo: o contexto diz quais o clube contratou e qual está
+// aberto. Cada teste ajusta `contextoDeModulo` antes de montar.
+const contextoDeModulo = { hasModule: () => false };
+jest.mock('../contexts/ModuleContext', () => ({ useModule: () => contextoDeModulo }));
 jest.mock('react-i18next', () => {
   const t = (chave, segundo) => (typeof segundo === 'string' ? segundo : chave);
   const traducao = { t, i18n: { language: 'pt-BR' } };
@@ -86,7 +90,7 @@ const responder = ({ relatorio = RELATORIO, etapas = ETAPAS, torneios = TORNEIOS
 
 const montar = async (opcoes) => {
   responder(opcoes);
-  render(<Financeiro />);
+  render(<MemoryRouter><Financeiro /></MemoryRouter>);
   await waitFor(() => expect(api.get).toHaveBeenCalledWith('/stages'));
 };
 
@@ -393,5 +397,80 @@ describe('filtros das transações', () => {
     await userEvent.selectOptions(porOrigem, 'credit');
     expect(linhaDaTransacao('financial.typeRebuy')).toBeDefined();
     expect(linhaDaTransacao('financial.typeBuyIn')).toBeUndefined();
+  });
+});
+
+describe('DRE por módulo', () => {
+  // Cada módulo tem o seu DRE, independente: o cash não mistura buy-in com
+  // entrada de torneio, o bar não entra no bruto do torneio.
+  const RELATORIO_COMPLETO = {
+    ...RELATORIO,
+    tournament_gross_revenue: 50000, tournament_rake: 7000,
+    tournament_operational_result: 20000, tournament_net_result: 21500,
+    cash_revenue: 3000, cash_net_result: 3000, cash_buy_ins: 40000, cash_cash_outs: 37000,
+    cash_jackpot_collected: 500, cash_jackpot_paid: 200, cash_days_count: 4, cash_tables_count: 9, cash_players_count: 31,
+    bar_revenue: 1770, bar_gross: 1865, bar_discounts: 95, bar_cogs: 612, bar_gross_margin: 1158, bar_tabs_count: 42, bar_shifts_count: 3,
+  };
+
+  afterEach(() => {
+    delete contextoDeModulo.module;
+    delete contextoDeModulo.modules;
+  });
+
+  it('clube só de torneio: sem seletor, DRE de torneios com os números do torneio', async () => {
+    await montar({ relatorio: RELATORIO_COMPLETO });
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByText('DRE de torneios')).toBeInTheDocument();
+    // o bruto é o do torneio (50000), não o consolidado com cash e bar
+    expect(document.querySelectorAll('.stat-info h3')[0]).toHaveTextContent('R$ 50000.00');
+    expect(document.querySelector('.fn-dre')).not.toHaveTextContent('Rake apurado nas mesas');
+  });
+
+  it('abre no módulo em que a pessoa está e troca pelo seletor', async () => {
+    contextoDeModulo.module = 'cash';
+    contextoDeModulo.modules = ['tournament', 'cash', 'bar'];
+    await montar({ relatorio: RELATORIO_COMPLETO });
+    const abas = within(screen.getByRole('tablist')).getAllByRole('tab');
+    expect(abas.map((a) => a.textContent)).toEqual(['Torneios', 'Cash Game', 'Bar']);
+    expect(screen.getByText('DRE do cash game')).toBeInTheDocument();
+    // etapa e torneio não valem para o cash: os filtros somem
+    expect(screen.queryByText('financial.filterStage')).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: 'Torneios' }));
+    expect(screen.getByText('DRE de torneios')).toBeInTheDocument();
+    expect(screen.getByText('financial.filterStage')).toBeInTheDocument();
+  });
+
+  it('DRE do cash: receita é só o rake; giro e jackpot ficam fora do resultado', async () => {
+    contextoDeModulo.module = 'cash';
+    contextoDeModulo.modules = ['tournament', 'cash'];
+    await montar({ relatorio: RELATORIO_COMPLETO });
+    const dre = document.querySelector('.fn-dre');
+    expect(dre).toHaveTextContent('Rake apurado nas mesas');
+    expect(dre).toHaveTextContent('R$ 3000.00');
+    expect(dre).toHaveTextContent('Giro do cash (não é receita)');
+    expect(dre).toHaveTextContent('R$ 40000.00');
+    expect(dre).toHaveTextContent('Arrecadado no período');
+    expect(screen.getByRole('link', { name: 'Faturamento completo do cash →' })).toHaveAttribute('href', '/cash/relatorios');
+  });
+
+  it('DRE do bar: vendas brutas − descontos = líquidas; − CMV = margem', async () => {
+    contextoDeModulo.module = 'bar';
+    contextoDeModulo.modules = ['tournament', 'bar'];
+    await montar({ relatorio: RELATORIO_COMPLETO });
+    const dre = document.querySelector('.fn-dre');
+    expect(dre).toHaveTextContent('Vendas brutas');
+    expect(dre).toHaveTextContent('R$ 1865.00');
+    expect(dre).toHaveTextContent('R$ 1770.00');
+    expect(dre).toHaveTextContent('= MARGEM BRUTA DO BAR');
+    expect(dre).toHaveTextContent('R$ 1158.00');
+    expect(screen.getByRole('link', { name: 'Relatório completo do bar →' })).toHaveAttribute('href', '/bar/relatorios');
+  });
+
+  it('só oferece os módulos contratados', async () => {
+    contextoDeModulo.module = 'tournament';
+    contextoDeModulo.modules = ['tournament', 'bar'];
+    await montar({ relatorio: RELATORIO_COMPLETO });
+    const abas = within(screen.getByRole('tablist')).getAllByRole('tab');
+    expect(abas.map((a) => a.textContent)).toEqual(['Torneios', 'Bar']);
   });
 });
