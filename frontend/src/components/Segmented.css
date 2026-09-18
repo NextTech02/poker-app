@@ -1,0 +1,67 @@
+/* Controle segmentado (redesign set/2026): trilho de 40px com as opções
+   dentro; a ativa ganha a superfície mais clara, as outras ficam em texto
+   terciário. Sem borda por opção — a moldura é do grupo. */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--card-bg-hover);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+}
+
+.seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.seg__btn:hover {
+  color: var(--text-secondary);
+}
+
+.seg__btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+.seg__btn--on,
+.seg__btn--on:hover {
+  background: var(--card-bg-active);
+  color: var(--text-primary);
+}
+
+.seg__cnt {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.seg__btn--on .seg__cnt {
+  color: var(--text-secondary);
+}
+
+/* No celular o trilho ocupa a largura toda e as opções dividem o espaço. */
+@media (max-width: 640px) {
+  .seg {
+    display: flex;
+  }
+
+  .seg__btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0 8px;
+  }
+}

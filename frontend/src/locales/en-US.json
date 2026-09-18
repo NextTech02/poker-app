@@ -715,10 +715,10 @@
     "statusCompleted": "Completed",
     "statusCancelled": "Cancelled",
     "columnStatus": "Status",
-    "columnName": "Stage Name",
+    "columnName": "Stage",
     "columnLocation": "Location",
-    "columnStart": "Start Date",
-    "columnEnd": "End Date",
+    "columnStart": "Start",
+    "columnEnd": "End",
     "columnTournaments": "Tournaments",
     "columnActions": "Actions",
     "descriptionLabel": "Description",
@@ -745,7 +745,17 @@
     "impactTournaments": "tournaments will be left without a stage.",
     "legacyNoStartDate": "This stage was created without a start date. Enter the date to be able to save.",
     "startDateRequired": "Enter the stage start date",
-    "impactBuyTypes": "entry methods"
+    "impactBuyTypes": "entry methods",
+    "filterAll": "All",
+    "filterActive": "Active",
+    "filterCompleted": "Completed",
+    "filterArchived": "Archived",
+    "filterLabel": "Filter stages by status",
+    "searchPlaceholder": "Search stage…",
+    "count_one": "{{count}} stage",
+    "count_other": "{{count}} stages",
+    "noResults": "No stage matches the filter.",
+    "selectedShort": "Selected"
   },
   "reports": {
     "export": {

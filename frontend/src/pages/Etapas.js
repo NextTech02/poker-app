@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Icon from '../components/Icon';
 import Button from '../components/Button';
+import Card from '../components/Card';
+import Segmented from '../components/Segmented';
 import EmptyState from '../components/EmptyState';
 import { SkeletonTableRow } from '../components/SkeletonLoader';
 import { useStage } from '../contexts/StageContext';
@@ -30,6 +32,16 @@ const parseDataLocal = (texto) => {
   return new Date(ano, mes - 1, dia);
 };
 
+// Filtro de status da barra de ferramentas. "Ativas" junta em andamento e
+// próximas (é o que o clube ainda vai operar); "Arquivadas" são as
+// canceladas — arquivar uma etapa é marcá-la cancelada (stage_service.py).
+const FILTROS = [
+  { value: 'all', label: 'stages.filterAll', fallback: 'Todas' },
+  { value: 'open', label: 'stages.filterActive', fallback: 'Ativas' },
+  { value: 'completed', label: 'stages.filterCompleted', fallback: 'Concluídas' },
+  { value: 'archived', label: 'stages.filterArchived', fallback: 'Arquivadas' },
+];
+
 const Etapas = () => {
   const { t } = useTranslation();
   const { selectedStage, selectStage } = useStage();
@@ -42,6 +54,8 @@ const Etapas = () => {
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [filtro, setFiltro] = useState('all');
+  const [busca, setBusca] = useState('');
 
   // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
   // precisa do Esc para sair do modal.
@@ -315,17 +329,50 @@ const Etapas = () => {
     return 'upcoming';
   };
 
+  // Pílula de estado com ponto: verde = jogando, âmbar = ainda por vir,
+  // neutra = já passou (concluída ou arquivada — a arquivada ainda escurece a
+  // linha inteira, ver `et-row-dim`).
   const getStatusBadge = (stage) => {
     const status = getEffectiveStatus(stage);
     const badges = {
-      upcoming: { label: t('stages.statusUpcoming', 'Próxima'), className: 'badge-info' },
+      upcoming: { label: t('stages.statusUpcoming', 'Próxima'), className: 'badge-warning' },
       active: { label: t('stages.statusActive', 'Em Andamento'), className: 'badge-success' },
       completed: { label: t('stages.statusCompleted', 'Concluída'), className: 'badge-secondary' },
-      cancelled: { label: t('stages.statusCancelled', 'Cancelada'), className: 'badge-danger' },
+      cancelled: { label: t('stages.statusCancelled', 'Cancelada'), className: 'badge-secondary' },
     };
     const badge = badges[status] || badges.upcoming;
     return <span className={`badge ${badge.className}`}>{badge.label}</span>;
   };
+
+  const passaNoFiltro = (stage) => {
+    const status = getEffectiveStatus(stage);
+    if (filtro === 'open') return status === 'active' || status === 'upcoming';
+    if (filtro === 'completed') return status === 'completed';
+    if (filtro === 'archived') return status === 'cancelled';
+    return true;
+  };
+
+  // Ordem de leitura: o que está acontecendo, o que vem aí (a mais próxima
+  // primeiro), o que já passou (a mais recente primeiro) e, por último, as
+  // arquivadas. O servidor manda por data de criação, que não diz nada a
+  // quem opera.
+  const ORDEM_STATUS = { active: 0, upcoming: 1, completed: 2, cancelled: 3 };
+  const compararEtapas = (a, b) => {
+    const sa = getEffectiveStatus(a);
+    const sb = getEffectiveStatus(b);
+    if (sa !== sb) return ORDEM_STATUS[sa] - ORDEM_STATUS[sb];
+    const da = a.start_date || '';
+    const db = b.start_date || '';
+    return sa === 'upcoming' ? da.localeCompare(db) : db.localeCompare(da);
+  };
+
+  // Busca por nome ou local, sem diferenciar maiúsculas. A lista é pequena
+  // (dezenas de etapas por clube), então filtra na renderização mesmo.
+  const termo = busca.trim().toLowerCase();
+  const etapasVisiveis = stages
+    .filter((stage) => passaNoFiltro(stage)
+      && (!termo || `${stage.name} ${stage.location || ''}`.toLowerCase().includes(termo)))
+    .sort(compararEtapas);
 
   const formatDate = (dateString) => {
     const data = parseDataLocal(dateString);
@@ -341,54 +388,53 @@ const Etapas = () => {
     return selectedStage?.id === stageId;
   };
 
+  // Cabeçalho da tabela, o mesmo no esqueleto e na lista. A última coluna
+  // (ações) não tem título visível — o nome fica só para o leitor de tela.
+  const cabecalho = (
+    <thead>
+      <tr>
+        <th>{t('stages.columnStatus')}</th>
+        <th>{t('stages.columnName')}</th>
+        <th>{t('stages.columnLocation')}</th>
+        <th>{t('stages.columnStart')}</th>
+        <th>{t('stages.columnEnd')}</th>
+        <th className="et-num">{t('stages.columnTournaments')}</th>
+        <th className="et-th-actions"><span className="sr-only">{t('stages.columnActions')}</span></th>
+      </tr>
+    </thead>
+  );
+
   return (
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
 
-        {/* ── Page Header ── */}
-        <div className="et-header">
-          <div className="et-header-left">
-            <div className="et-header-icon">
-              <Icon name="calendar" />
-            </div>
-            <div>
-              <h1 className="et-title">{t('stages.title', 'Etapas')}</h1>
-              <p className="et-subtitle">{t('stages.subtitle', 'Gerenciar etapas do circuito')}</p>
-            </div>
+        <div className="page-header">
+          <div>
+            <h1>{t('stages.title', 'Etapas')}</h1>
+            <p>{t('stages.subtitle', 'Gerenciar etapas do circuito')}</p>
           </div>
-          <button type="button" className="et-btn-new" onClick={openNewModal}>
-            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg>
+          <Button variant="primary" onClick={openNewModal}>
+            <Icon name="plus" />
             {t('stages.newStage', 'Nova Etapa')}
-          </button>
+          </Button>
         </div>
 
         {loading ? (
           /* B1: Skeleton table em vez de texto */
-          <div className="stages-table-container">
+          <Card className="et-card">
             <table className="stages-table">
-              <thead>
-                <tr>
-                  <th>{t('stages.columnStatus')}</th><th>{t('stages.columnName')}</th><th>{t('stages.columnLocation')}</th>
-                  <th>{t('stages.columnStart')}</th><th>{t('stages.columnEnd')}</th><th>{t('stages.columnTournaments')}</th><th>{t('stages.columnActions')}</th>
-                </tr>
-              </thead>
+              {cabecalho}
               <tbody>
                 <SkeletonTableRow cols={7} />
                 <SkeletonTableRow cols={7} />
                 <SkeletonTableRow cols={7} />
               </tbody>
             </table>
-          </div>
+          </Card>
         ) : stages.length === 0 ? (
           <EmptyState
-            icon={
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
-              </svg>
-            }
+            icon={<Icon name="calendar" />}
             title={t('stages.noStages', 'Nenhuma etapa encontrada')}
             subtitle={t('stages.noStagesHint')}
             ctaLabel={t('stages.newStage', 'Nova Etapa')}
@@ -396,95 +442,143 @@ const Etapas = () => {
           />
         ) : (
           <>
+            {/* Barra de ferramentas: filtro de status, busca e a contagem
+                do que está sendo mostrado. */}
+            <div className="et-toolbar">
+              <div className="et-toolbar-left">
+                <Segmented
+                  ariaLabel={t('stages.filterLabel', 'Filtrar etapas por status')}
+                  options={FILTROS.map((f) => ({ value: f.value, label: t(f.label, f.fallback) }))}
+                  value={filtro}
+                  onChange={setFiltro}
+                />
+                <label className="et-search">
+                  <Icon name="search" />
+                  <input
+                    type="search"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder={t('stages.searchPlaceholder', 'Buscar etapa…')}
+                    aria-label={t('stages.searchPlaceholder', 'Buscar etapa…')}
+                  />
+                </label>
+              </div>
+              <span className="et-count">
+                {t('stages.count', { count: etapasVisiveis.length, defaultValue: '{{count}} etapas' })}
+              </span>
+            </div>
+
             {/* Desktop Table View */}
-            <div className="stages-table-container">
+            <Card className="et-card">
               <table className="stages-table">
-                <thead>
-                  <tr>
-                    <th>{t('stages.columnStatus')}</th>
-                    <th>{t('stages.columnName')}</th>
-                    <th>{t('stages.columnLocation')}</th>
-                    <th>{t('stages.columnStart')}</th>
-                    <th>{t('stages.columnEnd')}</th>
-                    <th>{t('stages.columnTournaments')}</th>
-                    <th>{t('stages.columnActions')}</th>
-                  </tr>
-                </thead>
+                {cabecalho}
                 <tbody>
-                  {stages.map((stage) => (
-                    <tr
-                      key={stage.id}
-                      className={isStageSelected(stage.id) ? 'selected-row' : ''}
-                    >
+                  {etapasVisiveis.map((stage) => {
+                    const selecionada = isStageSelected(stage.id);
+                    const arquivada = getEffectiveStatus(stage) === 'cancelled';
+                    const classes = [selecionada ? 'selected-row' : '', arquivada ? 'et-row-dim' : '']
+                      .filter(Boolean).join(' ');
+                    return (
+                    <tr key={stage.id} className={classes}>
                       <td>
-                        <div className="status-badges">
+                        <div className="et-status">
                           {getStatusBadge(stage)}
+                          {/* A chave-mestra virou ícone; o estado "vendas
+                              encerradas" precisa continuar visível de longe. */}
+                          {stage.sales_blocked && (
+                            <span className="badge badge-danger badge-plain">
+                              {t('sales.blocked', 'Vendas encerradas')}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td>
-                        <strong>{stage.name}</strong>
+                        <div className="et-name">
+                          <strong>{stage.name}</strong>
+                          {selecionada && (
+                            <span className="badge badge-primary badge-plain">
+                              {t('stages.currentStage', 'Etapa Atual')}
+                            </span>
+                          )}
+                        </div>
                         {stage.description && (
                           <div className="stage-description-inline">{stage.description}</div>
                         )}
                       </td>
-                      <td>{stage.location}</td>
-                      <td>{formatDate(stage.start_date)}</td>
-                      <td>{formatDate(stage.end_date)}</td>
-                      <td className="text-center">{stage.tournament_count || 0}</td>
+                      <td className="et-nw">{stage.location}</td>
+                      <td className="et-nw">{formatDate(stage.start_date)}</td>
+                      <td className="et-nw">{formatDate(stage.end_date)}</td>
+                      <td className="et-num">{stage.tournament_count || 0}</td>
                       <td>
-                        <div className="table-actions">
-                          {!isStageSelected(stage.id) ? (
+                        <div className="et-acts">
+                          {!selecionada ? (
                             <Button
-                              variant="primary"
+                              variant="secondary"
                               size="small"
                               onClick={() => handleSelectStage(stage)}
                             >
-                              {t('stages.selectStage').replace('Selecione uma Etapa', 'Selecionar')}
+                              {t('stages.selectButton', 'Selecionar')}
                             </Button>
                           ) : (
                             <Button
                               variant="success"
                               size="small"
+                              className="et-current"
                               disabled
                             >
-                              {t('common.active')}
+                              <Icon name="check" />
+                              {t('stages.selectedShort', 'Selecionada')}
                             </Button>
                           )}
-                          <Button
-                            variant="secondary"
-                            size="small"
-                            onClick={() => handleEdit(stage)}
-                          >
-                            {t('common.edit')}
-                          </Button>
                           {/* Chave-mestra: encerra a venda em TODOS os dias da
                               etapa de uma vez ("fecha tudo agora"). Só para
                               quem o backend deixa (CashboxService.can_admin em
                               routers/stages.py): mostrar a quem não pode faz o
                               usuário clicar, levar 403 e ficar sem saber se as
-                              vendas pararam. */}
-                          {podeBloquear && (
+                              vendas pararam. Etapa arquivada não vende mais. */}
+                          {podeBloquear && !arquivada && (
                             <Button
-                              variant={stage.sales_blocked ? 'success' : 'danger'}
+                              variant={stage.sales_blocked ? 'warning' : 'ghost'}
                               size="small"
-                              onClick={() => handleToggleSalesBlock(stage)}
-                            >
-                              {stage.sales_blocked
+                              className="btn-icon"
+                              aria-label={stage.sales_blocked
                                 ? t('sales.unblockStage', 'Liberar vendas')
                                 : t('sales.blockStage', 'Encerrar vendas')}
+                              title={stage.sales_blocked
+                                ? t('sales.unblockStage', 'Liberar vendas')
+                                : t('sales.blockStage', 'Encerrar vendas')}
+                              onClick={() => handleToggleSalesBlock(stage)}
+                            >
+                              <Icon name={stage.sales_blocked ? 'unlock' : 'lock'} />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            className="btn-icon"
+                            aria-label={t('common.edit')}
+                            title={t('common.edit')}
+                            onClick={() => handleEdit(stage)}
+                          >
+                            <Icon name="edit" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
-            </div>
+              {etapasVisiveis.length === 0 && (
+                <p className="et-no-results">
+                  {t('stages.noResults', 'Nenhuma etapa corresponde ao filtro.')}
+                </p>
+              )}
+            </Card>
 
             {/* Mobile Card View */}
             <div className="stages-cards-mobile">
-              {stages.map((stage) => (
+              {etapasVisiveis.map((stage) => (
                 <div
                   key={stage.id}
                   className={`stage-card-mobile ${isStageSelected(stage.id) ? 'selected' : ''}`}
@@ -522,26 +616,29 @@ const Etapas = () => {
                   <div className="stage-card-actions">
                     {!isStageSelected(stage.id) ? (
                       <Button
-                        variant="primary"
+                        variant="secondary"
                         size="small"
                         onClick={() => handleSelectStage(stage)}
                       >
-                        {t('stages.selectButton')}
+                        {t('stages.selectButton', 'Selecionar')}
                       </Button>
                     ) : (
                       <Button
                         variant="success"
                         size="small"
+                        className="et-current"
                         disabled
                       >
-                        {t('stages.statusActiveShort')}
+                        <Icon name="check" />
+                        {t('stages.selectedShort', 'Selecionada')}
                       </Button>
                     )}
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       size="small"
                       onClick={() => handleEdit(stage)}
                     >
+                      <Icon name="edit" />
                       {t('common.edit')}
                     </Button>
                   </div>

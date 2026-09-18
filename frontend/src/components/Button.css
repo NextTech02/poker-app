@@ -160,3 +160,15 @@
 .btn-block {
   width: 100%;
 }
+
+/* Só ícone (editar, mais…): quadrado, sem padding. O nome acessível vem do
+   `aria-label`/`title` — sem ele o botão não tem nome nenhum. */
+.btn-icon {
+  width: 38px;
+  padding: 0;
+}
+
+.btn-icon.btn-small {
+  width: 32px;
+}
+

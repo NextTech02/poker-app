@@ -1,211 +1,171 @@
-/* ── Etapas page header ── */
-.et-header {
+/* ── Etapas (redesign set/2026) ─────────────────────────────────────────
+   Cabeçalho da página, botões, pílulas e tabela vêm do sistema visual
+   global (App.css, Button.css, index.css). Aqui fica só o que é desta tela:
+   a barra de ferramentas, o cartão da tabela e o realce da etapa atual. */
+
+/* Barra de ferramentas: filtro segmentado + busca à esquerda, contagem à
+   direita. */
+.et-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.et-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.et-header-left {
+.et-search {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 8px;
+  width: 280px;
+  max-width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-lighter);
+  border-radius: 10px;
+  background: var(--secondary-bg);
+  color: var(--text-tertiary);
 }
 
-.et-header-icon {
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
-  border-radius: 12px;
-  background: rgba(114, 51, 248, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.et-search:focus-within {
+  border-color: var(--accent-color);
 }
 
-.et-header-icon svg {
-  width: 26px;
-  height: 26px;
-  color: var(--poker-green, var(--brand-green));
+.et-search svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 
-.et-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--text-primary, #fff);
-  margin: 0 0 0.15rem;
-}
-
-.et-subtitle {
-  font-size: 0.85rem;
-  color: var(--text-secondary, var(--text-secondary));
+/* O campo por dentro é cru: a moldura é do rótulo. */
+.main-content .et-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  outline: none;
+  box-shadow: none;
 }
 
-.et-btn-new {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--poker-green, var(--brand-green));
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.65rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+.et-search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.et-count {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.et-btn-new:hover {
-  background: var(--poker-green-light, var(--brand-green-600));
-  transform: translateY(-1px);
-}
-
-/* Table Container */
-.stages-table-container {
-  margin-top: 1.5rem;
-  background: var(--card-bg);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
+/* Cartão da tabela: sem padding, a tabela encosta na borda. */
+.et-card .card-body {
+  padding: 0;
+  overflow-x: auto;
 }
 
 .stages-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
-.stages-table thead {
-  background: linear-gradient(135deg, var(--poker-green-dark) 0%, var(--secondary-bg) 100%);
-  border-bottom: 2px solid var(--border-color);
+.stages-table tbody td {
+  padding: 0 14px;
+  height: 44px;
 }
 
-.stages-table th {
-  padding: 1rem;
-  text-align: left;
-  font-weight: 600;
-  color: var(--text-gold);
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
+.stages-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
-.stages-table tbody tr {
-  border-bottom: 1px solid var(--border-color);
-  transition: all 0.2s ease;
+/* Etapa atual: a linha inteira na tinta da marca. */
+.stages-table tbody tr.selected-row td,
+.stages-table tbody tr.selected-row:hover td {
+  background: var(--accent-soft);
 }
 
-.stages-table tbody tr:hover {
-  background-color: rgba(114, 51, 248, 0.05);
+/* Arquivada: fica na lista, mas apagada. */
+.stages-table tbody tr.et-row-dim td {
+  color: var(--text-tertiary);
 }
 
-.stages-table tbody tr.selected-row {
-  background: linear-gradient(90deg, rgba(218, 165, 32, 0.1) 0%, rgba(218, 165, 32, 0.05) 100%);
-  border-left: 3px solid var(--gold-accent);
+.stages-table tbody tr.et-row-dim strong {
+  font-weight: 500;
 }
 
-.stages-table tbody tr.selected-row:hover {
-  background: linear-gradient(90deg, rgba(218, 165, 32, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
-}
-
-.stages-table td {
-  padding: 1rem;
-  color: var(--text-primary);
-  vertical-align: middle;
-}
-
-.stages-table td.text-center {
-  text-align: center;
-}
-
-.status-badges {
+.et-status {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
+}
+
+.et-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.et-name strong {
+  font-weight: 600;
 }
 
 .stage-description-inline {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-  font-style: italic;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
 }
 
-.table-actions {
+.stages-table .et-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.stages-table .et-nw {
+  white-space: nowrap;
+}
+
+.stages-table .et-th-actions {
+  width: 1%;
+}
+
+/* Ações da linha, encostadas à direita. */
+.et-acts {
   display: flex;
-  gap: 0.5rem;
+  gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-start;
+  justify-content: flex-end;
+  white-space: nowrap;
 }
 
-.table-actions .btn {
-  background-color: var(--card-bg) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-light);
+/* "Selecionada" é um estado, não um botão apagado: mantém a cor cheia mesmo
+   desabilitado. */
+.btn.et-current:disabled {
+  opacity: 1;
+  cursor: default;
 }
 
-.table-actions .btn-primary {
-  background: var(--gradient-primary) !important;
-  border-color: var(--poker-green-light);
-}
-
-.table-actions .btn-success {
-  background: var(--gradient-primary) !important;
-  border-color: var(--poker-green);
-}
-
-.table-actions .btn:hover:not(:disabled) {
-  background-color: var(--card-bg-hover) !important;
-  transform: translateY(-1px);
-}
-
-.table-actions .btn-primary:hover:not(:disabled) {
-  background: var(--poker-green-light) !important;
-}
-
-/* Badge styles */
-.badge {
-  padding: 0.4rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.badge-info {
-  background-color: rgba(52, 152, 219, 0.2);
-  /* #3498db sobre o proprio tint dava 3,32:1 */
-  color: var(--badge-text-info, #7cbde8);
-}
-
-.badge-success {
-  background-color: rgba(114, 51, 248, 0.2);
-  color: var(--brand-green);
-}
-
-.badge-secondary {
-  background-color: rgba(149, 165, 166, 0.2);
-  /* #95a5a6 sobre o proprio tint dava 3,85:1 */
-  color: var(--badge-text-neutral, #b1bcc4);
-}
-
-.badge-danger {
-  background-color: rgba(231, 76, 60, 0.2);
-  /* #e74c3c sobre o proprio tint dava 3,05:1 */
-  color: var(--badge-text-danger, #f19191);
-}
-
-.badge-selected {
-  background: linear-gradient(135deg, rgba(218, 165, 32, 0.3) 0%, rgba(218, 165, 32, 0.1) 100%);
-  color: var(--text-gold);
-  border: 1px solid var(--gold-accent);
+.et-no-results {
+  margin: 0;
+  padding: 28px 18px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-tertiary);
 }
 
 /* Form row for side-by-side inputs */
@@ -243,14 +203,26 @@
 
 @media (max-width: 768px) {
   /* Hide table on mobile, show cards instead */
-  .stages-table-container {
-    background: transparent;
-    box-shadow: none;
-    overflow: visible;
+  .et-card {
+    display: none;
   }
 
-  .stages-table {
-    display: none;
+  .et-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .et-toolbar-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .et-search {
+    width: 100%;
+  }
+
+  .et-count {
+    text-align: right;
   }
 
   /* Form responsive */
@@ -302,15 +274,14 @@
 
   .stage-card-mobile {
     background: var(--card-bg);
-    border-radius: var(--radius-lg);
+    border-radius: 14px;
     padding: 1rem;
-    box-shadow: var(--shadow-md);
     border: 1px solid var(--border-primary);
   }
 
   .stage-card-mobile.selected {
-    border-color: var(--gold-accent);
-    background: linear-gradient(135deg, rgba(218, 165, 32, 0.08) 0%, var(--card-bg) 100%);
+    border-color: var(--surface-hi-border);
+    background: var(--surface-hi);
   }
 
   .stage-card-header {
@@ -333,11 +304,6 @@
     display: flex;
     gap: 0.35rem;
     flex-wrap: wrap;
-  }
-
-  .stage-card-badges .badge {
-    font-size: 0.7rem;
-    padding: 0.25rem 0.5rem;
   }
 
   .stage-card-description {
@@ -389,24 +355,10 @@
   }
 }
 
-/* Tablet adjustments */
+/* Tablet: a tabela rola dentro do cartão em vez de espremer as colunas. */
 @media (max-width: 1024px) and (min-width: 769px) {
-  .stages-table-container {
-    overflow-x: auto;
-  }
-
   .stages-table {
-    min-width: 800px;
-  }
-
-  .stages-table th,
-  .stages-table td {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.85rem;
-  }
-
-  .table-actions {
-    gap: 0.35rem;
+    min-width: 860px;
   }
 }
 

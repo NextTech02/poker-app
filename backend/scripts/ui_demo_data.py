@@ -52,6 +52,22 @@ if not stage:
                                      "end_date": (dt.date.today() + dt.timedelta(days=3)).isoformat(), "description": "Demonstração"})
 HS = {"X-Stage-ID": stage["id"]}
 print("etapa:", stage["id"])
+# Outras etapas, só para a lista mostrar cada estado (próxima, concluídas,
+# arquivada). Sem torneio nem venda: nada além do cadastro.
+OUTRAS = [
+    ("Etapa Goiânia · Out/26", "Goiânia, GO", 21, 24, "upcoming"),
+    ("Etapa São Paulo · Ago/26", "São Paulo, SP", -28, -25, "completed"),
+    ("Etapa Rio · Jul/26", "Rio de Janeiro, RJ", -68, -65, "completed"),
+    ("Etapa Curitiba · Mai/26", "Curitiba, PR", -130, -128, "cancelled"),
+]
+nomes_existentes = {s["name"] for s in stages}
+for nome, local, ini, fim, status in OUTRAS:
+    if nome in nomes_existentes:
+        continue
+    call("POST", "/stages", {"name": nome, "location": local, "status": status,
+                             "start_date": (dt.date.today() + dt.timedelta(days=ini)).isoformat(),
+                             "end_date": (dt.date.today() + dt.timedelta(days=fim)).isoformat()})
+print("etapas:", len(call("GET", "/stages") or []))
 tours = call("GET", "/tournaments", headers=HS) or []
 tour = next((t for t in tours if t["name"] == "Main Event 500"), None)
 if not tour:

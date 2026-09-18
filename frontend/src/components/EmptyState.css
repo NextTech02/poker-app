@@ -1,11 +1,14 @@
+/* Estado vazio do sistema visual: mesmo cartão das listas (superfície lisa,
+   borda de 1px, cantos de 14px), ícone num quadrado discreto e o botão
+   primário plano de sempre. */
 .empty-state-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  background: var(--color-card, #1e2430);
-  border: 1px solid var(--color-border, #2d3748);
-  border-radius: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: 14px;
   padding: 3rem 2rem;
   width: 100%;
 }
@@ -28,47 +31,43 @@
   height: 26px;
 }
 
-.es-icon svg {
-  width: 48px;
-  height: 48px;
-  color: var(--color-text-muted, var(--text-secondary));
-}
-
 .es-title {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: var(--color-text, #ffffff);
-  margin: 0 0 0.5rem;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem;
 }
 
 .es-subtitle {
-  font-size: 0.9rem;
-  color: var(--color-text-muted, var(--text-secondary));
-  margin: 0 0 1.5rem;
-  max-width: 320px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 1.25rem;
+  max-width: 340px;
   line-height: 1.5;
 }
 
 .es-cta {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  background: var(--color-primary, var(--brand-green));
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  background: var(--accent-color);
   color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 0.65rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: background-color var(--transition-fast);
 }
 
 .es-cta:hover {
-  background: var(--color-primary-hover, var(--brand-green-600));
-  transform: translateY(-1px);
+  background: var(--accent-hover);
 }
 
-.es-cta:active {
-  transform: translateY(0);
+.es-cta:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }

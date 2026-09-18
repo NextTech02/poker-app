@@ -715,10 +715,10 @@
     "statusCompleted": "Completada",
     "statusCancelled": "Cancelada",
     "columnStatus": "Estado",
-    "columnName": "Nombre de la Etapa",
+    "columnName": "Etapa",
     "columnLocation": "Ubicación",
-    "columnStart": "Fecha Inicio",
-    "columnEnd": "Fecha Fin",
+    "columnStart": "Inicio",
+    "columnEnd": "Fin",
     "columnTournaments": "Torneos",
     "columnActions": "Acciones",
     "descriptionLabel": "Descripción",
@@ -745,7 +745,17 @@
     "impactTournaments": "torneos quedan sin etapa.",
     "legacyNoStartDate": "Esta etapa fue creada sin fecha de inicio. Informe la fecha para poder guardar.",
     "startDateRequired": "Informe la fecha de inicio de la etapa",
-    "impactBuyTypes": "medios de entrada"
+    "impactBuyTypes": "medios de entrada",
+    "filterAll": "Todas",
+    "filterActive": "Activas",
+    "filterCompleted": "Concluidas",
+    "filterArchived": "Archivadas",
+    "filterLabel": "Filtrar etapas por estado",
+    "searchPlaceholder": "Buscar etapa…",
+    "count_one": "{{count}} etapa",
+    "count_other": "{{count}} etapas",
+    "noResults": "Ninguna etapa coincide con el filtro.",
+    "selectedShort": "Seleccionada"
   },
   "reports": {
     "export": {

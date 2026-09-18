@@ -64,7 +64,7 @@
 }
 
 /* Ícone no título: discreto e do tamanho do texto. As caixinhas de ícone que
-   algumas telas põem antes do título (cx-/tr-/rl-/pl-/et-header-icon) saem:
+   algumas telas põem antes do título (cx-/tr-/rl-/pl-header-icon) saem:
    a hierarquia agora vem do tamanho do título, não de um selo ao lado. */
 .page-header h1 svg,
 .page-header .page-header-icon {
@@ -78,8 +78,7 @@
 .main-content .cx-header-icon,
 .main-content .tr-header-icon,
 .main-content .rl-header-icon,
-.main-content .pl-header-icon,
-.main-content .et-header-icon {
+.main-content .pl-header-icon {
   display: none;
 }
 
@@ -189,10 +188,15 @@
     padding-top: 76px;
   }
 
-  /* Page header mobile */
+  /* Page header mobile. O `h1 { text-align: center }` global do celular
+     (index.css) deixava o título "flutuando" à direita do subtítulo. */
   .page-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .page-header h1 {
+    text-align: left;
   }
 
   .header-actions {

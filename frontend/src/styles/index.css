@@ -461,6 +461,20 @@ code {
   gap: var(--spacing-lg);
 }
 
+/* Texto só para leitor de tela (cabeçalho de coluna de ações, rótulos de
+   ícone): fora do fluxo visual, mas presente na árvore de acessibilidade. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Professional Badge Styles */
 .badge {
   display: inline-flex;
@@ -484,6 +498,10 @@ code {
   border-radius: 50%;
   background: currentColor;
   flex: none;
+}
+
+.badge-plain::before {
+  display: none;
 }
 
 .badge-success {

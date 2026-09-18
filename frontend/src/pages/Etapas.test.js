@@ -199,16 +199,16 @@ describe('escolher a etapa de trabalho', () => {
   it('selecionar troca o escopo do sistema inteiro', async () => {
     // Toda operação viaja com o X-Stage-ID desta escolha.
     await montar();
-    await userEvent.click(within(linhaDe('Etapa Rio')).getByRole('button', { name: 'stages.selectStage' }));
+    await userEvent.click(within(linhaDe('Etapa Rio')).getByRole('button', { name: 'Selecionar' }));
     expect(selecionarEtapa).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1' }));
   });
 
   it('a etapa já selecionada é marcada e não oferece selecionar de novo', async () => {
     await montar(undefined, { id: 'e1' });
     expect(linhaDe('Etapa Rio')).toHaveClass('selected-row');
-    expect(within(linhaDe('Etapa Rio')).queryByRole('button', { name: 'stages.selectStage' })).toBeNull();
+    expect(within(linhaDe('Etapa Rio')).queryByRole('button', { name: 'Selecionar' })).toBeNull();
     // No lugar do "Selecionar" fica um botão desabilitado indicando a atual.
-    expect(within(linhaDe('Etapa Rio')).getByRole('button', { name: 'common.active' })).toBeDisabled();
+    expect(within(linhaDe('Etapa Rio')).getByRole('button', { name: 'Selecionada' })).toBeDisabled();
   });
 });
 
@@ -506,7 +506,7 @@ describe('etapa antiga sem data de início', () => {
   it('continua listada e operável', async () => {
     await montar({ etapas: SEM_DATA });
     expect(linhaDe('Etapa Legada')).toBeInTheDocument();
-    await userEvent.click(within(linhaDe('Etapa Legada')).getByRole('button', { name: 'stages.selectStage' }));
+    await userEvent.click(within(linhaDe('Etapa Legada')).getByRole('button', { name: 'Selecionar' }));
     expect(selecionarEtapa).toHaveBeenCalledWith(expect.objectContaining({ id: 'e7' }));
   });
 
@@ -684,5 +684,86 @@ describe('a data mostrada é a data cadastrada', () => {
         start_date: localEmDias(0), end_date: localEmDias(2) }],
     });
     expect(within(linhaDe('Começa Hoje')).getByText('Em Andamento')).toBeInTheDocument();
+  });
+});
+
+describe('filtro e busca', () => {
+  /* A barra de ferramentas do redesign: filtro segmentado por status e busca
+     por nome/local. "Ativas" = em andamento + próximas; "Arquivadas" são as
+     canceladas (arquivar é marcar cancelada). O filtro nunca some com a
+     etapa atual do servidor — só com o que está na tela. */
+  const nomes = () =>
+    Array.from(document.querySelectorAll('tbody tr strong')).map((el) => el.textContent);
+
+  it('começa em "Todas" e mostra quantas etapas há', async () => {
+    await montar();
+    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-pressed', 'true');
+    expect(nomes()).toEqual(['Etapa Rio', 'Etapa SP', 'Etapa Antiga', 'Etapa Cancelada']);
+  });
+
+  it('"Ativas" deixa só o que ainda vai ser operado', async () => {
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: 'Ativas' }));
+    expect(nomes()).toEqual(['Etapa Rio', 'Etapa SP']);
+  });
+
+  it('"Concluídas" e "Arquivadas" separam o passado do que foi tirado da frente', async () => {
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: 'Concluídas' }));
+    expect(nomes()).toEqual(['Etapa Antiga']);
+    await userEvent.click(screen.getByRole('button', { name: 'Arquivadas' }));
+    expect(nomes()).toEqual(['Etapa Cancelada']);
+    // Arquivada não vende mais: a chave-mestra de vendas não aparece.
+    expect(screen.queryByRole('button', { name: 'Encerrar vendas' })).toBeNull();
+  });
+
+  it('busca por nome ou local, sem diferenciar maiúsculas', async () => {
+    await montar();
+    await userEvent.type(screen.getByPlaceholderText('Buscar etapa…'), 'são paulo');
+    expect(nomes()).toEqual(['Etapa SP']);
+  });
+
+  it('filtro sem resultado avisa em vez de deixar a tabela vazia', async () => {
+    await montar();
+    await userEvent.type(screen.getByPlaceholderText('Buscar etapa…'), 'Manaus');
+    expect(nomes()).toEqual([]);
+    expect(screen.getByText('Nenhuma etapa corresponde ao filtro.')).toBeInTheDocument();
+    // Não é o estado "sem etapa nenhuma": o clube tem etapas, só não bateu.
+    expect(screen.queryByText('Nenhuma etapa encontrada')).toBeNull();
+  });
+
+  it('a etapa atual leva a pílula "Etapa Atual" ao lado do nome', async () => {
+    await montar(undefined, { id: 'e1' });
+    expect(within(linhaDe('Etapa Rio')).getByText('Etapa Atual')).toBeInTheDocument();
+    expect(within(linhaDe('Etapa SP')).queryByText('Etapa Atual')).toBeNull();
+  });
+});
+
+describe('ordem da lista', () => {
+  it('em andamento, depois as próximas (mais perto primeiro), depois as passadas (mais recente primeiro), arquivadas por último', async () => {
+    // O servidor manda por data de criação; quem opera quer ver primeiro o
+    // que está acontecendo e o que vem aí.
+    await montar({
+      etapas: [
+        { id: 'a', name: 'Antiga 1', location: 'X', status: 'upcoming', start_date: emDias(-90), end_date: emDias(-85) },
+        { id: 'b', name: 'Arquivada', location: 'X', status: 'cancelled', start_date: emDias(-10), end_date: emDias(-5) },
+        { id: 'c', name: 'Longe', location: 'X', status: 'upcoming', start_date: emDias(60), end_date: emDias(62) },
+        { id: 'd', name: 'Agora', location: 'X', status: 'upcoming', start_date: emDias(-1), end_date: emDias(1) },
+        { id: 'e', name: 'Perto', location: 'X', status: 'upcoming', start_date: emDias(10), end_date: emDias(12) },
+        { id: 'f', name: 'Antiga 2', location: 'X', status: 'upcoming', start_date: emDias(-30), end_date: emDias(-25) },
+      ],
+    });
+    const nomes = Array.from(document.querySelectorAll('tbody tr strong')).map((el) => el.textContent);
+    expect(nomes).toEqual(['Agora', 'Perto', 'Longe', 'Antiga 2', 'Antiga 1', 'Arquivada']);
+  });
+});
+
+describe('vendas encerradas na lista', () => {
+  it('a etapa bloqueada mostra o aviso ao lado do status', async () => {
+    // A chave-mestra virou um ícone: o estado precisa continuar legível de
+    // longe, na coluna de status.
+    await montar({ etapas: [{ ...ETAPAS[0], sales_blocked: true }, ETAPAS[1]] });
+    expect(within(linhaDe('Etapa Rio')).getByText('Vendas encerradas')).toBeInTheDocument();
+    expect(within(linhaDe('Etapa SP')).queryByText('Vendas encerradas')).toBeNull();
   });
 });
