@@ -57,3 +57,9 @@ frontend/coverage/
 # Saida da varredura de QA: contem auth-state.json com TOKENS DE SESSAO,
 # alem de capturas e videos pesados. Nada disso deve ir para o repositorio.
 dogfood-output/
+
+# ── Preview visual local (backend/scripts/ui_preview_session.py, frontend/scripts/ui_shot.py) ──
+backend/scripts/.ui_preview_state.json
+backend/scripts/.ui_preview_url.txt
+frontend/scripts/.chrome_profile/
+frontend/scripts/.shots/
