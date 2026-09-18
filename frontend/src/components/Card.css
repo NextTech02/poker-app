@@ -1,57 +1,31 @@
+/* Cartão do sistema visual: superfície lisa, borda de 1px, cantos de 14px.
+   Sem sombra, sem barra colorida no topo e sem "pulo" no hover — a
+   hierarquia vem do espaço e do peso do texto, não do relevo. */
 .card {
-  background: var(--gradient-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: 14px;
   overflow: hidden;
-  margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-md);
-  transition: all 0.3s ease;
+  margin-bottom: 1.25rem;
   position: relative;
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--gradient-gold);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--border-light);
-}
-
-.card:hover::before {
-  opacity: 1;
-}
-
 .card-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 1.25rem;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border-primary);
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--text-primary);
-  background: rgba(15, 122, 78, 0.05);
 }
 
 .card-body {
-  padding: 1.5rem;
+  padding: 16px 18px;
 }
 
-/* Card variants */
+/* Variantes: tinta translúcida no fundo, borda na cor */
 .card-premium {
-  border: 1px solid var(--gold-dark);
-  background: linear-gradient(135deg, rgba(91, 91, 232, 0.1) 0%, var(--card-bg) 100%);
-}
-
-.card-premium::before {
-  opacity: 1;
+  border-color: var(--surface-hi-border);
+  background: var(--surface-hi);
 }
 
 .card-success {

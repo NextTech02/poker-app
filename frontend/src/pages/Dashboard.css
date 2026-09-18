@@ -1,20 +1,20 @@
 /* ── Dashboard header ── */
 .db-header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .db-title {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.625rem;
+  font-weight: 600;
   color: var(--text-primary, #fff);
   margin: 0 0 0.25rem;
 }
 
 .db-subtitle {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--text-secondary, var(--text-secondary));
   margin: 0;
 }
@@ -30,50 +30,52 @@
      sem nem deixar barra de rolagem. Agora, quando não couberem quatro, a
      grade quebra para a linha de baixo em vez de esconder um número. */
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 2rem;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
+/* Tile de KPI: rótulo em cima, valor grande em Sora, ícone discreto no canto. */
 .db-stat-card {
   display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  background: linear-gradient(135deg, var(--secondary-bg, #1e2430) 0%, var(--tertiary-bg, #252d3d) 100%);
-  border: 1px solid var(--border-primary, #2d3748);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
   border-radius: 14px;
-  padding: 1.5rem;
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  padding: 16px 18px;
+  position: relative;
+  min-width: 0;
 }
 
-.db-stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(15, 132, 84, 0.15);
-  border-color: var(--poker-green, var(--brand-green));
+.db-stat-card:first-child {
+  background: var(--surface-hi);
+  border-color: var(--surface-hi-border);
 }
 
 .db-stat-icon {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(114, 51, 248, 0.18);
-  border-radius: 10px;
-  border: 1px solid rgba(114, 51, 248, 0.2);
+  opacity: 0.8;
 }
 
 .db-stat-icon svg {
-  width: 26px;
-  height: 26px;
-  color: var(--brand-green);
+  width: 20px;
+  height: 20px;
+  color: var(--text-tertiary);
 }
 
 .db-stat-info {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 4px;
   /* Sem isto o bloco de texto nunca encolhe (min-width auto) e o cartão força a
      grade a transbordar em vez de se ajustar — era metade da causa do corte. */
   min-width: 0;
@@ -87,11 +89,13 @@
 }
 
 .db-stat-value {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--accent-color, var(--warning-yellow));
+  font-family: var(--font-display);
+  font-size: 1.625rem;
+  font-weight: 600;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .db-stat-badge {
@@ -109,9 +113,11 @@
 }
 
 .db-stat-label {
-  font-size: 0.8rem;
+  order: -1;
+  font-size: 12.5px;
   color: var(--text-secondary, var(--text-secondary));
   font-weight: 500;
+  padding-right: 32px;
 }
 
 .db-delta {

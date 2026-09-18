@@ -1,206 +1,162 @@
+/* Botões do sistema visual (redesign set/2026): planos, 38px de altura,
+   cantos de 10px, sem brilho nem "pulo" no hover. O primário é o violeta da
+   marca em qualquer módulo — a tinta do módulo fica só para orientação. */
 .btn {
-  padding: 0.75rem 1.5rem;
-  font-size: var(--font-size-sm);
+  height: 38px;
+  padding: 0 14px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
   font-weight: var(--font-weight-semibold);
-  border: none;
-  border-radius: var(--radius-md);
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-sm);
-  letter-spacing: 0.025em;
-  box-shadow: var(--shadow-sm);
-  position: relative;
-  overflow: hidden;
+  gap: 8px;
+  color: var(--text-primary);
+  background: var(--card-bg-active);
   user-select: none;
   white-space: nowrap;
 }
 
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: var(--gradient-shine);
-  transform: translate(-50%, -50%);
-  transition: width 0.5s ease, height 0.5s ease;
-  pointer-events: none;
+.btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 
-.btn:hover::before {
-  width: 300px;
-  height: 300px;
+.btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
-.btn:active {
-  transform: translateY(1px);
-  box-shadow: var(--shadow-xs);
+.btn:active:not(:disabled) {
+  filter: brightness(0.95);
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
   pointer-events: none;
 }
 
-.btn:disabled::before {
-  display: none;
-}
-
-/* Primary Button - Professional Poker Green */
+/* Primário — a única cor de marca em botão */
 .btn-primary {
-  background: var(--gradient-primary);
-  color: var(--text-primary);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-sm), 0 0 0 1px var(--poker-green-600);
+  background: var(--accent-color);
+  color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--gradient-primary-hover);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--poker-green-500);
-  transform: translateY(-2px);
+  background: var(--accent-hover);
 }
 
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: var(--shadow-xs), 0 0 0 1px var(--poker-green-700);
-}
-
-/* Secondary Button — outline/ghost, claramente distinto do primary */
+/* Secundário — superfície, sem borda */
 .btn-secondary {
-  background-color: transparent;
-  color: var(--text-secondary, var(--text-secondary));
-  border: 1px solid var(--border-light, #3a4452);
-  box-shadow: none;
+  background: var(--card-bg-active);
+  color: var(--text-primary);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary, #ffffff);
-  border-color: var(--border-lighter, #4a5568);
-  transform: translateY(-1px);
+  background: var(--border-light);
 }
 
-/* Danger Button - Refined Error State */
+/* Perigo / sucesso / atenção / info — tinta translúcida + texto da cor.
+   Só o que precisa gritar (confirmar exclusão) usa fundo cheio: ver .btn-danger-solid. */
 .btn-danger {
-  background: linear-gradient(135deg, var(--danger-500) 0%, var(--danger-700) 100%);
-  color: var(--text-primary);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-sm), 0 0 0 1px var(--danger-600);
+  background: var(--danger-bg);
+  color: var(--text-danger);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--danger-400) 0%, var(--danger-600) 100%);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--danger-500);
-  transform: translateY(-2px);
+  background: var(--danger-color);
+  color: #fff;
 }
 
-/* Warning Button - Attention-Grabbing */
 .btn-warning {
-  background: linear-gradient(135deg, var(--warning-500) 0%, var(--warning-700) 100%);
-  color: var(--text-primary);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-sm), 0 0 0 1px var(--warning-600);
+  background: var(--warning-bg);
+  color: var(--text-warning);
 }
 
 .btn-warning:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--warning-400) 0%, var(--warning-600) 100%);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--warning-500);
-  transform: translateY(-2px);
+  background: var(--warning-color);
+  color: #1a1400;
 }
 
-/* Info Button - Clear Communication */
 .btn-info {
-  background: linear-gradient(135deg, var(--info-500) 0%, var(--info-700) 100%);
-  color: var(--text-primary);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-sm), 0 0 0 1px var(--info-600);
+  background: var(--info-bg);
+  color: var(--text-info);
 }
 
 .btn-info:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--info-400) 0%, var(--info-600) 100%);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--info-500);
-  transform: translateY(-2px);
+  background: var(--info-color);
+  color: #fff;
 }
 
-/* Success Button - Positive Action */
 .btn-success {
-  background: var(--gradient-primary);
-  color: var(--text-primary);
-  border: 1px solid transparent;
-  box-shadow: var(--shadow-sm), 0 0 0 1px var(--success-700);
+  background: var(--success-bg);
+  color: var(--text-success);
 }
 
 .btn-success:hover:not(:disabled) {
-  background: var(--gradient-primary-hover);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--success-500);
-  transform: translateY(-2px);
+  background: var(--success-color);
+  color: #05120b;
 }
 
-/* Gold/Premium Button - VIP Treatment */
+/* "gold" ficou por compatibilidade: é o índigo da identidade */
 .btn-gold {
-  background: var(--gradient-gold);
-  color: var(--gray-900);
-  border: 1px solid transparent;
-  font-weight: var(--font-weight-bold);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--gold-600);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  background: var(--brand-gold);
+  color: #fff;
 }
 
 .btn-gold:hover:not(:disabled) {
-  background: var(--gradient-gold-hover);
-  box-shadow: var(--shadow-lg), 0 0 0 1px var(--gold-500), 0 0 20px rgba(220, 176, 72, 0.4);
-  transform: translateY(-2px);
+  background: var(--gold-light);
 }
 
-/* Ghost Button - Dark theme transparent */
+/* Fantasma — só borda; é o "cancelar", o "ver detalhes" */
 .btn-ghost {
   background: transparent;
+  border-color: var(--border-lighter);
   color: var(--text-secondary);
-  border: 1px solid var(--surface);
-  box-shadow: none;
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--text-tertiary);
   color: var(--text-primary);
-  border-color: var(--card-bg-active);
-  transform: translateY(-1px);
-  box-shadow: none;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .btn-ghost:active:not(:disabled) {
-  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.06);
 }
 
-/* Small button variant */
-.btn-sm,
-.btn-small,
-.action-btn-small {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+/* Tamanhos */
+.action-btn-small,
+.btn-small {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  border-radius: 8px;
 }
 
-/* Medium button variant (default) */
+.btn-small svg {
+  width: 14px;
+  height: 14px;
+}
+
 .btn-medium {
-  padding: 0.75rem 1.5rem;
-  font-size: 0.9375rem;
+  height: 38px;
 }
 
-/* Large button variant */
-.btn-lg,
 .btn-large {
-  padding: 1rem 2rem;
-  font-size: 1.0625rem;
+  height: 48px;
+  padding: 0 22px;
+  font-size: 15px;
+  border-radius: 12px;
 }
 
-/* Full width button */
 .btn-block {
   width: 100%;
 }

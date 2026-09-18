@@ -75,29 +75,76 @@
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 2rem;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* Tile de KPI: rótulo em cima, número grande em Sora, ícone discreto no canto.
+   A ordem visual (rótulo → valor) vem do column-reverse: o markup das telas
+   continua h3 (valor) + p (rótulo). */
+.stat-card {
+  margin-bottom: 0;
 }
 
 .stat-card .card-body {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 16px 18px;
+  position: relative;
+  min-width: 0;
+}
+
+.stat-card .card-body > :not(.stat-info) {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  min-width: 0;
+  display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  opacity: 0.8;
+}
+
+.stat-card .card-body > :not(.stat-info) svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stat-card .stat-info {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  min-width: 0;
 }
 
 .stat-card .stat-info h3 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--text-primary, #fff);
-  margin: 0 0 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-card .stat-info p {
-  font-size: 0.8rem;
-  color: var(--text-secondary, #8899aa);
+  font-size: 12.5px;
+  color: var(--text-secondary);
   margin: 0;
   font-weight: 500;
+  padding-right: 32px;
 }
 
 /* ================================
