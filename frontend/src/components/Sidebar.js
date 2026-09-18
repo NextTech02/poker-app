@@ -63,7 +63,7 @@ const Sidebar = () => {
   const { signOut, user } = useAuth();
   const { selectedStage } = useStage();
   const { hasPermission, isPlatformAdmin, organizationName } = usePermissions();
-  const { module, homePath, modules, selectModule } = useModule();
+  const { module, homePath, modules, selectModule, casaDoModulo } = useModule();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -228,7 +228,8 @@ const Sidebar = () => {
   const trocarModulo = (proximo) => {
     if (!proximo || proximo === module) return;
     if (typeof selectModule === 'function') selectModule(proximo);
-    navigate(CASA_DO_MODULO[proximo] || '/', { replace: true });
+    const destino = typeof casaDoModulo === 'function' ? casaDoModulo(proximo) : CASA_DO_MODULO[proximo];
+    navigate(destino || '/', { replace: true });
     if (isMobile) setIsOpen(false);
   };
   const [chaveModulo, reservaModulo] = ROTULO_DO_MODULO[module] || ROTULO_DO_MODULO[MODULO_TORNEIO];

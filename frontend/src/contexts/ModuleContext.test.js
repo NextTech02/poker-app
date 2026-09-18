@@ -40,10 +40,13 @@ function Sonda() {
   );
 }
 
-const montar = ({ modules = ['tournament'], loading = false } = {}) => {
-  usePermissions.mockReturnValue({ modules, loading });
+const montar = ({ modules = ['tournament'], loading = false, hasPermission } = {}) => {
+  usePermissions.mockReturnValue({ modules, loading, hasPermission });
   return render(<ModuleProvider><Sonda /></ModuleProvider>);
 };
+
+/** Cargo com SÓ estas chaves (sem `hasPermission` o contexto trata tudo como permitido). */
+const cargoCom = (...chaves) => (k) => !k || chaves.includes(k);
 
 /** As permissões chegam DEPOIS da primeira pintura, como no recarregar. */
 const permissoesChegam = (utils, modules) => {
@@ -190,6 +193,43 @@ describe('troca de módulo', () => {
     expect(screen.getByTestId('home').textContent).toBe('/home');
     act(() => api.selectModule('cash'));
     expect(screen.getByTestId('home').textContent).toBe('/cash');
+  });
+
+  it('a casa é a primeira tela que o CARGO pode abrir, não a home padrão', () => {
+    // A sangeur só tem `sangi`: no cash a casa dela é /sangi. Cair em /cash
+    // (que pede cash.operate) era a recusa no meio da tela, sem sair do lugar.
+    montar({ modules: ['tournament', 'cash'], hasPermission: cargoCom('sangi') });
+    expect(screen.getByTestId('module').textContent).toBe('cash');
+    expect(screen.getByTestId('home').textContent).toBe('/sangi');
+    expect(api.casaDoModulo('cash')).toBe('/sangi');
+  });
+
+  it('caixa sem dashboard abre o torneio em /caixa', () => {
+    montar({ modules: ['tournament', 'cash'], hasPermission: cargoCom('cashier', 'cashbox.operate') });
+    expect(screen.getByTestId('module').textContent).toBe('tournament');
+    expect(screen.getByTestId('home').textContent).toBe('/caixa');
+  });
+
+  it('sem escolha guardada, o padrão é o primeiro módulo em que o cargo tem tela', () => {
+    // Bar com `bar.operate` e nada no torneio: abre no bar, não na home do
+    // torneio onde tudo lhe seria recusado.
+    montar({ modules: ['tournament', 'cash', 'bar'], hasPermission: cargoCom('bar.operate') });
+    expect(screen.getByTestId('module').textContent).toBe('bar');
+    expect(screen.getByTestId('home').textContent).toBe('/bar');
+  });
+
+  it('a escolha guardada vence, e a casa segue o cargo dentro dela', () => {
+    localStorage.setItem('selected_module', 'cash');
+    montar({ modules: ['tournament', 'cash'], hasPermission: cargoCom('cashier', 'sangi') });
+    expect(screen.getByTestId('module').textContent).toBe('cash');
+    // `cashier` no cash é a entrada da Sangeur para quem gerencia.
+    expect(screen.getByTestId('home').textContent).toBe('/sangi');
+  });
+
+  it('cargo sem tela em módulo nenhum cai na home padrão (a recusa aparece com o menu)', () => {
+    montar({ modules: ['tournament', 'cash'], hasPermission: cargoCom('nada') });
+    expect(screen.getByTestId('module').textContent).toBe('tournament');
+    expect(screen.getByTestId('home').textContent).toBe('/home');
   });
 
   it('nenhuma home é a raiz — senão a raiz redireciona para si mesma', () => {

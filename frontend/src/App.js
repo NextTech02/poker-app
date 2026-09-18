@@ -106,7 +106,7 @@ const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   // motivo da guarda de módulo: uma trava por rota depende de alguém não
   // esquecer nenhuma das quarenta que existem.
   const { precisaConfirmar, verificando: mfaVerificando, reavaliar } = useMfaGate(user);
-  const { module: activeModule, hasModule, selectModule, homePath } = useModule();
+  const { module: activeModule, hasModule, selectModule, homePath, casaDoModulo } = useModule();
   const { toast } = useToast();
   const location = useLocation();
   const toastedRef = useRef(false);
@@ -163,15 +163,21 @@ const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   }
 
   if (denied) {
-    // Recusa na PRÓPRIA home do módulo aberto: redirecionar levaria à mesma
-    // URL, e o guard recusaria de novo — em laço, sem nunca pintar a tela.
-    // Acontece com um cargo sem a permissão da home (ex.: "Bar" sem
-    // bar.operate, ou um módulo guardado que o cargo não opera). Mostra a
-    // recusa com o menu ao lado, para a pessoa trocar de módulo.
-    if (homePath === location.pathname) {
+    // A recusa numa tela de MÓDULO manda para a casa DESSE módulo — a primeira
+    // tela que o cargo pode abrir nele (ver menus.js) — e não para a casa do
+    // módulo que estava aberto. Era assim que a sangeur, ao entrar em /cash
+    // com o torneio ativo, voltava para o Dashboard de torneio e concluía que
+    // "o cash não abre": a casa dela no cash é /sangi.
+    const rotaDeModulo = module && hasModule(module);
+    const destino = rotaDeModulo && typeof casaDoModulo === 'function' ? casaDoModulo(module) : homePath;
+    // Recusa na PRÓPRIA casa: redirecionar levaria à mesma URL, e o guard
+    // recusaria de novo — em laço, sem nunca pintar a tela. Acontece com um
+    // cargo sem tela nenhuma no módulo. Mostra a recusa com o menu ao lado.
+    if (destino === location.pathname) {
       return <ComingSoon variant="forbidden" />;
     }
-    return <Navigate to={homePath} replace />;
+    if (rotaDeModulo && module !== activeModule) selectModule(module);
+    return <Navigate to={destino} replace />;
   }
 
   // GUARD DE MÓDULO. Duas situações diferentes, e só uma é recusa:
@@ -562,7 +568,7 @@ function AppRoutes() {
       <Route
         path="/home"
         element={
-          <PrivateRoute module="tournament">
+          <PrivateRoute module="tournament" permission="dashboard">
             <Dashboard />
           </PrivateRoute>
         }

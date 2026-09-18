@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { usePermissions } from './PermissionContext';
 import { clearCache } from '../utils/apiCache';
+import { HOME_PADRAO, casaDoModulo, primeiraTelaDoModulo } from '../components/menus';
 
 /**
  * Módulo ativo: torneio ou cash game.
@@ -44,16 +45,12 @@ const ARMAZENAMENTO = 'selected_module';
  * seria um laço. `/home` sempre foi o Dashboard de torneio — é o item "Início"
  * do menu — então isto não inventa tela nenhuma, só deixa de usar a raiz como
  * apelido dele. */
-export const HOME_DO_MODULO = {
-  [MODULO_TORNEIO]: '/home',
-  [MODULO_CASH]: '/cash',
-  [MODULO_BAR]: '/bar',
-};
+export const HOME_DO_MODULO = HOME_PADRAO;
 
 export const useModule = () => useContext(ModuleContext);
 
 export const ModuleProvider = ({ children }) => {
-  const { modules, loading: permsLoading } = usePermissions();
+  const { modules, loading: permsLoading, hasPermission, isPlatformAdmin } = usePermissions();
   const [stored, setStored] = useState(() => {
     try {
       return localStorage.getItem(ARMAZENAMENTO);
@@ -72,9 +69,17 @@ export const ModuleProvider = ({ children }) => {
   // desligado (ou o funcionário mudou de clube), a escolha antiga apontaria
   // para telas que o backend recusa — cair no primeiro disponível é o que
   // mantém a sessão utilizável sem exigir logout.
+  //
+  // Sem escolha guardada, o padrão é o primeiro módulo (na prioridade) em que
+  // o CARGO tem alguma tela: a sangeur, que só tem `sangi`, cai no cash e não
+  // na home do torneio, onde tudo lhe seria recusado. Sem tela em nenhum, vale
+  // a prioridade de sempre (e a recusa aparece com o menu ao lado).
+  const comTela = (m) => primeiraTelaDoModulo(m, hasPermission, isPlatformAdmin) !== null;
   const module = disponiveis.includes(stored)
     ? stored
-    : (PRIORIDADE_PADRAO.find((m) => disponiveis.includes(m)) || disponiveis[0]);
+    : (PRIORIDADE_PADRAO.find((m) => disponiveis.includes(m) && comTela(m))
+      || PRIORIDADE_PADRAO.find((m) => disponiveis.includes(m))
+      || disponiveis[0]);
 
   // NÃO existe efeito que grave `module` de volta no localStorage, e isso é
   // deliberado: só uma ESCOLHA EXPLÍCITA (`selectModule`) grava.
@@ -111,11 +116,14 @@ export const ModuleProvider = ({ children }) => {
       // de um. Com um módulo só, o clube nunca vê que isso existe.
       hasMultipleModules: disponiveis.length > 1,
       hasModule: (nome) => disponiveis.includes(nome),
-      homePath: HOME_DO_MODULO[module] || '/',
+      // A casa depende do CARGO: a primeira tela do módulo que ele pode abrir.
+      homePath: casaDoModulo(module, hasPermission, isPlatformAdmin),
+      // Para quem troca de módulo sem passar pela casa guardada no contexto.
+      casaDoModulo: (nome) => casaDoModulo(nome, hasPermission, isPlatformAdmin),
       selectModule,
       loading: permsLoading,
     }),
-    [module, disponiveis, selectModule, permsLoading],
+    [module, disponiveis, selectModule, permsLoading, hasPermission, isPlatformAdmin],
   );
 
   return <ModuleContext.Provider value={value}>{children}</ModuleContext.Provider>;

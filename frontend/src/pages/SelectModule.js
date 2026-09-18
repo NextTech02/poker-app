@@ -47,16 +47,16 @@ const MODULOS = [
 const SelectModule = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { modules, module, selectModule, hasMultipleModules, loading } = useModule();
+  const { modules, module, selectModule, hasMultipleModules, loading, casaDoModulo } = useModule();
 
   useEffect(() => {
     if (loading || hasMultipleModules) return;
-    navigate(HOME_DO_MODULO[module] || '/', { replace: true });
-  }, [loading, hasMultipleModules, module, navigate]);
+    navigate((casaDoModulo ? casaDoModulo(module) : HOME_DO_MODULO[module]) || '/', { replace: true });
+  }, [loading, hasMultipleModules, module, navigate, casaDoModulo]);
 
   const entrar = (key) => {
     selectModule(key);
-    navigate(HOME_DO_MODULO[key] || '/', { replace: true });
+    navigate((casaDoModulo ? casaDoModulo(key) : HOME_DO_MODULO[key]) || '/', { replace: true });
   };
 
   const disponiveis = MODULOS.filter((m) => modules.includes(m.key));
