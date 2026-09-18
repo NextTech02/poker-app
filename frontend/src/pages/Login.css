@@ -231,8 +231,12 @@
   border: 1px solid transparent;
 }
 
+/* O seletor fica colado ao canto direito: a lista abre alinhada pela DIREITA,
+   senão ela cresce para fora da tela e "Português" vira "Portuguê". */
 .login-language-selector .language-dropdown {
-  min-width: 140px;
+  min-width: 160px;
+  left: auto;
+  right: 0;
 }
 
 .login-language-selector .language-name {
