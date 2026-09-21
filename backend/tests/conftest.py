@@ -35,6 +35,7 @@ class FakeQuery:
         self._op = "select"
         self._payload = None
         self._filters = []  # list of (col, value)
+        self._negar = False  # `.not_` nega o PROXIMO filtro (eq / is_ / in_)
         self._orders = []   # list of (col, desc)
         self._limit = None
         self._single = False
@@ -64,8 +65,12 @@ class FakeQuery:
         return self
 
     # ── filters (all just record an equality match where relevant) ──
+    def _negado(self):
+        negar, self._negar = self._negar, False
+        return negar
+
     def eq(self, col, val):
-        self._filters.append((col, val))
+        self._filters.append(((("neq", col), val) if self._negado() else (col, val)))
         return self
 
     def neq(self, col, val):
@@ -73,7 +78,7 @@ class FakeQuery:
         return self
 
     def in_(self, col, vals):
-        self._filters.append((("in", col), list(vals)))
+        self._filters.append(((("not.in" if self._negado() else "in"), col), list(vals)))
         return self
 
     def or_(self, *a, **k):
@@ -115,10 +120,15 @@ class FakeQuery:
 
     def is_(self, col, val):
         # No PostgREST, is_(col, "null") filtra por ausencia de valor.
-        self._filters.append((("is", col), None if val in ("null", None) else val))
+        kind = "not.is" if self._negado() else "is"
+        self._filters.append(((kind, col), None if val in ("null", None) else val))
         return self
 
-    def not_(self, *a, **k):
+    @property
+    def not_(self):
+        # Como no postgrest-py: propriedade que nega o proximo filtro
+        # (`.not_.is_("col", "null")` == `col IS NOT NULL`).
+        self._negar = True
         return self
 
     def ilike(self, *a, **k):
@@ -144,7 +154,11 @@ class FakeQuery:
                     return False
                 if kind == "in" and row.get(real) not in val:
                     return False
+                if kind == "not.in" and row.get(real) in val:
+                    return False
                 if kind == "is" and row.get(real) != val:
+                    return False
+                if kind == "not.is" and row.get(real) == val:
                     return False
                 if kind == "gt" and not (float(row.get(real) or 0) > float(val)):
                     return False

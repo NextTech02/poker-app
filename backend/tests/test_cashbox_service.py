@@ -272,6 +272,21 @@ class TestCriacaoEListagem:
         _monta(monkeypatch, staff=[])
         assert S.list_cashboxes("estranho") == []
 
+    def test_sem_etapa_lista_so_as_gavetas_de_etapa(self, monkeypatch):
+        """Financeiro do torneio em "todas as etapas": a gaveta do barman e a
+        do dia de cash têm as suas próprias telas — aparecer aqui parece que o
+        sistema misturou os módulos."""
+        _monta(monkeypatch, staff=[_staff(permissoes=("cashbox.admin",))],
+               cashboxes=[_caixa(),
+                          {**_caixa("cb-bar", staff=OUTRO_STAFF), "stage_id": None,
+                           "bar_shift_id": "turno-1"},
+                          {**_caixa("cb-cash", staff=OUTRO_STAFF), "stage_id": None,
+                           "cash_day_id": "dia-1"}])
+        assert [c.id for c in S.list_cashboxes(AUTH)] == [CAIXA]
+        # Com a âncora explícita, a gaveta do módulo aparece.
+        assert [c.id for c in S.list_cashboxes(AUTH, bar_shift_id="turno-1")] == ["cb-bar"]
+        assert [c.id for c in S.list_cashboxes(AUTH, cash_day_id="dia-1")] == ["cb-cash"]
+
     def test_filtra_por_etapa_e_status(self, monkeypatch):
         _monta(monkeypatch, staff=[_staff(permissoes=("cashbox.admin",))],
                cashboxes=[_caixa(status="open"), _caixa("cb2", status="closed")])
@@ -629,6 +644,15 @@ class TestResumo:
         _monta(monkeypatch, cashboxes=[])
         assert S.get_aggregated_summary().cashboxes == []
 
+    def test_consolidado_sem_etapa_ignora_as_gavetas_de_bar_e_cash(self, monkeypatch):
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=100.0),
+                          {**_caixa("cb-bar", status="open", saldo=900.0, staff=OUTRO_STAFF),
+                           "stage_id": None, "bar_shift_id": "turno-1"}])
+        r = S.get_aggregated_summary()
+        assert [c.cashbox_id for c in r.cashboxes] == [CAIXA]
+        assert r.grand_total_balance == 100.0
+
 
 class TestDemonstrativo:
     """Conferência por SESSÃO: cada ciclo abre→fecha bate sozinho. Somar o
@@ -647,6 +671,25 @@ class TestDemonstrativo:
         assert s.actual_balance == 480.0
         assert s.difference == -20.0
         assert s.expected_balance == 500.0      # ajuste fora da conta do esperado
+
+    def test_sem_etapa_nao_lista_a_sessao_da_gaveta_do_bar(self, monkeypatch):
+        """A gaveta do turno do bar tem demonstrativo na tela do turno; no
+        Financeiro do torneio ela só confundiria a conferência."""
+        gaveta_bar = {**_caixa("cb-bar", status="open", saldo=300.0, sessao="ses-bar",
+                               staff=OUTRO_STAFF), "stage_id": None, "bar_shift_id": "turno-1"}
+        sessao_bar = {**_sessao("ses-bar", inicial=300.0), "cashbox_id": "cb-bar"}
+        _monta(monkeypatch,
+               cashboxes=[_caixa(status="open", saldo=200.0, sessao=SESSAO), gaveta_bar],
+               cashbox_sessions=[_sessao(inicial=200.0), sessao_bar],
+               cashbox_transactions=[_mov("supply", 200.0),
+                                     {**_mov("supply", 300.0, sessao="ses-bar"),
+                                      "cashbox_id": "cb-bar"}])
+        r = S.get_demonstrativo()
+        assert [x.session_id for x in r.sessions] == [SESSAO]
+        assert r.grand_initial == 200.0
+        # Ancorado no turno, é a gaveta do bar que aparece — e só ela.
+        r_bar = S.get_demonstrativo(bar_shift_id="turno-1")
+        assert [x.session_id for x in r_bar.sessions] == ["ses-bar"]
 
     def test_suprimento_extra_desconta_o_saldo_de_abertura(self, monkeypatch):
         """A abertura aparece como `supply`; mostrá-la de novo como reforço

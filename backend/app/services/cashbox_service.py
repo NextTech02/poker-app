@@ -116,6 +116,15 @@ def _estorno_apos_fechamento(tx: dict, fechada_em: Optional[datetime]) -> bool:
     return quando is not None and quando > fechada_em
 
 
+def _so_gavetas_de_etapa(query):
+    """Sem âncora nenhuma (nem etapa, nem dia de cash, nem turno do bar) a
+    consulta é o Financeiro do TORNEIO em "todas as etapas" — e "todas as
+    etapas" não inclui as gavetas do bar nem as do cash, que têm as suas
+    próprias telas. Sem isto o demonstrativo do torneio listava a gaveta
+    do barman ao lado das da etapa."""
+    return query.not_.is_("stage_id", "null")
+
+
 class CashboxService:
 
     # ============================================================
@@ -532,6 +541,8 @@ class CashboxService:
             query = query.eq("cash_day_id", cash_day_id)
         elif stage_id:
             query = query.eq("stage_id", stage_id)
+        else:
+            query = _so_gavetas_de_etapa(query)
         if status:
             query = query.eq("status", status)
         if not is_admin:
@@ -956,6 +967,8 @@ class CashboxService:
         query = supabase.table("cashboxes").select("id")
         if stage_id:
             query = query.eq("stage_id", stage_id)
+        else:
+            query = _so_gavetas_de_etapa(query)
         ids = [c["id"] for c in (query.execute().data or [])]
 
         out = CashboxAggregatedSummary()
@@ -995,6 +1008,8 @@ class CashboxService:
             cbq = cbq.eq("cash_day_id", cash_day_id)
         elif stage_id:
             cbq = cbq.eq("stage_id", stage_id)
+        else:
+            cbq = _so_gavetas_de_etapa(cbq)
         if staff_id:
             cbq = cbq.eq("staff_id", staff_id)
         cashboxes = cbq.execute().data or []
