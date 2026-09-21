@@ -6,6 +6,7 @@ from fastapi import Header, HTTPException, Depends
 from .auth.jwt import get_current_user
 from .database.supabase_client import supabase
 from .utils.erros import sem_permissao
+from .utils.idioma import normalizar_idioma
 
 
 def get_org_id(current_user: dict = Depends(get_current_user)) -> str:
@@ -54,6 +55,17 @@ async def get_stage_id_optional(x_stage_id: Optional[str] = Header(None)) -> Opt
     ENTRE organizações é do claim organization_id + RLS.
     """
     return x_stage_id
+
+
+async def get_language(x_language: Optional[str] = Header(None)) -> str:
+    """Idioma da interface de quem chamou (header X-Language, mesmo padrão do
+    X-Stage-ID: o frontend anexa em toda requisição).
+
+    Só escolhe a língua do que o servidor redige — e-mails de convite e de
+    recuperação de senha. Não autoriza nem filtra nada: um valor forjado ou
+    desconhecido apenas cai em pt-BR.
+    """
+    return normalizar_idioma(x_language)
 
 
 async def get_stage_id_required(x_stage_id: Optional[str] = Header(None)) -> str:

@@ -26,6 +26,15 @@ api.interceptors.request.use((config) => {
     config.headers['X-Stage-ID'] = stageId;
   }
 
+  // Idioma da interface: o backend redige nele os e-mails que a ação dispara
+  // (convite, reenvio, redefinição de senha). Mesmo padrão do X-Stage-ID.
+  // `resolvedLanguage` é o que a tela de fato mostra: com o navegador em "es"
+  // puro, `language` diz "es" mas a interface renderiza pt-BR.
+  const idioma = i18n.resolvedLanguage || i18n.language;
+  if (idioma) {
+    config.headers['X-Language'] = idioma;
+  }
+
   return config;
 });
 

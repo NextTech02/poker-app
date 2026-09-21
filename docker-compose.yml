@@ -27,6 +27,11 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - LEADS_EMAIL_TO=${LEADS_EMAIL_TO:-}
       - LEADS_EMAIL_FROM=${LEADS_EMAIL_FROM:-AceBlind <noreply@aceblind.net>}
+      # Secret do hCaptcha (a mesma site key da tela de login, configurada em
+      # Supabase → Auth → Attack protection). O "esqueci minha senha" é
+      # verificado pelo backend. Vazio: o fluxo funciona SEM captcha (só com o
+      # limite de envio) — aceitável em dev, NÃO em produção.
+      - HCAPTCHA_SECRET=${HCAPTCHA_SECRET:-}
       # Interruptor de emergência do multi-tenant: false volta o backend ao modo
       # antigo (service_role, ignora RLS) sem precisar de deploy.
       - SUPABASE_RLS_AS_USER=${SUPABASE_RLS_AS_USER:-true}

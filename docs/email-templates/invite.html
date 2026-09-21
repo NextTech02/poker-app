@@ -1,4 +1,16 @@
 <!--
+  DESDE 2026-09 ESTE TEMPLATE NÃO É MAIS ACIONADO PELO APP.
+
+  Os e-mails de convite (clube e funcionário) e de redefinição de senha passaram
+  a ser redigidos e enviados pelo próprio backend, via Resend, no idioma da tela
+  de quem pediu — ver backend/app/services/email_service.py (layout) e
+  backend/app/services/email_textos.py (textos em pt-BR/en-US/es-ES). O layout
+  abaixo foi a base do HTML gerado lá e fica aqui como referência visual.
+
+  O template do painel do Supabase só entraria em cena se algum fluxo voltasse a
+  usar /auth/v1/invite ou /auth/v1/recover, o que nenhum faz hoje.
+-->
+<!--
   Invite email template (Supabase → Authentication → Emails → Invite user).
   Suggested subject: Your AceBlind access
 

@@ -15,6 +15,7 @@
  *    not valid as a React child" — no lugar de mostrar qual campo está errado.
  */
 import MockAdapter from 'axios-mock-adapter';
+import i18n from 'i18next';
 import api from './api';
 import { getSelectedStageId } from '../utils/stageUtils';
 import { emitToastError } from '../utils/toastEmitter';
@@ -28,7 +29,11 @@ jest.mock('../offline/connectivity', () => ({
   markOffline: jest.fn(),
   markOnline: jest.fn(),
 }));
-jest.mock('i18next', () => ({ t: (chave, padrao) => padrao || chave }));
+jest.mock('i18next', () => ({
+  t: (chave, padrao) => padrao || chave,
+  language: 'pt-BR',
+  resolvedLanguage: 'pt-BR',
+}));
 
 let mock;
 
@@ -74,6 +79,42 @@ describe('interceptor de requisição', () => {
     mock.onGet('/tournaments').reply(200, []);
     await api.get('/tournaments');
     expect(mock.history.get[0].headers['X-Stage-ID']).toBeUndefined();
+  });
+
+  it('anexa o idioma da interface', async () => {
+    // O backend redige nele os e-mails que a ação dispara (convite,
+    // redefinição de senha): quem convida em espanhol manda convite em espanhol.
+    mock.onPost('/staff').reply(200, {});
+    await api.post('/staff', { email: 'a@b.com' });
+    expect(mock.history.post[0].headers['X-Language']).toBe('pt-BR');
+  });
+
+  it('manda o idioma que a tela de fato mostra, não o pedido pelo navegador', async () => {
+    // Navegador em "es" puro: `language` diz "es", mas a interface renderiza
+    // o idioma resolvido. O e-mail precisa acompanhar o que a pessoa vê.
+    const antes = [i18n.language, i18n.resolvedLanguage];
+    i18n.language = 'es';
+    i18n.resolvedLanguage = 'es-ES';
+    try {
+      mock.onGet('/players').reply(200, []);
+      await api.get('/players');
+      expect(mock.history.get[0].headers['X-Language']).toBe('es-ES');
+    } finally {
+      [i18n.language, i18n.resolvedLanguage] = antes;
+    }
+  });
+
+  it('sem idioma resolvido não manda o header', async () => {
+    const antes = [i18n.language, i18n.resolvedLanguage];
+    i18n.language = undefined;
+    i18n.resolvedLanguage = undefined;
+    try {
+      mock.onGet('/players').reply(200, []);
+      await api.get('/players');
+      expect(mock.history.get[0].headers['X-Language']).toBeUndefined();
+    } finally {
+      [i18n.language, i18n.resolvedLanguage] = antes;
+    }
   });
 });
 

@@ -12,7 +12,7 @@ from app.database.supabase_client import set_request_jwt, reset_request_jwt, sta
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, organizations, loyalty, expenses, leads, activity_logs
-from app.routers import cash_game, mfa, bar
+from app.routers import cash_game, mfa, bar, auth_public
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
 # API level (the frontend already hides these screens). Non-sangi roles and
@@ -193,6 +193,8 @@ app.include_router(mfa.router)
 app.include_router(sync.router)
 app.include_router(public_tv.router)
 app.include_router(leads.router)
+# Esqueci-senha: público como o de leads; captcha e limite de envio próprios.
+app.include_router(auth_public.router)
 app.include_router(organizations.router)
 app.include_router(loyalty.router)
 app.include_router(expenses.router, dependencies=_no_sangi)

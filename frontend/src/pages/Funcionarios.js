@@ -330,14 +330,26 @@ const Funcionarios = () => {
       // servidor não manda e-mail nenhum nesse caso, então anunciar "convite
       // enviado" faria o admin esperar por uma mensagem que nunca chega — e
       // duvidar da tela, que já mostra a pessoa como membro ativo.
-      notify(
-        data?.invite_status === 'accepted'
-          ? t('staff.joinedDirectly',
-              '{{email}} já tinha conta e entrou direto na equipe — é só pedir para entrar no sistema.',
-              { email })
-          : t('staff.inviteSent', 'Convite enviado para {{email}}.', { email }),
-        'success'
-      );
+      if (data?.invite_sent === false) {
+        // O vínculo foi criado, mas o e-mail não saiu (provedor fora, chave
+        // ausente). Comemorar aqui faria o admin esperar por um convite que
+        // não chegou; o caminho é "Reenviar convite".
+        notify(
+          t('staff.inviteEmailFailed',
+            'O cadastro foi feito, mas o e-mail de convite para {{email}} não saiu. Use "Reenviar convite" mais tarde.',
+            { email }),
+          'warning'
+        );
+      } else {
+        notify(
+          data?.invite_status === 'accepted'
+            ? t('staff.joinedDirectly',
+                '{{email}} já tinha conta e entrou direto na equipe — é só pedir para entrar no sistema.',
+                { email })
+            : t('staff.inviteSent', 'Convite enviado para {{email}}.', { email }),
+          'success'
+        );
+      }
       setShowStaffModal(false);
       loadData();
     } catch (err) {

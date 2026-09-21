@@ -229,6 +229,8 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 SUPABASE_JWT_SECRET=your_jwt_secret
 FRONTEND_URL=http://localhost:3000
+RESEND_API_KEY=re_...          # e-mails transacionais (convites, esqueci-senha); sem ela, em dev, o link vai para o log
+HCAPTCHA_SECRET=0x...          # verificação do captcha no esqueci-senha; vazio = sem captcha (só em dev)
 ```
 
 ## Key Integration Points

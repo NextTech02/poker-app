@@ -21,6 +21,7 @@ from app.config import get_settings
 from app.routers.activity_logs import DATE_PATTERN, EVENT_TYPE_PATTERN
 from app.services.activity_log_service import ActivityLogService
 from app.database.supabase_client import supabase_admin
+from app.services.email_service import enviar_email, renderizar
 from app.services.module_service import ALL_MODULES, ModuleService
 from app.utils.erros import conflito, erro_http, nao_encontrado, recusado, sem_permissao
 
@@ -496,36 +497,13 @@ def switch_organization(
     return {"organization_id": data.organization_id, "refresh_required": True}
 
 
-# Assunto e corpo do convite, no idioma escolhido para a organização. O clube
-# colombiano não pode receber o primeiro e-mail do sistema em português — é o
-# primeiro contato dele com o produto.
-_CONVITE = {
-    "pt-BR": (
-        "Seu acesso ao {org}",
-        "Olá, {nome}.\n\n"
-        "Sua conta de administrador do clube {org} está pronta.\n"
-        "Defina sua senha por este link (ele é de uso único):\n\n{link}\n\n"
-        "Se você não esperava este e-mail, pode ignorá-lo.",
-    ),
-    "en-US": (
-        "Your access to {org}",
-        "Hello, {nome}.\n\n"
-        "Your admin account for {org} is ready.\n"
-        "Set your password with this link (single use):\n\n{link}\n\n"
-        "If you were not expecting this email, you can ignore it.",
-    ),
-    "es-ES": (
-        "Su acceso a {org}",
-        "Hola, {nome}.\n\n"
-        "Su cuenta de administrador del club {org} está lista.\n"
-        "Defina su contraseña con este enlace (de un solo uso):\n\n{link}\n\n"
-        "Si no esperaba este correo, puede ignorarlo.",
-    ),
-}
-
-
 def _enviar_convite(email: str, nome: str, org: str, link: str, idioma: str):
     """Manda o convite. Devolve (enviado, motivo_se_nao).
+
+    No idioma escolhido PARA A ORGANIZAÇÃO (o campo do formulário), e não no
+    da tela do admin da plataforma: o clube colombiano não pode receber o
+    primeiro e-mail do sistema em português — é o primeiro contato dele com o
+    produto. Texto e layout ficam em `email_service`, junto com os demais.
 
     NUNCA levanta: neste ponto a organização JÁ existe, e derrubar a resposta
     faria o operador achar que nada foi criado — e tentar de novo, esbarrando
@@ -537,26 +515,14 @@ def _enviar_convite(email: str, nome: str, org: str, link: str, idioma: str):
                        "enviado: RESEND_API_KEY não está configurada. Reenvie o "
                        "convite pela tela de funcionários.")
 
-    assunto, corpo = _CONVITE.get(idioma) or _CONVITE["pt-BR"]
-    try:
-        r = httpx.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-            json={
-                "from": settings.leads_email_from,
-                "to": [email],
-                "subject": assunto.format(org=org),
-                "text": corpo.format(nome=nome, org=org, link=link),
-            },
-            timeout=15,
-        )
-        if r.status_code >= 400:
-            # O corpo da resposta pode trazer chave e detalhe do provedor: log.
-            logger.warning("Resend recusou o convite de %s: %s", email, r.text[:300])
-            return False, ("A organização foi criada, mas o e-mail de convite foi "
-                           "recusado pelo provedor. Reenvie o convite.")
-    except Exception:
-        logger.exception("falha ao enviar o convite de %s", email)
+    assunto, html, texto = renderizar(
+        "convite_organizacao", idioma, link=link, nome=nome, org=org
+    )
+    motivo = enviar_email(email, assunto, html, texto, link=link)
+    if motivo == "recusado":
+        return False, ("A organização foi criada, mas o e-mail de convite foi "
+                       "recusado pelo provedor. Reenvie o convite.")
+    if motivo:
         return False, ("A organização foi criada, mas não foi possível enviar o "
                        "e-mail de convite. Reenvie o convite.")
     return True, None

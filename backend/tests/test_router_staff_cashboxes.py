@@ -128,7 +128,7 @@ class TestFuncionarios:
         """Só o e-mail entra: nome e senha são definidos pela própria pessoa."""
         recebidos = {}
 
-        def _cria(dados, uid, org):
+        def _cria(dados, uid, org, idioma=None):
             recebidos["email"] = dados.email
             recebidos["org"] = org
             return _funcionario(status="awaiting_signup", ativo=False)
@@ -139,8 +139,54 @@ class TestFuncionarios:
         assert recebidos["email"] == "novo@clube.com"
         assert recebidos["org"] == client.usuario["organization_id"]
 
+    def test_idioma_da_interface_chega_ao_servico(self, client, stub):
+        """O convite sai no idioma da tela de quem convida (X-Language), não
+        no do servidor: o convidado de um admin em espanhol lê espanhol."""
+        recebidos = {}
+
+        def _cria(dados, uid, org, idioma=None):
+            recebidos["idioma"] = idioma
+            return _funcionario(status="awaiting_signup", ativo=False)
+
+        stub(SS, create_staff=_cria)
+        client.post("/staff", json={"email": "novo@clube.com"}, headers={"X-Language": "es-ES"})
+        assert recebidos["idioma"] == "es-ES"
+
+    def test_sem_header_o_idioma_e_portugues(self, client, stub):
+        recebidos = {}
+
+        def _cria(dados, uid, org, idioma=None):
+            recebidos["idioma"] = idioma
+            return _funcionario(status="awaiting_signup", ativo=False)
+
+        stub(SS, create_staff=_cria)
+        client.post("/staff", json={"email": "novo@clube.com"})
+        assert recebidos["idioma"] == "pt-BR"
+
+    def test_idioma_desconhecido_cai_em_portugues(self, client, stub):
+        recebidos = {}
+
+        def _cria(dados, uid, org, idioma=None):
+            recebidos["idioma"] = idioma
+            return _funcionario(status="awaiting_signup", ativo=False)
+
+        stub(SS, create_staff=_cria)
+        client.post("/staff", json={"email": "novo@clube.com"}, headers={"X-Language": "fr-FR"})
+        assert recebidos["idioma"] == "pt-BR"
+
+    def test_reenvio_leva_o_idioma(self, client, stub):
+        recebidos = {}
+
+        def _reenvia(sid, org, idioma=None):
+            recebidos["idioma"] = idioma
+            return {"sent": True}
+
+        stub(SS, resend_invite=_reenvia)
+        client.post(f"/staff/{STAFF}/resend-invite", headers={"X-Language": "en"})
+        assert recebidos["idioma"] == "en-US"
+
     def test_email_ja_usado_da_400(self, client, stub):
-        def _estoura(d, uid, org):
+        def _estoura(d, uid, org, idioma=None):
             raise ValueError("Já existe funcionário com este e-mail")
         stub(SS, create_staff=_estoura)
         assert client.post("/staff", json={"email": "a@b.com"}).status_code == 400
@@ -206,11 +252,11 @@ class TestFuncionarios:
     def test_reenvia_o_convite(self, client, stub):
         """Os links do e-mail expiram; sem reenvio, quem demorou para clicar
         ficava travado e só o suporte resolvia."""
-        stub(SS, resend_invite=lambda sid, org: {"sent": True})
+        stub(SS, resend_invite=lambda sid, org, idioma=None: {"sent": True})
         assert client.post(f"/staff/{STAFF}/resend-invite").json()["sent"] is True
 
     def test_reenviar_para_quem_ja_concluiu_da_400(self, client, stub):
-        def _estoura(sid, org):
+        def _estoura(sid, org, idioma=None):
             raise ValueError("já concluiu o cadastro")
         stub(SS, resend_invite=_estoura)
         assert client.post(f"/staff/{STAFF}/resend-invite").status_code == 400

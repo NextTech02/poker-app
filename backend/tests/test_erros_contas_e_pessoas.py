@@ -287,7 +287,7 @@ class TestStatusQueChegaNaRota:
         não pode quebrar — só perde a tradução até ser convertido."""
         from app.services.staff_service import StaffService
 
-        def _estoura(sid, org):
+        def _estoura(sid, org, idioma=None):
             raise ValueError("algo que ainda não tem código")
 
         stub(StaffService, resend_invite=_estoura)

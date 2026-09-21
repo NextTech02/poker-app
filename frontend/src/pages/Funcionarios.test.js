@@ -379,6 +379,23 @@ describe('convidar alguém', () => {
     );
   });
 
+  it('convite gravado mas e-mail não enviado avisa em vez de comemorar', async () => {
+    // O servidor cria o vínculo e só então tenta o e-mail; se ele não sai,
+    // "convite enviado" faria o admin esperar por algo que não chegou. O
+    // caminho é "Reenviar convite".
+    api.post.mockResolvedValue({
+      data: { id: 's9', invite_status: 'awaiting_signup', active: true, invite_sent: false, invite_error: 'recusado' },
+    });
+    await montar();
+    await abrir();
+    await userEvent.type(screen.getByPlaceholderText('email@exemplo.com'), 'novo@clube.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar convite' }));
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith('staff.inviteEmailFailed:novo@clube.com')
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
   it('sem grupo o convite vai só com o e-mail', async () => {
     await montar();
     await abrir();

@@ -327,8 +327,10 @@ class TestEstadoDoConviteDependeDoVinculo:
     def _finge_auth(self, monkeypatch, paginas, criar=None):
         """Simula o Supabase Auth.
 
-        Por padrao /invite recusa o e-mail existente (422) e a lista de contas
-        vem PAGINADA. Com `criar`, /invite ACEITA e devolve a conta nova.
+        Por padrao `admin/generate_link` recusa o e-mail existente (422) e a
+        lista de contas vem PAGINADA. Com `criar`, ele ACEITA e devolve a
+        conta nova (sem `action_link`: o e-mail nao interessa a estes testes,
+        e sem chave do Resend ele nem e tentado).
         """
         import httpx
 
@@ -432,7 +434,7 @@ class TestEstadoDoConviteDependeDoVinculo:
         assert primeiro.invite_status == "accepted"
 
         # "Excluir": o vinculo sai da tabela; a conta do auth continua viva
-        # (por isso o /invite segue respondendo 422 no proximo convite).
+        # (por isso o generate_link segue respondendo 422 no proximo convite).
         fake.store["staff"].clear()
 
         segundo = self._convida(email="orfa@nexthub.com")

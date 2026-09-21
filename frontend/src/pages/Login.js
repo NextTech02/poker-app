@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../config/supabase';
 import api from '../config/api';
 import Button from '../components/Button';
 import LanguageSelector from '../components/LanguageSelector';
@@ -105,10 +104,25 @@ const Login = () => {
       return;
     }
 
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/definir-senha`,
-      captchaToken,
-    });
+    // Passa pelo backend, e não pelo `resetPasswordForEmail` do Supabase: é o
+    // backend que redige o e-mail no idioma desta tela (header X-Language,
+    // anexado pelo interceptor). O captcha vai junto e é verificado lá.
+    try {
+      await api.post(
+        '/public/auth/forgot-password',
+        { email, captcha_token: captchaToken },
+        { _silentError: true }
+      );
+    } catch (err) {
+      setLoading(false);
+      const code = err?.response?.data?.detail?.code;
+      setError(
+        code === 'captcha_invalido'
+          ? t('login.captchaFailed', 'Não foi possível concluir a verificação de segurança. Tente de novo.')
+          : t('login.resetFailed', 'Não foi possível enviar o link agora. Tente de novo em instantes.')
+      );
+      return;
+    }
 
     // Resposta idêntica exista ou não a conta: confirmar um e-mail cadastrado
     // entregaria a lista de usuários a quem tentasse adivinhar.

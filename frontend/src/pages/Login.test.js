@@ -21,14 +21,13 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Login from './Login';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../config/supabase';
 import api from '../config/api';
 
 jest.mock('../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
-jest.mock('../config/supabase', () => ({
-  supabase: { auth: { resetPasswordForEmail: jest.fn() } },
+jest.mock('../config/api', () => ({
+  __esModule: true,
+  default: { get: jest.fn(), post: jest.fn() },
 }));
-jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn() } }));
 jest.mock('../components/LanguageSelector', () => () => <div data-testid="idiomas" />);
 jest.mock('../assets/aceblind-logo-white.png', () => 'logo.png');
 
@@ -77,7 +76,7 @@ beforeEach(() => {
   useAuth.mockReturnValue({ signIn: entrar });
   mockCaptcha.getToken.mockResolvedValue('captcha-ok');
   api.get.mockResolvedValue({ data: [{ id: 'org-a' }] });
-  supabase.auth.resetPasswordForEmail.mockResolvedValue({});
+  api.post.mockResolvedValue({ data: { received: true } });
   window.history.replaceState({}, '', '/login');
 });
 
@@ -216,15 +215,18 @@ describe('esqueci minha senha', () => {
     expect(screen.queryByLabelText('login.password')).toBeNull();
   });
 
-  it('envia o link com destino e captcha', async () => {
+  it('pede o link ao backend, com o captcha', async () => {
+    // Pelo backend, e não pelo Supabase direto: é ele que redige o e-mail no
+    // idioma desta tela (o interceptor anexa o X-Language).
     await irParaEsqueci();
     await userEvent.type(screen.getByLabelText('login.email'), 'a@b.com');
     await userEvent.click(screen.getByRole('button', { name: /Enviar link/ }));
     await waitFor(() =>
-      expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith('a@b.com', {
-        redirectTo: expect.stringContaining('/definir-senha'),
-        captchaToken: 'captcha-ok',
-      })
+      expect(api.post).toHaveBeenCalledWith(
+        '/public/auth/forgot-password',
+        { email: 'a@b.com', captcha_token: 'captcha-ok' },
+        expect.objectContaining({ _silentError: true })
+      )
     );
   });
 
@@ -243,7 +245,27 @@ describe('esqueci minha senha', () => {
     await userEvent.type(screen.getByLabelText('login.email'), 'a@b.com');
     await userEvent.click(screen.getByRole('button', { name: /Enviar link/ }));
     expect(await screen.findByText(/verificação de segurança/)).toBeInTheDocument();
-    expect(supabase.auth.resetPasswordForEmail).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('captcha recusado pelo servidor avisa e não finge que enviou', async () => {
+    api.post.mockRejectedValue({ response: { data: { detail: { code: 'captcha_invalido' } } } });
+    await irParaEsqueci();
+    await userEvent.type(screen.getByLabelText('login.email'), 'a@b.com');
+    await userEvent.click(screen.getByRole('button', { name: /Enviar link/ }));
+    expect(await screen.findByText(/verificação de segurança/)).toBeInTheDocument();
+    expect(screen.queryByText(/Se houver uma conta/)).toBeNull();
+    expect(screen.getByRole('button', { name: /Enviar link/ })).toBeEnabled();
+  });
+
+  it('falha do servidor não finge que enviou', async () => {
+    // "Se houver uma conta, enviamos" só vale quando o pedido chegou.
+    api.post.mockRejectedValue({ response: { status: 503, data: { detail: { code: 'verificacao_indisponivel' } } } });
+    await irParaEsqueci();
+    await userEvent.type(screen.getByLabelText('login.email'), 'a@b.com');
+    await userEvent.click(screen.getByRole('button', { name: /Enviar link/ }));
+    expect(await screen.findByText(/Não foi possível enviar o link/)).toBeInTheDocument();
+    expect(screen.queryByText(/Se houver uma conta/)).toBeNull();
   });
 
   it('voltar limpa os avisos da tela anterior', async () => {

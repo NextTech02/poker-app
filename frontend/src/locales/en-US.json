@@ -129,6 +129,7 @@
     "linkExpired": "This link has expired. Ask your administrator for a new invite, or use \"Forgot my password\" to get another link.",
     "linkInvalid": "We could not validate this link. Ask your administrator for a new one.",
     "captchaFailed": "We could not complete the security check. Please try again.",
+    "resetFailed": "We couldn't send the link right now. Please try again shortly.",
     "captchaNotice": "Protected by hCaptcha —",
     "captchaPrivacy": "Privacy",
     "captchaTerms": "Terms",
@@ -1152,6 +1153,10 @@
     "funcionario_com_movimento_de_caixa": "This staff member has cash activity and cannot be removed.",
     "servico_de_email_indisponivel": "Could not reach the email service. Try again shortly.",
     "limite_de_envio_de_email": "Email sending limit reached. Wait a few minutes and try again.",
+    "captcha_invalido": "We could not confirm the security check. Please try again.",
+    "verificacao_indisponivel": "We could not run the security check right now. Please try again shortly.",
+    "conta_do_convidado_nao_encontrada": "This person's access account no longer exists. Cancel the invite and invite them again.",
+    "falha_ao_reenviar_convite": "The invite could not be resent. Please try again shortly.",
     "ticket_nao_resgatavel": "This ticket cannot be used ({{status_atual}}).",
     "ticket_nao_cancelavel": "This ticket cannot be cancelled ({{status_atual}}).",
     "ticket_nao_transferivel": "This ticket cannot be transferred ({{status_atual}}).",
@@ -2020,6 +2025,7 @@
     "errEffectivate": "Could not activate the invite.",
     "inviteCancelledFree": "Invite cancelled. This e-mail can be invited again.",
     "joinedDirectly": "{{email}} already had an account and joined the team directly — just ask them to sign in.",
+    "inviteEmailFailed": "The person was added, but the invite email to {{email}} could not be sent. Use \"Resend invite\" later.",
     "tabAccess": "Access log"
   },
   "stageBar": {

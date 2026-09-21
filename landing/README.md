@@ -73,6 +73,16 @@ LEADS_EMAIL_FROM=AceBlind <noreply@aceblind.net>
 LANDING_URL=https://aceblind.net           # sem isto o CORS barra o formulário
 ```
 
+A mesma `RESEND_API_KEY` também manda os e-mails do app (convite de clube e de
+funcionário, redefinição de senha), redigidos pelo backend no idioma da tela de
+quem pediu. O "esqueci minha senha" ainda precisa de:
+
+```
+HCAPTCHA_SECRET=0x...   # secret da site key do hCaptcha (a mesma do Supabase → Auth → Attack protection)
+```
+
+Sem ele o fluxo funciona, mas sem verificação de captcha — só em desenvolvimento.
+
 Sem `RESEND_API_KEY` nada quebra: o lead continua sendo gravado, e você o vê no
 banco. Quem ficou sem aviso é fácil de achar:
 

@@ -129,6 +129,7 @@
     "linkExpired": "Este link expirou. Peça um novo convite ao administrador, ou use \"Esqueci minha senha\" para receber outro link.",
     "linkInvalid": "Não foi possível validar este link. Peça um novo ao administrador.",
     "captchaFailed": "Não foi possível concluir a verificação de segurança. Tente de novo.",
+    "resetFailed": "Não foi possível enviar o link agora. Tente de novo em instantes.",
     "captchaNotice": "Protegido por hCaptcha —",
     "captchaPrivacy": "Privacidade",
     "captchaTerms": "Termos",
@@ -1152,6 +1153,10 @@
     "funcionario_com_movimento_de_caixa": "Este funcionário tem movimento de caixa e não pode ser excluído.",
     "servico_de_email_indisponivel": "Não consegui falar com o serviço de e-mail. Tente de novo em instantes.",
     "limite_de_envio_de_email": "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente de novo.",
+    "captcha_invalido": "Não foi possível confirmar a verificação de segurança. Tente de novo.",
+    "verificacao_indisponivel": "Não foi possível verificar a segurança agora. Tente de novo em instantes.",
+    "conta_do_convidado_nao_encontrada": "A conta de acesso desta pessoa não existe mais. Cancele o convite e convide de novo.",
+    "falha_ao_reenviar_convite": "Não foi possível reenviar o convite. Tente de novo em instantes.",
     "ticket_nao_resgatavel": "Este ticket não pode ser usado ({{status_atual}}).",
     "ticket_nao_cancelavel": "Este ticket não pode ser cancelado ({{status_atual}}).",
     "ticket_nao_transferivel": "Este ticket não pode ser transferido ({{status_atual}}).",
@@ -2020,6 +2025,7 @@
     "errEffectivate": "Não foi possível efetivar o convite.",
     "inviteCancelledFree": "Convite cancelado. Este e-mail pode ser convidado de novo.",
     "joinedDirectly": "{{email}} já tinha conta e entrou direto na equipe — é só pedir para entrar no sistema.",
+    "inviteEmailFailed": "O cadastro foi feito, mas o e-mail de convite para {{email}} não saiu. Use \"Reenviar convite\" mais tarde.",
     "tabAccess": "Acessos"
   },
   "stageBar": {

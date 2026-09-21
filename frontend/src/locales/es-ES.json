@@ -129,6 +129,7 @@
     "linkExpired": "Este enlace caducó. Pide una nueva invitación al administrador, o usa \"Olvidé mi contraseña\" para recibir otro enlace.",
     "linkInvalid": "No se pudo validar este enlace. Pide uno nuevo al administrador.",
     "captchaFailed": "No se pudo completar la verificación de seguridad. Inténtalo de nuevo.",
+    "resetFailed": "No se pudo enviar el enlace ahora. Inténtalo de nuevo en unos instantes.",
     "captchaNotice": "Protegido por hCaptcha —",
     "captchaPrivacy": "Privacidad",
     "captchaTerms": "Términos",
@@ -1152,6 +1153,10 @@
     "funcionario_com_movimento_de_caixa": "Este empleado tiene movimiento de caja y no puede eliminarse.",
     "servico_de_email_indisponivel": "No pude contactar el servicio de correo. Probá de nuevo en instantes.",
     "limite_de_envio_de_email": "Se alcanzó el límite de envío de correos. Esperá unos minutos y probá de nuevo.",
+    "captcha_invalido": "No se pudo confirmar la verificación de seguridad. Inténtalo de nuevo.",
+    "verificacao_indisponivel": "No se pudo verificar la seguridad ahora. Inténtalo de nuevo en unos instantes.",
+    "conta_do_convidado_nao_encontrada": "La cuenta de acceso de esta persona ya no existe. Cancela la invitación e invítala de nuevo.",
+    "falha_ao_reenviar_convite": "No se pudo reenviar la invitación. Inténtalo de nuevo en unos instantes.",
     "ticket_nao_resgatavel": "Este ticket no puede usarse ({{status_atual}}).",
     "ticket_nao_cancelavel": "Este ticket no puede cancelarse ({{status_atual}}).",
     "ticket_nao_transferivel": "Este ticket no puede transferirse ({{status_atual}}).",
@@ -2020,6 +2025,7 @@
     "errEffectivate": "No se pudo efectivar la invitación.",
     "inviteCancelledFree": "Invitación cancelada. Este correo puede ser invitado de nuevo.",
     "joinedDirectly": "{{email}} ya tenía cuenta y entró directo al equipo — solo pídale que inicie sesión.",
+    "inviteEmailFailed": "La persona fue registrada, pero el correo de invitación a {{email}} no salió. Usa \"Reenviar invitación\" más tarde.",
     "tabAccess": "Accesos"
   },
   "stageBar": {

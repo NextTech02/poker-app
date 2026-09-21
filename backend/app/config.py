@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     # — o lead é gravado no banco de qualquer jeito; o e-mail é só a notificação.
     resend_api_key: str = ""
     leads_email_from: str = "AceBlind <noreply@aceblind.net>"
+    # Secret do hCaptcha (a mesma site key que o frontend usa e que está
+    # configurada em Supabase → Auth → Attack protection). O "esqueci minha
+    # senha" passou a ser verificado pelo backend, não mais pelo Supabase.
+    # Vazio: a verificação é PULADA com aviso no log — serve para o ambiente
+    # de desenvolvimento; em produção é obrigatório.
+    hcaptcha_secret: str = ""
     # Diagnóstico: uma linha de log por requisição, com o tempo e o número de
     # idas ao banco. Desligado em produção — ver PerfLogMiddleware em main.py.
     perf_log: bool = False

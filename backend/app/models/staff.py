@@ -62,6 +62,12 @@ class StaffResponse(BaseModel):
     active: bool = True
     # 'pending' enquanto um convidado que já tinha conta não respondeu.
     invite_status: str = "accepted"
+    # Só no retorno do convite. None = nenhum e-mail era esperado (a conta já
+    # existia). False + `invite_error` (sem_chave | recusado | indisponivel |
+    # sem_link): o vínculo foi criado, mas o e-mail não saiu — a tela avisa e
+    # o admin usa "Reenviar convite".
+    invite_sent: Optional[bool] = None
+    invite_error: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

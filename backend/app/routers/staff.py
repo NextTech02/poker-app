@@ -13,6 +13,7 @@ from app.services.staff_service import StaffService
 from app.services.module_service import ModuleService
 from app.auth.jwt import get_current_user
 from app.auth.permissions import require_permission
+from app.dependencies import get_language
 from app.utils.erros import da_excecao, nao_encontrado
 
 router = APIRouter(prefix="/staff", tags=["staff"])
@@ -82,11 +83,16 @@ def delete_group(group_id: str, user=_manage_staff):
 # ── Staff ──
 
 @router.post("", response_model=StaffResponse)
-def create_staff(data: StaffCreate, user=_manage_staff):
-    """Convida o funcionário por e-mail — ele define o próprio nome e senha."""
+def create_staff(data: StaffCreate, user=_manage_staff, idioma: str = Depends(get_language)):
+    """Convida o funcionário por e-mail — ele define o próprio nome e senha.
+
+    O e-mail sai no idioma da tela de quem convida (header X-Language): o
+    convidado de um admin que usa o sistema em espanhol recebe o convite em
+    espanhol.
+    """
     try:
         return StaffService.create_staff(
-            data, user.get("sub"), user.get("organization_id")
+            data, user.get("sub"), user.get("organization_id"), idioma=idioma
         )
     except ValueError as e:
         raise da_excecao(e)
@@ -159,14 +165,16 @@ def confirm_invite(staff_id: str, user=_manage_staff):
 
 
 @router.post("/{staff_id}/resend-invite")
-def resend_invite(staff_id: str, user=_manage_staff):
+def resend_invite(staff_id: str, user=_manage_staff, idioma: str = Depends(get_language)):
     """Manda outro link para quem ainda não concluiu o cadastro.
 
     Os links do e-mail expiram; sem reenvio, quem demorou para clicar ficava
-    travado e só o suporte resolvia.
+    travado e só o suporte resolvia. Sai no idioma da tela de quem reenvia.
     """
     try:
-        return StaffService.resend_invite(staff_id, user.get("organization_id"))
+        return StaffService.resend_invite(
+            staff_id, user.get("organization_id"), idioma=idioma
+        )
     except ValueError as e:
         raise da_excecao(e)
 

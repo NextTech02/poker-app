@@ -5,6 +5,8 @@ from app.database import supabase
 from app.database.supabase_client import supabase_admin
 from app.config import get_settings
 from app.utils.erros import ErroDeNegocio
+from app.services.auth_link_service import gerar_link
+from app.services.email_service import enviar_email, renderizar
 from app.models.staff import (
     PermissionGroupCreate,
     PermissionGroupUpdate,
@@ -137,13 +139,44 @@ class StaffService:
         return "accepted"
 
     @staticmethod
-    def create_staff(data: StaffCreate, created_by: str, organization_id: str = None) -> StaffResponse:
+    def _nome_da_organizacao(organization_id: Optional[str]) -> str:
+        """Nome do clube, para o e-mail e para o gate de cadastro.
+
+        Precisa ser `supabase_admin`: `organizations` tem RLS sem nenhuma
+        policy, então a consulta como usuário volta vazia e cairia no
+        genérico — o convidado receberia um e-mail sem o nome do clube.
+        """
+        if not organization_id:
+            return "AceBlind"
+        try:
+            r = (
+                supabase_admin.table("organizations")
+                .select("name").eq("id", organization_id).limit(1).execute()
+            )
+            if r.data:
+                return r.data[0]["name"]
+        except Exception:
+            pass
+        return "AceBlind"
+
+    @staticmethod
+    def create_staff(
+        data: StaffCreate, created_by: str, organization_id: str = None, idioma: str = "pt-BR"
+    ) -> StaffResponse:
         """Convida o funcionário por e-mail; ele define nome e senha.
 
         Antes, o admin digitava a senha do funcionário — ou seja, conhecia a
         senha de outra pessoa e precisava repassá-la por fora. Agora vale o
-        mesmo caminho do convite do dono do clube: o Supabase cria a conta e
-        manda o e-mail; a senha nunca passa por aqui.
+        mesmo caminho do convite do dono do clube: a conta é criada e o link
+        obtido SEM envio (`generate_link`), e o e-mail sai por último, redigido
+        pelo app no idioma da tela do admin (`idioma`) — o template global do
+        Supabase só falava inglês. A senha nunca passa por aqui.
+
+        O e-mail vai DEPOIS de a linha em `staff` existir, porque é o único
+        passo irreversível: com o Supabase enviando no `/invite`, um insert
+        que falhasse deixava na caixa do convidado um link para uma conta que
+        o rollback apagava em seguida. E-mail que não sai não derruba o
+        cadastro — volta como `invite_sent=False` e o admin reenvia.
 
         `organization_name` nos metadados é o que marca a conta como criada por
         convite — o app usa isso (com `onboarded_at`) para exigir o cadastro
@@ -164,26 +197,11 @@ class StaffService:
             "Content-Type": "application/json",
         }
 
-        # Nome do clube: aparece no e-mail e liga o gate de cadastro.
-        # Precisa ser `supabase_admin`: `organizations` tem RLS sem nenhuma
-        # policy, então a consulta como usuário volta vazia e cairia no
-        # genérico — o convidado receberia um e-mail sem o nome do clube.
-        org_nome = "AceBlind"
-        if organization_id:
-            try:
-                r = (
-                    supabase_admin.table("organizations")
-                    .select("name").eq("id", organization_id).limit(1).execute()
-                )
-                if r.data:
-                    org_nome = r.data[0]["name"]
-            except Exception:
-                pass
+        org_nome = StaffService._nome_da_organizacao(organization_id)
 
-        # Limite do plano ANTES de convidar. O convite cria a conta e dispara o
-        # e-mail; se o gatilho `trg_enforce_staff_limit` recusasse a inserção
-        # depois, sobraria um usuário órfão e uma pessoa convidada que não
-        # consegue entrar.
+        # Limite do plano ANTES de convidar. O convite cria a conta no auth; se
+        # o gatilho `trg_enforce_staff_limit` recusasse a inserção depois,
+        # sobraria uma ida e volta ao auth (criar e desfazer) para dizer "não".
         if organization_id:
             try:
                 atual = (
@@ -212,20 +230,13 @@ class StaffService:
                 pass  # indisponível: o gatilho do banco ainda protege
 
         auth_user_id = None
+        action_link = None
         criamos_o_usuario = False
         try:
-            resp = httpx.post(
-                f"{base}/auth/v1/invite",
-                headers=headers,
-                json={
-                    "email": data.email,
-                    "data": {"organization_name": org_nome},
-                    # Leva para a tela onde o funcionário define nome e senha.
-                    # (a URL precisa estar na allowlist de Redirect URLs do Supabase)
-                    "redirect_to": settings.frontend_url.rstrip("/") + "/definir-senha",
-                },
-                timeout=20,
-            )
+            # Cria a conta e devolve o link SEM enviar. `organization_name`
+            # nos metadados liga o gate de cadastro; o redirect leva para a
+            # tela onde o funcionário define nome e senha.
+            resp = gerar_link("invite", data.email, {"organization_name": org_nome})
         except Exception as exc:
             # `exc` pode trazer host, chave e corpo da resposta do provedor —
             # nada disso ajuda quem está na tela, e parte é segredo. Fica no log.
@@ -235,15 +246,16 @@ class StaffService:
                 "Não foi possível contatar o serviço de e-mail. Tente novamente em instantes.",
             )
 
-        if resp.status_code in (200, 201):
-            auth_user_id = resp.json().get("id")
+        if resp.status in (200, 201):
+            auth_user_id = resp.user_id
+            action_link = resp.link
             criamos_o_usuario = True
-        elif resp.status_code == 429:
+        elif resp.status == 429:
             raise ErroDeNegocio(
                 "limite_de_envio_de_email",
                 "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente de novo.",
             )
-        elif resp.status_code in (409, 422):
+        elif resp.status in (409, 422):
             # Já existe conta com este e-mail. Isso sozinho NÃO diz de quem ela
             # é: pode ser de alguém que trabalha em outro clube, ou uma conta
             # órfã de um cadastro antigo. Quem decide o estado do vínculo é a
@@ -257,16 +269,11 @@ class StaffService:
                     email=data.email,
                 )
         else:
-            detalhe = ""
-            try:
-                j = resp.json()
-                detalhe = j.get("msg") or j.get("message") or ""
-            except Exception:
-                detalhe = resp.text[:160]
-            # `detalhe` é a resposta do provedor de auth: inglês, JSON, e às
-            # vezes o e-mail de outra pessoa. Vai só para o log.
+            # `resp.texto` é a resposta crua do provedor de auth: inglês, JSON,
+            # e às vezes o e-mail de outra pessoa. Vai só para o log. O código
+            # continua "falha_ao_enviar_convite": é contrato com a tela.
             logger.error(
-                "Convite recusado pelo serviço de auth (%s): %s", resp.status_code, detalhe
+                "Convite recusado pelo serviço de auth (%s): %s", resp.status, resp.texto[:160]
             )
             raise ErroDeNegocio(
                 "falha_ao_enviar_convite",
@@ -441,10 +448,29 @@ class StaffService:
             except Exception:
                 pass  # auto-create is best-effort; failures shouldn't block staff creation
 
+        # Só AGORA o passo irreversível: a linha existe, o e-mail pode sair.
+        # Só para conta criada aqui — quem já tinha conta entra com a própria
+        # senha (ou responde ao convite dentro do sistema), sem e-mail.
+        invite_sent = invite_error = None
+        if criamos_o_usuario:
+            if action_link:
+                assunto, html, texto = renderizar(
+                    "convite_funcionario", idioma, link=action_link, org=org_nome
+                )
+                invite_error = enviar_email(data.email, assunto, html, texto, link=action_link)
+                invite_sent = invite_error is None
+            else:
+                # Resposta sem link (payload inesperado do auth): o vínculo
+                # vale, mas não há o que mandar — o admin reenvia.
+                logger.error("generate_link sem action_link para %s", data.email)
+                invite_sent, invite_error = False, "sem_link"
+
         return StaffResponse(
             **staff,
             permission_group_name=group_name,
             permissions=permissions,
+            invite_sent=invite_sent,
+            invite_error=invite_error,
         )
 
     @staticmethod
@@ -765,16 +791,17 @@ class StaffService:
         return res
 
     @staticmethod
-    def resend_invite(staff_id: str, organization_id: str = None) -> dict:
+    def resend_invite(staff_id: str, organization_id: str = None, idioma: str = "pt-BR") -> dict:
         """Reenvia o link de cadastro para quem ainda não concluiu.
 
-        Usa `/recover` e não `/invite`: a conta já existe, então o convite
-        seria recusado com 422. O link de recuperação serve igual — a tela de
-        cadastro decide o que pedir pelo `onboarded_at` da conta, não pelo tipo
-        do link, então quem nunca concluiu continua informando nome e senha.
+        Gera um link de RECUPERAÇÃO, não de convite: a conta já existe, então
+        o convite seria recusado com 422. O link de recuperação serve igual —
+        a tela de cadastro decide o que pedir pelo `onboarded_at` da conta,
+        não pelo tipo do link, então quem nunca concluiu continua informando
+        nome e senha. O e-mail, porém, é o de CONVITE, no idioma da tela do
+        admin: antes ia o "Reset password" global do Supabase, em inglês, e a
+        pessoa não entendia que aquilo era o convite do clube.
         """
-        import httpx
-
         alvo = supabase.table("staff").select(
             "id, email, invite_status, organization_id"
         ).eq("id", staff_id).execute()
@@ -791,31 +818,42 @@ class StaffService:
                 status=409,
             )
 
-        base = settings.supabase_url.rstrip("/")
-        r = httpx.post(
-            f"{base}/auth/v1/recover",
-            headers={
-                "apikey": settings.supabase_service_key,
-                "Authorization": f"Bearer {settings.supabase_service_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "email": linha["email"],
-                "redirect_to": settings.frontend_url.rstrip("/") + "/definir-senha",
-            },
-            timeout=20,
-        )
-        if r.status_code == 429:
+        try:
+            r = gerar_link("recovery", linha["email"])
+        except Exception as exc:
+            logger.error("Falha ao contatar o serviço de e-mail: %s", exc)
+            raise ErroDeNegocio(
+                "servico_de_email_indisponivel",
+                "Não foi possível contatar o serviço de e-mail. Tente novamente em instantes.",
+            )
+        if r.status == 429:
             raise ErroDeNegocio(
                 "limite_de_envio_de_email",
                 "Muitos e-mails enviados. Aguarde alguns minutos e tente de novo.",
             )
-        if r.status_code >= 400:
-            logger.error(
-                "Reenvio de convite recusado (%s): %s", r.status_code, r.text[:500]
+        if r.status == 404:
+            # A conta de auth sumiu (apagada por fora, ou pelo cancelamento de
+            # outro convite). Não há a quem mandar link: o caminho é recriar.
+            raise ErroDeNegocio(
+                "conta_do_convidado_nao_encontrada",
+                "A conta de acesso desta pessoa não existe mais. Cancele o convite e convide de novo.",
+                status=409,
             )
+        if r.status >= 400 or not r.link:
+            logger.error("Reenvio de convite recusado (%s): %s", r.status, r.texto)
             raise ErroDeNegocio(
                 "falha_ao_reenviar_convite", "Não foi possível reenviar o convite."
+            )
+
+        assunto, html, texto = renderizar(
+            "convite_funcionario", idioma, link=r.link,
+            org=StaffService._nome_da_organizacao(linha.get("organization_id") or organization_id),
+        )
+        motivo = enviar_email(linha["email"], assunto, html, texto, link=r.link)
+        if motivo:
+            raise ErroDeNegocio(
+                "falha_ao_reenviar_convite", "Não foi possível reenviar o convite.",
+                motivo=motivo,
             )
         return {"sent": True, "email": linha["email"]}
 
