@@ -231,18 +231,41 @@ class CashboxService:
         return CashboxService._get_or_create(staff_id, bar_shift_id=bar_shift_id)
 
     @staticmethod
-    def auto_create_for_staff(staff_id: str, stage_ids: Optional[List[str]] = None) -> List[CashboxResponse]:
-        """Ensure the staff has a cashbox in every active stage (or in the
-        supplied list). Idempotent. Called from staff_service after create or
-        permission change."""
+    def auto_create_for_staff(staff_id: str, stage_ids: Optional[List[str]] = None) -> List[dict]:
+        """Garante que o funcionário tem caixa em toda etapa (ou nas informadas).
+        Idempotente. Chamado pelo staff_service no convite, na readmissão, na
+        efetivação e na troca de grupo.
+
+        TRÊS idas ao banco, independentemente do número de etapas: a lista de
+        etapas, os caixas que já existem e UM insert com os que faltam. A
+        versão anterior fazia quatro consultas POR ETAPA (existe? + insert +
+        nome do funcionário + nome da etapa), em sequência, contra um Postgres
+        remoto: num clube com dez etapas eram 41 idas, e o convite de
+        funcionário levava segundos só nisto.
+
+        Devolve as linhas cruas: nenhum chamador usa os nomes, e enriquecer
+        era justamente metade das consultas.
+        """
         if stage_ids is None:
             stages = supabase.table("stages").select("id").execute()
             stage_ids = [s["id"] for s in (stages.data or [])]
+        if not stage_ids:
+            return []
 
-        results: List[dict] = []
-        for sid in stage_ids:
-            results.append(CashboxService._get_or_create(staff_id, sid))
-        return [CashboxService._enrich(c) for c in results]
+        existentes = supabase.table("cashboxes").select("*") \
+            .eq("staff_id", staff_id).in_("stage_id", stage_ids).execute()
+        por_etapa = {c["stage_id"]: c for c in (existentes.data or [])}
+
+        faltam = [sid for sid in stage_ids if sid not in por_etapa]
+        if faltam:
+            inseridos = supabase.table("cashboxes").insert([
+                {"staff_id": staff_id, "stage_id": sid, "status": "closed", "current_balance": 0.0}
+                for sid in faltam
+            ]).execute()
+            for c in (inseridos.data or []):
+                por_etapa[c["stage_id"]] = c
+
+        return [por_etapa[sid] for sid in stage_ids if sid in por_etapa]
 
     @staticmethod
     def create_for_staff(

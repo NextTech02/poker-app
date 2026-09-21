@@ -45,7 +45,7 @@ _LAYOUT = Template("""<table role="presentation" width="100%" cellpadding="0" ce
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;background-color:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(20,16,40,0.08);font-family:Helvetica,Arial,sans-serif;">
         <tr>
           <td align="center" bgcolor="#7233f8" style="background-color:#7233f8;padding:28px 24px;">
-            <img src="https://aceblind.net/icon-192.png" width="56" height="56" alt="AceBlind" style="display:block;border:0;outline:none;text-decoration:none;width:56px;height:56px;border-radius:14px;" />
+            <img src="$logo" width="56" height="56" alt="AceBlind" style="display:block;border:0;outline:none;text-decoration:none;width:56px;height:56px;border-radius:14px;" />
             <div style="margin-top:12px;font-size:22px;line-height:26px;font-weight:bold;color:#ffffff;letter-spacing:-0.3px;">AceBlind</div>
           </td>
         </tr>
@@ -81,6 +81,19 @@ $paragrafos
 </table>""")
 
 _PARAGRAFO = '            <p style="margin:0 0 16px 0;font-size:15px;line-height:24px;color:#4a4560;text-align:center;">%s</p>'
+
+# O ícone é servido pelo próprio app (frontend/public/icon-192.png). O
+# template antigo apontava para aceblind.net — a LANDING, que não tem o
+# arquivo — e a logo chegava quebrada. Em desenvolvimento o FRONTEND_URL é
+# localhost, inalcançável de qualquer caixa de e-mail: cai no domínio real.
+_APP_PUBLICO = "https://app.aceblind.net"
+
+
+def _url_da_logo() -> str:
+    base = (get_settings().frontend_url or "").rstrip("/")
+    if not base.startswith("https://") or "localhost" in base or "127.0.0.1" in base:
+        base = _APP_PUBLICO
+    return base + "/icon-192.png"
 
 
 def _preencher(modelo: str, valores: dict) -> str:
@@ -120,6 +133,7 @@ def renderizar(tipo: str, idioma: str, *, link: str, **valores) -> tuple:
         _PARAGRAFO % _como_html(_preencher(p, escapados)) for p in t["paragrafos"]
     )
     html = _LAYOUT.substitute(
+        logo=_url_da_logo(),
         titulo=_como_html(_preencher(t["titulo"], escapados)),
         paragrafos=paragrafos_html,
         link=link_html,

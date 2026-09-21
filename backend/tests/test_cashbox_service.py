@@ -226,6 +226,32 @@ class TestCriacaoEListagem:
         assert len(r) == 2
         assert len(fake.store["cashboxes"]) == 2
 
+    def test_criacao_automatica_custa_o_mesmo_com_uma_ou_dez_etapas(self, monkeypatch):
+        """Eram 4 consultas POR ETAPA (existe? + insert + nome do funcionário +
+        nome da etapa), em sequência, num Postgres remoto: com dez etapas o
+        convite de funcionário levava segundos só nisto. Agora são três idas
+        fixas: etapas, caixas existentes e UM insert com o que falta."""
+        etapas = [{"id": f"etapa-{i}", "name": f"Etapa {i}"} for i in range(10)]
+        fake = _monta(monkeypatch, cashboxes=[{**_caixa(), "stage_id": "etapa-3"}], stages=etapas)
+        idas = []
+        original = fake.table
+
+        def _contando(nome):
+            idas.append(nome)
+            return original(nome)
+
+        fake.table = _contando
+        r = S.auto_create_for_staff(STAFF)
+        assert len(r) == 10
+        assert len(fake.store["cashboxes"]) == 10          # o de etapa-3 foi reaproveitado
+        assert len(idas) == 3, idas
+
+        # Idempotente, e a segunda passada nem tenta inserir.
+        idas.clear()
+        S.auto_create_for_staff(STAFF)
+        assert len(fake.store["cashboxes"]) == 10
+        assert len(idas) == 2, idas
+
     def test_criacao_automatica_com_lista_explicita(self, monkeypatch):
         fake = _monta(monkeypatch, cashboxes=[])
         S.auto_create_for_staff(STAFF, [ETAPA])

@@ -113,6 +113,21 @@ class TestRenderizar:
         with pytest.raises(KeyError):
             mod.renderizar("boas_vindas", "pt-BR", link=LINK)
 
+    def test_logo_vem_do_app_e_nao_da_landing(self, monkeypatch):
+        """O template antigo apontava para aceblind.net/icon-192.png — a
+        landing, que não tem o arquivo — e a logo chegava quebrada. O ícone
+        mora no app (frontend/public)."""
+        monkeypatch.setattr(get_settings(), "frontend_url", "https://app.aceblind.net", raising=False)
+        _, html, _ = mod.renderizar("redefinir_senha", "pt-BR", link=LINK, email="a@b.com")
+        assert 'src="https://app.aceblind.net/icon-192.png"' in html
+        assert "https://aceblind.net/icon-192.png" not in html
+
+    def test_em_desenvolvimento_a_logo_cai_no_dominio_real(self, monkeypatch):
+        """localhost é inalcançável de qualquer caixa de e-mail."""
+        monkeypatch.setattr(get_settings(), "frontend_url", "http://localhost:3000", raising=False)
+        _, html, _ = mod.renderizar("redefinir_senha", "pt-BR", link=LINK, email="a@b.com")
+        assert 'src="https://app.aceblind.net/icon-192.png"' in html
+
     def test_valor_ausente_vira_vazio_e_nao_None(self):
         _, html, _ = mod.renderizar("convite_organizacao", "pt-BR", link=LINK, nome=None, org="X")
         assert "None" not in html

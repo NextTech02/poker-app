@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.database import supabase
@@ -50,6 +51,10 @@ settings = get_settings()
 
 
 logger = logging.getLogger(__name__)
+
+# Envio de e-mail fora do caminho crítico do convite (ver create_staff). Poucas
+# threads bastam: cada convite usa uma por meio segundo, e quem convida é gente.
+_envios = ThreadPoolExecutor(max_workers=4, thread_name_prefix="convite-email")
 
 
 def _nao_encontrado() -> ErroDeNegocio:
@@ -431,6 +436,21 @@ class StaffService:
                 "Não foi possível cadastrar o funcionário.",
             )
 
+        # Só AGORA o passo irreversível: a linha existe, o e-mail pode sair.
+        # Só para conta criada aqui — quem já tinha conta entra com a própria
+        # senha (ou responde ao convite dentro do sistema), sem e-mail.
+        #
+        # Sai numa thread, em paralelo com o que vem abaixo (grupo, caixas):
+        # o provedor leva de meio a um segundo por envio e nada dali depende
+        # dele. A resposta só volta depois do `.result()`, então o admin ainda
+        # fica sabendo se o e-mail não saiu.
+        envio = None
+        if criamos_o_usuario and action_link:
+            assunto, html, texto = renderizar(
+                "convite_funcionario", idioma, link=action_link, org=org_nome
+            )
+            envio = _envios.submit(enviar_email, data.email, assunto, html, texto, link=action_link)
+
         # Get group info
         group_name = None
         permissions = []
@@ -448,16 +468,14 @@ class StaffService:
             except Exception:
                 pass  # auto-create is best-effort; failures shouldn't block staff creation
 
-        # Só AGORA o passo irreversível: a linha existe, o e-mail pode sair.
-        # Só para conta criada aqui — quem já tinha conta entra com a própria
-        # senha (ou responde ao convite dentro do sistema), sem e-mail.
         invite_sent = invite_error = None
         if criamos_o_usuario:
-            if action_link:
-                assunto, html, texto = renderizar(
-                    "convite_funcionario", idioma, link=action_link, org=org_nome
-                )
-                invite_error = enviar_email(data.email, assunto, html, texto, link=action_link)
+            if envio is not None:
+                try:
+                    invite_error = envio.result(timeout=30)
+                except Exception:
+                    logger.exception("falha inesperada no envio do convite de %s", data.email)
+                    invite_error = "indisponivel"
                 invite_sent = invite_error is None
             else:
                 # Resposta sem link (payload inesperado do auth): o vínculo
