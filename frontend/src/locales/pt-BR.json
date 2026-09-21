@@ -696,7 +696,19 @@
     "barShiftContext": "Caixas do turno do bar",
     "cashDayContext": "Caixas do dia de cash",
     "outflows": "Saídas",
-    "totalOutflows": "Saídas (prêmios, cash-outs, estornos)"
+    "totalOutflows": "Saídas (prêmios, cash-outs, estornos)",
+    "barSales": "Vendas",
+    "barRefunds": "Estornos",
+    "barSalesTotal": "Vendas (dinheiro)",
+    "barRefundsTotal": "Estornos (dinheiro)",
+    "noCashboxesShift": "Nenhum caixa neste turno",
+    "noCashboxesDay": "Nenhum caixa neste dia",
+    "allStaffHaveCashboxShift": "Todos os funcionários já têm caixa neste turno.",
+    "allStaffHaveCashboxDay": "Todos os funcionários já têm caixa neste dia.",
+    "noSessionsShift": "Nenhuma sessão neste turno",
+    "noSessionsShiftHint": "As conferências aparecem quando um funcionário abre o caixa neste turno.",
+    "noSessionsDay": "Nenhuma sessão neste dia",
+    "noSessionsDayHint": "As conferências aparecem quando um funcionário abre o caixa neste dia."
   },
   "stages": {
     "title": "Etapas",
@@ -2927,6 +2939,7 @@
     }
   },
   "bar": {
+    "notes": "Observação",
     "title": "Bar",
     "pos": "Comandas",
     "orders": "Pedidos",

@@ -268,7 +268,7 @@ const BarShiftDetail = () => {
                   </div>
                 )}
                 <div className="form-group">
-                  <label htmlFor="bsd-notes">{t('cash.notes', 'Observação')}</label>
+                  <label htmlFor="bsd-notes">{t('bar.notes', 'Observação')}</label>
                   <input id="bsd-notes" type="text" value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </div>
                 <div className="modal-actions">

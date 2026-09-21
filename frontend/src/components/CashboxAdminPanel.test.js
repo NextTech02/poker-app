@@ -17,7 +17,7 @@
  * etapa: dois caixas do mesmo operador dividiriam o dinheiro dele entre
  * duas linhas.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CashboxAdminPanel from './CashboxAdminPanel';
 import api from '../config/api';
@@ -25,6 +25,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { CAIXA_MUDOU } from '../utils/eventosDoCaixa';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -33,6 +34,7 @@ jest.mock('../config/api', () => ({
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+jest.mock('../hooks/useRealtimeRefresh', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (chave, arg) => {
@@ -420,5 +422,89 @@ describe('sangria da etapa para o caixa geral', () => {
         expect.objectContaining({ rake_percentage: 0 })
       )
     );
+  });
+});
+
+/**
+ * Ancorado num turno do bar, o painel lista as gavetas do TURNO — e só pode
+ * falar de turno. "Nenhum caixa nesta etapa" ali faz o admin achar que o
+ * sistema misturou os módulos (o bar não tem etapa).
+ */
+describe('ancorado no turno do bar', () => {
+  const ANCORA = { barShiftId: 't-2' };
+
+  const montarNoTurno = async (opcoes) => {
+    responder(opcoes);
+    const resultado = render(<CashboxAdminPanel anchor={ANCORA} />);
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(
+        '/cashboxes',
+        expect.objectContaining({ params: { bar_shift_id: 't-2' } })
+      )
+    );
+    return resultado;
+  };
+
+  it('sem caixa nenhum fala do TURNO, não da etapa', async () => {
+    await montarNoTurno({ caixas: [] });
+    expect(await screen.findByText('cashbox.noCashboxesShift')).toBeInTheDocument();
+    expect(screen.queryByText('cashbox.noCashboxes')).toBeNull();
+  });
+
+  it('trocar a etapa do header não recarrega: a âncora vence', async () => {
+    const { rerender } = await montarNoTurno();
+    await screen.findByText('Ana');
+    const antes = api.get.mock.calls.length;
+    useStage.mockReturnValue({ selectedStage: { id: 'e2', name: 'Etapa 2' } });
+    rerender(<CashboxAdminPanel anchor={ANCORA} />);
+    expect(api.get.mock.calls.length).toBe(antes);
+  });
+
+  it('não oferece a sangria da ETAPA', async () => {
+    await montarNoTurno({ caixas: [CAIXA_ABERTO] });
+    await screen.findByText('Ana');
+    expect(screen.queryByRole('button', { name: 'cashbox.sangriaToGeneral' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'cashbox.sangria' })).toBeInTheDocument();
+  });
+
+  it('cria o caixa novo já ancorado no turno', async () => {
+    await montarNoTurno();
+    await screen.findByText('Ana');
+    await userEvent.click(screen.getByRole('button', { name: /cashbox.newCashbox/ }));
+    await userEvent.selectOptions(screen.getByRole('combobox'), 's3');
+    await userEvent.click(screen.getByRole('button', { name: 'cashbox.create' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/cashboxes', { staff_id: 's3', bar_shift_id: 't-2' })
+    );
+  });
+
+  it('todos com caixa: a mensagem fala do turno', async () => {
+    // Só Ana e Beto ativos, e os dois já têm gaveta neste turno.
+    await montarNoTurno({ staff: FUNCIONARIOS.slice(0, 2) });
+    await screen.findByText('Ana');
+    await userEvent.click(screen.getByRole('button', { name: /cashbox.newCashbox/ }));
+    expect(screen.getByText('cashbox.allStaffHaveCashboxShift')).toBeInTheDocument();
+    expect(screen.queryByText('cashbox.allStaffHaveCashbox')).toBeNull();
+  });
+
+  it('acompanha as gavetas do turno em tempo real, sem piscar; sem âncora, não', async () => {
+    // O barman abre e fecha a gaveta dele no tablet: o status aqui precisa
+    // acompanhar. A recarga vem do realtime, então não pode trocar a tabela
+    // por esqueleto a cada venda.
+    await montarNoTurno();
+    await screen.findByText('Ana');
+    const chamada = useRealtimeRefresh.mock.calls.find(
+      ([opts]) => opts.ativo && opts.tabelas[0].filter === 'bar_shift_id=eq.t-2'
+    );
+    expect(chamada).toBeTruthy();
+    const antes = api.get.mock.calls.length;
+    await act(async () => { await chamada[0].aoMudar(); });
+    expect(api.get.mock.calls.length).toBeGreaterThan(antes);
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+
+    useRealtimeRefresh.mockClear();
+    render(<CashboxAdminPanel />);
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/cashboxes', expect.any(Object)));
+    expect(useRealtimeRefresh).toHaveBeenCalledWith(expect.objectContaining({ ativo: false }));
   });
 });

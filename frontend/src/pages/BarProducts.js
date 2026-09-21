@@ -510,7 +510,7 @@ const BarProducts = () => {
                   )}
                 </div>
                 <div className="form-group">
-                  <label htmlFor="bs-notes">{t('cash.notes', 'Observação')}</label>
+                  <label htmlFor="bs-notes">{t('bar.notes', 'Observação')}</label>
                   <input id="bs-notes" type="text" value={stockForm.notes}
                          onChange={(e) => setStockForm({ ...stockForm, notes: e.target.value })} />
                 </div>

@@ -9,6 +9,7 @@ import EmptyState from './EmptyState';
 import { SkeletonTableRow } from './SkeletonLoader';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import './CashboxAdminPanel.css';
 
 // Ações: kind → { field de valor enviado, label da chave i18n }
@@ -22,11 +23,19 @@ const ACTION_CONFIG = {
   stageSangria: { payloadKey: 'amount', labelKey: 'generalCash.sangriaAmountLabel', titleKey: 'cashbox.sangriaToGeneral' },
 };
 
+// O que a tela DIZ muda com a âncora: "nesta etapa" num turno de bar soa como
+// se o sistema tivesse misturado os módulos.
+const TEXTOS = {
+  etapa: { semCaixa: 'cashbox.noCashboxes', todosTemCaixa: 'cashbox.allStaffHaveCashbox' },
+  bar: { semCaixa: 'cashbox.noCashboxesShift', todosTemCaixa: 'cashbox.allStaffHaveCashboxShift' },
+  cash: { semCaixa: 'cashbox.noCashboxesDay', todosTemCaixa: 'cashbox.allStaffHaveCashboxDay' },
+};
+
 /**
  * `anchor` (opcional): `{ barShiftId }` ou `{ cashDayId }` escopa o painel a
  * uma gaveta por turno/dia em vez da etapa do header. Sem `anchor`, nada muda
- * para o Financeiro. Com ela, a sangria da ETAPA some (não há etapa) e o caixa
- * novo nasce na âncora informada.
+ * para o Financeiro. Com ela, a sangria da ETAPA some (não há etapa), o caixa
+ * novo nasce na âncora informada e os textos falam de turno/dia (ver TEXTOS).
  */
 const CashboxAdminPanel = ({ anchor = null }) => {
   const { t } = useTranslation();
@@ -74,8 +83,15 @@ const CashboxAdminPanel = ({ anchor = null }) => {
   }, [modal, createOpen, submitting, creating]);
 
   const anchorKey = anchorParams ? JSON.stringify(anchorParams) : '';
-  const load = useCallback(async () => {
-    setLoading(true);
+  const textos = TEXTOS[anchor?.barShiftId ? 'bar' : anchor?.cashDayId ? 'cash' : 'etapa'];
+  // Com âncora, a etapa do header não muda o que o backend devolve (a âncora
+  // explícita vence) — recarregar a cada troca de etapa seria só ruído.
+  const etapaRelevante = anchorKey ? null : selectedStage?.id;
+
+  // `silencioso`: recarga vinda do realtime, não de uma ação do admin — trocar
+  // a tabela por esqueleto a cada venda do bar piscaria.
+  const load = useCallback(async ({ silencioso = false } = {}) => {
+    if (!silencioso) setLoading(true);
     try {
       const res = await api.get('/cashboxes', {
         params: anchorKey ? JSON.parse(anchorKey) : undefined,
@@ -101,9 +117,25 @@ const CashboxAdminPanel = ({ anchor = null }) => {
   useEffect(() => {
     load();
     loadStaff();
-  }, [load, loadStaff, selectedStage?.id]);
+  }, [load, loadStaff, etapaRelevante]);
 
-  // Funcionários que ainda não têm caixa nesta etapa.
+  // Ancorado num turno/dia, o status e o saldo de cada gaveta mudam em OUTRO
+  // aparelho (o barman abre e fecha a dele no tablet). Mesmo canal do
+  // CashboxBanner; no Financeiro (sem âncora) fica desligado.
+  useRealtimeRefresh({
+    canal: `cashbox-admin-${anchor?.barShiftId || anchor?.cashDayId || 'sem-ancora'}`,
+    tabelas: [{
+      table: 'cashboxes',
+      filter: anchor?.barShiftId
+        ? `bar_shift_id=eq.${anchor.barShiftId}`
+        : `cash_day_id=eq.${anchor?.cashDayId}`,
+    }],
+    aoMudar: () => load({ silencioso: true }),
+    intervaloDeSeguranca: 60000,
+    ativo: !!anchorKey,
+  });
+
+  // Funcionários que ainda não têm caixa neste recorte (etapa, turno ou dia).
   const existingStaffIds = new Set(cashboxes.map((c) => c.staff_id));
   const availableStaff = staffList.filter((s) => !existingStaffIds.has(s.id));
 
@@ -269,7 +301,7 @@ const CashboxAdminPanel = ({ anchor = null }) => {
       ) : cashboxes.length === 0 ? (
         <EmptyState
           icon={null}
-          title={t('cashbox.noCashboxes')}
+          title={t(textos.semCaixa)}
           subtitle={t('cashbox.noCashboxesHint')}
         />
       ) : (
@@ -444,7 +476,7 @@ const CashboxAdminPanel = ({ anchor = null }) => {
             </div>
             <form onSubmit={submitCreate}>
               {availableStaff.length === 0 ? (
-                <p className="cb-admin__empty-note">{t('cashbox.allStaffHaveCashbox')}</p>
+                <p className="cb-admin__empty-note">{t(textos.todosTemCaixa)}</p>
               ) : (
                 <div className="form-group">
                   <label htmlFor="cb-new-staff">{t('cashbox.staff')}</label>

@@ -696,7 +696,19 @@
     "barShiftContext": "Bar shift cash drawers",
     "cashDayContext": "Cash day drawers",
     "outflows": "Outflows",
-    "totalOutflows": "Outflows (prizes, cash-outs, refunds)"
+    "totalOutflows": "Outflows (prizes, cash-outs, refunds)",
+    "barSales": "Sales",
+    "barRefunds": "Refunds",
+    "barSalesTotal": "Sales (money)",
+    "barRefundsTotal": "Refunds (money)",
+    "noCashboxesShift": "No cashbox in this shift",
+    "noCashboxesDay": "No cashbox on this day",
+    "allStaffHaveCashboxShift": "All employees already have a cashbox in this shift.",
+    "allStaffHaveCashboxDay": "All employees already have a cashbox on this day.",
+    "noSessionsShift": "No session in this shift",
+    "noSessionsShiftHint": "Reconciliations appear once an employee opens a cashbox in this shift.",
+    "noSessionsDay": "No session on this day",
+    "noSessionsDayHint": "Reconciliations appear once an employee opens a cashbox on this day."
   },
   "stages": {
     "title": "Stages",
@@ -2927,6 +2939,7 @@
     }
   },
   "bar": {
+    "notes": "Note",
     "title": "Bar",
     "pos": "Tabs",
     "orders": "Orders",

@@ -14,18 +14,21 @@
  *   `23:59:59`; cortar à meia-noite deixaria de fora tudo que aconteceu no
  *   último dia — justamente o dia do fechamento.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CashboxDemonstrativo from './CashboxDemonstrativo';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
+import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 
 jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn() } }));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+jest.mock('../hooks/useRealtimeRefresh', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (chave) => chave }),
 }));
@@ -281,5 +284,151 @@ describe('falhas', () => {
     render(<CashboxDemonstrativo />);
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('sem permissão'));
     expect(await screen.findByText('cashbox.noSessions')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Ancorado num turno do bar, o demonstrativo é a MESMA infraestrutura de
+ * gaveta — mas a tela só pode falar de bar. "Entradas (jogo)" e "prêmios" ali
+ * fazem o conferente achar que o sistema misturou os módulos.
+ */
+describe('ancorado no turno do bar', () => {
+  // A gaveta do turno só recebe vendas, estornos, suprimento e retirada. Se um
+  // buy-in caísse aqui por engano, a tela do bar NÃO pode somá-lo.
+  const SESSAO_BAR = {
+    ...SESSAO_FECHADA,
+    total_buy_ins: 900,
+    total_rebuys: 0,
+    total_addons: 0,
+    total_prizes_paid: 800,
+    total_bar_sales: 640,
+    total_refunds: 40,
+  };
+  const RELATORIO_BAR = {
+    ...RELATORIO,
+    sessions: [SESSAO_BAR],
+    grand_buy_ins: 900,
+    grand_prizes: 800,
+    grand_bar_sales: 640,
+    grand_refunds: 40,
+  };
+  const ANCORA = { barShiftId: 't-2' };
+
+  const montarNoTurno = async (relatorio = RELATORIO_BAR) => {
+    responder(relatorio);
+    const resultado = render(<CashboxDemonstrativo anchor={ANCORA} />);
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/cashboxes/demonstrativo', expect.any(Object))
+    );
+    return resultado;
+  };
+
+  it('fala de vendas e estornos, não de jogo e prêmios', async () => {
+    await montarNoTurno();
+    expect(await screen.findByText('cashbox.barSalesTotal')).toBeInTheDocument();
+    expect(screen.getByText('cashbox.barRefundsTotal')).toBeInTheDocument();
+    expect(screen.getAllByText('cashbox.barSales').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('cashbox.barRefunds').length).toBeGreaterThan(0);
+    expect(screen.queryByText('cashbox.totalEntries')).toBeNull();
+    expect(screen.queryByText('cashbox.totalOutflows')).toBeNull();
+    expect(screen.queryByText('cashbox.entries')).toBeNull();
+    expect(screen.queryByText('cashbox.outflows')).toBeNull();
+  });
+
+  it('entradas são só as vendas do bar; saídas, só os estornos', async () => {
+    await montarNoTurno();
+    await waitFor(() => expect(temValor('R$ 640.00')).toBe(true));
+    expect(temValor('R$ 40.00')).toBe(true);
+    expect(temValor('R$ 1540.00')).toBe(false); // 640 + 900 de buy-in
+    expect(temValor('R$ 840.00')).toBe(false); // 40 + 800 de prêmio
+  });
+
+  it('pede o turno inteiro: sem período nem funcionário', async () => {
+    // "Início do mês até hoje" por cima do turno escondia o turno da virada do
+    // mês — e todo turno antigo.
+    await montarNoTurno();
+    const params = api.get.mock.calls.find((c) => c[0] === '/cashboxes/demonstrativo')[1].params;
+    expect(params).toEqual({ bar_shift_id: 't-2' });
+  });
+
+  it('não mostra filtros nem botão de gerar, e não busca a lista de funcionários', async () => {
+    await montarNoTurno();
+    await waitFor(() => expect(naTabela('Ana')).toBeTruthy());
+    expect(screen.queryByRole('button', { name: 'cashbox.generate' })).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(api.get).not.toHaveBeenCalledWith('/cashboxes', expect.anything());
+  });
+
+  it('recarrega, sem piscar, quando o painel de caixas avisa que a gaveta mudou', async () => {
+    // Não há botão "Gerar" aqui: o painel logo acima abre/fecha/supre e avisa.
+    await montarNoTurno();
+    await waitFor(() => expect(naTabela('Ana')).toBeTruthy());
+    const antes = api.get.mock.calls.length;
+    act(() => { avisarQueOCaixaMudou(); });
+    await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(antes));
+    // Recarga silenciosa: a linha continua na tela, sem esqueleto no lugar.
+    expect(naTabela('Ana')).toBeTruthy();
+  });
+
+  it('deixa de escutar depois de sair da tela', async () => {
+    const { unmount } = await montarNoTurno();
+    await waitFor(() => expect(naTabela('Ana')).toBeTruthy());
+    unmount();
+    const antes = api.get.mock.calls.length;
+    act(() => { avisarQueOCaixaMudou(); });
+    expect(api.get.mock.calls.length).toBe(antes);
+  });
+
+  it('trocar a etapa do header NÃO recarrega: o turno não tem etapa', async () => {
+    responder(RELATORIO_BAR);
+    const { rerender } = render(<CashboxDemonstrativo anchor={ANCORA} />);
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+    useStage.mockReturnValue({ selectedStage: { id: 'e2', name: 'Etapa 2' } });
+    rerender(<CashboxDemonstrativo anchor={ANCORA} />);
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('sem sessão fala do turno, não do período', async () => {
+    await montarNoTurno({ ...RELATORIO_BAR, sessions: [] });
+    expect(await screen.findByText('cashbox.noSessionsShift')).toBeInTheDocument();
+    expect(screen.queryByText('cashbox.noSessions')).toBeNull();
+  });
+
+  it('acompanha as gavetas do turno em tempo real; sem âncora, não', async () => {
+    // O aviso local só cobre este navegador; o barman fecha a gaveta no tablet.
+    await montarNoTurno();
+    expect(useRealtimeRefresh).toHaveBeenCalledWith(expect.objectContaining({
+      ativo: true,
+      tabelas: [{ table: 'cashboxes', filter: 'bar_shift_id=eq.t-2' }],
+    }));
+    useRealtimeRefresh.mockClear();
+    responder();
+    render(<CashboxDemonstrativo />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(useRealtimeRefresh).toHaveBeenCalledWith(expect.objectContaining({ ativo: false }));
+  });
+});
+
+describe('ancorado no dia de cash', () => {
+  it('entradas são as compras de fichas; saídas, cash-outs e estornos', async () => {
+    responder({
+      ...RELATORIO,
+      sessions: [{
+        ...SESSAO_FECHADA,
+        total_buy_ins: 900,
+        total_cash_buy_ins: 500,
+        total_cash_outs: 120,
+        total_refunds: 30,
+      }],
+      grand_buy_ins: 900,
+      grand_cash_buy_ins: 500,
+      grand_cash_outs: 120,
+      grand_refunds: 30,
+    });
+    render(<CashboxDemonstrativo anchor={{ cashDayId: 'd-1' }} />);
+    await waitFor(() => expect(temValor('R$ 500.00')).toBe(true));
+    expect(temValor('R$ 150.00')).toBe(true);
+    expect(temValor('R$ 1400.00')).toBe(false); // 500 + 900 de buy-in de torneio
+    expect(screen.getAllByText('cash.turnover').length).toBeGreaterThan(0);
   });
 });
