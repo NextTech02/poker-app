@@ -12,7 +12,8 @@ import './ContactConsentStatus.css';
  * Só "autorizado" permite contato promocional. Pendente e "não pedido" valem
  * como NÃO. Quem recusou não recebe novo pedido — o botão some.
  *
- * `compact` mostra só o selo (lista de jogadores).
+ * `compact` mostra só o selo. A lista de jogadores usa a versão completa: é
+ * ali que o operador procura o reenvio.
  */
 const ESTILO = {
   granted: 'badge-success',

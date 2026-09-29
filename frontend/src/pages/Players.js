@@ -400,7 +400,7 @@ const Players = () => {
                               </div>
                             )}
                             <div className="pl-contact-line">
-                              <ContactConsentStatus player={player} compact />
+                              <ContactConsentStatus player={player} />
                             </div>
                           </div>
                         </td>
