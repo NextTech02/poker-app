@@ -345,7 +345,9 @@ class BarTabService:
             # SNAPSHOT: mudar o preço amanhã não reescreve a comanda de hoje.
             "product_name": produto.get("name"),
             "unit_price": preco,
-            "unit_cost": _r2(produto.get("cost_price")),
+            # Custo médio em 4 casas: arredondar aqui somaria o erro a cada
+            # item vendido; o relatório arredonda o CMV só no total.
+            "unit_cost": round(float(produto.get("cost_price") or 0), 4),
             "quantity": int(data.quantity),
             "line_total": _r2(preco * int(data.quantity)),
             "status": "pending",

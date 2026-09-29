@@ -4,7 +4,7 @@
 
 .bpm-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
   margin-bottom: 1rem;
 }
@@ -13,15 +13,15 @@
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.6rem 0.75rem;
-  border-radius: var(--radius-md, 10px);
-  background: var(--card-bg, #1e2d3d);
-  border: 1px solid var(--border-primary, #2a3a4d);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
 }
 .bpm-summary strong {
   font-size: 1.05rem;
 }
 .bpm-summary__due strong {
-  color: var(--success-color, #22c55e);
+  color: var(--text-success);
 }
 
 .bpm-legs {
@@ -31,7 +31,7 @@
 }
 .bpm-leg {
   display: grid;
-  grid-template-columns: 1fr 130px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 150px) auto;
   gap: 0.5rem;
   align-items: center;
 }
@@ -41,8 +41,8 @@
 }
 .bpm-leg__credit {
   padding: 0.55rem 0.7rem;
-  border-radius: var(--radius-md, 10px);
-  border: 1px dashed var(--accent-color, #7233f8);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--accent-color);
   font-size: 0.9rem;
 }
 
@@ -60,18 +60,18 @@
   flex-wrap: wrap;
   margin-top: 0.5rem;
   font-size: 0.85rem;
-  color: var(--text-secondary, #8aa0b0);
+  color: var(--text-secondary);
 }
 .bpm-over,
 .bpm-problem {
-  color: var(--danger-color, #ef4444);
+  color: var(--text-danger);
   font-weight: 600;
 }
 
 .bpm-done__msg {
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--success-color, #22c55e);
+  color: var(--text-success);
   margin: 0 0 0.5rem;
 }
 
@@ -82,4 +82,29 @@
   .bpm-leg {
     grid-template-columns: 1fr;
   }
+}
+
+/* Forma e valor ficam fora de .form-group — sem isto saíam com o visual cru
+   do navegador (caixa branca no tema escuro). Mesmo desenho dos inputs. */
+.bpm-leg__method:not(.bpm-leg__credit),
+.bpm-leg__amount {
+  min-height: 40px;
+  padding: 0.5rem 0.7rem;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  background-color: var(--card-bg-hover);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  color: var(--text-primary);
+}
+.bpm-leg__method:focus,
+.bpm-leg__amount:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* O modal global não tem padding: h2 e form ganham o seu em CashFloor.css,
+   mas o bloco de "comanda quitada" é um div e encostava na borda. */
+.modal > .bpm-done {
+  padding: 0 var(--spacing-xl, 1.5rem) var(--spacing-lg, 1.25rem);
 }

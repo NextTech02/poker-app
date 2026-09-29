@@ -1,0 +1,25 @@
+/* Página pública de consentimento. Herda o cartão de Login.css/SetPassword.css. */
+
+/* Os dois botões lado a lado e com a mesma largura: recusar tem de ser tão
+   fácil quanto autorizar. No celular, um sobre o outro. */
+.cc-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+.cc-actions .login-btn {
+  margin: 0;
+  width: 100%;
+}
+
+.cc-note {
+  margin: 1.1rem 0 0;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 420px) {
+  .cc-actions {
+    grid-template-columns: 1fr;
+  }
+}

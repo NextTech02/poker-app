@@ -1,0 +1,11 @@
+.ccs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Na ficha do jogador, a linha logo abaixo do nome e das infos. */
+.pd-consent {
+  margin-top: 8px;
+}

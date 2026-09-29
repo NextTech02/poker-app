@@ -9,6 +9,7 @@ from app.models.player import (
 )
 from app.models.satellite_ticket import TicketResponse
 from app.services.player_service import PlayerService
+from app.services.player_consent_service import PlayerConsentService
 from app.services.player_import_service import PlayerImportService
 from app.services.satellite_ticket_service import SatelliteTicketService
 from app.auth.jwt import get_current_user
@@ -136,6 +137,24 @@ def get_player(
     if not player:
         raise nao_encontrado("jogador_nao_encontrado", "Jogador não encontrado")
     return player
+
+
+@router.post("/{player_id}/consent/resend")
+def resend_contact_consent(
+    player_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Reenvia ao jogador o e-mail pedindo autorização para contatos.
+
+    A leitura por `get_player` (com o JWT do usuário, sob RLS) é a guarda de
+    organização: o serviço lê com service_role, e sem ela um id de outro clube
+    dispararia e-mail em nome deste."""
+    if not PlayerService.get_player(player_id):
+        raise nao_encontrado("jogador_nao_encontrado", "Jogador não encontrado")
+    try:
+        return PlayerConsentService.reenviar(player_id)
+    except ValueError as e:
+        raise da_excecao(e)
 
 
 @router.patch("/{player_id}", response_model=Player)

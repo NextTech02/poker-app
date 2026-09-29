@@ -152,4 +152,42 @@ TEXTOS = {
             "rodape": "¿No pidió restablecer la contraseña? Puede ignorar este correo — su contraseña no cambiará.",
         },
     },
+    # Jogador recém-cadastrado: pedido de autorização para contatos futuros
+    # (LGPD). O botão leva à página pública onde ele AUTORIZA ou RECUSA — o
+    # e-mail em si não decide nada, e ignorá-lo equivale a não autorizar.
+    "consentimento_contato": {
+        "pt-BR": {
+            "assunto": "{org}: podemos falar com você?",
+            "titulo": "Olá, {nome}. Seu cadastro no {org} está feito.",
+            "paragrafos": [
+                "O clube **{org}** gostaria de enviar a você novidades, programação de torneios, promoções e avisos por e-mail, WhatsApp ou telefone.",
+                "Para isso, precisamos da sua **autorização**. Responda pelo botão abaixo — você pode autorizar ou recusar.",
+            ],
+            "cta": "Responder ao pedido",
+            "aviso": "Sem a sua resposta, **nenhum contato promocional** será feito. Você pode mudar de ideia quando quiser, pedindo ao clube.",
+            "rodape": "Não se cadastrou neste clube? Pode ignorar este e-mail — sem resposta, nada é autorizado.",
+        },
+        "en-US": {
+            "assunto": "{org}: may we contact you?",
+            "titulo": "Hi {nome}, your registration at {org} is complete.",
+            "paragrafos": [
+                "**{org}** would like to send you news, tournament schedules, promotions and notices by email, WhatsApp or phone.",
+                "For that, we need your **permission**. Reply using the button below — you can allow or decline.",
+            ],
+            "cta": "Reply to the request",
+            "aviso": "Without your answer, **no promotional contact** will be made. You can change your mind at any time by asking the club.",
+            "rodape": "Didn't register at this club? You can ignore this email — without a reply, nothing is authorized.",
+        },
+        "es-ES": {
+            "assunto": "{org}: ¿podemos contactarlo?",
+            "titulo": "Hola, {nome}. Su registro en {org} está listo.",
+            "paragrafos": [
+                "El club **{org}** quisiera enviarle novedades, programación de torneos, promociones y avisos por correo, WhatsApp o teléfono.",
+                "Para ello, necesitamos su **autorización**. Responda con el botón de abajo — puede autorizar o rechazar.",
+            ],
+            "cta": "Responder a la solicitud",
+            "aviso": "Sin su respuesta, **no se hará ningún contacto promocional**. Puede cambiar de opinión cuando quiera, solicitándolo al club.",
+            "rodape": "¿No se registró en este club? Puede ignorar este correo — sin respuesta, nada queda autorizado.",
+        },
+    },
 }

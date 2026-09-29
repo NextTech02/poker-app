@@ -184,8 +184,33 @@ def test_entrada_grava_o_movimento_com_sinal_e_org(monkeypatch):
     assert mov["quantity"] == 24 and mov["kind"] == "in"
     assert mov["organization_id"] == ORG and mov["created_by"] == AUTH
     assert r["movement"].quantity == 24
-    # Entrada com custo atualiza o custo de referência (é o que a próxima venda copia).
-    assert fake.store["bar_products"][0]["cost_price"] == 4.5
+    assert mov["unit_cost"] == 4.5
+
+
+def test_entrada_nao_sobrescreve_o_custo_do_produto(monkeypatch):
+    """A média ponderada é do banco (trigger bar_stock_weighted_cost, com o
+    produto travado). O serviço gravar o custo da entrada por cima recusteava
+    todo o estoque antigo pelo último preço."""
+    fake = _banco(monkeypatch)
+    antes = fake.store["bar_products"][0]["cost_price"]
+    BPS.add_stock_movement(CERVEJA, BarStockMovementCreate(kind="in", quantity=24, unit_cost=9.99), AUTH, ORG)
+    assert fake.store["bar_products"][0]["cost_price"] == antes
+
+
+def test_entrada_pelo_total_da_nota_deriva_o_unitario(monkeypatch):
+    # Caixa de 12 por R$ 50: 4,1667 — com 2 casas virava 4,17 e fechava 50,04.
+    fake = _banco(monkeypatch)
+    BPS.add_stock_movement(CERVEJA, BarStockMovementCreate(kind="in", quantity=12, total_cost=50), AUTH, ORG)
+    mov = fake.store["bar_stock_movements"][0]
+    assert mov["unit_cost"] == 4.1667
+    assert mov["total_cost"] == 50
+
+
+def test_ajuste_e_perda_nao_levam_custo(monkeypatch):
+    fake = _banco(monkeypatch)
+    BPS.add_stock_movement(CERVEJA, BarStockMovementCreate(kind="adjustment", quantity=2, unit_cost=3), AUTH, ORG)
+    mov = fake.store["bar_stock_movements"][0]
+    assert mov["unit_cost"] is None and "total_cost" not in mov
 
 
 def test_perda_vai_negativa_e_exige_saldo(monkeypatch):

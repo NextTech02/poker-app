@@ -211,6 +211,23 @@ describe('levantar', () => {
     const dialogo = screen.getByRole('dialog');
     expect(within(dialogo).getByText(/Comprou R\$ 300\.00/)).toBeInTheDocument();
   });
+
+  it('não paga mais do que a gaveta tem', async () => {
+    // O cash-out sai em dinheiro vivo: acima do saldo o botão trava e avisa.
+    montar({ caixa: { status: 'open', current_balance: 150 } });
+    await userEvent.click(await screen.findByRole('button', { name: 'Levantar' }));
+    const dialogo = screen.getByRole('dialog');
+    expect(within(dialogo).getByText('Saldo do seu caixa: R$ 150.00')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Cash-out'), '150.01');
+    expect(within(dialogo).getByRole('alert')).toBeInTheDocument();
+    expect(within(dialogo).getByRole('button', { name: 'Levantar' })).toBeDisabled();
+
+    await userEvent.clear(screen.getByLabelText('Cash-out'));
+    await userEvent.type(screen.getByLabelText('Cash-out'), '150');
+    expect(within(dialogo).queryByRole('alert')).not.toBeInTheDocument();
+    expect(within(dialogo).getByRole('button', { name: 'Levantar' })).toBeEnabled();
+  });
 });
 
 describe('recompra', () => {

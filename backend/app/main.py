@@ -11,7 +11,7 @@ from app.auth.modules import require_module
 from app.database.supabase_client import set_request_jwt, reset_request_jwt, start_query_counter
 
 logger = logging.getLogger("uvicorn.error")
-from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, organizations, loyalty, expenses, leads, activity_logs
+from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, public_consent, organizations, loyalty, expenses, leads, activity_logs
 from app.routers import cash_game, mfa, bar, auth_public
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
@@ -192,6 +192,8 @@ app.include_router(chip_consignments.router, dependencies=[Depends(require_modul
 app.include_router(mfa.router)
 app.include_router(sync.router)
 app.include_router(public_tv.router)
+# Resposta do jogador ao pedido de contatos (LGPD): pública, pelo token do e-mail.
+app.include_router(public_consent.router)
 app.include_router(leads.router)
 # Esqueci-senha: público como o de leads; captcha e limite de envio próprios.
 app.include_router(auth_public.router)

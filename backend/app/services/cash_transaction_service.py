@@ -19,6 +19,7 @@ TRÊS INVARIANTES QUE ESTE ARQUIVO PROTEGE:
    cancelada" e responderia sucesso com o caixa inflado.
 """
 import logging
+import re
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -38,6 +39,32 @@ from app.services.cashbox_service import CashboxService
 from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
+
+
+def _saldo_insuficiente(disponivel: float, solicitado: float) -> ErroDeNegocio:
+    # Mesmo código da sangria (cashbox_service): a tela já traduz e formata
+    # os números na moeda do clube.
+    return ErroDeNegocio(
+        "saldo_insuficiente_no_caixa",
+        f"Saldo insuficiente no caixa — disponível {disponivel:.2f}",
+        disponivel=round(disponivel, 2),
+        solicitado=round(float(solicitado), 2),
+    )
+
+
+def _traduzir_erro_do_banco(exc: Exception) -> None:
+    """O trigger da gaveta recusa com `REGRA_CAIXA:<code> disponivel=X
+    solicitado=Y`; vira a mesma recusa que o serviço daria. Qualquer outro
+    erro sobe como veio."""
+    texto = str(exc)
+    if "REGRA_CAIXA:saldo_insuficiente_no_caixa" in texto:
+        disp = re.search(r"disponivel=(-?[\d.]+)", texto)
+        sol = re.search(r"solicitado=(-?[\d.]+)", texto)
+        raise _saldo_insuficiente(
+            float(disp.group(1)) if disp else 0.0,
+            float(sol.group(1)) if sol else 0.0,
+        ) from exc
+    raise exc
 
 PASSO_CAIXA = "caixa_operador"
 PASSO_MARCAR = "marcar_cancelada"
@@ -305,6 +332,14 @@ class CashTransactionService:
         # precisa fechar do mesmo jeito. Só não vale gerar um lançamento de
         # valor zero — o banco recusa (amount > 0) e ele não significaria nada.
         if data.cash_out_amount > 0:
+            # A gaveta paga o cash-out em dinheiro vivo: não sai mais do que
+            # entrou. Esta checagem dá a recusa com nome e os números; a trava
+            # que resiste a dois levantes simultâneos é a do banco
+            # (mirror_cash_transaction_to_cashbox, com FOR UPDATE na gaveta).
+            if caixa is not None:
+                disponivel = float(caixa.get("current_balance") or 0)
+                if data.cash_out_amount > disponivel:
+                    raise _saldo_insuficiente(disponivel, data.cash_out_amount)
             CashTransactionService._inserir(
                 mesa=mesa, tipo="cash_out", amount=data.cash_out_amount,
                 player_session_id=player_session_id, player_id=sessao["player_id"],
@@ -509,7 +544,7 @@ class CashTransactionService:
                 existente = CashTransactionService._por_mutation_id(client_mutation_id)
                 if existente:
                     return existente
-            raise
+            _traduzir_erro_do_banco(exc)
         return resp.data[0]
 
     # ============================================================

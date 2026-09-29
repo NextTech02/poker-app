@@ -149,24 +149,24 @@ const BarTabPanel = ({ detail, canAdmin = false, cashboxBlocked = false, onChang
               <div className="btp-item__meta">
                 <span className={`bar-status-${item.status}`}>{statusLabel[item.status]}</span>
                 {isOpen && item.status === 'pending' && (
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => entregar(item)}>
+                  <button type="button" className="btn btn-primary btn-small" disabled={busy} onClick={() => entregar(item)}>
                     {t('bar.deliver', 'Entregar')}
                   </button>
                 )}
                 {isOpen && item.status !== 'cancelled' && (item.status === 'pending' || canAdmin) && (
-                  <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+                  <button type="button" className="btn btn-secondary btn-small" disabled={busy}
                           onClick={() => { setReason(''); setModal({ kind: 'cancelItem', item }); }}>
                     {t('common.cancel', 'Cancelar')}
                   </button>
                 )}
                 {isOpen && canAdmin && item.status !== 'cancelled' && !item.is_courtesy && (
-                  <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+                  <button type="button" className="btn btn-secondary btn-small" disabled={busy}
                           onClick={() => { setReason(''); setModal({ kind: 'courtesy', item }); }}>
                     {t('bar.courtesy', 'Cortesia')}
                   </button>
                 )}
                 {isOpen && canAdmin && item.is_courtesy && (
-                  <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => tirarCortesia(item)}>
+                  <button type="button" className="btn btn-secondary btn-small" disabled={busy} onClick={() => tirarCortesia(item)}>
                     {t('bar.removeCourtesy', 'Cobrar')}
                   </button>
                 )}
@@ -202,7 +202,7 @@ const BarTabPanel = ({ detail, canAdmin = false, cashboxBlocked = false, onChang
               </span>
               <span>{formatCurrency(p.amount)}</span>
               {isOpen && canAdmin && p.status === 'active' && p.payment_source !== 'credit' && (
-                <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+                <button type="button" className="btn btn-secondary btn-small" disabled={busy}
                         onClick={() => { setReason(''); setModal({ kind: 'refund', payment: p }); }}>
                   {t('bar.refund', 'Estornar')}
                 </button>

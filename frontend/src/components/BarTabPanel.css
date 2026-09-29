@@ -3,9 +3,9 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
-  border-radius: var(--radius-lg, 14px);
-  background: var(--card-bg, #1e2d3d);
-  border: 1px solid var(--border-primary, #2a3a4d);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
 }
 
 .btp-header {
@@ -15,6 +15,7 @@
   gap: 0.75rem;
 }
 .btp-header h2 {
+  overflow-wrap: anywhere;
   margin: 0;
   font-size: 1.1rem;
 }
@@ -35,24 +36,24 @@
 }
 .btp-item {
   padding: 0.5rem 0.6rem;
-  border-radius: var(--radius-md, 10px);
-  background: var(--secondary-bg, #16202b);
-  border-left: 3px solid var(--warning-color, #f59e0b);
+  border-radius: var(--radius-md);
+  background: var(--secondary-bg);
+  border-left: 3px solid var(--warning-color);
 }
 .btp-item--delivered {
-  border-left-color: var(--success-color, #22c55e);
+  border-left-color: var(--success-color);
 }
 .btp-item--cancelled {
-  border-left-color: var(--danger-color, #ef4444);
+  border-left-color: var(--danger-color);
   opacity: 0.55;
   text-decoration: line-through;
 }
 .btp-item--courtesy .btp-item__total {
-  color: var(--accent-color, #7233f8);
+  color: var(--accent-color);
 }
 .btp-item__main {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.5rem;
   align-items: baseline;
 }
@@ -75,7 +76,7 @@
   flex-direction: column;
   gap: 0.2rem;
   padding-top: 0.5rem;
-  border-top: 1px solid var(--border-primary, #2a3a4d);
+  border-top: 1px solid var(--border-primary);
   font-size: 0.9rem;
 }
 .btp-totals > div {
@@ -88,20 +89,20 @@
   padding-top: 0.3rem;
 }
 .btp-totals__due strong {
-  color: var(--success-color, #22c55e);
+  color: var(--success-color);
 }
 
 .btp-payments {
   list-style: none;
   margin: 0;
   padding: 0.5rem 0 0;
-  border-top: 1px dashed var(--border-primary, #2a3a4d);
+  border-top: 1px dashed var(--border-primary);
   font-size: 0.85rem;
-  color: var(--text-secondary, #8aa0b0);
+  color: var(--text-secondary);
 }
 .btp-payments li {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.5rem;
   align-items: center;
   padding: 0.2rem 0;

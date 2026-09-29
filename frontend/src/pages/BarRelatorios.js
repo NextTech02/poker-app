@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import Sidebar from '../components/Sidebar';
+import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import { SkeletonBlock } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
@@ -143,13 +144,13 @@ const BarRelatorios = () => {
         <div className="page-header">
           <div>
             <h1>{t('barReports.title', 'Faturamento do bar')}</h1>
-            <p className="subtitle">
+            <p>
               {t('barReports.subtitle', 'Vendas são as comandas fechadas, depois do desconto. A margem desconta o custo das mercadorias — cortesia inclusa, porque a bebida saiu do estoque.')}
             </p>
           </div>
           <div className="cr-export">
             {['xlsx', 'csv', 'pdf'].map((f) => (
-              <button key={f} type="button" className="btn btn-secondary btn-sm"
+              <button key={f} type="button" className="btn btn-secondary btn-small"
                       onClick={() => exportar(f)} disabled={exporting || semDados}>
                 {f.toUpperCase()}
               </button>
@@ -233,48 +234,48 @@ const BarRelatorios = () => {
 
             <section className="cr-block">
               <h2>{t('barReports.byDay', 'Vendas por dia')}</h2>
-              <div className="table-container">
-                <table className="data-table">
+              <Card className="bar-card">
+                <table className="bar-table">
                   <thead>
                     <tr>
                       <th>{t('bar.businessDate', 'Data')}</th>
-                      <th>{t('bar.netSales', 'Vendas')}</th>
-                      <th>{t('barReports.discountsAndCourtesy', 'Descontos e cortesias')}</th>
-                      <th>{t('barReports.cogsShort', 'CMV')}</th>
-                      <th>{t('bar.margin', 'Margem')}</th>
-                      <th>{t('bar.tabsCount', 'Comandas')}</th>
-                      <th>{t('barReports.items', 'Itens')}</th>
+                      <th className="bar-num">{t('bar.netSales', 'Vendas')}</th>
+                      <th className="bar-num">{t('barReports.discountsAndCourtesy', 'Descontos e cortesias')}</th>
+                      <th className="bar-num">{t('barReports.cogsShort', 'CMV')}</th>
+                      <th className="bar-num">{t('bar.margin', 'Margem')}</th>
+                      <th className="bar-num">{t('bar.tabsCount', 'Comandas')}</th>
+                      <th className="bar-num">{t('barReports.items', 'Itens')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {daily.map((l) => (
                       <tr key={l.business_date}>
-                        <td>{l.business_date}</td>
-                        <td className="bar-revenue">{formatCurrency(l.net)}</td>
-                        <td>{formatCurrency((l.discounts || 0) + (l.courtesy || 0))}</td>
-                        <td>{formatCurrency(l.cogs)}</td>
-                        <td>{formatCurrency(l.margin)}</td>
-                        <td>{l.tabs}</td>
-                        <td>{l.items}</td>
+                        <td className="bar-nw">{l.business_date}</td>
+                        <td className="bar-num bar-revenue">{formatCurrency(l.net)}</td>
+                        <td className="bar-num">{formatCurrency((l.discounts || 0) + (l.courtesy || 0))}</td>
+                        <td className="bar-num">{formatCurrency(l.cogs)}</td>
+                        <td className="bar-num">{formatCurrency(l.margin)}</td>
+                        <td className="bar-num">{l.tabs}</td>
+                        <td className="bar-num">{l.items}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </Card>
             </section>
 
             <section className="cr-block">
               <h2>{t('barReports.byProduct', 'Por produto')}</h2>
-              <div className="table-container">
-                <table className="data-table">
+              <Card className="bar-card">
+                <table className="bar-table">
                   <thead>
                     <tr>
                       <th>{t('bar.product', 'Produto')}</th>
                       <th>{t('bar.category', 'Categoria')}</th>
-                      <th>{t('bar.quantity', 'Quantidade')}</th>
-                      <th>{t('barReports.courtesyQty', 'Cortesias')}</th>
-                      <th>{t('bar.netSales', 'Vendas')}</th>
-                      <th>{t('bar.margin', 'Margem')}</th>
+                      <th className="bar-num">{t('bar.quantity', 'Quantidade')}</th>
+                      <th className="bar-num">{t('barReports.courtesyQty', 'Cortesias')}</th>
+                      <th className="bar-num">{t('bar.netSales', 'Vendas')}</th>
+                      <th className="bar-num">{t('bar.margin', 'Margem')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -282,15 +283,15 @@ const BarRelatorios = () => {
                       <tr key={p.product_id}>
                         <td><strong>{p.product_name}</strong></td>
                         <td>{p.category_name || '—'}</td>
-                        <td>{p.quantity}</td>
-                        <td>{p.courtesy_quantity || 0}</td>
-                        <td>{formatCurrency(p.revenue)}</td>
-                        <td>{formatCurrency(p.margin)}</td>
+                        <td className="bar-num">{p.quantity}</td>
+                        <td className="bar-num">{p.courtesy_quantity || 0}</td>
+                        <td className="bar-num">{formatCurrency(p.revenue)}</td>
+                        <td className="bar-num">{formatCurrency(p.margin)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </Card>
             </section>
 
             <section className="cr-block">
@@ -309,28 +310,28 @@ const BarRelatorios = () => {
             {players.length > 0 && (
               <section className="cr-block">
                 <h2>{t('barReports.byPlayer', 'Por jogador')}</h2>
-                <div className="table-container">
-                  <table className="data-table">
+                <Card className="bar-card">
+                  <table className="bar-table">
                     <thead>
                       <tr>
                         <th>{t('bar.player', 'Jogador')}</th>
-                        <th>{t('bar.tabsCount', 'Comandas')}</th>
-                        <th>{t('barReports.items', 'Itens')}</th>
-                        <th>{t('barReports.spent', 'Gasto')}</th>
+                        <th className="bar-num">{t('bar.tabsCount', 'Comandas')}</th>
+                        <th className="bar-num">{t('barReports.items', 'Itens')}</th>
+                        <th className="bar-num">{t('barReports.spent', 'Gasto')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {players.map((p) => (
                         <tr key={p.player_id}>
                           <td>{p.player_name || '—'}</td>
-                          <td>{p.tabs}</td>
-                          <td>{p.items}</td>
-                          <td>{formatCurrency(p.spent)}</td>
+                          <td className="bar-num">{p.tabs}</td>
+                          <td className="bar-num">{p.items}</td>
+                          <td className="bar-num">{formatCurrency(p.spent)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </Card>
               </section>
             )}
           </>
