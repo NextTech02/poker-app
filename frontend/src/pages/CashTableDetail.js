@@ -51,6 +51,14 @@ const CashTableDetail = () => {
 
   const bloqueado = myCashbox !== undefined && myCashbox !== null && myCashbox.status !== 'open';
   const fechada = table?.status === 'closed';
+  // O cash-out sai da gaveta em dinheiro vivo: não pode passar do que ela tem.
+  // O backend recusa do mesmo jeito; aqui o operador vê antes de tentar.
+  // Super-admin não tem gaveta (null) — sem limite na tela.
+  const saldoDaGaveta = myCashbox && myCashbox.status === 'open'
+    ? Number(myCashbox.current_balance ?? 0)
+    : null;
+  const cashOutAcimaDoSaldo = modal?.kind === 'stand' && saldoDaGaveta !== null
+    && parseFloat(form.cash_out_amount || 0) > saldoDaGaveta;
 
   useEscapeKey(!!modal, () => { if (!submitting) setModal(null); });
 
@@ -480,9 +488,24 @@ const CashTableDetail = () => {
                           value: formatCurrency(modal.seat.total_buy_in || 0),
                         })}
                       </small>
+                      {saldoDaGaveta !== null && (
+                        <small className="form-hint">
+                          {t('cash.cashOutDrawerBalance', 'Saldo do seu caixa: {{value}}', {
+                            value: formatCurrency(saldoDaGaveta),
+                          })}
+                        </small>
+                      )}
+                      {cashOutAcimaDoSaldo && (
+                        <small className="error-message" role="alert">
+                          {t('cash.cashOutOverBalance', 'O cash-out passa do saldo do seu caixa. Faça um reforço antes de pagar.')}
+                        </small>
+                      )}
                     </div>
                     {MetodoDePagamento({ t, form, setForm, activeMethods })}
-                    {Acoes({ t, submitting, setModal, rotulo: t('cash.stand', 'Levantar') })}
+                    {Acoes({
+                      t, submitting, setModal, rotulo: t('cash.stand', 'Levantar'),
+                      bloqueado: cashOutAcimaDoSaldo,
+                    })}
                   </form>
                 </>
               )}
@@ -627,13 +650,13 @@ function ApuracaoCampos({ t, form, setForm, table }) {
   );
 }
 
-function Acoes({ t, submitting, setModal, rotulo }) {
+function Acoes({ t, submitting, setModal, rotulo, bloqueado = false }) {
   return (
     <div className="modal-actions">
       <button type="button" className="btn btn-secondary" onClick={() => setModal(null)} disabled={submitting}>
         {t('common.cancel', 'Cancelar')}
       </button>
-      <button type="submit" className="btn btn-primary" disabled={submitting}>
+      <button type="submit" className="btn btn-primary" disabled={submitting || bloqueado}>
         {submitting ? t('common.saving', 'Salvando...') : rotulo}
       </button>
     </div>

@@ -2570,6 +2570,8 @@
     "cap": "tope {{v}}",
     "cashOut": "Cash-out",
     "cashOutHint": "Compró {{value}}. Cero es válido — quien perdió todo se levanta igual.",
+    "cashOutDrawerBalance": "Saldo de su caja: {{value}}",
+    "cashOutOverBalance": "El cash-out supera el saldo de su caja. Haga un refuerzo antes de pagar.",
     "cashboxClosedHint": "Abre tu caja antes de mover dinero.",
     "closeBlockedHint": "Levanta a todos los jugadores antes de cerrar",
     "closeDay": "Cerrar",

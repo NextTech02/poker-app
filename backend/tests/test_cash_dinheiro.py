@@ -324,6 +324,45 @@ def test_nao_levanta_duas_vezes(monkeypatch):
     assert recusa(exc)["code"] == "sessao_de_jogador_encerrada"
 
 
+def test_cash_out_acima_do_saldo_da_gaveta_e_recusado(monkeypatch):
+    """A gaveta paga em dinheiro vivo: não sai mais do que tem. Nada é gravado
+    e o jogador continua sentado — o caixa precisa reforçar antes."""
+    fake = _banco(monkeypatch, cash_player_sessions=[_sessao()])
+    with pytest.raises(ErroDeNegocio) as exc:
+        CTS.stand("s1", StandPlayer(cash_out_amount=500.01), AUTH, ORG)
+    d = recusa(exc)
+    assert d["code"] == "saldo_insuficiente_no_caixa"
+    assert d["disponivel"] == 500 and d["solicitado"] == 500.01
+    assert fake.store["cash_transactions"] == []
+    assert fake.store["cash_player_sessions"][0]["status"] == "active"
+
+
+def test_cash_out_igual_ao_saldo_passa(monkeypatch):
+    fake = _banco(monkeypatch, cash_player_sessions=[_sessao()])
+    CTS.stand("s1", StandPlayer(cash_out_amount=500), AUTH, ORG)
+    assert [t["amount"] for t in fake.store["cash_transactions"]] == [500]
+
+
+def test_recusa_do_trigger_da_gaveta_vira_erro_com_nome():
+    """Dois levantes simultâneos: o segundo passa na checagem do serviço e é
+    barrado pelo FOR UPDATE no banco — a tela recebe a mesma recusa."""
+    erro = Exception(
+        "{'message': 'REGRA_CAIXA:saldo_insuficiente_no_caixa "
+        "disponivel=120.00 solicitado=300.00', 'code': 'P0001'}"
+    )
+    with pytest.raises(ErroDeNegocio) as exc:
+        tx_mod._traduzir_erro_do_banco(erro)
+    d = recusa(exc)
+    assert d["code"] == "saldo_insuficiente_no_caixa"
+    assert d["disponivel"] == 120.0 and d["solicitado"] == 300.0
+
+
+def test_outro_erro_do_banco_sobe_como_veio():
+    erro = RuntimeError("connection reset")
+    with pytest.raises(RuntimeError):
+        tx_mod._traduzir_erro_do_banco(erro)
+
+
 # ══════════════════════════════════════════════════════════════════════
 # Estorno
 # ══════════════════════════════════════════════════════════════════════

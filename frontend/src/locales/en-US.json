@@ -2570,6 +2570,8 @@
     "cap": "cap {{v}}",
     "cashOut": "Cash-out",
     "cashOutHint": "Bought in {{value}}. Zero is valid — a player who lost it all still stands up.",
+    "cashOutDrawerBalance": "Your drawer balance: {{value}}",
+    "cashOutOverBalance": "The cash-out is more than your drawer holds. Add a cash supply before paying.",
     "cashboxClosedHint": "Open your cash desk before moving money.",
     "closeBlockedHint": "Stand every player up before closing",
     "closeDay": "Close",
