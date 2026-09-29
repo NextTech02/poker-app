@@ -17,24 +17,45 @@
   display: flex;
   gap: 0.35rem;
   flex-wrap: wrap;
-  flex: 1;
+  flex: 1 1 240px;
+  min-width: 0;
 }
 .bpg-tabs button {
-  border: 1px solid var(--border-primary, #2a3a4d);
-  background: var(--card-bg, #1e2d3d);
-  color: var(--text-secondary, #8aa0b0);
+  border: 1px solid var(--border-primary);
+  background: var(--card-bg);
+  color: var(--text-secondary);
   padding: 0.4rem 0.8rem;
   border-radius: 999px;
+  font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
 }
-.bpg-tabs button.active {
-  color: #fff;
-  background: var(--accent-color, #7233f8);
-  border-color: var(--accent-color, #7233f8);
+.bpg-tabs button:hover {
+  color: var(--text-primary);
 }
+.bpg-tabs button.active {
+  color: var(--badge-text-accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-color);
+}
+
+/* A busca fica fora de um .form-group — sem isto ela saía com o visual cru
+   do navegador (caixa branca no tema escuro). Mesmo desenho dos inputs. */
 .bpg-search {
-  min-width: 180px;
+  flex: 1 1 180px;
+  max-width: 280px;
+  min-height: 38px;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  background-color: var(--card-bg-hover);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  color: var(--text-primary);
+}
+.bpg-search:focus {
+  outline: none;
+  border-color: var(--accent-color);
 }
 
 .bpg-hint {
@@ -43,7 +64,7 @@
 
 .bpg-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
   gap: 0.6rem;
 }
 
@@ -54,18 +75,20 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 0.3rem;
+  min-width: 0;
   min-height: 84px;
   padding: 0.7rem 0.75rem;
-  border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--border-primary, #2a3a4d);
-  background: var(--card-bg, #1e2d3d);
-  color: var(--text-primary, #e0eaf4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background: var(--card-bg);
+  color: var(--text-primary);
   text-align: left;
+  font: inherit;
   cursor: pointer;
   transition: transform 0.08s ease, border-color 0.15s ease;
 }
 .bpg-tile:hover:not(:disabled) {
-  border-color: var(--accent-color, #7233f8);
+  border-color: var(--accent-color);
 }
 .bpg-tile:active:not(:disabled) {
   transform: scale(0.97);
@@ -74,24 +97,28 @@
   cursor: not-allowed;
 }
 .bpg-tile--low {
-  border-color: var(--warning-color, #f59e0b);
+  border-color: var(--warning-color);
 }
 .bpg-tile__name {
   font-weight: 600;
   line-height: 1.2;
+  /* Nome longo quebra dentro do tile, em vez de empurrar a coluna. */
+  overflow-wrap: anywhere;
+  padding-right: 2.2rem;
 }
 .bpg-tile__price {
-  color: var(--success-color, #22c55e);
+  color: var(--text-success);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .bpg-tile__stock {
   position: absolute;
   top: 0.45rem;
   right: 0.55rem;
   font-size: 0.7rem;
-  color: var(--text-secondary, #8aa0b0);
+  color: var(--text-secondary);
 }
 .bpg-tile__stock--neg {
-  color: var(--danger-color, #ef4444);
+  color: var(--text-danger);
   font-weight: 700;
 }

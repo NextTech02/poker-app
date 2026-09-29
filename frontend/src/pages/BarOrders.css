@@ -1,13 +1,13 @@
 .bo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 0.9rem;
 }
 
 .bo-card {
-  border-radius: var(--radius-lg, 14px);
-  background: var(--card-bg, #1e2d3d);
-  border: 1px solid var(--border-primary, #2a3a4d);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
   padding: 0.9rem;
 }
 .bo-card__header {
@@ -28,13 +28,13 @@
 }
 .bo-item {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 0.5rem;
   align-items: center;
   padding: 0.45rem 0.55rem;
-  border-radius: var(--radius-md, 10px);
-  background: var(--secondary-bg, #16202b);
-  border-left: 3px solid var(--warning-color, #f59e0b);
+  border-radius: var(--radius-md);
+  background: var(--secondary-bg);
+  border-left: 3px solid var(--warning-color);
 }
 .bo-item__qty {
   font-weight: 700;

@@ -67,7 +67,7 @@ const BarTabDetail = () => {
         <div className="page-header">
           <div>
             <h1>{t('bar.tabTitle', 'Comanda #{{number}}', { number: tab?.number || '' })}</h1>
-            <p className="subtitle">{tab?.player_name || ''}</p>
+            <p>{tab?.player_name || ''}</p>
           </div>
         </div>
 
@@ -80,7 +80,7 @@ const BarTabDetail = () => {
         ) : !detail ? (
           <EmptyState icon={null} title={t('bar.tabNotFound', 'Comanda não encontrada')} />
         ) : (
-          <div style={{ maxWidth: 560 }}>
+          <div className="bar-narrow">
             <BarTabPanel
               detail={detail}
               canAdmin={hasPermission('bar.admin')}

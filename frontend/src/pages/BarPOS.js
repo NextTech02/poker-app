@@ -183,7 +183,7 @@ const BarPOS = () => {
         <div className="page-header">
           <div>
             <h1>{t('bar.pos', 'Comandas')}</h1>
-            <p className="subtitle">
+            <p>
               {isOpen
                 ? t('bar.posSubtitle', 'Turno de {{date}}{{label}} · {{count}} comanda(s) aberta(s) · {{due}} a receber', {
                   date: shift?.business_date, label: shift?.label ? ` · ${shift.label}` : '',
@@ -218,6 +218,9 @@ const BarPOS = () => {
               </p>
             )}
 
+            {/* `pos-shell` é o container das consultas de largura: as colunas
+                dependem do espaço que SOBRA ao lado do menu, não da janela. */}
+            <div className="pos-shell">
             <div className="pos">
               <section className="pos-side">
                 <form className="pos-open" onSubmit={abrirComanda}>
@@ -271,9 +274,10 @@ const BarPOS = () => {
                     onClosed={aoFecharComanda}
                   />
                 ) : (
-                  <p className="bar-muted">{t('bar.noTabSelected', 'Selecione uma comanda à esquerda, ou abra uma nova.')}</p>
+                  <p className="bar-muted pos-detail__empty">{t('bar.noTabSelected', 'Selecione uma comanda à esquerda, ou abra uma nova.')}</p>
                 )}
               </section>
+            </div>
             </div>
           </>
         )}

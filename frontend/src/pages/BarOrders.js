@@ -99,7 +99,7 @@ const BarOrders = () => {
         <div className="page-header">
           <div>
             <h1>{t('bar.orders', 'Pedidos')}</h1>
-            <p className="subtitle">
+            <p>
               {t('bar.ordersSubtitle', '{{count}} item(ns) aguardando entrega', { count: orders.length })}
             </p>
           </div>
@@ -119,7 +119,7 @@ const BarOrders = () => {
               <article key={g.tab_id} className="bo-card">
                 <header className="bo-card__header">
                   <strong>#{g.number} · {g.player || '—'}</strong>
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy === g.tab_id}
+                  <button type="button" className="btn btn-primary btn-small" disabled={busy === g.tab_id}
                           onClick={() => entregarTodos(g)}>
                     {t('bar.deliverAll', 'Entregar todos')}
                   </button>
@@ -133,7 +133,7 @@ const BarOrders = () => {
                         {i.notes && <small className="bar-muted"> · {i.notes}</small>}
                       </span>
                       <span className="bar-muted">{hora(i.created_at)}</span>
-                      <button type="button" className="btn btn-secondary btn-sm" disabled={busy === i.item_id}
+                      <button type="button" className="btn btn-secondary btn-small" disabled={busy === i.item_id}
                               onClick={() => entregar(i)}>
                         {t('bar.deliver', 'Entregar')}
                       </button>

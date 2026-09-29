@@ -1,10 +1,61 @@
-/* A POS: comandas à esquerda, produtos no meio, comanda selecionada à direita. */
+/* A POS: comandas, produtos e a comanda selecionada.
+
+   As colunas dependem da largura que SOBRA para o conteúdo, não da janela: o
+   trilho + menu do redesign come ~290px, então um breakpoint de viewport
+   (o antigo `max-width: 1100px`) deixava a grade de produtos com ~100px entre
+   1100 e 1350px de janela — os tiles vazavam por cima da comanda. Por isso
+   `container-type` no `.pos-shell` e `@container` nas regras.
+
+   Ordem de leitura por largura:
+     larga  (≥1080px de conteúdo): comandas | produtos | comanda aberta
+     média  (≥700px):              comandas | comanda aberta
+                                   produtos (largura toda)
+     estreita:                     comandas → comanda aberta → produtos
+   A comanda aberta vem ANTES da grade quando empilha: é nela que o barman
+   confere o que lançou. */
+
+.pos-shell {
+  container-type: inline-size;
+  container-name: pos;
+}
 
 .pos {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "side"
+    "detail"
+    "main";
   gap: 1rem;
   align-items: start;
+}
+
+.pos-side   { grid-area: side;   min-width: 0; }
+.pos-main   { grid-area: main;   min-width: 0; }
+.pos-detail { grid-area: detail; min-width: 0; }
+
+@container pos (min-width: 700px) {
+  .pos {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    grid-template-areas:
+      "side detail"
+      "main main";
+  }
+}
+
+@container pos (min-width: 1080px) {
+  .pos {
+    grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(300px, 360px);
+    grid-template-areas: "side main detail";
+  }
+  /* Só na coluna lateral a comanda acompanha a rolagem — e abaixo da barra
+     fixa do topo, não por baixo dela. */
+  .pos-detail {
+    position: sticky;
+    top: calc(var(--topbar-height, 56px) + 1rem);
+    max-height: calc(100vh - var(--topbar-height, 56px) - 2rem);
+    overflow-y: auto;
+  }
 }
 
 .pos-side {
@@ -37,24 +88,29 @@
 .pos-tab {
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 0.5rem;
   align-items: center;
   padding: 0.6rem 0.7rem;
-  border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--border-primary, #2a3a4d);
-  background: var(--card-bg, #1e2d3d);
-  color: var(--text-primary, #e0eaf4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background: var(--card-bg);
+  color: var(--text-primary);
   text-align: left;
+  font: inherit;
   cursor: pointer;
 }
+.pos-tab:hover {
+  border-color: var(--accent-color);
+}
 .pos-tab.active {
-  border-color: var(--accent-color, #7233f8);
-  box-shadow: 0 0 0 1px var(--accent-color, #7233f8) inset;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color) inset;
+  background: var(--accent-soft);
 }
 .pos-tab__number {
   font-weight: 700;
-  color: var(--text-secondary, #8aa0b0);
+  color: var(--text-secondary);
 }
 .pos-tab__name {
   overflow: hidden;
@@ -63,7 +119,8 @@
 }
 .pos-tab__due {
   font-weight: 700;
-  color: var(--success-color, #22c55e);
+  color: var(--text-success);
+  font-variant-numeric: tabular-nums;
 }
 .pos-tab__pending {
   min-width: 1.4rem;
@@ -72,24 +129,14 @@
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
-  background: var(--warning-bg, rgba(245, 158, 11, 0.15));
-  color: var(--warning-color, #f59e0b);
+  background: var(--warning-bg);
+  color: var(--text-warning);
 }
 
-.pos-main {
-  min-width: 0;
-}
-
-.pos-detail {
-  position: sticky;
-  top: 1rem;
-}
-
-@media (max-width: 1100px) {
-  .pos {
-    grid-template-columns: 1fr;
-  }
-  .pos-detail {
-    position: static;
-  }
+.pos-detail__empty {
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed var(--border-primary);
+  border-radius: 14px;
+  text-align: center;
 }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
+import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import CashboxAdminPanel from '../components/CashboxAdminPanel';
 import CashboxDemonstrativo from '../components/CashboxDemonstrativo';
@@ -113,7 +114,7 @@ const BarShiftDetail = () => {
               {t('bar.shiftTitle', 'Turno de {{date}}', { date: shift?.business_date || '' })}
               {shift?.label ? ` · ${shift.label}` : ''}
             </h1>
-            <p className="subtitle">
+            <p>
               {shift && (
                 <span className={`bar-status-${shift.status}`}>
                   {isOpen ? t('bar.statusOpen', 'Aberto') : t('bar.statusClosed', 'Fechado')}
@@ -199,36 +200,38 @@ const BarShiftDetail = () => {
                 {openTabs.length === 0 ? (
                   <p className="bar-muted">{t('bar.noOpenTabs', 'Nenhuma comanda aberta.')}</p>
                 ) : (
-                  <div className="table-container">
-                    <table className="data-table">
+                  <Card className="bar-card">
+                    <table className="bar-table">
                       <thead>
                         <tr>
-                          <th>#</th>
+                          <th className="bar-num">#</th>
                           <th>{t('bar.player', 'Jogador')}</th>
-                          <th>{t('bar.total', 'Total')}</th>
-                          <th>{t('bar.paid', 'Recebido')}</th>
-                          <th>{t('bar.balanceDue', 'Saldo')}</th>
-                          <th aria-label={t('common.actions', 'Ações')} />
+                          <th className="bar-num">{t('bar.total', 'Total')}</th>
+                          <th className="bar-num">{t('bar.paid', 'Recebido')}</th>
+                          <th className="bar-num">{t('bar.balanceDue', 'Saldo')}</th>
+                          <th className="bar-th-actions" aria-label={t('common.actions', 'Ações')} />
                         </tr>
                       </thead>
                       <tbody>
                         {openTabs.map((c) => (
                           <tr key={c.id}>
-                            <td>{c.number}</td>
+                            <td className="bar-num">{c.number}</td>
                             <td>{c.player_name || '—'}</td>
-                            <td>{formatCurrency(c.total)}</td>
-                            <td>{formatCurrency(c.paid_amount)}</td>
-                            <td><strong>{formatCurrency(c.balance_due)}</strong></td>
+                            <td className="bar-num">{formatCurrency(c.total)}</td>
+                            <td className="bar-num">{formatCurrency(c.paid_amount)}</td>
+                            <td className="bar-num"><strong>{formatCurrency(c.balance_due)}</strong></td>
                             <td>
-                              <Link className="btn btn-secondary btn-sm" to={`/bar/comandas/${c.id}`}>
-                                {t('common.details', 'Detalhes')}
-                              </Link>
+                              <div className="bar-actions">
+                                <Link className="btn btn-secondary btn-small" to={`/bar/comandas/${c.id}`}>
+                                  {t('common.details', 'Detalhes')}
+                                </Link>
+                              </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </Card>
                 )}
               </div>
             )}

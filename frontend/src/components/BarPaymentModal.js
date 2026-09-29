@@ -179,7 +179,7 @@ const BarPaymentModal = ({ tab, availableCredit = 0, cashboxBlocked = false, onC
                     onChange={(e) => mudar(i, 'amount', e.target.value)}
                   />
                   {legs.length > 1 && (
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => remover(i)}
+                    <button type="button" className="btn btn-secondary btn-small" onClick={() => remover(i)}
                             aria-label={t('common.remove', 'Remover')}>
                       ×
                     </button>
@@ -189,11 +189,11 @@ const BarPaymentModal = ({ tab, availableCredit = 0, cashboxBlocked = false, onC
             </div>
 
             <div className="bpm-add">
-              <button type="button" className="btn btn-secondary btn-sm" onClick={adicionarPerna}>
+              <button type="button" className="btn btn-secondary btn-small" onClick={adicionarPerna}>
                 + {t('bar.addLeg', 'Outra forma')}
               </button>
               {availableCredit > 0 && !temCredito && (
-                <button type="button" className="btn btn-secondary btn-sm" onClick={usarCredito}>
+                <button type="button" className="btn btn-secondary btn-small" onClick={usarCredito}>
                   {t('bar.useCredit', 'Usar crédito ({{value}})', { value: formatCurrency(availableCredit) })}
                 </button>
               )}

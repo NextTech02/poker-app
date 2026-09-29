@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import Sidebar from '../components/Sidebar';
+import Card from '../components/Card';
 import EmptyState from '../components/EmptyState';
 import { SkeletonTableRow } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
@@ -106,7 +107,7 @@ const BarShifts = () => {
         <div className="page-header">
           <div>
             <h1>{t('bar.shifts', 'Turnos')}</h1>
-            <p className="subtitle">
+            <p>
               {t('bar.shiftsSubtitle', 'Vendas do bar por turno. O período abaixo somou {{value}} em comandas.', {
                 value: formatCurrency(totalLiquido),
               })}
@@ -134,9 +135,11 @@ const BarShifts = () => {
         </div>
 
         {loading ? (
-          <table className="data-table"><tbody>
-            <SkeletonTableRow cols={7} /><SkeletonTableRow cols={7} />
-          </tbody></table>
+          <Card className="bar-card">
+            <table className="bar-table"><tbody>
+              <SkeletonTableRow cols={7} /><SkeletonTableRow cols={7} />
+            </tbody></table>
+          </Card>
         ) : shifts.length === 0 ? (
           <EmptyState
             icon={null}
@@ -146,18 +149,19 @@ const BarShifts = () => {
             onCta={!aberto && hasPermission('bar.shift') ? () => setOpening(true) : undefined}
           />
         ) : (
-          <div className="table-container">
-            <table className="data-table">
+          <>
+          <Card className="bar-card">
+            <table className="bar-table">
               <thead>
                 <tr>
                   <th>{t('bar.businessDate', 'Data')}</th>
                   <th>{t('common.status', 'Status')}</th>
-                  <th>{t('bar.netSales', 'Vendas')}</th>
-                  <th>{t('bar.paid', 'Recebido')}</th>
-                  <th>{t('bar.discounts', 'Descontos')}</th>
-                  <th>{t('bar.margin', 'Margem')}</th>
-                  <th>{t('bar.tabsCount', 'Comandas')}</th>
-                  <th aria-label={t('common.actions', 'Ações')} />
+                  <th className="bar-num">{t('bar.netSales', 'Vendas')}</th>
+                  <th className="bar-num">{t('bar.paid', 'Recebido')}</th>
+                  <th className="bar-num">{t('bar.discounts', 'Descontos')}</th>
+                  <th className="bar-num">{t('bar.margin', 'Margem')}</th>
+                  <th className="bar-num">{t('bar.tabsCount', 'Comandas')}</th>
+                  <th className="bar-th-actions" aria-label={t('common.actions', 'Ações')} />
                 </tr>
               </thead>
               <tbody>
@@ -172,30 +176,33 @@ const BarShifts = () => {
                         {s.status === 'open' ? t('bar.statusOpen', 'Aberto') : t('bar.statusClosed', 'Fechado')}
                       </span>
                     </td>
-                    <td className="bar-revenue">{s.total_net != null ? formatCurrency(s.total_net) : '—'}</td>
-                    <td>{s.total_paid != null ? formatCurrency(s.total_paid) : '—'}</td>
-                    <td>{s.total_discounts != null ? formatCurrency((s.total_discounts || 0) + (s.total_courtesy || 0)) : '—'}</td>
-                    <td>{s.total_net != null ? formatCurrency((s.total_net || 0) - (s.total_cogs || 0)) : '—'}</td>
-                    <td>{s.tabs_count != null ? s.tabs_count : '—'}</td>
-                    <td className="bar-actions">
-                      <Link className="btn btn-secondary btn-sm" to={`/bar/turnos/${s.id}`}>
-                        {t('common.details', 'Detalhes')}
-                      </Link>
-                      {s.status === 'open' && hasPermission('bar.shift') && (
-                        <button type="button" className="btn btn-secondary btn-sm"
-                                onClick={() => { setNotes(''); setBloqueio(null); setClosing(s); }}>
-                          {t('bar.closeShift', 'Encerrar')}
-                        </button>
-                      )}
+                    <td className="bar-num bar-revenue">{s.total_net != null ? formatCurrency(s.total_net) : '—'}</td>
+                    <td className="bar-num">{s.total_paid != null ? formatCurrency(s.total_paid) : '—'}</td>
+                    <td className="bar-num">{s.total_discounts != null ? formatCurrency((s.total_discounts || 0) + (s.total_courtesy || 0)) : '—'}</td>
+                    <td className="bar-num">{s.total_net != null ? formatCurrency((s.total_net || 0) - (s.total_cogs || 0)) : '—'}</td>
+                    <td className="bar-num">{s.tabs_count != null ? s.tabs_count : '—'}</td>
+                    <td>
+                      <div className="bar-actions">
+                        <Link className="btn btn-secondary btn-small" to={`/bar/turnos/${s.id}`}>
+                          {t('common.details', 'Detalhes')}
+                        </Link>
+                        {s.status === 'open' && hasPermission('bar.shift') && (
+                          <button type="button" className="btn btn-secondary btn-small"
+                                  onClick={() => { setNotes(''); setBloqueio(null); setClosing(s); }}>
+                            {t('bar.closeShift', 'Encerrar')}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="bar-muted" style={{ marginTop: '0.9rem' }}>
-              {t('bar.openShiftNote', 'Os totais aparecem quando o turno é encerrado — enquanto ele está aberto, o número ao vivo fica no detalhe.')}
-            </p>
-          </div>
+          </Card>
+          <p className="bar-muted">
+            {t('bar.openShiftNote', 'Os totais aparecem quando o turno é encerrado — enquanto ele está aberto, o número ao vivo fica no detalhe.')}
+          </p>
+          </>
         )}
 
         {opening && (
