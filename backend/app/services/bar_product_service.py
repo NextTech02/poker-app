@@ -285,16 +285,26 @@ class BarProductService:
                 )
         # 'adjustment' vai como veio (± é o que o ajuste significa).
 
+        # Custo só tem sentido na entrada: é ela que alimenta a média.
+        unit_cost = data.unit_cost if data.kind == "in" else None
+        total_cost = data.total_cost if data.kind == "in" else None
+        if unit_cost is None and total_cost is not None:
+            unit_cost = round(total_cost / quantidade, 4)
+
         payload = {
             "product_id": product_id,
             "kind": data.kind,
             "quantity": quantidade,
-            "unit_cost": data.unit_cost,
+            "unit_cost": unit_cost,
             "notes": data.notes,
             "client_mutation_id": data.client_mutation_id,
             "created_by": auth_user_id,
             "organization_id": organization_id or produto.get("organization_id"),
         }
+        # Só manda a coluna quando há valor: um banco ainda sem a migração do
+        # custo médio recusaria a coluna desconhecida mesmo com nulo.
+        if total_cost is not None:
+            payload["total_cost"] = total_cost
         try:
             resp = supabase.table("bar_stock_movements").insert(payload).execute()
         except Exception as exc:
@@ -310,11 +320,10 @@ class BarProductService:
         else:
             resp_data = resp.data
 
-        # Entrada com custo informado atualiza o custo de referência do
-        # produto: é o que a próxima venda copia para a margem.
-        if data.kind == "in" and data.unit_cost is not None:
-            supabase.table("bar_products").update({"cost_price": data.unit_cost}) \
-                .eq("id", product_id).execute()
+        # O custo do produto NÃO é gravado aqui: o trigger
+        # bar_stock_weighted_cost recalcula a média ponderada dentro do INSERT,
+        # com o produto travado (database_migration_bar_custo_medio.sql).
+        # Sobrescrever com o custo da entrada recusteava o estoque antigo.
 
         atualizado = BarProductService.get_product(product_id)
         return {

@@ -1,26 +1,21 @@
 /* Módulo de bar — classes compartilhadas por todas as telas (prefixo `bar-`).
-   Os utilitários de modal/stat-card vêm de CashFloor.css, importado junto. */
+   Os utilitários de modal/form-hint vêm de CashFloor.css, importado junto.
 
-.bar-tabs-nav {
-  display: flex;
-  gap: 0.4rem;
+   Sistema visual do redesign: tabelas dentro de Card (`.bar-card`), abas com
+   Segmented, status com `.badge`, botões com o componente Button. Tudo em
+   tokens — nada de hex cru. As regras de tabela são ESCOPADAS em `.bar-table`
+   para não herdar o `.table-container`/`.status-badge` de outras telas (os
+   CSS das páginas lazy ficam no documento depois de visitadas). */
+
+/* ── Abas / segmentado ─────────────────────────────────────────────────── */
+.bar-seg {
   margin-bottom: 1rem;
-  border-bottom: 1px solid var(--border-primary, #2a3a4d);
 }
-.bar-tabs-nav button {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-secondary, #8aa0b0);
-  padding: 0.55rem 0.9rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.bar-tabs-nav button.active {
-  color: var(--text-primary, #e0eaf4);
-  border-bottom-color: var(--accent-color, #7233f8);
+.bar-seg--sm {
+  margin: 0.1rem 0 0.75rem;
 }
 
+/* ── Filtros ───────────────────────────────────────────────────────────── */
 .bar-filters {
   display: flex;
   gap: 1rem;
@@ -31,6 +26,8 @@
 .bar-filters .form-group {
   margin: 0;
   min-width: 160px;
+  flex: 1 1 180px;
+  max-width: 320px;
 }
 
 .bar-row {
@@ -42,30 +39,73 @@
   margin-bottom: 0.75rem;
 }
 
-.bar-inactive {
-  opacity: 0.55;
+/* ── Tabelas ───────────────────────────────────────────────────────────── */
+.bar-card .card-body {
+  padding: 0;
+  overflow-x: auto;
 }
 
+.bar-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.bar-table th,
+.bar-table td {
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: middle;
+}
+.bar-table tbody td {
+  border-bottom: 1px solid var(--border-primary);
+}
+.bar-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.bar-table--compact th,
+.bar-table--compact td {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+.bar-table .bar-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bar-table .bar-nw {
+  white-space: nowrap;
+}
+.bar-table .bar-th-actions {
+  width: 1%;
+}
+
+.bar-inactive td {
+  color: var(--text-tertiary);
+}
+
+/* Ações da linha: o flex mora num div DENTRO da célula — flex no próprio
+   <td> quebra o alinhamento vertical e as bordas da linha. */
 .bar-actions {
   display: flex;
-  gap: 0.4rem;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
   white-space: nowrap;
-  flex-wrap: wrap;
 }
 
 .bar-muted {
   font-size: 0.76rem;
-  color: var(--text-secondary, #8aa0b0);
+  color: var(--text-secondary);
 }
 
 .bar-note {
   margin: 0.25rem 0 1rem;
   padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--border-primary, #2a3a4d);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
   font-size: 0.78rem;
   line-height: 1.5;
-  color: var(--text-secondary, #8aa0b0);
+  color: var(--text-secondary);
 }
 
 .bar-check label {
@@ -75,34 +115,21 @@
   cursor: pointer;
 }
 
-/* Estoque baixo: a linha avisa antes da leitura. */
+/* Estoque baixo / turno aberto: a linha avisa antes da leitura. Sombra
+   interna em vez de border-left — a borda empurrava a 1ª coluna para fora
+   do alinhamento com o cabeçalho. */
 .bar-low-stock td:first-child {
-  border-left: 3px solid var(--warning-color, #f59e0b);
+  box-shadow: inset 3px 0 0 var(--warning-color);
 }
-.bar-stock-pill {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  background: var(--warning-bg, rgba(245, 158, 11, 0.15));
-  color: var(--warning-color, #f59e0b);
-}
-.bar-stock-pill--neg {
-  background: var(--danger-bg, rgba(239, 68, 68, 0.15));
-  color: var(--danger-color, #ef4444);
-}
-
-/* Turno aberto na lista. */
 .bar-open td:first-child {
-  border-left: 3px solid var(--success-color, #22c55e);
+  box-shadow: inset 3px 0 0 var(--success-color);
 }
 .bar-revenue {
   font-weight: 700;
-  color: var(--success-color, #22c55e);
+  color: var(--text-success);
 }
 
-/* Seções da tela de detalhe do turno. */
+/* ── Seções / avisos ───────────────────────────────────────────────────── */
 .bar-section {
   margin-top: 1.5rem;
 }
@@ -114,63 +141,69 @@
 .bar-warning {
   margin: 0 0 1rem;
   padding: 0.7rem 0.9rem;
-  border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--warning-color, #f59e0b);
-  background: var(--warning-bg, rgba(245, 158, 11, 0.12));
-  color: var(--text-primary, #e0eaf4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warning-color);
+  background: var(--warning-bg);
+  color: var(--text-primary);
   font-size: 0.85rem;
   line-height: 1.5;
 }
 
+/* ── Status (turno, comanda, item) — no desenho do `.badge` ────────────── */
 .bar-status-open,
 .bar-status-closed,
 .bar-status-cancelled,
 .bar-status-pending,
 .bar-status-delivered {
-  display: inline-block;
-  padding: 0.15rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
   border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 .bar-status-open,
 .bar-status-delivered {
-  background: var(--success-bg, rgba(34, 197, 94, 0.15));
-  color: var(--success-color, #22c55e);
+  background: var(--success-bg);
+  color: var(--text-success);
 }
 .bar-status-closed {
-  background: var(--gray-700, #374151);
-  color: var(--text-secondary, #8aa0b0);
+  background: var(--card-bg-active);
+  color: var(--text-secondary);
 }
 .bar-status-cancelled {
-  background: var(--danger-bg, rgba(239, 68, 68, 0.15));
-  color: var(--danger-color, #ef4444);
+  background: var(--danger-bg);
+  color: var(--text-danger);
 }
 .bar-status-pending {
-  background: var(--warning-bg, rgba(245, 158, 11, 0.15));
-  color: var(--warning-color, #f59e0b);
+  background: var(--warning-bg);
+  color: var(--text-warning);
 }
 
+/* ── KPIs ──────────────────────────────────────────────────────────────── */
 .bar-kpi-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
 }
 .bar-kpi-list li {
-  padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-md, 10px);
-  background: var(--card-bg, #1e2d3d);
-  border: 1px solid var(--border-primary, #2a3a4d);
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  min-width: 0;
 }
 .bar-kpi-list .bar-muted {
   display: block;
+  margin-bottom: 2px;
 }
 .bar-kpi-list strong {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .bar-inline-form {
@@ -181,4 +214,46 @@
 }
 .bar-inline-form .form-group {
   margin: 0;
+}
+.bar-inline-form--spaced {
+  margin-top: 1rem;
+}
+
+/* ── Modal de estoque ──────────────────────────────────────────────────── */
+.bar-modal-wide {
+  max-width: 680px;
+}
+.bar-stock-now {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.75rem;
+}
+.bar-history {
+  padding: 0 var(--spacing-xl, 1.5rem) var(--spacing-lg, 1.25rem);
+  border-top: 1px solid var(--border-primary);
+}
+.bar-history h3 {
+  font-size: 0.9rem;
+  margin: 1rem 0 0.5rem;
+}
+.bar-history__scroll {
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+/* Largura de leitura para telas de formulário único (comanda). */
+.bar-narrow {
+  max-width: 560px;
+}
+
+@media (max-width: 640px) {
+  .bar-filters .form-group {
+    max-width: none;
+  }
+  .bar-history {
+    padding: 0 1rem 1rem;
+  }
 }

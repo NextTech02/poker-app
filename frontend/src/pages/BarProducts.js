@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import Sidebar from '../components/Sidebar';
+import Button from '../components/Button';
+import Card from '../components/Card';
+import Segmented from '../components/Segmented';
 import EmptyState from '../components/EmptyState';
 import { SkeletonTableRow } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
@@ -22,18 +25,47 @@ import './Bar.css';
  * cancelamento devolve, por trigger no banco. O formulário do produto não tem
  * campo de estoque de propósito: editar o número à mão desalinharia o ledger
  * sem ninguém saber quando.
+ *
+ * CUSTO MÉDIO PONDERADO. Cada entrada com custo entra na média com o estoque
+ * que já existe (trigger bar_stock_weighted_cost no banco): 24 un a 4,50 e
+ * depois 24 a 5,00 dão 4,75 — e não 5,00 para tudo, que recusteava o estoque
+ * antigo pelo último preço.
  */
 const PRODUTO_VAZIO = {
   name: '', category_id: '', description: '', price: '', cost_price: '0',
   sku: '', track_stock: false, min_stock: '0', active: true, sort_order: '0',
 };
 const CATEGORIA_VAZIA = { name: '', sort_order: '0', active: true };
-const ESTOQUE_VAZIO = { kind: 'in', quantity: '', unit_cost: '', notes: '' };
+const ESTOQUE_VAZIO = { kind: 'in', quantity: '', cost_mode: 'unit', unit_cost: '', total_cost: '', notes: '' };
 
 const novoId = () => (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
+const numero = (v) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/** Custo unitário da entrada, pelo modo escolhido (unitário ou total da nota). */
+export const custoDaEntrada = (form) => {
+  const qtd = parseInt(form.quantity, 10);
+  if (form.cost_mode === 'total') {
+    const total = numero(form.total_cost);
+    return total !== null && qtd > 0 ? total / qtd : null;
+  }
+  return numero(form.unit_cost);
+};
+
+/** A mesma conta do trigger do banco — só para a prévia na tela. */
+export const custoMedioApos = ({ estoque, custoAtual, quantidade, custoEntrada }) => {
+  const saldo = Math.max(Number(estoque) || 0, 0);
+  const atual = Number(custoAtual) || 0;
+  if (!(quantidade > 0) || custoEntrada === null) return null;
+  if (saldo === 0 || atual === 0) return custoEntrada;
+  return (saldo * atual + quantidade * custoEntrada) / (saldo + quantidade);
+};
+
 const BarProducts = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
 
@@ -50,6 +82,7 @@ const BarProducts = () => {
   const [catForm, setCatForm] = useState(CATEGORIA_VAZIA);
   const [stockFor, setStockFor] = useState(null);     // produto do movimento
   const [stockForm, setStockForm] = useState(ESTOQUE_VAZIO);
+  const [movements, setMovements] = useState(null);   // histórico do produto aberto
   const [submitting, setSubmitting] = useState(false);
 
   const algumModal = !!(editing || editingCat || stockFor);
@@ -83,6 +116,15 @@ const BarProducts = () => {
   }, [products, search, categoryFilter]);
 
   const estoqueBaixo = useMemo(() => products.filter((p) => p.low_stock).length, [products]);
+
+  const dataHora = (iso) => {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString(i18n?.language, { dateStyle: 'short', timeStyle: 'short' });
+    } catch {
+      return iso;
+    }
+  };
 
   // ── Produto ──
   const abrirNovo = () => { setForm(PRODUTO_VAZIO); setEditing({}); };
@@ -137,15 +179,37 @@ const BarProducts = () => {
   };
 
   // ── Estoque ──
-  const abrirEstoque = (p) => { setStockForm(ESTOQUE_VAZIO); setStockFor(p); };
+  const abrirEstoque = async (p) => {
+    setStockForm(ESTOQUE_VAZIO);
+    setStockFor(p);
+    setMovements(null);
+    const res = await api
+      .get(`/bar/products/${p.id}/stock-movements`, { params: { limit: 20 }, _silentError: true })
+      .catch(() => ({ data: [] }));
+    setMovements(res?.data || []);
+  };
+
+  const custoEntrada = stockForm.kind === 'in' ? custoDaEntrada(stockForm) : null;
+  const previaDoCusto = stockFor && stockForm.kind === 'in'
+    ? custoMedioApos({
+      estoque: stockFor.stock_qty,
+      custoAtual: stockFor.cost_price,
+      quantidade: parseInt(stockForm.quantity, 10),
+      custoEntrada,
+    })
+    : null;
+
   const lancarEstoque = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    const entrada = stockForm.kind === 'in';
+    const porTotal = entrada && stockForm.cost_mode === 'total';
     try {
       await api.post(`/bar/products/${stockFor.id}/stock-movements`, {
         kind: stockForm.kind,
         quantity: parseInt(stockForm.quantity, 10),
-        unit_cost: stockForm.kind === 'in' && stockForm.unit_cost !== '' ? parseFloat(stockForm.unit_cost) : null,
+        unit_cost: entrada && !porTotal ? numero(stockForm.unit_cost) : null,
+        total_cost: porTotal ? numero(stockForm.total_cost) : null,
         notes: stockForm.notes || null,
         client_mutation_id: novoId(),
       });
@@ -158,6 +222,14 @@ const BarProducts = () => {
       setSubmitting(false);
     }
   };
+
+  const rotuloDoMovimento = (kind) => ({
+    in: t('bar.kindIn', 'Entrada'),
+    adjustment: t('bar.kindAdjustmentShort', 'Ajuste'),
+    loss: t('bar.kindLossShort', 'Perda'),
+    sale: t('bar.kindSale', 'Venda'),
+    cancel_restore: t('bar.kindCancelRestore', 'Devolução'),
+  }[kind] || kind);
 
   // ── Categoria ──
   const abrirNovaCat = () => { setCatForm(CATEGORIA_VAZIA); setEditingCat({}); };
@@ -201,7 +273,7 @@ const BarProducts = () => {
         {p.low_stock && (
           <>
             {' '}
-            <span className={`bar-stock-pill ${neg ? 'bar-stock-pill--neg' : ''}`}>
+            <span className={`badge badge-plain ${neg ? 'badge-danger' : 'badge-warning'}`}>
               {neg ? t('bar.negativeStock', 'negativo') : t('bar.lowStock', 'baixo')}
             </span>
           </>
@@ -210,38 +282,44 @@ const BarProducts = () => {
     );
   };
 
+  const statusBadge = (ativo, rotuloAtivo, rotuloInativo) => (
+    <span className={`badge ${ativo ? 'badge-success' : 'badge-secondary'}`}>
+      {ativo ? rotuloAtivo : rotuloInativo}
+    </span>
+  );
+
   return (
     <div className="app-container">
       <Sidebar />
-      <main className="main-content">
+      <main className="main-content bar-page">
         <div className="page-header">
           <div>
             <h1>{t('bar.products', 'Produtos')}</h1>
-            <p className="subtitle">
+            <p>
               {t('bar.productsSubtitle', 'Catálogo e estoque do bar. A comanda guarda um retrato do preço na venda — editar aqui não muda comandas já lançadas.')}
             </p>
           </div>
           {tab === 'products' ? (
-            <button type="button" className="btn btn-primary" onClick={abrirNovo}>
+            <Button variant="primary" onClick={abrirNovo}>
               {t('bar.newProduct', 'Novo produto')}
-            </button>
+            </Button>
           ) : (
-            <button type="button" className="btn btn-primary" onClick={abrirNovaCat}>
+            <Button variant="primary" onClick={abrirNovaCat}>
               {t('bar.newCategory', 'Nova categoria')}
-            </button>
+            </Button>
           )}
         </div>
 
-        <div className="bar-tabs-nav" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'products'}
-                  className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>
-            {t('bar.products', 'Produtos')}
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'categories'}
-                  className={tab === 'categories' ? 'active' : ''} onClick={() => setTab('categories')}>
-            {t('bar.categories', 'Categorias')}
-          </button>
-        </div>
+        <Segmented
+          className="bar-seg"
+          ariaLabel={t('bar.productsSections', 'Seções do catálogo')}
+          options={[
+            { value: 'products', label: t('bar.products', 'Produtos') },
+            { value: 'categories', label: t('bar.categories', 'Categorias') },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
         {tab === 'products' && (
           <>
@@ -266,9 +344,11 @@ const BarProducts = () => {
             </div>
 
             {loading ? (
-              <table className="data-table"><tbody>
-                <SkeletonTableRow cols={6} /><SkeletonTableRow cols={6} />
-              </tbody></table>
+              <Card className="bar-card">
+                <table className="bar-table"><tbody>
+                  <SkeletonTableRow cols={6} /><SkeletonTableRow cols={6} />
+                </tbody></table>
+              </Card>
             ) : products.length === 0 ? (
               <EmptyState
                 icon={null}
@@ -278,17 +358,17 @@ const BarProducts = () => {
                 onCta={abrirNovo}
               />
             ) : (
-              <div className="table-container">
-                <table className="data-table">
+              <Card className="bar-card">
+                <table className="bar-table">
                   <thead>
                     <tr>
                       <th>{t('bar.product', 'Produto')}</th>
                       <th>{t('bar.category', 'Categoria')}</th>
-                      <th>{t('bar.price', 'Preço')}</th>
-                      <th>{t('bar.cost', 'Custo')}</th>
+                      <th className="bar-num">{t('bar.price', 'Preço')}</th>
+                      <th className="bar-num">{t('bar.avgCost', 'Custo médio')}</th>
                       <th>{t('bar.stock', 'Estoque')}</th>
                       <th>{t('common.status', 'Status')}</th>
-                      <th aria-label={t('common.actions', 'Ações')} />
+                      <th className="bar-th-actions" aria-label={t('common.actions', 'Ações')} />
                     </tr>
                   </thead>
                   <tbody>
@@ -299,39 +379,39 @@ const BarProducts = () => {
                           {p.sku && <div className="bar-muted">{p.sku}</div>}
                         </td>
                         <td>{p.category_name || '—'}</td>
-                        <td>{formatCurrency(p.price)}</td>
-                        <td>{formatCurrency(p.cost_price || 0)}</td>
+                        <td className="bar-num">{formatCurrency(p.price)}</td>
+                        <td className="bar-num">{formatCurrency(p.cost_price || 0)}</td>
                         <td>{estoqueCelula(p)}</td>
+                        <td>{statusBadge(p.active, t('common.active', 'Ativo'), t('common.inactive', 'Inativo'))}</td>
                         <td>
-                          <span className={`status-badge ${p.active ? 'active' : 'cancelled'}`}>
-                            {p.active ? t('common.active', 'Ativo') : t('common.inactive', 'Inativo')}
-                          </span>
-                        </td>
-                        <td className="bar-actions">
-                          {p.track_stock && (
-                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrirEstoque(p)}>
-                              {t('bar.stockMovement', 'Estoque')}
-                            </button>
-                          )}
-                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrirEdicao(p)}>
-                            {t('common.edit', 'Editar')}
-                          </button>
-                          <button type="button" className="btn btn-danger btn-sm" onClick={() => remover(p)}>
-                            {t('common.delete', 'Excluir')}
-                          </button>
+                          <div className="bar-actions">
+                            {p.track_stock && (
+                              <Button variant="secondary" size="small" onClick={() => abrirEstoque(p)}>
+                                {t('bar.stockMovement', 'Estoque')}
+                              </Button>
+                            )}
+                            <Button variant="secondary" size="small" onClick={() => abrirEdicao(p)}>
+                              {t('common.edit', 'Editar')}
+                            </Button>
+                            <Button variant="danger" size="small" onClick={() => remover(p)}>
+                              {t('common.delete', 'Excluir')}
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </Card>
             )}
           </>
         )}
 
         {tab === 'categories' && (
           loading ? (
-            <table className="data-table"><tbody><SkeletonTableRow cols={4} /></tbody></table>
+            <Card className="bar-card">
+              <table className="bar-table"><tbody><SkeletonTableRow cols={4} /></tbody></table>
+            </Card>
           ) : categories.length === 0 ? (
             <EmptyState
               icon={null}
@@ -341,43 +421,41 @@ const BarProducts = () => {
               onCta={abrirNovaCat}
             />
           ) : (
-            <div className="table-container">
-              <table className="data-table">
+            <Card className="bar-card">
+              <table className="bar-table">
                 <thead>
                   <tr>
                     <th>{t('bar.category', 'Categoria')}</th>
-                    <th>{t('bar.order', 'Ordem')}</th>
-                    <th>{t('bar.products', 'Produtos')}</th>
+                    <th className="bar-num">{t('bar.order', 'Ordem')}</th>
+                    <th className="bar-num">{t('bar.products', 'Produtos')}</th>
                     <th>{t('common.status', 'Status')}</th>
-                    <th aria-label={t('common.actions', 'Ações')} />
+                    <th className="bar-th-actions" aria-label={t('common.actions', 'Ações')} />
                   </tr>
                 </thead>
                 <tbody>
                   {categories.map((c) => (
                     <tr key={c.id} className={c.active ? '' : 'bar-inactive'}>
                       <td><strong>{c.name}</strong></td>
-                      <td>{c.sort_order}</td>
-                      <td>{c.products_count}</td>
+                      <td className="bar-num">{c.sort_order}</td>
+                      <td className="bar-num">{c.products_count}</td>
+                      <td>{statusBadge(c.active, t('common.active', 'Ativa'), t('common.inactive', 'Inativa'))}</td>
                       <td>
-                        <span className={`status-badge ${c.active ? 'active' : 'cancelled'}`}>
-                          {c.active ? t('common.active', 'Ativa') : t('common.inactive', 'Inativa')}
-                        </span>
-                      </td>
-                      <td className="bar-actions">
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrirEdicaoCat(c)}>
-                          {t('common.edit', 'Editar')}
-                        </button>
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removerCat(c)}
-                                disabled={c.products_count > 0}
-                                title={c.products_count > 0 ? t('bar.categoryHasProducts', 'Mova os produtos antes de remover') : undefined}>
-                          {t('common.delete', 'Excluir')}
-                        </button>
+                        <div className="bar-actions">
+                          <Button variant="secondary" size="small" onClick={() => abrirEdicaoCat(c)}>
+                            {t('common.edit', 'Editar')}
+                          </Button>
+                          <Button variant="danger" size="small" onClick={() => removerCat(c)}
+                                  disabled={c.products_count > 0}
+                                  title={c.products_count > 0 ? t('bar.categoryHasProducts', 'Mova os produtos antes de remover') : undefined}>
+                            {t('common.delete', 'Excluir')}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Card>
           )
         )}
 
@@ -415,10 +493,10 @@ const BarProducts = () => {
                   </div>
                   <div className="form-group">
                     <label htmlFor="bp-cost">{t('bar.cost', 'Custo')}</label>
-                    <input id="bp-cost" type="number" step="0.01" min="0" value={form.cost_price}
+                    <input id="bp-cost" type="number" step="0.0001" min="0" value={form.cost_price}
                            onChange={(e) => setForm({ ...form, cost_price: e.target.value })} />
                     <small className="form-hint">
-                      {t('bar.costHint', 'Usado na margem dos relatórios. A venda copia o custo do momento.')}
+                      {t('bar.costHintAvg', 'Custo médio do estoque, usado na margem dos relatórios. As entradas de estoque com custo recalculam a média sozinhas.')}
                     </small>
                   </div>
                 </div>
@@ -461,12 +539,12 @@ const BarProducts = () => {
                   </label>
                 </div>
                 <div className="modal-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)} disabled={submitting}>
+                  <Button variant="secondary" onClick={() => setEditing(null)} disabled={submitting}>
                     {t('common.cancel', 'Cancelar')}
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  </Button>
+                  <Button type="submit" variant="primary" disabled={submitting}>
                     {submitting ? t('common.saving', 'Salvando...') : t('common.save', 'Salvar')}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -476,11 +554,12 @@ const BarProducts = () => {
         {stockFor && (
           <div className="modal-overlay"
                onClick={(e) => { if (e.target === e.currentTarget && !submitting) setStockFor(null); }}>
-            <div className="modal" role="dialog" aria-modal="true">
+            <div className="modal bar-modal-wide" role="dialog" aria-modal="true">
               <h2>{t('bar.stockMovementTitle', 'Estoque: {{name}}', { name: stockFor.name })}</h2>
               <form onSubmit={lancarEstoque}>
-                <p className="bar-muted">
-                  {t('bar.currentStock', 'Estoque atual: {{qty}}', { qty: stockFor.stock_qty })}
+                <p className="bar-muted bar-stock-now">
+                  <span>{t('bar.currentStock', 'Estoque atual: {{qty}}', { qty: stockFor.stock_qty })}</span>
+                  <span>{t('bar.currentAvgCost', 'Custo médio: {{value}}', { value: formatCurrency(stockFor.cost_price || 0) })}</span>
                 </p>
                 <div className="bar-row">
                   <div className="form-group">
@@ -498,31 +577,102 @@ const BarProducts = () => {
                            min={stockForm.kind === 'adjustment' ? undefined : '1'}
                            onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} />
                   </div>
-                  {stockForm.kind === 'in' && (
-                    <div className="form-group">
-                      <label htmlFor="bs-cost">{t('bar.unitCost', 'Custo unitário')}</label>
-                      <input id="bs-cost" type="number" step="0.01" min="0" value={stockForm.unit_cost}
-                             onChange={(e) => setStockForm({ ...stockForm, unit_cost: e.target.value })} />
-                      <small className="form-hint">
-                        {t('bar.unitCostHint', 'Se informado, vira o custo de referência do produto.')}
-                      </small>
-                    </div>
-                  )}
                 </div>
+
+                {stockForm.kind === 'in' && (
+                  <>
+                    <Segmented
+                      className="bar-seg bar-seg--sm"
+                      ariaLabel={t('bar.costModeLabel', 'Como informar o custo')}
+                      options={[
+                        { value: 'unit', label: t('bar.costModeUnit', 'Por unidade') },
+                        { value: 'total', label: t('bar.costModeTotal', 'Total da nota') },
+                      ]}
+                      value={stockForm.cost_mode}
+                      onChange={(v) => setStockForm({ ...stockForm, cost_mode: v })}
+                    />
+                    {stockForm.cost_mode === 'unit' ? (
+                      <div className="form-group">
+                        <label htmlFor="bs-cost">{t('bar.unitCost', 'Custo unitário')}</label>
+                        <input id="bs-cost" type="number" step="0.0001" min="0" value={stockForm.unit_cost}
+                               onChange={(e) => setStockForm({ ...stockForm, unit_cost: e.target.value })} />
+                      </div>
+                    ) : (
+                      <div className="form-group">
+                        <label htmlFor="bs-total">{t('bar.totalCost', 'Total da nota')}</label>
+                        <input id="bs-total" type="number" step="0.01" min="0" value={stockForm.total_cost}
+                               onChange={(e) => setStockForm({ ...stockForm, total_cost: e.target.value })} />
+                        {custoEntrada !== null && (
+                          <small className="form-hint">
+                            {t('bar.unitFromTotal', '= {{value}} por unidade', { value: formatCurrency(custoEntrada) })}
+                          </small>
+                        )}
+                      </div>
+                    )}
+                    <p className="bar-note">
+                      {previaDoCusto !== null
+                        ? t('bar.avgCostPreview', 'Novo custo médio: {{value}} (antes {{before}}).', {
+                          value: formatCurrency(previaDoCusto),
+                          before: formatCurrency(stockFor.cost_price || 0),
+                        })
+                        : t('bar.unitCostHintAvg', 'Se informado, o custo entra na média ponderada com o estoque atual. Sem custo, a média não muda.')}
+                    </p>
+                  </>
+                )}
+
                 <div className="form-group">
                   <label htmlFor="bs-notes">{t('bar.notes', 'Observação')}</label>
                   <input id="bs-notes" type="text" value={stockForm.notes}
                          onChange={(e) => setStockForm({ ...stockForm, notes: e.target.value })} />
                 </div>
                 <div className="modal-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setStockFor(null)} disabled={submitting}>
+                  <Button variant="secondary" onClick={() => setStockFor(null)} disabled={submitting}>
                     {t('common.cancel', 'Cancelar')}
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  </Button>
+                  <Button type="submit" variant="primary" disabled={submitting}>
                     {submitting ? t('common.saving', 'Salvando...') : t('bar.registerMovement', 'Lançar')}
-                  </button>
+                  </Button>
                 </div>
               </form>
+
+              <section className="bar-history" aria-label={t('bar.movementHistory', 'Últimas movimentações')}>
+                <h3>{t('bar.movementHistory', 'Últimas movimentações')}</h3>
+                {movements === null ? (
+                  <p className="bar-muted">{t('common.loading', 'Carregando...')}</p>
+                ) : movements.length === 0 ? (
+                  <p className="bar-muted">{t('bar.noMovements', 'Nenhuma movimentação ainda.')}</p>
+                ) : (
+                  <div className="bar-history__scroll">
+                    <table className="bar-table bar-table--compact">
+                      <thead>
+                        <tr>
+                          <th>{t('bar.date', 'Data')}</th>
+                          <th>{t('bar.movementKind', 'Tipo')}</th>
+                          <th className="bar-num">{t('bar.quantity', 'Quantidade')}</th>
+                          <th className="bar-num">{t('bar.unitCost', 'Custo unitário')}</th>
+                          <th className="bar-num">{t('bar.total', 'Total')}</th>
+                          <th>{t('bar.notes', 'Observação')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {movements.map((m) => {
+                          const total = m.total_cost ?? (m.unit_cost != null ? m.unit_cost * Math.abs(m.quantity) : null);
+                          return (
+                            <tr key={m.id}>
+                              <td className="bar-nw">{dataHora(m.created_at)}</td>
+                              <td>{rotuloDoMovimento(m.kind)}</td>
+                              <td className="bar-num">{m.quantity > 0 ? `+${m.quantity}` : m.quantity}</td>
+                              <td className="bar-num">{m.unit_cost != null ? formatCurrency(m.unit_cost) : '—'}</td>
+                              <td className="bar-num">{m.kind === 'in' && total != null ? formatCurrency(total) : '—'}</td>
+                              <td>{m.notes || ''}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
             </div>
           </div>
         )}
@@ -553,12 +703,12 @@ const BarProducts = () => {
                   </div>
                 </div>
                 <div className="modal-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setEditingCat(null)} disabled={submitting}>
+                  <Button variant="secondary" onClick={() => setEditingCat(null)} disabled={submitting}>
                     {t('common.cancel', 'Cancelar')}
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  </Button>
+                  <Button type="submit" variant="primary" disabled={submitting}>
                     {submitting ? t('common.saving', 'Salvando...') : t('common.save', 'Salvar')}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>

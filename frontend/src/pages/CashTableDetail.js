@@ -496,7 +496,7 @@ const CashTableDetail = () => {
                         </small>
                       )}
                       {cashOutAcimaDoSaldo && (
-                        <small className="error-message" role="alert">
+                        <small className="form-hint form-hint--danger" role="alert">
                           {t('cash.cashOutOverBalance', 'O cash-out passa do saldo do seu caixa. Faça um reforço antes de pagar.')}
                         </small>
                       )}

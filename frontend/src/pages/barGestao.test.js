@@ -157,6 +157,57 @@ describe('produtos e estoque', () => {
     ));
   });
 
+  it('a entrada mostra a prévia do custo médio ponderado', async () => {
+    // 22 un a 4,00 + 22 a 5,00 → 4,50 — e não 5,00 para o estoque todo.
+    montar();
+    await screen.findByText('Cerveja');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Estoque' })[0]);
+    const dialogo = screen.getByRole('dialog');
+    await userEvent.type(within(dialogo).getByLabelText('Quantidade'), '22');
+    await userEvent.type(within(dialogo).getByLabelText('Custo unitário'), '5');
+    expect(within(dialogo).getByText('Novo custo médio: R$ 4.50 (antes R$ 4.00).')).toBeInTheDocument();
+  });
+
+  it('a entrada pelo total da nota manda o total, não o unitário', async () => {
+    montar();
+    await screen.findByText('Cerveja');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Estoque' })[0]);
+    const dialogo = screen.getByRole('dialog');
+    await userEvent.type(within(dialogo).getByLabelText('Quantidade'), '12');
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Total da nota' }));
+    await userEvent.type(within(dialogo).getByLabelText('Total da nota'), '50');
+    expect(within(dialogo).getByText('= R$ 4.17 por unidade')).toBeInTheDocument();
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Lançar' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/bar/products/p-1/stock-movements',
+      expect.objectContaining({ kind: 'in', quantity: 12, unit_cost: null, total_cost: 50 }),
+    ));
+  });
+
+  it('o modal de estoque mostra o histórico com o custo de cada entrada', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/bar/products') return Promise.resolve({ data: [CERVEJA] });
+      if (url === '/bar/categories') return Promise.resolve({ data: [CATEGORIA] });
+      if (url === '/bar/products/p-1/stock-movements') {
+        return Promise.resolve({ data: [
+          { id: 'm2', kind: 'in', quantity: 24, unit_cost: 5, total_cost: null, created_at: '2026-09-20T20:00:00Z', notes: 'Nota 2' },
+          { id: 'm1', kind: 'in', quantity: 24, unit_cost: 4.5, total_cost: 108, created_at: '2026-09-10T20:00:00Z', notes: 'Nota 1' },
+          { id: 'm0', kind: 'sale', quantity: -2, unit_cost: 4.5, created_at: '2026-09-11T20:00:00Z' },
+        ] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    render(<BarProducts />);
+    await screen.findByText('Cerveja');
+    await userEvent.click(screen.getByRole('button', { name: 'Estoque' }));
+    const dialogo = screen.getByRole('dialog');
+    expect(await within(dialogo).findByText('Nota 2')).toBeInTheDocument();
+    expect(within(dialogo).getByText('R$ 120.00')).toBeInTheDocument();  // 24 × 5
+    expect(within(dialogo).getByText('R$ 108.00')).toBeInTheDocument();  // total informado
+    expect(within(dialogo).getByText('Venda')).toBeInTheDocument();
+    expect(within(dialogo).getByText('-2')).toBeInTheDocument();
+  });
+
   it('a busca filtra por nome', async () => {
     montar();
     await screen.findByText('Cerveja');
@@ -176,7 +227,7 @@ describe('produtos e estoque', () => {
   it('a aba de categorias não deixa apagar categoria com produtos', async () => {
     montar();
     await screen.findByText('Cerveja');
-    await userEvent.click(screen.getByRole('tab', { name: 'Categorias' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Categorias' }));
     expect(await screen.findByText('Cervejas')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Excluir' })).toBeDisabled();
   });

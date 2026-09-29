@@ -186,6 +186,10 @@ class BarStockMovementCreate(BaseModel):
     # ('in' soma, 'loss' subtrai, 'adjustment' pode ser ±).
     quantity: int
     unit_cost: Optional[float] = Field(None, ge=0)
+    # Total da nota. Na entrada, quando o unitário não vem, ele é derivado
+    # daqui (total ÷ quantidade, 4 casas) — "caixa de 12 por R$ 50" sem a
+    # conta de cabeça que virava 4,17 × 12 = 50,04.
+    total_cost: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
     client_mutation_id: Optional[str] = Field(None, max_length=80)
 
@@ -196,6 +200,7 @@ class BarStockMovementResponse(BaseModel):
     kind: str
     quantity: int
     unit_cost: Optional[float] = None
+    total_cost: Optional[float] = None
     tab_item_id: Optional[str] = None
     notes: Optional[str] = None
     created_by: Optional[str] = None

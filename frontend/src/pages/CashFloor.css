@@ -163,6 +163,11 @@
   line-height: 1.4;
   color: var(--text-secondary, #8aa0b0);
 }
+/* Aviso que impede o envio (ex.: cash-out acima do saldo da gaveta). */
+.form-hint--danger {
+  color: var(--text-danger);
+  font-weight: 600;
+}
 
 .modal-actions {
   display: flex;
