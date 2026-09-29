@@ -25,10 +25,20 @@
 -- cost_price na entrada (o trigger faz isso).
 -- ============================================================
 
--- 1) Precisão do custo (não há views dependentes dessas colunas).
+-- 1) Precisão do custo. Não há views dependentes, mas o trigger de auditoria
+--    `trg_log_bar_products_upd` (database_migration_bar_fase2_auditoria.sql)
+--    é UPDATE OF ... cost_price — o Postgres recusa mudar o tipo de coluna
+--    citada num trigger. Sai e volta idêntico, na mesma transação.
+DROP TRIGGER IF EXISTS trg_log_bar_products_upd ON public.bar_products;
+
 ALTER TABLE public.bar_products        ALTER COLUMN cost_price TYPE NUMERIC(12,4);
 ALTER TABLE public.bar_stock_movements ALTER COLUMN unit_cost  TYPE NUMERIC(12,4);
 ALTER TABLE public.bar_tab_items       ALTER COLUMN unit_cost  TYPE NUMERIC(12,4);
+
+CREATE TRIGGER trg_log_bar_products_upd
+    AFTER UPDATE OF name, price, cost_price, active, track_stock, min_stock, category_id, sku
+    ON public.bar_products
+    FOR EACH ROW EXECUTE FUNCTION log_activity();
 
 -- 2) Total da nota, como o operador digitou.
 ALTER TABLE public.bar_stock_movements
