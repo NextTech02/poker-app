@@ -12,6 +12,7 @@ from app.models.player import (
     nome_limpo,
     sincronizar_nome,
 )
+from app.services.player_consent_service import PlayerConsentService
 from app.utils.documentos import (
     erro_de_tipo_recusado,
     normalizar_documento,
@@ -166,7 +167,12 @@ class PlayerService:
                 return Player(**dup.data[0])
             data["id"] = client_id
         response = PlayerService._gravar(lambda d: supabase.table("players").insert(d), data)
-        return Player(**response.data[0])
+        criado = response.data[0]
+        # Pedido de autorização para contatos futuros (LGPD), por e-mail e em
+        # segundo plano: o balcão não espera, e falha no envio não desfaz o
+        # cadastro. Cobre também o replay da fila offline (sync_service).
+        PlayerConsentService.solicitar_em_segundo_plano(criado)
+        return Player(**criado)
 
     @staticmethod
     def _gravar(monta_query, data: dict):

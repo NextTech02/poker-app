@@ -7,6 +7,7 @@ import { SkeletonPlayersTable } from '../components/SkeletonLoader';
 import PlayerStatsCharts from '../components/PlayerStatsCharts';
 import PlayerLoyaltyCard from '../components/PlayerLoyaltyCard';
 import PlayerSelect from '../components/PlayerSelect';
+import ContactConsentStatus from '../components/ContactConsentStatus';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -247,6 +248,9 @@ const PlayerDetail = () => {
                   <span className="pd-meta-item">
                     {t('playerDetail.since', 'Desde')} {fmtDate(s.first_played, i18n.language)}
                   </span>
+                </div>
+                <div className="pd-consent">
+                  <ContactConsentStatus player={player} onChange={setPlayer} />
                 </div>
               </div>
             </div>

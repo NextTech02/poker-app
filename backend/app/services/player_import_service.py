@@ -20,6 +20,7 @@ import unicodedata
 from email_validator import EmailNotValidError, validate_email
 
 from app.database.supabase_client import supabase
+from app.services.player_consent_service import PlayerConsentService
 from app.utils.documentos import (
     erro_de_tipo_recusado,
     tipo_para_banco_antigo,
@@ -357,6 +358,7 @@ class PlayerImportService:
         """
         inseridos = 0
         falhas: List[Dict] = []
+        gravados: List[Dict] = []
 
         for i in range(0, len(novos), tamanho):
             bloco = novos[i:i + tamanho]
@@ -368,23 +370,31 @@ class PlayerImportService:
             try:
                 resp = supabase.table("players").insert(payload).execute()
                 inseridos += len(resp.data or payload)
+                gravados.extend(resp.data or [])
             except Exception:
                 for p in bloco:
                     um = {k: v for k, v in p.items() if k not in ("_doc_key", "source_id")}
                     um["organization_id"] = organization_id
                     try:
-                        PlayerImportService._inserir_um(um)
+                        linha = PlayerImportService._inserir_um(um)
                         inseridos += 1
+                        if linha:
+                            gravados.append(linha)
                     except Exception as exc:
                         falhas.append({
                             "source_id": p.get("source_id", ""),
                             "name": p["name"],
                             "reason": PlayerImportService._motivo(exc),
                         })
+
+        # Jogador importado também é jogador novo no clube: recebe o pedido de
+        # autorização para contatos (em segundo plano, com ritmo limitado).
+        for linha in gravados:
+            PlayerConsentService.solicitar_em_segundo_plano(linha)
         return inseridos, falhas
 
     @staticmethod
-    def _inserir_um(linha: Dict) -> None:
+    def _inserir_um(linha: Dict) -> Optional[Dict]:
         """Grava UM jogador tolerando o banco sem a migração dos tipos.
 
         Enquanto db/migrations/database_migration_document_types.sql não roda, o
@@ -393,12 +403,13 @@ class PlayerImportService:
         no recibo, e a tela já convida a escolher o tipo do país depois.
         """
         try:
-            supabase.table("players").insert(linha).execute()
+            resp = supabase.table("players").insert(linha).execute()
         except Exception as exc:
             legado = tipo_para_banco_antigo(linha.get("document_type"))
             if not (legado and erro_de_tipo_recusado(exc)):
                 raise
-            supabase.table("players").insert({**linha, "document_type": legado}).execute()
+            resp = supabase.table("players").insert({**linha, "document_type": legado}).execute()
+        return (getattr(resp, "data", None) or [None])[0]
 
     @staticmethod
     def _motivo(exc: Exception) -> str:

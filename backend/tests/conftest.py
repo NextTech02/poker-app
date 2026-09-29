@@ -372,6 +372,26 @@ USUARIO_TESTE = {
 }
 
 
+class _EnviosGravados:
+    """Troca o ThreadPoolExecutor do pedido de consentimento: grava o que
+    seria agendado em vez de disparar uma thread contra o Supabase de verdade.
+    Os testes do consentimento chamam `_solicitar` diretamente."""
+
+    def __init__(self):
+        self.chamadas = []
+
+    def submit(self, fn, *args, **kwargs):
+        self.chamadas.append((fn, args, kwargs))
+
+
+@pytest.fixture(autouse=True)
+def envios_de_consentimento(monkeypatch):
+    from app.services import player_consent_service as mod
+    gravados = _EnviosGravados()
+    monkeypatch.setattr(mod, "_envios", gravados)
+    return gravados
+
+
 @pytest.fixture
 def client(monkeypatch):
     """TestClient com a autenticação neutralizada.

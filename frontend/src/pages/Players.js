@@ -12,6 +12,7 @@ import { applyPlayerCreate } from '../offline/domainRules';
 import { uuid, getEntity, putEntity } from '../offline/db';
 import countries from '../data/countries';
 import { opcoesDocumento, validarDocumento, ehTipoLegado } from '../utils/documentos';
+import ContactConsentStatus from '../components/ContactConsentStatus';
 import './Players.css';
 
 // Carregado só quando o usuário importa: puxa o leitor de planilha junto.
@@ -398,6 +399,9 @@ const Players = () => {
                                 {player.phone}
                               </div>
                             )}
+                            <div className="pl-contact-line">
+                              <ContactConsentStatus player={player} compact />
+                            </div>
                           </div>
                         </td>
                         <td data-label={t('players.columnNationality')}>
@@ -534,6 +538,11 @@ const Players = () => {
                       value={formData.email} onChange={handleChange}
                       required placeholder={t('players.emailPlaceholder')}
                     />
+                    {!editingPlayer && (
+                      <p className="pl-field-hint">
+                        {t('consent.formHint', 'O jogador recebe neste e-mail um pedido de autorização para contatos do clube (LGPD).')}
+                      </p>
+                    )}
                   </div>
                   <div className="pl-field">
                     <label htmlFor="phone">{t('players.phone')} <span className="pl-required">*</span></label>

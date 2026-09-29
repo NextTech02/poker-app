@@ -152,6 +152,12 @@ class Player(PlayerBase):
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    # Consentimento para contatos futuros (LGPD). SÓ LEITURA: quem grava é a
+    # resposta do próprio jogador na página pública — nunca o operador.
+    # None = nunca pedido; 'pending' = pedido enviado, sem resposta.
+    contact_consent: Optional[str] = None
+    contact_consent_at: Optional[datetime] = None
+    contact_consent_requested_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

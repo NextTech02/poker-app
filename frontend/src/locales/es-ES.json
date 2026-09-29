@@ -1250,7 +1250,14 @@
     "pagamento_acima_do_saldo": "El pago supera el saldo de la comanda ({{saldo}}).",
     "credito_insuficiente": "El jugador no tiene crédito suficiente: hay {{disponivel}} y se pidieron {{solicitado}}.",
     "pagamento_nao_encontrado": "Pago no encontrado.",
-    "pagamento_com_credito_nao_estornavel": "Un pago con crédito del jugador no se puede devolver."
+    "pagamento_com_credito_nao_estornavel": "Un pago con crédito del jugador no se puede devolver.",
+    "consentimento_ja_respondido": "El jugador ya respondió a la solicitud de contacto.",
+    "consentimento_reenviado_recentemente": "La solicitud se acaba de enviar. Espere unos minutos para reenviar.",
+    "jogador_sem_email_valido": "El jugador no tiene un correo válido registrado.",
+    "link_invalido": "Enlace inválido.",
+    "link_ja_usado": "Este enlace ya fue utilizado.",
+    "link_expirado": "Este enlace expiró. Pida uno nuevo al club.",
+    "muitas_tentativas": "Demasiados intentos. Inténtelo de nuevo en unos minutos."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",
@@ -3166,5 +3173,33 @@
     "closed": "cerrado",
     "offline": "Sin conexión",
     "pending": "{{count}} en cola"
+  },
+  "consent": {
+    "statusGranted": "Contacto autorizado",
+    "statusDenied": "Contacto rechazado",
+    "statusPending": "Esperando autorización",
+    "statusNone": "Autorización no solicitada",
+    "badgeHint": "Autorización del jugador para contactos promocionales (correo, WhatsApp, teléfono)",
+    "resent": "Solicitud de autorización enviada a {{email}}",
+    "resendError": "No fue posible enviar la solicitud",
+    "resend": "Reenviar solicitud",
+    "send": "Solicitar autorización",
+    "formHint": "El jugador recibirá en este correo una solicitud de autorización para contactos del club (protección de datos).",
+    "error": "No fue posible registrar su respuesta. Inténtelo de nuevo.",
+    "invalidTitle": "Enlace inválido",
+    "invalidHint": "Verifique que la dirección esté completa, o pida al club un nuevo correo.",
+    "expiredTitle": "Este enlace expiró",
+    "expiredHint": "Pida a {{club}} que reenvíe la solicitud. Mientras tanto, no se hará ningún contacto promocional.",
+    "theClub": "el club",
+    "grantedTitle": "¡Gracias! Contactos autorizados.",
+    "deniedTitle": "Listo. No recibirá contactos promocionales.",
+    "answeredTitle": "Esta solicitud ya fue respondida.",
+    "changeHint": "¿Cambió de opinión? Solo avise a {{club}}.",
+    "titleNamed": "¡Hola, {{name}}!",
+    "title": "¡Hola!",
+    "question": "¿Puede {{club}} enviarle novedades, programación de torneos, promociones y avisos por correo, WhatsApp o teléfono?",
+    "accept": "Sí, autorizo",
+    "decline": "No autorizo",
+    "note": "Su respuesta vale solo para contactos promocionales de este club. Puede cambiar de opinión cuando quiera, solicitándolo al club."
   }
 }
