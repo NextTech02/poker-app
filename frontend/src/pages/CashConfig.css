@@ -44,9 +44,76 @@
   color: var(--text-secondary, #8aa0b0);
 }
 
-.cc-check label {
+/* "Ativa" como interruptor: o checkbox nativo dentro de .form-group herdava
+   o estilo de campo (100% de largura) e virava um quadrado gigante. */
+.cc-toggle {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-primary, #2a3a4d);
+  border-radius: var(--radius-md, 10px);
   cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.cc-toggle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.03);
+}
+.cc-toggle:focus-visible {
+  outline: 2px solid var(--brand-green);
+  outline-offset: 2px;
+}
+.cc-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.cc-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.cc-toggle-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.cc-toggle-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #8aa0b0);
+}
+
+.cc-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 23px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 0.25s;
+}
+.cc-toggle.on .cc-switch {
+  background: var(--brand-green);
+}
+.cc-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s;
+}
+.cc-toggle.on .cc-knob {
+  transform: translateX(19px);
 }

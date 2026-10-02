@@ -178,6 +178,26 @@ describe('modalidades', () => {
     ));
   });
 
+  it('o interruptor "Ativa" liga e desliga e vai no corpo', async () => {
+    montar([]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Nova modalidade' }));
+    const ativa = screen.getByRole('switch', { name: /Ativa/ });
+    expect(ativa).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(ativa);
+    expect(ativa).toHaveAttribute('aria-checked', 'false');
+
+    await userEvent.type(screen.getByLabelText('Nome'), 'PLO 2/5');
+    await userEvent.type(screen.getByLabelText('Small blind'), '2');
+    await userEvent.type(screen.getByLabelText('Big blind'), '5');
+    await userEvent.type(screen.getByLabelText('Buy-in mínimo'), '500');
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/cash-game/game-types',
+      expect.objectContaining({ active: false }),
+    ));
+  });
+
   it('mesa sem teto é mostrada como tal', async () => {
     montar([{ ...TIPO, max_buy_in: null }]);
     expect(await screen.findByText(/sem teto/)).toBeInTheDocument();

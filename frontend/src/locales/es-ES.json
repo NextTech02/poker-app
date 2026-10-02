@@ -2644,6 +2644,7 @@
     "rake": "Rake",
     "rakeCap": "Tope por bote",
     "rakeClosing": "Cierre",
+    "activeHint": "Inactiva desaparece de la apertura de mesas, pero sigue en el historial.",
     "rakeConfigNote": "Estos valores orientan a quien corta en la mesa. El ingreso registrado es el que se CUENTE en la caja de la mesa al cerrar — el sistema no ve mano a mano.",
     "rakeCounted": "Conteo registrado",
     "rakeCounted2": "Rake contado",

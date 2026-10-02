@@ -293,13 +293,16 @@ const CashConfig = () => {
                 <p className="cc-note">
                   {t('cash.rakeConfigNote', 'Estes valores orientam quem corta na mesa. A receita registrada é a que for CONTADA na caixa da mesa ao fechar — o sistema não vê mão a mão.')}
                 </p>
-                <div className="form-group cc-check">
-                  <label htmlFor="cc-active">
-                    <input id="cc-active" type="checkbox" checked={form.active}
-                           onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-                    {' '}{t('common.active', 'Ativa')}
-                  </label>
-                </div>
+                <button type="button" role="switch" aria-checked={!!form.active}
+                        disabled={submitting}
+                        className={`cc-toggle ${form.active ? 'on' : ''}`}
+                        onClick={() => setForm({ ...form, active: !form.active })}>
+                  <span className="cc-toggle-text">
+                    <span className="cc-toggle-title">{t('common.active', 'Ativa')}</span>
+                    <span className="cc-toggle-hint">{t('cash.activeHint', 'Inativa some da abertura de mesas, mas segue no histórico.')}</span>
+                  </span>
+                  <span className="cc-switch"><span className="cc-knob" /></span>
+                </button>
                 <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)} disabled={submitting}>
                     {t('common.cancel', 'Cancelar')}

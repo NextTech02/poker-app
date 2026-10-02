@@ -2644,6 +2644,7 @@
     "rake": "Rake",
     "rakeCap": "Cap per pot",
     "rakeClosing": "Closing",
+    "activeHint": "Inactive types are hidden when opening tables, but stay in the history.",
     "rakeConfigNote": "These values guide whoever takes the rake at the table. The revenue recorded is the one COUNTED in the table rake box at closing — the system does not see hand by hand.",
     "rakeCounted": "Count recorded",
     "rakeCounted2": "Rake counted",
