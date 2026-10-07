@@ -895,7 +895,15 @@
     "confirmClearRunningTitle": "El día está en curso",
     "confirmClearRunning": "Este día está EN CURSO. La pantalla quedará sin ciegas y el reloj se pondrá a cero de inmediato. ¿Confirmas de todos modos?",
     "structureCleared": "Estructura borrada.",
-    "clearError": "No se pudo borrar la estructura."
+    "clearError": "No se pudo borrar la estructura.",
+    "replicateToNext": "Aplicar {{duration}} min a los niveles siguientes",
+    "replicateToNextBreaks": "Aplicar {{duration}} min a los descansos siguientes",
+    "replicatedToNext": "{{duration}} min aplicados a {{count}} niveles siguientes.",
+    "replicatedToNext_one": "{{duration}} min aplicados al nivel siguiente.",
+    "replicatedToNext_other": "{{duration}} min aplicados a {{count}} niveles siguientes.",
+    "replicatedToNextBreaks": "{{duration}} min aplicados a {{count}} descansos siguientes.",
+    "replicatedToNextBreaks_one": "{{duration}} min aplicados al descanso siguiente.",
+    "replicatedToNextBreaks_other": "{{duration}} min aplicados a {{count}} descansos siguientes."
   },
   "tournamentDayForm": {
     "newDay": "Nuevo Día del Torneo",

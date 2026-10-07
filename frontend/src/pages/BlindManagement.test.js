@@ -532,6 +532,160 @@ describe('editar pelo formulário', () => {
   });
 });
 
+describe('replicar duração aos níveis seguintes', () => {
+  /* "A partir do nível 3, tudo vira 20 min" é o ajuste mais comum na véspera.
+     Como cada célula grava na hora, o botão aparece DEPOIS de salvar a
+     duração, só naquela linha, e dispara UM pedido ao servidor — nunca um
+     PATCH por nível, que deixaria a estrutura pela metade se a rede caísse. */
+  const ROTA = '/tournament-days/d1/blinds/replicate-duration';
+  const celula = (linha, indice) => linha.querySelectorAll('td')[indice];
+  const botaoReplicar = (idx, nome = /blinds\.replicateToNext:/) =>
+    within(celula(linhas()[idx], 4)).queryByRole('button', { name: nome });
+
+  // Fixture mutável: o PATCH grava nela, e o reload (que espalha a lista na
+  // hora da chamada) enxerga o valor novo — como o servidor de verdade.
+  let dados;
+  const montarMutavel = async (extras = []) => {
+    dados = [...BLINDS, ...extras].map((b) => ({ ...b }));
+    api.patch.mockImplementation(async (url, body) => {
+      const id = url.split('/').pop();
+      Object.assign(dados.find((b) => b.id === id), body);
+      return { data: {} };
+    });
+    api.post.mockResolvedValue({ data: { updated: 2 } });
+    await montar({ blinds: dados });
+  };
+
+  const editarCelula = async (idx, coluna, rotulo, valor) => {
+    await userEvent.click(within(celula(linhas()[idx], coluna)).getByRole('button', { name: rotulo }));
+    const campo = document.querySelector('.inline-edit-input');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, `${valor}{Enter}`);
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+  };
+
+  it('gravar a duração oferece replicar na mesma linha', async () => {
+    await montarMutavel();
+    expect(botaoReplicar(0)).toBeNull();
+    await editarCelula(0, 4, '20 min', 25);
+    await waitFor(() => expect(botaoReplicar(0, 'blinds.replicateToNext:25')).toBeInTheDocument());
+    expect(botaoReplicar(1)).toBeNull();
+  });
+
+  it('replicar faz UM pedido com o nível de partida, a duração e o tipo', async () => {
+    await montarMutavel();
+    await editarCelula(0, 4, '20 min', 25);
+    await waitFor(() => expect(botaoReplicar(0)).toBeInTheDocument());
+    const buscas = api.get.mock.calls.filter(([u]) => u === '/tournament-days/d1/blinds').length;
+    await userEvent.click(botaoReplicar(0));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(ROTA, { after_level: 1, duration: 25, is_break: false })
+    );
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('blinds.replicatedToNext:2,25'));
+    expect(api.get.mock.calls.filter(([u]) => u === '/tournament-days/d1/blinds').length)
+      .toBeGreaterThan(buscas);
+    expect(botaoReplicar(0)).toBeNull();
+  });
+
+  it('o último nível não tem para quem replicar', async () => {
+    await montarMutavel();
+    await editarCelula(3, 4, '20 min', 25);
+    await waitFor(() => expect(dados[3].duration).toBe(25));
+    expect(botaoReplicar(3)).toBeNull();
+  });
+
+  it('seguintes já iguais não ganham botão', async () => {
+    await montarMutavel([
+      { id: 'b5', level: 5, small_blind: 400, big_blind: 800, ante: 800, duration: 30, is_break: false },
+    ]);
+    // N1 vai de 20 para 30 — mas N2 e N3 continuam 20, então o botão aparece;
+    // já N3 (b4) indo para 30 iguala ao único seguinte (b5): nada a replicar.
+    await editarCelula(3, 4, '20 min', 30);
+    await waitFor(() => expect(dados[3].duration).toBe(30));
+    expect(botaoReplicar(3)).toBeNull();
+  });
+
+  it('intervalo sem intervalo seguinte não oferece; com intervalo seguinte replica só para ele', async () => {
+    await montarMutavel();
+    await editarCelula(2, 4, '10 min', 12);
+    await waitFor(() => expect(dados[2].duration).toBe(12));
+    expect(botaoReplicar(2, /blinds\.replicateToNextBreaks:/)).toBeNull();
+  });
+
+  it('intervalo com intervalo seguinte replica só para intervalos', async () => {
+    await montarMutavel([
+      { id: 'b5', level: 5, small_blind: 0, big_blind: 0, ante: 0, duration: 10, is_break: true },
+    ]);
+    await editarCelula(2, 4, '10 min', 12);
+    await waitFor(() => expect(botaoReplicar(2, 'blinds.replicateToNextBreaks:12')).toBeInTheDocument());
+    await userEvent.click(botaoReplicar(2, /blinds\.replicateToNextBreaks:/));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(ROTA, { after_level: 3, duration: 12, is_break: true })
+    );
+  });
+
+  it('mudar outro campo não oferece replicar', async () => {
+    await montarMutavel();
+    await editarCelula(0, 1, '100', 150);
+    await waitFor(() => expect(dados[0].small_blind).toBe(150));
+    expect(botaoReplicar(0)).toBeNull();
+  });
+
+  it('começar outra edição esconde o botão', async () => {
+    await montarMutavel();
+    await editarCelula(0, 4, '20 min', 25);
+    await waitFor(() => expect(botaoReplicar(0)).toBeInTheDocument());
+    await userEvent.click(within(celula(linhas()[1], 1)).getByRole('button', { name: '200' }));
+    expect(botaoReplicar(0)).toBeNull();
+  });
+
+  it('começar a arrastar esconde o botão', async () => {
+    // Os níveis vão renumerar; "a partir do nível 1" perde o sentido.
+    await montarMutavel();
+    await editarCelula(0, 4, '20 min', 25);
+    await waitFor(() => expect(botaoReplicar(0)).toBeInTheDocument());
+    fireEvent.dragStart(linhas()[1], { dataTransfer: { effectAllowed: '' } });
+    expect(botaoReplicar(0)).toBeNull();
+  });
+
+  it('erro ao replicar mostra o motivo e mantém o botão para tentar de novo', async () => {
+    await montarMutavel();
+    api.post.mockRejectedValue(erroHttp(404, 'Dia não encontrado'));
+    await editarCelula(0, 4, '20 min', 25);
+    await waitFor(() => expect(botaoReplicar(0)).toBeInTheDocument());
+    await userEvent.click(botaoReplicar(0));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Dia não encontrado'));
+    expect(botaoReplicar(0)).toBeInTheDocument();
+  });
+
+  describe('pelo formulário', () => {
+    const abrirEdicao = async (indice) =>
+      userEvent.click(within(linhas()[indice]).getByRole('button', { name: 'common.edit' }));
+    const salvarFormulario = () => userEvent.click(screen.getByRole('button', { name: 'common.save' }));
+
+    it('mudar a duração no formulário também oferece replicar', async () => {
+      await montarMutavel();
+      await abrirEdicao(0);
+      const campo = screen.getByLabelText('blinds.duration *');
+      await userEvent.clear(campo);
+      await userEvent.type(campo, '30');
+      await salvarFormulario();
+      await waitFor(() => expect(botaoReplicar(0, 'blinds.replicateToNext:30')).toBeInTheDocument());
+    });
+
+    it('salvar o formulário sem mexer na duração não oferece', async () => {
+      await montarMutavel();
+      await abrirEdicao(0);
+      const campo = screen.getByLabelText('blinds.smallBlind *');
+      await userEvent.clear(campo);
+      await userEvent.type(campo, '125');
+      await salvarFormulario();
+      await waitFor(() => expect(dados[0].small_blind).toBe(125));
+      expect(botaoReplicar(0)).toBeNull();
+    });
+  });
+});
+
 describe('excluir nível', () => {
   it('a confirmação nomeia o nível pelo número que aparece na tela', async () => {
     // Confirmar "excluir o nível 4" e ver sumir o 3 destruiria a confiança

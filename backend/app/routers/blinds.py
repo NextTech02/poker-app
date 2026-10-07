@@ -6,7 +6,13 @@ from datetime import datetime, timezone
 from ..auth.jwt import get_current_user
 from ..auth.permissions import require_permission
 from ..database import supabase
-from ..models.blind import BlindCreateRequest, BlindUpdate, BlindResponse
+from ..models.blind import (
+    BlindCreateRequest,
+    BlindUpdate,
+    BlindResponse,
+    BlindReplicateDurationRequest,
+    BlindReplicateDurationResponse,
+)
 # Recusas com CODIGO: a estrutura de blinds e mexida no meio do evento, e o
 # operador do Peru/Colombia nao pode receber a frase em portugues — a tela
 # escolhe o idioma pelo `code` (ver app/utils/erros.py).
@@ -264,6 +270,52 @@ async def create_blind_for_day(
             detail="Failed to create blind"
         )
     return response.data[0]
+
+
+@router.post(
+    "/tournament-days/{tournament_day_id}/blinds/replicate-duration",
+    response_model=BlindReplicateDurationResponse,
+)
+async def replicate_duration_for_day(
+    tournament_day_id: UUID,
+    body: BlindReplicateDurationRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aplica uma duração a todos os níveis SEGUINTES do mesmo tipo.
+
+    É um UPDATE só, de propósito. O relógio deriva o nível atual da soma das
+    durações em ordem; se a tela gravasse nível a nível e a rede caísse no
+    meio, a estrutura ficaria pela metade e o telão pularia de nível. Com um
+    comando, ou muda tudo ou não muda nada.
+
+    `updated == 0` é resposta válida: o nível editado era o último do tipo.
+    """
+    day_response = supabase.table("tournament_days").select("id").eq("id", str(tournament_day_id)).execute()
+    if not day_response.data:
+        raise nao_encontrado("dia_nao_encontrado", DIA_DE_TORNEIO_NAO_ENCONTRADO)
+
+    try:
+        response = supabase.table("blinds")\
+            .update({
+                "duration": body.duration,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })\
+            .eq("tournament_day_id", str(tournament_day_id))\
+            .gt("level", body.after_level)\
+            .eq("is_break", body.is_break)\
+            .execute()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error replicating blind duration: {str(e)}"
+        )
+
+    return {
+        "updated": len(response.data or []),
+        "after_level": body.after_level,
+        "duration": body.duration,
+        "is_break": body.is_break,
+    }
 
 
 @router.patch("/tournament-days/{tournament_day_id}/blinds/{blind_id}", response_model=BlindResponse)

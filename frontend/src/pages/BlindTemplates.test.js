@@ -514,3 +514,100 @@ describe('reordenar níveis', () => {
     expect(screen.getByText(/Arraste as linhas/)).toBeInTheDocument();
   });
 });
+
+describe('replicar duração aos níveis seguintes', () => {
+  /* "A partir do nível 3, tudo vira 20 min" é o ajuste mais comum na véspera.
+     O botão aparece só na linha recém-editada, só se houver linha seguinte do
+     mesmo tipo com duração diferente, e some ao cumprir o papel. */
+  const editarTurbo = () =>
+    userEvent.click(within(cartaoDe('Turbo 15min')).getByRole('button', { name: /Editar/ }));
+  const botaoReplicar = (idx, nome = /aos níveis seguintes/) =>
+    within(linhas()[idx]).queryByRole('button', { name: nome });
+  const digitarDuracao = async (idx, coluna, valor) => {
+    const campo = campoDaLinha(idx, coluna);
+    await userEvent.clear(campo);
+    await userEvent.type(campo, valor);
+  };
+
+  it('editar a duração oferece replicar; replicar muda só os níveis, não o intervalo', async () => {
+    await montar();
+    await editarTurbo();
+    expect(botaoReplicar(0)).toBeNull();
+    await digitarDuracao(0, 3, '20');
+    const botao = botaoReplicar(0, 'Aplicar 20 min aos níveis seguintes');
+    expect(botao).toBeInTheDocument();
+    await userEvent.click(botao);
+    expect(campoDaLinha(1, 3)).toHaveValue(20);
+    expect(campoDaLinha(2, 0)).toHaveValue(10); // intervalo intacto
+    expect(botaoReplicar(0)).toBeNull();
+  });
+
+  it('o último nível não tem para quem replicar', async () => {
+    await montar();
+    await editarTurbo();
+    await digitarDuracao(1, 3, '20');
+    expect(botaoReplicar(1)).toBeNull();
+  });
+
+  it('seguintes já iguais não ganham botão', async () => {
+    // Nada a fazer: oferecer uma ação vazia só confunde.
+    await montar();
+    await editarTurbo();
+    await digitarDuracao(0, 3, '15');
+    expect(botaoReplicar(0)).toBeNull();
+  });
+
+  it('duração em branco não oferece replicar', async () => {
+    await montar();
+    await editarTurbo();
+    await userEvent.clear(campoDaLinha(0, 3));
+    expect(botaoReplicar(0)).toBeNull();
+  });
+
+  it('intervalo replica só para os intervalos seguintes', async () => {
+    await montar();
+    await editarTurbo();
+    await userEvent.click(screen.getByRole('button', { name: /Adicionar break/ }));
+    // linhas: N1, N2, break, break
+    await digitarDuracao(2, 0, '12');
+    const botao = botaoReplicar(2, 'Aplicar 12 min aos intervalos seguintes');
+    expect(botao).toBeInTheDocument();
+    await userEvent.click(botao);
+    expect(campoDaLinha(3, 0)).toHaveValue(12);
+    expect(campoDaLinha(0, 3)).toHaveValue(15);
+    expect(campoDaLinha(1, 3)).toHaveValue(15);
+  });
+
+  it('só a última linha editada mostra o botão', async () => {
+    await montar();
+    await editarTurbo();
+    await userEvent.click(screen.getByRole('button', { name: /Adicionar nível/ }));
+    // N1, N2, break, N3
+    await digitarDuracao(0, 3, '20');
+    expect(botaoReplicar(0)).toBeInTheDocument();
+    await digitarDuracao(1, 3, '25');
+    expect(botaoReplicar(0)).toBeNull();
+    expect(botaoReplicar(1)).toBeInTheDocument();
+  });
+
+  it('salvar depois de replicar grava as durações replicadas', async () => {
+    await montar();
+    await editarTurbo();
+    await digitarDuracao(0, 3, '20');
+    await userEvent.click(botaoReplicar(0));
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    const niveis = api.patch.mock.calls[0][1].custom_levels;
+    expect(niveis.map((n) => n.duration)).toEqual([20, 20, 10]);
+  });
+
+  it('reabrir o editor não traz botão antigo', async () => {
+    await montar();
+    await editarTurbo();
+    await digitarDuracao(0, 3, '20');
+    expect(botaoReplicar(0)).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await editarTurbo();
+    expect(botaoReplicar(0)).toBeNull();
+  });
+});

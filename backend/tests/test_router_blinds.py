@@ -155,6 +155,98 @@ class TestExclusao:
         assert client.delete(rotas[1].format(SUMIU)).status_code == 404
 
 
+class TestReplicarDuracao:
+    """Replicar a duração de um nível para os níveis SEGUINTES.
+
+    "A partir do nível 3, tudo passa a 20 min" é pedido comum minutos antes do
+    torneio. A regra que o router protege: só muda o que vem DEPOIS e só do
+    mesmo tipo — um intervalo tem a sua própria duração e não pode esticar
+    junto com os níveis.
+    """
+
+    ROTA = f"/tournament-days/{DIA}/blinds/replicate-duration"
+    B3 = "55555555-5555-5555-5555-555555555553"
+    B4 = "55555555-5555-5555-5555-555555555554"
+    B5 = "55555555-5555-5555-5555-555555555555"
+    OUTRO_DIA = "77777777-7777-7777-7777-7777777770ut"
+
+    @pytest.fixture(autouse=True)
+    def estrutura(self, banco):
+        """N1, N2, BREAK, N4, BREAK — e um nível de OUTRO dia."""
+        b3 = _blind(self.B3, 3)
+        b3.update({"is_break": True, "duration": 10, "small_blind": 0, "big_blind": 0})
+        b5 = _blind(self.B5, 5)
+        b5.update({"is_break": True, "duration": 10, "small_blind": 0, "big_blind": 0})
+        banco.store["blinds"].extend([b3, _blind(self.B4, 4), b5,
+                                      _blind("outro-b", 9, dia=self.OUTRO_DIA)])
+        return banco
+
+    def _por_id(self, banco):
+        return {b["id"]: b for b in banco.store["blinds"]}
+
+    def test_muda_so_os_niveis_seguintes_e_poupa_os_intervalos(self, client, banco):
+        r = client.post(self.ROTA, json={"after_level": 1, "duration": 25, "is_break": False})
+        assert r.status_code == 200
+        assert r.json() == {"updated": 2, "after_level": 1, "duration": 25, "is_break": False}
+        por_id = self._por_id(banco)
+        assert por_id[B1]["duration"] == 15            # o editado em si não é tocado
+        assert por_id[B2]["duration"] == 25
+        assert por_id[self.B4]["duration"] == 25
+        assert por_id[self.B3]["duration"] == 10       # intervalos intactos
+        assert por_id[self.B5]["duration"] == 10
+        assert por_id["outro-b"]["duration"] == 15     # outro dia intacto
+
+    def test_intervalo_replica_so_para_intervalos_seguintes(self, client, banco):
+        r = client.post(self.ROTA, json={"after_level": 3, "duration": 12, "is_break": True})
+        assert r.status_code == 200
+        assert r.json()["updated"] == 1
+        por_id = self._por_id(banco)
+        assert por_id[self.B5]["duration"] == 12
+        assert por_id[self.B3]["duration"] == 10
+        assert por_id[self.B4]["duration"] == 15
+
+    def test_grava_o_horario_da_alteracao(self, client, banco):
+        client.post(self.ROTA, json={"after_level": 1, "duration": 25})
+        por_id = self._por_id(banco)
+        assert por_id[B2]["updated_at"] != "2026-06-08T00:00:00Z"
+        assert por_id[B1]["updated_at"] == "2026-06-08T00:00:00Z"
+
+    def test_ultimo_do_tipo_responde_zero_sem_erro(self, client, banco):
+        r = client.post(self.ROTA, json={"after_level": 5, "duration": 25})
+        assert r.status_code == 200
+        assert r.json()["updated"] == 0
+
+    def test_dia_inexistente_da_404(self, client, banco):
+        banco.store["tournament_days"] = []
+        r = client.post(self.ROTA, json={"after_level": 1, "duration": 25})
+        assert r.status_code == 404
+        assert r.json()["detail"]["code"] == "dia_nao_encontrado"
+
+    @pytest.mark.parametrize("corpo", [
+        {"after_level": 1, "duration": 0},
+        {"after_level": 0, "duration": 20},
+        {"duration": 20},
+        {},
+    ])
+    def test_corpo_invalido_da_422(self, client, banco, corpo):
+        assert client.post(self.ROTA, json=corpo).status_code == 422
+
+    def test_nao_sombreia_a_edicao_unitaria(self, client, banco):
+        """A rota nova mora em `/blinds/<palavra>`; o PATCH `/blinds/<uuid>`
+        tem de continuar chegando ao nível certo."""
+        r = client.patch(f"/tournament-days/{DIA}/blinds/{B1}", json={"duration": 30})
+        assert r.status_code == 200
+        assert r.json()["duration"] == 30
+
+    def test_falha_do_banco_vira_500_com_o_motivo(self, client, banco, monkeypatch):
+        def _estoura(*a, **k):
+            raise RuntimeError("conexão perdida")
+        monkeypatch.setattr(mod.supabase, "table", _estoura_apos(banco, _estoura, 1))
+        r = client.post(self.ROTA, json={"after_level": 1, "duration": 25})
+        assert r.status_code == 500
+        assert "conexão perdida" in r.json()["detail"]
+
+
 class TestExclusaoEmMassa:
     """Limpar a estrutura inteira do dia.
 
