@@ -524,7 +524,10 @@
     "breakMessage": "O torneio retornará em breve",
     "intervalIn": "Intervalo em",
     "finalDay": "DIA FINAL",
-    "qualifyingDay": "CLASSIFICATÓRIO"
+    "qualifyingDay": "CLASSIFICATÓRIO",
+    "fontSizeControls": "Tamanho da fonte",
+    "fontIncrease": "Aumentar fonte",
+    "fontDecrease": "Diminuir fonte"
   },
   "cashRegister": {
     "unknownError": "Erro desconhecido",

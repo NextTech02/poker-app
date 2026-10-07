@@ -19,13 +19,13 @@
  * No intervalo a tela inteira troca de layout, porque o que interessa passa a
  * ser quanto falta para voltar.
  */
-import { render, screen, waitFor, act, within } from '@testing-library/react';
+import { render, screen, waitFor, act, within, fireEvent } from '@testing-library/react';
 import TournamentBroadcast from './TournamentBroadcast';
 import api from '../config/api';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { useCurrency } from '../contexts/CurrencyContext';
 
-jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn() } }));
+jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn(), patch: jest.fn() } }));
 jest.mock('../hooks/usePolling', () => ({ usePolling: jest.fn() }));
 jest.mock('../hooks/useTimerSync', () => ({
   useTimerSync: jest.fn(),
@@ -135,6 +135,8 @@ let bipes;
 
 beforeEach(() => {
   jest.useRealTimers();
+  localStorage.clear();
+  api.patch.mockReset();
   bipes = [];
   useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
   // O alerta sonoro do fim de nível: só interessa SE tocou, não como soa.
@@ -699,5 +701,97 @@ describe('contagem local (torneio sem dia)', () => {
     await act(async () => { jest.advanceTimersByTime(5000); });
     expect(document.querySelector('.timer-display').textContent).toBe(antes);
     jest.useRealTimers();
+  });
+});
+
+/**
+ * Botões +/− de fonte no canto do telão. A tela muda na hora em qualquer
+ * caso; o que varia é onde o valor fica guardado: logado vai para o servidor
+ * (e o slider das Configurações passa a refletir), sem login fica só no
+ * aparelho. Nunca um toast: ninguém está operando essa tela.
+ */
+describe('ajuste de fonte pelo próprio telão', () => {
+  const CHAVE_LOCAL = 'aceblind:broadcastFontSize:x1';
+  const mais = () => screen.getByRole('button', { name: 'broadcast.fontIncrease' });
+  const menos = () => screen.getByRole('button', { name: 'broadcast.fontDecrease' });
+  const relogio = () => document.querySelector('.timer-display');
+
+  it('clicar em + aumenta a fonte em 10% na hora', async () => {
+    await montar();
+    expect(relogio().style.fontSize).toBe('160px');
+    fireEvent.click(mais());
+    expect(relogio().style.fontSize).toBe('176px');
+    expect(screen.getByText('110%')).toBeInTheDocument();
+  });
+
+  it('sem login, o valor fica só neste aparelho e o servidor não é tocado', async () => {
+    await montar();
+    fireEvent.click(mais());
+    expect(localStorage.getItem(CHAVE_LOCAL)).toBe('110');
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('logado, vários cliques viram um PATCH só e o aparelho esquece o valor', async () => {
+    localStorage.setItem('supabase_token', 'tok');
+    api.patch.mockResolvedValue({ data: {} });
+    await montar();
+    jest.useFakeTimers();
+    fireEvent.click(mais());
+    fireEvent.click(mais());
+    fireEvent.click(mais());
+    expect(relogio().style.fontSize).toBe('208px');
+    expect(api.patch).not.toHaveBeenCalled();
+    await act(async () => { jest.advanceTimersByTime(600); });
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(api.patch).toHaveBeenCalledWith('/tournament-days/x1', { broadcast_font_size: 130 });
+    expect(localStorage.getItem(CHAVE_LOCAL)).toBeNull();
+    // Servidor virou a fonte da verdade e a tela continua no tamanho pedido.
+    expect(relogio().style.fontSize).toBe('208px');
+    jest.useRealTimers();
+  });
+
+  it('se o servidor recusar, o valor fica no aparelho e a tela não volta atrás', async () => {
+    localStorage.setItem('supabase_token', 'tok');
+    api.patch.mockRejectedValue({ response: { status: 403 } });
+    await montar();
+    jest.useFakeTimers();
+    fireEvent.click(mais());
+    await act(async () => { jest.advanceTimersByTime(600); });
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(relogio().style.fontSize).toBe('176px');
+    expect(localStorage.getItem(CHAVE_LOCAL)).toBe('110');
+    jest.useRealTimers();
+  });
+
+  it('em torneio sem dia, fica no aparelho mesmo logado (não há dia para gravar)', async () => {
+    localStorage.setItem('supabase_token', 'tok');
+    await montar({ comoDia: false }, null);
+    fireEvent.click(menos());
+    expect(localStorage.getItem(CHAVE_LOCAL)).toBe('90');
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('nos limites o botão correspondente desliga', async () => {
+    await montar({ dia: { ...DIA, broadcast_font_size: 200 } });
+    expect(mais()).toBeDisabled();
+    expect(menos()).not.toBeDisabled();
+  });
+
+  it('no mínimo o − desliga', async () => {
+    await montar({ dia: { ...DIA, broadcast_font_size: 50 } });
+    expect(menos()).toBeDisabled();
+    expect(mais()).not.toBeDisabled();
+  });
+
+  it('o valor guardado no aparelho vence o do servidor ao abrir', async () => {
+    localStorage.setItem(CHAVE_LOCAL, '130');
+    await montar({ dia: { ...DIA, broadcast_font_size: 100 } });
+    expect(relogio().style.fontSize).toBe('208px');
+  });
+
+  it('lixo guardado no aparelho é ignorado', async () => {
+    localStorage.setItem(CHAVE_LOCAL, '999');
+    await montar();
+    expect(relogio().style.fontSize).toBe('160px');
   });
 });
