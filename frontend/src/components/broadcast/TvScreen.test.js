@@ -21,12 +21,17 @@ const tiles = () => Array.from(document.querySelectorAll('.tv-tile'));
 const tela = () => document.querySelector('.tv-screen');
 
 describe('cabeçalho', () => {
-  it('título = torneio + dia (o dia em destaque), marca do clube à direita', () => {
+  it('título = torneio + dia (o dia em destaque), logo AceBlind à esquerda', () => {
     montar();
     expect(screen.getByRole('heading')).toHaveTextContent('Main Event - Dia 1A');
     expect(document.querySelector('.tv-title-day')).toHaveTextContent('Dia 1A');
-    expect(document.querySelector('.tv-club-name')).toHaveTextContent('Zonabet Poker');
     expect(document.querySelector('.tv-logo-img')).toBeInTheDocument();
+  });
+
+  it('o nome do clube NÃO aparece em texto no canto direito (pedido do cliente)', () => {
+    montar();
+    expect(document.querySelector('.tv-club-name')).toBeNull();
+    expect(document.querySelector('.tv-header')).not.toHaveTextContent('Zonabet Poker');
   });
 
   it('nome personalizado substitui os dois', () => {
@@ -35,17 +40,19 @@ describe('cabeçalho', () => {
     expect(document.querySelector('.tv-title-day')).toBeNull();
   });
 
-  it('logo do clube no lugar do nome, com escala; sem logo o espaço continua', () => {
+  it('logo do clube só quando o diretor enviou um, com escala', () => {
     montar({}, { broadcast_club_logo_url: 'https://cdn/l.png', broadcast_club_logo_size: 200 });
     expect(document.querySelector('.tv-club-logo-img')).toHaveAttribute('src', 'https://cdn/l.png');
     expect(document.querySelector('.tv-club-logo').style.getPropertyValue('--club-logo-scale')).toBe('2');
-    expect(document.querySelector('.tv-club-name')).toBeNull();
+    document.body.innerHTML = '';
+    montar({}, { broadcast_club_logo_url: 'https://cdn/l.png', broadcast_show_club_logo: false });
+    expect(document.querySelector('.tv-club-logo-img')).toBeNull();
   });
 
-  it('sem logo e sem nome do clube o espaço da direita fica reservado', () => {
-    montar({ model: { organizationName: null } });
+  it('sem logo do clube o espaço da direita fica reservado (título segue no centro)', () => {
+    montar();
     expect(document.querySelector('.tv-club-logo')).toBeInTheDocument();
-    expect(document.querySelector('.tv-club-logo-img')).toBeNull();
+    expect(document.querySelector('.tv-club-logo').textContent).toBe('');
   });
 
   it('logo AceBlind e título podem ser desligados', () => {

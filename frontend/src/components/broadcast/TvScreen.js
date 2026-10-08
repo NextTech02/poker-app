@@ -17,8 +17,9 @@ import './TvScreen.css';
  * tela para a TV do salão e para a prévia das Configurações: a prévia passa
  * dados de amostra, a TV passa o relógio real.
  *
- * Layout (mockup do cliente, 2026-10): cabeçalho com título entre filetes e
- * marca do clube à direita; coluna de tiles encostada na borda esquerda;
+ * Layout (mockup do cliente, 2026-10): cabeçalho com a marca AceBlind à
+ * esquerda (o diretor liga/desliga), título entre filetes e, à direita, só o
+ * logo do clube se ele enviou um; coluna de tiles encostada na borda esquerda;
  * relógio gigante dentro de um anel de progresso do nível, centrado na TELA;
  * blinds e próximo nível abaixo; barra de prêmios no rodapé, de borda a
  * borda. Cores por CSS custom properties (`--tv-*`), preenchidas pelas
@@ -76,13 +77,13 @@ const TvHeader = ({ model, settings }) => {
         )}
       </div>
       <div className="tv-header-side tv-header-right">
-        {/* A div fica SEMPRE montada, mesmo sem logo: é ela que reserva o
-            espaço que mantém o título centralizado. */}
+        {/* A div fica SEMPRE montada, mesmo vazia: é ela que reserva o espaço
+            que mantém o título no centro da tela. Só o logo que o diretor
+            enviou aparece aqui — o nome do clube em texto saiu a pedido do
+            cliente (2026-10). */}
         <div className="tv-club-logo" style={{ '--club-logo-scale': (settings.clubLogoSize || 100) / 100 }}>
-          {settings.showClubLogo && settings.clubLogoUrl ? (
+          {settings.showClubLogo && settings.clubLogoUrl && (
             <img src={settings.clubLogoUrl} alt="" className="tv-club-logo-img" />
-          ) : (
-            model.organizationName ? <span className="tv-club-name">{model.organizationName}</span> : null
           )}
         </div>
       </div>

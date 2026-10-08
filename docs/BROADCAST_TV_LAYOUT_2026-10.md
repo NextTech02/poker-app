@@ -64,6 +64,12 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   Sem suporte, valem os px simples (comportamento anterior).
 - Cor padrão do próximo nível na pílula passou a ser o dourado
   (`broadcast_next_value_color`), como no mockup.
+- **Sem nome do clube no canto direito.** O texto automático
+  (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
+  (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas
+  o logo que o diretor enviou (`broadcast_club_logo_url` +
+  `broadcast_show_club_logo`); sem ele, a coluna fica vazia mas reservada,
+  para o título continuar no centro da tela.
 
 **Biblioteca de fundos.** Bucket público `broadcast-backgrounds` + tabela
 `broadcast_backgrounds` (por organização). O clube sobe as imagens uma vez e

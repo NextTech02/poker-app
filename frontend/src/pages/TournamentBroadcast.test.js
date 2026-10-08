@@ -381,9 +381,11 @@ describe('premiação exibida (rota pública)', () => {
     expect(document.querySelector('.tv-prize-item')).toHaveTextContent('S/ 20,000.00');
   });
 
-  it('o nome do clube aparece à direita quando não há logo', async () => {
+  it('o nome do clube NÃO aparece em texto (pedido do cliente); sem logo o canto fica vazio', async () => {
     await montar();
-    expect(document.querySelector('.tv-club-name')).toHaveTextContent('Clube Teste');
+    expect(document.querySelector('.tv-club-name')).toBeNull();
+    expect(document.querySelector('.tv-header')).not.toHaveTextContent('Clube Teste');
+    expect(document.querySelector('.tv-club-logo-img')).toBeNull();
   });
 
   it('faixa marcada como invisível some do público', async () => {

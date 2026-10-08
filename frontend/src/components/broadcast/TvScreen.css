@@ -193,17 +193,6 @@
   object-fit: contain;
 }
 
-.tv-club-name {
-  font-family: var(--font-display, 'Sora', sans-serif);
-  font-size: min(calc(30px * var(--tv-font, 1)), 40px);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--tv-accent);
-  white-space: nowrap;
-  text-align: right;
-}
-
 /* ── Corpo ──────────────────────────────────────────────────────────────── */
 .tv-body {
   display: flex;
