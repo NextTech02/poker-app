@@ -900,7 +900,15 @@
     "confirmClearRunningTitle": "The day is running",
     "confirmClearRunning": "This day is RUNNING. The display will be left with no blinds and the clock will reset immediately. Confirm anyway?",
     "structureCleared": "Structure cleared.",
-    "clearError": "Could not clear the structure."
+    "clearError": "Could not clear the structure.",
+    "replicateToNext": "Apply {{duration}} min to the following levels",
+    "replicateToNextBreaks": "Apply {{duration}} min to the following breaks",
+    "replicatedToNext": "{{duration}} min applied to {{count}} following levels.",
+    "replicatedToNext_one": "{{duration}} min applied to the next level.",
+    "replicatedToNext_other": "{{duration}} min applied to {{count}} following levels.",
+    "replicatedToNextBreaks": "{{duration}} min applied to {{count}} following breaks.",
+    "replicatedToNextBreaks_one": "{{duration}} min applied to the next break.",
+    "replicatedToNextBreaks_other": "{{duration}} min applied to {{count}} following breaks."
   },
   "tournamentDayForm": {
     "newDay": "New Tournament Day",

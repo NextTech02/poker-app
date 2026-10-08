@@ -36,6 +36,12 @@ const BlindManagement = () => {
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const [reordering, setReordering] = useState(false);
+  /* Blind cuja duração acabou de ser GRAVADA. Nele aparece o botão de replicar
+     a duração para os níveis seguintes — "a partir do nível 3, tudo vira 20
+     min" é o ajuste mais comum na véspera, e célula a célula é lento e dá
+     erro. Só o id fica em estado: nível, tipo e duração são lidos da lista já
+     recarregada, para o botão nunca descrever um valor que não está no banco. */
+  const [ofertaReplicarId, setOfertaReplicarId] = useState(null);
   // Template states
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -166,7 +172,9 @@ const BlindManagement = () => {
         data.ante = 0;
       }
 
-      await api.patch(`/tournament-days/${dayId}/blinds/${editingBlind.id}`, data);
+      const editadoId = editingBlind.id;
+      const mudouDuracao = data.duration !== editingBlind.duration;
+      await api.patch(`/tournament-days/${dayId}/blinds/${editadoId}`, data);
       setShowEditModal(false);
       setEditingBlind(null);
       setFormData({
@@ -177,7 +185,8 @@ const BlindManagement = () => {
         duration: 15,
         is_break: false,
       });
-      loadData();
+      await loadData();
+      setOfertaReplicarId(mudouDuracao ? editadoId : null);
     } catch (error) {
       console.error('Error updating blind:', error);
       const errorMessage = error.response?.data?.detail || t('common.error');
@@ -201,6 +210,7 @@ const BlindManagement = () => {
 
   const startEdit = (blind, field) => {
     if (blind.is_break && field !== 'duration') return; // breaks: only duration editable
+    setOfertaReplicarId(null);
     setEditCell({ id: blind.id, field });
     setEditVal(String(blind[field] ?? 0));
   };
@@ -215,6 +225,46 @@ const BlindManagement = () => {
     try {
       await patchBlind(blind, { [field]: val });
       await loadData();
+      if (field === 'duration') setOfertaReplicarId(blind.id);
+    } catch (error) {
+      const msg = error.response?.data?.detail || t('common.error');
+      toast.error(typeof msg === 'string' ? msg : t('common.error'));
+    }
+  };
+
+  // ── Replicar a duração recém-gravada para os níveis seguintes ─────────────
+  // Só alcança linhas do MESMO tipo (nível → níveis, intervalo → intervalos):
+  // o intervalo tem duração própria e não pode esticar junto. É UM pedido ao
+  // servidor, e não um PATCH por linha: o relógio deriva o nível atual da
+  // soma das durações, e uma estrutura gravada pela metade faria o telão
+  // pular de nível.
+  const alvoReplicar = ofertaReplicarId ? blinds.find((b) => b.id === ofertaReplicarId) : null;
+  const seguintesDiferentes = alvoReplicar
+    ? blinds.filter((b) =>
+        b.level > alvoReplicar.level
+        && !!b.is_break === !!alvoReplicar.is_break
+        && b.duration !== alvoReplicar.duration
+      ).length
+    : 0;
+
+  const replicarDuracao = async () => {
+    if (!alvoReplicar) return;
+    const { level, duration, is_break } = alvoReplicar;
+    try {
+      const res = await api.post(`/tournament-days/${dayId}/blinds/replicate-duration`, {
+        after_level: level,
+        duration,
+        is_break: !!is_break,
+      });
+      setOfertaReplicarId(null);
+      toast.success(t(
+        is_break ? 'blinds.replicatedToNextBreaks' : 'blinds.replicatedToNext',
+        is_break
+          ? '{{duration}} min aplicados a {{count}} intervalos seguintes.'
+          : '{{duration}} min aplicados a {{count}} níveis seguintes.',
+        { count: res.data?.updated ?? seguintesDiferentes, duration }
+      ));
+      await loadData();
     } catch (error) {
       const msg = error.response?.data?.detail || t('common.error');
       toast.error(typeof msg === 'string' ? msg : t('common.error'));
@@ -223,6 +273,7 @@ const BlindManagement = () => {
 
   // ── Drag-to-reorder blind levels ──────────────────────────────────────────
   const onRowDragStart = (e, blind) => {
+    setOfertaReplicarId(null); // os níveis vão renumerar; "a partir do N" perde o sentido
     setDragId(blind.id);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -284,6 +335,7 @@ const BlindManagement = () => {
 
     try {
       await api.delete(`/tournament-days/${dayId}/blinds/${blindId}`);
+      setOfertaReplicarId(null);
       loadData();
     } catch (error) {
       console.error('Error deleting blind:', error);
@@ -336,6 +388,7 @@ const BlindManagement = () => {
 
     try {
       await api.delete(`/tournament-days/${dayId}/blinds`, emAndamento ? { params: { force: true } } : undefined);
+      setOfertaReplicarId(null);
       toast.success(t('blinds.structureCleared', 'Estrutura apagada.'));
       loadData();
     } catch (error) {
@@ -358,6 +411,7 @@ const BlindManagement = () => {
   };
 
   const openEditModal = (blind) => {
+    setOfertaReplicarId(null);
     setEditingBlind(blind);
     setFormData({
       level: blind.level,
@@ -371,6 +425,7 @@ const BlindManagement = () => {
   };
 
   const openAddModal = (asBreak = false) => {
+    setOfertaReplicarId(null);
     // Auto-suggest next level
     const nextLevel = blinds.length > 0 ? Math.max(...blinds.map(b => b.level)) + 1 : 1;
     // Auto-suggest blinds based on last non-break level
@@ -401,6 +456,7 @@ const BlindManagement = () => {
         clear_existing: true
       });
       setShowTemplateModal(false);
+      setOfertaReplicarId(null);
       loadData();
     } catch (error) {
       console.error('Error applying template:', error);
@@ -608,7 +664,29 @@ const BlindManagement = () => {
                         <td>{blind.is_break ? '-' : cell('small_blind', blind.small_blind.toLocaleString())}</td>
                         <td>{blind.is_break ? '-' : cell('big_blind', blind.big_blind.toLocaleString())}</td>
                         <td>{blind.is_break ? '-' : cell('ante', (blind.ante || 0).toLocaleString())}</td>
-                        <td>{cell('duration', `${blind.duration} min`)}</td>
+                        <td>
+                          <span className="duration-cell">
+                            {cell('duration', `${blind.duration} min`)}
+                            {alvoReplicar?.id === blind.id && seguintesDiferentes > 0 && editCell?.id !== blind.id && (() => {
+                              const rotulo = t(
+                                blind.is_break ? 'blinds.replicateToNextBreaks' : 'blinds.replicateToNext',
+                                blind.is_break
+                                  ? 'Aplicar {{duration}} min aos intervalos seguintes'
+                                  : 'Aplicar {{duration}} min aos níveis seguintes',
+                                { duration: blind.duration }
+                              );
+                              return (
+                                <button
+                                  type="button"
+                                  className="replicate-next"
+                                  onClick={replicarDuracao}
+                                  title={rotulo}
+                                  aria-label={rotulo}
+                                >⇣</button>
+                              );
+                            })()}
+                          </span>
+                        </td>
                         <td>
                           <div className="action-buttons">
                             <button

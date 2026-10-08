@@ -51,6 +51,10 @@ const BlindTemplates = () => {
   const [description, setDescription] = useState('');
   const [levels, setLevels] = useState([]);
   const [saving, setSaving] = useState(false);
+  /* Linha cuja duração foi editada por ÚLTIMO. É nela que aparece o botão de
+     replicar para as seguintes — "a partir do nível 3, tudo vira 20 min" é o
+     ajuste mais comum na véspera, e digitar nível a nível é lento e dá erro. */
+  const [ofertaDuracaoId, setOfertaDuracaoId] = useState(null);
 
   // Acessibilidade: o fundo escuro fecha no clique, mas quem usa só o teclado
   // precisa do Esc para sair do modal.
@@ -88,6 +92,7 @@ const BlindTemplates = () => {
     setEditingId(null);
     setName('');
     setDescription('');
+    setOfertaDuracaoId(null);
     setLevels([nextLevelFrom(null)]);
     setShowEditor(true);
   };
@@ -96,6 +101,7 @@ const BlindTemplates = () => {
     setEditingId(tpl.id);
     setName(tpl.name || '');
     setDescription(tpl.description || '');
+    setOfertaDuracaoId(null);
     const lv = (tpl.custom_levels && tpl.custom_levels.length)
       ? tpl.custom_levels.map((l) => comId({
           small_blind: l.small_blind || 0,
@@ -127,9 +133,36 @@ const BlindTemplates = () => {
 
   const addLevel = () => setLevels((prev) => [...prev, nextLevelFrom(lastNonBreak(prev))]);
   const addBreak = () => setLevels((prev) => [...prev, newBreak()]);
-  const removeRow = (idx) => setLevels((prev) => prev.filter((_, i) => i !== idx));
-  const updateRow = (idx, field, value) =>
+  const removeRow = (idx) => {
+    if (levels[idx]?._id === ofertaDuracaoId) setOfertaDuracaoId(null);
+    setLevels((prev) => prev.filter((_, i) => i !== idx));
+  };
+  const updateRow = (idx, field, value) => {
     setLevels((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+    if (field === 'duration') setOfertaDuracaoId(levels[idx]._id);
+  };
+
+  /* Replicar só alcança linhas do MESMO tipo: nível → níveis, intervalo →
+     intervalos. O intervalo tem duração própria (10 min) e não pode esticar
+     junto quando os níveis passam a 20. */
+  const mesmoTipo = (a, b) => !!a.is_break === !!b.is_break;
+
+  const temSeguinteDiferente = (idx) => {
+    const origem = levels[idx];
+    const d = parseInt(origem.duration, 10);
+    if (!Number.isInteger(d) || d < 1) return false;
+    return levels.some((r, i) => i > idx && mesmoTipo(r, origem) && parseInt(r.duration, 10) !== d);
+  };
+
+  const replicarDuracao = (idx) => {
+    setLevels((prev) => {
+      const origem = prev[idx];
+      const d = parseInt(origem.duration, 10);
+      if (!Number.isInteger(d) || d < 1) return prev;
+      return prev.map((r, i) => (i > idx && mesmoTipo(r, origem) ? { ...r, duration: d } : r));
+    });
+    setOfertaDuracaoId(null);
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -405,11 +438,31 @@ const BlindTemplates = () => {
                           </>
                         )}
                         <td>
-                          <input
-                            type="number" min="1"
-                            value={row.duration}
-                            onChange={(e) => updateRow(idx, 'duration', e.target.value)}
-                          />
+                          <span className="bt-duration-cell">
+                            <input
+                              type="number" min="1"
+                              value={row.duration}
+                              onChange={(e) => updateRow(idx, 'duration', e.target.value)}
+                            />
+                            {ofertaDuracaoId === row._id && temSeguinteDiferente(idx) && (() => {
+                              const rotulo = t(
+                                row.is_break ? 'blinds.replicateToNextBreaks' : 'blinds.replicateToNext',
+                                row.is_break
+                                  ? 'Aplicar {{duration}} min aos intervalos seguintes'
+                                  : 'Aplicar {{duration}} min aos níveis seguintes',
+                                { duration: parseInt(row.duration, 10) }
+                              );
+                              return (
+                                <button
+                                  type="button"
+                                  className="bt-replicate"
+                                  onClick={() => replicarDuracao(idx)}
+                                  title={rotulo}
+                                  aria-label={rotulo}
+                                >⇣</button>
+                              );
+                            })()}
+                          </span>
                         </td>
                         <td>
                           <button

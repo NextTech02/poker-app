@@ -77,3 +77,22 @@ class BlindResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BlindReplicateDurationRequest(BaseModel):
+    """Replicar a duração de um nível para os níveis SEGUINTES do mesmo tipo.
+
+    `is_break` separa nível de intervalo: cada um tem a sua duração típica
+    (15 e 10 min), e "a partir do nível 3 tudo vira 20 min" não pode esticar
+    os intervalos junto.
+    """
+    after_level: int = Field(..., ge=1, description="Replicate to levels greater than this one")
+    duration: int = Field(..., gt=0, description="Duration in minutes (must be positive)")
+    is_break: bool = Field(default=False, description="Replicate only to rows of this kind (levels or breaks)")
+
+
+class BlindReplicateDurationResponse(BaseModel):
+    updated: int
+    after_level: int
+    duration: int
+    is_break: bool

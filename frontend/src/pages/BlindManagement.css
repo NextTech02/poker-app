@@ -618,6 +618,28 @@
   outline: none;
   box-shadow: 0 0 0 2px rgba(114, 51, 248, 0.2);
 }
+/* Replicar a duração recém-gravada para os níveis seguintes: aparece só ao
+   lado da célula que acabou de mudar. Pequeno de propósito — é um atalho. */
+.duration-cell { display: inline-flex; align-items: center; gap: 4px; }
+.replicate-next {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.replicate-next:hover,
+.replicate-next:focus-visible {
+  color: var(--brand-green);
+  border-color: var(--brand-green);
+  outline: none;
+}
 .blinds-table .blind-row .drag-handle {
   cursor: grab;
   color: var(--text-tertiary);

@@ -900,7 +900,15 @@
     "confirmClearRunningTitle": "O dia está rodando",
     "confirmClearRunning": "Este dia está EM ANDAMENTO. O telão ficará sem blinds e o relógio será zerado imediatamente. Confirma mesmo assim?",
     "structureCleared": "Estrutura apagada.",
-    "clearError": "Não foi possível apagar a estrutura."
+    "clearError": "Não foi possível apagar a estrutura.",
+    "replicateToNext": "Aplicar {{duration}} min aos níveis seguintes",
+    "replicateToNextBreaks": "Aplicar {{duration}} min aos intervalos seguintes",
+    "replicatedToNext": "{{duration}} min aplicados a {{count}} níveis seguintes.",
+    "replicatedToNext_one": "{{duration}} min aplicados ao nível seguinte.",
+    "replicatedToNext_other": "{{duration}} min aplicados a {{count}} níveis seguintes.",
+    "replicatedToNextBreaks": "{{duration}} min aplicados a {{count}} intervalos seguintes.",
+    "replicatedToNextBreaks_one": "{{duration}} min aplicados ao intervalo seguinte.",
+    "replicatedToNextBreaks_other": "{{duration}} min aplicados a {{count}} intervalos seguintes."
   },
   "tournamentDayForm": {
     "newDay": "Novo Dia do Torneio",
