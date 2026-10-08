@@ -9,6 +9,7 @@ import { MENUS_POR_MODULO, MENU_COMUM } from './menus';
 import OrgSwitcher from './OrgSwitcher';
 import LanguageSelector from './LanguageSelector';
 import TopBar from './TopBar';
+import BackButton from './BackButton';
 import Icon from './Icon';
 import aceblindLogo from '../assets/aceblind-logo-white.png';
 import aceblindMark from '../assets/aceblind-icon.png';
@@ -295,6 +296,8 @@ const Sidebar = () => {
             <span className="hamburger-line"></span>
             <span className="hamburger-line"></span>
           </button>
+          {/* "Voltar" também no celular (a barra do topo não existe aqui). */}
+          <BackButton className="back-btn--mobile" />
           {/* A casa do MÓDULO ATIVO, não `/home` fixo. Apontado para o
               torneio, o logo era o caminho mais curto para cair no Dashboard
               de torneios estando no cash — que é como o problema apareceu. */}

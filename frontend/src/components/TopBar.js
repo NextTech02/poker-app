@@ -8,6 +8,7 @@ import { useBarShift } from '../contexts/BarShiftContext';
 import { useConnectivity } from '../contexts/ConnectivityContext';
 import { MENUS_POR_MODULO, MENU_COMUM } from './menus';
 import Icon from './Icon';
+import BackButton from './BackButton';
 import './TopBar.css';
 
 /* Barra fixa no topo de toda tela (desktop). Responde duas perguntas sem que a
@@ -79,6 +80,8 @@ const TopBar = () => {
 
   return (
     <div className="topbar" data-testid="topbar">
+      {/* "Voltar" de toda tela: uma só, aqui, em vez de um botão por página. */}
+      <BackButton />
       <nav className="topbar-crumbs" aria-label={t('topbar.breadcrumb', 'Você está em')}>
         {migalhas.map((m, i) => (
           <span key={`${i}-${m}`} className="topbar-crumb">

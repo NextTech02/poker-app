@@ -1,0 +1,46 @@
+/* "Voltar" da barra do topo e do cabeçalho móvel. Mesmo desenho dos chips
+   de contexto da barra, para não brigar com eles. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-primary);
+  background: var(--card-bg-hover);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  flex: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.back-btn:hover,
+.back-btn:focus-visible {
+  border-color: var(--border-lighter);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.back-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* Celular: só a seta, do tamanho do hambúrguer ao lado. */
+.back-btn--mobile {
+  height: 36px;
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.back-btn--mobile .back-btn-label {
+  display: none;
+}

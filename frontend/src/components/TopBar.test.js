@@ -102,3 +102,16 @@ describe('chip de contexto', () => {
     expect(screen.getByText('topbar.pending:3')).toBeInTheDocument();
   });
 });
+
+describe('Voltar na barra do topo', () => {
+  it('toda tela fora da casa tem o botão "Voltar"', () => {
+    montar({ rota: '/torneios' });
+    expect(screen.getByTestId('back-btn')).toBeInTheDocument();
+  });
+
+  it('na casa, sem histórico, o botão não aparece', () => {
+    window.history.replaceState(null, '');
+    montar({ rota: '/home' });
+    expect(screen.queryByTestId('back-btn')).toBeNull();
+  });
+});
