@@ -8,7 +8,9 @@ from ..models.prize_allocation import (
     PrizeAllocationUpdate,
     PrizeAllocationResponse,
     PrizePayoutRequest,
-    PrizeSummary
+    PrizeSummary,
+    BroadcastPrize,
+    BroadcastPrizes,
 )
 from app.services.transaction_filters import ler_transacoes_ativas
 # As recusas da premiacao vao com CODIGO: o clube da Colombia paga premio
@@ -152,6 +154,24 @@ class PrizeAllocationService:
             remaining_balance=remaining_balance,
             allocations=allocations,
             has_qualifying_days=has_qualifying
+        )
+
+    @staticmethod
+    def get_broadcast_prizes(tournament_id: UUID) -> BroadcastPrizes:
+        """A premiação como o telão público a mostra.
+
+        Reaproveita o PrizeSummary (é a mesma conta que o caixa vê) e devolve
+        só o prizepool disponível e as faixas visíveis, sem nome de ganhador,
+        rake ou situação de pagamento — a tela não está logada.
+        """
+        resumo = PrizeAllocationService.get_prize_summary(tournament_id)
+        return BroadcastPrizes(
+            prize_pool=resumo.available_prize_pool,
+            prizes=[
+                BroadcastPrize(position=a.position, prize_amount=a.prize_amount)
+                for a in resumo.allocations
+                if a.visible
+            ],
         )
 
     @staticmethod

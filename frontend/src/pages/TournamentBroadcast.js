@@ -266,6 +266,25 @@ const TournamentBroadcast = () => {
   const patchFonteTimer = useRef(null);
   useEffect(() => () => clearTimeout(patchFonteTimer.current), []);
 
+  // Os botões ficam invisíveis no telão parado. Qualquer movimento do mouse
+  // os mostra por alguns segundos — só exigir hover em cima deles fazia
+  // ninguém achá-los, principalmente com a coluna de premiação ocupando o
+  // canto. Numa TV sem mouse não há movimento, e eles seguem invisíveis.
+  const [controlesVisiveis, setControlesVisiveis] = useState(false);
+  useEffect(() => {
+    let timer = null;
+    const mostrar = () => {
+      setControlesVisiveis(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setControlesVisiveis(false), 3000);
+    };
+    window.addEventListener('mousemove', mostrar);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousemove', mostrar);
+    };
+  }, []);
+
   // SINGLE SOURCE OF TRUTH for day-based tournaments (blinds passed for offline fallback)
   const { timerState } = useTimerSync(isDayBased ? id : null, blinds);
 
@@ -349,13 +368,13 @@ const TournamentBroadcast = () => {
 
       try {
         const tournamentIdForPrizes = dayData ? dayData.tournament_id : id;
-        const [prizesRes, summaryRes] = await Promise.all([
-          api.get(`/tournaments/${tournamentIdForPrizes}/prizes`),
-          api.get(`/tournaments/${tournamentIdForPrizes}/prizes/summary`),
-        ]);
-        // Feature 4.4: faixas com visible=false somem da exibição pública (sem apagar o dado)
-        setPrizeAllocations((prizesRes.data || []).filter((p) => p.visible !== false));
-        setPrizeSummary(summaryRes.data || null);
+        // Rota PÚBLICA: a TV do salão abre pelo código, sem login, e as rotas
+        // normais de prêmios exigem usuário — por isso a TV nunca mostrava a
+        // premiação. Esta devolve só prizepool disponível e faixas visíveis.
+        const { data } = await api.get(`/public/broadcast/${tournamentIdForPrizes}/prizes`);
+        // O servidor já esconde visible=false; o filtro fica como cinto de segurança.
+        setPrizeAllocations((data?.prizes || []).filter((p) => p.visible !== false));
+        setPrizeSummary(data?.prize_pool != null ? { available_prize_pool: data.prize_pool } : null);
       } catch {
         setPrizeAllocations([]);
         setPrizeSummary(null);
@@ -1017,7 +1036,11 @@ const TournamentBroadcast = () => {
 
       {/* Ajuste de fonte — invisível até o cursor chegar no canto inferior direito.
           Fica fora do BreakScreen de propósito: no intervalo também se calibra. */}
-      <div className="broadcast-font-controls" role="group" aria-label={t('broadcast.fontSizeControls')}>
+      <div
+        className={`broadcast-font-controls${controlesVisiveis ? ' is-visible' : ''}`}
+        role="group"
+        aria-label={t('broadcast.fontSizeControls')}
+      >
         <button
           type="button"
           className="broadcast-font-controls__btn"

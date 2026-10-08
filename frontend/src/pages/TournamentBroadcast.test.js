@@ -111,10 +111,12 @@ const responder = ({
       return torneio instanceof Error ? Promise.reject(torneio) : ok(torneio);
     }
     if (url.startsWith('/tournament-players/')) return ok(inscritos);
-    if (url.endsWith('/prizes')) {
-      return premios instanceof Error ? Promise.reject(premios) : ok(premios);
+    // Rota pública da premiação: prizepool disponível + faixas. `resumo: {}`
+    // simula servidor sem prizepool calculado (cai no prize pool do dia).
+    if (url === '/public/broadcast/t1/prizes' || url === '/public/broadcast/x1/prizes') {
+      if (premios instanceof Error) return Promise.reject(premios);
+      return ok({ prize_pool: resumo?.available_prize_pool ?? null, prizes: premios });
     }
-    if (url.endsWith('/prizes/summary')) return ok(resumo);
     if (url.endsWith('/aggregated-stats')) {
       return estatisticas instanceof Error ? Promise.reject(estatisticas) : ok(estatisticas);
     }
@@ -793,5 +795,25 @@ describe('ajuste de fonte pelo próprio telão', () => {
     localStorage.setItem(CHAVE_LOCAL, '999');
     await montar();
     expect(relogio().style.fontSize).toBe('160px');
+  });
+
+  it('mexer o mouse em qualquer ponto mostra os botões por alguns segundos', async () => {
+    // Só hover em cima deles não bastava: com a coluna de premiação no canto,
+    // ninguém sabia onde estavam. Parado, o telão volta a ficar limpo.
+    await montar();
+    jest.useFakeTimers();
+    const grupo = () => document.querySelector('.broadcast-font-controls');
+    expect(grupo().classList.contains('is-visible')).toBe(false);
+    fireEvent.mouseMove(window, { clientX: 300, clientY: 300 });
+    expect(grupo().classList.contains('is-visible')).toBe(true);
+    act(() => { jest.advanceTimersByTime(2500); });
+    expect(grupo().classList.contains('is-visible')).toBe(true);
+    fireEvent.mouseMove(window, { clientX: 310, clientY: 300 });
+    act(() => { jest.advanceTimersByTime(2500); });
+    // O segundo movimento reiniciou a contagem.
+    expect(grupo().classList.contains('is-visible')).toBe(true);
+    act(() => { jest.advanceTimersByTime(600); });
+    expect(grupo().classList.contains('is-visible')).toBe(false);
+    jest.useRealTimers();
   });
 });
