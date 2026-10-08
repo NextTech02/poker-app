@@ -42,7 +42,13 @@ antes de subir.
 lista de prêmios VISÍVEIS. Era um buraco: os endpoints de premiação exigem
 login e a TV do salão não tem — os prêmios nunca apareciam; e a moeda era lida
 de `app_settings` sem filtro (linha de uma org qualquer). A TV faz esse request
-junto com o poll de 30 s do dia.
+junto com o poll de 30 s do dia. A rota `GET /public/broadcast/{tournament_id}/prizes`
+(por torneio, só prize pool + faixas) entrou em paralelo pelo PR #13 e continua
+existindo; o telão novo usa a de extras.
+
+**Numeração de nível.** O intervalo não conta como nível no número mostrado
+(`utils/nivelExibido.js`, PR #14): `tvModel` usa `display_level` do servidor
+e, sem ele, conta na estrutura em cache.
 
 **Cores: NULL = padrão do app.** Os campos `broadcast_*_color` viraram
 `Optional` no backend, as colunas perderam o DEFAULT e os valores iguais aos
