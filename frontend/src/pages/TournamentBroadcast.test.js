@@ -322,7 +322,8 @@ describe('o que a tela mostra ao vivo', () => {
 
   it('o próximo nível é anunciado', async () => {
     await montar();
-    expect(document.querySelector('.next-blind-value')).toHaveTextContent('800/1600 ( 1600 )');
+    // Formato do layout: "200/400 (400)", ante colado entre parênteses.
+    expect(document.querySelector('.next-blind-value')).toHaveTextContent('800/1600 (1600)');
   });
 
   it('se o próximo nível é INTERVALO, o telão diz isso', async () => {

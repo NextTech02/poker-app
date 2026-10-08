@@ -7,6 +7,7 @@ import { useTimerSync, formatTime as formatTimerTime, formatTimeHuman } from '..
 import { usePolling } from '../hooks/usePolling';
 import BROADCAST_LABELS from '../utils/broadcastLabels';
 import { useCurrency } from '../contexts/CurrencyContext';
+import Icon from '../components/Icon';
 import {
   lerFonteLocal, gravarFonteLocal, limparFonteLocal, proximaFonte, FONTE_MIN, FONTE_MAX, FONTE_PASSO,
 } from '../utils/broadcastFontLocal';
@@ -36,6 +37,20 @@ const generateBlindsFromDayConfig = (dayConfig, numLevels = 20) => {
   }
   return blinds;
 };
+
+// Paleta do telão: marinho de fundo, branco para números, dourado para rótulos
+// e destaques. É o padrão quando o dia não tem cor própria salva; os mesmos
+// valores estão em DEFAULT_SETTINGS (BroadcastSettings.js) e na migração
+// database_migration_broadcast_layout_navy_gold.sql.
+export const TV_PALETA = {
+  branco: '#ffffff',
+  ouro: '#f2c14e',
+  cinza: '#b8c4d6',
+};
+
+// Altura da barra de prêmios em 100%; o conteúdo sobe esse tanto via
+// --prize-ticker-height para nada ficar escondido atrás dela.
+const PRIZE_BAR_BASE_PX = 60;
 
 const extractYouTubeId = (url) => {
   if (!url) return null;
@@ -101,30 +116,33 @@ const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, labels }) => {
 
   const L = labels || BROADCAST_LABELS['pt-BR'];
   const s = prizeScale;
-  const items = [...prizes, ...prizes];
+  // Até 5 faixas cabem paradas, lado a lado, como no layout. Mais que isso a
+  // lista é duplicada e rola em laço contínuo.
+  const rola = prizes.length > 5;
+  const items = rola ? [...prizes, ...prizes] : prizes;
   const duration = prizes.length * 5;
-  const barHeight = Math.round(48 * s);
+  const barHeight = Math.round(PRIZE_BAR_BASE_PX * s);
 
   return (
     <div className="prize-ticker-bar" style={{ height: `${barHeight}px` }}>
-      <div className="prize-ticker-label" style={{ fontSize: `${12 * s}px` }}>
+      <div className="prize-ticker-label" style={{ fontSize: `${14 * s}px` }}>
+        <Icon name="trophy-cup" className="prize-ticker-icon" />
         {L.awards}
       </div>
       <div className="prize-ticker-track-wrap">
         <div
-          className="prize-ticker-track"
-          style={{ animationDuration: `${duration}s` }}
+          className={`prize-ticker-track${rola ? ' scrolling' : ''}`}
+          style={rola ? { animationDuration: `${duration}s` } : undefined}
         >
           {items.map((prize, idx) => (
             <span key={idx} className="prize-ticker-item">
-              <span className="prize-ticker-pos" style={{ fontSize: `${14 * s}px` }}>
+              <span className="prize-ticker-pos" style={{ fontSize: `${16 * s}px` }}>
                 {L.placeLabel(prize.position)}
               </span>
               <span className="prize-ticker-sep">:</span>
-              <span className="prize-ticker-val" style={{ fontSize: `${16 * s}px` }}>
+              <span className="prize-ticker-val" style={{ fontSize: `${18 * s}px` }}>
                 {formatCurrency(prize.prize_amount)}
               </span>
-              <span className="prize-ticker-dot">◆</span>
             </span>
           ))}
         </div>
@@ -594,7 +612,7 @@ const TournamentBroadcast = () => {
   // Compute ticker height before any early returns (Rules of Hooks)
   const prizeScaleEarly = ((tournamentDay?.broadcast_prize_size ?? tournament?.broadcast_prize_size) || 100) / 100;
   const prizesLayoutEarly = (tournamentDay?.broadcast_prizes_layout ?? tournament?.broadcast_prizes_layout) === 'sidebar' ? 'sidebar' : 'bottom';
-  const tickerHeightEarly = prizesLayoutEarly === 'sidebar' ? 0 : Math.round(48 * prizeScaleEarly);
+  const tickerHeightEarly = prizesLayoutEarly === 'sidebar' ? 0 : Math.round(PRIZE_BAR_BASE_PX * prizeScaleEarly);
   const prizeSidebarWidthEarly = prizesLayoutEarly === 'sidebar' ? Math.round(240 * prizeScaleEarly) : 0;
 
   // Propagate ticker height + sidebar width to :root so position:fixed elements adapt
@@ -731,18 +749,21 @@ const TournamentBroadcast = () => {
   const prizepoolLabelColor = bSource?.broadcast_prizepool_label_color || '#ffffff';
   const prizepoolValueColor = bSource?.broadcast_prizepool_value_color || '#ffffff';
 
-  // Per-element colors
+  // Cores por elemento. Os padrões são a paleta do layout atual do telão
+  // (marinho, branco e dourado); um dia só foge dela se o clube escolheu
+  // outra cor nas Configurações da Transmissão. Mesmos valores que
+  // DEFAULT_SETTINGS em BroadcastSettings.js — mudar um, mudar o outro.
   const colors = {
-    timer:        bSource?.broadcast_timer_color         || '#5b5be8',
-    title:        bSource?.broadcast_title_color         || '#5b5be8',
-    blindsLabel:  bSource?.broadcast_blinds_label_color  || '#5b5be8',
-    blindsValue:  bSource?.broadcast_blinds_value_color  || '#ffffff',
-    anteLabel:    bSource?.broadcast_ante_label_color    || '#5b5be8',
-    anteValue:    bSource?.broadcast_ante_value_color    || '#5b5be8',
-    nextLabel:    bSource?.broadcast_next_label_color    || '#5b5be8',
-    nextValue:    bSource?.broadcast_next_value_color    || '#9ca3af',
-    sidebarLabel: bSource?.broadcast_sidebar_label_color || '#9ca3af',
-    sidebarValue: bSource?.broadcast_sidebar_value_color || '#5b5be8',
+    timer:        bSource?.broadcast_timer_color         || TV_PALETA.branco,
+    title:        bSource?.broadcast_title_color         || TV_PALETA.branco,
+    blindsLabel:  bSource?.broadcast_blinds_label_color  || TV_PALETA.ouro,
+    blindsValue:  bSource?.broadcast_blinds_value_color  || TV_PALETA.branco,
+    anteLabel:    bSource?.broadcast_ante_label_color    || TV_PALETA.ouro,
+    anteValue:    bSource?.broadcast_ante_value_color    || TV_PALETA.branco,
+    nextLabel:    bSource?.broadcast_next_label_color    || TV_PALETA.ouro,
+    nextValue:    bSource?.broadcast_next_value_color    || TV_PALETA.branco,
+    sidebarLabel: bSource?.broadcast_sidebar_label_color || TV_PALETA.cinza,
+    sidebarValue: bSource?.broadcast_sidebar_value_color || TV_PALETA.ouro,
   };
 
   // Prizepool = guaranteed + all-days entries net of rake (from backend summary)
@@ -879,6 +900,31 @@ const TournamentBroadcast = () => {
     if (totalQualifyingPlayers > 0) displayTotalPlayers = totalQualifyingPlayers;
   }
 
+  // Anel de progresso em volta do relógio: fração do nível que ainda falta.
+  // A duração vem em MINUTOS, tanto no relógio do servidor quanto na estrutura
+  // legada; sem duração conhecida o anel fica cheio (nunca some).
+  const duracaoNivelMin = isDayBased
+    ? timerState?.current_blind?.duration
+    : getBlindValues(blindLevel).duration;
+  const fracaoRestante = duracaoNivelMin > 0
+    ? Math.min(1, Math.max(0, (displayTimeRemaining || 0) / (duracaoNivelMin * 60)))
+    : 1;
+  const RAIO_ANEL = 46;
+  const perimetroAnel = 2 * Math.PI * RAIO_ANEL;
+
+  // Um cartão da coluna de estatísticas: ícone dourado, rótulo e valor.
+  // Função comum (não componente) para o React não remontar os cartões a
+  // cada segundo do relógio.
+  const cartao = ({ icone, rotulo, valor, tamanho = 28 }) => (
+    <div className="sidebar-section">
+      <span className="sidebar-icon"><Icon name={icone} /></span>
+      <div className="sidebar-text">
+        <div className="sidebar-label" style={{ fontSize: `${12 * fontScale}px`, color: colors.sidebarLabel }}>{rotulo}</div>
+        <div className="sidebar-value" style={{ fontSize: `${tamanho * fontScale}px`, color: colors.sidebarValue }}>{valor}</div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="broadcast-container" style={{ ...containerStyle, ...(isDayBased && currentBlindIsBreak ? { paddingBottom: 0 } : {}) }}>
       <header className="broadcast-header">
@@ -889,7 +935,18 @@ const TournamentBroadcast = () => {
         )}
         {broadcastSettings.showTitle && (
           <div className="broadcast-title">
-            <h1 style={{ color: colors.title, backgroundImage: 'none', WebkitTextFillColor: colors.title }}>{displayName}</h1>
+            <h1 style={{ color: colors.title }}>
+              {/* Sem nome personalizado, o dia vai em dourado ao lado do torneio. */}
+              {broadcastSettings.displayName || !tournamentDay
+                ? displayName
+                : (
+                  <>
+                    {tournament.name}
+                    <span className="broadcast-title-sep"> - </span>
+                    <span className="broadcast-title-day">{tournamentDay.day_name}</span>
+                  </>
+                )}
+            </h1>
           </div>
         )}
         <ClubLogoSlot settings={broadcastSettings} />
@@ -910,68 +967,65 @@ const TournamentBroadcast = () => {
         <div className="broadcast-main">
           {(broadcastSettings.showLevel || broadcastSettings.showPlayers || broadcastSettings.showInterval || broadcastSettings.showChipcount || broadcastSettings.showAverage) && (
             <aside className="broadcast-sidebar">
-              {broadcastSettings.showLevel && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.level} {displayBlindLevel}</div>
-                </div>
-              )}
+              {/* Ordem dos cartões = ordem do layout: nível, jogadores, entradas,
+                  reentradas, intervalo, fichas em jogo, média. */}
+              {broadcastSettings.showLevel && cartao({
+                icone: 'trophy-cup', rotulo: L.level, valor: displayBlindLevel,
+              })}
 
-              {broadcastSettings.showPlayers && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.players}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{displayActivePlayers} {L.of} {displayTotalPlayers}</div>
-                </div>
-              )}
+              {broadcastSettings.showPlayers && cartao({
+                icone: 'users', rotulo: L.players, valor: `${displayActivePlayers} ${L.of} ${displayTotalPlayers}`,
+              })}
 
-              {broadcastSettings.showPlayers && totalEntries > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.entries}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{totalEntries}</div>
-                </div>
-              )}
+              {broadcastSettings.showPlayers && totalEntries > 0 && cartao({
+                icone: 'ticket', rotulo: L.entries, valor: totalEntries,
+              })}
 
-              {broadcastSettings.showReentries && totalReentries > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.reentries}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{totalReentries}</div>
-                </div>
-              )}
-
-              {isDayBased && broadcastSettings.showChipcount && chipcount > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.chipcount}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${28 * fontScale}px`, color: colors.sidebarValue }}>{formatChips(chipcount)}</div>
-                </div>
-              )}
-
-              {isDayBased && broadcastSettings.showAverage && averageStack > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.average}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${28 * fontScale}px`, color: colors.sidebarValue }}>{formatChips(averageStack)}</div>
-                </div>
-              )}
+              {broadcastSettings.showReentries && totalReentries > 0 && cartao({
+                icone: 'refresh', rotulo: L.reentries, valor: totalReentries,
+              })}
 
               {/* Break countdown from enriched endpoint for day-based */}
-              {isDayBased && timerState?.next_break && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.intervalIn}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>
-                    {formatTimeHuman(timerState.next_break.time_until_break)}
-                  </div>
-                </div>
-              )}
+              {isDayBased && timerState?.next_break && cartao({
+                icone: 'clock', rotulo: L.intervalIn,
+                valor: formatTimeHuman(timerState.next_break.time_until_break),
+              })}
 
               {/* Legacy break countdown for non-day tournaments */}
-              {broadcastSettings.showInterval && !isDayBased && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px` }}>{t('broadcast.intervalIn').toUpperCase()}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px` }}>{formatInterval(getTimeUntilBreak())}</div>
-                </div>
-              )}
+              {broadcastSettings.showInterval && !isDayBased && cartao({
+                icone: 'clock', rotulo: t('broadcast.intervalIn').toUpperCase(),
+                valor: formatInterval(getTimeUntilBreak()),
+              })}
+
+              {isDayBased && broadcastSettings.showChipcount && chipcount > 0 && cartao({
+                icone: 'chips', rotulo: L.chipcount, valor: formatChips(chipcount), tamanho: 24,
+              })}
+
+              {isDayBased && broadcastSettings.showAverage && averageStack > 0 && cartao({
+                icone: 'chart', rotulo: L.average, valor: formatChips(averageStack), tamanho: 24,
+              })}
             </aside>
           )}
 
           <main className="broadcast-center">
+            {/* Anel dourado atrás do relógio: esvazia conforme o nível passa. */}
+            {broadcastSettings.showTimer && (
+              <svg
+                className="timer-ring"
+                viewBox="0 0 100 100"
+                style={{ width: `${560 * fontScale}px`, height: `${560 * fontScale}px` }}
+                aria-hidden="true"
+              >
+                <circle className="timer-ring-track" cx="50" cy="50" r={RAIO_ANEL} />
+                <circle
+                  className="timer-ring-progress"
+                  cx="50" cy="50" r={RAIO_ANEL}
+                  strokeDasharray={perimetroAnel}
+                  strokeDashoffset={perimetroAnel * (1 - fracaoRestante)}
+                />
+              </svg>
+            )}
+
             {broadcastSettings.showTimer && (
               <div className="timer-display" style={{ fontSize: `${160 * fontScale}px`, color: colors.timer }}>
                 {formatTimerTime(displayTimeRemaining)}
@@ -980,29 +1034,30 @@ const TournamentBroadcast = () => {
 
             {broadcastSettings.showBlinds && (
               <div className="blinds-section">
-                <div className="blinds-label" style={{ fontSize: `${16 * fontScale}px`, color: colors.blindsLabel }}>{t('broadcast.blinds')}</div>
-                <div className="blinds-value" style={{ fontSize: `${80 * fontScale}px`, color: colors.blindsValue }}>{displaySmallBlind}/{displayBigBlind}</div>
-              </div>
-            )}
-
-            {broadcastSettings.showAnte && (
-              <div className="ante-section">
-                <div className="ante-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.anteLabel }}>{t('broadcast.ante')}</div>
-                <div className="ante-value" style={{ fontSize: `${36 * fontScale}px`, color: colors.anteValue }}>{displayAnte}</div>
+                <div className="blinds-label" style={{ fontSize: `${16 * fontScale}px`, color: colors.blindsLabel }}>
+                  {t('broadcast.blinds')}
+                  {broadcastSettings.showAnte && displayAnte > 0 && ` · ${t('broadcast.ante')}`}
+                </div>
+                <div className="blinds-row">
+                  <span className="blinds-value" style={{ fontSize: `${80 * fontScale}px`, color: colors.blindsValue }}>{displaySmallBlind}/{displayBigBlind}</span>
+                  {broadcastSettings.showAnte && displayAnte > 0 && (
+                    <span className="ante-value" style={{ fontSize: `${80 * fontScale}px`, color: colors.anteValue }}>({displayAnte})</span>
+                  )}
+                </div>
               </div>
             )}
 
             {broadcastSettings.showNextBlind && (
               <div className="next-blind-section">
-                <div className="next-blind-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.nextLabel }}>{t('broadcast.nextBlinds')}</div>
-                <div className="next-blind-value" style={{ fontSize: `${24 * fontScale}px`, color: colors.nextValue }}>
+                <span className="next-blind-label" style={{ fontSize: `${24 * fontScale}px`, color: colors.nextLabel }}>{t('broadcast.nextBlinds')}:</span>
+                <span className="next-blind-value" style={{ fontSize: `${28 * fontScale}px`, color: colors.nextValue }}>
                   {!temProximoBlind
                     ? '—'
                     : nextBlindIsBreak
                       ? t('broadcast.break').toUpperCase()
-                      : `${displayNextSmallBlind}/${displayNextBigBlind} ( ${displayNextAnte} )`
+                      : `${displayNextSmallBlind}/${displayNextBigBlind} (${displayNextAnte})`
                   }
-                </div>
+                </span>
               </div>
             )}
           </main>
@@ -1012,7 +1067,7 @@ const TournamentBroadcast = () => {
       {/* Prizepool - Bottom Right */}
       {broadcastSettings.showPrizepool && !(isDayBased && currentBlindIsBreak) && (
         <div className="broadcast-prizepool-corner">
-          <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>PRIZEPOOL</div>
+          <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>{L.prizepool}</div>
           <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
             {formatCurrency(displayPrizePool)}
           </div>

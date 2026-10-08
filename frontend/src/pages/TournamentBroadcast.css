@@ -1,9 +1,21 @@
-/* Tournament Broadcast Display for TV - Professional Poker Theme */
+/* Tournament Broadcast Display for TV — layout marinho, branco e dourado.
+   Cartões de estatística com ícone à esquerda, relógio com anel de progresso
+   ao centro, pílula do próximo nível e barra de prêmios no rodapé. */
 
 .broadcast-container {
+  /* Paleta do telão. Os valores de texto espelham TV_PALETA no JS. */
+  --tv-bg: #0b1526;
+  --tv-bg-2: #122038;
+  --tv-card: rgba(255, 255, 255, 0.045);
+  --tv-card-border: rgba(255, 255, 255, 0.09);
+  --tv-gold: #f2c14e;
+  --tv-gold-dark: #c9972a;
+  --tv-text: #ffffff;
+  --tv-muted: #b8c4d6;
+
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--primary-bg) 0%, #141922 50%, var(--primary-bg) 100%);
-  color: #ffffff;
+  background: radial-gradient(ellipse at 50% 40%, var(--tv-bg-2) 0%, var(--tv-bg) 70%);
+  color: var(--tv-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   display: flex;
   flex-direction: column;
@@ -19,8 +31,8 @@
   right: 0;
   bottom: 0;
   background-image:
-    radial-gradient(circle at 20% 50%, rgba(15, 122, 78, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(91, 91, 232, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 50% 45%, rgba(242, 193, 78, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 15% 85%, rgba(255, 255, 255, 0.03) 0%, transparent 40%);
   pointer-events: none;
 }
 
@@ -29,25 +41,24 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 48px;
-  background: linear-gradient(180deg, rgba(20, 25, 34, 0.95) 0%, rgba(10, 14, 19, 0.8) 100%);
-  border-bottom: 3px solid var(--gold-accent);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  padding: 20px 48px;
+  background: transparent;
   position: relative;
   z-index: 10;
 }
 
+/* Filete dourado sob o cabeçalho, mais forte no centro, como no layout. */
 .broadcast-header::after {
   content: '';
   position: absolute;
-  bottom: -3px;
-  left: 0;
-  right: 0;
-  height: 3px;
+  bottom: 0;
+  left: 48px;
+  right: 48px;
+  height: 2px;
   background: linear-gradient(90deg,
-    transparent 0%,
-    var(--gold-accent) 50%,
-    transparent 100%
+    rgba(242, 193, 78, 0.15) 0%,
+    var(--tv-gold) 50%,
+    rgba(242, 193, 78, 0.15) 100%
   );
 }
 
@@ -80,14 +91,22 @@
 .broadcast-title h1 {
   margin: 0;
   font-size: 42px;
-  font-weight: 800;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 3px;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
-  background: linear-gradient(135deg, #ffffff 0%, var(--text-gold) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: 2px;
+  color: var(--tv-text);
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+}
+
+/* "MAIN EVENT - DIA 1A": torneio em branco, dia em dourado, separador discreto. */
+.broadcast-title-sep {
+  color: var(--tv-muted);
+  opacity: 0.5;
+  font-weight: 400;
+}
+
+.broadcast-title-day {
+  color: var(--tv-gold);
 }
 
 /* Day Type Indicator Badge */
@@ -149,11 +168,16 @@
 /* Prizepool - Bottom Right Corner — sits above ticker, shifts left if right sidebar is on */
 .broadcast-prizepool-corner {
   position: fixed;
-  bottom: calc(var(--prize-ticker-height, 48px) + 12px);
+  bottom: calc(var(--prize-ticker-height, 48px) + 16px);
   right: calc(var(--prize-sidebar-width, 0px) + 48px);
   text-align: right;
   padding: 12px 24px;
   z-index: 100;
+  /* Mesmo cartão da coluna de estatísticas, com filete dourado à direita. */
+  background: var(--tv-card);
+  border: 1px solid var(--tv-card-border);
+  border-right: 3px solid var(--tv-gold);
+  border-radius: 10px;
 }
 
 .broadcast-prize {
@@ -191,36 +215,68 @@
   z-index: 1;
 }
 
-/* Sidebar — floats on the left without displacing the center */
+/* Coluna de cartões — flutua à esquerda sem deslocar o centro */
 .broadcast-sidebar {
   position: absolute;
   left: 48px;
-  top: 32px;
-  width: 200px;
+  top: 24px;
+  width: 300px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
+  z-index: 2;
 }
 
+/* Cartão: ícone dourado num quadrado à esquerda, rótulo e valor à direita. */
 .sidebar-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   text-align: left;
-  padding: 8px 0;
+  padding: 10px 16px;
+  background: var(--tv-card);
+  border: 1px solid var(--tv-card-border);
+  border-left: 3px solid var(--tv-gold);
+  border-radius: 10px;
+}
+
+.sidebar-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(242, 193, 78, 0.1);
+  color: var(--tv-gold);
+}
+
+.sidebar-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.sidebar-text {
+  min-width: 0;
 }
 
 .sidebar-label {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 12px;
+  color: var(--tv-muted);
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.2px;
 }
 
 .sidebar-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 800;
-  color: var(--text-gold);
+  color: var(--tv-gold);
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 /* Enriched Timer Section in Sidebar */
@@ -245,81 +301,107 @@
   position: relative;
 }
 
+/* Anel de progresso — decorativo, atrás do relógio e dos blinds. O tamanho
+   vem inline (escala com a fonte); a fração preenchida vem do JS via
+   stroke-dashoffset. Começa no topo (rotate -90) e esvazia no sentido horário. */
+.timer-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  pointer-events: none;
+  z-index: 0;
+  /* O tamanho inline escala com a fonte; o teto em vh impede que, numa fonte
+     grande, o anel estoure a tela ou vire uma rosca grossa. */
+  max-width: 82vh;
+  max-height: 82vh;
+  filter: drop-shadow(0 0 14px rgba(242, 193, 78, 0.2));
+}
+
+.timer-ring circle {
+  fill: none;
+  stroke-width: 1.1;
+}
+
+.timer-ring-track {
+  stroke: rgba(242, 193, 78, 0.14);
+}
+
+.timer-ring-progress {
+  stroke: var(--tv-gold);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s linear;
+}
+
+.broadcast-center > *:not(.timer-ring) {
+  position: relative;
+  z-index: 1;
+}
+
 /* Timer */
 .timer-display {
   font-size: 160px;
-  font-weight: 800;
-  color: var(--text-gold);
-  text-shadow: 0 4px 20px rgba(91, 91, 232, 0.5);
-  margin-bottom: 32px;
+  font-weight: 900;
+  color: var(--tv-text);
+  text-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+  margin-bottom: 8px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 4px;
+  letter-spacing: 2px;
   line-height: 1;
 }
 
-/* Blinds Section */
+/* Blinds: rótulo pequeno em dourado, linha "SB/BB (ante)" grande em branco */
 .blinds-section {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   text-align: center;
 }
 
 .blinds-label {
   font-size: 16px;
-  color: var(--text-gold);
-  font-weight: 600;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.blinds-value {
-  font-size: 80px;
-  font-weight: 800;
-  color: #ffffff;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Ante Section */
-.ante-section {
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.ante-label {
-  font-size: 14px;
-  color: var(--text-gold);
-  font-weight: 600;
+  color: var(--tv-gold);
+  font-weight: 700;
   margin-bottom: 4px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
 }
 
+.blinds-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3em;
+  white-space: nowrap;
+}
+
+.blinds-value,
 .ante-value {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--text-gold);
+  font-weight: 900;
+  color: var(--tv-text);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-/* Next Blind */
+/* Próximo nível: pílula com borda dourada, "Próximo: 200/400 (400)" */
 .next-blind-section {
-  text-align: center;
-  margin-top: 16px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  margin-top: 8px;
+  padding: 0.4em 1.4em;
+  border: 2px solid var(--tv-gold);
+  border-radius: 14px;
+  background: rgba(242, 193, 78, 0.06);
+  white-space: nowrap;
 }
 
 .next-blind-label {
-  font-size: 14px;
-  color: var(--text-gold);
-  font-weight: 600;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  color: var(--tv-gold);
+  font-weight: 700;
 }
 
 .next-blind-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-secondary);
+  color: var(--tv-text);
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
 
@@ -671,6 +753,9 @@
   100% { transform: translateX(-50%); }
 }
 
+/* Barra de prêmios no rodapé: troféu + PRÊMIOS à esquerda, faixas lado a
+   lado separadas por filetes. Até 5 faixas ficam paradas; mais que isso a
+   trilha rola (classe .scrolling). */
 .prize-ticker-bar {
   position: fixed;
   bottom: 0;
@@ -680,31 +765,32 @@
   display: flex;
   align-items: stretch;
   /* height is set via inline style from JS (scales with broadcast_prize_size) */
-  min-height: 36px;
-  background: rgba(5, 8, 12, 0.96);
-  border-top: 2px solid var(--brand-gold);
+  min-height: 44px;
+  background: rgba(7, 14, 28, 0.96);
+  border-top: 2px solid var(--tv-gold);
   backdrop-filter: blur(6px);
   overflow: hidden;
 }
 
-/* Left label pill */
 .prize-ticker-label {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  padding: 0 1.25rem;
-  background: linear-gradient(135deg, var(--brand-gold) 0%, var(--brand-gold-dark) 100%);
-  color: #0a0e14;
+  gap: 0.6em;
+  padding: 0 1.75rem 0 1.5rem;
+  color: var(--tv-gold);
   font-weight: 900;
-  font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
   white-space: nowrap;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
-  padding-right: 2rem;
+  border-right: 1px solid var(--tv-card-border);
 }
 
-/* Scrolling track wrapper */
+.prize-ticker-icon {
+  width: 1.5em;
+  height: 1.5em;
+}
+
 .prize-ticker-track-wrap {
   flex: 1;
   overflow: hidden;
@@ -712,49 +798,50 @@
   align-items: center;
 }
 
-/* Inner track — doubled items for seamless loop */
 .prize-ticker-track {
   display: flex;
   align-items: center;
   white-space: nowrap;
+  width: 100%;
+  justify-content: space-evenly;
+}
+
+.prize-ticker-track.scrolling {
+  width: auto;
+  justify-content: flex-start;
   will-change: transform;
   animation: prize-ticker-scroll linear infinite;
   /* duration set inline per number of prizes */
 }
 
-/* Individual prize item */
 .prize-ticker-item {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.5rem;
-  padding: 0 2rem;
+  padding: 0 1.5rem;
+  border-left: 1px solid var(--tv-card-border);
+}
+
+.prize-ticker-item:first-child {
+  border-left: 0;
 }
 
 .prize-ticker-pos {
   font-weight: 700;
-  color: #ffffff;
-  font-size: 13px;
+  color: var(--tv-text);
   letter-spacing: 0.3px;
 }
 
 .prize-ticker-sep {
-  color: var(--text-muted);
-  font-size: 12px;
+  color: var(--tv-muted);
+  opacity: 0.6;
 }
 
 .prize-ticker-val {
   font-weight: 800;
-  color: #ffffff;
-  font-size: 15px;
+  color: var(--tv-gold);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.5px;
-}
-
-.prize-ticker-dot {
-  color: var(--text-gold);
-  font-size: 8px;
-  opacity: 0.6;
-  margin-left: 0.5rem;
 }
 
 /* Push main content up so ticker doesn't overlap — height driven by JS var */
@@ -774,8 +861,8 @@
   bottom: 0;
   width: 240px;
   z-index: 50;
-  background: linear-gradient(180deg, rgba(20, 25, 34, 0.95) 0%, rgba(10, 14, 19, 0.92) 100%);
-  border-left: 2px solid var(--gold-accent, var(--brand-gold));
+  background: rgba(7, 14, 28, 0.96);
+  border-left: 2px solid var(--tv-gold);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -785,13 +872,13 @@
 .prize-sidebar-header {
   flex-shrink: 0;
   padding: 14px 16px;
-  background: linear-gradient(135deg, var(--brand-gold) 0%, var(--brand-gold-dark) 100%);
-  color: #0a0e14;
+  background: rgba(242, 193, 78, 0.08);
+  color: var(--tv-gold);
   font-weight: 900;
   letter-spacing: 2px;
   text-transform: uppercase;
   text-align: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--tv-card-border);
 }
 
 .prize-sidebar-list-wrap {
@@ -821,7 +908,7 @@
   justify-content: space-between;
   align-items: baseline;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(91, 91, 232, 0.15);
+  border-bottom: 1px solid var(--tv-card-border);
   white-space: nowrap;
 }
 
@@ -831,14 +918,14 @@
 
 .prize-sidebar-pos {
   font-weight: 700;
-  color: var(--text-secondary);
+  color: var(--tv-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .prize-sidebar-val {
   font-weight: 800;
-  color: #ffffff;
+  color: var(--tv-gold);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.3px;
 }
