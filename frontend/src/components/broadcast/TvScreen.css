@@ -1,13 +1,21 @@
 /* ============================================================================
-   Telão (tela de transmissão) — palco fixo de 1920×1080
+   Telão (tela de transmissão) — palco de 1920×1080 que cobre a tela
    ----------------------------------------------------------------------------
    Todos os px abaixo são do PALCO: `TvStage` escala o conjunto para a tela
-   real (720p, 1080p, 4K, prévia). Tamanhos de texto multiplicam `--tv-font`
-   (controle +/− do próprio telão / slider das Configurações).
+   real (720p, 1080p, 4K, prévia) e estica o palco até as bordas quando a tela
+   não é 16:9 — por isso a tela é `width/height: 100%` do palco, e não 1920×1080
+   fixos. Tamanhos de texto multiplicam `--tv-font` (slider das Configurações /
+   botões +/− escondidos do próprio telão).
+
+   Onde o navegador sabe container queries (Chrome 105+, Safari 16+, Firefox
+   110+) os textos dos tiles e do relógio são proporcionais ao espaço que têm
+   (`cqh`): uma fonte de 160% com sete tiles não transborda, ela para de
+   crescer quando a coluna enche. Sem suporte, valem os px simples.
 
    Cores vêm de custom properties preenchidas por `TvScreen` a partir das
    colunas `broadcast_*_color` do dia:
      --tv-accent / --tv-accent-deep   destaque (anel, filetes, ícones, selo)
+     --tv-accent-soft / -glow         destaque translúcido (bordas, brilho)
      --tv-c-*                          cor por elemento
    Sem `backdrop-filter`: TV box fraca + transform scale = engasgo.
    ========================================================================== */
@@ -46,6 +54,7 @@
   background: rgba(4, 7, 18, var(--tv-overlay, 0));
 }
 
+/* largura/altura reais vêm inline de `TvStage` (≥ 1920×1080) */
 .tv-stage {
   position: absolute;
   top: 50%;
@@ -59,12 +68,12 @@
 /* ── Tela ───────────────────────────────────────────────────────────────── */
 .tv-screen {
   box-sizing: border-box;
-  width: 1920px;
-  height: 1080px;
-  padding: 26px 40px 30px;
+  width: 100%;
+  height: 100%;
+  padding: 16px 26px 20px;
   display: grid;
-  grid-template-rows: 118px minmax(0, 1fr) auto;
-  gap: 18px 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px 0;
   color: #ffffff;
 }
 
@@ -89,25 +98,27 @@
 }
 
 /* ── Cabeçalho ──────────────────────────────────────────────────────────── */
+/* Colunas laterais iguais: o título fica no centro da TELA; a marca do
+   AceBlind encosta na esquerda e a do clube na direita. */
 .tv-header {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr) 300px;
   align-items: center;
   gap: 24px;
-  min-height: 118px;
+  min-height: 96px;
 }
 
 .tv-header-side {
   display: flex;
   align-items: center;
-  min-height: 90px;
+  min-height: 72px;
 }
 
 .tv-header-left { justify-content: flex-start; }
 .tv-header-right { justify-content: flex-end; }
 
 .tv-logo-img {
-  height: 64px;
+  height: 60px;
   width: auto;
   object-fit: contain;
   opacity: 0.95;
@@ -134,7 +145,8 @@
 .tv-title-text {
   margin: 0;
   font-family: var(--font-display, 'Sora', sans-serif);
-  font-size: calc(58px * var(--tv-font, 1));
+  /* teto: a fonte de 160% não pode comer o corpo da tela */
+  font-size: min(calc(58px * var(--tv-font, 1)), 76px);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: 0.02em;
@@ -167,11 +179,11 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  min-height: 64px;
+  min-height: 60px;
 }
 
 .tv-club-logo-img {
-  height: calc(64px * var(--club-logo-scale));
+  height: calc(60px * var(--club-logo-scale));
   max-width: 300px;
   width: auto;
   object-fit: contain;
@@ -179,7 +191,7 @@
 
 .tv-club-name {
   font-family: var(--font-display, 'Sora', sans-serif);
-  font-size: calc(30px * var(--tv-font, 1));
+  font-size: min(calc(30px * var(--tv-font, 1)), 40px);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -191,20 +203,27 @@
 /* ── Corpo ──────────────────────────────────────────────────────────────── */
 .tv-body {
   display: flex;
-  gap: 28px;
+  gap: 24px;
   min-height: 0;
 }
 
+/* Coluna da direita vazia, do mesmo tamanho da esquerda: o relógio fica no
+   centro da TELA (como no mockup), não no centro do que sobra dos tiles. */
 .tv-live {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 440px minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: 440px minmax(0, 1fr) 440px;
+  gap: 24px;
 }
 
-.tv-live--no-tiles {
+/* Com a coluna de prêmios à direita, ela é o contrapeso. */
+.tv-screen--with-sidebar .tv-live {
+  grid-template-columns: 440px minmax(0, 1fr);
+}
+
+.tv-live.tv-live--no-tiles {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -213,29 +232,33 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
+  min-width: 0;
 }
 
 .tv-tile {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
-  gap: 18px;
-  padding: 14px 24px;
-  min-height: 92px;
+  gap: 16px;
+  padding: 10px 20px 10px 12px;
+  min-height: 0;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(8, 13, 32, 0.62);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
 }
 
 .tv-tile-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
   color: var(--tv-accent);
 }
 
@@ -258,6 +281,7 @@
   text-transform: uppercase;
   color: var(--tv-c-tile-label, #f3f4f6);
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .tv-tile-value {
@@ -268,6 +292,17 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* "NÍVEL 5" numa linha só */
+.tv-tile--inline .tv-tile-text {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.tv-tile--inline .tv-tile-label {
+  font-size: calc(26px * var(--tv-font, 1));
 }
 
 /* ── Centro: relógio + anel ─────────────────────────────────────────────── */
@@ -281,8 +316,9 @@
 
 .tv-clock-wrap {
   position: relative;
-  width: 640px;
-  height: 640px;
+  width: calc(740px * var(--tv-font, 1));
+  height: calc(740px * var(--tv-font, 1));
+  max-width: 100%;
   max-height: 100%;
   display: flex;
   align-items: center;
@@ -312,7 +348,7 @@
   stroke: var(--tv-accent);
   stroke-linecap: round;
   transition: stroke-dashoffset 0.9s linear;
-  filter: drop-shadow(0 0 6px rgba(242, 204, 92, 0.35));
+  filter: drop-shadow(0 0 6px var(--tv-accent-glow, rgba(242, 204, 92, 0.35)));
 }
 
 .tv-clock-wrap--paused .tv-ring-progress {
@@ -377,7 +413,7 @@
   margin-top: 8px;
   padding: 10px 40px;
   border: 2px solid var(--tv-accent);
-  border-radius: 999px;
+  border-radius: 18px;
   background: rgba(0, 0, 0, 0.25);
   white-space: nowrap;
 }
@@ -391,19 +427,83 @@
 .tv-next-value {
   font-size: calc(40px * var(--tv-font, 1));
   font-weight: 700;
-  color: var(--tv-c-next-value, #ffffff);
+  color: var(--tv-c-next-value, var(--tv-accent));
+}
+
+/* ── Ajuste ao espaço (container queries) ───────────────────────────────── */
+/* Cada tile é um container: reparte a coluna com os irmãos (teto = 100px ×
+   fonte) e seus textos são % da própria altura. O relógio idem: o anel mede
+   740px × fonte, mas nunca mais que o centro; o que está dentro acompanha. */
+@supports (container-type: size) {
+  .tv-tile {
+    container-type: size;
+    flex: 1 1 0;
+    max-height: calc(100px * var(--tv-font, 1));
+  }
+
+  .tv-tile--inline {
+    flex-grow: 0.78;
+    max-height: calc(78px * var(--tv-font, 1));
+  }
+
+  /* `cqh` é da caixa de CONTEÚDO do tile (altura − 22px de padding/borda):
+     num tile de 100px sobram 78px, e as frações abaixo reproduzem os
+     17/40px (e 26/40px no de linha única) do desenho em px. */
+  .tv-tile-icon {
+    width: min(58px, 74cqh);
+    height: min(58px, 74cqh);
+  }
+
+  .tv-tile-icon svg {
+    width: min(34px, 44cqh);
+    height: min(34px, 44cqh);
+  }
+
+  .tv-tile-label { font-size: 22cqh; }
+  .tv-tile-value { font-size: 51cqh; }
+  .tv-tile--inline .tv-tile-label { font-size: 46cqh; }
+  .tv-tile--inline .tv-tile-value { font-size: 71cqh; }
+
+  .tv-center {
+    container-type: size;
+  }
+
+  .tv-clock-wrap {
+    container-type: size;
+    width: min(calc(740px * var(--tv-font, 1)), 100cqh, 100cqw);
+    height: min(calc(740px * var(--tv-font, 1)), 100cqh, 100cqw);
+  }
+
+  .tv-clock-content { gap: 1.3cqh; }
+  .tv-clock { font-size: 29.5cqh; }
+  .tv-blinds-label { font-size: 4.2cqh; }
+  .tv-blinds-line { font-size: 11.5cqh; }
+
+  .tv-next {
+    gap: 1.8cqh;
+    margin-top: 1cqh;
+    padding: 1.3cqh 5.2cqh;
+    border-width: 0.3cqh;
+    border-radius: 2.4cqh;
+  }
+
+  .tv-next-label { font-size: 4.2cqh; }
+  .tv-next-value { font-size: 5.6cqh; }
 }
 
 /* ── Prêmios: barra inferior ────────────────────────────────────────────── */
 .tv-prizes-bar {
   display: flex;
   align-items: center;
-  gap: 24px;
-  min-height: calc(76px * var(--tv-prize, 1));
-  padding: 8px 10px 8px 8px;
+  gap: 20px;
+  min-height: calc(80px * var(--tv-prize, 1));
+  padding: 8px 14px 8px 8px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 13, 32, 0.62);
+  border: 1px solid var(--tv-accent-soft, rgba(242, 204, 92, 0.55));
+  box-shadow:
+    0 0 28px var(--tv-accent-glow, rgba(242, 204, 92, 0.12)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   overflow: hidden;
 }
 
@@ -414,8 +514,9 @@
   flex: 0 0 auto;
   padding: calc(10px * var(--tv-prize, 1)) calc(22px * var(--tv-prize, 1));
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--tv-accent), var(--tv-accent-deep));
-  color: #0b1020;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--tv-accent-soft, rgba(242, 204, 92, 0.55));
+  color: var(--tv-accent);
   font-family: var(--font-display, 'Sora', sans-serif);
   font-size: calc(26px * var(--tv-prize, 1));
   font-weight: 800;
@@ -515,8 +616,8 @@
   min-height: 0;
   padding: 16px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 13, 32, 0.62);
+  border: 1px solid var(--tv-accent-soft, rgba(242, 204, 92, 0.55));
 }
 
 .tv-prizes-sidebar-header {
@@ -526,8 +627,9 @@
   gap: 10px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--tv-accent), var(--tv-accent-deep));
-  color: #0b1020;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--tv-accent-soft, rgba(242, 204, 92, 0.55));
+  color: var(--tv-accent);
   font-family: var(--font-display, 'Sora', sans-serif);
   font-size: calc(20px * var(--tv-prize, 1));
   font-weight: 800;

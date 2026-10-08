@@ -123,9 +123,9 @@ class TournamentDayBase(BaseModel):
     broadcast_show_prizes: bool = Field(default=True)
     broadcast_show_chipcount: bool = Field(default=True)
     broadcast_show_average: bool = Field(default=True)
-    # Padrão DESLIGADO: o número não existia até 2026-09 e ligá-lo sozinho
-    # mudaria o telão de todos os clubes sem ninguém ter pedido.
-    broadcast_show_reentries: bool = Field(default=False, description="Show re-entries (rebuys + add-ons) on the broadcast sidebar")
+    # Ligado por padrão desde 2026-10: o layout do cliente tem o tile
+    # "Reentradas" fixo (migração broadcast_show_reentries_default_on).
+    broadcast_show_reentries: bool = Field(default=True, description="Show re-entries (rebuys + add-ons) on the broadcast sidebar")
     broadcast_blind_alerts_enabled: bool = Field(default=True, description="Whether audio beeps fire 60s/30s/1s before a blind change")
     broadcast_prizes_layout: str = Field(default='bottom', description="Where the prize list renders: 'bottom' (scrolling ticker) or 'sidebar' (right column)")
 

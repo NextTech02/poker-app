@@ -197,12 +197,12 @@ describe('padrões de um dia antigo', () => {
     expect(enviado().broadcast_timer_color).toBe('#ff0000');
   });
 
-  it('reentradas nasce DESLIGADA e o escurecimento do fundo em 45%', async () => {
-    // Reentradas é número novo: ligar sozinho mudaria o telão de todo clube.
+  it('reentradas nasce LIGADA e o escurecimento do fundo em 45%', async () => {
+    // O layout do cliente (2026-10) tem o tile "Reentradas" fixo.
     await montar();
     await salvar();
     await waitFor(() => expect(api.patch).toHaveBeenCalled());
-    expect(enviado().broadcast_show_reentries).toBe(false);
+    expect(enviado().broadcast_show_reentries).toBe(true);
     expect(enviado().broadcast_bg_overlay).toBe(45);
   });
 });

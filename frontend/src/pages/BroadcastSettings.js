@@ -179,7 +179,7 @@ const BroadcastSettings = () => {
           broadcast_show_prizepool:  d.broadcast_show_prizepool  !== false,
           broadcast_show_level:      d.broadcast_show_level      !== false,
           broadcast_show_players:    d.broadcast_show_players    !== false,
-          broadcast_show_reentries:  d.broadcast_show_reentries  === true,
+          broadcast_show_reentries:  d.broadcast_show_reentries  !== false,
           broadcast_show_interval:   d.broadcast_show_interval   !== false,
           broadcast_show_timer:      d.broadcast_show_timer      !== false,
           broadcast_show_blinds:     d.broadcast_show_blinds     !== false,

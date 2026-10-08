@@ -25,10 +25,32 @@ describe('TvStage', () => {
     expect(document.querySelector('.tv-stage').style.transform).toContain('scale(0.6666');
   });
 
-  it('numa tela mais estreita que 16:9 escala pela largura', () => {
+  it('numa tela mais estreita que 16:9 escala pela largura e o palco cresce para baixo', () => {
     medir(1600, 1080);
     render(<TvStage><div>x</div></TvStage>);
     expect(escala()).toBeCloseTo(0.8333, 3);
+    const palco = document.querySelector('.tv-stage').style;
+    expect(palco.width).toBe('1920px');
+    expect(palco.height).toBe('1296px');
+  });
+
+  it('numa tela mais larga que 16:9 o palco alarga até as bordas (sem faixas laterais)', () => {
+    // Janela de navegador 1850×926: antes o palco ficava 1646px de largura no
+    // meio, com ~100px vazios de cada lado — os tiles longe do canto.
+    medir(1850, 926);
+    render(<TvStage><div>x</div></TvStage>);
+    expect(escala()).toBeCloseTo(0.8574, 3);
+    const palco = document.querySelector('.tv-stage').style;
+    expect(palco.width).toBe('2158px');
+    expect(palco.height).toBe('1080px');
+  });
+
+  it('em 16:9 exato o palco é 1920×1080', () => {
+    medir(1920, 1080);
+    render(<TvStage><div>x</div></TvStage>);
+    const palco = document.querySelector('.tv-stage').style;
+    expect(palco.width).toBe('1920px');
+    expect(palco.height).toBe('1080px');
   });
 
   it('4K amplia', () => {
@@ -37,11 +59,14 @@ describe('TvStage', () => {
     expect(escala()).toBe(2);
   });
 
-  it('na prévia (fit=width) a escala é só pela largura', () => {
+  it('na prévia (fit=width) a escala é só pela largura e o palco fica 1920×1080', () => {
     medir(1200, 0);
     render(<TvStage fit="width"><div>x</div></TvStage>);
     expect(escala()).toBeCloseTo(0.625, 3);
     expect(document.querySelector('.tv-root')).toHaveClass('tv-root--width');
+    const palco = document.querySelector('.tv-stage').style;
+    expect(palco.width).toBe('1920px');
+    expect(palco.height).toBe('1080px');
   });
 
   it('sem medida (jsdom) usa a janela e nunca fica em zero', () => {

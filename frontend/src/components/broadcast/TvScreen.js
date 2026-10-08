@@ -5,7 +5,7 @@ import BROADCAST_LABELS from '../../utils/broadcastLabels';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { resolveBackground } from './tvBackgrounds';
 import {
-  buildTvSettings, extractYouTubeId, formatClock, formatCountdown, formatChips, shadeHex,
+  buildTvSettings, extractYouTubeId, formatClock, formatCountdown, formatChips, shadeHex, alphaHex,
 } from './tvModel';
 import './TvScreen.css';
 
@@ -18,10 +18,11 @@ import './TvScreen.css';
  * dados de amostra, a TV passa o relógio real.
  *
  * Layout (mockup do cliente, 2026-10): cabeçalho com título entre filetes e
- * marca do clube à direita; coluna de tiles à esquerda; relógio gigante
- * dentro de um anel de progresso do nível; blinds e próximo nível abaixo;
- * barra de prêmios no rodapé. Cores por CSS custom properties (`--tv-*`),
- * preenchidas pelas colunas `broadcast_*_color` do dia.
+ * marca do clube à direita; coluna de tiles encostada na borda esquerda;
+ * relógio gigante dentro de um anel de progresso do nível, centrado na TELA;
+ * blinds e próximo nível abaixo; barra de prêmios no rodapé, de borda a
+ * borda. Cores por CSS custom properties (`--tv-*`), preenchidas pelas
+ * colunas `broadcast_*_color` do dia.
  */
 
 const RING_R = 46;
@@ -91,8 +92,8 @@ const TvHeader = ({ model, settings }) => {
 
 // ── Tiles (coluna esquerda) ─────────────────────────────────────────────────
 
-const Tile = ({ icon, label, value, kind }) => (
-  <div className={`tv-tile tv-tile--${kind}`}>
+const Tile = ({ icon, label, value, kind, inline = false }) => (
+  <div className={`tv-tile tv-tile--${kind}${inline ? ' tv-tile--inline' : ''}`}>
     <span className="tv-tile-icon"><Icon name={icon} /></span>
     <span className="tv-tile-text">
       <span className="tv-tile-label">{label}</span>
@@ -101,23 +102,27 @@ const Tile = ({ icon, label, value, kind }) => (
   </div>
 );
 
+/**
+ * Os tiles seguem a estrutura do mockup do cliente: cada um que está ligado
+ * aparece SEMPRE, mesmo valendo zero ("Entradas 0", "Reentradas 0"). Antes o
+ * zero sumia o tile, e o cliente, com as reentradas ligadas, não as via — e a
+ * coluna mudava de forma conforme o torneio andava.
+ */
 const buildTiles = (model, settings, L) => {
   const tiles = [];
   if (settings.showLevel) {
-    tiles.push({ kind: 'level', icon: 'trophy-cup', label: L.level, value: model.level });
+    // "NÍVEL 5" numa linha só, como no mockup.
+    tiles.push({ kind: 'level', icon: 'trophy-cup', label: L.level, value: model.level, inline: true });
   }
   if (settings.showPlayers) {
     tiles.push({
       kind: 'players', icon: 'users', label: L.players,
       value: `${model.players.active} ${L.of} ${model.players.total}`,
     });
+    tiles.push({ kind: 'entries', icon: 'ticket', label: L.entries, value: model.entries || 0 });
   }
-  // "Entradas: 0" antes do torneio começar não informa nada.
-  if (settings.showPlayers && model.entries > 0) {
-    tiles.push({ kind: 'entries', icon: 'ticket', label: L.entries, value: model.entries });
-  }
-  if (settings.showReentries && model.reentries > 0) {
-    tiles.push({ kind: 'reentries', icon: 'refresh', label: L.reentries, value: model.reentries });
+  if (settings.showReentries) {
+    tiles.push({ kind: 'reentries', icon: 'refresh', label: L.reentries, value: model.reentries || 0 });
   }
   if (settings.showInterval && model.breakIn !== null && model.breakIn !== undefined) {
     tiles.push({ kind: 'break', icon: 'clock', label: L.intervalIn, value: formatCountdown(model.breakIn) });
@@ -435,6 +440,9 @@ const TvScreen = ({
     '--tv-pool': s.prizepoolScale,
     '--tv-accent': accent,
     '--tv-accent-deep': shadeHex(accent),
+    // Bordas e brilhos na cor de destaque, translúcidos (barra de prêmios).
+    '--tv-accent-soft': alphaHex(accent, 0.55),
+    '--tv-accent-glow': alphaHex(accent, 0.12),
     '--tv-c-timer': c.timer,
     '--tv-c-title': c.title,
     '--tv-c-blinds-label': c.blindsLabel,

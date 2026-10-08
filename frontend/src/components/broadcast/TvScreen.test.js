@@ -57,22 +57,35 @@ describe('cabeçalho', () => {
 
 describe('tiles', () => {
   it('os sete, na ordem do mockup, com os valores formatados', () => {
-    montar({}, { broadcast_show_reentries: true });
+    montar();
     const rotulos = tiles().map((t) => t.querySelector('.tv-tile-label').textContent);
     expect(rotulos).toEqual(['NÍVEL', 'JOGADORES', 'ENTRADAS', 'REENTRADAS', 'INTERVALO EM', 'CHIP COUNT', 'MÉDIA']);
     const valores = tiles().map((t) => t.querySelector('.tv-tile-value').textContent);
     expect(valores).toEqual(['5', '45 de 120', '165', '6', '18:32', '1.650.000', '36.667']);
   });
 
-  it('reentradas só aparece quando ligada (padrão desligado)', () => {
+  it('"NÍVEL 5" é o único tile de linha única, como no mockup', () => {
     montar();
+    expect(document.querySelector('.tv-tile--level')).toHaveClass('tv-tile--inline');
+    expect(document.querySelectorAll('.tv-tile--inline').length).toBe(1);
+  });
+
+  it('reentradas nasce ligada e pode ser desligada', () => {
+    montar();
+    expect(document.querySelector('.tv-tile--reentries')).toBeInTheDocument();
+    document.body.innerHTML = '';
+    montar({}, { broadcast_show_reentries: false });
     expect(document.querySelector('.tv-tile--reentries')).toBeNull();
   });
 
-  it('entradas zero, chipcount zero e sem intervalo à vista somem', () => {
-    montar({ model: { entries: 0, chipcount: 0, averageStack: 0, breakIn: null } });
+  it('entradas e reentradas zeradas continuam na coluna (com 0); chipcount zero e sem intervalo à vista somem', () => {
+    // A coluna tem a mesma forma do começo ao fim do torneio — o cliente,
+    // com reentradas ligadas e nenhuma recompra ainda, não via o tile.
+    montar({ model: { entries: 0, reentries: 0, chipcount: 0, averageStack: 0, breakIn: null } });
+    expect(document.querySelector('.tv-tile--entries .tv-tile-value')).toHaveTextContent('0');
+    expect(document.querySelector('.tv-tile--reentries .tv-tile-value')).toHaveTextContent('0');
     const kinds = tiles().map((t) => t.className);
-    expect(kinds.join(' ')).not.toMatch(/entries|chips|average|break/);
+    expect(kinds.join(' ')).not.toMatch(/chips|average|break/);
     expect(document.querySelector('.tv-tile--players')).toBeInTheDocument();
   });
 
@@ -84,8 +97,8 @@ describe('tiles', () => {
 
   it('desligar tudo remove a coluna inteira e o relógio ocupa o centro', () => {
     montar({}, {
-      broadcast_show_level: false, broadcast_show_players: false, broadcast_show_interval: false,
-      broadcast_show_chipcount: false, broadcast_show_average: false,
+      broadcast_show_level: false, broadcast_show_players: false, broadcast_show_reentries: false,
+      broadcast_show_interval: false, broadcast_show_chipcount: false, broadcast_show_average: false,
     });
     expect(document.querySelector('.tv-tiles')).toBeNull();
     expect(document.querySelector('.tv-live')).toHaveClass('tv-live--no-tiles');

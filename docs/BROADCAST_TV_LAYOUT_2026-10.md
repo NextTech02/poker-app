@@ -15,9 +15,43 @@ Configurações (`pages/BroadcastSettings.js`) renderizam o MESMO
 `components/broadcast/TvScreen` dentro de `TvStage`. Antes a prévia era uma
 cópia inline que ficava para trás a cada mudança.
 
-**Palco fixo escalado.** `TvStage` desenha 1920×1080 e aplica
-`transform: scale(min(W/1920, H/1080))` — o mesmo CSS serve 720p, 1080p, 4K e a
-prévia de 1200 px, sem media query. O fundo cobre o viewport inteiro.
+**Palco escalado que cobre a tela.** `TvStage` desenha um palco de 1920×1080
+*ou maior* e aplica `transform: scale(min(W/1920, H/1080))` — o mesmo CSS
+serve 720p, 1080p, 4K e a prévia de 1200 px, sem media query. A dimensão que a
+escala não preenche é esticada (tela 1850×926 → palco 2158×1080; 1600×1080 →
+1920×1296): o conteúdo encosta nas bordas da tela de verdade. Antes o palco
+era fixo e, numa janela que não é 16:9, sobravam ~100 px vazios de cada lado
+com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
+
+## Ajustes do cliente (2026-10-08, 2ª rodada)
+
+- **Tiles encostados na borda esquerda e relógio no centro da TELA.** Padding
+  da tela caiu para 26 px laterais; a grade do corpo é `440px | 1fr | 440px`
+  (coluna da direita vazia, do tamanho da esquerda) — com a coluna de prêmios
+  lateral ela é o contrapeso. Barra de prêmios de borda a borda, com borda
+  dourada translúcida (`--tv-accent-soft`) e selo "PRÊMIOS" em dourado sobre
+  escuro, como no mockup.
+- **Todo tile ligado aparece SEMPRE, mesmo em zero** ("Entradas 0",
+  "Reentradas 0"). Era o bug relatado: o cliente ligou as reentradas e não as
+  via porque ainda não havia recompra. "Nível" é o único tile de linha única
+  (`tv-tile--inline`). Intervalo em / chip count / média continuam sumindo
+  quando não há valor (sem intervalo na estrutura, sem fichas).
+- **Reentradas nasce ligada** (`database_migration_broadcast_show_reentries_default_on.sql`:
+  DEFAULT true + dias existentes com `false` viram `true`, já que o
+  interruptor nunca esteve no ar em produção). Frontend lê `!== false`,
+  backend `default=True`.
+- **Botões +/− de fonte invisíveis.** Nada aparece no telão nem ao mexer o
+  mouse (antes: 3 s a cada movimento, e saíam em toda captura). Continuam no
+  DOM: cursor parado no cantinho inferior esquerdo ou foco de teclado os
+  revela. O caminho normal é o slider das Configurações.
+- **Fonte grande não transborda.** Onde há container queries (Chrome 105+),
+  cada tile reparte a coluna com os irmãos (teto 100 px × fonte) e os textos
+  são `cqh` da própria altura; o anel mede 740 px × fonte, limitado ao
+  centro, e relógio/blinds/pílula são `cqh` do anel. Um dia com fonte 160%
+  e sete tiles fica inteiro na tela. Título e nome do clube têm teto em px.
+  Sem suporte, valem os px simples (comportamento anterior).
+- Cor padrão do próximo nível na pílula passou a ser o dourado
+  (`broadcast_next_value_color`), como no mockup.
 
 **Biblioteca de fundos.** Bucket público `broadcast-backgrounds` + tabela
 `broadcast_backgrounds` (por organização). O clube sobe as imagens uma vez e
@@ -70,6 +104,7 @@ Também corrigido: `broadcast_show_reentries` faltava nos modelos do backend
   `routers/organizations.py` (limpeza do Storage ao excluir a organização).
 - `db/migrations/database_migration_broadcast_backgrounds.sql`
 - `db/migrations/database_migration_broadcast_gold_defaults.sql`
+- `db/migrations/database_migration_broadcast_show_reentries_default_on.sql`
 
 ## Ordem de deploy (IMPORTANTE)
 
@@ -80,6 +115,9 @@ Também corrigido: `broadcast_show_reentries` faltava nos modelos do backend
    novo no ar**: com o backend antigo, uma cor NULL derruba
    `GET /tournament-days/{id}` (campo `str` obrigatório).
 4. Frontend.
+5. `database_migration_broadcast_show_reentries_default_on.sql` — a qualquer
+   hora (só muda um boolean); sem ela, os dias antigos seguem sem o tile de
+   reentradas até alguém ligar nas Configurações.
 
 Depois do passo 3 todos os dias existentes passam a usar o dourado (eles só
 tinham o padrão da época gravado, não uma escolha). Quem personalizou cores

@@ -297,10 +297,9 @@ describe('o que a tela mostra ao vivo', () => {
     expect(document.querySelector('.tv-tile--entries')).toHaveTextContent('25');
   });
 
-  it('sem entrada nenhuma a linha de entradas some', async () => {
-    // "Entradas: 0" antes do torneio começar não informa nada.
+  it('sem entrada nenhuma a linha de entradas fica em 0 (a coluna não muda de forma)', async () => {
     await montar({}, relogio({ total_entries: 0 }));
-    expect(tiles()).not.toHaveTextContent('ENTRADAS');
+    expect(document.querySelector('.tv-tile--entries .tv-tile-value')).toHaveTextContent('0');
   });
 
   it('mostra chipcount e stack médio formatados', async () => {
@@ -461,8 +460,8 @@ describe('o que pode ser desligado', () => {
       dia: {
         ...DIA,
         broadcast_show_level: false, broadcast_show_players: false,
-        broadcast_show_interval: false, broadcast_show_chipcount: false,
-        broadcast_show_average: false,
+        broadcast_show_reentries: false, broadcast_show_interval: false,
+        broadcast_show_chipcount: false, broadcast_show_average: false,
       },
     });
     expect(tiles()).toBeNull();
@@ -864,23 +863,15 @@ describe('ajuste de fonte pelo próprio telão', () => {
     expect(fonte()).toBe('1');
   });
 
-  it('mexer o mouse em qualquer ponto mostra os botões por alguns segundos', async () => {
-    // Só hover em cima deles não bastava: com a coluna de premiação no canto,
-    // ninguém sabia onde estavam. Parado, o telão volta a ficar limpo.
+  it('os botões são invisíveis: mexer o mouse pela tela não os revela', async () => {
+    // Pedido do cliente (2026-10): nada de +/− no telão. Eles continuam no DOM
+    // (quem leva o cursor até o cantinho, ou chega por teclado, usa), mas sem
+    // a classe que o movimento do mouse ligava — só o hover/foco do CSS.
     await montar();
-    jest.useFakeTimers();
-    const grupo = () => document.querySelector('.broadcast-font-controls');
-    expect(grupo().classList.contains('is-visible')).toBe(false);
+    const grupo = document.querySelector('.broadcast-font-controls');
     fireEvent.mouseMove(window, { clientX: 300, clientY: 300 });
-    expect(grupo().classList.contains('is-visible')).toBe(true);
-    act(() => { jest.advanceTimersByTime(2500); });
-    expect(grupo().classList.contains('is-visible')).toBe(true);
-    fireEvent.mouseMove(window, { clientX: 310, clientY: 300 });
-    act(() => { jest.advanceTimersByTime(2500); });
-    // O segundo movimento reiniciou a contagem.
-    expect(grupo().classList.contains('is-visible')).toBe(true);
-    act(() => { jest.advanceTimersByTime(600); });
-    expect(grupo().classList.contains('is-visible')).toBe(false);
-    jest.useRealTimers();
+    expect(grupo.classList.contains('is-visible')).toBe(false);
+    expect(grupo.className).toBe('broadcast-font-controls');
+    expect(mais()).toBeInTheDocument();
   });
 });

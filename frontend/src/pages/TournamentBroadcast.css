@@ -78,14 +78,13 @@
 }
 
 /* ── Ajuste de fonte pelo próprio telão (canto inferior ESQUERDO) ─────────────
-   Invisível até o cursor chegar perto. O padding assimétrico é a zona de
-   acerto: ~220px de largura por ~200px de altura, transparente, encostada no
-   canto — basta levar o cursor em direção ao canto para os botões surgirem,
-   sem precisar mirar neles (com 16px em volta ninguém os achava). Fica à
-   esquerda porque o canto direito é da coluna de prêmios; embaixo dos tiles
-   não há nada. Tamanhos em px fixos de propósito: é controle, não conteúdo —
-   não acompanha a fonte que ele mesmo ajusta. z-index acima do palco e do
-   overlay legado, abaixo do OrgScopeBanner (900) e dos toasts. */
+   INVISÍVEL por pedido do cliente (2026-10): o telão não mostra os botões em
+   situação nenhuma — mexer o mouse não os revela (antes revelava por 3 s, e
+   eles apareciam em toda captura de tela). Só aparecem com o cursor parado
+   EM CIMA deles, no cantinho, ou por foco de teclado; a zona de acerto é só
+   a dos próprios botões. Tamanhos em px fixos de propósito: é controle, não
+   conteúdo — não acompanha a fonte que ele mesmo ajusta. z-index acima do
+   palco e do overlay legado, abaixo do OrgScopeBanner (900) e dos toasts. */
 .broadcast-font-controls {
   position: fixed;
   left: 0;
@@ -95,15 +94,11 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 80px 160px 24px 24px;
+  padding: 14px;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
-/* `is-visible`: o JS liga por 3s a cada movimento do mouse em qualquer ponto
-   da tela. Hover e foco de teclado seguram os botões visíveis enquanto a
-   pessoa está neles. */
-.broadcast-font-controls.is-visible,
 .broadcast-font-controls:hover,
 .broadcast-font-controls:focus-within {
   opacity: 1;

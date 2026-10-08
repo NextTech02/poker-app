@@ -192,12 +192,12 @@ describe('blindValuesAt', () => {
 });
 
 describe('buildTvSettings', () => {
-  it('campo nulo no banco mantém tudo LIGADO; só reentradas nasce desligada', () => {
+  it('campo nulo no banco mantém tudo LIGADO, reentradas inclusive', () => {
     const s = buildTvSettings({});
     expect(s.showTimer).toBe(true);
     expect(s.showPrizepool).toBe(true);
-    expect(s.showReentries).toBe(false);
-    expect(buildTvSettings({ broadcast_show_reentries: true }).showReentries).toBe(true);
+    expect(s.showReentries).toBe(true);
+    expect(buildTvSettings({ broadcast_show_reentries: false }).showReentries).toBe(false);
     expect(buildTvSettings({ broadcast_show_timer: false }).showTimer).toBe(false);
   });
 

@@ -95,25 +95,6 @@ const TournamentBroadcast = () => {
   const patchFonteTimer = useRef(null);
   useEffect(() => () => clearTimeout(patchFonteTimer.current), []);
 
-  // Os botões ficam invisíveis no telão parado. Qualquer movimento do mouse
-  // os mostra por alguns segundos — só exigir hover em cima deles fazia
-  // ninguém achá-los, principalmente com a coluna de premiação ocupando o
-  // canto. Numa TV sem mouse não há movimento, e eles seguem invisíveis.
-  const [controlesVisiveis, setControlesVisiveis] = useState(false);
-  useEffect(() => {
-    let timer = null;
-    const mostrar = () => {
-      setControlesVisiveis(true);
-      clearTimeout(timer);
-      timer = setTimeout(() => setControlesVisiveis(false), 3000);
-    };
-    window.addEventListener('mousemove', mostrar);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('mousemove', mostrar);
-    };
-  }, []);
-
   // SINGLE SOURCE OF TRUTH for day-based tournaments (blinds passed for offline fallback)
   const { timerState } = useTimerSync(isDayBased ? id : null, blinds);
 
@@ -475,11 +456,13 @@ const TournamentBroadcast = () => {
         </div>
       )}
 
-      {/* Ajuste de fonte — invisível até o cursor chegar no canto inferior direito.
-          Fica fora do palco de propósito: é controle, não conteúdo, e no
-          intervalo também se calibra. */}
+      {/* Ajuste de fonte — INVISÍVEL (pedido do cliente, 2026-10): nada
+          aparece no telão, nem ao mexer o mouse; só quem leva o cursor até o
+          canto inferior esquerdo (ou chega por teclado) vê os botões. Fica
+          fora do palco de propósito: é controle, não conteúdo. O slider das
+          Configurações continua sendo o jeito normal de ajustar. */}
       <div
-        className={`broadcast-font-controls${controlesVisiveis ? ' is-visible' : ''}`}
+        className="broadcast-font-controls"
         role="group"
         aria-label={t('broadcast.fontSizeControls')}
       >

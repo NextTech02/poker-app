@@ -38,7 +38,8 @@ export const TV_DEFAULT_SETTINGS = {
   broadcast_ante_label_color: TV_LABEL,
   broadcast_ante_value_color: TV_TEXT,
   broadcast_next_label_color: TV_LABEL,
-  broadcast_next_value_color: TV_TEXT,
+  // No mockup o próximo nível é dourado dentro da pílula ("Next: 200/400").
+  broadcast_next_value_color: TV_ACCENT,
   broadcast_sidebar_label_color: TV_LABEL,
   // O valor dos tiles é a cor de DESTAQUE do tema inteiro: anel do relógio,
   // filetes do título, ícones e selo de prêmios seguem esta.
@@ -51,9 +52,9 @@ export const TV_DEFAULT_SETTINGS = {
   broadcast_show_prizepool: true,
   broadcast_show_level: true,
   broadcast_show_players: true,
-  // Padrão FALSE: o número é novo, e ligá-lo sozinho mudaria o telão de todos
-  // os clubes sem ninguém ter pedido.
-  broadcast_show_reentries: false,
+  // Ligado desde 2026-10: o layout do cliente tem o tile "Reentradas" fixo
+  // (migração `broadcast_show_reentries_default_on`).
+  broadcast_show_reentries: true,
   broadcast_show_interval: true,
   broadcast_show_timer: true,
   broadcast_show_blinds: true,

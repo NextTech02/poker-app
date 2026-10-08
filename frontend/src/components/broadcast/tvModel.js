@@ -46,14 +46,22 @@ export const shadeHex = (hex, amount = 0.18) => {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 };
 
+/** Hex (#rrggbb) → rgba() com transparência; hex inválido volta como veio. */
+export const alphaHex = (hex, alpha) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+};
+
 const color = (source, key) => source?.[key] || TV_DEFAULT_SETTINGS[key];
 const on = (source, key) => source?.[key] !== false;   // nulo no banco = ligado
 const num = (source, key) => source?.[key] ?? TV_DEFAULT_SETTINGS[key];
 
 /**
  * Configurações do telão a partir da linha do dia (ou do torneio, no ramo
- * legado). Mesma semântica de sempre: campo nulo mantém o elemento LIGADO;
- * só `broadcast_show_reentries` nasce desligado.
+ * legado). Mesma semântica de sempre: campo nulo mantém o elemento LIGADO
+ * (reentradas inclusive, desde o layout do cliente de 2026-10).
  */
 export const buildTvSettings = (source, { fontSizeOverride = null } = {}) => {
   const s = source || {};
@@ -77,7 +85,7 @@ export const buildTvSettings = (source, { fontSizeOverride = null } = {}) => {
     showPrizepool: on(s, 'broadcast_show_prizepool'),
     showLevel: on(s, 'broadcast_show_level'),
     showPlayers: on(s, 'broadcast_show_players'),
-    showReentries: s.broadcast_show_reentries === true,
+    showReentries: on(s, 'broadcast_show_reentries'),
     showInterval: on(s, 'broadcast_show_interval'),
     showTimer: on(s, 'broadcast_show_timer'),
     showBlinds: on(s, 'broadcast_show_blinds'),

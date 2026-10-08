@@ -192,8 +192,9 @@ class TestModeloDoDia:
     def test_reentradas_entram_e_saem_do_modelo(self):
         """Antes o campo existia no banco e no toggle mas não no modelo: o
         PATCH descartava e o GET nunca devolvia."""
-        assert TournamentDay(**self._linha(broadcast_show_reentries=True)).broadcast_show_reentries is True
-        assert TournamentDay(**self._linha()).broadcast_show_reentries is False
+        assert TournamentDay(**self._linha(broadcast_show_reentries=False)).broadcast_show_reentries is False
+        # Padrão LIGADO desde 2026-10: o tile "Reentradas" é fixo no layout do cliente.
+        assert TournamentDay(**self._linha()).broadcast_show_reentries is True
         patch = TournamentDayUpdate(broadcast_show_reentries=True).model_dump(exclude_unset=True)
         assert patch == {"broadcast_show_reentries": True}
 
