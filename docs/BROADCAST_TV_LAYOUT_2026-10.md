@@ -86,15 +86,21 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   (`placeRangeLabel` em `broadcastLabels.js`, nos 3 idiomas), na barra e na
   coluna lateral. Vaga e dinheiro de mesmo valor não se misturam.
 - **Meios de entrada abaixo dos blinds** (pedido do cliente, 2026-10-08):
-  interruptor "Meios de entrada com valores" (`broadcast_show_buy_types`,
-  nasce DESLIGADO) mostra uma linha entre o corpo e a barra de prêmios com
-  os `buy_types` ATIVOS do torneio ("BUY-IN: 50 · REBUY: 20 · DOBLE: 30 ·
-  ADDON: 50 · TASA: 50"), que passam a vir em `buy_types` nos extras
-  públicos (só nome, valor e categoria). Linha própria da grade
-  (`tv-screen--with-buytypes`); o anel encolhe pelo container query. Só ao
-  vivo. O tile "Entradas" ganhou interruptor próprio
-  (`broadcast_show_entries`, nasce ligado) para quem mostra os meios
-  embaixo poder esconder a contagem. Migração
+  interruptor "Meios de entrada: quantidade por meio"
+  (`broadcast_show_buy_types`, nasce DESLIGADO) mostra uma linha entre o
+  corpo e a barra de prêmios com os `buy_types` ATIVOS do torneio e
+  **quantas vendas houve por cada um neste dia** ("BUY-IN: 120 · REBUY: 40
+  · DOBLE: 10 · ADDON: 55") — não o valor. Vem em `buy_types` nos extras
+  públicos (`name`, `count`, `amount`, `category`); a contagem é das
+  `transactions` ativas (canceladas fora) dos jogadores do dia, por
+  `buy_type_id`, em lotes de 150 jogadores; venda antiga sem meio cai no
+  primeiro meio ativo da mesma categoria. É a mesma conta dos tiles
+  "Entradas"/"Reentradas", aberta por meio: ligar os meios desmarca os dois
+  (e religar um deles desmarca os meios — `alternarVisibilidade` nas
+  Configurações), e o telão não desenha os dois tiles enquanto os meios
+  estão ligados. Linha própria da grade (`tv-screen--with-buytypes`); o anel
+  encolhe pelo container query. Só ao vivo. O tile "Entradas" ganhou
+  interruptor próprio (`broadcast_show_entries`, nasce ligado). Migração
   `database_migration_broadcast_buy_types.sql`.
 - **Aviso sonoro = contagem dos últimos 10 s** (pedido do cliente,
   2026-10-08): um bipe por segundo de 10 s a 2 s (mais agudo nos 3 últimos) e

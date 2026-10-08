@@ -909,11 +909,14 @@ describe('meios de entrada no telão', () => {
   it('com o interruptor do dia ligado, a linha mostra os meios dos extras', async () => {
     await montar({
       dia: { ...DIA, broadcast_show_buy_types: true },
-      extras: { ...EXTRAS, buy_types: [{ name: 'Buy-in', amount: 50, category: 'buy_in' }, { name: 'Tasa', amount: 50, category: 'addon' }] },
+      extras: { ...EXTRAS, buy_types: [{ name: 'Buy-in', count: 37, amount: 50, category: 'buy_in' }, { name: 'Tasa', count: 4, amount: 50, category: 'addon' }] },
     });
     const linha = document.querySelector('.tv-buytypes');
-    expect(linha).toHaveTextContent('Buy-in');
-    expect(linha).toHaveTextContent('Tasa');
+    expect(linha).toHaveTextContent('Buy-in:37');
+    expect(linha).toHaveTextContent('Tasa:4');
+    // Os tiles da lateral saem: é a mesma conta, aberta por meio.
+    expect(document.querySelector('.tv-tile--entries')).toBeNull();
+    expect(document.querySelector('.tv-tile--reentries')).toBeNull();
   });
 
   it('desligado (padrão), nada aparece mesmo com lista', async () => {

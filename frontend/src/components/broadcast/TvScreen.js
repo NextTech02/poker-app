@@ -126,13 +126,13 @@ const buildTiles = (model, settings, L) => {
       kind: 'players', icon: 'users', label: L.players,
       value: `${model.players.active} ${L.of} ${model.players.total}`,
     });
-    // "Entradas" tem interruptor próprio: quem mostra os meios de entrada
-    // embaixo pode esconder a contagem.
-    if (settings.showEntries) {
+    // "Entradas" tem interruptor próprio. Com os meios de entrada embaixo
+    // (a mesma contagem, aberta por meio) os dois tiles saem da lateral.
+    if (settings.showEntries && !settings.showBuyTypes) {
       tiles.push({ kind: 'entries', icon: 'ticket', label: L.entries, value: model.entries || 0 });
     }
   }
-  if (settings.showReentries) {
+  if (settings.showReentries && !settings.showBuyTypes) {
     tiles.push({ kind: 'reentries', icon: 'refresh', label: L.reentries, value: model.reentries || 0 });
   }
   if (settings.showInterval && model.breakIn !== null && model.breakIn !== undefined) {
@@ -324,9 +324,11 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
 // ── Meios de entrada (linha abaixo dos blinds) ──────────────────────────────
 
 /**
- * "BUY-IN: 50 · REBUY: 20 · DOBLE: 30 · ADDON: 50 · TASA: 50" — os meios de
- * entrada ATIVOS do torneio com seus valores, numa linha entre o relógio e a
- * barra de prêmios, quando o diretor liga. Vem dos extras públicos.
+ * "BUY-IN: 120 · REBUY: 40 · DOBLE: 10 · ADDON: 55" — os meios de entrada
+ * ATIVOS do torneio com QUANTAS vendas houve por cada um neste dia, numa linha
+ * entre o relógio e a barra de prêmios, quando o diretor liga. Substitui os
+ * tiles "Entradas" e "Reentradas" (é a mesma conta, aberta por meio). Vem dos
+ * extras públicos.
  */
 const TvBuyTypes = ({ model }) => (
   <div className="tv-buytypes" role="list">
@@ -334,7 +336,7 @@ const TvBuyTypes = ({ model }) => (
       <span key={`${b.name}-${i}`} className={`tv-buytype tv-buytype--${b.category || 'buy_in'}`} role="listitem">
         <span className="tv-buytype-name">{b.name}</span>
         <span className="tv-buytype-colon">:</span>
-        <span className="tv-buytype-amount">{formatBuyAmount(b.amount)}</span>
+        <span className="tv-buytype-amount">{formatBuyAmount(b.count)}</span>
       </span>
     ))}
   </div>

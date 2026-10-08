@@ -573,14 +573,24 @@ describe('meios de entrada abaixo dos blinds', () => {
     expect(enviado().broadcast_show_entries).toBe(true);
   });
 
-  it('ligar os meios de entrada e desligar a contagem de entradas', async () => {
+  it('ligar os meios de entrada desmarca "Entradas" e "Reentradas" sozinho', async () => {
+    // É a mesma contagem, aberta por meio: o telão não mostra as duas versões.
     await montar();
     await alternar('Meios de entrada');
-    await alternar('Entradas (contagem)');
     await salvar();
     await waitFor(() => expect(api.patch).toHaveBeenCalled());
     expect(enviado().broadcast_show_buy_types).toBe(true);
     expect(enviado().broadcast_show_entries).toBe(false);
+    expect(enviado().broadcast_show_reentries).toBe(false);
+  });
+
+  it('religar "Entradas" (ou "Reentradas") desliga os meios de entrada', async () => {
+    await montar({ dia: { ...DIA, broadcast_show_buy_types: true, broadcast_show_entries: false, broadcast_show_reentries: false } });
+    await alternar('Entradas (contagem)');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_entries).toBe(true);
+    expect(enviado().broadcast_show_buy_types).toBe(false);
   });
 
   it('a prévia mostra a linha quando ligado', async () => {

@@ -248,6 +248,21 @@ const BroadcastSettings = () => {
 
   const set = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
 
+  // Os meios de entrada embaixo dos blinds (contagem por meio) e os tiles
+  // "Entradas"/"Reentradas" da lateral contam a mesma coisa de dois jeitos:
+  // ligar um desliga o outro, para o telão nunca mostrar as duas versões.
+  const alternarVisibilidade = (key, ligado) => setSettings((prev) => {
+    const next = { ...prev, [key]: ligado };
+    if (ligado && key === 'broadcast_show_buy_types') {
+      next.broadcast_show_entries = false;
+      next.broadcast_show_reentries = false;
+    }
+    if (ligado && (key === 'broadcast_show_entries' || key === 'broadcast_show_reentries')) {
+      next.broadcast_show_buy_types = false;
+    }
+    return next;
+  });
+
   const limparFundoRemovido = (url) => setSettings(prev => ({
     ...prev,
     broadcast_bg_image_url:       prev.broadcast_bg_image_url       === url ? '' : prev.broadcast_bg_image_url,
@@ -581,7 +596,7 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_break_show_average',    labelKey: 'breakShowAverage' },
                 ].map(({ key, labelKey }) => (
                   <label key={key} className={`bs-toggle ${settings[key] ? 'on' : 'off'}`}>
-                    <input type="checkbox" checked={settings[key]} onChange={(e) => set(key, e.target.checked)} />
+                    <input type="checkbox" checked={settings[key]} onChange={(e) => alternarVisibilidade(key, e.target.checked)} />
                     <span className="bs-toggle-track"><span className="bs-toggle-thumb" /></span>
                     <span className="bs-toggle-label">{t(`broadcastSettings.${labelKey}`)}</span>
                   </label>
@@ -624,7 +639,7 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_show_players',    labelKey: 'visPlayers' },
                   { key: 'broadcast_show_entries',    labelKey: 'visEntries', padrao: 'Entradas (contagem)' },
                   { key: 'broadcast_show_reentries',  labelKey: 'visReentries', padrao: 'Reentradas (recompras)' },
-                  { key: 'broadcast_show_buy_types',  labelKey: 'visBuyTypes', padrao: 'Meios de entrada com valores (abaixo dos blinds)' },
+                  { key: 'broadcast_show_buy_types',  labelKey: 'visBuyTypes', padrao: 'Meios de entrada: quantidade por meio (abaixo dos blinds)' },
                   { key: 'broadcast_show_interval',   labelKey: 'visInterval' },
                   { key: 'broadcast_show_timer',      labelKey: 'visTimer' },
                   { key: 'broadcast_show_blinds',     labelKey: 'visBlinds' },
@@ -636,7 +651,7 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_blind_alerts_enabled', labelKey: 'blindAlertsEnabled' },
                 ].map(({ key, labelKey, padrao }) => (
                   <label key={key} className={`bs-toggle ${settings[key] ? 'on' : 'off'}`}>
-                    <input type="checkbox" checked={settings[key]} onChange={(e) => set(key, e.target.checked)} />
+                    <input type="checkbox" checked={settings[key]} onChange={(e) => alternarVisibilidade(key, e.target.checked)} />
                     <span className="bs-toggle-track">
                       <span className="bs-toggle-thumb" />
                     </span>

@@ -18,6 +18,7 @@ from app.database.supabase_client import supabase_admin
 from app.models.public_tv import PublicTvBuyType, PublicTvExtras, PublicTvPrize
 from app.services.module_service import ModuleService
 from app.services.prize_allocation_service import PrizeAllocationService
+from app.services.transaction_filters import ler_transacoes_ativas
 from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
@@ -60,18 +61,22 @@ class PublicTvService:
             language=ajustes["language"],
             prize_pool=PublicTvService._prize_pool(tournament_id),
             prizes=PublicTvService._prizes(tournament_id),
-            buy_types=PublicTvService._buy_types(tournament_id),
+            buy_types=PublicTvService._buy_types(tournament_id, str(day["id"])),
         )
 
     @staticmethod
-    def _buy_types(tournament_id: str) -> list[PublicTvBuyType]:
-        """Meios de entrada ATIVOS do torneio, na ordem do Caixa. Falhou ou
-        não há lista (torneio antigo, por etapa)? Vazio — o telão só esconde
-        a linha."""
+    def _buy_types(tournament_id: str, day_id: str) -> list[PublicTvBuyType]:
+        """Meios de entrada ATIVOS do torneio, na ordem do Caixa, cada um com
+        QUANTAS vendas houve por ele neste dia (vendas canceladas fora).
+
+        Venda antiga sem meio cadastrado (buy_type_id nulo) entra na conta do
+        primeiro meio ativo da mesma categoria — melhor que sumir. Falhou ou
+        não há lista (torneio antigo, por etapa)? Vazio — o telão só esconde a
+        linha."""
         try:
             resp = (
                 supabase_admin.table("buy_types")
-                .select("name, amount, category, active, sort_order")
+                .select("id, name, amount, category, active, sort_order")
                 .eq("tournament_id", str(tournament_id))
                 .order("sort_order")
                 .execute()
@@ -79,16 +84,65 @@ class PublicTvService:
         except Exception as exc:  # decorativo: nunca derruba o telão
             logger.warning("Meios de entrada do torneio %s não lidos para o telão: %s", tournament_id, exc)
             return []
+        ativos = [r for r in (resp.data or []) if r.get("active") is not False]
+        if not ativos:
+            return []
+
+        contagem = PublicTvService._vendas_por_meio(day_id)
+        primeiro_da_categoria: dict = {}
+        for r in ativos:
+            primeiro_da_categoria.setdefault(r.get("category") or "buy_in", str(r.get("id")))
+
         saida = []
-        for row in resp.data or []:
-            if row.get("active") is False:
-                continue
+        for r in ativos:
+            bid = str(r.get("id"))
+            categoria = r.get("category") or "buy_in"
+            total = contagem.get(bid, 0)
+            if primeiro_da_categoria.get(categoria) == bid:
+                total += contagem.get(f"sem_meio:{categoria}", 0)
             saida.append(PublicTvBuyType(
-                name=str(row.get("name") or "").strip() or "—",
-                amount=float(row.get("amount") or 0),
-                category=row.get("category") or "buy_in",
+                name=str(r.get("name") or "").strip() or "—",
+                count=int(total),
+                amount=float(r.get("amount") or 0),
+                category=categoria,
             ))
         return saida
+
+    @staticmethod
+    def _vendas_por_meio(day_id: str) -> dict:
+        """{buy_type_id: n} das vendas ATIVAS dos jogadores deste dia; a venda
+        sem meio vai em `sem_meio:<categoria>`. Erro → {} (a linha mostra 0)."""
+        try:
+            jogadores = (
+                supabase_admin.table("tournament_players")
+                .select("id")
+                .eq("tournament_day_id", str(day_id))
+                .execute()
+            )
+            ids = [str(j["id"]) for j in (jogadores.data or []) if j.get("id")]
+            if not ids:
+                return {}
+            contagem: dict = {}
+            # Em lotes: a lista de ids vai na URL e um dia grande estouraria o limite.
+            for inicio in range(0, len(ids), 150):
+                lote = ids[inicio:inicio + 150]
+                linhas = ler_transacoes_ativas(
+                    lambda colunas, lote=lote: (
+                        supabase_admin.table("transactions")
+                        .select(colunas)
+                        .in_("tournament_player_id", lote)
+                        .in_("type", ["buy_in", "rebuy", "addon"])
+                    ),
+                    "buy_type_id, type",
+                )
+                for linha in linhas:
+                    chave = str(linha["buy_type_id"]) if linha.get("buy_type_id") \
+                        else f"sem_meio:{linha.get('type') or 'buy_in'}"
+                    contagem[chave] = contagem.get(chave, 0) + 1
+            return contagem
+        except Exception as exc:  # decorativo: nunca derruba o telão
+            logger.warning("Vendas por meio do dia %s não lidas para o telão: %s", day_id, exc)
+            return {}
 
     # ── partes ────────────────────────────────────────────────────────────
 

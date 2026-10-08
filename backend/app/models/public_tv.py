@@ -18,9 +18,12 @@ class PublicTvPrize(BaseModel):
 
 
 class PublicTvBuyType(BaseModel):
-    """Meio de entrada do torneio como o telão mostra: nome e valor. Rake,
-    fichas e id ficam de fora — a rota é aberta."""
+    """Meio de entrada do torneio como o telão mostra: nome e QUANTAS vendas
+    houve por ele neste dia (o que o diretor quer ver — "Buy-in: 120 · Rebuy:
+    40"). Valor fica só como referência; rake, fichas e id ficam de fora — a
+    rota é aberta."""
     name: str
+    count: int = 0
     amount: float = 0
     category: str = "buy_in"  # 'buy_in' | 'rebuy' | 'addon'
 

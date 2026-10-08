@@ -62,6 +62,21 @@ def banco(monkeypatch, stub):
             {"id": "bt9", "tournament_id": "outro-torneio", "name": "Alheio", "amount": 1,
              "category": "buy_in", "active": True, "sort_order": 0},
         ],
+        # Jogadores deste dia (p1, p2) e de outro dia (p9); vendas por meio.
+        "tournament_players": [
+            {"id": "p1", "tournament_day_id": DIA}, {"id": "p2", "tournament_day_id": DIA},
+            {"id": "p9", "tournament_day_id": "outro-dia"},
+        ],
+        "transactions": [
+            {"id": "x1", "tournament_player_id": "p1", "type": "buy_in", "buy_type_id": "bt1", "status": "active"},
+            {"id": "x2", "tournament_player_id": "p2", "type": "buy_in", "buy_type_id": "bt1", "status": "active"},
+            {"id": "x3", "tournament_player_id": "p1", "type": "rebuy", "buy_type_id": "bt2", "status": "active"},
+            {"id": "x4", "tournament_player_id": "p1", "type": "rebuy", "buy_type_id": "bt2", "status": "active"},
+            {"id": "x5", "tournament_player_id": "p2", "type": "rebuy", "buy_type_id": "bt2", "status": "cancelled"},
+            {"id": "x6", "tournament_player_id": "p2", "type": "buy_in", "buy_type_id": None, "status": "active"},
+            {"id": "x7", "tournament_player_id": "p9", "type": "buy_in", "buy_type_id": "bt1", "status": "active"},
+            {"id": "x8", "tournament_player_id": "p1", "type": "prize", "buy_type_id": None, "status": "active"},
+        ],
     })
     monkeypatch.setattr(mod, "supabase_admin", fake)
     # `org_name` lê com o client de verdade por dentro; aqui ele é decorativo.
@@ -92,7 +107,29 @@ class TestServico:
             ("Buy-in", 50.0, "buy_in"), ("Rebuy", 20.0, "rebuy"),
         ]
         corpo = r.model_dump()["buy_types"][0]
-        assert set(corpo.keys()) == {"name", "amount", "category"}
+        assert set(corpo.keys()) == {"name", "count", "amount", "category"}
+
+    def test_conta_as_vendas_do_dia_por_meio(self, banco):
+        """Buy-in: 2 com meio + 1 antiga sem meio (cai no primeiro buy_in) = 3.
+        Rebuy: 2 ativas (a cancelada fica fora). Jogador de outro dia e
+        transação que não é venda não contam."""
+        r = PublicTvService.get_day_extras(DIA)
+        assert [(b.name, b.count) for b in r.buy_types] == [("Buy-in", 3), ("Rebuy", 2)]
+
+    def test_dia_sem_vendas_mostra_zero_em_cada_meio(self, banco):
+        banco.store["transactions"] = []
+        r = PublicTvService.get_day_extras(DIA)
+        assert [b.count for b in r.buy_types] == [0, 0]
+
+    def test_falha_ao_contar_vendas_nao_tira_a_lista(self, banco, monkeypatch):
+        class _Explode:
+            def table(self, name):
+                if name == "transactions":
+                    raise RuntimeError("boom")
+                return banco.table(name)
+        monkeypatch.setattr(mod, "supabase_admin", _Explode())
+        r = PublicTvService.get_day_extras(DIA)
+        assert [(b.name, b.count) for b in r.buy_types] == [("Buy-in", 0), ("Rebuy", 0)]
 
     def test_sem_meios_de_entrada_a_lista_vem_vazia(self, banco):
         banco.store["buy_types"] = []

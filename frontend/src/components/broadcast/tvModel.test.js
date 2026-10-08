@@ -321,11 +321,11 @@ describe('meios de entrada no telão', () => {
   it('modelo: vem dos extras, sem nome vazio, valor numérico', () => {
     const m = buildTvModel({
       isDayBased: true, timerState: null, tournament: {}, tournamentDay: {},
-      extras: { buy_types: [{ name: ' Buy-in ', amount: '50', category: 'buy_in' }, { name: '  ', amount: 1 }, { name: 'Rebuy', amount: null }] },
+      extras: { buy_types: [{ name: ' Buy-in ', count: '120', amount: '50', category: 'buy_in' }, { name: '  ', count: 1 }, { name: 'Rebuy', count: -3, amount: null }] },
     });
     expect(m.buyTypes).toEqual([
-      { name: 'Buy-in', amount: 50, category: 'buy_in' },
-      { name: 'Rebuy', amount: 0, category: 'buy_in' },
+      { name: 'Buy-in', count: 120, amount: 50, category: 'buy_in' },
+      { name: 'Rebuy', count: 0, amount: 0, category: 'buy_in' },
     ]);
     expect(buildTvModel({ isDayBased: false, tournament: {} }).buyTypes).toEqual([]);
   });

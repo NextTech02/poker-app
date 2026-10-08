@@ -298,10 +298,16 @@ export const buildTvModel = ({
 
   const prizes = (extras?.prizes || []).filter((p) => p.visible !== false);
   const prizePool = parseFloat(extras?.prize_pool ?? tournamentDay?.prize_pool ?? 0) || 0;
-  // Meios de entrada ativos do torneio (nome e valor), na ordem do Caixa.
+  // Meios de entrada ativos do torneio, na ordem do Caixa, com QUANTAS vendas
+  // houve por meio neste dia (o telão mostra a contagem, não o valor).
   const buyTypes = (extras?.buy_types || [])
     .filter((b) => b && String(b.name || '').trim())
-    .map((b) => ({ name: String(b.name).trim(), amount: Number(b.amount) || 0, category: b.category || 'buy_in' }));
+    .map((b) => ({
+      name: String(b.name).trim(),
+      count: Math.max(0, Math.floor(Number(b.count) || 0)),
+      amount: Number(b.amount) || 0,
+      category: b.category || 'buy_in',
+    }));
 
   return {
     tournamentName: tournament?.name || '',

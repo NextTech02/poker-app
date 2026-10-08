@@ -1151,7 +1151,7 @@
     "clubLogoUrlLabel": "o pega la URL",
     "visReentries": "Reentradas (recompras)",
     "visEntries": "Entradas (conteo)",
-    "visBuyTypes": "Medios de entrada con valores (debajo de las ciegas)",
+    "visBuyTypes": "Medios de entrada: cantidad por medio (debajo de las ciegas)",
     "sectionPromo": "Publicidad (columna derecha)",
     "promoHint": "Imagen o video del club en la columna derecha de la pantalla, junto al reloj. El formato vertical funciona mejor (como una historia, 9:16). Con los premios en la lateral, quedan debajo de la publicidad.",
     "promoShow": "Mostrar la publicidad en la pantalla",

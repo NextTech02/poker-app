@@ -493,15 +493,23 @@ describe('meios de entrada (linha abaixo dos blinds)', () => {
     expect(tela()).not.toHaveClass('tv-screen--with-buytypes');
   });
 
-  it('ligado, lista nome e valor de cada meio, na ordem', () => {
+  it('ligado, lista nome e QUANTIDADE de vendas de cada meio, na ordem (não o valor)', () => {
     montar({}, { broadcast_show_buy_types: true });
     const itens = Array.from(document.querySelectorAll('.tv-buytype'));
-    expect(itens.map((i) => i.textContent)).toEqual(['Buy-in:50', 'Rebuy:20', 'Add-on:50']);
+    expect(itens.map((i) => i.textContent)).toEqual(['Buy-in:120', 'Rebuy:40', 'Add-on:55']);
+    expect(document.querySelector('.tv-buytypes')).not.toHaveTextContent('50');
     expect(tela()).toHaveClass('tv-screen--with-buytypes');
   });
 
-  it('valor grande vem com separador de milhar; sem lista a linha some', () => {
-    montar({ model: { buyTypes: [{ name: 'Buy-in', amount: 1500, category: 'buy_in' }] } }, { broadcast_show_buy_types: true });
+  it('ligado, os tiles "Entradas" e "Reentradas" saem da lateral (é a mesma conta, aberta por meio)', () => {
+    montar({}, { broadcast_show_buy_types: true, broadcast_show_entries: true, broadcast_show_reentries: true });
+    expect(document.querySelector('.tv-tile--entries')).toBeNull();
+    expect(document.querySelector('.tv-tile--reentries')).toBeNull();
+    expect(document.querySelector('.tv-tile--players')).toBeInTheDocument();
+  });
+
+  it('contagem grande vem com separador de milhar; sem lista a linha some', () => {
+    montar({ model: { buyTypes: [{ name: 'Buy-in', count: 1500, amount: 50, category: 'buy_in' }] } }, { broadcast_show_buy_types: true });
     expect(document.querySelector('.tv-buytype-amount')).toHaveTextContent('1.500');
     document.body.innerHTML = '';
     montar({ model: { buyTypes: [] } }, { broadcast_show_buy_types: true });
