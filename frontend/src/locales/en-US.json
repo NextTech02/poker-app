@@ -271,7 +271,14 @@
     "buyTypesPartial": "Tournament created, but the entry methods could not be saved. Set them up when editing the tournament.",
     "entryTypesSection": "Entry methods",
     "entryTypesLoadError": "Could not load this tournament's entry methods. They will not be changed when saving.",
-    "entryTypesUpdatePartial": "Tournament saved, but the entry methods could not be saved. Try again."
+    "entryTypesUpdatePartial": "Tournament saved, but the entry methods could not be saved. Try again.",
+    "eliminationModeSection": "How players are eliminated",
+    "eliminationModeTable": "By table seat",
+    "eliminationModeTableHint": "More organized: the director eliminates each player at their seat, and a re-entry belongs to that player.",
+    "eliminationModeBulk": "In bulk",
+    "eliminationModeBulkHint": "Faster: the director adds eliminations in the Control screen (Eliminate 1 / Eliminate N), without saying who left.",
+    "eliminationModeRule": "In both modes, every entry adds a player and every re-entry brings back an eliminated player. Add-ons don't count.",
+    "reentriesHint": "Rebuys. They don't add players: each re-entry brings back an eliminated player."
   },
   "tournamentDays": {
     "restarted": "Day restarted.",
@@ -627,7 +634,11 @@
     "tablesUnknownHint": "Without internet the tables cannot be checked. The sale is stored and the seat is assigned on sync.",
     "ticketNoTablesHint": "No table is registered for this day: the player did not enter the alternates queue. Register the tables under Tables and seat the player.",
     "ticketOfflineHint": "Sale stored offline: the seat is assigned on sync.",
-    "ticketBuyType": "Entry type"
+    "ticketBuyType": "Entry type",
+    "reentryNoEliminatedTitle": "No eliminated player",
+    "reentryNoEliminatedBulk": "The day's counter has no eliminations. A re-entry is only accepted after the elimination is recorded in the Control screen.",
+    "reentryNoEliminatedTable": "No one has been eliminated at this day's tables. A re-entry is only for players eliminated at their seat.",
+    "reentryOnlyEliminated": "Table-mode tournament: only players eliminated on this day are listed."
   },
   "cashbox": {
     "myCashbox": "My Cashbox",
@@ -1008,7 +1019,10 @@
     "breadcrumbTournament": "Tournament",
     "offlineApplied": "No connection: change applied on this screen only and sent when the internet is back",
     "offlineClock": "No connection — clock running on this screen",
-    "offlineQueued": "No connection: command queued; the screen updates when the internet is back"
+    "offlineQueued": "No connection: command queued; the screen updates when the internet is back",
+    "reentries": "Re-entries",
+    "eliminationByTableHint": "This tournament eliminates at the tables: each player is eliminated at their own seat, on the tables screen.",
+    "eliminateAtTables": "Eliminate at the tables →"
   },
   "comingSoon": {
     "title": "Coming Soon",
@@ -1126,7 +1140,8 @@
     "clubLogoMaxSize": "The logo must be 512KB or smaller. Above that, paste the image URL instead.",
     "clubLogoUpload": "Upload the club logo",
     "clubLogoUploadHint": "PNG with a transparent background, up to 512KB",
-    "clubLogoUrlLabel": "or paste the URL"
+    "clubLogoUrlLabel": "or paste the URL",
+    "visReentries": "Re-entries (rebuys)"
   },
   "errors": {
     "meio_de_entrada_de_outro_torneio": "The chosen entry method does not belong to this tournament.",
@@ -1276,7 +1291,14 @@
     "link_invalido": "Invalid link.",
     "link_ja_usado": "This link has already been used.",
     "link_expirado": "This link has expired. Ask the club for a new one.",
-    "muitas_tentativas": "Too many attempts. Try again in a few minutes."
+    "muitas_tentativas": "Too many attempts. Try again in a few minutes.",
+    "eliminacao_por_mesa": "This tournament eliminates players at the tables: use the eliminate button on the player's seat.",
+    "reentrada_sem_eliminado": "Re-entry refused: there is no eliminated player to bring back. Record the elimination before selling the re-entry.",
+    "reentrada_inscricao_estornada": "This player's registration was refunded; there is nothing to re-enter.",
+    "modo_de_eliminacao_bloqueado": "This tournament already has bulk eliminations recorded. To eliminate at the tables, reset the counter in the Control screen before switching modes.",
+    "jogador_ja_eliminado": "This player is already eliminated.",
+    "jogador_nao_eliminado": "This player is not eliminated.",
+    "jogador_estornado": "This player's registration was refunded; they are not in the tournament."
   },
   "premiacao": {
     "loadError": "Error loading prize data",
@@ -2410,7 +2432,14 @@
     "eliminatedSuccess": "{{name}} eliminated!",
     "errorEliminate": "Error eliminating: {{detail}}",
     "tablesAddedSuccessSingular": "Table added successfully!",
-    "tablesAddedSuccessPlural": "{{count}} tables added successfully!"
+    "tablesAddedSuccessPlural": "{{count}} tables added successfully!",
+    "playerNotInDay": "player not registered for this day",
+    "panelEliminated": "Eliminated",
+    "eliminatedHint": "Undo is for an elimination entered by mistake. Re-entries are sold at the Cashier.",
+    "noEliminated": "No one eliminated on this day.",
+    "undoElimination": "Undo",
+    "uneliminatedSuccess": "{{name}} is back in the tournament. Seat the player at a table.",
+    "errorUneliminate": "Error undoing the elimination: {{detail}}"
   },
   "expenses": {
     "new": "New expense",

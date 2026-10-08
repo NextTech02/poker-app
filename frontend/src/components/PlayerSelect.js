@@ -7,8 +7,11 @@ import './PlayerSelect.css';
  * Searchable player picker (typeahead). Keeps the same interface as the old
  * <select> — `onChange` is called with a synthetic event
  * `{ target: { name, value: playerId } }` so existing form handlers keep working.
+ *
+ * `allowedIds` (opcional) restringe as opções a esses jogadores — a reentrada
+ * de um torneio "por mesa" só pode ser de quem foi eliminado no dia.
  */
-const PlayerSelect = ({ value, onChange, required = false, name = 'player_id' }) => {
+const PlayerSelect = ({ value, onChange, required = false, name = 'player_id', allowedIds }) => {
   const { t } = useTranslation();
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,10 +56,13 @@ const PlayerSelect = ({ value, onChange, required = false, name = 'player_id' })
   const label = (p) => `${p.name}${p.nickname ? ` (${p.nickname})` : ''}`;
 
   const selected = players.find((p) => p.id === value);
+  const permitidos = Array.isArray(allowedIds)
+    ? players.filter((p) => allowedIds.includes(p.id))
+    : players;
   const q = norm(query).trim();
   const filtered = q
-    ? players.filter((p) => norm(p.name).includes(q) || norm(p.nickname).includes(q))
-    : players;
+    ? permitidos.filter((p) => norm(p.name).includes(q) || norm(p.nickname).includes(q))
+    : permitidos;
 
   const pick = (id) => {
     onChange({ target: { name, value: id } });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,10 @@ import Sidebar from '../components/Sidebar';
 import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { MODO_MESA, useModoDeEliminacao } from '../hooks/useModoDeEliminacao';
+import { offlineWrite } from '../offline/apiOffline';
+import { applyEliminate, applyUneliminate } from '../offline/domainRules';
+import { uuid } from '../offline/db';
 import './TableManagement.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -28,6 +32,9 @@ const TableManagement = () => {
   const [tables, setTables] = useState([]);
   const [allocations, setAllocations] = useState([]);
   const [unallocated, setUnallocated] = useState([]);
+  // Inscritos DO DIA: é por eles que a cadeira vira um tournament_player. Ler
+  // pelo torneio (como a tela antiga) pegava a inscrição de outro dia.
+  const [inscritos, setInscritos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Drag-and-drop
@@ -59,6 +66,20 @@ const TableManagement = () => {
   // Lock state (derived from day)
   const tablesLocked = day?.tables_locked ?? false;
 
+  // Modo "por posição nas mesas": é AQUI que o diretor elimina, no assento.
+  // No modo em massa o ✕ não aparece — quem elimina é o contador do Controle.
+  const porMesa = useModoDeEliminacao(day?.tournament_id) === MODO_MESA;
+  const inscritoPorJogador = useMemo(
+    () => new Map(inscritos.map((i) => [i.player_id, i])),
+    [inscritos]
+  );
+  const eliminados = useMemo(
+    () => inscritos
+      .filter((i) => i.status === 'eliminated')
+      .sort((a, b) => String(b.eliminated_at || '').localeCompare(String(a.eliminated_at || ''))),
+    [inscritos]
+  );
+
   // ── Data Loading ──────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
@@ -74,6 +95,12 @@ const TableManagement = () => {
       setAllocations(allocRes.data);
       setUnallocated(unallocRes.data);
       setLoading(false);
+
+      // Fora do Promise.all: sem a lista de inscritos a tela de mesas continua
+      // útil; só o ✕ de eliminar fica sem a quem apontar.
+      api.get(`/tournament-players/day/${dayId}`, { _silentError: true })
+        .then((res) => setInscritos(Array.isArray(res?.data) ? res.data : []))
+        .catch(() => {});
 
       // Initialize bulk mode from day's saved allocation_mode (only on first load)
       if (!modeInitialized.current && dayData?.allocation_mode) {
@@ -265,6 +292,63 @@ const TableManagement = () => {
     }
   };
 
+  // ── Eliminação no assento (modo "por mesa") ───────────────────────────────
+  // Elimina, libera a cadeira e soma no contador que a TV lê — tudo no
+  // servidor, numa chamada só. Pela fila offline, como as outras operações do
+  // salão: sem rede a eliminação entra na fila e a tela já reflete.
+  const handleEliminate = async (allocation) => {
+    const nome = allocation.players?.name || t('tableManagement.defaultPlayer');
+    const inscrito = inscritoPorJogador.get(allocation.player_id);
+    if (!inscrito) {
+      toast.error(t('tableManagement.errorEliminate', { detail: t('tableManagement.playerNotInDay') }));
+      return;
+    }
+    const ok = await confirm(
+      t('tableManagement.confirmEliminate', { name: nome }),
+      { variant: 'danger', confirmText: t('tableManagement.eliminatePlayer') }
+    );
+    if (!ok) return;
+
+    const body = { tournament_player_id: inscrito.id };
+    try {
+      const r = await offlineWrite({
+        kind: 'eliminate', method: 'post',
+        url: `/tournament-players/${inscrito.id}/eliminate`,
+        body, clientMutationId: uuid(), meta: { kind: 'eliminate', name: nome },
+        synthetic: { ok: true }, applyLocal: () => applyEliminate(body),
+      });
+      setInscritos((prev) => prev.map((i) => (
+        i.id === inscrito.id ? { ...i, status: 'eliminated', eliminated_at: new Date().toISOString() } : i
+      )));
+      toast.success(t('tableManagement.eliminatedSuccess', { name: nome }));
+      if (!r?.offline) await loadData();
+    } catch (err) {
+      toast.error(err.userMessage || t('tableManagement.errorEliminate', { detail: err.response?.data?.detail || err.message }));
+    }
+  };
+
+  // Desfazer: eliminação lançada no jogador errado. Não é reentrada (não há
+  // venda); o jogador volta à lista de "sem mesa" para ser sentado de novo.
+  const handleUneliminate = async (inscrito) => {
+    const nome = inscrito.player_name || t('tableManagement.defaultPlayer');
+    const body = { tournament_player_id: inscrito.id };
+    try {
+      const r = await offlineWrite({
+        kind: 'restore', method: 'post',
+        url: `/tournament-players/${inscrito.id}/uneliminate`,
+        body, clientMutationId: uuid(), meta: { kind: 'restore', name: nome },
+        synthetic: { ok: true }, applyLocal: () => applyUneliminate(body),
+      });
+      setInscritos((prev) => prev.map((i) => (
+        i.id === inscrito.id ? { ...i, status: 'active', eliminated_at: null } : i
+      )));
+      toast.success(t('tableManagement.uneliminatedSuccess', { name: nome }));
+      if (!r?.offline) await loadData();
+    } catch (err) {
+      toast.error(err.userMessage || t('tableManagement.errorUneliminate', { detail: err.response?.data?.detail || err.message }));
+    }
+  };
+
   // ── Alternate Ticket ──────────────────────────────────────────────────────
   const handleShowAlternateTicket = (player) => {
     setShowTicket({
@@ -306,6 +390,17 @@ const TableManagement = () => {
             <svg className="tm-player-icon-svg" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
             </svg>
+            {porMesa && (
+              <button
+                type="button"
+                className="tm-btn-elim"
+                draggable={false}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => handleEliminate(allocation)}
+                title={`${t('tableManagement.eliminatePlayer')}: ${allocation.players?.name || ''}`}
+                aria-label={`${t('tableManagement.eliminatePlayer')}: ${allocation.players?.name || ''}`}
+              >✕</button>
+            )}
           </div>
         ) : (
           <span className="tm-seat-empty">{inactive ? '—' : t('tableManagement.seatEmpty')}</span>
@@ -457,6 +552,33 @@ const TableManagement = () => {
                 ))
               )}
             </div>
+
+            {porMesa && (
+              <div className="tm-eliminated-panel">
+                <div className="tm-panel-header">
+                  <h2 className="tm-panel-title">{t('tableManagement.panelEliminated')}</h2>
+                  <span className="tm-count-badge">{eliminados.length}</span>
+                </div>
+                <p className="tm-alt-hint">{t('tableManagement.eliminatedHint')}</p>
+                {eliminados.length === 0 ? (
+                  <div className="tm-empty-list">{t('tableManagement.noEliminated')}</div>
+                ) : (
+                  <ul className="tm-eliminated-list">
+                    {eliminados.map((i) => (
+                      <li key={i.id} className="tm-eliminated-item">
+                        <span className="tm-player-name">{i.player_name}</span>
+                        <button
+                          type="button"
+                          className="tm-btn-undo"
+                          onClick={() => handleUneliminate(i)}
+                          aria-label={`${t('tableManagement.undoElimination')}: ${i.player_name}`}
+                        >{t('tableManagement.undoElimination')}</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Tables panel */}

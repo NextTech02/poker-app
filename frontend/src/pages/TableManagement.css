@@ -496,6 +496,62 @@
   border-color: #f44336;
 }
 
+/* Alvo de toque de verdade: o ✕ é apertado no meio do evento, às pressas. */
+.tm-seat-player .tm-btn-elim {
+  min-width: 28px;
+  min-height: 24px;
+  font-size: 0.75rem;
+}
+
+/* ── Eliminados (modo "por posição nas mesas") ───────────────── */
+
+.tm-eliminated-panel {
+  border-top: 1px solid var(--card-bg-active);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 40%;
+}
+
+.tm-eliminated-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tm-eliminated-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(244, 67, 54, 0.06);
+  border: 1px solid rgba(244, 67, 54, 0.18);
+}
+
+.tm-btn-undo {
+  background: none;
+  border: 1px solid var(--card-bg-active);
+  color: #cdd5e0;
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tm-btn-undo:hover,
+.tm-btn-undo:focus-visible {
+  border-color: var(--brand-green);
+  color: #fff;
+}
+
 /* ── Modals ──────────────────────────────────────────────────── */
 
 .tm-modal-overlay {

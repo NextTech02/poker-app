@@ -95,6 +95,10 @@ class TestJogadoresSeparadoDeReentradas:
 
     Detalhe que mostra o tamanho da confusao: o numero antigo somava recompra e
     IGNORAVA add-on. Nao era jogadores nem entradas.
+
+    REENTRADA e so a recompra (regra do diretor): ela traz um eliminado de
+    volta. O add-on compra fichas para quem ja esta na mesa e nao conta em
+    nenhum dos dois numeros da tela.
     """
 
     def _um_jogador(self, buy_ins=1, rebuys=0, addons=0, status="active"):
@@ -106,22 +110,22 @@ class TestJogadoresSeparadoDeReentradas:
         }
 
     def test_quem_recompra_continua_sendo_um_jogador(self, monkeypatch):
-        """Um jogador com 3 recompras e 1 add-on: 1 pessoa, 4 reentradas."""
+        """Um jogador com 3 recompras e 1 add-on: 1 pessoa, 3 reentradas."""
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1, rebuys=3, addons=1),
         ])
         entradas, reentradas = S._entries_by_day([D1])
         assert entradas[D1] == 1      # uma entrada: o buy-in
-        assert reentradas[D1] == 4    # 3 recompras + 1 add-on
+        assert reentradas[D1] == 3    # as 3 recompras; o add-on fica fora
 
-    def test_add_on_entra_na_conta_de_reentradas(self, monkeypatch):
-        """O numero antigo somava recompra e ignorava add-on — nao era nem uma
-        coisa nem outra."""
+    def test_add_on_nao_e_reentrada(self, monkeypatch):
+        """Add-on nao traz ninguem de volta: so fichas e dinheiro."""
         _monta(monkeypatch, tournament_players=[
             self._um_jogador(buy_ins=1, rebuys=0, addons=2),
         ])
-        _, reentradas = S._entries_by_day([D1])
-        assert reentradas[D1] == 2
+        entradas, reentradas = S._entries_by_day([D1])
+        assert entradas[D1] == 1
+        assert reentradas[D1] == 0
 
     def test_dia_sem_reentrada_devolve_zero(self, monkeypatch):
         _monta(monkeypatch, tournament_players=[
@@ -152,7 +156,7 @@ class TestJogadoresSeparadoDeReentradas:
             self._um_jogador(buy_ins=1, rebuys=2, addons=1),
         ])
         dia = S.get_tournament_day(D1)
-        assert dia.total_reentries == 3
+        assert dia.total_reentries == 2   # as recompras; o add-on fica fora
 
 
 class TestCodigoDeTV:
@@ -246,7 +250,7 @@ class TestCriacaoELeitura:
         dias = {d.id: d for d in S.get_tournament_days(TOUR)}
         assert {i: d.total_entries for i, d in dias.items()} == {D1: 2, D2: 1}
         # E as recompras nao somem: elas tem campo proprio.
-        assert dias[D1].total_reentries == 7   # 2 recompras + 5 add-ons
+        assert dias[D1].total_reentries == 2   # as 2 recompras; add-on fica fora
         assert dias[D2].total_reentries == 1
 
     def test_filtra_por_varios_status_de_uma_vez(self, monkeypatch):
@@ -763,7 +767,8 @@ class TestEstatisticas:
         assert r.total_players == 2
         assert r.eliminated_players == 1
         assert r.qualified_players == 1
-        assert r.total_entries == 3           # 2 buy-ins + 1 rebuy
+        assert r.total_entries == 2           # entrada e buy-in; o rebuy vai em total_rebuys
+        assert r.total_rebuys == 1
         assert r.total_collected == 400.0     # 200 buy-in + 100 rebuy + 100 add-on
 
     def test_dia_inexistente(self, monkeypatch):
@@ -925,14 +930,19 @@ class TestComandosDoRelogio:
                 linha["manual_time_adjustment"], linha["is_paused"],
                 linha["timer_started_at"]) == (1, 0, 0, True, None)
 
-    def test_status_conta_ativos_e_entradas_numa_varredura_so(self, monkeypatch):
-        _monta(monkeypatch, tournament_players=[
-            _jogador(D1, buy=1, rebuy=1, status="active"),
-            _jogador(D1, buy=1, status="eliminated"),
-        ])
+    def test_status_usa_a_mesma_conta_da_tv(self, monkeypatch):
+        """ATIVOS = ENTRADAS − ELIMINACOES, como no telao. Contar status
+        'active' errava: o inscrito novo nasce 'registered', e no modo em
+        massa ninguem muda de status ao sair."""
+        _monta(monkeypatch,
+               tournament_days=[_dia(D1, eliminations_count=1)],
+               tournament_players=[
+                   _jogador(D1, buy=1, rebuy=1, status="registered"),
+                   _jogador(D1, buy=1, status="eliminated"),
+               ])
         r = S.get_timer_status(D1)
+        assert r.total_entries == 2     # a recompra nao e entrada nova
         assert r.active_players == 1
-        assert r.total_entries == 3
 
     def test_status_soma_o_tempo_corrido_desde_o_inicio(self, monkeypatch):
         inicio = datetime.now(timezone.utc) - timedelta(seconds=120)
@@ -1249,6 +1259,54 @@ class TestContadorDeEliminados:
         _monta(monkeypatch, tournament_days=[])
         with pytest.raises(ValueError, match="not found"):
             S.adjust_eliminations(D1, 1)
+
+    def test_modo_mesa_recusa_o_contador_em_massa(self, monkeypatch):
+        """Por mesa, o contador e a contagem dos eliminados no assento. Um
+        "Eliminar 1" sem nome descolaria o numero da lista."""
+        fake = _monta(monkeypatch,
+                      tournaments=[{"id": TOUR, "name": "T", "elimination_mode": "table"}],
+                      tournament_players=[_jogador(D1, buy=3)])
+        with pytest.raises(ValueError) as erro:
+            S.adjust_eliminations(D1, 1)
+        assert erro.value.code == "eliminacao_por_mesa"
+        assert erro.value.status == 409
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 0
+
+    def test_usa_o_rpc_atomico_quando_existe(self, monkeypatch):
+        """Dois operadores clicando juntos nao podem perder um clique: o
+        banco soma na mesma instrucao."""
+        fake = _monta(monkeypatch, tournament_players=[_jogador(D1, buy=3)])
+        fake.rpcs["registrar_eliminacao"] = lambda p: 1
+        assert S.adjust_eliminations(D1, 1)["eliminations_count"] == 1
+        assert ("registrar_eliminacao", {"p_day_id": D1, "p_qtd": 1}) in fake.rpc_calls
+
+    def test_dia_final_conta_os_classificados_como_entradas(self, monkeypatch):
+        """O classificado chega ao dia final com buy_in_count = 0. Sem conta-lo,
+        o dia final tinha ~0 entradas: a TV mostrava 0 ativos e o contador nao
+        aceitava eliminacao nenhuma."""
+        _monta(monkeypatch,
+               tournament_days=[_dia(FINAL, day_type="final")],
+               tournament_players=[
+                   _jogador(FINAL, buy=0, is_qualified_entry=True, id="q1"),
+                   _jogador(FINAL, buy=0, is_qualified_entry=True, id="q2"),
+                   _jogador(FINAL, buy=0, is_qualified_entry=True, id="q3",
+                            status="cancelled"),
+                   _jogador(FINAL, buy=1, id="direto"),
+               ])
+        r = S.adjust_eliminations(FINAL, 1)
+        assert r["total_entries"] == 3      # 2 classificados vivos + 1 buy-in direto
+        assert r["eliminations_count"] == 1
+        assert r["active_players"] == 2
+
+    def test_dia_final_avancado_pelo_contador_usa_os_inscritos(self, monkeypatch):
+        """Avanco pelo contador nao cria linha de classificado: o dia final so
+        tem `registered_players`. Ali ele e o piso das entradas."""
+        _monta(monkeypatch,
+               tournament_days=[_dia(FINAL, day_type="final", registered_players=12)],
+               tournament_players=[])
+        r = S.adjust_eliminations(FINAL, 2)
+        assert r["total_entries"] == 12
+        assert r["active_players"] == 10
 
 
 class TestFichasEmJogoVemDasVendas:

@@ -24,6 +24,7 @@ import { applyRegister, applyRebuy, applyAddon } from '../offline/domainRules';
 import { uuid, putEntities, getEntity, getAllByTable } from '../offline/db';
 import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
+import { MODO_MESA, modoDoTorneio } from '../hooks/useModoDeEliminacao';
 import './Caixa.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -31,6 +32,24 @@ import './Caixa.css';
 // clique sem equivalente de teclado, e o fundo em si não é um controle.
 const aoClicarNoFundo = (aoFechar) => (evento) => {
   if (evento.target === evento.currentTarget) aoFechar();
+};
+
+// Inscritos do DIA da venda (online: backend; offline: réplica), e a réplica
+// hidratada com eles. Pelo TORNEIO, quem jogou o 1A e o 1B achava a linha de
+// outro dia — e a reentrada caía no dia errado. Sem dia escolhido (torneio de
+// dia único antigo), vale o torneio.
+const lerInscritos = async (tournamentId, dayId) => {
+  const tpList = dayId
+    ? await offlineRead(`/tournament-players/day/${dayId}`, {
+      fromReplica: async () => (await getAllByTable('tournament_players'))
+        .filter((p) => p.tournament_day_id === dayId),
+    })
+    : await offlineRead(`/tournament-players/tournament/${tournamentId}`, {
+      fromReplica: async () => (await getAllByTable('tournament_players'))
+        .filter((p) => p.tournament_id === tournamentId),
+    });
+  if (tpList?.length) putEntities('tournament_players', tpList);
+  return tpList || [];
 };
 
 const Caixa = () => {
@@ -144,6 +163,29 @@ const Caixa = () => {
   const alocacaoAutomatica =
     (diaSelecionado?.allocation_type || torneioSelecionado?.allocation_type) === 'automatic';
   const mesasTravadas = !!diaSelecionado?.tables_locked;
+  // REENTRADA traz de volta UM eliminado — sem eliminado, o servidor recusa.
+  // Por MESA, é a reentrada DAQUELE jogador: o seletor oferece só quem foi
+  // eliminado no dia. Em MASSA, basta haver eliminação no contador do dia.
+  const reentradaPorMesa = formData.type === 'rebuy' && modoDoTorneio(torneioSelecionado) === MODO_MESA;
+  const [eliminadosDoDia, setEliminadosDoDia] = useState(null);
+  useEffect(() => {
+    if (!showModal || !reentradaPorMesa || !formData.tournament_day_id) {
+      setEliminadosDoDia(null);
+      return undefined;
+    }
+    let vivo = true;
+    lerInscritos(formData.tournament_id, formData.tournament_day_id)
+      .then((lista) => {
+        if (vivo) setEliminadosDoDia(lista.filter((p) => p.status === 'eliminated').map((p) => p.player_id));
+      })
+      .catch(() => { if (vivo) setEliminadosDoDia(null); });
+    return () => { vivo = false; };
+  }, [showModal, reentradaPorMesa, formData.tournament_id, formData.tournament_day_id]);
+  const avisarReentradaSemEliminado = formData.type === 'rebuy' && (
+    reentradaPorMesa
+      ? Array.isArray(eliminadosDoDia) && eliminadosDoDia.length === 0
+      : !!diaSelecionado && Number(diaSelecionado.eliminations_count || 0) <= 0
+  );
   // Mesas travadas/cheias → alternado é o certo. Nenhuma mesa cadastrada →
   // erro de configuração, e é isso que precisa aparecer ANTES da venda.
   const avisarSemMesa = alocacaoAutomatica && estadoDasMesas === 'sem-mesas';
@@ -507,21 +549,13 @@ const Caixa = () => {
           }
         }
       } else if (formData.type === 'rebuy') {
-        // Resolve o jogador (online: backend; offline: réplica) e hidrata a réplica.
-        const tpList = await offlineRead(`/tournament-players/tournament/${formData.tournament_id}`, {
-          fromReplica: async () => (await getAllByTable('tournament_players')).filter(p => p.tournament_id === formData.tournament_id),
-        });
-        if (tpList?.length) putEntities('tournament_players', tpList);
-        const tournamentPlayer = (tpList || []).find(p => p.player_id === formData.player_id);
+        // Resolve o jogador DO DIA (online: backend; offline: réplica).
+        const tpList = await lerInscritos(formData.tournament_id, formData.tournament_day_id);
+        const tournamentPlayer = tpList.find(p => p.player_id === formData.player_id);
         if (tournamentPlayer) {
-          // If player was eliminated, remove from ranking first (só online)
-          if (tournamentPlayer.status === 'eliminated' && isOnline()) {
-            try {
-              await api.delete(`/rankings/tournament-player/${tournamentPlayer.id}/ranking`);
-            } catch (rankingError) {
-              console.error('Error removing from ranking:', rankingError);
-            }
-          }
+          // O ranking NÃO é mexido aqui: tirar o jogador do ranking antes da
+          // venda o reativava, e a reentrada por mesa — que exige o jogador
+          // ELIMINADO — era recusada. O servidor faz isso na própria venda.
 
           // UMA recompra por venda. A "quantidade de rebuys" saiu da tela: ela
           // multiplicava o valor e as fichas do rebuy simples, e um rebuy duplo
@@ -640,12 +674,9 @@ const Caixa = () => {
           return;
         }
       } else if (formData.type === 'addon') {
-        // Resolve o jogador (online: backend; offline: réplica) e hidrata a réplica.
-        const tpList = await offlineRead(`/tournament-players/tournament/${formData.tournament_id}`, {
-          fromReplica: async () => (await getAllByTable('tournament_players')).filter(p => p.tournament_id === formData.tournament_id),
-        });
-        if (tpList?.length) putEntities('tournament_players', tpList);
-        const tournamentPlayer = (tpList || []).find(p => p.player_id === formData.player_id);
+        // Resolve o jogador DO DIA (online: backend; offline: réplica).
+        const tpList = await lerInscritos(formData.tournament_id, formData.tournament_day_id);
+        const tournamentPlayer = tpList.find(p => p.player_id === formData.player_id);
         if (tournamentPlayer) {
           const cmid = uuid();
           const adBody = {
@@ -1344,6 +1375,17 @@ const Caixa = () => {
                   </output>
                 )}
 
+                {avisarReentradaSemEliminado && (
+                  <div className="cx-warning" role="alert">
+                    <strong>{t('cashRegister.reentryNoEliminatedTitle')}</strong>
+                    <span>
+                      {reentradaPorMesa
+                        ? t('cashRegister.reentryNoEliminatedTable')
+                        : t('cashRegister.reentryNoEliminatedBulk')}
+                    </span>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label htmlFor="player_id">{t('cashRegister.player')}</label>
                   <PlayerSelect
@@ -1351,7 +1393,11 @@ const Caixa = () => {
                     onChange={handleChange}
                     required
                     name="player_id"
+                    allowedIds={reentradaPorMesa && Array.isArray(eliminadosDoDia) ? eliminadosDoDia : undefined}
                   />
+                  {reentradaPorMesa && (
+                    <small className="cx-field-hint">{t('cashRegister.reentryOnlyEliminated')}</small>
+                  )}
                 </div>
 
                 {/* Torneio sem meio de entrada cadastrado: a venda CONTINUA,

@@ -137,7 +137,11 @@ def update_tournament(
     """
     _exigir_torneio_da_etapa(tournament_id, stage_id)
 
-    tournament = TournamentService.update_tournament(tournament_id, tournament_data)
+    try:
+        tournament = TournamentService.update_tournament(tournament_id, tournament_data)
+    except ValueError as e:
+        # Troca para "por mesa" com eliminações em massa já lançadas (409).
+        raise da_excecao(e)
     if not tournament:
         raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
     return tournament

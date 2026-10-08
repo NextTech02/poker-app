@@ -53,6 +53,11 @@ def _monta(monkeypatch, dia=None, jogadores=None, tabelas=None):
     # A recompra chama esta funcao para desfazer uma eliminacao. Ela existe no
     # banco de verdade; aqui o retorno nao importa, so o fato de nao estourar.
     fake.rpcs["desfazer_eliminacoes"] = 0
+    # Toda reentrada traz de volta UM eliminado — sem eliminado, ela e
+    # recusada. Os testes de dinheiro e fichas partem do caso comum: ha alguem
+    # para voltar. Os que exercitam a trava (TestReentradaSoParaEliminado)
+    # tiram este retorno e usam o contador de verdade.
+    fake.rpcs["consumir_eliminacao"] = True
     monkeypatch.setattr(tournament_player_service, "supabase", fake)
     # O bloqueio de vendas le do MESMO banco falso: sem isto ele consultaria o
     # Supabase de verdade no meio do teste.
@@ -267,7 +272,8 @@ class TestIdasAoBancoNaRecompra:
         consultar `tournaments` e este teste fica vermelho."""
         fake = TestRebuyEAddon._com_jogador(
             self, monkeypatch,
-            tournaments={"stage_id": "etapa-1", "stages": {"sales_blocked": False}},
+            tournaments={"stage_id": "etapa-1", "elimination_mode": "bulk",
+                         "stages": {"sales_blocked": False}},
         )
 
         tabelas = []
@@ -296,14 +302,72 @@ class TestIdasAoBancoNaRecompra:
 
 
 class TestEliminacao:
-    def _ativo(self, monkeypatch):
-        return _monta(monkeypatch, jogadores=[{
+    def _ativo(self, monkeypatch, modo="bulk", eliminacoes=0, tabelas=None):
+        base = {"tournaments": [{"id": TOUR, "name": "Torneio A", "elimination_mode": modo}]}
+        base.update(tabelas or {})
+        return _monta(monkeypatch, dia=_dia(eliminations_count=eliminacoes), jogadores=[{
             "id": TP, "tournament_id": TOUR, "tournament_day_id": DIA,
             "player_id": PLAYER, "status": "active", "rebuy_count": 0, "addon_count": 0,
-            "total_chips": 10000, "total_spent": 100,
+            "buy_in_count": 1, "total_chips": 10000, "total_spent": 100,
             "total_buy_in_amount": 100, "total_rebuy_amount": 0, "total_addon_amount": 0,
             "created_at": "2026-06-08T00:00:00Z", "registered_at": "2026-06-08T00:00:00Z",
-        }])
+        }], tabelas=base)
+
+    def test_eliminar_soma_no_contador_que_a_tv_le(self, monkeypatch):
+        """Antes so o status mudava: a TV le o contador e nao via a eliminacao."""
+        fake = self._ativo(monkeypatch)
+        TournamentPlayerService.eliminate_player(TP, "u1")
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+
+    def test_modo_mesa_o_contador_e_a_contagem_de_eliminados(self, monkeypatch):
+        """Mesmo com um contador descolado, eliminar no assento acerta o numero."""
+        fake = self._ativo(monkeypatch, modo="table", eliminacoes=5)
+        TournamentPlayerService.eliminate_player(TP, "u1")
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+
+    def test_eliminar_libera_a_cadeira_e_a_vaga_da_mesa(self, monkeypatch):
+        fake = self._ativo(monkeypatch, tabelas={
+            "seat_allocations": [
+                {"id": "a1", "tournament_id": TOUR, "tournament_day_id": DIA,
+                 "player_id": PLAYER, "table_id": "m1", "seat_number": 3},
+                # O mesmo jogador sentado em OUTRO dia continua sentado.
+                {"id": "a2", "tournament_id": TOUR, "tournament_day_id": DIA_1B,
+                 "player_id": PLAYER, "table_id": "m9", "seat_number": 1},
+            ],
+            "tournament_tables": [{"id": "m1", "occupied_seats": 4}],
+        })
+        TournamentPlayerService.eliminate_player(TP, "u1")
+        assert [a["id"] for a in fake.store["seat_allocations"]] == ["a2"]
+        assert fake.store["tournament_tables"][0]["occupied_seats"] == 3
+
+    def test_eliminar_de_novo_sem_ser_replay_avisa(self, monkeypatch):
+        self._ativo(monkeypatch)
+        TournamentPlayerService.eliminate_player(TP, "u1")
+        with pytest.raises(ErroDeNegocio) as erro:
+            TournamentPlayerService.eliminate_player(TP, "u1")
+        assert erro.value.code == "jogador_ja_eliminado"
+
+    def test_desfazer_eliminacao_devolve_o_jogador_e_o_contador(self, monkeypatch):
+        fake = self._ativo(monkeypatch)
+        TournamentPlayerService.eliminate_player(TP, "u1")
+        TournamentPlayerService.uneliminate_player(TP)
+        assert fake.store["tournament_players"][0]["status"] == "active"
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 0
+
+    def test_desfazer_quem_nao_esta_eliminado_e_recusado(self, monkeypatch):
+        self._ativo(monkeypatch)
+        with pytest.raises(ErroDeNegocio) as erro:
+            TournamentPlayerService.uneliminate_player(TP)
+        assert erro.value.code == "jogador_nao_eliminado"
+
+    def test_patch_de_status_passa_pela_eliminacao(self, monkeypatch):
+        """A tela antiga gravava o status direto: o contador nao via."""
+        fake = self._ativo(monkeypatch)
+        TournamentPlayerService.update_tournament_player(
+            TP, TournamentPlayerUpdate(status="eliminated")
+        )
+        assert fake.store["tournament_players"][0]["status"] == "eliminated"
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
 
     def test_marca_como_eliminado(self, monkeypatch):
         fake = self._ativo(monkeypatch)
@@ -323,6 +387,8 @@ class TestEliminacao:
             TP, TournamentPlayerUpdate(status="active")
         )
         assert fake.store["tournament_players"][0]["status"] == "active"
+        # Voltar pelo PATCH tambem devolve a eliminacao ao contador.
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 0
 
 
 class TestListagens:
@@ -641,15 +707,15 @@ class TestRecompraDesfazEliminacao:
             "tournament_days": dict(_dia()),
         }]
 
-    def _chamadas_da_rpc(self, fake):
-        return [c for c in fake.rpc_calls if c[0] == "desfazer_eliminacoes"]
+    def _chamadas_da_rpc(self, fake, nome="consumir_eliminacao"):
+        return [c for c in fake.rpc_calls if c[0] == nome]
 
     def test_a_recompra_baixa_o_contador_de_eliminacoes(self, monkeypatch):
         fake = _monta(monkeypatch, jogadores=self._inscrito())
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
         chamadas = self._chamadas_da_rpc(fake)
         assert len(chamadas) == 1
-        assert chamadas[0][1] == {"p_day_id": DIA, "p_qtd": 1}
+        assert chamadas[0][1] == {"p_day_id": DIA}
 
     def test_recompra_multipla_desfaz_UMA_eliminacao(self, monkeypatch):
         """Cinco recompras de uma vez sao UMA volta a mesa.
@@ -659,7 +725,7 @@ class TestRecompraDesfazEliminacao:
         torneio de 100 entradas."""
         fake = _monta(monkeypatch, jogadores=self._inscrito())
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5)
-        assert self._chamadas_da_rpc(fake)[0][1]["p_qtd"] == 1
+        assert len(self._chamadas_da_rpc(fake)) == 1
         # E as cinco recompras foram gravadas do mesmo jeito.
         assert fake.store["tournament_players"][0]["rebuy_count"] == 5
 
@@ -667,7 +733,7 @@ class TestRecompraDesfazEliminacao:
         fake = _monta(monkeypatch,
                       dia=_dia(eliminations_count=3),
                       jogadores=self._inscrito())
-        del fake.rpcs["desfazer_eliminacoes"]
+        del fake.rpcs["consumir_eliminacao"]
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5)
         assert fake.store["tournament_days"][0]["eliminations_count"] == 2
 
@@ -676,10 +742,10 @@ class TestRecompraDesfazEliminacao:
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
         assert fake.store["tournament_players"][0]["status"] == "active"
 
-    def test_a_venda_nao_cai_se_o_contador_falhar(self, monkeypatch):
-        """O dinheiro ja entrou e a recompra ja esta gravada. O pior caso e o
-        telao mostrar um ativo a menos ate o operador ajustar no botao — muito
-        melhor que recusar uma venda paga."""
+    def test_no_replay_offline_a_venda_nao_cai_se_o_contador_falhar(self, monkeypatch):
+        """No replay o dinheiro ja entrou no balcao. O pior caso e o telao
+        mostrar um ativo a menos ate o operador ajustar no botao — muito melhor
+        que recusar uma venda paga."""
         fake = _monta(monkeypatch, jogadores=self._inscrito())
         del fake.rpcs["desfazer_eliminacoes"]   # RPC ausente: cai no caminho lento
 
@@ -691,8 +757,27 @@ class TestRecompraDesfazEliminacao:
             return original(nome)
 
         monkeypatch.setattr(fake, "table", _table)
-        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
+                                          skip_elimination_gate=True)
         assert fake.store["tournament_players"][0]["rebuy_count"] == 1
+
+    def test_sem_poder_conferir_a_trava_a_venda_nao_cobra(self, monkeypatch):
+        """Online, a trava vem ANTES do dinheiro: se nao da para saber se ha
+        eliminado para voltar, nada e cobrado (o operador tenta de novo)."""
+        fake = _monta(monkeypatch, jogadores=self._inscrito())
+        del fake.rpcs["consumir_eliminacao"]
+        original = fake.table
+
+        def _table(nome):
+            if nome == "tournament_days":
+                raise RuntimeError("banco fora do ar")
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _table)
+        with pytest.raises(RuntimeError):
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert fake.store["transactions"] == []
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 0
 
     def test_sem_a_funcao_no_banco_cai_no_caminho_em_duas_idas(self, monkeypatch):
         """O deploy do codigo nao e atomico com a migracao: por um tempo o banco
@@ -701,20 +786,150 @@ class TestRecompraDesfazEliminacao:
         fake = _monta(monkeypatch,
                       dia=_dia(eliminations_count=3),
                       jogadores=self._inscrito())
-        del fake.rpcs["desfazer_eliminacoes"]
+        del fake.rpcs["consumir_eliminacao"]
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
         assert fake.store["tournament_days"][0]["eliminations_count"] == 2
 
-    def test_o_contador_nao_fica_negativo(self, monkeypatch):
-        """Recompra sem eliminacao registrada e comum: o operador vende a
-        recompra e nunca clicou em "Eliminar". Sem o piso, os ativos passariam
-        do numero de entradas — que e justamente o defeito do print."""
+    def test_no_replay_o_contador_nao_fica_negativo(self, monkeypatch):
+        """O replay offline nao re-confere a trava: o operador vendeu quando
+        era permitido. Ai o piso em zero segura os ativos abaixo das entradas."""
         fake = _monta(monkeypatch,
                       dia=_dia(eliminations_count=0),
                       jogadores=self._inscrito())
         del fake.rpcs["desfazer_eliminacoes"]
-        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, quantity=5,
+                                          skip_elimination_gate=True)
         assert fake.store["tournament_days"][0]["eliminations_count"] == 0
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 5
+
+
+class TestReentradaSoParaEliminado:
+    """Toda REENTRADA traz de volta UM jogador eliminado — sem eliminado, a
+    venda e recusada ANTES de cobrar.
+
+    Antes a recompra passava com o contador no piso zero e o numero ficava
+    certo por acaso; se o diretor clicasse "Eliminar" DEPOIS, o jogador era
+    descontado duas vezes. Agora:
+
+    - EM MASSA: precisa haver eliminacao no contador do dia;
+    - POR MESA: AQUELE jogador precisa estar eliminado.
+    """
+
+    def _inscrito(self, status="active", modo="bulk", **kw):
+        linha = {
+            "id": TP, "tournament_id": TOUR, "tournament_day_id": DIA,
+            "player_id": PLAYER, "status": status, "rebuy_count": 0, "addon_count": 0,
+            "buy_in_count": 1, "total_chips": 10000, "total_spent": 100,
+            "total_buy_in_amount": 100, "total_rebuy_amount": 0, "total_addon_amount": 0,
+            "created_at": "2026-06-08T00:00:00Z", "registered_at": "2026-06-08T00:00:00Z",
+            "tournaments": {"stage_id": None, "elimination_mode": modo},
+        }
+        linha.update(kw)
+        return linha
+
+    def _monta_sem_atalho(self, monkeypatch, jogadores, eliminacoes=0):
+        fake = _monta(monkeypatch, dia=_dia(eliminations_count=eliminacoes), jogadores=jogadores)
+        del fake.rpcs["consumir_eliminacao"]   # o contador de verdade decide
+        return fake
+
+    def test_em_massa_sem_eliminado_recusa_e_nao_cobra(self, monkeypatch):
+        fake = self._monta_sem_atalho(monkeypatch, [self._inscrito()], eliminacoes=0)
+        with pytest.raises(ErroDeNegocio) as erro:
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert erro.value.code == "reentrada_sem_eliminado"
+        assert erro.value.status == 409
+        assert fake.store["transactions"] == []
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 0
+
+    def test_em_massa_com_eliminado_consome_uma_eliminacao(self, monkeypatch):
+        fake = self._monta_sem_atalho(monkeypatch, [self._inscrito()], eliminacoes=1)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 0
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 1
+
+    def test_em_massa_o_banco_recusando_a_baixa_recusa_a_venda(self, monkeypatch):
+        """Duas caixas com o contador em 1: o banco deixa so uma passar."""
+        fake = _monta(monkeypatch, jogadores=[self._inscrito()])
+        fake.rpcs["consumir_eliminacao"] = False
+        with pytest.raises(ErroDeNegocio, match="eliminado"):
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert fake.store["transactions"] == []
+
+    def test_mesa_jogador_na_mesa_nao_reentra(self, monkeypatch):
+        """Por mesa, a reentrada e DAQUELE jogador: ele precisa ter sido
+        eliminado no assento antes."""
+        fake = _monta(monkeypatch, jogadores=[self._inscrito(status="active", modo="table")])
+        with pytest.raises(ErroDeNegocio) as erro:
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert erro.value.code == "reentrada_sem_eliminado"
+        assert fake.store["transactions"] == []
+        assert fake.store["tournament_players"][0]["status"] == "active"
+        # A trava por mesa e o proprio jogador, nao o contador do dia.
+        assert not [c for c in fake.rpc_calls if c[0] == "consumir_eliminacao"]
+
+    def test_mesa_eliminado_volta_a_mesa_e_sai_do_ranking(self, monkeypatch):
+        fake = _monta(
+            monkeypatch,
+            dia=_dia(eliminations_count=1),
+            jogadores=[self._inscrito(status="eliminated", modo="table", final_position=7,
+                                      eliminated_at="2026-06-08T22:00:00Z")],
+        )
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        linha = fake.store["tournament_players"][0]
+        assert linha["status"] == "active"
+        assert linha["final_position"] is None
+        assert linha["eliminated_at"] is None
+        assert linha["rebuy_count"] == 1
+        # O contador do modo mesa e a contagem dos eliminados: ninguem sobrou.
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 0
+
+    def test_inscricao_estornada_nao_reentra(self, monkeypatch):
+        fake = _monta(monkeypatch, jogadores=[self._inscrito(status="cancelled")])
+        with pytest.raises(ErroDeNegocio) as erro:
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert erro.value.code == "reentrada_inscricao_estornada"
+        assert fake.store["transactions"] == []
+
+    def test_falha_ao_gravar_devolve_a_eliminacao_consumida(self, monkeypatch):
+        """A eliminacao foi consumida para uma venda que nao aconteceu: ela
+        volta, senao o telao mostraria um ativo a mais."""
+        fake = self._monta_sem_atalho(monkeypatch, [self._inscrito()], eliminacoes=1)
+        original = fake.table
+
+        class _UpdateQuebrado:
+            def __init__(self, q):
+                self._q = q
+
+            def update(self, *a, **k):
+                raise RuntimeError("timeout")
+
+            def __getattr__(self, nome):
+                return getattr(self._q, nome)
+
+        monkeypatch.setattr(
+            fake, "table",
+            lambda n: _UpdateQuebrado(original(n)) if n == "tournament_players" else original(n),
+        )
+        with pytest.raises(RuntimeError):
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True)
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+        assert fake.store["transactions"] == []
+
+    def test_add_on_nao_exige_eliminado_nem_mexe_no_contador(self, monkeypatch):
+        """Add-on so compra fichas: nao traz ninguem de volta."""
+        fake = self._monta_sem_atalho(monkeypatch, [self._inscrito()], eliminacoes=0)
+        TournamentPlayerService.add_addon(TP, "u1")
+        assert fake.store["tournament_players"][0]["addon_count"] == 1
+        assert fake.store["tournament_players"][0]["status"] == "active"
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 0
+
+    def test_entrada_nova_soma_um_jogador(self, monkeypatch):
+        """Toda entrada nova soma um jogador: e uma inscricao com um buy-in."""
+        fake = _monta(monkeypatch)
+        TournamentPlayerService.register_player(_inscricao(), "u1")
+        linhas = fake.store["tournament_players"]
+        assert len(linhas) == 1
+        assert linhas[0]["buy_in_count"] == 1
 
 
 class TestCaminhoQuenteDaVenda:

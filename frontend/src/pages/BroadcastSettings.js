@@ -993,7 +993,7 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_show_prizepool',  labelKey: 'visPrizepool' },
                   { key: 'broadcast_show_level',      labelKey: 'visLevel' },
                   { key: 'broadcast_show_players',    labelKey: 'visPlayers' },
-                  { key: 'broadcast_show_reentries',  labelKey: 'visReentries', padrao: 'Reentradas (recompras e add-ons)' },
+                  { key: 'broadcast_show_reentries',  labelKey: 'visReentries', padrao: 'Reentradas (recompras)' },
                   { key: 'broadcast_show_interval',   labelKey: 'visInterval' },
                   { key: 'broadcast_show_timer',      labelKey: 'visTimer' },
                   { key: 'broadcast_show_blinds',     labelKey: 'visBlinds' },

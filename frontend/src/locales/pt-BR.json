@@ -271,7 +271,14 @@
     "buyTypesPartial": "Torneio criado, mas não foi possível salvar os meios de entrada. Cadastre-os na edição do torneio.",
     "entryTypesSection": "Meios de entrada",
     "entryTypesLoadError": "Não foi possível carregar os meios de entrada deste torneio. Eles não serão alterados ao salvar.",
-    "entryTypesUpdatePartial": "Torneio salvo, mas não foi possível salvar os meios de entrada. Tente de novo."
+    "entryTypesUpdatePartial": "Torneio salvo, mas não foi possível salvar os meios de entrada. Tente de novo.",
+    "eliminationModeSection": "Como eliminar jogadores",
+    "eliminationModeTable": "Por posição nas mesas",
+    "eliminationModeTableHint": "Mais organizado: o diretor elimina cada jogador no assento, e a reentrada é daquele jogador.",
+    "eliminationModeBulk": "Em massa",
+    "eliminationModeBulkHint": "Mais prático: o diretor soma eliminações no Controle (Eliminar 1 / Eliminar N), sem dizer quem saiu.",
+    "eliminationModeRule": "Nos dois modos, cada entrada soma um jogador e cada reentrada traz de volta um eliminado. Add-on não conta.",
+    "reentriesHint": "Recompras. Não somam jogadores: cada reentrada traz de volta um jogador eliminado."
   },
   "tournamentDays": {
     "restarted": "Dia reiniciado.",
@@ -627,7 +634,11 @@
     "tablesUnknownHint": "Sem internet não dá para conferir as mesas. A venda é guardada e o assento é definido na sincronização.",
     "ticketNoTablesHint": "Não há mesa cadastrada neste dia: o jogador não entrou em fila de alternados. Cadastre as mesas em Mesas e aloque o jogador.",
     "ticketOfflineHint": "Venda guardada sem internet: o assento é definido na sincronização.",
-    "ticketBuyType": "Meio de entrada"
+    "ticketBuyType": "Meio de entrada",
+    "reentryNoEliminatedTitle": "Nenhum jogador eliminado",
+    "reentryNoEliminatedBulk": "O contador do dia não tem eliminação. A reentrada só é aceita depois que a eliminação for registrada no Controle.",
+    "reentryNoEliminatedTable": "Ninguém foi eliminado nas mesas deste dia. A reentrada é só para quem foi eliminado no assento.",
+    "reentryOnlyEliminated": "Torneio por mesa: só aparecem os jogadores eliminados neste dia."
   },
   "cashbox": {
     "myCashbox": "Meu Caixa",
@@ -1008,7 +1019,10 @@
     "breadcrumbTournament": "Torneio",
     "offlineApplied": "Sem conexão: alteração aplicada só nesta tela e enviada quando a internet voltar",
     "offlineClock": "Sem conexão — relógio rodando nesta tela",
-    "offlineQueued": "Sem conexão: comando na fila; a tela atualiza quando a internet voltar"
+    "offlineQueued": "Sem conexão: comando na fila; a tela atualiza quando a internet voltar",
+    "reentries": "Reentradas",
+    "eliminationByTableHint": "Este torneio elimina pelas mesas: o jogador é eliminado no próprio assento, na tela de mesas.",
+    "eliminateAtTables": "Eliminar pelas mesas →"
   },
   "comingSoon": {
     "title": "Em Construção",
@@ -1126,7 +1140,8 @@
     "clubLogoMaxSize": "A logo precisa ter até 512KB. Acima disso, prefira colar a URL da imagem.",
     "clubLogoUpload": "Enviar a logo do clube",
     "clubLogoUploadHint": "PNG com fundo transparente, até 512KB",
-    "clubLogoUrlLabel": "ou cole a URL"
+    "clubLogoUrlLabel": "ou cole a URL",
+    "visReentries": "Reentradas (recompras)"
   },
   "errors": {
     "meio_de_entrada_de_outro_torneio": "O meio de entrada escolhido não pertence a este torneio.",
@@ -1276,7 +1291,14 @@
     "link_invalido": "Link inválido.",
     "link_ja_usado": "Este link já foi usado para responder.",
     "link_expirado": "Este link expirou. Peça ao clube um novo.",
-    "muitas_tentativas": "Muitas tentativas. Tente de novo em alguns minutos."
+    "muitas_tentativas": "Muitas tentativas. Tente de novo em alguns minutos.",
+    "eliminacao_por_mesa": "Este torneio elimina jogadores pelas mesas: use o botão de eliminar no assento do jogador.",
+    "reentrada_sem_eliminado": "Reentrada recusada: não há jogador eliminado para voltar. Registre a eliminação antes de vender a reentrada.",
+    "reentrada_inscricao_estornada": "A inscrição deste jogador foi estornada; não há o que reentrar.",
+    "modo_de_eliminacao_bloqueado": "Este torneio já tem eliminações lançadas em massa. Para eliminar pelas mesas, zere o contador no Controle antes de trocar o modo.",
+    "jogador_ja_eliminado": "Este jogador já está eliminado.",
+    "jogador_nao_eliminado": "Este jogador não está eliminado.",
+    "jogador_estornado": "A inscrição deste jogador foi estornada; ele não está no torneio."
   },
   "premiacao": {
     "loadError": "Erro ao carregar dados da premiação",
@@ -2410,7 +2432,14 @@
     "eliminatedSuccess": "{{name}} eliminado!",
     "errorEliminate": "Erro ao eliminar: {{detail}}",
     "tablesAddedSuccessSingular": "Mesa adicionada com sucesso!",
-    "tablesAddedSuccessPlural": "{{count}} mesas adicionadas com sucesso!"
+    "tablesAddedSuccessPlural": "{{count}} mesas adicionadas com sucesso!",
+    "playerNotInDay": "jogador sem inscrição neste dia",
+    "panelEliminated": "Eliminados",
+    "eliminatedHint": "Desfazer é para eliminação lançada por engano. Reentrada é vendida no Caixa.",
+    "noEliminated": "Ninguém eliminado neste dia.",
+    "undoElimination": "Desfazer",
+    "uneliminatedSuccess": "{{name}} voltou ao torneio. Sente o jogador numa mesa.",
+    "errorUneliminate": "Erro ao desfazer a eliminação: {{detail}}"
   },
   "expenses": {
     "new": "Nova despesa",

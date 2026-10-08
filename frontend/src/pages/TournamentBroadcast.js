@@ -855,11 +855,11 @@ const TournamentBroadcast = () => {
     return sum + (p.buy_in_count || 0);
   }, 0);
 
-  // Reentradas (recompra + add-on). Nao somam jogadores: quem recompra continua
-  // sendo a mesma pessoa na mesa — por isso e um numero proprio, e nao entra no
-  // "Jogadores" nem no "Entradas".
+  // Reentradas = recompras. Cada uma trouxe de volta um eliminado, entao nao
+  // soma jogadores — e um numero proprio, fora de "Jogadores" e de "Entradas".
+  // Add-on compra fichas para quem ja esta na mesa e nao conta em nenhum dos dois.
   const totalReentries = (isDayBased && timerState) ? (timerState.total_reentries || 0) : players.reduce((sum, p) => {
-    return sum + (p.rebuy_count || 0) + (p.addon_count || 0);
+    return sum + (p.rebuy_count || 0);
   }, 0);
 
   // Chipcount and average stack (day-based only, from enriched endpoint)
