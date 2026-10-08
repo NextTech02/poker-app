@@ -56,3 +56,12 @@
   .main-content { margin-left: 0 !important; }
   .rt-print-btn { display: none; }
 }
+
+/* Coluna "Por meio de entrada" na tabela de dias: lista compacta
+   ("Buy-in 100 · Doble 12 · Rebuy 40"). */
+.rt-table .rt-breakdown {
+  font-size: 12px;
+  color: var(--text-secondary, #9ca3af);
+  white-space: normal;
+  min-width: 180px;
+}

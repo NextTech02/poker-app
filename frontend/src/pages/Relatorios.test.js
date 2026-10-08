@@ -166,3 +166,47 @@ describe('exportação', () => {
     await waitFor(() => expect(screen.getByTestId('exportar')).toHaveTextContent('8'));
   });
 });
+
+
+/**
+ * Por MEIO de entrada: com a lista do período, a tabela de jogadores ganha
+ * uma coluna por meio cadastrado ("Doble", "Tasa"…) no lugar das três
+ * categorias fixas; sem a lista (backend antigo), as três continuam.
+ */
+describe('por meio de entrada', () => {
+  const COM_MEIOS = {
+    ...RELATORIO,
+    byBuyType: [
+      { name: 'Buy-in', category: 'buy_in', count: 150, amount: 75000 },
+      { name: 'Doble', category: 'buy_in', count: 50, amount: 50000 },
+      { name: 'Tasa', category: 'addon', count: 20, amount: 2000 },
+    ],
+    playerReports: [
+      { player_id: 'p1', player_name: 'Ana', total_spent: 3000, buy_ins: 2, rebuys: 0, addons: 1, by_buy_type: { 'Buy-in': 1, Doble: 1, Tasa: 1 } },
+      { player_id: 'p2', player_name: 'Beto', total_spent: 500, buy_ins: 1, rebuys: 0, addons: 0, by_buy_type: { 'Buy-in': 1 } },
+    ],
+  };
+
+  it('a tabela de jogadores ganha uma coluna por meio cadastrado', async () => {
+    await montar({ relatorio: COM_MEIOS });
+    const cabecalhos = Array.from(document.querySelectorAll('.reports-table:not(.reports-table--buytypes) thead th')).map((th) => th.textContent);
+    expect(cabecalhos).toEqual(['Jogador', 'Buy-in', 'Doble', 'Tasa', 'Total Gasto']);
+    const beto = Array.from(document.querySelectorAll('.reports-table:not(.reports-table--buytypes) tbody tr')).find((tr) => tr.textContent.includes('Beto'));
+    expect(Array.from(beto.querySelectorAll('td')).map((td) => td.textContent)).toEqual(['Beto', '1', '0', '0', 'R$ 500.00']);
+  });
+
+  it('o card "Por meio de entrada" lista quantidade e valor de cada meio', async () => {
+    await montar({ relatorio: COM_MEIOS });
+    const tabela = document.querySelector('.reports-table--buytypes');
+    expect(tabela).toHaveTextContent('Doble');
+    expect(tabela).toHaveTextContent('50');
+    expect(tabela).toHaveTextContent('R$ 50000.00');
+  });
+
+  it('sem a lista (backend antigo) as três categorias continuam', async () => {
+    await montar();
+    const cabecalhos = Array.from(document.querySelectorAll('.reports-table thead th')).map((th) => th.textContent);
+    expect(cabecalhos).toEqual(['Jogador', 'Buy-ins', 'Rebuys', 'Add-ons', 'Total Gasto']);
+    expect(document.querySelector('.reports-table--buytypes')).toBeNull();
+  });
+});

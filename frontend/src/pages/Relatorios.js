@@ -59,6 +59,18 @@ const Relatorios = () => {
 
   const rebuyRate = ((reports.totalRebuys + reports.totalAddons) / (reports.totalBuyIns || 1) * 100).toFixed(1);
 
+  // Meios de entrada cadastrados pelo diretor que tiveram venda no período
+  // (viram as colunas da tabela de jogadores). Vazio com backend antigo.
+  const meios = useMemo(
+    () => (reports.byBuyType || []).map((b) => b.name).filter(Boolean),
+    [reports.byBuyType]
+  );
+  const rotuloCategoria = (c) => ({
+    buy_in: t('reports.buyIns', 'Buy-ins'),
+    rebuy: t('reports.rebuys', 'Rebuys'),
+    addon: t('reports.addons', 'Add-ons'),
+  }[c] || c);
+
   // Top 5 por gastos — memoizado (não re-ordena a lista a cada render).
   const top5Players = useMemo(
     () => [...(reports.playerReports || [])].sort((a, b) => b.total_spent - a.total_spent).slice(0, 5),
@@ -219,6 +231,35 @@ const Relatorios = () => {
               </Card>
             </div>
 
+            {/* Por MEIO de entrada — o cadastrado pelo diretor ("Doble",
+                "Tasa"…), não só as três categorias fixas. */}
+            {meios.length > 0 && (
+              <Card title={t('reports.byBuyType', 'Por meio de entrada')}>
+                <div className="table-container">
+                  <table className="reports-table reports-table--buytypes">
+                    <thead>
+                      <tr>
+                        <th>{t('reports.buyType', 'Meio')}</th>
+                        <th>{t('reports.buyTypeCategory', 'Categoria')}</th>
+                        <th>{t('reports.buyTypeCount', 'Quantidade')}</th>
+                        <th>{t('reports.buyTypeAmount', 'Valor')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reports.byBuyType.map((b, i) => (
+                        <tr key={`${b.name}-${i}`}>
+                          <td>{b.name}</td>
+                          <td>{rotuloCategoria(b.category)}</td>
+                          <td>{b.count}</td>
+                          <td className="amount">{fmt(b.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+
             {/* B4: EmptyState padronizado */}
             <Card title={t('reports.playerReport', 'Relatório de Jogadores')}>
               {reports.playerReports && reports.playerReports.length > 0 ? (
@@ -228,10 +269,16 @@ const Relatorios = () => {
                       <tr>
                         <th>{t('players.columnPlayer', 'Jogador')}</th>
                         {/* Nao ha coluna "Entradas" aqui: entrada e buy-in, e
-                            ela repetiria a coluna ao lado numero por numero. */}
-                        <th>{t('reports.buyIns', 'Buy-ins')}</th>
-                        <th>{t('reports.rebuys', 'Rebuys')}</th>
-                        <th>{t('reports.addons', 'Add-ons')}</th>
+                            ela repetiria a coluna ao lado numero por numero.
+                            Com meios cadastrados, uma coluna por MEIO; sem
+                            (backend antigo), as três categorias. */}
+                        {meios.length > 0 ? meios.map((nome) => <th key={nome}>{nome}</th>) : (
+                          <>
+                            <th>{t('reports.buyIns', 'Buy-ins')}</th>
+                            <th>{t('reports.rebuys', 'Rebuys')}</th>
+                            <th>{t('reports.addons', 'Add-ons')}</th>
+                          </>
+                        )}
                         <th>{t('cashRegister.totalGeneral', 'Total Gasto')}</th>
                       </tr>
                     </thead>
@@ -239,9 +286,15 @@ const Relatorios = () => {
                       {reports.playerReports.map((player, index) => (
                         <tr key={index}>
                           <td className="player-name">{player.player_name}</td>
-                          <td>{player.buy_ins}</td>
-                          <td>{player.rebuys}</td>
-                          <td>{player.addons}</td>
+                          {meios.length > 0 ? meios.map((nome) => (
+                            <td key={nome}>{player.by_buy_type?.[nome] ?? 0}</td>
+                          )) : (
+                            <>
+                              <td>{player.buy_ins}</td>
+                              <td>{player.rebuys}</td>
+                              <td>{player.addons}</td>
+                            </>
+                          )}
                           <td className="amount">{fmt(player.total_spent)}</td>
                         </tr>
                       ))}

@@ -45,7 +45,18 @@ const RELATORIO = {
   vagas_count: 1, vagas_generated: 1,
   days: [
     { id: 'd1', day_name: 'Dia 1A', day_type: 'qualifying', status: 'completed',
-      buy_in: 1000, players: 100, buy_ins: 100, rebuys: 40, addons: 10, income: 150000 },
+      buy_in: 1000, players: 100, buy_ins: 100, rebuys: 40, addons: 10, income: 150000,
+      by_buy_type: [
+        { name: 'Buy-in', category: 'buy_in', count: 88, amount: 88000 },
+        { name: 'Doble', category: 'buy_in', count: 12, amount: 24000 },
+        { name: 'Rebuy', category: 'rebuy', count: 40, amount: 40000 },
+      ] },
+  ],
+  by_buy_type: [
+    { name: 'Buy-in', category: 'buy_in', count: 168, amount: 168000 },
+    { name: 'Doble', category: 'buy_in', count: 12, amount: 24000 },
+    { name: 'Rebuy', category: 'rebuy', count: 60, amount: 60000 },
+    { name: 'Tasa', category: 'addon', count: 20, amount: 8000 },
   ],
   prizes: [
     { id: 'a1', position: 1, prize_type: 'cash', prize_amount: 80000,
@@ -196,5 +207,37 @@ describe('impressão', () => {
     await montar();
     await userEvent.click(screen.getByRole('button', { name: 'tournamentReport.printPdf' }));
     expect(imprimir).toHaveBeenCalled();
+  });
+});
+
+
+/**
+ * Por MEIO de entrada: o diretor cadastra "Doble", "Tasa"…; o relatório só
+ * mostrava as três categorias fixas.
+ */
+describe('por meio de entrada', () => {
+  it('lista cada meio cadastrado com categoria, quantidade e valor', async () => {
+    await montar();
+    const tabela = document.querySelector('.rt-table--buytypes');
+    expect(tabela).toHaveTextContent('Doble');
+    expect(tabela).toHaveTextContent('Tasa');
+    const linhas = Array.from(tabela.querySelectorAll('tbody tr'));
+    expect(linhas).toHaveLength(4);
+    expect(linhas[1]).toHaveTextContent('Doble');
+    expect(linhas[1]).toHaveTextContent('tournamentReport.buyIns');   // categoria
+    expect(linhas[1]).toHaveTextContent('12');
+    expect(linhas[1]).toHaveTextContent('R$ 24000.00');
+  });
+
+  it('cada dia mostra o seu detalhamento compacto', async () => {
+    await montar();
+    expect(document.querySelector('.rt-breakdown')).toHaveTextContent('Buy-in 88 · Doble 12 · Rebuy 40');
+  });
+
+  it('backend antigo (sem a lista) não quebra: a seção some e o dia mostra travessão', async () => {
+    const semMeios = { ...RELATORIO, by_buy_type: undefined, days: [{ ...RELATORIO.days[0], by_buy_type: undefined }] };
+    await montar({ relatorio: semMeios });
+    expect(document.querySelector('.rt-table--buytypes')).toBeNull();
+    expect(document.querySelector('.rt-breakdown')).toHaveTextContent('—');
   });
 });

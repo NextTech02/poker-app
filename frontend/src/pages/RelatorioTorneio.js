@@ -19,6 +19,12 @@ const RelatorioTorneio = () => {
   const { tournamentId } = useParams();
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
+  // Categoria fixa de um meio de entrada ("Doble" é um buy-in; "Tasa" um add-on…).
+  const rotuloCategoria = (c) => ({
+    buy_in: t('tournamentReport.buyIns'),
+    rebuy: t('tournamentReport.rebuys'),
+    addon: t('tournamentReport.addons'),
+  }[c] || c);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -70,6 +76,34 @@ const RelatorioTorneio = () => {
               <Stat label={t('tournamentReport.addons')} value={report.total_addons} />
             </div>
 
+            {/* Por MEIO de entrada — o cadastrado pelo diretor ("Doble", "Tasa"…),
+                não só as três categorias fixas. */}
+            {report.by_buy_type?.length > 0 && (
+              <>
+                <h3 className="rt-section-title">{t('tournamentReport.byBuyType', 'Por meio de entrada')}</h3>
+                <table className="rt-table rt-table--buytypes">
+                  <thead>
+                    <tr>
+                      <th>{t('tournamentReport.buyType', 'Meio')}</th>
+                      <th>{t('tournamentReport.category', 'Categoria')}</th>
+                      <th>{t('tournamentReport.quantity', 'Quantidade')}</th>
+                      <th>{t('tournamentReport.amount')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.by_buy_type.map((b, i) => (
+                      <tr key={`${b.name}-${i}`}>
+                        <td>{b.name}</td>
+                        <td>{rotuloCategoria(b.category)}</td>
+                        <td>{b.count}</td>
+                        <td>{formatCurrency(b.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+
             <h3 className="rt-section-title">{t('tournamentReport.financial')}</h3>
             <div className="rt-stats-grid">
               <Stat label={t('tournamentReport.revenue')} value={formatCurrency(report.total_revenue)} />
@@ -95,7 +129,8 @@ const RelatorioTorneio = () => {
                   <thead>
                     <tr>
                       <th>{t('tournamentReport.day')}</th><th>{t('tournamentReport.type')}</th><th>{t('common.status')}</th><th>{t('tournaments.buyIn')}</th>
-                      <th>{t('tournamentReport.players')}</th><th>{t('tournamentReport.buyIns')}</th><th>{t('tournamentReport.rebuys')}</th><th>{t('tournamentReport.addons')}</th><th>{t('tournamentReport.income')}</th>
+                      <th>{t('tournamentReport.players')}</th><th>{t('tournamentReport.buyIns')}</th><th>{t('tournamentReport.rebuys')}</th><th>{t('tournamentReport.addons')}</th>
+                      <th>{t('tournamentReport.byBuyType', 'Por meio de entrada')}</th><th>{t('tournamentReport.income')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -109,6 +144,9 @@ const RelatorioTorneio = () => {
                         <td>{d.buy_ins}</td>
                         <td>{d.rebuys}</td>
                         <td>{d.addons}</td>
+                        <td className="rt-breakdown">
+                          {(d.by_buy_type || []).map((b) => `${b.name} ${b.count}`).join(' · ') || '—'}
+                        </td>
                         <td>{formatCurrency(d.revenue)}</td>
                       </tr>
                     ))}

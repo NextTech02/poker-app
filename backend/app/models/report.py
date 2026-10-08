@@ -1,5 +1,15 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
+
+
+class BuyTypeReportRow(BaseModel):
+    """Vendas por MEIO de entrada — o cadastrado pelo diretor ("Buy-in",
+    "Doble", "Tasa"…), não só a categoria fixa. `name` é o nome gravado na
+    venda (o da época); venda antiga sem meio usa o rótulo da categoria."""
+    name: str
+    category: str = "buy_in"   # 'buy_in' | 'rebuy' | 'addon'
+    count: int = 0
+    amount: float = 0.0
 
 
 class PlayerReport(BaseModel):
@@ -10,6 +20,8 @@ class PlayerReport(BaseModel):
     rebuys: int
     addons: int
     total_spent: float
+    # Quantas vendas de cada MEIO de entrada ({nome: quantidade}).
+    by_buy_type: Dict[str, int] = {}
 
 
 class ReportSummary(BaseModel):
@@ -24,6 +36,8 @@ class ReportSummary(BaseModel):
     totalRebuys: int
     totalAddons: int
     playerReports: List[PlayerReport]
+    # Vendas do período por MEIO de entrada (o cadastrado pelo diretor).
+    byBuyType: List[BuyTypeReportRow] = []
 
 
 class TournamentDayReport(BaseModel):
@@ -37,6 +51,7 @@ class TournamentDayReport(BaseModel):
     rebuys: int = 0
     addons: int = 0
     revenue: float = 0.0
+    by_buy_type: List[BuyTypeReportRow] = []
 
 
 class TournamentPrizeRow(BaseModel):
@@ -84,3 +99,5 @@ class TournamentReport(BaseModel):
 
     days: List[TournamentDayReport] = []
     prizes: List[TournamentPrizeRow] = []
+    # Vendas do torneio por MEIO de entrada (o cadastrado pelo diretor).
+    by_buy_type: List[BuyTypeReportRow] = []

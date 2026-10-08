@@ -132,19 +132,43 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     }
 
     if (selected.players) {
+      // Com meios cadastrados pelo diretor, uma coluna por MEIO (o que ele
+      // vê na tela); sem (backend antigo), as três categorias fixas.
+      const meios = (s.byBuyType || []).map((b) => b.name).filter(Boolean);
+      const colunasPorMeio = meios.length > 0
+        ? meios.map((nome) => ({ key: `meio:${nome}`, label: nome, type: 'int' }))
+        : [
+          { key: 'buy_ins', label: t('reports.buyIns', 'Buy-ins'), type: 'int' },
+          { key: 'rebuys', label: t('reports.rebuys', 'Rebuys'), type: 'int' },
+          { key: 'addons', label: t('reports.addons', 'Add-ons'), type: 'int' },
+        ];
       sections.push({
         kind: 'table',
         title: secTitle('players'),
         columns: [
           { key: 'player_name', label: t('players.columnPlayer', 'Jogador'), type: 'text' },
           { key: 'total_entries', label: t('reports.totalEntries', 'Entradas'), type: 'int' },
-          { key: 'buy_ins', label: t('reports.buyIns', 'Buy-ins'), type: 'int' },
-          { key: 'rebuys', label: t('reports.rebuys', 'Rebuys'), type: 'int' },
-          { key: 'addons', label: t('reports.addons', 'Add-ons'), type: 'int' },
+          ...colunasPorMeio,
           { key: 'total_spent', label: t('cashRegister.totalGeneral', 'Total Gasto'), type: 'currency' },
         ],
-        rows: s.playerReports || [],
+        rows: (s.playerReports || []).map((p) => ({
+          ...p,
+          ...Object.fromEntries(meios.map((nome) => [`meio:${nome}`, p.by_buy_type?.[nome] ?? 0])),
+        })),
       });
+      if (meios.length > 0) {
+        sections.push({
+          kind: 'table',
+          title: t('reports.byBuyType', 'Por meio de entrada'),
+          columns: [
+            { key: 'name', label: t('reports.buyType', 'Meio'), type: 'text' },
+            { key: 'category', label: t('reports.buyTypeCategory', 'Categoria'), type: 'text' },
+            { key: 'count', label: t('reports.buyTypeCount', 'Quantidade'), type: 'int' },
+            { key: 'amount', label: t('reports.buyTypeAmount', 'Valor'), type: 'currency' },
+          ],
+          rows: (s.byBuyType || []).map((b) => ({ ...b, category: typeLabelMap(t)[b.category] || b.category })),
+        });
+      }
     }
 
     if (selected.tournaments && financial) {
