@@ -17,6 +17,10 @@
  *
  * Torneio com classificatórios divide a lista em duas seções; sem eles, é uma
  * lista única. O código de TV é POR DIA, buscado sob demanda.
+ *
+ * Os MEIOS DE ENTRADA são do torneio e aparecem num cartão acima dos dias: é
+ * aqui que o clube acrescenta um meio ou tira um já cadastrado depois da
+ * criação, com o mesmo editor do cadastro.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -28,7 +32,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), put: jest.fn(), delete: jest.fn() },
 }));
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('./TournamentDashboard', () => ({ tournamentId }) => (
@@ -66,6 +70,14 @@ const DIAS = [
   { ...DIA_BASE, id: 'd3', day_name: 'Dia 1C', status: 'completed', day_type: 'regular' },
 ];
 
+// Meios de entrada do torneio, fora de ordem de propósito (quem manda é o
+// sort_order); o desativado não aparece no cartão, mas volta no envio.
+const MEIOS_DO_TORNEIO = [
+  { id: 'm2', name: 'Rebuy', category: 'rebuy', amount: 300, rake_percentage: 10, chips: 30000, active: true, sort_order: 1 },
+  { id: 'm1', name: 'Buy-in', category: 'buy_in', amount: 500, rake_percentage: 10, chips: 30000, active: true, sort_order: 0 },
+  { id: 'velho', name: 'Promo', category: 'buy_in', amount: 50, rake_percentage: 5, chips: 5000, active: false, sort_order: 9 },
+];
+
 let toast;
 let confirmar;
 
@@ -77,8 +89,11 @@ const SEM_IMPACTO = {
 };
 
 const responder = ({ torneio = TORNEIO, dias = DIAS, codigo = { code: 'ABC123' },
-                     sobreviventes = [], impacto = SEM_IMPACTO } = {}) => {
+                     sobreviventes = [], impacto = SEM_IMPACTO, meios = MEIOS_DO_TORNEIO } = {}) => {
   api.get.mockImplementation((url) => {
+    if (url === '/tournaments/t1/buy-types') {
+      return meios instanceof Error ? Promise.reject(meios) : Promise.resolve({ data: meios });
+    }
     // Medição do estrago antes de perguntar "tem certeza?".
     if (url.endsWith('/delete-impact')) {
       return impacto instanceof Error
@@ -122,6 +137,7 @@ beforeEach(() => {
   useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
   api.post.mockResolvedValue({ data: { advanced_count: 9, final_day_name: 'Dia Final' } });
   api.patch.mockResolvedValue({ data: {} });
+  api.put.mockResolvedValue({ data: [] });
   api.delete.mockResolvedValue({ data: {} });
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -663,5 +679,92 @@ describe('código de TV', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Não foi possível gerar o código de TV.')
     );
+  });
+});
+
+describe('meios de entrada do torneio', () => {
+  const cartao = () => document.querySelector('.entry-types-card');
+  const editar = () => userEvent.click(within(cartao()).getByRole('button', { name: 'Editar' }));
+  const linhasDoEditor = () => document.querySelectorAll('.entry-method-row');
+
+  it('lista os meios do torneio, na ordem cadastrada, sem o desativado', async () => {
+    await montar();
+    const nomes = Array.from(cartao().querySelectorAll('tbody tr td:first-child')).map((td) => td.textContent);
+    expect(nomes).toEqual(['Buy-in', 'Rebuy']);
+  });
+
+  it('sem meios cadastrados, avisa — o Caixa vende pela categoria', async () => {
+    await montar({ meios: [] });
+    expect(within(cartao()).getByText(/Nenhum meio de entrada cadastrado/)).toBeInTheDocument();
+    expect(cartao().querySelector('table')).toBeNull();
+  });
+
+  it('"Editar" abre o editor com as linhas do torneio', async () => {
+    await montar();
+    await editar();
+    const dialogo = screen.getByRole('dialog', { name: 'Meios de entrada' });
+    expect(within(dialogo).getAllByRole('textbox')).toHaveLength(2);
+    expect(within(dialogo).getAllByRole('textbox')[0]).toHaveValue('Buy-in');
+  });
+
+  it('torneio sem meios abre o editor com os três de sempre, não vazio', async () => {
+    await montar({ meios: [] });
+    await editar();
+    expect(linhasDoEditor()).toHaveLength(3);
+  });
+
+  it('salvar grava a lista inteira no torneio e recarrega', async () => {
+    // É o caminho para EXCLUIR um meio já cadastrado ou ACRESCENTAR outro: os
+    // desativados voltam junto (vendas antigas apontam para eles).
+    await montar();
+    await editar();
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar entrada' }));
+    await userEvent.type(linhasDoEditor()[2].querySelector('input[type="text"]'), 'Buy-in duplo');
+    const antes = api.get.mock.calls.length;
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(api.put.mock.calls[0][0]).toBe('/tournaments/t1/buy-types');
+    const itens = api.put.mock.calls[0][1].items;
+    expect(itens.map((i) => i.id)).toEqual(['m1', 'm2', null, 'velho']);
+    expect(itens[2]).toMatchObject({ name: 'Buy-in duplo', category: 'buy_in', rake_percentage: 20 });
+    expect(itens[3]).toMatchObject({ active: false });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(toast.success).toHaveBeenCalledWith('Meios de entrada salvos.');
+    expect(api.get.mock.calls.length).toBeGreaterThan(antes);
+  });
+
+  it('não deixa salvar sem nenhum meio de Entrada', async () => {
+    await montar();
+    await editar();
+    // Tira o único buy-in ativo trocando a categoria dele.
+    await userEvent.selectOptions(linhasDoEditor()[0].querySelector('select'), 'addon');
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/ao menos um meio de entrada/i);
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('erro do servidor fica no editor, que continua aberto', async () => {
+    api.put.mockRejectedValue({ userMessage: 'Meio de entrada não pertence a este torneio' });
+    await montar();
+    await editar();
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Meio de entrada não pertence a este torneio');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('Esc fecha o editor sem salvar', async () => {
+    await montar();
+    await editar();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('falha ao carregar os meios não derruba a página — só o cartão avisa', async () => {
+    await montar({ meios: new Error('500') });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Main Event');
+    expect(within(cartao()).getByText(/Não foi possível carregar os meios de entrada/)).toBeInTheDocument();
+    expect(within(cartao()).getByRole('button', { name: 'Editar' })).toBeDisabled();
   });
 });

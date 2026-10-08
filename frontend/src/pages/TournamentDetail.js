@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Breadcrumb from '../components/Breadcrumb';
+import EntryTypesEditor from '../components/EntryTypesEditor';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { linhasDaApi, meiosPadrao, meiosParaApi, validarMeios } from '../utils/entryTypes';
 import './TournamentDetail.css';
 
 // Import the Dashboard component (we'll adapt it later)
@@ -22,8 +25,18 @@ const TournamentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [dayTvCodes, setDayTvCodes] = useState({}); // { [dayId]: code }
   const [openTvDay, setOpenTvDay] = useState(null); // qual dia está com o card do código aberto
+  // Meios de entrada do TORNEIO: a lista vale para todos os dias, e é aqui que
+  // o clube acrescenta um meio ou tira um já cadastrado depois da criação. O
+  // editor é o mesmo do cadastro do torneio.
+  const [buyTypes, setBuyTypes] = useState([]);
+  const [buyTypesFailed, setBuyTypesFailed] = useState(false);
+  const [editandoMeios, setEditandoMeios] = useState(false);
+  const [entryRows, setEntryRows] = useState([]);
+  const [inactiveRows, setInactiveRows] = useState([]);
+  const [entryError, setEntryError] = useState('');
+  const [salvandoMeios, setSalvandoMeios] = useState(false);
   const { toast, confirm } = useToast();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currency } = useCurrency();
 
   // Código público de TV POR DIA (blinds por código). Busca/gera sob demanda.
   // Cada dia do torneio tem o seu próprio código único.
@@ -45,12 +58,19 @@ const TournamentDetail = () => {
 
   const loadTournamentData = async () => {
     try {
-      const [tournamentRes, daysRes] = await Promise.all([
+      const [tournamentRes, daysRes, meiosRes] = await Promise.all([
         api.get(`/tournaments/${id}`),
-        api.get(`/tournament-days/tournament/${id}`)
+        api.get(`/tournament-days/tournament/${id}`),
+        // Falha aqui não derruba a página: o cartão avisa e o resto segue.
+        api.get(`/tournaments/${id}/buy-types`).catch((e) => {
+          console.error('Erro ao carregar meios de entrada:', e);
+          return null;
+        }),
       ]);
       setTournament(tournamentRes.data);
       setDays(daysRes.data);
+      setBuyTypes(Array.isArray(meiosRes?.data) ? meiosRes.data : []);
+      setBuyTypesFailed(meiosRes === null);
     } catch (err) {
       // O estado de erro nunca era exibido na tela; o interceptor global do axios
       // ja avisa o usuario. Aqui so registramos no console.
@@ -69,6 +89,57 @@ const TournamentDetail = () => {
 
   const handleCreateDay = () => {
     navigate(`/torneios/${id}/dia/novo`);
+  };
+
+  // ── Meios de entrada ──────────────────────────────────────────────────────
+  const meiosAtivos = buyTypes
+    .filter((m) => m.active !== false)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+  const rotuloDaCategoria = (categoria) => ({
+    buy_in: t('tournamentDayForm.categoryBuyIn', 'Entrada'),
+    rebuy: t('tournamentDayForm.categoryRebuy', 'Recompra'),
+    addon: t('tournamentDayForm.categoryAddon', 'Add-on'),
+  }[categoria] || categoria);
+
+  const abrirEditorDeMeios = () => {
+    const { ativos, inativos } = linhasDaApi(buyTypes);
+    // Torneio ainda sem meios abre com os três de sempre, em vez de vazio.
+    setEntryRows(ativos.length ? ativos : meiosPadrao(t));
+    setInactiveRows(inativos);
+    setEntryError('');
+    setEditandoMeios(true);
+  };
+
+  const fecharEditorDeMeios = useCallback(() => setEditandoMeios(false), []);
+  useEscapeKey(editandoMeios, fecharEditorDeMeios);
+
+  const salvarMeios = async (e) => {
+    e.preventDefault();
+    const problema = validarMeios(entryRows, t);
+    if (problema) {
+      setEntryError(problema);
+      return;
+    }
+    setSalvandoMeios(true);
+    try {
+      // Os desativados voltam junto: vendas antigas apontam para eles.
+      await api.put(`/tournaments/${id}/buy-types`, {
+        items: meiosParaApi(entryRows, inactiveRows),
+      });
+      toast.success(t('tournamentDetail.entryTypesSaved', 'Meios de entrada salvos.'));
+      setEditandoMeios(false);
+      await loadTournamentData();
+    } catch (err) {
+      const detalhe = err.response?.data?.detail;
+      setEntryError(
+        err.userMessage
+          || (detalhe && typeof detalhe === 'object' ? detalhe.message : detalhe)
+          || t('common.error')
+      );
+    } finally {
+      setSalvandoMeios(false);
+    }
   };
 
   const handleEditDay = (day) => {
@@ -697,6 +768,50 @@ const TournamentDetail = () => {
           </div>
         </div>
 
+        {/* Meios de entrada: a lista é do TORNEIO e vale para todos os dias. É
+            aqui que o clube acrescenta um meio ou tira um já cadastrado depois
+            da criação — e é dela que o Caixa vende. */}
+        <Card className="entry-types-card">
+          <div className="entry-types-card-header">
+            <h2 className="section-title">{t('tournamentDetail.entryTypesTitle', 'Meios de entrada')}</h2>
+            <Button variant="secondary" size="small" onClick={abrirEditorDeMeios} disabled={buyTypesFailed}>
+              {t('tournamentDetail.entryTypesEdit', 'Editar')}
+            </Button>
+          </div>
+          {buyTypesFailed ? (
+            <p className="entry-types-hint">
+              {t('tournamentDetail.entryTypesLoadError', 'Não foi possível carregar os meios de entrada.')}
+            </p>
+          ) : meiosAtivos.length === 0 ? (
+            <p className="entry-types-hint">
+              {t('tournamentDetail.entryTypesEmpty', 'Nenhum meio de entrada cadastrado — o Caixa vende pela categoria, com o valor do dia.')}
+            </p>
+          ) : (
+            <table className="entry-types-table">
+              <thead>
+                <tr>
+                  <th>{t('tournamentDayForm.entryMethodName', 'Nome')}</th>
+                  <th>{t('tournamentDayForm.entryMethodCategory', 'Categoria')}</th>
+                  <th>{t('tournamentDayForm.entryMethodAmount', 'Valor')}</th>
+                  <th>{t('tournamentDayForm.entryMethodRake', 'Rake (%)')}</th>
+                  <th>{t('tournamentDayForm.entryMethodChips', 'Fichas')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {meiosAtivos.map((m) => (
+                  <tr key={m.id}>
+                    <td>{m.name}</td>
+                    <td>{rotuloDaCategoria(m.category)}</td>
+                    <td>{formatCurrency(m.amount)}</td>
+                    <td>{Number(m.rake_percentage || 0)}%</td>
+                    <td>{Number(m.chips || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+
         {/* Days List - Top section.
             Sem guarda de tamanho: `renderDaysList` ja trata a lista vazia, e a
             guarda tornava o estado vazio ("Nenhum dia configurado") inalcancavel
@@ -705,6 +820,46 @@ const TournamentDetail = () => {
 
         {/* Dashboard */}
         <TournamentDashboard tournamentId={id} />
+
+        {editandoMeios && (
+          <div
+            className="modal-overlay"
+            role="presentation"
+            onClick={(e) => { if (e.target === e.currentTarget) fecharEditorDeMeios(); }}
+          >
+            <div
+              className="modal entry-types-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('tournamentDetail.entryTypesTitle', 'Meios de entrada')}
+            >
+              <div className="modal-header">
+                <h2>{t('tournamentDetail.entryTypesTitle', 'Meios de entrada')}</h2>
+              </div>
+              <form onSubmit={salvarMeios}>
+                <div className="modal-body">
+                  <EntryTypesEditor
+                    linhas={entryRows}
+                    onChange={setEntryRows}
+                    erro={entryError}
+                    onErro={setEntryError}
+                    currency={currency}
+                    disabled={salvandoMeios}
+                    idPrefix="td-entry"
+                  />
+                </div>
+                <div className="modal-actions">
+                  <Button type="button" variant="secondary" onClick={fecharEditorDeMeios} disabled={salvandoMeios}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button type="submit" disabled={salvandoMeios}>
+                    {salvandoMeios ? t('common.saving') : t('common.save', 'Salvar')}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
       </main>
     </div>

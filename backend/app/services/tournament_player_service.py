@@ -3,6 +3,7 @@ from app.database import supabase
 from app.services.tournament_day_service import _chipcount_cache
 from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService, seguir_sem_a_trava
+from app.utils.erros import ErroDeNegocio
 from app.models.tournament_player import (
     TournamentPlayerCreate,
     TournamentPlayerUpdate,
@@ -55,40 +56,70 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
 
 class TournamentPlayerService:
     @staticmethod
-    def _get_buy_type(buy_type_id: Optional[str]) -> Optional[dict]:
+    def _get_buy_type(
+        buy_type_id: Optional[str],
+        tournament_id: Optional[str] = None,
+        permitir_inativo: bool = False,
+    ) -> Optional[dict]:
         """Busca o meio de entrada escolhido — ele diz VALOR, RAKE e FICHAS.
 
         O nome vem junto porque a venda o congela em `transactions.buy_type_name`:
         a FK é ON DELETE SET NULL, então apagar o tipo depois deixaria o recibo
         sem dizer o que a pessoa comprou.
+
+        Confere o DONO: a lista é por torneio, e um id de outro torneio cobraria
+        o preço de outro evento. Meio DESATIVADO também é recusado — ele saiu do
+        Caixa por decisão do clube. A exceção é o replay da fila offline
+        (`permitir_inativo`): a venda aconteceu no balcão ENQUANTO ele estava
+        ativo, e recusar ali só criaria um conflito sem solução com o dinheiro
+        já na gaveta.
+
+        Id que não existe mais continua devolvendo None (a venda cai na reserva
+        do dia): o replay de uma venda antiga não pode parar por um tipo apagado.
         """
         if not buy_type_id:
             return None
         bt = (
             supabase.table("buy_types")
-            .select("tournament_day_id, name, category, amount, rake_percentage, chips")
+            .select("tournament_id, name, category, amount, rake_percentage, chips, active")
             .eq("id", buy_type_id)
             .execute()
         )
-        return bt.data[0] if bt.data else None
+        if not bt.data:
+            return None
+        tipo = bt.data[0]
+        dono = tipo.get("tournament_id")
+        if dono and tournament_id and dono != tournament_id:
+            raise ErroDeNegocio(
+                "meio_de_entrada_de_outro_torneio",
+                "O meio de entrada escolhido não pertence a este torneio.",
+            )
+        if tipo.get("active") is False and not permitir_inativo:
+            raise ErroDeNegocio(
+                "meio_de_entrada_inativo",
+                "Este meio de entrada foi desativado. Escolha outro.",
+            )
+        return tipo
 
     @staticmethod
     def _e_legado(buy_type: Optional[dict]) -> bool:
         """Tipo LEGADO: o da ETAPA, de quando ele só servia para dizer o rake.
 
-        Reconhece-se por não pertencer a nenhum dia — e NÃO por ter `chips`
+        Reconhece-se por não pertencer a nenhum TORNEIO — e NÃO por ter `chips`
         nulo, que era como este código tentava distingui-lo. A coluna nasceu
         `NOT NULL DEFAULT 0`, então todo tipo legado ficou com `chips = 0` e
         nenhum com nulo: a distinção nunca acontecia, e vender por um deles
         entregaria ZERO fichas e cobraria ZERO (quatro têm `amount = 0`, porque
         naquele desenho o valor vinha sempre do dia).
 
-        Isso chega em produção pelo replay da fila offline: um aparelho que
-        ficou sem rede com vendas apontando para tipos da etapa sincroniza
-        depois do deploy. Para eles, o certo é o comportamento de antes — rake
-        do tipo, valor e fichas do dia.
+        As linhas da época em que a lista era por DIA ganharam `tournament_id`
+        na migração para o torneio; só as da etapa ficaram sem. Isso chega em
+        produção pelo replay da fila offline: um aparelho que ficou sem rede
+        com vendas apontando para tipos da etapa sincroniza depois do deploy.
+        Para eles, o certo é o comportamento de antes — rake do tipo, valor e
+        fichas do dia.
         """
-        return bool(buy_type) and not buy_type.get("tournament_day_id")
+        return bool(buy_type) and not buy_type.get("tournament_id")
 
     @staticmethod
     def _fichas_do_tipo(buy_type: Optional[dict], fichas_do_dia) -> int:
@@ -287,7 +318,7 @@ class TournamentPlayerService:
             raise ValueError(f"Rebuys não são mais permitidos. Limite: nível {rebuy_level_limit}, Atual: nível {current_blind_level}")
 
     @staticmethod
-    def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False) -> TournamentPlayerDetail:
+    def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False, permitir_meio_inativo: bool = False) -> TournamentPlayerDetail:
         """Register a player for a tournament day"""
         client_id = registration_data.client_id
         client_mutation_id = registration_data.client_mutation_id
@@ -319,7 +350,11 @@ class TournamentPlayerService:
         # SEM tipo escolhido, nada muda: valor, rake e fichas continuam vindo do
         # dia. É o torneio que ainda não cadastrou meios de entrada, e ele não
         # pode parar de vender por causa disso.
-        buy_type = TournamentPlayerService._get_buy_type(registration_data.buy_type_id)
+        buy_type = TournamentPlayerService._get_buy_type(
+            registration_data.buy_type_id,
+            registration_data.tournament_id,
+            permitir_inativo=permitir_meio_inativo,
+        )
         buy_in, rake_pct = TournamentPlayerService._valor_e_rake(
             buy_type, day_info["buy_in"], day_info.get("rake_percentage")
         )
@@ -397,7 +432,7 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1, permitir_meio_inativo: bool = False) -> TournamentPlayer:
         """Registra UMA OU MAIS recompras do jogador, numa ida só.
 
         `quantity` existe por desempenho medido, não por elegância: o banco deste
@@ -459,7 +494,9 @@ class TournamentPlayerService:
         # O meio de entrada escolhido diz valor, rake E fichas. É daqui que sai
         # o "rebuy duplo": ele não é o rebuy simples vezes dois, é uma venda com
         # valor e pilha próprios. Sem tipo escolhido, tudo continua vindo do dia.
-        buy_type = TournamentPlayerService._get_buy_type(buy_type_id)
+        buy_type = TournamentPlayerService._get_buy_type(
+            buy_type_id, tp["tournament_id"], permitir_inativo=permitir_meio_inativo
+        )
         rebuy_amount, rake_pct = TournamentPlayerService._valor_e_rake(
             buy_type, day_info.get("rebuy_amount"), day_info.get("rake_percentage")
         )
@@ -577,7 +614,7 @@ class TournamentPlayerService:
                 pass
 
     @staticmethod
-    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_sales_block: bool = False) -> TournamentPlayer:
+    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_sales_block: bool = False, permitir_meio_inativo: bool = False) -> TournamentPlayer:
         """Add an add-on for a tournament player"""
         # Get tournament player info with tournament_day data
         tp_response = _ler_inscrito_com_o_dia(
@@ -608,7 +645,9 @@ class TournamentPlayerService:
         day_info = tp.get("tournament_days", {}) or {}
         # Mesma regra da recompra: o meio de entrada escolhido diz valor, rake e
         # fichas; sem ele, tudo continua vindo do dia.
-        buy_type = TournamentPlayerService._get_buy_type(buy_type_id)
+        buy_type = TournamentPlayerService._get_buy_type(
+            buy_type_id, tp["tournament_id"], permitir_inativo=permitir_meio_inativo
+        )
         addon_amount, rake_pct = TournamentPlayerService._valor_e_rake(
             buy_type, day_info.get("addon_amount"), day_info.get("rake_percentage")
         )

@@ -179,6 +179,50 @@ class StageService:
         return len(linhas), total
 
     @staticmethod
+    def _contar_meios_de_entrada(stage_id: str) -> int:
+        """Quantos meios de entrada morrem com a etapa.
+
+        A lista é do TORNEIO (`buy_types.tournament_id`): contar por `stage_id`
+        só enxergaria o legado da época em que ela era da etapa, e o aviso
+        diria zero para toda etapa criada depois. Por isso passa pelos torneios
+        da etapa — e soma o legado, que ainda existe no banco.
+        """
+        try:
+            torneios = (
+                supabase.table("tournaments")
+                .select("id")
+                .eq("stage_id", stage_id)
+                .execute()
+                .data
+                or []
+            )
+            encontrados = set()
+            ids = [t["id"] for t in torneios]
+            if ids:
+                do_torneio = (
+                    supabase.table("buy_types")
+                    .select("id")
+                    .in_("tournament_id", ids)
+                    .execute()
+                    .data
+                    or []
+                )
+                encontrados.update(l["id"] for l in do_torneio)
+            legados = (
+                supabase.table("buy_types")
+                .select("id")
+                .eq("stage_id", stage_id)
+                .execute()
+                .data
+                or []
+            )
+            encontrados.update(l["id"] for l in legados)
+            return len(encontrados)
+        except Exception as exc:  # tabela ausente / sem permissão
+            logger.warning("Impacto de exclusão: buy_types indisponível (%s)", exc)
+            return 0
+
+    @staticmethod
     def get_delete_impact(stage_id: str) -> Optional[StageDeleteImpact]:
         """Resumo do estrago que a exclusão desta etapa causaria."""
         etapa = StageService.get_stage(stage_id)
@@ -191,7 +235,7 @@ class StageService:
         pagamentos, pagamentos_valor = StageService._contar("staff_payments", stage_id, "amount")
         consignacoes, _ = StageService._contar("chip_consignments", stage_id)
         caixas, _ = StageService._contar("cashboxes", stage_id)
-        tipos_de_buy, _ = StageService._contar("buy_types", stage_id)
+        tipos_de_buy = StageService._contar_meios_de_entrada(stage_id)
         torneios, _ = StageService._contar("tournaments", stage_id)
 
         saldo = recebido = 0.0

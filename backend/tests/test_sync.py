@@ -269,7 +269,7 @@ class TestDemaisOperacoes:
 
         recebido = {}
 
-        def _registrar(dados, user_id, skip_sales_block=False):
+        def _registrar(dados, user_id, skip_sales_block=False, **kw):
             recebido["skip"] = skip_sales_block
             return _TP()
 

@@ -38,19 +38,22 @@ const rakePctFor = (day, buyType) =>
  */
 /** Tipo LEGADO: o da ETAPA, de quando ele só dizia o rake.
  *
- * Reconhece-se por NÃO pertencer a um dia — e não por ter campo nulo. Todos
+ * Reconhece-se por NÃO pertencer a um TORNEIO — e não por ter campo nulo. Todos
  * eles ficaram com `chips = 0` quando a coluna foi criada (`NOT NULL DEFAULT
  * 0`) e vários têm `amount = 0`, porque naquele desenho o valor vinha sempre do
- * dia. Tratá-los como tipo do dia entregaria ZERO ficha e cobraria ZERO.
+ * dia. Tratá-los como tipo do torneio entregaria ZERO ficha e cobraria ZERO.
+ * (As linhas da época em que a lista era por DIA ganharam `tournament_id` na
+ * migração; uma que não tenha ganhado cai aqui também — melhor o preço do dia
+ * do que zero.)
  *
  * O backend usa exatamente a mesma regra. Se as duas pontas divergirem, a mesma
  * venda grava valores diferentes conforme haja rede ou não, e a diferença só
  * aparece no fechamento do caixa. */
-const ehLegado = (buyType) => !!buyType && !buyType.tournament_day_id;
+const ehLegado = (buyType) => !!buyType && !buyType.tournament_id;
 
-/** Valor/fichas: do TIPO quando ele é do dia; do dia quando é legado ou não há
- *  tipo. Zero configurado no tipo do dia é decisão (o dia final costuma ter
- *  buy-in zerado), por isso o teste é `!= null` e não `||`. */
+/** Valor/fichas: do TIPO quando ele é do torneio; do dia quando é legado ou não
+ *  há tipo. Zero configurado no tipo é decisão (uma entrada de cortesia existe),
+ *  por isso o teste é `!= null` e não `||`. */
 const doTipoOuDoDia = (buyType, campo, reservaDoDia) =>
   buyType && !ehLegado(buyType) && buyType[campo] != null
     ? Number(buyType[campo])

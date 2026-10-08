@@ -159,8 +159,8 @@ const MESA = { id: 'm1', table_number: 1, seats: 9, status: 'active' };
 const DIA_AUTO = { ...DIA, allocation_type: 'automatic' };
 
 let toast;
-/** O Caixa avisa o contexto qual DIA carregar; o espião confere esse aviso. */
-let selectDay;
+/** O Caixa avisa o contexto qual TORNEIO carregar; o espião confere esse aviso. */
+let selectTournament;
 
 const responder = ({
   transacoes = TRANSACOES,
@@ -255,9 +255,9 @@ beforeEach(() => {
   useToast.mockReturnValue({ toast });
   useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
   usePaymentMethods.mockReturnValue({ activeMethods: [] });
-  selectDay = jest.fn();
+  selectTournament = jest.fn();
   useBuyTypes.mockReturnValue({
-    activeBuyTypes: TIPOS, dayId: 'd1', tiposCarregados: true, selectDay,
+    activeBuyTypes: TIPOS, tournamentId: 't1', tiposCarregados: true, selectTournament,
   });
   useStage.mockReturnValue({ selectedStage: ETAPA });
   usePermissions.mockReturnValue({ isAdmin: true, hasPermission: () => true });
@@ -373,7 +373,7 @@ describe('escolha do torneio e do dia', () => {
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
     expect(await screen.findByTestId('dia-unico')).toHaveTextContent('Dia 1A');
     expect(screen.queryByLabelText('cashRegister.day')).toBeNull();
-    await waitFor(() => expect(selectDay).toHaveBeenCalledWith('d1'));
+    await waitFor(() => expect(selectTournament).toHaveBeenCalledWith('t1'));
   });
 
   it('torneio com mais de um dia mostra o seletor, sem escolher por conta', async () => {
@@ -435,9 +435,9 @@ describe('escolha do torneio e do dia', () => {
 });
 
 describe('valor cobrado', () => {
-  it('o valor vem do meio de entrada do DIA, não do torneio', async () => {
-    // Cobrar os 500 do torneio num Dia 1A de 1000 é cobrar errado do jogador
-    // na frente dele.
+  it('o valor vem do meio de entrada, não das colunas do dia', async () => {
+    // O meio de entrada do torneio cobra o que ele diz (1000); as colunas
+    // antigas do dia são só reserva para quando não há meio escolhido.
     await montar();
     await abrirModal();
     await preencher();
@@ -460,7 +460,7 @@ describe('valor cobrado', () => {
     // isso: o dia continua sendo a reserva.
     useBuyTypes.mockReturnValue({
       activeBuyTypes: [{ id: 'bL', name: 'Rebuy', category: 'rebuy', rake_percentage: 20, active: true }],
-      dayId: 'd1', tiposCarregados: true, selectDay,
+      tournamentId: 't1', tiposCarregados: true, selectTournament,
     });
     await montar();
     await abrirModal();
@@ -480,7 +480,7 @@ describe('valor cobrado', () => {
 
        Zero na tela é o certo: é o que o servidor vai registrar, e é o que faz
        alguém perceber que o add-on não foi configurado. */
-    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], tournamentId: 't1', tiposCarregados: true, selectTournament });
     await montar({ dias: [{ ...DIA, addon_amount: null }] });
     await abrirModal();
     await porCategoria('addon');
@@ -488,7 +488,7 @@ describe('valor cobrado', () => {
   });
 
   it('rebuy sem valor configurado também mostra zero', async () => {
-    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], tournamentId: 't1', tiposCarregados: true, selectTournament });
     await montar({ dias: [{ ...DIA, rebuy_amount: null }] });
     await abrirModal();
     await porCategoria('rebuy');
@@ -498,7 +498,7 @@ describe('valor cobrado', () => {
   it('add-on de graça (zero configurado) continua zero', async () => {
     // Zero é uma decisão — add-on de cortesia existe. Tratá-lo como "não
     // informado" cobraria o buy-in de quem não devia pagar nada.
-    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], tournamentId: 't1', tiposCarregados: true, selectTournament });
     await montar({ dias: [{ ...DIA, addon_amount: 0 }] });
     await abrirModal();
     await porCategoria('addon');
@@ -506,7 +506,7 @@ describe('valor cobrado', () => {
   });
 
   it('com valor configurado, é ele que aparece', async () => {
-    useBuyTypes.mockReturnValue({ activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay });
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], tournamentId: 't1', tiposCarregados: true, selectTournament });
     await montar();
     await abrirModal();
     await porCategoria('addon');
@@ -971,23 +971,35 @@ describe('meios de entrada', () => {
     expect(within(select).getByText(/1500\.00/)).toBeInTheDocument();
   });
 
-  it('a tela avisa o contexto qual DIA carregar', async () => {
-    // Os meios de entrada são do dia, e o dia é escolhido aqui dentro: sem
-    // este aviso a lista ficaria vazia e toda venda cairia no modo categoria.
+  it('a tela avisa o contexto qual TORNEIO carregar — antes mesmo de escolher o dia', async () => {
+    // Os meios de entrada são do torneio, e o torneio é escolhido aqui dentro:
+    // sem este aviso a lista ficaria vazia e toda venda cairia no modo
+    // categoria. Como a lista vale para todos os dias, ela já pode aparecer
+    // antes do dia.
     await montar();
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-    await escolherDia('d1');
-    await waitFor(() => expect(selectDay).toHaveBeenCalledWith('d1'));
+    await waitFor(() => expect(selectTournament).toHaveBeenCalledWith('t1'));
   });
 
-  it('trocar de dia limpa o meio de entrada escolhido', async () => {
-    // Eles pertencem ao DIA: manter a escolha cobraria o preço do dia anterior,
-    // ou o de um cadastro que nem existe no dia novo.
+  it('trocar de dia MANTÉM o meio de entrada escolhido', async () => {
+    // A lista é a mesma em todos os dias do torneio; limpar a escolha a cada
+    // troca de dia faria o operador escolher de novo o que já tinha escolhido.
     await montar({ dias: [DIA, { ...DIA, id: 'd1b', day_name: 'Dia 1B' }] });
     await abrirModal();
     await preencher({ tipo: 'b2' });
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.day'), 'd1b');
+    expect(screen.getByLabelText('Meio de entrada')).toHaveValue('b2');
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
+  });
+
+  it('trocar de TORNEIO limpa o meio de entrada escolhido', async () => {
+    // Eles pertencem ao torneio: manter a escolha cobraria o preço do torneio
+    // anterior, ou o de um cadastro que nem existe no novo.
+    await montar({ torneios: [TORNEIO, { ...TORNEIO, id: 't2', name: 'Outro torneio' }] });
+    await abrirModal();
+    await preencher({ tipo: 'b2' });
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't2');
     expect(screen.getByLabelText('Meio de entrada')).toHaveValue('');
   });
 
@@ -1074,7 +1086,7 @@ describe('sem meios de entrada à mão o caixa não pode parar', () => {
    */
   const semTipos = (extra = {}) =>
     useBuyTypes.mockReturnValue({
-      activeBuyTypes: [], dayId: 'd1', tiposCarregados: true, selectDay, ...extra,
+      activeBuyTypes: [], tournamentId: 't1', tiposCarregados: true, selectTournament, ...extra,
     });
 
   /** Preenche torneio → dia → jogador → categoria. */

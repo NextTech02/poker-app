@@ -13,6 +13,12 @@
  *   essa geração evita — e a ordem importa: sem o id do dia final, os
  *   classificatórios não teriam para onde levar os sobreviventes.
  *
+ * - **Os MEIOS DE ENTRADA são do torneio** e aparecem no cadastro nos dois
+ *   caminhos (com e sem classificatórios): nome, valor, rake (20% por padrão)
+ *   e fichas por linha, com "Adicionar entrada" e "Remover". Gravados UMA vez,
+ *   no torneio, valem para todos os dias — os classificatórios nascem com as
+ *   colunas antigas (buy_in, fichas) copiadas do primeiro meio de cada categoria.
+ *
  * Falhas parciais dessa geração NÃO podem virar erro de criação: o torneio já
  * existe, e dizer "falhou" faria o operador criar tudo de novo.
  */
@@ -96,6 +102,29 @@ const abrirNovo = () =>
   userEvent.click(screen.getByRole('button', { name: /tournaments.newTournament/ }));
 
 const campo = (rotulo) => screen.getByLabelText(rotulo);
+
+// ── Meios de entrada ────────────────────────────────────────────────────────
+// As linhas não têm id fixo (uma linha nova ainda não existe no banco), então a
+// busca é pela posição na lista, que é a ordem que o operador vê.
+const linhas = () => Array.from(document.querySelectorAll('.entry-method-row'));
+const linha = (indice) => {
+  const raiz = linhas()[indice];
+  const numeros = raiz.querySelectorAll('input[type="number"]');
+  return {
+    nome: raiz.querySelector('input[type="text"]'),
+    valor: numeros[0],
+    rake: numeros[1],
+    fichas: numeros[2],
+    categoria: raiz.querySelector('select'),
+    remover: raiz.querySelector('button'),
+  };
+};
+const escreverNa = async (indice, qual, valor) => {
+  const alvo = linha(indice)[qual];
+  await userEvent.clear(alvo);
+  if (valor !== '') await userEvent.type(alvo, String(valor));
+};
+const enviosDeMeios = () => api.put.mock.calls.filter((c) => c[0].endsWith('/buy-types'));
 
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
@@ -288,6 +317,92 @@ describe('criar torneio simples', () => {
     expect(api.post).not.toHaveBeenCalled();
   });
 
+  it('o cadastro abre com Buy-in, Rebuy e Add-on, rake 20% e valor em branco', async () => {
+    // Sem classificatórios TAMBÉM: a lista é do torneio, não do dia. O valor
+    // fica em branco porque é o que o operador precisa digitar.
+    await montar();
+    await abrirNovo();
+    expect(linhas()).toHaveLength(3);
+    expect([0, 1, 2].map((i) => linha(i).categoria.value)).toEqual(['buy_in', 'rebuy', 'addon']);
+    expect(linha(0).rake).toHaveValue(20);
+    expect(linha(0).valor).toHaveValue(null);
+  });
+
+  it('o torneio simples também nasce com os meios de entrada, gravados UMA vez', async () => {
+    // Antes o caminho sem classificatórios não criava nada, e o Caixa vendia
+    // pela categoria com o valor do dia.
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Novo');
+    await escreverNa(0, 'valor', 150);
+    await escreverNa(0, 'rake', 15);
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(enviosDeMeios()).toHaveLength(1);
+    expect(enviosDeMeios()[0][0]).toBe('/tournaments/novo/buy-types');
+    const itens = enviosDeMeios()[0][1].items;
+    expect(itens.map((i) => i.category)).toEqual(['buy_in', 'rebuy', 'addon']);
+    expect(itens[0]).toMatchObject({ amount: 150, rake_percentage: 15, chips: 10000, active: true, sort_order: 0 });
+    expect(itens[1].rake_percentage).toBe(20);
+  });
+
+  it('"Adicionar entrada" acrescenta uma linha em branco com rake 20, que vai no envio', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Novo');
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar entrada' }));
+    expect(linhas()).toHaveLength(4);
+    expect(linha(3).rake).toHaveValue(20);
+    await userEvent.type(linha(3).nome, 'Buy-in duplo');
+    await escreverNa(3, 'valor', 300);
+    await escreverNa(3, 'fichas', 25000);
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(enviosDeMeios()[0][1].items[3]).toMatchObject({
+      id: null, name: 'Buy-in duplo', category: 'buy_in', amount: 300, chips: 25000,
+    });
+  });
+
+  it('"Remover" tira o meio de entrada da lista', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Novo');
+    await userEvent.click(linha(2).remover);
+    expect(linhas()).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(enviosDeMeios()[0][1].items.map((i) => i.category)).toEqual(['buy_in', 'rebuy']);
+  });
+
+  it('meio sem nome bloqueia a criação antes de chamar o servidor', async () => {
+    // Um meio sem nome não dá para escolher no Caixa.
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Novo');
+    await escreverNa(0, 'nome', '');
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Dê um nome a cada meio de entrada.');
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('não dá para ficar sem meio de Entrada', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.click(linha(0).remover);
+    expect(linhas()).toHaveLength(3);
+    expect(screen.getByRole('alert')).toHaveTextContent(/ao menos um meio de entrada/i);
+  });
+
+  it('falha só nos meios de entrada avisa, sem desfazer o torneio', async () => {
+    api.put.mockRejectedValue(new Error('500'));
+    await montar();
+    await criar();
+    await waitFor(() =>
+      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('meios de entrada'))
+    );
+    expect(toast.success).toHaveBeenCalledWith('tournaments.createdSuccess');
+  });
+
   it('Esc fecha o modal — quem opera só pelo teclado não fica preso nele', async () => {
     await montar();
     await abrirNovo();
@@ -361,15 +476,30 @@ describe('criar torneio com classificatórios', () => {
     });
   });
 
-  it('o buy-in informado vale para todos os classificatórios', async () => {
+  it('as colunas antigas dos classificatórios seguem o primeiro meio de cada categoria', async () => {
+    // Telas e relatórios que ainda leem day.buy_in não podem contar outra
+    // história diferente da que o Caixa cobra.
     await montar();
     await criarComQuali(async () => {
-      await userEvent.type(screen.getByLabelText(/Buy-in por dia classificatório/), '250');
+      await escreverNa(0, 'valor', 250);
+      await escreverNa(0, 'fichas', 15000);
+      await escreverNa(2, 'valor', 0); // add-on zerado → nulo no dia
     });
     await waitFor(() => {
       const q = api.post.mock.calls.filter((c) => c[0] === '/tournament-days' && c[1].day_type === 'qualifying');
-      q.forEach((c) => expect(c[1].buy_in).toBe(250));
+      expect(q).toHaveLength(2);
+      q.forEach((c) => expect(c[1]).toMatchObject({ buy_in: 250, starting_chips: 15000, addon_amount: null }));
     });
+  });
+
+  it('o bloco dos classificatórios não pede mais buy-in nem fichas', async () => {
+    // Vêm da lista de meios de entrada, que vale para todos os dias.
+    await montar();
+    await abrirNovo();
+    await ligarQualificatorias();
+    expect(screen.queryByLabelText(/Buy-in por dia classificatório/)).toBeNull();
+    expect(screen.queryByLabelText(/Fichas iniciais/)).toBeNull();
+    expect(screen.getByLabelText(/Máximo de jogadores/)).toBeInTheDocument();
   });
 
   it('o rake dos dias vai ZERO: quem define é o tipo de buy', async () => {
@@ -435,33 +565,22 @@ describe('criar torneio com classificatórios', () => {
     expect(api.post.mock.calls.some((c) => c[0] === '/blind-templates/apply')).toBe(false);
   });
 
-  it('os valores digitados viram os MEIOS DE ENTRADA de cada classificatório', async () => {
-    // Sem isso o dia nasceria sem nenhum meio cadastrado e o Caixa não teria o
-    // que vender: os valores existiriam só nas colunas antigas do dia, que não
-    // carregam nome nem fichas próprias.
+  it('os meios de entrada são cadastrados UMA vez, no torneio — não em cada dia', async () => {
+    // A lista é do torneio e vale para todos os dias, inclusive os criados
+    // depois à mão. Por dia, um torneio de três dias repetia a lista três vezes.
     await montar();
     await criarComQuali(async () => {
-      await userEvent.type(screen.getByLabelText(/Buy-in por dia classificatório/), '250');
+      await escreverNa(0, 'valor', 250);
     });
     await waitFor(() => expect(api.put).toHaveBeenCalled());
-    const envios = api.put.mock.calls.filter((c) => c[0].endsWith('/buy-types'));
-    expect(envios).toHaveLength(2); // um por dia classificatório
-    const itens = envios[0][1].items;
+    expect(enviosDeMeios()).toHaveLength(1);
+    expect(enviosDeMeios()[0][0]).toBe('/tournaments/novo/buy-types');
+    const itens = enviosDeMeios()[0][1].items;
     expect(itens.map((i) => i.category)).toEqual(['buy_in', 'rebuy', 'addon']);
-    expect(itens[0]).toMatchObject({ amount: 250, chips: 10000, active: true });
+    expect(itens[0]).toMatchObject({ amount: 250, chips: 10000, rake_percentage: 20, active: true });
   });
 
-  it('o dia FINAL não ganha meio de entrada: quem chega lá vem classificado', async () => {
-    await montar();
-    await criarComQuali();
-    await waitFor(() => expect(api.put).toHaveBeenCalled());
-    expect(api.put.mock.calls.every((c) => c[0] === '/tournament-days/novo/buy-types')).toBe(true);
-    // 'novo' é o id devolvido para TODOS os posts no mock; o que garante o
-    // recorte é a quantidade: dois classificatórios, e não três dias.
-    expect(api.put.mock.calls).toHaveLength(2);
-  });
-
-  it('falha só nos meios de entrada avisa, sem desfazer os dias', async () => {
+  it('falha só nos meios de entrada avisa, e os dias são criados mesmo assim', async () => {
     api.put.mockRejectedValue(new Error('500'));
     await montar();
     await criarComQuali();
@@ -471,6 +590,8 @@ describe('criar torneio com classificatórios', () => {
       )
     );
     expect(toast.success).toHaveBeenCalledWith('tournaments.createdSuccess');
+    const dias = api.post.mock.calls.filter((c) => c[0] === '/tournament-days');
+    expect(dias).toHaveLength(3);
   });
 
   it('falha ao gerar os dias NÃO vira erro de criação do torneio', async () => {
@@ -527,6 +648,63 @@ describe('editar torneio', () => {
     await montar();
     await editar('Main Event');
     expect(screen.queryByLabelText('Dias classificatórios')).toBeNull();
+  });
+
+  const MEIOS_DO_TORNEIO = [
+    { id: 'm2', name: 'Rebuy', category: 'rebuy', amount: 300, rake_percentage: 10, chips: 30000, active: true, sort_order: 1 },
+    { id: 'm1', name: 'Buy-in', category: 'buy_in', amount: 500, rake_percentage: 10, chips: 30000, active: true, sort_order: 0 },
+    { id: 'velho', name: 'Promo', category: 'buy_in', amount: 50, rake_percentage: 5, chips: 5000, active: false, sort_order: 9 },
+  ];
+
+  const comMeiosNoServidor = () =>
+    api.get.mockImplementation((url) =>
+      url === '/tournaments/t1/buy-types'
+        ? Promise.resolve({ data: MEIOS_DO_TORNEIO })
+        : Promise.reject(new Error('sem endpoint'))
+    );
+
+  it('a edição carrega os meios do torneio, na ordem cadastrada, e os salva junto', async () => {
+    // É aqui que o clube EXCLUI um meio já cadastrado ou acrescenta outro.
+    comMeiosNoServidor();
+    await montar();
+    await editar('Main Event');
+    await waitFor(() => expect(linhas()).toHaveLength(2)); // o desativado não aparece
+    expect(linha(0).nome).toHaveValue('Buy-in');
+    expect(linha(1).nome).toHaveValue('Rebuy');
+    expect(linha(0).rake).toHaveValue(10); // o rake gravado fica; 20 é só para linha nova
+    await userEvent.click(linha(1).remover);
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(api.patch).toHaveBeenCalled();
+    expect(enviosDeMeios()[0][0]).toBe('/tournaments/t1/buy-types');
+    const itens = enviosDeMeios()[0][1].items;
+    // Só o Buy-in ativo ficou; o desativado volta intocado, no fim.
+    expect(itens.map((i) => i.id)).toEqual(['m1', 'velho']);
+    expect(itens[1]).toMatchObject({ active: false });
+  });
+
+  it('sem conseguir carregar os meios, a edição NÃO os sobrescreve', async () => {
+    // Uma carga falhada virando lista vazia apagaria o cadastro do torneio.
+    await montar(); // api.get rejeita por padrão
+    await editar('Main Event');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Não foi possível carregar os meios de entrada/);
+    expect(screen.getByRole('button', { name: 'Adicionar entrada' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(api.put).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('tournaments.updatedSuccess');
+  });
+
+  it('falha ao salvar os meios mantém o modal aberto com o erro', async () => {
+    comMeiosNoServidor();
+    api.put.mockRejectedValue({ userMessage: 'Meio de entrada não pertence a este torneio' });
+    await montar();
+    await editar('Main Event');
+    await waitFor(() => expect(linhas()).toHaveLength(2));
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
+    expect(await screen.findByText('Meio de entrada não pertence a este torneio')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('salvar envia PATCH e invalida o cache', async () => {

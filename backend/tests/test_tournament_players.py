@@ -12,6 +12,7 @@ from app.services.sales_block_service import SalesBlockService
 from app.services.tournament_player_service import TournamentPlayerService
 from app.services.cashbox_service import CashboxService
 from app.models.tournament_player import TournamentPlayerCreate, TournamentPlayerUpdate
+from app.utils.erros import ErroDeNegocio
 
 from tests.conftest import FakeSupabase
 
@@ -839,7 +840,7 @@ class TestCaminhoQuenteDaVenda:
         assert vezes["n"] == 1
 
 
-class TestMeiosDeEntradaDoDia:
+class TestMeiosDeEntradaDoTorneio:
     """O meio de entrada escolhido manda no VALOR, no RAKE e nas FICHAS.
 
     Antes ele so dizia o rake: valor e fichas vinham sempre do dia. Isso
@@ -860,7 +861,7 @@ class TestMeiosDeEntradaDoDia:
         campos do dia, que so sabem de UMA configuracao."""
         fake = _monta(monkeypatch, dia=_dia(buy_in=100, chips=10000, rake=20),
                       tabelas=self._tipos({
-                          "id": "bt-duplo", "tournament_day_id": DIA, "name": "Buy-in duplo", "category": "buy_in",
+                          "id": "bt-duplo", "tournament_id": TOUR, "name": "Buy-in duplo", "category": "buy_in",
                           "amount": 250, "rake_percentage": 10, "chips": 30000,
                       }))
         TournamentPlayerService.register_player(_inscricao(buy_type_id="bt-duplo"), "u1")
@@ -898,7 +899,7 @@ class TestMeiosDeEntradaDoDia:
         errados."""
         fake = self._com_jogador(monkeypatch)
         fake.store["buy_types"].append({
-            "id": "bt-rd", "tournament_day_id": DIA, "name": "Rebuy duplo", "category": "rebuy",
+            "id": "bt-rd", "tournament_id": TOUR, "name": "Rebuy duplo", "category": "rebuy",
             "amount": 180, "rake_percentage": 10, "chips": 25000,
         })
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
@@ -915,7 +916,7 @@ class TestMeiosDeEntradaDoDia:
         total do lote em cada linha tiraria fichas a mais do jogador."""
         fake = self._com_jogador(monkeypatch)
         fake.store["buy_types"].append({
-            "id": "bt-rd", "tournament_day_id": DIA, "name": "Rebuy duplo", "category": "rebuy",
+            "id": "bt-rd", "tournament_id": TOUR, "name": "Rebuy duplo", "category": "rebuy",
             "amount": 180, "rake_percentage": 0, "chips": 25000,
         })
         TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
@@ -927,7 +928,7 @@ class TestMeiosDeEntradaDoDia:
     def test_add_on_tambem_cobra_e_entrega_pelo_tipo(self, monkeypatch):
         fake = self._com_jogador(monkeypatch)
         fake.store["buy_types"].append({
-            "id": "bt-ad", "tournament_day_id": DIA, "name": "Add-on turbo", "category": "addon",
+            "id": "bt-ad", "tournament_id": TOUR, "name": "Add-on turbo", "category": "addon",
             "amount": 70, "rake_percentage": 0, "chips": 40000,
         })
         TournamentPlayerService.add_addon(TP, "u1", buy_type_id="bt-ad")
@@ -951,7 +952,7 @@ class TestMeiosDeEntradaDoDia:
         da etapa sincroniza depois do deploy."""
         fake = _monta(monkeypatch, dia=_dia(buy_in=100, chips=10000, rake=20),
                       tabelas=self._tipos({
-                          # Sem `tournament_day_id`: e o que faz dele legado.
+                          # Sem `tournament_id`: e o que faz dele legado.
                           "id": "bt-legado", "stage_id": "etapa-1", "name": "Buy In",
                           "category": "buy_in", "amount": 0, "rake_percentage": 15,
                           "chips": 0,
@@ -962,14 +963,14 @@ class TestMeiosDeEntradaDoDia:
         assert entrada["chips"] == 10000           # do DIA, nao o zero do tipo
         assert float(entrada["rake_percentage"]) == 15.0   # o rake E dele
 
-    def test_tipo_do_dia_com_zero_legitimo_cobra_zero(self, monkeypatch):
-        """Zero configurado no tipo do DIA e uma decisao, nao ausencia.
+    def test_tipo_do_torneio_com_zero_legitimo_cobra_zero(self, monkeypatch):
+        """Zero configurado no tipo do TORNEIO e uma decisao, nao ausencia.
 
         O dia final costuma ter buy-in zerado (quem chega la vem classificado).
         Se o zero caisse na reserva do dia, o classificado seria cobrado."""
         fake = _monta(monkeypatch, dia=_dia(buy_in=500, chips=10000),
                       tabelas=self._tipos({
-                          "id": "bt-final", "tournament_day_id": DIA,
+                          "id": "bt-final", "tournament_id": TOUR,
                           "name": "Entrada de classificado", "category": "buy_in",
                           "amount": 0, "rake_percentage": 0, "chips": 40000,
                       }))
@@ -977,3 +978,94 @@ class TestMeiosDeEntradaDoDia:
         entrada = fake.store["transactions"][0]
         assert float(entrada["amount"]) == 0.0
         assert entrada["chips"] == 40000
+
+    def test_meio_de_entrada_de_outro_torneio_e_recusado(self, monkeypatch):
+        """A lista e por TORNEIO: um id de outro evento cobraria o preco de
+        outro evento. Recusa com CODIGO (vira 400 no router, nao 404), e nada
+        e gravado — nem inscricao, nem venda."""
+        fake = _monta(monkeypatch, tabelas=self._tipos({
+            "id": "bt-alheio", "tournament_id": "outro-torneio", "name": "Buy-in",
+            "category": "buy_in", "amount": 999, "rake_percentage": 20, "chips": 1,
+        }))
+        with pytest.raises(ErroDeNegocio, match="não pertence a este torneio") as recusa:
+            TournamentPlayerService.register_player(_inscricao(buy_type_id="bt-alheio"), "u1")
+        assert recusa.value.code == "meio_de_entrada_de_outro_torneio"
+        assert recusa.value.status == 400
+        assert fake.store["transactions"] == []
+        assert fake.store["tournament_players"] == []
+
+    def test_recompra_com_meio_de_outro_torneio_e_recusada(self, monkeypatch):
+        fake = self._com_jogador(monkeypatch)
+        fake.store["buy_types"].append({
+            "id": "bt-alheio", "tournament_id": "outro-torneio", "name": "Rebuy",
+            "category": "rebuy", "amount": 999, "rake_percentage": 0, "chips": 1,
+        })
+        with pytest.raises(ErroDeNegocio, match="não pertence a este torneio"):
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
+                                              buy_type_id="bt-alheio")
+        assert not [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
+
+    def test_meio_de_entrada_desativado_e_recusado(self, monkeypatch):
+        """Desativado saiu do Caixa por decisao do clube; uma tela velha ainda
+        com ele na lista nao pode vender por ele."""
+        fake = _monta(monkeypatch, tabelas=self._tipos({
+            "id": "bt-off", "tournament_id": TOUR, "name": "Buy-in antigo",
+            "category": "buy_in", "amount": 80, "rake_percentage": 20,
+            "chips": 8000, "active": False,
+        }))
+        with pytest.raises(ErroDeNegocio, match="desativado") as recusa:
+            TournamentPlayerService.register_player(_inscricao(buy_type_id="bt-off"), "u1")
+        assert recusa.value.code == "meio_de_entrada_inativo"
+        assert fake.store["transactions"] == []
+
+    def test_add_on_com_meio_desativado_e_recusado(self, monkeypatch):
+        fake = self._com_jogador(monkeypatch)
+        fake.store["buy_types"].append({
+            "id": "bt-off", "tournament_id": TOUR, "name": "Add-on antigo",
+            "category": "addon", "amount": 70, "rake_percentage": 0,
+            "chips": 40000, "active": False,
+        })
+        with pytest.raises(ErroDeNegocio, match="desativado"):
+            TournamentPlayerService.add_addon(TP, "u1", buy_type_id="bt-off")
+
+    def test_no_replay_offline_o_meio_desativado_ainda_passa(self, monkeypatch):
+        """A venda aconteceu no balcao com o tipo ATIVO; o clube o desativou
+        antes de a fila sincronizar. Recusar agora criaria um conflito sem
+        solucao — e o dinheiro ja esta na gaveta. Vende pelo que o tipo dizia."""
+        fake = _monta(monkeypatch, tabelas=self._tipos({
+            "id": "bt-off", "tournament_id": TOUR, "name": "Buy-in antigo",
+            "category": "buy_in", "amount": 80, "rake_percentage": 20,
+            "chips": 8000, "active": False,
+        }))
+        TournamentPlayerService.register_player(
+            _inscricao(buy_type_id="bt-off"), "u1", permitir_meio_inativo=True
+        )
+        entrada = fake.store["transactions"][0]
+        assert float(entrada["amount"]) == 80.0
+        assert entrada["chips"] == 8000
+        assert entrada["buy_type_name"] == "Buy-in antigo"
+
+    def test_meio_de_entrada_inexistente_segue_pelo_dia(self, monkeypatch):
+        """Replay de uma venda antiga cujo tipo foi apagado: a venda nao para,
+        cai na reserva do dia — o comportamento de sempre."""
+        fake = _monta(monkeypatch, dia=_dia(buy_in=100, chips=10000, rake=20))
+        TournamentPlayerService.register_player(_inscricao(buy_type_id="bt-sumiu"), "u1")
+        entrada = fake.store["transactions"][0]
+        assert float(entrada["amount"]) == 100.0
+        assert entrada["buy_type_name"] is None
+
+    def test_tipo_antigo_so_com_dia_e_sem_torneio_e_legado(self, monkeypatch):
+        """Linha que ficou so com `tournament_day_id` (um banco que nao rodou o
+        backfill) e tratada como legado: valor e fichas do dia, rake dela.
+        Melhor cobrar o preco do dia do que ZERO."""
+        fake = _monta(monkeypatch, dia=_dia(buy_in=100, chips=10000, rake=20),
+                      tabelas=self._tipos({
+                          "id": "bt-dia", "tournament_day_id": DIA, "name": "Buy-in",
+                          "category": "buy_in", "amount": 0, "rake_percentage": 15,
+                          "chips": 0,
+                      }))
+        TournamentPlayerService.register_player(_inscricao(buy_type_id="bt-dia"), "u1")
+        entrada = fake.store["transactions"][0]
+        assert float(entrada["amount"]) == 100.0
+        assert entrada["chips"] == 10000
+        assert float(entrada["rake_percentage"]) == 15.0

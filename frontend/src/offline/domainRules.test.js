@@ -348,7 +348,7 @@ describe('o meio de entrada manda em valor, rake e fichas', () => {
 
   it('o buy-in cobra o valor e entrega as fichas do meio de entrada', async () => {
     guardar('buy_types', {
-      id: 'bt-vip', tournament_day_id: DIA, name: 'Buy-in VIP', category: 'buy_in',
+      id: 'bt-vip', tournament_id: 'torneio-1', name: 'Buy-in VIP', category: 'buy_in',
       amount: 1000, rake_percentage: 10, chips: 50000,
     });
     const { tp, txn } = await applyRegister(corpoRegistro({ buy_type_id: 'bt-vip' }));
@@ -362,7 +362,7 @@ describe('o meio de entrada manda em valor, rake e fichas', () => {
     // O dia final costuma ter entrada zerada: quem chega lá vem classificado.
     // Tratar o zero como "ausente" cobraria dele os 300 do dia.
     guardar('buy_types', {
-      id: 'bt-final', tournament_day_id: DIA, name: 'Classificado', category: 'buy_in',
+      id: 'bt-final', tournament_id: 'torneio-1', name: 'Classificado', category: 'buy_in',
       amount: 0, rake_percentage: 0, chips: 0,
     });
     const { tp } = await applyRegister(corpoRegistro({ buy_type_id: 'bt-final' }));
@@ -375,7 +375,7 @@ describe('o meio de entrada manda em valor, rake e fichas', () => {
     // um meio de entrada editado depois devolveria mais fichas do que a venda
     // entregou; e renomeá-lo reescreveria o recibo.
     guardar('buy_types', {
-      id: 'bt-vip', tournament_day_id: DIA, name: 'Buy-in VIP', category: 'buy_in',
+      id: 'bt-vip', tournament_id: 'torneio-1', name: 'Buy-in VIP', category: 'buy_in',
       amount: 1000, rake_percentage: 10, chips: 50000,
     });
     const { txn } = await applyRegister(corpoRegistro({ buy_type_id: 'bt-vip' }));
@@ -394,7 +394,7 @@ describe('o meio de entrada manda em valor, rake e fichas', () => {
     // multiplicar o rebuy simples.
     await applyRegister(corpoRegistro());
     guardar('buy_types', {
-      id: 'bt-duplo', tournament_day_id: DIA, name: 'Rebuy duplo', category: 'rebuy',
+      id: 'bt-duplo', tournament_id: 'torneio-1', name: 'Rebuy duplo', category: 'rebuy',
       amount: 500, rake_percentage: 20, chips: 70000,
     });
     const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-duplo' }));
@@ -410,7 +410,7 @@ describe('o meio de entrada manda em valor, rake e fichas', () => {
   it('o add-on também segue o meio de entrada', async () => {
     await applyRegister(corpoRegistro());
     guardar('buy_types', {
-      id: 'bt-add', tournament_day_id: DIA, name: 'Add-on turbo', category: 'addon',
+      id: 'bt-add', tournament_id: 'torneio-1', name: 'Add-on turbo', category: 'addon',
       amount: 250, rake_percentage: 0, chips: 40000,
     });
     const { tp } = await applyAddon({
@@ -424,7 +424,7 @@ describe('o meio de entrada manda em valor, rake e fichas', () => {
     // Cadastro legado (por etapa) só dizia o rake. A venda não pode parar por
     // isso: o dia continua sendo a reserva.
     await applyRegister(corpoRegistro());
-    guardar('buy_types', { id: 'bt-legado', tournament_day_id: DIA, name: 'Rebuy', rake_percentage: 5 });
+    guardar('buy_types', { id: 'bt-legado', tournament_id: 'torneio-1', name: 'Rebuy', rake_percentage: 5 });
     const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-legado' }));
     expect(tp.total_rebuy_amount).toBe(300); // rebuy_amount do dia
     expect(tp.total_chips).toBe(60000); // 30.000 + rebuy_chips do dia
@@ -446,12 +446,26 @@ describe('o meio de entrada manda em valor, rake e fichas', () => {
     expect(tp.total_chips).toBe(60000);        // do dia, não o zero do tipo
   });
 
-  it('zero configurado no tipo DO DIA é decisão, e vale', async () => {
-    // O dia final costuma ter entrada zerada: quem chega lá vem classificado.
-    // Se esse zero caísse na reserva do dia, o classificado seria cobrado.
+  it('tipo antigo só com dia, sem torneio, também é legado', async () => {
+    // Linha da réplica gravada quando a lista ainda era por DIA, ou um banco
+    // que não rodou o backfill para o torneio. Melhor cobrar o preço do dia do
+    // que ZERO — e é exatamente o que o backend faz.
     await applyRegister(corpoRegistro());
     guardar('buy_types', {
-      id: 'bt-final', tournament_day_id: DIA, name: 'Recompra cortesia',
+      id: 'bt-dia', tournament_day_id: DIA, name: 'Rebuy',
+      amount: 0, chips: 0, rake_percentage: 5,
+    });
+    const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-dia' }));
+    expect(tp.total_rebuy_amount).toBe(300);
+    expect(tp.total_chips).toBe(60000);
+  });
+
+  it('zero configurado no tipo DO TORNEIO é decisão, e vale', async () => {
+    // Uma recompra de cortesia existe. Se esse zero caísse na reserva do dia,
+    // quem não devia pagar nada seria cobrado.
+    await applyRegister(corpoRegistro());
+    guardar('buy_types', {
+      id: 'bt-final', tournament_id: 'torneio-1', name: 'Recompra cortesia',
       category: 'rebuy', amount: 0, chips: 15000, rake_percentage: 0,
     });
     const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-final' }));

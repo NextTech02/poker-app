@@ -331,6 +331,17 @@ class TestImpactoDaExclusao:
         assert impacto.cashboxes == 1
         assert impacto.blocked is False
 
+    def test_meios_de_entrada_dos_torneios_da_etapa_entram_no_aviso(self, banco):
+        # A lista é do TORNEIO: contar só por stage_id deixaria o aviso em zero
+        # para toda etapa criada depois da mudança. O legado da etapa soma junto;
+        # o de outro torneio, não.
+        banco({"stages": [_base()],
+               "tournaments": [{"id": "t1", "stage_id": ETAPA}],
+               "buy_types": [{"id": "b1", "stage_id": ETAPA},
+                             {"id": "b2", "tournament_id": "t1"},
+                             {"id": "b3", "tournament_id": "t-de-outra-etapa"}]})
+        assert SS.get_delete_impact(ETAPA).buy_types == 2
+
 
 class TestExclusaoBloqueada:
     def test_nao_apaga_etapa_com_movimento(self, banco):

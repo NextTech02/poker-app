@@ -997,3 +997,37 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* === Meios de entrada do torneio === */
+/* A lista vale para todos os dias; o cartao fica acima deles. O editor abre num
+   modal largo o bastante para a linha (nome, valor, rake, fichas, categoria,
+   remover) caber numa linha so. */
+.entry-types-card {
+  margin-bottom: 1.5rem;
+}
+
+.entry-types-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.entry-types-card-header .section-title {
+  margin: 0;
+}
+
+.entry-types-table {
+  width: 100%;
+}
+
+.entry-types-hint {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.entry-types-modal {
+  width: 100%;
+  max-width: 760px;
+}

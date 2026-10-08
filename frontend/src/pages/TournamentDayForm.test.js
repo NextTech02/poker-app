@@ -12,11 +12,11 @@
  *   de novo. A herança é acessória: se ela falhar, o dia continua criado — só
  *   avisa para configurar à mão.
  *
- * - **Os MEIOS DE ENTRADA são do dia.** No lugar dos seis campos soltos (buy-in,
- *   rebuy, add-on e as fichas de cada um) há uma lista com nome, valor, rake e
- *   fichas próprios por linha — é o que permite "Buy-in duplo" ser uma coisa
- *   própria, e não buy-in vezes dois. Um dia sem nenhum meio da categoria
- *   `buy_in` não consegue inscrever ninguém, então isso é bloqueado.
+ * - **Os MEIOS DE ENTRADA são do TORNEIO.** No lugar dos seis campos soltos
+ *   (buy-in, rebuy, add-on e as fichas de cada um) o dia mostra, só para
+ *   leitura, a lista do torneio — ela vale para todos os dias e se edita no
+ *   torneio. As colunas antigas do dia (buy_in, fichas...) seguem o primeiro
+ *   meio de cada categoria, para telas e relatórios não contarem outra história.
  *
  * Valores opcionais zerados viram NULO, não zero: "rebuy de R$ 0,00" diria que
  * o rebuy é de graça; nulo diz que não existe.
@@ -80,11 +80,12 @@ const BLINDS_ORIGEM = [
 
 let toast;
 
-// Meios de entrada do dia em edição, fora de ordem de propósito: a tela ordena
-// por sort_order, e é essa ordem que o Caixa mostra.
+// Meios de entrada do TORNEIO, fora de ordem de propósito: a tela ordena por
+// sort_order, e é essa ordem que o Caixa mostra. O desativado não aparece.
 const MEIOS = [
   { id: 'm2', name: 'Rebuy', category: 'rebuy', amount: 300, rake_percentage: 10, chips: 30000, active: true, sort_order: 1 },
   { id: 'm1', name: 'Buy-in', category: 'buy_in', amount: 500, rake_percentage: 10, chips: 30000, active: true, sort_order: 0 },
+  { id: 'velho', name: 'Promo', category: 'buy_in', amount: 50, rake_percentage: 5, chips: 5000, active: false, sort_order: 9 },
 ];
 
 const responder = ({
@@ -123,30 +124,11 @@ const trocar = async (nome, valor) => {
   if (valor !== '') await userEvent.type(campo(nome), String(valor));
 };
 
-// ── Meios de entrada ────────────────────────────────────────────────────────
-// As linhas não têm id fixo (uma linha nova ainda não existe no banco), então a
-// busca é pela posição na lista, que é a ordem que o operador vê.
-const linhas = () => Array.from(document.querySelectorAll('.entry-method-row'));
-const linha = (indice) => {
-  const raiz = linhas()[indice];
-  const numeros = raiz.querySelectorAll('input[type="number"]');
-  return {
-    nome: raiz.querySelector('input[type="text"]'),
-    valor: numeros[0],
-    rake: numeros[1],
-    fichas: numeros[2],
-    categoria: raiz.querySelector('select'),
-    remover: raiz.querySelector('button'),
-  };
-};
-const escreverNa = async (indice, qual, valor) => {
-  const alvo = linha(indice)[qual];
-  await userEvent.clear(alvo);
-  if (valor !== '') await userEvent.type(alvo, String(valor));
-};
-const adicionarMeio = () =>
-  userEvent.click(screen.getByRole('button', { name: 'Adicionar meio de entrada' }));
-const itensEnviados = () => api.put.mock.calls[0][1].items;
+// ── Meios de entrada (só leitura) ───────────────────────────────────────────
+const linhasDaTabela = () =>
+  Array.from(document.querySelectorAll('.entry-methods-table tbody tr')).map((tr) =>
+    Array.from(tr.querySelectorAll('td')).map((td) => td.textContent)
+  );
 
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
@@ -193,13 +175,17 @@ describe('carga', () => {
     expect(campo('rebuy_level_limit')).toHaveValue(6);
   });
 
-  it('valores opcionais ausentes viram zero no formulário, não "undefined"', async () => {
-    // Um dia migrado antes de ter meios cadastrados cai nos valores do próprio
-    // dia — nulo lá vira 0 aqui, e não um campo com "undefined" escrito.
+  it('torneio sem meios de entrada mantém as colunas do dia, com nulo onde não há valor', async () => {
+    // Nada para copiar do torneio: o dia fica como estava. Rebuy/add-on nulos
+    // continuam nulos (zero diria "de graça").
     await montar({ dia: { ...DIA_EM_EDICAO, rebuy_amount: null, addon_amount: null,
       rebuy_level_limit: null }, meios: [] }, { editando: true });
-    expect(linha(1).valor).toHaveValue(0);
     expect(campo('rebuy_level_limit')).toHaveValue(null);
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(api.patch.mock.calls[0][1]).toMatchObject({
+      buy_in: 500, starting_chips: 30000, rebuy_amount: null, addon_amount: null,
+    });
   });
 
   it('falha ao carregar mostra o erro', async () => {
@@ -215,23 +201,24 @@ describe('carga', () => {
 });
 
 describe('valores opcionais', () => {
-  it('rebuy zerado vira NULO, não zero', async () => {
+  it('rebuy zerado no torneio vira NULO no dia, não zero', async () => {
     // "Rebuy de R$ 0,00" diria que o rebuy é de graça; nulo diz que não existe.
-    await montar();
+    await montar({ meios: [...MEIOS, { id: 'm3', name: 'Rebuy cortesia', category: 'rebuy',
+      amount: 0, rake_percentage: 0, chips: 5000, active: true, sort_order: 0 }] });
     await userEvent.type(campo('day_name'), 'Dia 2');
-    await escreverNa(1, 'valor', 0);
     await salvar();
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     expect(api.post.mock.calls[0][1].rebuy_amount).toBeNull();
+    expect(api.post.mock.calls[0][1].rebuy_chips).toBe(5000);
   });
 
-  it('add-on zerado também', async () => {
+  it('sem add-on na lista do torneio, o dia fica sem add-on', async () => {
     await montar();
     await userEvent.type(campo('day_name'), 'Dia 2');
-    await escreverNa(2, 'valor', 0);
     await salvar();
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     expect(api.post.mock.calls[0][1].addon_amount).toBeNull();
+    expect(api.post.mock.calls[0][1].addon_chips).toBe(0);
   });
 
   it('limite de nível em branco significa ILIMITADO', async () => {
@@ -396,183 +383,79 @@ describe('tipo do dia', () => {
   });
 });
 
-describe('meios de entrada', () => {
-  it('um dia novo já vem com Buy-in, Rebuy e Add-on, nessa ordem', async () => {
-    // Sem nenhum meio a tela abriria sem como inscrever ninguém.
-    await montar();
-    expect(linhas()).toHaveLength(3);
-    expect([0, 1, 2].map((i) => linha(i).categoria.value)).toEqual(['buy_in', 'rebuy', 'addon']);
-  });
-
-  it('editando, os meios do dia vêm do servidor, na ordem cadastrada', async () => {
+describe('meios de entrada do torneio (somente leitura)', () => {
+  it('mostra a lista do torneio, na ordem cadastrada, sem o desativado', async () => {
     // A resposta vem fora de ordem de propósito: quem manda é o sort_order.
-    await montar(undefined, { editando: true });
-    expect(linhas()).toHaveLength(2);
-    expect(linha(0).nome).toHaveValue('Buy-in');
-    expect(linha(1).nome).toHaveValue('Rebuy');
-    expect(linha(1).fichas).toHaveValue(30000);
-  });
-
-  it('dia antigo, ainda sem meios cadastrados, é preenchido com o que ele cobra', async () => {
-    // Tela vazia faria o operador achar que perdeu a configuração do dia.
-    await montar({ meios: [] }, { editando: true });
-    expect(linhas()).toHaveLength(3);
-    expect(linha(0).valor).toHaveValue(500);
-    expect(linha(0).fichas).toHaveValue(30000);
-  });
-
-  it('falha ao buscar os meios não derruba o formulário', async () => {
-    // O dia continua editável; só a lista é que não veio.
-    await montar({ meios: new Error('500') }, { editando: true });
-    expect(campo('day_name')).toHaveValue('Dia 1A');
-    expect(screen.queryByText('common.error')).toBeNull();
-  });
-
-  it('o botão acrescenta uma linha em branco, sem opção pré-pronta', async () => {
-    // "Buy-in duplo" é algo que o clube CADASTRA, não um item de menu.
     await montar();
-    await adicionarMeio();
-    expect(linhas()).toHaveLength(4);
-    expect(linha(3).nome).toHaveValue('');
+    expect(linhasDaTabela().map((l) => l[0])).toEqual(['Buy-in', 'Rebuy']);
+    // O separador de milhar segue o locale do ambiente (30.000 ou 30,000).
+    expect(linhasDaTabela()[0].slice(0, 4)).toEqual(['Buy-in', 'Entrada', 'R$ 500.00', '10%']);
+    expect(linhasDaTabela()[0][4]).toMatch(/^30[.,]000$/);
   });
 
-  it('a linha nova é salva com o nome e as fichas que o operador deu', async () => {
-    // O ponto da mudança: "rebuy duplo" tem valor E fichas próprios, não é o
-    // rebuy simples multiplicado por dois.
+  it('a lista vem do TORNEIO, não do dia — também na criação', async () => {
+    // Antes o dia nascia com três linhas suas; agora ele só herda a lista.
     await montar();
-    await userEvent.type(campo('day_name'), 'Dia 2');
-    await adicionarMeio();
-    await userEvent.type(linha(3).nome, 'Rebuy duplo');
-    await escreverNa(3, 'valor', 200);
-    await escreverNa(3, 'fichas', 25000);
-    await userEvent.selectOptions(linha(3).categoria, 'rebuy');
-    await salvar();
-    await waitFor(() => expect(api.put).toHaveBeenCalled());
-    expect(itensEnviados()[3]).toMatchObject({
-      id: null, name: 'Rebuy duplo', category: 'rebuy', amount: 200, chips: 25000,
-    });
+    expect(api.get).toHaveBeenCalledWith('/tournaments/t1/buy-types');
+    expect(document.querySelectorAll('.entry-method-row')).toHaveLength(0);
   });
 
-  it('remover tira a linha da lista', async () => {
+  it('não há como editar aqui: o botão leva ao torneio', async () => {
     await montar();
-    await userEvent.click(linha(2).remover);
-    expect(linhas()).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /Adicionar entrada/ })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Editar no torneio' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/torneios/t1');
   });
 
-  it('não dá para ficar sem NENHUM meio de entrada', async () => {
-    // Sem meio da categoria "Entrada" não há como inscrever jogador — o
-    // operador descobriria isso no Caixa, com o clube cheio.
-    await montar();
-    await userEvent.click(linha(0).remover);
-    expect(linhas()).toHaveLength(3);
-    expect(screen.getByRole('alert')).toHaveTextContent(/ao menos um meio de entrada/i);
+  it('torneio sem meios cadastrados avisa, em vez de mostrar tabela vazia', async () => {
+    await montar({ meios: [] });
+    expect(screen.getByText('Este torneio ainda não tem meios de entrada cadastrados.')).toBeInTheDocument();
+    expect(document.querySelector('.entry-methods-table')).toBeNull();
   });
 
-  it('com dois meios de entrada, dá para remover um', async () => {
-    await montar();
-    await adicionarMeio(); // nasce como "Entrada"
-    await userEvent.click(linha(0).remover);
-    expect(linhas().filter((_, i) => linha(i).categoria.value === 'buy_in')).toHaveLength(1);
-  });
-
-  it('trocar a categoria do único buy-in bloqueia o salvamento', async () => {
-    // A remoção não é o único jeito de ficar sem entrada.
-    await montar();
-    await userEvent.type(campo('day_name'), 'Dia 2');
-    await userEvent.selectOptions(linha(0).categoria, 'addon');
-    await salvar();
-    expect(screen.getByRole('alert')).toHaveTextContent(/ao menos um meio de entrada/i);
-    expect(api.post).not.toHaveBeenCalled();
-  });
-
-  it('meio sem nome bloqueia o salvamento', async () => {
-    // Um meio sem nome não dá para escolher no Caixa.
-    await montar();
-    await userEvent.type(campo('day_name'), 'Dia 2');
-    await escreverNa(0, 'nome', '');
-    await salvar();
-    expect(screen.getByRole('alert')).toHaveTextContent('Dê um nome a cada meio de entrada.');
-    expect(api.post).not.toHaveBeenCalled();
-  });
-
-  it('na CRIAÇÃO os meios vão para o dia recém-criado', async () => {
-    // O dia não existe quando o formulário abre: o PUT só pode sair depois do
-    // POST, com o id que voltou.
-    await montar();
-    await userEvent.type(campo('day_name'), 'Dia 2');
-    await salvar();
-    await waitFor(() => expect(api.put).toHaveBeenCalled());
-    expect(api.put.mock.calls[0][0]).toBe('/tournament-days/novo/buy-types');
-    expect(itensEnviados()).toHaveLength(3);
-  });
-
-  it('na EDIÇÃO os meios vão para o dia editado', async () => {
-    await montar(undefined, { editando: true });
-    await salvar();
-    await waitFor(() => expect(api.put).toHaveBeenCalled());
-    expect(api.put.mock.calls[0][0]).toBe('/tournament-days/d9/buy-types');
-    expect(itensEnviados()[0].id).toBe('m1');
-  });
-
-  it('a ordem da tela vira o sort_order enviado', async () => {
-    // É a ordem em que o Caixa mostra os botões de venda.
-    await montar();
-    await userEvent.type(campo('day_name'), 'Dia 2');
-    await salvar();
-    await waitFor(() => expect(api.put).toHaveBeenCalled());
-    expect(itensEnviados().map((i) => i.sort_order)).toEqual([0, 1, 2]);
-  });
-
-  it('meios DESATIVADOS voltam no envio, em vez de sumirem', async () => {
-    // Vendas antigas apontam para eles; apagá-los deixaria o recibo sem dizer o
-    // que a pessoa comprou.
-    const desativado = { id: 'velho', name: 'Buy-in promo', category: 'buy_in', amount: 50,
-      rake_percentage: 5, chips: 5000, active: false, sort_order: 9 };
-    await montar({ meios: [...MEIOS, desativado] }, { editando: true });
-    expect(linhas()).toHaveLength(2); // o desativado não aparece na tela
-    await salvar();
-    await waitFor(() => expect(api.put).toHaveBeenCalled());
-    expect(itensEnviados()).toHaveLength(3);
-    expect(itensEnviados()[2]).toMatchObject({ id: 'velho', active: false });
-  });
-
-  it('as colunas antigas do dia seguem o primeiro meio de cada categoria', async () => {
+  it('as colunas antigas do dia seguem o primeiro meio de cada categoria do torneio', async () => {
     // Telas e relatórios que ainda leem day.buy_in não podem contar outra
     // história diferente da que o Caixa cobra.
     await montar();
     await userEvent.type(campo('day_name'), 'Dia 2');
-    await escreverNa(0, 'valor', 250);
-    await escreverNa(0, 'fichas', 15000);
     await salvar();
     await waitFor(() => expect(api.post).toHaveBeenCalled());
-    expect(api.post.mock.calls[0][1]).toMatchObject({ buy_in: 250, starting_chips: 15000 });
+    expect(api.post.mock.calls[0][1]).toMatchObject({
+      buy_in: 500, starting_chips: 30000, rebuy_amount: 300, rebuy_chips: 30000,
+    });
   });
 
-  it('o dia FINAL não tem meios de entrada — nem na tela, nem no envio', async () => {
-    // Quem chega no final vem classificado; não compra entrada.
-    await montar({ dia: { ...DIA_EM_EDICAO, day_type: 'final' } }, { editando: true });
-    expect(linhas()).toHaveLength(0);
+  it('nenhum PUT de meios de entrada sai daqui', async () => {
+    // Quem grava a lista é a tela do torneio; gravar por dia a fragmentaria.
+    await montar();
+    await userEvent.type(campo('day_name'), 'Dia 2');
+    await salvar();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('na edição também não há PUT', async () => {
+    await montar(undefined, { editando: true });
     await salvar();
     await waitFor(() => expect(api.patch).toHaveBeenCalled());
     expect(api.put).not.toHaveBeenCalled();
   });
 
-  it('o botão de remover diz QUAL meio remove', async () => {
-    // Seis botões chamados só "Remover" não dizem nada a quem usa leitor de tela.
-    await montar();
-    expect(
-      screen.getByRole('button', { name: 'Remover meio de entrada Buy-in' })
-    ).toBeInTheDocument();
+  it('falha ao buscar os meios não derruba o formulário', async () => {
+    // O dia continua editável; só a lista é que não veio, e as colunas ficam
+    // com o que o dia já tinha.
+    await montar({ meios: new Error('500') }, { editando: true });
+    expect(campo('day_name')).toHaveValue('Dia 1A');
+    expect(screen.queryByText('common.error')).toBeNull();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(api.patch.mock.calls[0][1].buy_in).toBe(500);
   });
 
-  it('a dica da categoria aparece uma vez e vale para todas as linhas', async () => {
-    // Repetir a explicação em cada linha viraria ruído; o aria-describedby liga
-    // todos os selects ao mesmo texto.
-    await montar();
-    expect(document.querySelectorAll('#entry_category_hint')).toHaveLength(1);
-    [0, 1, 2].forEach((i) =>
-      expect(linha(i).categoria).toHaveAttribute('aria-describedby', 'entry_category_hint')
-    );
+  it('o dia FINAL não mostra a lista: quem chega lá vem classificado', async () => {
+    await montar({ dia: { ...DIA_EM_EDICAO, day_type: 'final' } }, { editando: true });
+    expect(screen.queryByText('Meios de entrada do torneio')).toBeNull();
+    expect(document.querySelector('.entry-methods-table')).toBeNull();
   });
 });
 

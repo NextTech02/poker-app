@@ -97,8 +97,12 @@ class SyncService:
                 # skip_sales_block: a venda aconteceu em tempo real, ANTES de o
                 # diretor bloquear. Rejeitá-la agora perderia dinheiro que já
                 # está na gaveta do operador — mesma razão do skip_level_gate.
+                # permitir_meio_inativo: o meio de entrada estava ativo quando a
+                # venda saiu no balcão; se o clube o desativou antes do sync,
+                # recusar agora criaria um conflito sem solução.
                 tp = TournamentPlayerService.register_player(
-                    TournamentPlayerCreate(**p), user_id, skip_sales_block=True
+                    TournamentPlayerCreate(**p), user_id, skip_sales_block=True,
+                    permitir_meio_inativo=True,
                 )
                 out.update(status="applied", serverId=tp.id)
             elif kind == "rebuy":
@@ -110,6 +114,7 @@ class SyncService:
                     client_mutation_id=p.get("client_mutation_id") or cmid,
                     skip_level_gate=True,  # offline: feito em tempo real; não re-gatear no sync
                     skip_sales_block=True,
+                    permitir_meio_inativo=True,
                 )
                 out.update(status="applied")
             elif kind == "addon":
@@ -120,6 +125,7 @@ class SyncService:
                     buy_type_id=p.get("buy_type_id"),
                     client_mutation_id=p.get("client_mutation_id") or cmid,
                     skip_sales_block=True,
+                    permitir_meio_inativo=True,
                 )
                 out.update(status="applied")
             elif kind == "eliminate":

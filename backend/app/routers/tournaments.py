@@ -7,6 +7,8 @@ from app.models.tournament import (
     TournamentSummary,
     TournamentDeleteImpact,
 )
+from app.models.buy_type import BuyTypesReplace
+from app.services.buy_type_service import BuyTypeService
 from app.services.tournament_service import (
     TournamentService,
     MovimentoFinanceiroImpedeExclusao,
@@ -15,7 +17,7 @@ from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
 # Recusas com CODIGO: a tela escolhe a frase no idioma do clube
 # (Brasil, Peru, Colombia) — ver app/utils/erros.py.
-from app.utils.erros import conflito, nao_encontrado, recusado, sem_permissao
+from app.utils.erros import conflito, da_excecao, nao_encontrado, recusado, sem_permissao
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
@@ -181,3 +183,74 @@ def delete_tournament(
         )
     if not success:
         raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
+
+
+# ── Meios de entrada do torneio ─────────────────────────────────────────────
+# O que o torneio vende: nome, categoria, valor, rake e fichas. A lista é UMA
+# por torneio e vale para todos os seus dias; por isso mora aqui, e não no
+# router do dia.
+
+def _torneio_da_etapa(tournament_id: str, stage_id: Optional[str]) -> Tournament:
+    """O torneio existe e, havendo header, pertence à etapa selecionada.
+
+    Diferente de `_exigir_torneio_da_etapa`, confere a existência SEMPRE: os
+    meios de entrada não têm um service que responda 404 por eles."""
+    existente = TournamentService.get_tournament(tournament_id)
+    if not existente:
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
+    if stage_id and existente.stage_id != stage_id:
+        # Frase de DESENVOLVEDOR (o X-Stage-ID vem do proprio cliente, o
+        # operador nao digita etapa): fica em ingles — a tela usa o codigo.
+        raise sem_permissao(
+            "torneio_fora_da_etapa",
+            "Tournament does not belong to the selected stage",
+        )
+    return existente
+
+
+@router.get("/{tournament_id}/buy-types")
+def list_tournament_buy_types(
+    tournament_id: str,
+    current_user: dict = Depends(get_current_user),
+    stage_id: Optional[str] = Depends(get_stage_id_optional)
+):
+    """Lista os meios de entrada do torneio, na ordem de exibição do Caixa."""
+    _torneio_da_etapa(tournament_id, stage_id)
+    return BuyTypeService.listar(tournament_id)
+
+
+@router.put(
+    "/{tournament_id}/buy-types",
+    responses={
+        400: {
+            "description": (
+                "Lista recusada: nenhum meio de entrada ativo na categoria buy-in, "
+                "ou um id enviado que pertence a outro torneio."
+            )
+        },
+        403: {"description": "O torneio pertence a outra etapa que não a do header X-Stage-ID."},
+        404: {"description": "Torneio não encontrado."},
+    },
+)
+def replace_tournament_buy_types(
+    tournament_id: str,
+    data: BuyTypesReplace,
+    current_user: dict = Depends(get_current_user),
+    stage_id: Optional[str] = Depends(get_stage_id_optional)
+):
+    """SUBSTITUI a lista inteira de meios de entrada do torneio.
+
+    A tela edita tudo de uma vez; uma chamada por linha deixaria o torneio com
+    metade da configuração nova se o operador fechasse o navegador no meio.
+
+    O que sumiu da lista só é apagado quando nunca foi vendido — com venda, ele
+    é desativado, senão o recibo perderia o rótulo do que a pessoa comprou.
+    """
+    _torneio_da_etapa(tournament_id, stage_id)
+
+    try:
+        return BuyTypeService.substituir(
+            tournament_id, [item.model_dump() for item in data.items]
+        )
+    except ValueError as e:
+        raise da_excecao(e, "meios_de_entrada_recusados")

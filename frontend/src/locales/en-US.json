@@ -255,8 +255,7 @@
     "sponsor": "Sponsor",
     "noSponsor": "No sponsor",
     "qualifyingDaysCount": "Qualifying days",
-    "qualifyingDaysHint": "We'll create these qualifying days + 1 final day, already linked. Edit each day's config afterwards.",
-    "qualifyingBuyIn": "Buy-in per qualifying day",
+    "qualifyingDaysHint": "We'll create these qualifying days + 1 final day, already linked. All of them sell the entry methods set up above.",
     "qualifyingDaysPartial": "Tournament created, but generating the qualifying days failed. Add them manually.",
     "qualifyingBlindTemplate": "Blind structure",
     "qualifyingBlindTemplateNone": "None (configure later)",
@@ -269,7 +268,10 @@
     "confirmDeleteImpact": "Delete tournament \"{{name}}\"? This cascade-deletes: {{days}} day(s), {{players}} registration(s) and {{cancelled}} already-cancelled sale(s). There is no undo.",
     "deleteBlocked": "This tournament cannot be deleted: it has {{entries}} entry(ies) sold totalling {{amount}}, {{players}} paid player(s) and {{prizes}} prize payout(s). Deleting would erase the sale, the money taken in and the record of who paid — and the stage cash would NOT be refunded. Cancel the sales in the Cashier (the refund gives the money back and squares the cash) before deleting.",
     "deleteBlockedTitle": "Tournament with financial activity",
-    "qualifyingBuyTypesPartial": "Days created, but the entry methods could not be saved. Set them up on each day's screen."
+    "buyTypesPartial": "Tournament created, but the entry methods could not be saved. Set them up when editing the tournament.",
+    "entryTypesSection": "Entry methods",
+    "entryTypesLoadError": "Could not load this tournament's entry methods. They will not be changed when saving.",
+    "entryTypesUpdatePartial": "Tournament saved, but the entry methods could not be saved. Try again."
   },
   "tournamentDays": {
     "restarted": "Day restarted.",
@@ -588,7 +590,7 @@
     "selectBuyType": "Select the entry type",
     "buyTypeRequired": "Select the entry type.",
     "noBuyTypesTitle": "No entry types configured",
-    "noBuyTypes": "This day has no entry types. Sales use the category and the day's amount/rake; configure entry types when editing the tournament day.",
+    "noBuyTypes": "This tournament has no entry methods. Sales use the category and the day's amount/rake; set up the entry methods when editing the tournament.",
     "noStageSelected": "Select a stage to sell.",
     "changePaymentMethod": "Change payment",
     "paymentMethodChanged": "Payment method updated",
@@ -926,7 +928,7 @@
     "blindsInheritError": "Day created, but the blind structure could not be inherited. Configure it in the Blinds screen.",
     "currency": "Currency",
     "entryMethods": "Entry methods",
-    "entryMethodsIntro": "Each entry method has its own name, amount, rake and chips. Set up here what this day sells — including variations such as \"Double buy-in\" or \"Triple rebuy\".",
+    "entryMethodsIntro": "Each entry method has its own name, amount, rake and chips. The list belongs to the tournament and applies to every day — including variations such as \"Double buy-in\" or \"Triple rebuy\".",
     "entryMethodName": "Name",
     "entryMethodNamePlaceholder": "E.g.: Double buy-in",
     "entryMethodAmount": "Amount",
@@ -937,15 +939,19 @@
     "categoryBuyIn": "Entry",
     "categoryRebuy": "Rebuy",
     "categoryAddon": "Add-on",
-    "addEntryMethod": "Add entry method",
+    "addEntryMethod": "Add entry",
     "removeEntryMethod": "Remove",
     "removeEntryMethodOf": "Remove entry method {{nome}}",
     "entryMethodUnnamed": "unnamed",
-    "entryMethodsNeedBuyIn": "Keep at least one entry method in the \"Entry\" category — without it there is no way to register players on this day.",
+    "entryMethodsNeedBuyIn": "Keep at least one entry method in the \"Entry\" category — without it there is no way to register players in this tournament.",
     "entryMethodsNeedName": "Give every entry method a name.",
     "defaultBuyIn": "Buy-in",
     "defaultRebuy": "Rebuy",
     "defaultAddon": "Add-on",
+    "entryMethodsFromTournament": "Tournament entry methods",
+    "entryMethodsFromTournamentHint": "The list belongs to the tournament and applies to all its days. To change it, edit the tournament.",
+    "editOnTournament": "Edit on the tournament",
+    "entryMethodsNone": "This tournament has no entry methods yet.",
     "playersSection": "Players"
   },
   "rankings": {
@@ -1112,6 +1118,8 @@
     "clubLogoUrlLabel": "or paste the URL"
   },
   "errors": {
+    "meio_de_entrada_de_outro_torneio": "The chosen entry method does not belong to this tournament.",
+    "meio_de_entrada_inativo": "This entry method has been deactivated. Choose another one.",
     "serverError": "Internal server error. Please try again shortly.",
     "caixa_fechado": "Open your cash desk before selling.",
     "caixa_precisa_estar_aberto": "The cash desk must be open for this operation.",
@@ -2100,7 +2108,12 @@
     "broadcastSettingsTitle": "Configure broadcast appearance",
     "broadcast": "Broadcast",
     "noDaysConfigured": "No day configured",
-    "noDaysConfiguredHint": "Create the first day to set up the tournament"
+    "noDaysConfiguredHint": "Create the first day to set up the tournament",
+    "entryTypesTitle": "Entry methods",
+    "entryTypesEmpty": "No entry methods set up — the cashier sells by category, at the day's amount.",
+    "entryTypesEdit": "Edit",
+    "entryTypesSaved": "Entry methods saved.",
+    "entryTypesLoadError": "Could not load the entry methods."
   },
   "timer": {
     "next": "Next:",

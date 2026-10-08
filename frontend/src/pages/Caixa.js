@@ -37,7 +37,7 @@ const Caixa = () => {
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
   const { activeMethods } = usePaymentMethods();
-  const { activeBuyTypes, dayId, tiposCarregados, selectDay } = useBuyTypes();
+  const { activeBuyTypes, tournamentId: torneioDosMeios, tiposCarregados, selectTournament } = useBuyTypes();
   const { selectedStage } = useStage();
   const { isAdmin, hasPermission } = usePermissions();
 
@@ -112,10 +112,10 @@ const Caixa = () => {
   // primeiro render, a sessão expirada e, principalmente, o modo OFFLINE —,
   // com uma mensagem mandando cadastrar o que já estava cadastrado.
   const semTiposDeBuy = activeBuyTypes.length === 0;
-  // "O dia realmente não cadastrou nenhum meio de entrada" só pode ser afirmado
-  // com a resposta do servidor em mãos. Lista vazia por falha de consulta é
-  // outra coisa, e merece outro aviso.
-  const nenhumTipoCadastrado = semTiposDeBuy && tiposCarregados && !!dayId;
+  // "O torneio realmente não cadastrou nenhum meio de entrada" só pode ser
+  // afirmado com a resposta do servidor em mãos. Lista vazia por falha de
+  // consulta é outra coisa, e merece outro aviso.
+  const nenhumTipoCadastrado = semTiposDeBuy && tiposCarregados && !!torneioDosMeios;
   const salesBlockedStage = !!stageBlock?.sales_blocked;
   const diaSelecionado = tournamentDays.find((d) => d.id === formData.tournament_day_id);
   const salesBlockedDay = !!diaSelecionado?.sales_blocked;
@@ -183,13 +183,14 @@ const Caixa = () => {
     aoMudar: () => loadData(),
   });
 
-  // Os meios de entrada são do DIA, e o dia é escolhido aqui dentro, no
+  // Os meios de entrada são do TORNEIO, e o torneio é escolhido aqui dentro, no
   // formulário de venda: é esta tela que avisa o contexto qual carregar. Sem
   // este aviso a lista ficaria vazia e toda venda cairia no modo categoria,
-  // cobrando o valor do dia em vez do valor configurado na entrada.
+  // cobrando o valor do dia em vez do valor configurado na entrada. Como a
+  // lista vale para todos os dias, ela já aparece antes de o dia ser escolhido.
   useEffect(() => {
-    if (selectDay) selectDay(formData.tournament_day_id);
-  }, [selectDay, formData.tournament_day_id]);
+    if (selectTournament) selectTournament(formData.tournament_id);
+  }, [selectTournament, formData.tournament_id]);
 
   // Hidrata os meios de entrada na réplica offline (valor, rake e fichas).
   useEffect(() => {
@@ -312,8 +313,14 @@ const Caixa = () => {
       // guarda pelo torneio descarta a resposta de uma troca já superada.
       if (activeDays.length === 1) {
         const unico = activeDays[0];
+        // O meio de entrada já escolhido fica: ele é do torneio, não do dia.
+        // Só sem meio escolhido o valor é a reserva do dia.
         setFormData((prev) => (prev.tournament_id === tournamentId
-          ? { ...prev, tournament_day_id: unico.id, buy_type_id: '', amount: valorDoDia(prev.type, unico) }
+          ? {
+              ...prev,
+              tournament_day_id: unico.id,
+              amount: prev.buy_type_id ? prev.amount : valorDoDia(prev.type, unico),
+            }
           : prev));
       }
       // Hidrata os dias na réplica (buy_in/rake/chips/registered_players offline)
@@ -831,16 +838,18 @@ const Caixa = () => {
       loadTournamentDays(value);
     }
 
-    // Trocar de torneio ou de dia invalida o meio de entrada escolhido: eles
-    // pertencem ao DIA, e manter a escolha cobraria o preço do dia anterior
-    // (ou de um cadastro que nem existe no dia novo). O valor volta para a
-    // reserva do dia até o operador escolher de novo.
-    if (name === 'tournament_id' || name === 'tournament_day_id') {
-      const tournamentId = name === 'tournament_id' ? value : formData.tournament_id;
-      const diaId = name === 'tournament_day_id' ? value : newFormData.tournament_day_id;
-
+    // Trocar de TORNEIO invalida o meio de entrada escolhido: eles pertencem ao
+    // torneio, e manter a escolha cobraria o preço do torneio anterior (ou de
+    // um cadastro que nem existe no novo). O valor volta para a reserva do dia
+    // até o operador escolher de novo.
+    if (name === 'tournament_id') {
       newFormData.buy_type_id = '';
-      newFormData.amount = valorDaCategoria(formData.type, diaId, tournamentId);
+      newFormData.amount = valorDaCategoria(formData.type, newFormData.tournament_day_id, value);
+    } else if (name === 'tournament_day_id' && !formData.buy_type_id) {
+      // Trocar de dia MANTÉM o meio escolhido — a lista é a mesma em todos os
+      // dias do torneio. Só sem meio escolhido o valor é a reserva do dia, e
+      // essa muda com ele.
+      newFormData.amount = valorDaCategoria(formData.type, value, formData.tournament_id);
     }
 
     setFormData(newFormData);
@@ -848,8 +857,8 @@ const Caixa = () => {
 
   // Mostra o NOME do meio de entrada vendido (é o que o clube cadastrou e o que
   // o operador reconhece). A primeira fonte é o nome CONGELADO na venda: a
-  // lista carregada é a do dia escolhido no formulário, e o extrato mostra
-  // vendas de todos os dias — procurar nela deixaria a maioria sem nome.
+  // lista carregada é a do torneio escolhido no formulário, e o extrato mostra
+  // vendas de todos os torneios — procurar nela deixaria a maioria sem nome.
   // Sem nenhum dos dois, cai no rótulo da categoria (vendas antigas).
   const getTransactionTypeBadge = (transaction) => {
     const classes = { buy_in: 'badge-success', rebuy: 'badge-warning', addon: 'badge-info' };
@@ -1345,17 +1354,18 @@ const Caixa = () => {
                   />
                 </div>
 
-                {/* Dia sem meio de entrada cadastrado: a venda CONTINUA, pela
-                    categoria e com o valor/rake do dia. O aviso é informativo,
-                    não uma trava — e fica aqui porque só depois de escolher o
-                    dia dá para afirmar que ele não tem cadastro. */}
+                {/* Torneio sem meio de entrada cadastrado: a venda CONTINUA,
+                    pela categoria e com o valor/rake do dia. O aviso é
+                    informativo, não uma trava — e fica aqui porque só depois
+                    de escolher o torneio dá para afirmar que ele não tem
+                    cadastro. */}
                 {nenhumTipoCadastrado && (
                   <div className="cx-warning" role="alert">
                     <strong>{t('cashRegister.noBuyTypesTitle', 'Nenhum meio de entrada cadastrado')}</strong>
                     <span>
                       {t(
                         'cashRegister.noBuyTypes',
-                        'Este dia não tem meios de entrada. A venda usa a categoria e o valor/rake do dia; configure os meios de entrada na edição do dia do torneio.'
+                        'Este torneio não tem meios de entrada. A venda usa a categoria e o valor/rake do dia; cadastre os meios de entrada na edição do torneio.'
                       )}
                     </span>
                   </div>
@@ -1398,8 +1408,8 @@ const Caixa = () => {
                       <option value="" disabled>
                         {t('cashRegister.selectBuyType', 'Selecione o meio de entrada')}
                       </option>
-                      {/* O NOME configurado no dia vem primeiro: é por ele que
-                          o operador escolhe. O valor ao lado é o do próprio
+                      {/* O NOME configurado no torneio vem primeiro: é por ele
+                          que o operador escolhe. O valor ao lado é o do próprio
                           meio de entrada — "Rebuy duplo" cobra o preço dele,
                           não o dobro do rebuy simples. */}
                       {activeBuyTypes.map((b) => (

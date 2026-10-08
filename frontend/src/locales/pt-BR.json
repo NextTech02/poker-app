@@ -255,8 +255,7 @@
     "sponsor": "Patrocinador",
     "noSponsor": "Sem patrocinador",
     "qualifyingDaysCount": "Dias classificatórios",
-    "qualifyingDaysHint": "Criaremos esses dias classificatórios + 1 dia final, já vinculados. Edite a configuração de cada um depois.",
-    "qualifyingBuyIn": "Buy-in por dia classificatório",
+    "qualifyingDaysHint": "Criaremos esses dias classificatórios + 1 dia final, já vinculados. Todos vendem os meios de entrada cadastrados acima.",
     "qualifyingDaysPartial": "Torneio criado, mas houve erro ao gerar os dias classificatórios. Adicione-os manualmente.",
     "qualifyingBlindTemplate": "Estrutura de blinds",
     "qualifyingBlindTemplateNone": "Nenhuma (configurar depois)",
@@ -269,7 +268,10 @@
     "confirmDeleteImpact": "Excluir o torneio \"{{name}}\"? Serão apagados em cascata: {{days}} dia(s), {{players}} inscrição(ões) e {{cancelled}} venda(s) já cancelada(s). Não há como desfazer.",
     "deleteBlocked": "Este torneio não pode ser excluído: tem {{entries}} entrada(s) vendida(s) somando {{amount}}, {{players}} jogador(es) pago(s) e {{prizes}} pagamento(s) de premiação. Excluir apagaria a venda, o dinheiro recebido e o registro de quem pagou — e o caixa da etapa NÃO seria estornado. Cancele as vendas no Caixa (o estorno devolve o dinheiro e acerta o caixa) antes de excluir.",
     "deleteBlockedTitle": "Torneio com movimento financeiro",
-    "qualifyingBuyTypesPartial": "Dias criados, mas não foi possível cadastrar os meios de entrada. Configure-os na tela de cada dia."
+    "buyTypesPartial": "Torneio criado, mas não foi possível salvar os meios de entrada. Cadastre-os na edição do torneio.",
+    "entryTypesSection": "Meios de entrada",
+    "entryTypesLoadError": "Não foi possível carregar os meios de entrada deste torneio. Eles não serão alterados ao salvar.",
+    "entryTypesUpdatePartial": "Torneio salvo, mas não foi possível salvar os meios de entrada. Tente de novo."
   },
   "tournamentDays": {
     "restarted": "Dia reiniciado.",
@@ -588,7 +590,7 @@
     "selectBuyType": "Selecione o meio de entrada",
     "buyTypeRequired": "Escolha o meio de entrada.",
     "noBuyTypesTitle": "Nenhum meio de entrada cadastrado",
-    "noBuyTypes": "Este dia não tem meios de entrada. A venda usa a categoria e o valor/rake do dia; configure os meios de entrada na edição do dia do torneio.",
+    "noBuyTypes": "Este torneio não tem meios de entrada. A venda usa a categoria e o valor/rake do dia; cadastre os meios de entrada na edição do torneio.",
     "noStageSelected": "Selecione uma etapa para vender.",
     "changePaymentMethod": "Trocar pagamento",
     "paymentMethodChanged": "Forma de pagamento atualizada",
@@ -926,7 +928,7 @@
     "blindsInheritError": "Dia criado, mas não foi possível herdar a estrutura de blinds. Configure na tela de Blinds.",
     "currency": "Moeda",
     "entryMethods": "Meios de entrada",
-    "entryMethodsIntro": "Cada meio de entrada tem nome, valor, rake e fichas próprios. Cadastre aqui o que este dia vende — inclusive variações como \"Buy-in duplo\" ou \"Rebuy triplo\".",
+    "entryMethodsIntro": "Cada meio de entrada tem nome, valor, rake e fichas próprios. A lista é do torneio e vale para todos os dias — inclusive variações como \"Buy-in duplo\" ou \"Rebuy triplo\".",
     "entryMethodName": "Nome",
     "entryMethodNamePlaceholder": "Ex: Buy-in duplo",
     "entryMethodAmount": "Valor",
@@ -937,15 +939,19 @@
     "categoryBuyIn": "Entrada",
     "categoryRebuy": "Recompra",
     "categoryAddon": "Add-on",
-    "addEntryMethod": "Adicionar meio de entrada",
+    "addEntryMethod": "Adicionar entrada",
     "removeEntryMethod": "Remover",
     "removeEntryMethodOf": "Remover meio de entrada {{nome}}",
     "entryMethodUnnamed": "sem nome",
-    "entryMethodsNeedBuyIn": "É preciso manter ao menos um meio de entrada da categoria \"Entrada\" — sem ele não há como inscrever jogadores neste dia.",
+    "entryMethodsNeedBuyIn": "É preciso manter ao menos um meio de entrada da categoria \"Entrada\" — sem ele não há como inscrever jogadores neste torneio.",
     "entryMethodsNeedName": "Dê um nome a cada meio de entrada.",
     "defaultBuyIn": "Buy-in",
     "defaultRebuy": "Rebuy",
     "defaultAddon": "Add-on",
+    "entryMethodsFromTournament": "Meios de entrada do torneio",
+    "entryMethodsFromTournamentHint": "A lista é do torneio e vale para todos os dias dele. Para alterar, edite o torneio.",
+    "editOnTournament": "Editar no torneio",
+    "entryMethodsNone": "Este torneio ainda não tem meios de entrada cadastrados.",
     "playersSection": "Jogadores"
   },
   "rankings": {
@@ -1112,6 +1118,8 @@
     "clubLogoUrlLabel": "ou cole a URL"
   },
   "errors": {
+    "meio_de_entrada_de_outro_torneio": "O meio de entrada escolhido não pertence a este torneio.",
+    "meio_de_entrada_inativo": "Este meio de entrada foi desativado. Escolha outro.",
     "serverError": "Erro interno do servidor. Tente novamente em instantes.",
     "caixa_fechado": "Abra o seu caixa antes de vender.",
     "caixa_precisa_estar_aberto": "O caixa precisa estar aberto para esta operação.",
@@ -2100,7 +2108,12 @@
     "broadcastSettingsTitle": "Configurar aparência do broadcast",
     "broadcast": "Broadcast",
     "noDaysConfigured": "Nenhum dia configurado",
-    "noDaysConfiguredHint": "Crie o primeiro dia para configurar o torneio"
+    "noDaysConfiguredHint": "Crie o primeiro dia para configurar o torneio",
+    "entryTypesTitle": "Meios de entrada",
+    "entryTypesEmpty": "Nenhum meio de entrada cadastrado — o Caixa vende pela categoria, com o valor do dia.",
+    "entryTypesEdit": "Editar",
+    "entryTypesSaved": "Meios de entrada salvos.",
+    "entryTypesLoadError": "Não foi possível carregar os meios de entrada."
   },
   "timer": {
     "next": "Próximo:",

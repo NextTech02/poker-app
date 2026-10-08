@@ -78,13 +78,13 @@ day = days[0] if days else call("POST", "/tournament-days", {
     "rake_percentage": 20, "max_players": 120, "starting_chips": 30000, "rebuy_chips": 30000, "addon_chips": 40000,
     "blind_duration": 20, "initial_small_blind": 100, "initial_big_blind": 200}, headers=HS)
 print("torneio/dia:", tour["id"], day["id"] if day else None)
-bts = call("GET", f"/tournament-days/{day['id']}/buy-types", headers=HS) or []
+bts = call("GET", f"/tournaments/{tour['id']}/buy-types", headers=HS) or []
 if not bts:
-    call("PUT", f"/tournament-days/{day['id']}/buy-types", {"items": [
+    call("PUT", f"/tournaments/{tour['id']}/buy-types", {"items": [
         {"name": "Buy-in", "category": "buy_in", "amount": 500, "rake_percentage": 20, "chips": 30000},
         {"name": "Rebuy", "category": "rebuy", "amount": 500, "rake_percentage": 20, "chips": 30000},
         {"name": "Add-on", "category": "addon", "amount": 300, "rake_percentage": 10, "chips": 40000}]}, headers=HS)
-    bts = call("GET", f"/tournament-days/{day['id']}/buy-types", headers=HS) or []
+    bts = call("GET", f"/tournaments/{tour['id']}/buy-types", headers=HS) or []
 buyin = next((b for b in bts if b["category"] == "buy_in"), None)
 # caixa do operador na etapa
 cb = call("GET", "/cashboxes/me/current", headers=HS)

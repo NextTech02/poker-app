@@ -13,8 +13,6 @@ from app.models.tournament_day import (
     TimerStatus,
     EliminationCountAdjust
 )
-from app.models.buy_type import BuyTypesReplace
-from app.services.buy_type_service import BuyTypeService
 from app.services.tournament_day_service import TournamentDayService
 from app.services.tournament_service import (
     TournamentService,
@@ -866,82 +864,3 @@ def toggle_tables_lock(
     supabase.table("tournament_days").update({"tables_locked": new_locked}).eq("id", day_id).execute()
     return {"success": True, "tables_locked": new_locked}
 
-
-# ── Meios de entrada do dia ─────────────────────────────────────────────────
-# O que o dia vende: nome, categoria, valor, rake e fichas. Ficam aqui, e não
-# num router próprio, porque só existem DENTRO de um dia — o id do dia é a
-# única forma de chegar neles.
-
-@router.get("/{day_id}/buy-types")
-def list_day_buy_types(
-    day_id: str,
-    current_user: dict = Depends(get_current_user),
-    stage_id: Optional[str] = Depends(get_stage_id_optional)
-):
-    """Lista os meios de entrada do dia, na ordem de exibição do Caixa."""
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
-            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
-            # de proposito — o que a tela traduz e o codigo.
-            raise sem_permissao(
-                "dia_fora_da_etapa",
-                "Tournament day does not belong to the selected stage",
-            )
-
-    return BuyTypeService.listar(day_id)
-
-
-@router.put(
-    "/{day_id}/buy-types",
-    responses={
-        400: {
-            "description": (
-                "Lista recusada: nenhum meio de entrada ativo na categoria buy-in, "
-                "ou um id enviado que pertence a outro dia."
-            )
-        },
-        403: {"description": "O dia pertence a outra etapa que não a do header X-Stage-ID."},
-        404: {"description": "Dia de torneio não encontrado."},
-    },
-)
-def replace_day_buy_types(
-    day_id: str,
-    data: BuyTypesReplace,
-    current_user: dict = Depends(get_current_user),
-    stage_id: Optional[str] = Depends(get_stage_id_optional)
-):
-    """SUBSTITUI a lista inteira de meios de entrada do dia.
-
-    A tela edita tudo de uma vez; uma chamada por linha deixaria o dia com
-    metade da configuração nova se o operador fechasse o navegador no meio.
-
-    O que sumiu da lista só é apagado quando nunca foi vendido — com venda, ele
-    é desativado, senão o recibo perderia o rótulo do que a pessoa comprou.
-    """
-    existing_day = TournamentDayService.get_tournament_day(day_id)
-    if not existing_day:
-        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
-
-    if stage_id:
-        tournament = TournamentService.get_tournament(existing_day.tournament_id)
-        if tournament and tournament.stage_id != stage_id:
-            # Frase de DESENVOLVEDOR (o operador nao escolhe a etapa errada
-            # pela tela, o X-Stage-ID vem do proprio cliente): fica em ingles
-            # de proposito — o que a tela traduz e o codigo.
-            raise sem_permissao(
-                "dia_fora_da_etapa",
-                "Tournament day does not belong to the selected stage",
-            )
-
-    try:
-        return BuyTypeService.substituir(
-            day_id, [item.model_dump() for item in data.items]
-        )
-    except ValueError as e:
-        raise da_excecao(e, "meios_de_entrada_recusados")

@@ -1,8 +1,10 @@
-"""Meios de entrada de um dia do torneio (`buy_types` com `tournament_day_id`).
+"""Meios de entrada de um TORNEIO (`buy_types` com `tournament_id`).
 
-Antes o tipo pertencia à ETAPA e só dizia o rake; valor e fichas vinham do dia.
-Agora ele pertence ao DIA e carrega valor, rake e fichas — é o que faz o "rebuy
-duplo" ser uma venda própria em vez do rebuy simples multiplicado.
+Histórico: o tipo nasceu na ETAPA e só dizia o rake; depois passou ao DIA e
+ganhou valor e fichas — é o que faz o "rebuy duplo" ser uma venda própria em vez
+do rebuy simples multiplicado. Agora é do TORNEIO: os dias do mesmo torneio
+vendem a mesma coisa, e configurar dia a dia repetia a lista N vezes. Um flight
+com valor diferente vira um meio a mais na mesma lista, não uma lista à parte.
 """
 import logging
 from typing import List, Optional
@@ -13,17 +15,27 @@ logger = logging.getLogger("uvicorn.error")
 
 # Colunas gravadas/lidas. Explícitas para que uma coluna nova no banco não entre
 # no payload sem alguém decidir o que ela significa na venda.
-_COLUNAS = "id, tournament_day_id, name, category, amount, rake_percentage, chips, active, sort_order"
+_COLUNAS = "id, tournament_id, name, category, amount, rake_percentage, chips, active, sort_order"
+
+# Colunas antigas do DIA que seguem o primeiro meio ativo de cada categoria.
+# Elas continuam sendo lidas como RESERVA (venda sem tipo, bilhete de satélite,
+# réplica offline) e aparecem no detalhe do torneio: se não acompanharem a
+# lista, contam uma história diferente da que o Caixa cobra.
+_COLUNAS_DO_DIA = {
+    "buy_in": ("buy_in", "starting_chips"),
+    "rebuy": ("rebuy_amount", "rebuy_chips"),
+    "addon": ("addon_amount", "addon_chips"),
+}
 
 
 class BuyTypeService:
     @staticmethod
-    def listar(day_id: str) -> List[dict]:
-        """Meios de entrada do dia, na ordem em que o Caixa deve mostrá-los."""
+    def listar(tournament_id: str) -> List[dict]:
+        """Meios de entrada do torneio, na ordem em que o Caixa deve mostrá-los."""
         resposta = (
             supabase.table("buy_types")
             .select(_COLUNAS)
-            .eq("tournament_day_id", day_id)
+            .eq("tournament_id", tournament_id)
             .order("sort_order")
             .execute()
         )
@@ -33,7 +45,7 @@ class BuyTypeService:
     def _com_venda(ids: List[str]) -> set:
         """Quais desses meios de entrada já foram vendidos alguma vez.
 
-        UMA consulta para todos, e não uma por linha: configurar um dia com
+        UMA consulta para todos, e não uma por linha: configurar um torneio com
         vários meios não pode virar uma rajada de idas ao banco (cada uma custa
         ~270ms nesta instalação).
 
@@ -59,30 +71,75 @@ class BuyTypeService:
         return {l["buy_type_id"] for l in linhas if l.get("buy_type_id")}
 
     @staticmethod
-    def _organizacao_do_dia(day_id: str) -> Optional[str]:
-        """Organização dona do dia — as linhas novas nascem com ela.
+    def _organizacao_do_torneio(tournament_id: str) -> Optional[str]:
+        """Organização dona do torneio — as linhas novas nascem com ela.
 
         Sem isso a linha ficaria órfã do multi-tenant: o backend usa a chave de
-        serviço e o RLS não a preencheria sozinho, então o dia veria meios de
-        entrada que não aparecem para mais ninguém.
+        serviço e o RLS não a preencheria sozinho, então o torneio veria meios
+        de entrada que não aparecem para mais ninguém.
         """
         try:
             linhas = (
-                supabase.table("tournament_days")
+                supabase.table("tournaments")
                 .select("organization_id")
-                .eq("id", day_id)
+                .eq("id", tournament_id)
                 .execute()
                 .data
                 or []
             )
         except Exception:
-            logger.warning("dia %s sem organization_id legível", day_id, exc_info=True)
+            logger.warning("torneio %s sem organization_id legível", tournament_id, exc_info=True)
             return None
         return linhas[0].get("organization_id") if linhas else None
 
     @staticmethod
-    def substituir(day_id: str, itens: List[dict]) -> List[dict]:
-        """Troca a lista inteira do dia e devolve como ela ficou.
+    def colunas_do_dia(itens: List[dict]) -> dict:
+        """As colunas antigas do dia, a partir do primeiro meio ATIVO de cada categoria.
+
+        Rebuy/add-on zerados viram NULO, não zero: "rebuy de R$ 0,00" diria que
+        o rebuy é de graça; nulo diz que ele não existe — e é o que o CHECK
+        (`> 0`) da coluna aceita. O buy-in fica numérico (o CHECK dele é `>= 0`).
+        """
+        ativos = sorted(
+            (i for i in itens if i.get("active", True)),
+            key=lambda i: i.get("sort_order", 0),
+        )
+        colunas = {}
+        for categoria, (col_valor, col_fichas) in _COLUNAS_DO_DIA.items():
+            primeiro = next((i for i in ativos if i.get("category") == categoria), None)
+            valor = float(primeiro.get("amount") or 0) if primeiro else 0.0
+            if categoria == "buy_in":
+                colunas[col_valor] = valor
+            else:
+                colunas[col_valor] = valor if valor > 0 else None
+            colunas[col_fichas] = int(primeiro.get("chips") or 0) if primeiro else 0
+        return colunas
+
+    @staticmethod
+    def _espelhar_nos_dias(tournament_id: str, itens: List[dict]) -> None:
+        """Leva a lista para as colunas antigas dos dias que vendem entrada.
+
+        O dia final fica de fora: quem chega lá vem classificado, e as colunas
+        dele ficam zeradas de propósito. Best-effort — a lista já foi gravada, e
+        uma coluna de exibição desatualizada não pode derrubar a configuração.
+        """
+        try:
+            (
+                supabase.table("tournament_days")
+                .update(BuyTypeService.colunas_do_dia(itens))
+                .eq("tournament_id", tournament_id)
+                .neq("day_type", "final")
+                .execute()
+            )
+        except Exception:
+            logger.warning(
+                "não consegui espelhar os meios de entrada nas colunas dos dias do torneio %s",
+                tournament_id, exc_info=True,
+            )
+
+    @staticmethod
+    def substituir(tournament_id: str, itens: List[dict]) -> List[dict]:
+        """Troca a lista inteira do torneio e devolve como ela ficou.
 
         REGRA DO QUE SOME: o que não veio na lista é apagado só quando NUNCA foi
         vendido. Com venda, ele é apenas desativado — `transactions.buy_type_id`
@@ -92,27 +149,28 @@ class BuyTypeService:
         """
         if not any(i.get("active", True) and i.get("category") == "buy_in" for i in itens):
             # Sem meio de entrada ativo de buy-in não há como inscrever ninguém:
-            # o Caixa abriria sem nenhuma opção de venda e o dia ficaria parado.
+            # o Caixa abriria sem nenhuma opção de venda e o torneio ficaria parado.
             raise ValueError(
                 "É preciso ao menos um meio de entrada ativo na categoria buy-in"
             )
 
-        atuais = {l["id"]: l for l in BuyTypeService.listar(day_id)}
+        atuais = {l["id"]: l for l in BuyTypeService.listar(tournament_id)}
 
         enviados_com_id = [i["id"] for i in itens if i.get("id")]
         intrusos = [i for i in enviados_com_id if i not in atuais]
         if intrusos:
-            # Aceitar um id de outro dia faria o upsert ROUBAR aquela linha para
-            # cá, e o outro dia perderia o meio de entrada dele no meio do evento.
+            # Aceitar um id de outro torneio faria o upsert ROUBAR aquela linha
+            # para cá, e o outro torneio perderia o meio de entrada dele no meio
+            # do evento.
             raise ValueError(
-                f"Meio de entrada não pertence a este dia: {', '.join(intrusos)}"
+                f"Meio de entrada não pertence a este torneio: {', '.join(intrusos)}"
             )
 
-        org_id = BuyTypeService._organizacao_do_dia(day_id)
+        org_id = BuyTypeService._organizacao_do_torneio(tournament_id)
 
         def _payload(item: dict) -> dict:
             return {
-                "tournament_day_id": day_id,
+                "tournament_id": tournament_id,
                 "name": item["name"].strip(),
                 "category": item["category"],
                 "amount": item["amount"],
@@ -149,4 +207,6 @@ class BuyTypeService:
                     "id", desativar
                 ).execute()
 
-        return BuyTypeService.listar(day_id)
+        BuyTypeService._espelhar_nos_dias(tournament_id, itens)
+
+        return BuyTypeService.listar(tournament_id)

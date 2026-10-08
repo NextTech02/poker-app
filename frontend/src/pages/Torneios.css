@@ -381,7 +381,9 @@
   border: 1px solid var(--surface);
   border-radius: 16px;
   width: 100%;
-  max-width: 560px;
+  /* Largo o bastante para a linha de meio de entrada (nome, valor, rake,
+     fichas, categoria, remover) caber numa linha só. */
+  max-width: 760px;
   max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
@@ -505,13 +507,15 @@
   color: var(--border-light);
 }
 
-/* Qualifying-day values: section label + 2-col grid */
-.tr-qual-section-label {
+/* Section label (meios de entrada, valores dos classificatórios) + 2-col grid.
+   Texto em `--text-gold`, não em `--brand-gold`: a cor de marca é de fundo e
+   não alcança o contraste de leitura (ver nota em styles/index.css). */
+.tr-section-label {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--brand-gold, #5b5be8);
+  color: var(--text-gold, var(--brand-gold, #5b5be8));
   margin-top: 0.25rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--surface);

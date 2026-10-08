@@ -5,16 +5,31 @@ import Sidebar from '../components/Sidebar';
 import Icon from '../components/Icon';
 import EmptyState from '../components/EmptyState';
 import { SkeletonTournamentCard } from '../components/SkeletonLoader';
+import EntryTypesEditor from '../components/EntryTypesEditor';
 import api from '../config/api';
 import { getSelectedStage } from '../utils/stageUtils';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { currencySymbol } from '../utils/currencyUtils';
+import { colunasDoDia, linhasDaApi, meiosPadrao, meiosParaApi, validarMeios } from '../utils/entryTypes';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Torneios.css';
+
+// O formulário do modal. Buy-in, rebuy, add-on e as fichas de cada um não moram
+// mais aqui: viraram linhas da lista de MEIOS DE ENTRADA do torneio (estado
+// próprio, `entryRows`), que é de onde o Caixa vende e de onde as colunas
+// antigas dos dias são preenchidas.
+const FORM_INICIAL = {
+  name: '',
+  has_qualifying: false,
+  sponsor_id: '',
+  qualifying_days: 2,
+  qualifying_max_players: 100,
+  qualifying_rebuy_level_limit: '',
+  blind_template_id: '',
+};
 
 const Torneios = () => {
   const { t } = useTranslation();
@@ -28,7 +43,18 @@ const Torneios = () => {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [formData, setFormData] = useState({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '', qualifying_rebuy: '', qualifying_addon: '', qualifying_currency: 'BRL', qualifying_max_players: 100, qualifying_starting_chips: 10000, qualifying_rebuy_chips: 10000, qualifying_addon_chips: 10000, qualifying_rebuy_level_limit: '', blind_template_id: '' });
+  const [formData, setFormData] = useState(FORM_INICIAL);
+  // Meios de entrada do torneio (nome, valor, rake e fichas por linha). A lista
+  // é UMA por torneio e vale para todos os dias dele — por isso aparece nos
+  // dois caminhos, com ou sem classificatórios.
+  const [entryRows, setEntryRows] = useState([]);
+  // Desativados que vieram do banco: não aparecem, mas voltam no PUT — vendas
+  // antigas apontam para eles e sumir com eles apagaria o rótulo do recibo.
+  const [inactiveRows, setInactiveRows] = useState([]);
+  const [entryError, setEntryError] = useState('');
+  // Na edição a lista vem do servidor. Se não vier, o editor trava e o PUT é
+  // pulado ao salvar: uma carga falhada nunca pode sobrescrever a lista real.
+  const [entryLoadFailed, setEntryLoadFailed] = useState(false);
   const [sponsors, setSponsors] = useState([]);
   const [blindTemplates, setBlindTemplates] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +66,17 @@ const Torneios = () => {
     loadBlindTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Todo torneio novo abre com os três meios de sempre (Buy-in, Rebuy, Add-on),
+  // rake 20% e valor em branco; o clube renomeia, muda e acrescenta o que vende.
+  useEffect(() => {
+    if (!showModal) return;
+    setEntryRows(meiosPadrao(t));
+    setInactiveRows([]);
+    setEntryError('');
+    setEntryLoadFailed(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal]);
 
   // Polling que pausa quando a aba está oculta (reduz carga em produção).
   // A lista muda pouco: o que a movimenta é o status derivado dos dias
@@ -95,6 +132,14 @@ const Torneios = () => {
       return;
     }
 
+    // Sem meio de entrada válido o torneio nem é criado: sem um buy-in o Caixa
+    // não teria o que vender, e um meio sem nome não dá para escolher.
+    const problema = validarMeios(entryRows, t);
+    if (problema) {
+      setEntryError(problema);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await api.post('/tournaments', {
@@ -104,12 +149,29 @@ const Torneios = () => {
       });
       const newTournamentId = res?.data?.id;
 
+      // Os meios de entrada são do TORNEIO: gravados uma vez, valem para todos
+      // os dias — inclusive os que forem criados depois, à mão. Sem eles o
+      // Caixa venderia só pela categoria, com o valor do dia e sem nome.
+      if (newTournamentId) {
+        try {
+          await api.put(`/tournaments/${newTournamentId}/buy-types`, {
+            items: meiosParaApi(entryRows),
+          });
+        } catch (btErr) {
+          // O torneio já existe; avisar em vez de derrubar a criação inteira.
+          toast.warning(t('tournaments.buyTypesPartial', 'Torneio criado, mas não foi possível salvar os meios de entrada. Cadastre-os na edição do torneio.'));
+        }
+      }
+
       // Qualifying tournaments: auto-generate the whole structure — one final day
       // plus N qualifying days, each already linked to the final via
       // qualifies_to_day_id — so the operator doesn't create them day by day.
       if (formData.has_qualifying && newTournamentId) {
         const qCount = Math.max(1, parseInt(formData.qualifying_days, 10) || 1);
-        const qBuyIn = parseFloat(formData.qualifying_buy_in) || 0;
+        // As colunas antigas do dia (buy_in, fichas...) seguem o primeiro meio
+        // de cada categoria: telas e relatórios que ainda as leem não podem
+        // contar uma história diferente da que o Caixa cobra.
+        const colunas = colunasDoDia(entryRows);
         try {
           const finalRes = await api.post('/tournament-days', {
             tournament_id: newTournamentId,
@@ -130,73 +192,17 @@ const Torneios = () => {
               day_number: i,
               day_type: 'qualifying',
               qualifies_to_day_id: finalDayId,
-              buy_in: qBuyIn,
-              rebuy_amount: parseFloat(formData.qualifying_rebuy) || null,
-              addon_amount: parseFloat(formData.qualifying_addon) || null,
+              ...colunas,
               // O rake vem do meio de entrada escolhido na venda — 0 aqui.
               rake_percentage: 0,
               // Moeda segue o setting GLOBAL (Financeiro) — sem seleção por torneio.
               currency,
               max_players: parseInt(formData.qualifying_max_players, 10) || 100,
-              starting_chips: parseInt(formData.qualifying_starting_chips, 10) || 10000,
-              rebuy_chips: parseInt(formData.qualifying_rebuy_chips, 10) || 10000,
-              addon_chips: parseInt(formData.qualifying_addon_chips, 10) || 10000,
               rebuy_level_limit: formData.qualifying_rebuy_level_limit
                 ? parseInt(formData.qualifying_rebuy_level_limit, 10)
                 : null,
             });
             if (dayRes?.data?.id) qualifyingDayIds.push(dayRes.data.id);
-          }
-
-          // O que foi digitado aqui vira os MEIOS DE ENTRADA de cada dia
-          // classificatório. Sem isso o dia nasceria sem nenhum meio cadastrado
-          // e o Caixa não teria o que vender — os valores existiriam só nas
-          // colunas antigas do dia, que não carregam nome nem fichas próprias.
-          // O dia final fica de fora de propósito: quem chega lá vem
-          // classificado, não compra entrada.
-          if (qualifyingDayIds.length > 0) {
-            const meios = [
-              {
-                id: null,
-                name: t('tournamentDayForm.defaultBuyIn', 'Buy-in'),
-                category: 'buy_in',
-                amount: qBuyIn,
-                rake_percentage: 0,
-                chips: parseInt(formData.qualifying_starting_chips, 10) || 10000,
-                active: true,
-                sort_order: 0,
-              },
-              {
-                id: null,
-                name: t('tournamentDayForm.defaultRebuy', 'Rebuy'),
-                category: 'rebuy',
-                amount: parseFloat(formData.qualifying_rebuy) || 0,
-                rake_percentage: 0,
-                chips: parseInt(formData.qualifying_rebuy_chips, 10) || 10000,
-                active: true,
-                sort_order: 1,
-              },
-              {
-                id: null,
-                name: t('tournamentDayForm.defaultAddon', 'Add-on'),
-                category: 'addon',
-                amount: parseFloat(formData.qualifying_addon) || 0,
-                rake_percentage: 0,
-                chips: parseInt(formData.qualifying_addon_chips, 10) || 10000,
-                active: true,
-                sort_order: 2,
-              },
-            ];
-            try {
-              await Promise.all(
-                qualifyingDayIds.map((dayId) =>
-                  api.put(`/tournament-days/${dayId}/buy-types`, { items: meios })
-                )
-              );
-            } catch (btErr) {
-              // Os dias já existem; avisar em vez de derrubar a criação inteira.
-              toast.warning(t('tournaments.qualifyingBuyTypesPartial', 'Dias criados, mas não foi possível cadastrar os meios de entrada. Configure-os na tela de cada dia.'));
-            }
           }
 
           // Aplica o template de blinds escolhido a TODOS os dias classificatórios
@@ -225,7 +231,7 @@ const Torneios = () => {
       toast.success(t('tournaments.createdSuccess'));
       invalidateCache('/tournaments'); // B3: invalida após mutação
       setShowModal(false);
-      setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '', qualifying_rebuy: '', qualifying_addon: '', qualifying_currency: 'BRL', qualifying_max_players: 100, qualifying_starting_chips: 10000, qualifying_rebuy_chips: 10000, qualifying_addon_chips: 10000, qualifying_rebuy_level_limit: '', blind_template_id: '' });
+      setFormData(FORM_INICIAL);
       loadTournaments();
     } catch (err) {
       const detail = err.userMessage || err.response?.data?.detail;
@@ -243,6 +249,18 @@ const Torneios = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+
+    // Com a lista carregada, ela é validada e salva junto. Sem ela (a carga
+    // falhou), o editor está travado e o PUT é pulado: nunca sobrescrever a
+    // lista real com uma vazia.
+    if (!entryLoadFailed) {
+      const problema = validarMeios(entryRows, t);
+      if (problema) {
+        setEntryError(problema);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       await api.patch(`/tournaments/${editingTournament.id}`, {
@@ -250,11 +268,23 @@ const Torneios = () => {
         has_qualifying: formData.has_qualifying,
         sponsor_id: formData.sponsor_id || null,
       });
+      if (!entryLoadFailed) {
+        try {
+          await api.put(`/tournaments/${editingTournament.id}/buy-types`, {
+            items: meiosParaApi(entryRows, inactiveRows),
+          });
+        } catch (btErr) {
+          // O nome já foi salvo; o modal fica aberto para o operador tentar a
+          // lista de novo, em vez de achar que tudo deu certo.
+          setFormError(btErr.userMessage || t('tournaments.entryTypesUpdatePartial', 'Torneio salvo, mas não foi possível salvar os meios de entrada. Tente de novo.'));
+          return;
+        }
+      }
       toast.success(t('tournaments.updatedSuccess'));
       invalidateCache('/tournaments'); // B3
       setShowEditModal(false);
       setEditingTournament(null);
-      setFormData({ name: '', has_qualifying: false, sponsor_id: '' });
+      setFormData(FORM_INICIAL);
       loadTournaments();
     } catch (err) {
       const msg = err.userMessage || t('tournaments.updateError');
@@ -267,11 +297,27 @@ const Torneios = () => {
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const openEditModal = (tournament) => {
+  const openEditModal = async (tournament) => {
     setEditingTournament(tournament);
-    setFormData({ name: tournament.name, has_qualifying: tournament.has_qualifying || false, sponsor_id: tournament.sponsor_id || '' });
+    setFormData({ ...FORM_INICIAL, name: tournament.name, has_qualifying: tournament.has_qualifying || false, sponsor_id: tournament.sponsor_id || '' });
     setFormError('');
+    setEntryError('');
+    setEntryLoadFailed(false);
+    setEntryRows([]);
+    setInactiveRows([]);
     setShowEditModal(true);
+    // A lista do torneio vem do servidor. Falhou? O editor trava e avisa — e o
+    // salvar não mexe nela.
+    try {
+      const res = await api.get(`/tournaments/${tournament.id}/buy-types`);
+      const { ativos, inativos } = linhasDaApi(res?.data);
+      setEntryRows(ativos);
+      setInactiveRows(inativos);
+    } catch (err) {
+      console.error('Erro ao carregar meios de entrada do torneio:', err);
+      setEntryLoadFailed(true);
+      setEntryError(t('tournaments.entryTypesLoadError', 'Não foi possível carregar os meios de entrada deste torneio. Eles não serão alterados ao salvar.'));
+    }
   };
 
   // Texto da recusa: repete os NÚMEROS, porque é o tamanho do que está em jogo
@@ -372,7 +418,7 @@ const Torneios = () => {
   };
 
   const openNewModal = () => {
-    setFormData({ name: '', has_qualifying: false, sponsor_id: '', qualifying_days: 2, qualifying_buy_in: '', qualifying_rebuy: '', qualifying_addon: '', qualifying_currency: 'BRL', qualifying_max_players: 100, qualifying_starting_chips: 10000, qualifying_rebuy_chips: 10000, qualifying_addon_chips: 10000, qualifying_rebuy_level_limit: '', blind_template_id: '' });
+    setFormData(FORM_INICIAL);
     setFormError('');
     setShowModal(true);
   };
@@ -559,6 +605,10 @@ const Torneios = () => {
             sponsors={sponsors}
             blindTemplates={blindTemplates}
             currency={currency}
+            entryRows={entryRows}
+            onEntryRowsChange={setEntryRows}
+            entryError={entryError}
+            onEntryError={setEntryError}
             t={t}
           />
         )}
@@ -577,6 +627,11 @@ const Torneios = () => {
             formError={formError}
             sponsors={sponsors}
             currency={currency}
+            entryRows={entryRows}
+            onEntryRowsChange={setEntryRows}
+            entryError={entryError}
+            onEntryError={setEntryError}
+            entryLoadFailed={entryLoadFailed}
             t={t}
             isEditing
           />
@@ -588,7 +643,11 @@ const Torneios = () => {
 };
 
 /* ── Shared Modal — A7: inline error + loading state ── */
-const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting, formError, sponsors = [], blindTemplates = [], currency, t, isEditing }) => {
+const TournamentModal = ({
+  title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting,
+  formError, sponsors = [], blindTemplates = [], currency, t, isEditing,
+  entryRows = [], onEntryRowsChange, entryError = '', onEntryError, entryLoadFailed = false,
+}) => {
   // O backdrop fecha no clique (mouse); no teclado o equivalente é o Esc.
   useEscapeKey(!submitting, onClose);
 
@@ -650,6 +709,19 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
           </select>
         </div>
 
+        {/* Meios de entrada: nos DOIS caminhos (com e sem classificatórios) e
+            também na edição. A lista é do torneio e vale para todos os dias. */}
+        <div className="tr-section-label">{t('tournaments.entryTypesSection', 'Meios de entrada')}</div>
+        <EntryTypesEditor
+          linhas={entryRows}
+          onChange={onEntryRowsChange}
+          erro={entryError}
+          onErro={onEntryError}
+          currency={currency}
+          disabled={submitting || entryLoadFailed}
+          idPrefix="tr-entry"
+        />
+
         <button
           type="button"
           role="switch"
@@ -682,54 +754,17 @@ const TournamentModal = ({ title, formData, onChange, onToggleQualifying, onSubm
                 onChange={onChange}
                 disabled={submitting}
               />
-              <small>{t('tournaments.qualifyingDaysHint', 'Criaremos esses dias classificatórios + 1 dia final, já vinculados. Edite a configuração de cada um depois.')}</small>
-            </div>
-            <div className="tr-field">
-              <label htmlFor="tr-qbuyin">{t('tournaments.qualifyingBuyIn', 'Buy-in por dia classificatório')} ({currencySymbol(currency)})</label>
-              <input
-                id="tr-qbuyin"
-                name="qualifying_buy_in"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.qualifying_buy_in}
-                onChange={onChange}
-                disabled={submitting}
-                placeholder="0,00"
-              />
+              <small>{t('tournaments.qualifyingDaysHint', 'Criaremos esses dias classificatórios + 1 dia final, já vinculados. Todos vendem os meios de entrada cadastrados acima.')}</small>
             </div>
 
-            <div className="tr-qual-section-label">{t('tournaments.qualifyingValuesLabel', 'Valores aplicados a todos os dias classificatórios')}</div>
+            {/* Buy-in, rebuy, add-on e fichas saíram daqui: vêm da lista de
+                meios de entrada acima, que vale para todos os dias. */}
+            <div className="tr-section-label">{t('tournaments.qualifyingValuesLabel', 'Valores aplicados a todos os dias classificatórios')}</div>
             <div className="tr-qual-grid">
-              <div className="tr-field">
-                <label htmlFor="tr-qrebuy">{t('tournaments.rebuy', 'Rebuy')} ({currencySymbol(currency)})</label>
-                <input id="tr-qrebuy" name="qualifying_rebuy" type="number" min="0" step="0.01"
-                  value={formData.qualifying_rebuy} onChange={onChange} disabled={submitting} placeholder="0,00" />
-              </div>
-              <div className="tr-field">
-                <label htmlFor="tr-qaddon">{t('tournaments.addon', 'Add-on')} ({currencySymbol(currency)})</label>
-                <input id="tr-qaddon" name="qualifying_addon" type="number" min="0" step="0.01"
-                  value={formData.qualifying_addon} onChange={onChange} disabled={submitting} placeholder="0,00" />
-              </div>
               <div className="tr-field">
                 <label htmlFor="tr-qmax">{t('tournaments.maxPlayers', 'Máximo de jogadores')}</label>
                 <input id="tr-qmax" name="qualifying_max_players" type="number" min="1"
                   value={formData.qualifying_max_players} onChange={onChange} disabled={submitting} />
-              </div>
-              <div className="tr-field">
-                <label htmlFor="tr-qchips">{t('tournaments.startingChips', 'Fichas iniciais')}</label>
-                <input id="tr-qchips" name="qualifying_starting_chips" type="number" min="1"
-                  value={formData.qualifying_starting_chips} onChange={onChange} disabled={submitting} />
-              </div>
-              <div className="tr-field">
-                <label htmlFor="tr-qrchips">{t('tournamentDayForm.rebuyChips', 'Fichas do rebuy')}</label>
-                <input id="tr-qrchips" name="qualifying_rebuy_chips" type="number" min="0"
-                  value={formData.qualifying_rebuy_chips} onChange={onChange} disabled={submitting} />
-              </div>
-              <div className="tr-field">
-                <label htmlFor="tr-qachips">{t('tournamentDayForm.addonChips', 'Fichas do add-on')}</label>
-                <input id="tr-qachips" name="qualifying_addon_chips" type="number" min="0"
-                  value={formData.qualifying_addon_chips} onChange={onChange} disabled={submitting} />
               </div>
               <div className="tr-field">
                 <label htmlFor="tr-qrlimit">{t('tournamentDayForm.rebuyLevelLimit', 'Nível limite de rebuy')}</label>
