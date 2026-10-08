@@ -21,10 +21,17 @@ import { MemoryRouter } from 'react-router-dom';
 import BlindManagement from './BlindManagement';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { useTimerSync } from '../hooks/useTimerSync';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn() },
+}));
+// O relógio do dia (poll + Realtime) é de outro teste; aqui ele é um dado de
+// entrada — "em que nível o torneio está".
+jest.mock('../hooks/useTimerSync', () => ({
+  ...jest.requireActual('../hooks/useTimerSync'),
+  useTimerSync: jest.fn(),
 }));
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
@@ -102,9 +109,24 @@ beforeEach(() => {
   confirmar = jest.fn().mockResolvedValue(true);
   useToast.mockReturnValue({ toast, confirm: confirmar });
   api.post.mockResolvedValue({ data: {} });
+  api.put.mockResolvedValue({ data: undefined });
   api.patch.mockResolvedValue({ data: {} });
   api.delete.mockResolvedValue({ data: {} });
+  // Sem relógio: dia ainda não começou.
+  useTimerSync.mockReturnValue({ timerState: null });
   jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+/** Relógio do dia já acionado, parado em `level` com `restante` segundos. */
+const relogioEm = (level, restante = 754, extra = {}) => ({
+  timerState: {
+    current_level: level,
+    timer_started_at: '2026-10-08T10:00:00Z',
+    elapsed_time: 0,
+    is_paused: false,
+    time_remaining_current_level: restante,
+    ...extra,
+  },
 });
 
 afterEach(() => console.error.mockRestore());
@@ -336,23 +358,48 @@ describe('reordenar arrastando', () => {
     await waitFor(() => expect(linhas()[0]).toHaveTextContent('blinds.level 1'));
   });
 
-  it('grava as posições que mudaram', async () => {
+  it('grava a ORDEM inteira numa chamada só (nunca nível a nível)', async () => {
+    // Nível a nível colidia com o índice único (dia, nível) do banco: a
+    // primeira linha que pulava para o lugar de outra dava erro.
     await montar();
     await arrastar(3, 0);
-    await waitFor(() => expect(api.patch).toHaveBeenCalled());
-    expect(api.patch.mock.calls.length).toBeGreaterThan(0);
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith(
+      '/tournament-days/d1/blinds/order', { ids: ['b4', 'b1', 'b2', 'b3'] },
+    ));
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('o intervalo também se move', async () => {
+    await montar();
+    await arrastar(2, 0);
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith(
+      '/tournament-days/d1/blinds/order', { ids: ['b3', 'b1', 'b2', 'b4'] },
+    ));
+    expect(linhas()[0]).toHaveTextContent('blinds.break');
+  });
+
+  it('a lista renumerada que o servidor devolve vira a tela', async () => {
+    const devolvida = [
+      { ...BLINDS[3], level: 1 }, { ...BLINDS[0], level: 2 }, { ...BLINDS[1], level: 3 }, { ...BLINDS[2], level: 4 },
+    ];
+    api.put.mockResolvedValue({ data: devolvida });
+    await montar();
+    await arrastar(3, 0);
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    await waitFor(() => expect(linhas()[0]).toHaveTextContent('300'));
+    expect(linhas()[0]).toHaveTextContent('blinds.level 1');
   });
 
   it('soltar na mesma posição não grava nada', async () => {
     await montar();
     await arrastar(1, 1);
-    expect(api.patch).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
   });
 
   it('falha ao gravar volta para a verdade do servidor', async () => {
     // Manter a ordem nova na tela faria o operador confiar numa estrutura que
     // o banco não tem.
-    api.patch.mockRejectedValue(erroHttp(500, 'Conflito de nível'));
+    api.put.mockRejectedValue(erroHttp(500, 'Conflito de nível'));
     await montar();
     const buscas = api.get.mock.calls.length;
     await arrastar(3, 0);
@@ -360,10 +407,107 @@ describe('reordenar arrastando', () => {
     expect(api.get.mock.calls.length).toBeGreaterThan(buscas);
   });
 
+  it('recusa do servidor por dia em andamento vira o aviso traduzido', async () => {
+    api.put.mockRejectedValue(erroHttp(409, { code: 'reordenar_nivel_em_andamento', message: 'x' }));
+    await montar();
+    await arrastar(3, 0);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+      'Com o dia em andamento, só os níveis depois do atual podem ser reordenados.',
+    ));
+  });
+
   it('arrastar sem origem válida não faz nada', async () => {
     await montar();
     fireEvent.drop(linhas()[0], { dataTransfer: {} });
-    expect(api.patch).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * O nível atual vem do relógio do dia. A linha ganha destaque + "Agora" com
+ * o tempo que falta; as anteriores ficam apagadas; e, com o dia em andamento,
+ * as linhas até a atual não arrastam (o cronômetro deriva o nível atual da
+ * soma das durações na ordem — mexer no passado mudaria o relógio).
+ */
+describe('nível atual', () => {
+  it('destaca a linha em que o torneio está, com o tempo que falta', async () => {
+    useTimerSync.mockReturnValue(relogioEm(2, 754));
+    await montar();
+    const atual = linhaDoNivel('blinds.level 2');
+    expect(atual).toHaveClass('current-row');
+    expect(atual).toHaveAttribute('aria-current', 'true');
+    expect(atual).toHaveTextContent('Agora');
+    expect(atual).toHaveTextContent('12:34');
+    expect(linhaDoNivel('blinds.level 1')).toHaveClass('past-row');
+    expect(linhaDoNivel('blinds.level 3')).not.toHaveClass('past-row');
+    expect(document.querySelectorAll('.current-row').length).toBe(1);
+  });
+
+  it('resumo diz o nível atual e o tempo', async () => {
+    useTimerSync.mockReturnValue(relogioEm(2, 754));
+    await montar();
+    expect(document.querySelector('.summary-current')).toHaveTextContent('Nível atual: blinds.level 2 · 12:34');
+  });
+
+  it('no intervalo, o resumo diz "intervalo" e a linha do intervalo é a atual', async () => {
+    useTimerSync.mockReturnValue(relogioEm(3, 300));
+    await montar();
+    expect(document.querySelector('.summary-current')).toHaveTextContent('blinds.break · 05:00');
+    expect(document.querySelector('.current-row')).toHaveTextContent('blinds.break');
+  });
+
+  it('pausado com tempo corrido continua sinalizando', async () => {
+    useTimerSync.mockReturnValue(relogioEm(2, 600, { timer_started_at: null, elapsed_time: 1500, is_paused: true }));
+    await montar();
+    expect(linhaDoNivel('blinds.level 2')).toHaveClass('current-row');
+  });
+
+  it('antes de o relógio ser acionado nada é sinalizado', async () => {
+    useTimerSync.mockReturnValue(relogioEm(1, 1200, { timer_started_at: null, elapsed_time: 0, is_paused: true }));
+    await montar();
+    expect(document.querySelector('.current-row')).toBeNull();
+    expect(document.querySelector('.summary-current')).toBeNull();
+  });
+
+  it('dia encerrado não sinaliza', async () => {
+    useTimerSync.mockReturnValue(relogioEm(2));
+    await montar({ dia: { ...DIA, status: 'completed' } });
+    expect(document.querySelector('.current-row')).toBeNull();
+  });
+
+  it('com o dia em andamento, as linhas até a atual não arrastam', async () => {
+    useTimerSync.mockReturnValue(relogioEm(2));
+    await montar();
+    expect(linhas()[0]).toHaveAttribute('draggable', 'false');
+    expect(linhas()[1]).toHaveAttribute('draggable', 'false');
+    expect(linhas()[2]).toHaveAttribute('draggable', 'true');
+    expect(linhas()[3]).toHaveAttribute('draggable', 'true');
+    expect(linhas()[0].querySelector('.drag-handle')).toHaveClass('drag-handle--locked');
+  });
+
+  it('soltar acima do nível atual avisa e não grava', async () => {
+    useTimerSync.mockReturnValue(relogioEm(2));
+    await montar();
+    const dados = { effectAllowed: '' };
+    fireEvent.dragStart(linhas()[3], { dataTransfer: dados });
+    fireEvent.dragOver(linhas()[0], { dataTransfer: dados });
+    fireEvent.drop(linhas()[0], { dataTransfer: dados });
+    expect(toast.warning).toHaveBeenCalledWith(
+      'Com o dia em andamento, só os níveis depois do atual podem ser reordenados.',
+    );
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('depois do nível atual continua podendo reordenar', async () => {
+    useTimerSync.mockReturnValue(relogioEm(2));
+    await montar();
+    const dados = { effectAllowed: '' };
+    fireEvent.dragStart(linhas()[3], { dataTransfer: dados });
+    fireEvent.dragOver(linhas()[2], { dataTransfer: dados });
+    fireEvent.drop(linhas()[2], { dataTransfer: dados });
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith(
+      '/tournament-days/d1/blinds/order', { ids: ['b1', 'b2', 'b4', 'b3'] },
+    ));
   });
 });
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTimerSync, formatTime } from '../hooks/useTimerSync';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
@@ -64,6 +65,11 @@ const BlindManagement = () => {
   });
 
   const [loadError, setLoadError] = useState(null);
+
+  // Onde o torneio está AGORA: o mesmo relógio do controle e do telão (poll +
+  // Realtime). `current_level` é a POSIÇÃO (`level`) na estrutura; o diretor
+  // vê a linha destacada sem precisar abrir a tela de controle.
+  const { timerState } = useTimerSync(dayId, blinds);
 
   const loadData = useCallback(async () => {
     setLoadError(null);
@@ -271,8 +277,29 @@ const BlindManagement = () => {
     }
   };
 
+  // ── Nível atual ───────────────────────────────────────────────────────────
+  // Relógio já acionado (rodando, ou pausado com tempo corrido) e dia não
+  // encerrado: a linha do nível atual ganha destaque e as anteriores ficam
+  // apagadas. Antes de o diretor apertar play não há "nível atual" — nada a
+  // sinalizar.
+  const relogioAcionado = !!timerState
+    && (!!timerState.timer_started_at || (timerState.elapsed_time || 0) > 0);
+  const emAndamento = relogioAcionado && tournamentDay?.status !== 'completed';
+  const nivelAtual = emAndamento ? timerState.current_level : null;
+  const blindAtual = nivelAtual != null ? (blinds.find((b) => b.level === nivelAtual) || null) : null;
+  // Com o dia em andamento, o relógio deriva o nível atual da SOMA das durações
+  // na ordem: mexer no que já passou (ou no atual) mudaria o passado do
+  // cronômetro. Essas linhas não arrastam nem recebem soltura (o servidor
+  // recusa também).
+  const travado = (blind) => nivelAtual != null && blind.level <= nivelAtual;
+  const avisoTravado = () => t(
+    'blinds.reorderLockedWhileRunning',
+    'Com o dia em andamento, só os níveis depois do atual podem ser reordenados.'
+  );
+
   // ── Drag-to-reorder blind levels ──────────────────────────────────────────
   const onRowDragStart = (e, blind) => {
+    if (travado(blind)) { e.preventDefault(); return; }
     setOfertaReplicarId(null); // os níveis vão renumerar; "a partir do N" perde o sentido
     setDragId(blind.id);
     e.dataTransfer.effectAllowed = 'move';
@@ -289,24 +316,37 @@ const BlindManagement = () => {
     setDragId(null);
     setDragOverId(null);
     if (from < 0 || to < 0 || from === to) return;
+    if (travado(blinds[from]) || travado(target)) {
+      toast.warning(avisoTravado());
+      return;
+    }
 
     const reordered = [...blinds];
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
 
-    // Optimistic renumber, then persist only the positions that changed.
+    // Renumera na hora (a tela responde antes da rede) e grava a ORDEM inteira
+    // numa chamada só, atômica no servidor. Nível a nível colidia com o índice
+    // único (dia, nível): a primeira linha que pulava para o lugar de outra
+    // dava erro — era o "não consigo arrastar" do diretor.
     setBlinds(reordered.map((b, i) => ({ ...b, level: i + 1 })));
     setReordering(true);
     try {
-      for (let i = 0; i < reordered.length; i++) {
-        if (reordered[i].level !== i + 1) {
-          await patchBlind(reordered[i], { level: i + 1 });
-        }
+      const res = await api.put(`/tournament-days/${dayId}/blinds/order`, {
+        ids: reordered.map((b) => b.id),
+      });
+      if (Array.isArray(res?.data) && res.data.length > 0) {
+        setBlinds([...res.data].sort((a, b) => a.level - b.level));
+      } else {
+        await loadData();
       }
-      await loadData();
     } catch (error) {
-      const msg = error.response?.data?.detail || t('common.error');
-      toast.error(typeof msg === 'string' ? msg : t('common.error'));
+      const detail = error.response?.data?.detail;
+      let msg;
+      if (detail?.code === 'reordenar_nivel_em_andamento') msg = avisoTravado();
+      else if (typeof detail === 'string') msg = detail;
+      else msg = detail?.message || t('common.error');
+      toast.error(msg);
       await loadData(); // revert to server truth on failure
     } finally {
       setReordering(false);
@@ -643,22 +683,35 @@ const BlindManagement = () => {
                         </button>
                       );
                     };
+                    const ehAtual = blindAtual?.id === blind.id;
+                    const jaPassou = nivelAtual != null && blind.level < nivelAtual;
+                    const bloqueado = travado(blind);
                     return (
                       <tr
                         key={blind.id}
-                        className={`blind-row ${blind.is_break ? 'break-row' : ''} ${dragOverId === blind.id ? 'drag-over' : ''} ${dragId === blind.id ? 'dragging' : ''}`}
-                        draggable={!editCell && !reordering}
+                        className={`blind-row ${blind.is_break ? 'break-row' : ''} ${ehAtual ? 'current-row' : ''} ${jaPassou ? 'past-row' : ''} ${dragOverId === blind.id ? 'drag-over' : ''} ${dragId === blind.id ? 'dragging' : ''}`}
+                        draggable={!editCell && !reordering && !bloqueado}
+                        aria-current={ehAtual ? 'true' : undefined}
                         onDragStart={(e) => onRowDragStart(e, blind)}
                         onDragOver={(e) => onRowDragOver(e, blind)}
                         onDrop={(e) => onRowDrop(e, blind)}
                         onDragEnd={onRowDragEnd}
                       >
                         <td className="level-cell">
-                          <span className="drag-handle" title={t('blinds.dragToReorder', 'Arraste para reordenar')}>⠿</span>
+                          <span
+                            className={`drag-handle${bloqueado ? ' drag-handle--locked' : ''}`}
+                            title={bloqueado ? avisoTravado() : t('blinds.dragToReorder', 'Arraste para reordenar')}
+                          >⠿</span>
                           {blind.is_break ? (
                             <span className="break-badge">{t('blinds.break')}</span>
                           ) : (
                             <strong>{t('blinds.level')} {displayLevelById[blind.id]}</strong>
+                          )}
+                          {ehAtual && (
+                            <span className="current-badge">
+                              <span className="pulse" aria-hidden="true" />
+                              {t('blinds.currentBadge', 'Agora')} · {formatTime(timerState.time_remaining_current_level)}
+                            </span>
                           )}
                         </td>
                         <td>{blind.is_break ? '-' : cell('small_blind', blind.small_blind.toLocaleString())}</td>
@@ -718,6 +771,13 @@ const BlindManagement = () => {
           {/* Summary - only show if there are blinds */}
           {blinds.length > 0 && (
             <div className="blinds-summary">
+              {emAndamento && blindAtual && (
+                <span className="summary-current">
+                  {t('blinds.currentLevelStat', 'Nível atual')}: {blindAtual.is_break
+                    ? t('blinds.break')
+                    : `${t('blinds.level')} ${displayLevelById[blindAtual.id]}`} · {formatTime(timerState.time_remaining_current_level)}
+                </span>
+              )}
               <span>{t('blinds.levels')}: {blindLevels.length}</span>
               <span>{t('blinds.breaks')}: {breakLevels.length}</span>
               <span>{t('blinds.totalDuration')}: {totalDuration} min ({Math.floor(totalDuration / 60)}h {totalDuration % 60}min)</span>

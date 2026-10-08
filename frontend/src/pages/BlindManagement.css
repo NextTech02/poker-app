@@ -653,3 +653,58 @@
 .blinds-table .blind-row.drag-over td {
   box-shadow: inset 0 2px 0 0 var(--brand-green);
 }
+
+/* ── Nível atual (o relógio do dia está aqui) ─────────────────────────────
+   Verde = "ao vivo", a mesma convenção do botão de play. As linhas que já
+   passaram ficam apagadas; as até a atual não arrastam com o dia em
+   andamento (o cronômetro deriva o nível da soma das durações na ordem). */
+.blinds-table .blind-row.current-row {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.22) 0%, rgba(34, 197, 94, 0.05) 100%) !important;
+  border-left: 4px solid var(--brand-green);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.4);
+}
+.blinds-table .blind-row.current-row td {
+  font-weight: 700;
+}
+.blinds-table .blind-row.past-row {
+  opacity: 0.55;
+}
+.blinds-table .blind-row .drag-handle--locked {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+.current-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.6rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--brand-green);
+  color: #0b1020;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.current-badge .pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: blind-current-pulse 1.2s ease-in-out infinite;
+}
+.blinds-summary .summary-current {
+  color: var(--brand-green);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes blind-current-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .current-badge .pulse { animation: none; }
+}

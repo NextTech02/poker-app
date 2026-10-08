@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
 
@@ -51,6 +51,12 @@ class BlindCreate(BlindBase):
 class BlindCreateForDay(BlindBase):
     """Internal model for blind creation with tournament_day_id"""
     tournament_day_id: UUID = Field(..., description="UUID of the tournament day")
+
+
+class BlindReorderRequest(BaseModel):
+    """A ORDEM inteira da estrutura de um dia: ids dos blinds na posição final
+    (o primeiro vira nível 1). Vem do arrastar da tela de estrutura."""
+    ids: List[UUID] = Field(..., min_length=1, description="Ids dos blinds do dia, na ordem final")
 
 
 class BlindUpdate(BaseModel):

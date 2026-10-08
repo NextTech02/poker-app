@@ -10,9 +10,11 @@ from ..models.blind import (
     BlindCreateRequest,
     BlindUpdate,
     BlindResponse,
+    BlindReorderRequest,
     BlindReplicateDurationRequest,
     BlindReplicateDurationResponse,
 )
+from ..services.tournament_day_service import TournamentDayService
 # Recusas com CODIGO: a estrutura de blinds e mexida no meio do evento, e o
 # operador do Peru/Colombia nao pode receber a frase em portugues — a tela
 # escolhe o idioma pelo `code` (ver app/utils/erros.py).
@@ -383,6 +385,99 @@ async def update_blind_for_day(
             detail="Failed to update blind"
         )
     return response.data[0]
+
+
+def _segundos_desde(iso) -> int:
+    """Segundos corridos desde um instante ISO vindo do banco (ou 0 se ilegível)."""
+    try:
+        inicio = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return 0
+    if inicio.tzinfo is None:
+        inicio = inicio.replace(tzinfo=timezone.utc)
+    return max(0, round((datetime.now(timezone.utc) - inicio).total_seconds()))
+
+
+@router.put("/tournament-days/{tournament_day_id}/blinds/order", response_model=List[BlindResponse])
+async def reorder_blinds_for_day(
+    tournament_day_id: UUID,
+    body: BlindReorderRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Grava a ORDEM inteira da estrutura de um dia de uma vez (o arrastar da tela).
+
+    Nível a nível não funciona: o índice único (dia, nível) recusa a primeira
+    linha que pula para a posição de outra — era o erro ao arrastar um nível
+    ou um intervalo. A renumeração acontece na função do banco
+    `reorder_day_blinds`, em uma transação só.
+
+    Com o dia em andamento, o relógio deriva o nível atual da SOMA das
+    durações na ordem; mexer no que já passou (ou no nível atual) mudaria o
+    passado do cronômetro. Só os níveis DEPOIS do atual podem trocar de lugar.
+    """
+    day_response = supabase.table("tournament_days")\
+        .select("id, tournament_id, status, current_level, elapsed_time, is_paused, timer_started_at")\
+        .eq("id", str(tournament_day_id))\
+        .execute()
+    if not day_response.data:
+        raise nao_encontrado("dia_nao_encontrado", DIA_DE_TORNEIO_NAO_ENCONTRADO)
+    day = day_response.data[0]
+
+    atuais_resp = supabase.table("blinds")\
+        .select("*")\
+        .eq("tournament_day_id", str(tournament_day_id))\
+        .order("level")\
+        .execute()
+    atuais = atuais_resp.data or []
+    ids_atuais = [str(b["id"]) for b in atuais]
+    ids_novos = [str(i) for i in body.ids]
+
+    if len(set(ids_novos)) != len(ids_novos) or sorted(ids_novos) != sorted(ids_atuais):
+        raise recusado(
+            "ordem_incompleta",
+            "A nova ordem precisa conter exatamente os níveis cadastrados no dia, sem repetir nenhum.",
+            esperados=len(ids_atuais),
+            recebidos=len(ids_novos),
+        )
+
+    if ids_novos == ids_atuais:
+        return atuais
+
+    # Relógio já acionado (rodando, ou pausado com tempo corrido): o passado
+    # do cronômetro é a soma das durações até o nível atual, nesta ordem.
+    em_andamento = bool(day.get("timer_started_at")) or (day.get("elapsed_time") or 0) > 0
+    if em_andamento:
+        elapsed = day.get("elapsed_time") or 0
+        if day.get("timer_started_at") and not day.get("is_paused"):
+            elapsed += _segundos_desde(day["timer_started_at"])
+        # O mesmo cálculo do relógio enriquecido (a coluna current_level pode
+        # estar atrasada em relação ao tempo corrido).
+        nivel_atual = TournamentDayService._calculate_current_level(atuais, elapsed)["level"]
+        travados = [str(b["id"]) for b in atuais if b["level"] <= nivel_atual]
+        if ids_novos[:len(travados)] != travados:
+            raise conflito(
+                "reordenar_nivel_em_andamento",
+                "O dia está em andamento: só os níveis depois do atual podem mudar de lugar.",
+                nivel_atual=nivel_atual,
+            )
+
+    try:
+        supabase.rpc(
+            "reorder_day_blinds",
+            {"p_day_id": str(tournament_day_id), "p_ids": ids_novos},
+        ).execute()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error reordering blinds: {str(e)}"
+        )
+
+    novos = supabase.table("blinds")\
+        .select("*")\
+        .eq("tournament_day_id", str(tournament_day_id))\
+        .order("level")\
+        .execute()
+    return novos.data or []
 
 
 @router.delete("/tournament-days/{tournament_day_id}/blinds/{blind_id}", status_code=status.HTTP_204_NO_CONTENT)

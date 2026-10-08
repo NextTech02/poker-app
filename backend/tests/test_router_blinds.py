@@ -9,6 +9,8 @@ Há dois conjuntos de rotas quase idênticos (por torneio e por DIA) porque
 a estrutura migrou para o dia; ambos continuam de pé e ambos precisam
 recusar nível repetido.
 """
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from app.routers import blinds as mod
@@ -384,6 +386,114 @@ class TestFalhasDoBanco:
         r = client.delete(rotas[1].format(B1))
         assert r.status_code == 500
         assert "conexão perdida" in r.json()["detail"]
+
+
+B3 = "55555555-5555-5555-5555-555555555553"
+B4 = "55555555-5555-5555-5555-555555555554"
+
+
+class TestReordenacao:
+    """Arrastar na tela manda a ORDEM inteira; o banco renumera numa transação
+    (função `reorder_day_blinds`). Nível a nível colidia com o índice único
+    (dia, nível) — era o erro ao arrastar um nível ou um intervalo."""
+
+    ROTA = f"/tournament-days/{DIA}/blinds/order"
+
+    @pytest.fixture(autouse=True)
+    def quatro_niveis(self, banco):
+        banco.store["blinds"] = [
+            _blind(B1, 1), _blind(B2, 2),
+            {**_blind(B3, 3), "is_break": True, "small_blind": 0, "big_blind": 0, "duration": 10},
+            _blind(B4, 4),
+        ]
+
+        # O RPC de verdade renumera no banco; o fake faz o mesmo na memória.
+        def renumera(params):
+            por_id = {b["id"]: b for b in banco.store["blinds"]}
+            for pos, id_ in enumerate(params["p_ids"], start=1):
+                por_id[id_]["level"] = pos
+            return len(params["p_ids"])
+
+        banco.rpcs["reorder_day_blinds"] = renumera
+
+    def test_grava_a_ordem_nova_e_devolve_a_lista_renumerada(self, client, banco):
+        r = client.put(self.ROTA, json={"ids": [B4, B1, B2, B3]})
+        assert r.status_code == 200
+        assert [b["id"] for b in r.json()] == [B4, B1, B2, B3]
+        assert [b["level"] for b in r.json()] == [1, 2, 3, 4]
+        assert banco.rpc_calls == [
+            ("reorder_day_blinds", {"p_day_id": DIA, "p_ids": [B4, B1, B2, B3]})
+        ]
+
+    def test_intervalo_tambem_muda_de_lugar(self, client, banco):
+        r = client.put(self.ROTA, json={"ids": [B1, B3, B2, B4]})
+        assert r.status_code == 200
+        assert [b["is_break"] for b in r.json()] == [False, True, False, False]
+
+    def test_mesma_ordem_nao_toca_no_banco(self, client, banco):
+        r = client.put(self.ROTA, json={"ids": [B1, B2, B3, B4]})
+        assert r.status_code == 200
+        assert [b["level"] for b in r.json()] == [1, 2, 3, 4]
+        assert banco.rpc_calls == []
+
+    @pytest.mark.parametrize("ids", [
+        [B1, B2, B3],                  # faltou um
+        [B1, B2, B3, B4, SUMIU],       # sobrou um que não é do dia
+        [B1, B1, B2, B3],              # repetido
+        [B1, B2, B3, SUMIU],           # trocou um pelo de outro dia
+    ])
+    def test_lista_que_nao_bate_com_o_dia_e_recusada(self, client, banco, ids):
+        r = client.put(self.ROTA, json={"ids": ids})
+        assert r.status_code == 400
+        assert r.json()["detail"]["code"] == "ordem_incompleta"
+        assert banco.rpc_calls == []
+
+    def test_dia_em_andamento_trava_os_niveis_ate_o_atual(self, client, banco):
+        """15 min por nível; 20 min corridos (pausado) = nível 2. Os níveis 1
+        e 2 ficam onde estão: o relógio deriva o atual da soma das durações."""
+        banco.store["tournament_days"][0].update({"elapsed_time": 1200, "is_paused": True})
+        r = client.put(self.ROTA, json={"ids": [B1, B3, B2, B4]})
+        assert r.status_code == 409
+        assert r.json()["detail"]["code"] == "reordenar_nivel_em_andamento"
+        assert r.json()["detail"]["nivel_atual"] == 2
+        assert banco.rpc_calls == []
+
+    def test_dia_em_andamento_deixa_mexer_no_que_vem_depois(self, client, banco):
+        banco.store["tournament_days"][0].update({"elapsed_time": 1200, "is_paused": True})
+        r = client.put(self.ROTA, json={"ids": [B1, B2, B4, B3]})
+        assert r.status_code == 200
+        assert [b["id"] for b in r.json()] == [B1, B2, B4, B3]
+
+    def test_relogio_correndo_conta_o_tempo_desde_o_inicio(self, client, banco):
+        """Começou há 20 min e nunca pausou: elapsed_time no banco ainda é 0."""
+        inicio = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+        banco.store["tournament_days"][0].update(
+            {"timer_started_at": inicio, "is_paused": False, "elapsed_time": 0})
+        r = client.put(self.ROTA, json={"ids": [B2, B1, B3, B4]})
+        assert r.status_code == 409
+        assert r.json()["detail"]["nivel_atual"] == 2
+
+    def test_relogio_nunca_acionado_libera_tudo(self, client, banco):
+        r = client.put(self.ROTA, json={"ids": [B4, B3, B2, B1]})
+        assert r.status_code == 200
+        assert [b["id"] for b in r.json()] == [B4, B3, B2, B1]
+
+    def test_dia_inexistente_da_404(self, client, banco):
+        banco.store["tournament_days"] = []
+        assert client.put(self.ROTA, json={"ids": [B1, B2, B3, B4]}).status_code == 404
+
+    def test_corpo_sem_ids_da_422(self, client, banco):
+        assert client.put(self.ROTA, json={}).status_code == 422
+        assert client.put(self.ROTA, json={"ids": []}).status_code == 422
+
+    def test_falha_do_banco_vira_500_com_o_motivo(self, client, banco):
+        def explode(_params):
+            raise RuntimeError("deadlock")
+
+        banco.rpcs["reorder_day_blinds"] = explode
+        r = client.put(self.ROTA, json={"ids": [B4, B1, B2, B3]})
+        assert r.status_code == 500
+        assert "deadlock" in r.json()["detail"]
 
 
 def _silencia_escrita(fake, monkeypatch, operacao):
