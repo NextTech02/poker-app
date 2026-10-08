@@ -588,11 +588,20 @@ describe('navegação para as telas do dia', () => {
     ['Broadcast', '/torneios/t1/dia/d2/broadcast'],
     ['common.edit', '/torneios/t1/dia/editar/d2'],
     ['control.title', '/control/d2'],
-    ['common.view', '/broadcast/d2'],
   ])('o botão %s leva a %s', async (rotulo, destino) => {
     await montar();
     await userEvent.click(acao('Dia 1B', rotulo));
     expect(mockNavigate).toHaveBeenCalledWith(destino);
+  });
+
+  it('"Ver" abre o telão numa guia nova, sem sair desta tela', async () => {
+    // O diretor segue operando aqui e manda a outra guia para a TV.
+    const abrir = jest.spyOn(window, 'open').mockImplementation(() => null);
+    await montar();
+    await userEvent.click(acao('Dia 1B', 'common.view'));
+    expect(abrir).toHaveBeenCalledWith('/broadcast/d2', '_blank', 'noopener');
+    expect(mockNavigate).not.toHaveBeenCalledWith('/broadcast/d2');
+    abrir.mockRestore();
   });
 
   it('criar dia leva ao formulário de novo dia', async () => {

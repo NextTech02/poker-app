@@ -238,8 +238,10 @@ const TournamentDetail = () => {
     }
   };
 
+  // "Ver" abre o telão numa guia NOVA (pedido do cliente): o diretor fica
+  // nesta tela operando e manda a outra guia para a TV, sem perder o lugar.
   const handleViewBroadcast = (dayId) => {
-    navigate(`/broadcast/${dayId}`);
+    window.open(`/broadcast/${dayId}`, '_blank', 'noopener');
   };
 
   const handleConfigureBlinds = (dayId) => {
