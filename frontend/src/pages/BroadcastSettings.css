@@ -3,8 +3,11 @@
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Page shell ── */
+/* O topo respeita a barra fixa de navegação (--topbar-height), como o
+   `.main-content` de todas as outras telas: com `1.5rem` fixo o título e os
+   botões ficavam escondidos atrás dela. */
 .bs-page {
-  padding: 1.5rem 1.75rem !important;
+  padding: calc(var(--topbar-height, 56px) + 22px) 1.75rem 1.5rem !important;
   background: transparent;
 }
 
@@ -740,7 +743,7 @@
 
 @media (max-width: 600px) {
   .bs-page {
-    padding: 1rem !important;
+    padding: calc(var(--topbar-height, 56px) + 16px) 1rem 1rem !important;
   }
 
   .bs-topbar {
