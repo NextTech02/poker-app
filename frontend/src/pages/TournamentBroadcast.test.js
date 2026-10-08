@@ -13,26 +13,22 @@
  * - **Cada elemento é ligável/desligável** pela configuração da transmissão, e
  *   os padrões precisam ser "ligado" — um campo ainda nulo no banco não pode
  *   apagar o relógio do salão.
- * - **Faixa de prêmio com `visible=false` some do público** sem o dado ser
- *   apagado: é como o clube esconde a premiação antes da hora.
+ * - **Prêmios, moeda e clube vêm de uma rota PÚBLICA.** A TV não faz login;
+ *   os endpoints de premiação exigem — era por isso que o salão nunca via os
+ *   prêmios. Faixa com `visible=false` continua fora do público.
  *
- * No intervalo a tela inteira troca de layout, porque o que interessa passa a
- * ser quanto falta para voltar.
+ * O desenho em si (tiles, anel, pílula) tem teste próprio em
+ * `components/broadcast/TvScreen.test.js`; aqui se testa a PÁGINA: o que ela
+ * busca, como junta e o que entrega ao telão.
  */
 import { render, screen, waitFor, act, within, fireEvent } from '@testing-library/react';
 import TournamentBroadcast from './TournamentBroadcast';
 import api from '../config/api';
 import { useTimerSync } from '../hooks/useTimerSync';
-import { useCurrency } from '../contexts/CurrencyContext';
 
 jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn(), patch: jest.fn() } }));
 jest.mock('../hooks/usePolling', () => ({ usePolling: jest.fn() }));
-jest.mock('../hooks/useTimerSync', () => ({
-  useTimerSync: jest.fn(),
-  formatTime: (s) => `${Math.floor((s || 0) / 60)}:${String((s || 0) % 60).padStart(2, '0')}`,
-  formatTimeHuman: (s) => `${Math.round((s || 0) / 60)}min`,
-}));
-jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+jest.mock('../hooks/useTimerSync', () => ({ useTimerSync: jest.fn() }));
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useParams: () => ({ id: 'x1' }),
@@ -58,11 +54,11 @@ const BLINDS = [
 ];
 
 const PREMIOS = [
-  { position: 1, prize_amount: 20000, visible: true },
-  { position: 2, prize_amount: 10000, visible: true },
+  { position: 1, prize_amount: 20000 },
+  { position: 2, prize_amount: 10000 },
 ];
 
-const RESUMO = { available_prize_pool: 45000 };
+const EXTRAS = { organization_name: 'Clube Teste', currency: 'BRL', prize_pool: 45000, prizes: PREMIOS };
 
 const INSCRITOS = [
   { player_id: 'p1', status: 'active', buy_in_count: 1, rebuy_count: 1 },
@@ -75,7 +71,7 @@ const relogio = (extra = {}) => ({
   // (`display_level`, sem contar intervalos). Aqui não há intervalo antes.
   display_level: 4,
   time_remaining_current_level: 305,
-  current_blind: { level: 4, display_level: 4, small_blind: 500, big_blind: 1000, ante: 1000, is_break: false },
+  current_blind: { level: 4, display_level: 4, small_blind: 500, big_blind: 1000, ante: 1000, duration: 20, is_break: false },
   next_blind: { level: 5, display_level: 5, small_blind: 800, big_blind: 1600, ante: 1600, is_break: false },
   active_players: 18,
   total_entries: 25,
@@ -95,8 +91,7 @@ const responder = ({
   torneio = TORNEIO,
   blindsDoDia = BLINDS,
   blindsDoTorneio = BLINDS,
-  premios = PREMIOS,
-  resumo = RESUMO,
+  extras = EXTRAS,
   inscritos = INSCRITOS,
   estatisticas = null,
 } = {}) => {
@@ -114,11 +109,8 @@ const responder = ({
       return torneio instanceof Error ? Promise.reject(torneio) : ok(torneio);
     }
     if (url.startsWith('/tournament-players/')) return ok(inscritos);
-    // Rota pública da premiação: prizepool disponível + faixas. `resumo: {}`
-    // simula servidor sem prizepool calculado (cai no prize pool do dia).
-    if (url === '/public/broadcast/t1/prizes' || url === '/public/broadcast/x1/prizes') {
-      if (premios instanceof Error) return Promise.reject(premios);
-      return ok({ prize_pool: resumo?.available_prize_pool ?? null, prizes: premios });
+    if (url === '/public/tv/days/x1/extras') {
+      return extras instanceof Error ? Promise.reject(extras) : ok(extras);
     }
     if (url.endsWith('/aggregated-stats')) {
       return estatisticas instanceof Error ? Promise.reject(estatisticas) : ok(estatisticas);
@@ -134,7 +126,9 @@ const montar = async (opcoes = {}, estadoRelogio = relogio()) => {
   await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
 };
 
-const barraLateral = () => document.querySelector('.broadcast-sidebar');
+const tiles = () => document.querySelector('.tv-tiles');
+const tela = () => document.querySelector('.tv-screen');
+const relogioNaTela = () => document.querySelector('.tv-clock');
 
 let bipes;
 
@@ -143,7 +137,6 @@ beforeEach(() => {
   localStorage.clear();
   api.patch.mockReset();
   bipes = [];
-  useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
   // O alerta sonoro do fim de nível: só interessa SE tocou, não como soa.
   global.AudioContext = jest.fn(() => ({
     currentTime: 0,
@@ -194,6 +187,12 @@ describe('a rota serve dia OU torneio', () => {
     await montar({ comoDia: false, torneio: new Error('500') });
     expect(screen.getByText('common.error')).toBeInTheDocument();
   });
+
+  it('o telão é desenhado no palco escalado', async () => {
+    await montar();
+    expect(document.querySelector('.tv-root--viewport')).toBeInTheDocument();
+    expect(document.querySelector('.tv-stage')).toContainElement(tela());
+  });
 });
 
 describe('estrutura de blinds nunca falta', () => {
@@ -225,7 +224,7 @@ describe('estrutura de blinds nunca falta', () => {
 
   it('erro ao buscar blinds também gera a estrutura', async () => {
     await montar({ blindsDoDia: new Error('500'), dia: { ...DIA, initial_small_blind: 25 } }, null);
-    expect(document.querySelector('.blinds-value')).toBeInTheDocument();
+    expect(document.querySelector('.tv-blinds')).toBeInTheDocument();
   });
 
   it.each([
@@ -245,21 +244,21 @@ describe('estrutura de blinds nunca falta', () => {
       },
       null
     );
-    expect(document.querySelector('.next-blind-value')).toHaveTextContent(esperado);
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent(esperado);
   });
 });
 
 describe('o que a tela mostra ao vivo', () => {
   it('o relógio é a fonte única quando o id é de um dia', async () => {
     await montar();
-    expect(document.querySelector('.timer-display')).toHaveTextContent('5:05');
-    expect(document.querySelector('.blinds-value')).toHaveTextContent('500/1000');
-    expect(document.querySelector('.ante-value')).toHaveTextContent('1000');
+    expect(relogioNaTela()).toHaveTextContent('05:05');
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('500/1000');
+    expect(document.querySelector('.tv-ante')).toHaveTextContent('1000');
   });
 
   it('mostra o nível atual', async () => {
     await montar();
-    expect(barraLateral()).toHaveTextContent('4');
+    expect(document.querySelector('.tv-tile--level')).toHaveTextContent('4');
   });
 
   it('o intervalo não conta como nível', async () => {
@@ -271,8 +270,8 @@ describe('o que a tela mostra ao vivo', () => {
       display_level: 9,
       current_blind: { level: 10, display_level: 9, small_blind: 800, big_blind: 1600, ante: 1600, is_break: false },
     }));
-    expect(barraLateral()).toHaveTextContent('9');
-    expect(barraLateral()).not.toHaveTextContent('10');
+    expect(document.querySelector('.tv-tile--level')).toHaveTextContent('9');
+    expect(document.querySelector('.tv-tile--level')).not.toHaveTextContent('10');
   });
 
   it('sem display_level do servidor, conta na estrutura em cache', async () => {
@@ -288,54 +287,61 @@ describe('o que a tela mostra ao vivo', () => {
       display_level: undefined,
       current_blind: { level: 3, small_blind: 200, big_blind: 400, ante: 200, is_break: false },
     }));
-    expect(barraLateral()).toHaveTextContent('2');
-    expect(barraLateral()).not.toHaveTextContent('3');
+    expect(document.querySelector('.tv-tile--level')).toHaveTextContent('2');
+    expect(document.querySelector('.tv-tile--level')).not.toHaveTextContent('3');
   });
 
   it('mostra restantes e total de entradas', async () => {
     await montar();
-    expect(barraLateral()).toHaveTextContent('18');
-    expect(barraLateral()).toHaveTextContent('25');
+    expect(document.querySelector('.tv-tile--players')).toHaveTextContent('18 de 25');
+    expect(document.querySelector('.tv-tile--entries')).toHaveTextContent('25');
   });
 
   it('sem entrada nenhuma a linha de entradas some', async () => {
     // "Entradas: 0" antes do torneio começar não informa nada.
     await montar({}, relogio({ total_entries: 0 }));
-    expect(barraLateral()).not.toHaveTextContent('ENTRADAS');
+    expect(tiles()).not.toHaveTextContent('ENTRADAS');
   });
 
   it('mostra chipcount e stack médio formatados', async () => {
     await montar();
-    expect(barraLateral()).toHaveTextContent('750.000');
-    expect(barraLateral()).toHaveTextContent('41.666');
+    expect(tiles()).toHaveTextContent('750.000');
+    expect(tiles()).toHaveTextContent('41.666');
   });
 
   it('chipcount zerado não ocupa espaço no telão', async () => {
     await montar({}, relogio({ chipcount: 0, average_stack: 0 }));
-    expect(barraLateral()).not.toHaveTextContent('CHIPCOUNT');
+    expect(tiles()).not.toHaveTextContent('CHIP COUNT');
   });
 
-  it('quando há intervalo à vista, ele aparece na lateral', async () => {
+  it('quando há intervalo à vista, ele aparece como contagem', async () => {
     await montar({}, relogio({ next_break: { time_until_break: 1800 } }));
-    expect(barraLateral()).toHaveTextContent('30min');
+    expect(document.querySelector('.tv-tile--break')).toHaveTextContent('30:00');
   });
 
   it('o próximo nível é anunciado', async () => {
     await montar();
-    expect(document.querySelector('.next-blind-value')).toHaveTextContent('800/1600 ( 1600 )');
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent('800/1600 (1600)');
   });
 
   it('se o próximo nível é INTERVALO, o telão diz isso', async () => {
     // "800/1600" seguido de um intervalo confundiria a mesa.
     await montar({}, relogio({ next_blind: { is_break: true } }));
-    expect(document.querySelector('.next-blind-value')).toHaveTextContent('BROADCAST.BREAK');
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent('INTERVALO');
+  });
+
+  it('o anel acompanha o nível', async () => {
+    await montar();
+    const arco = document.querySelector('.tv-ring-progress');
+    expect(arco).toBeInTheDocument();
+    expect(parseFloat(arco.getAttribute('stroke-dashoffset'))).toBeGreaterThan(0);
   });
 
   it('sem relógio ainda, a contagem local assume', async () => {
     // O nível local vem do tempo decorrido desde o início: começando agora,
     // o torneio está no nível 1.
     await montar({ comoDia: false, torneio: { ...TORNEIO, start_time: new Date().toISOString() } }, null);
-    expect(document.querySelector('.blinds-value')).toHaveTextContent('100/200');
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('100/200');
   });
 
   it('em torneio sem dia, os jogadores vêm da lista', async () => {
@@ -343,76 +349,100 @@ describe('o que a tela mostra ao vivo', () => {
     // A recompra nao vira entrada — quem recompra voltou ao torneio, nao
     // entrou nele de novo.
     await montar({ comoDia: false }, null);
-    expect(barraLateral()).toHaveTextContent('1');
-    expect(barraLateral()).toHaveTextContent('2');
+    expect(document.querySelector('.tv-tile--players')).toHaveTextContent('1 de 2');
+    expect(document.querySelector('.tv-tile--entries')).toHaveTextContent('2');
   });
 });
 
-describe('premiação exibida', () => {
-  it('mostra o prizepool do resumo', async () => {
+describe('premiação exibida (rota pública)', () => {
+  it('a TV busca prêmios no endpoint público, sem login', async () => {
     await montar();
-    expect(document.querySelector('.broadcast-prizepool-corner')).toHaveTextContent('R$ 45000.00');
+    expect(api.get).toHaveBeenCalledWith('/public/tv/days/x1/extras', { _silentError: true });
+    expect(api.get.mock.calls.some(([url]) => url.endsWith('/prizes'))).toBe(false);
   });
 
-  it('sem resumo cai no prize pool do dia', async () => {
-    await montar({ resumo: {} });
-    expect(document.querySelector('.broadcast-prizepool-corner')).toHaveTextContent('R$ 30000.00');
+  it('em torneio sem dia não há extras para buscar', async () => {
+    await montar({ comoDia: false }, null);
+    expect(api.get.mock.calls.some(([url]) => url.includes('/public/tv/'))).toBe(false);
+  });
+
+  it('mostra o prizepool dos extras', async () => {
+    await montar();
+    expect(document.querySelector('.tv-pool')).toHaveTextContent('R$ 45.000,00');
+  });
+
+  it('sem prize pool nos extras cai no do dia', async () => {
+    await montar({ extras: { ...EXTRAS, prize_pool: null } });
+    expect(document.querySelector('.tv-pool')).toHaveTextContent('R$ 30.000,00');
+  });
+
+  it('a moeda é a do clube do dia, não a de quem abriu a tela', async () => {
+    await montar({ extras: { ...EXTRAS, currency: 'PEN' } });
+    expect(document.querySelector('.tv-pool')).toHaveTextContent('S/ 45,000.00');
+    expect(document.querySelector('.tv-prize-item')).toHaveTextContent('S/ 20,000.00');
+  });
+
+  it('o nome do clube aparece à direita quando não há logo', async () => {
+    await montar();
+    expect(document.querySelector('.tv-club-name')).toHaveTextContent('Clube Teste');
   });
 
   it('faixa marcada como invisível some do público', async () => {
     // É como o clube segura a premiação antes da hora, sem apagar o dado.
     await montar({
-      premios: [
-        { position: 1, prize_amount: 20000, visible: true },
-        { position: 2, prize_amount: 10000, visible: false },
-      ],
+      extras: {
+        ...EXTRAS,
+        prizes: [
+          { position: 1, prize_amount: 20000, visible: true },
+          { position: 2, prize_amount: 10000, visible: false },
+        ],
+      },
     });
-    const faixa = document.querySelector('.prize-ticker-bar');
-    expect(faixa).toHaveTextContent('R$ 20000.00');
-    expect(faixa).not.toHaveTextContent('R$ 10000.00');
+    const faixa = document.querySelector('.tv-prizes-bar');
+    expect(faixa).toHaveTextContent('R$ 20.000,00');
+    expect(faixa).not.toHaveTextContent('R$ 10.000,00');
   });
 
-  it('falha ao carregar prêmios não derruba o telão', async () => {
-    await montar({ premios: new Error('500') });
-    expect(document.querySelector('.prize-ticker-bar')).toBeNull();
-    expect(document.querySelector('.timer-display')).toBeInTheDocument();
+  it('falha ao carregar os extras não derruba o telão', async () => {
+    await montar({ extras: new Error('500') });
+    expect(document.querySelector('.tv-prize-item')).toBeNull();
+    expect(relogioNaTela()).toBeInTheDocument();
+    expect(document.querySelector('.tv-pool')).toHaveTextContent('R$ 30.000,00');
   });
 
   it('o layout lateral troca a faixa por uma coluna', async () => {
     await montar({ dia: { ...DIA, broadcast_prizes_layout: 'sidebar' } });
-    expect(document.querySelector('.prize-sidebar')).toBeInTheDocument();
-    expect(document.querySelector('.prize-ticker-bar')).toBeNull();
+    expect(document.querySelector('.tv-prizes-sidebar')).toBeInTheDocument();
+    expect(document.querySelector('.tv-prizes-bar')).toBeNull();
   });
 
   it('lista longa na coluna entra em rolagem', async () => {
     // Mais de 8 faixas não cabem paradas; a lista é duplicada para o laço.
-    const muitos = Array.from({ length: 10 }, (_, i) => ({
-      position: i + 1, prize_amount: 100 * (10 - i), visible: true,
-    }));
-    await montar({ premios: muitos, dia: { ...DIA, broadcast_prizes_layout: 'sidebar' } });
-    expect(document.querySelector('.prize-sidebar-list')).toHaveClass('scrolling');
-    expect(document.querySelectorAll('.prize-sidebar-row').length).toBe(20);
+    const muitos = Array.from({ length: 10 }, (_, i) => ({ position: i + 1, prize_amount: 100 * (10 - i) }));
+    await montar({ extras: { ...EXTRAS, prizes: muitos }, dia: { ...DIA, broadcast_prizes_layout: 'sidebar' } });
+    expect(document.querySelector('.tv-prizes-sidebar-list')).toHaveClass('scrolling');
+    expect(document.querySelectorAll('.tv-prizes-sidebar-row').length).toBe(20);
   });
 
   it('lista curta na coluna fica parada', async () => {
     await montar({ dia: { ...DIA, broadcast_prizes_layout: 'sidebar' } });
-    expect(document.querySelector('.prize-sidebar-list')).not.toHaveClass('scrolling');
-    expect(document.querySelectorAll('.prize-sidebar-row').length).toBe(2);
+    expect(document.querySelector('.tv-prizes-sidebar-list')).not.toHaveClass('scrolling');
+    expect(document.querySelectorAll('.tv-prizes-sidebar-row').length).toBe(2);
   });
 });
 
 describe('o que pode ser desligado', () => {
   it.each([
-    ['broadcast_show_timer', '.timer-display'],
-    ['broadcast_show_blinds', '.blinds-section'],
-    ['broadcast_show_ante', '.ante-section'],
-    ['broadcast_show_next_blind', '.next-blind-section'],
-    ['broadcast_show_prizepool', '.broadcast-prizepool-corner'],
-    ['broadcast_show_prizes', '.prize-ticker-bar'],
-    ['broadcast_show_logo', '.broadcast-logo'],
-    ['broadcast_show_title', '.broadcast-title'],
+    ['broadcast_show_timer', '.tv-clock'],
+    ['broadcast_show_blinds', '.tv-blinds'],
+    ['broadcast_show_ante', '.tv-ante'],
+    ['broadcast_show_next_blind', '.tv-next'],
+    ['broadcast_show_prizepool', '.tv-pool'],
+    ['broadcast_show_prizes', '.tv-prize-item'],
+    ['broadcast_show_logo', '.tv-logo'],
+    ['broadcast_show_title', '.tv-title'],
     // A logo do clube só some se ELA existir: sem a URL o teste passaria à toa.
-    ['broadcast_show_club_logo', '.broadcast-club-logo-img', { broadcast_club_logo_url: LOGO }],
+    ['broadcast_show_club_logo', '.tv-club-logo-img', { broadcast_club_logo_url: LOGO }],
   ])('%s desligado esconde %s', async (campo, seletor, extra = {}) => {
     await montar({ dia: { ...DIA, ...extra, [campo]: false } });
     expect(document.querySelector(seletor)).toBeNull();
@@ -422,8 +452,8 @@ describe('o que pode ser desligado', () => {
     // Um dia criado antes dessas configurações existirem não pode apagar o
     // relógio do salão.
     await montar({ dia: { id: 'x1', tournament_id: 't1', day_name: 'Dia 1A', status: 'active' } });
-    expect(document.querySelector('.timer-display')).toBeInTheDocument();
-    expect(document.querySelector('.broadcast-prizepool-corner')).toBeInTheDocument();
+    expect(relogioNaTela()).toBeInTheDocument();
+    expect(document.querySelector('.tv-pool')).toBeInTheDocument();
   });
 
   it('desligar tudo da lateral remove a lateral inteira', async () => {
@@ -435,7 +465,7 @@ describe('o que pode ser desligado', () => {
         broadcast_show_average: false,
       },
     });
-    expect(barraLateral()).toBeNull();
+    expect(tiles()).toBeNull();
   });
 
   it('a configuração do DIA tem precedência sobre a do torneio', async () => {
@@ -444,24 +474,47 @@ describe('o que pode ser desligado', () => {
       dia: { ...DIA, broadcast_show_timer: false },
       torneio: { ...TORNEIO, broadcast_show_timer: true },
     });
-    expect(document.querySelector('.timer-display')).toBeNull();
+    expect(relogioNaTela()).toBeNull();
   });
 
   it('em torneio sem dia, vale a configuração do torneio', async () => {
     await montar({ comoDia: false, torneio: { ...TORNEIO, broadcast_show_timer: false } }, null);
-    expect(document.querySelector('.timer-display')).toBeNull();
+    expect(relogioNaTela()).toBeNull();
+  });
+});
+
+describe('fundo do telão', () => {
+  it('imagem escolhida cobre a tela com o escurecimento do dia', async () => {
+    await montar({ dia: { ...DIA, broadcast_bg_image_url: 'https://cdn/fundo.webp', broadcast_bg_overlay: 30 } });
+    const root = document.querySelector('.tv-root');
+    expect(root).toHaveAttribute('data-bg-kind', 'image');
+    expect(document.querySelector('.tv-bg').style.backgroundImage).toBe('url(https://cdn/fundo.webp)');
+    expect(root.style.getPropertyValue('--tv-overlay')).toBe('0.3');
+  });
+
+  it('preset vira gradiente; sem nada, o padrão', async () => {
+    await montar({ dia: { ...DIA, broadcast_bg_image_url: 'preset:felt' } });
+    expect(document.querySelector('.tv-root')).toHaveAttribute('data-bg-kind', 'preset');
+    document.body.innerHTML = '';
+    await montar();
+    expect(document.querySelector('.tv-root')).toHaveAttribute('data-bg-kind', 'default');
+  });
+
+  it('a cor padrão antiga gravada no dia não vira retângulo sólido', async () => {
+    await montar({ dia: { ...DIA, broadcast_bg_color: '#0a0e13' } });
+    expect(document.querySelector('.tv-root')).toHaveAttribute('data-bg-kind', 'default');
   });
 });
 
 describe('logo do clube', () => {
-  const logoDoClube = () => document.querySelector('.broadcast-club-logo-img');
-  const espacoDaLogo = () => document.querySelector('.broadcast-club-logo');
+  const logoDoClube = () => document.querySelector('.tv-club-logo-img');
+  const espacoDaLogo = () => document.querySelector('.tv-club-logo');
 
   it('a logo configurada aparece no canto direito do cabeçalho', async () => {
     // É a marca do clube no telão do salão, ao lado da nossa.
     await montar({ dia: { ...DIA, broadcast_club_logo_url: LOGO } });
     expect(logoDoClube()).toHaveAttribute('src', LOGO);
-    expect(document.querySelector('.broadcast-header')).toContainElement(logoDoClube());
+    expect(document.querySelector('.tv-header')).toContainElement(logoDoClube());
   });
 
   it('sem logo cadastrada o espaço continua reservado', async () => {
@@ -485,14 +538,12 @@ describe('logo do clube', () => {
   it('dia antigo, sem nenhuma das colunas novas, não quebra o telão', async () => {
     await montar({ dia: { id: 'x1', tournament_id: 't1', day_name: 'Dia 1A', status: 'active' } });
     expect(logoDoClube()).toBeNull();
-    expect(document.querySelector('.timer-display')).toBeInTheDocument();
+    expect(relogioNaTela()).toBeInTheDocument();
   });
 
   it('depois de encerrado a logo do clube continua no telão', async () => {
-    // O cabeçalho é duplicado no código; é aqui que se percebe se um dos dois
-    // ficou para trás.
     await montar({ dia: { ...DIA, status: 'completed', broadcast_club_logo_url: LOGO } });
-    expect(document.querySelector('.broadcast-completed')).toBeInTheDocument();
+    expect(document.querySelector('.tv-completed')).toBeInTheDocument();
     expect(logoDoClube()).toHaveAttribute('src', LOGO);
   });
 });
@@ -500,18 +551,18 @@ describe('logo do clube', () => {
 describe('idioma do telão', () => {
   it('padrão é português', async () => {
     await montar();
-    expect(barraLateral()).toHaveTextContent('JOGADORES');
+    expect(tiles()).toHaveTextContent('JOGADORES');
   });
 
   it('a transmissão pode estar em inglês mesmo com o app em português', async () => {
     // O telão é lido pelo público, que pode não falar a língua do operador.
     await montar({ dia: { ...DIA, broadcast_language: 'en' } });
-    expect(barraLateral()).toHaveTextContent('PLAYERS');
+    expect(tiles()).toHaveTextContent('PLAYERS');
   });
 
   it('idioma desconhecido cai no português', async () => {
     await montar({ dia: { ...DIA, broadcast_language: 'xx-YY' } });
-    expect(barraLateral()).toHaveTextContent('JOGADORES');
+    expect(tiles()).toHaveTextContent('JOGADORES');
   });
 });
 
@@ -521,19 +572,24 @@ describe('intervalo', () => {
 
   it('troca a tela inteira, porque o que importa é quanto falta', async () => {
     await montar({}, noIntervalo());
-    expect(document.querySelector('.break-screen')).toBeInTheDocument();
-    expect(document.querySelector('.timer-display')).toBeNull();
+    expect(document.querySelector('.tv-break')).toBeInTheDocument();
+    expect(relogioNaTela()).toBeNull();
   });
 
   it('mostra o tempo restante do intervalo', async () => {
     await montar({}, noIntervalo());
-    expect(document.querySelector('.break-timer-text')).toHaveTextContent('5:05');
+    expect(document.querySelector('.tv-break-timer')).toHaveTextContent('05:05');
   });
 
   it('anuncia o nível que vem depois do intervalo', async () => {
     // É a informação que faz o jogador voltar na hora certa.
     await montar({}, noIntervalo());
-    expect(document.querySelector('.break-info-panel')).toHaveTextContent('800/1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('800/1.600');
+  });
+
+  it('ante zero não aparece no anúncio', async () => {
+    await montar({}, noIntervalo());
+    expect(document.querySelector('.tv-break-info')).not.toHaveTextContent('(0)');
   });
 
   it('o número do próximo nível não conta o intervalo', async () => {
@@ -541,21 +597,12 @@ describe('intervalo', () => {
     await montar({}, noIntervalo({
       next_blind: { level: 5, display_level: 4, small_blind: 800, big_blind: 1600, ante: 0 },
     }));
-    expect(document.querySelector('.break-info-panel')).toHaveTextContent('4: 800/1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('4: 800/1.600');
   });
 
-  it('ante zero não aparece no anúncio', async () => {
-    await montar({}, noIntervalo());
-    expect(document.querySelector('.break-info-panel')).not.toHaveTextContent('( 0 )');
-  });
-
-  it.each([
-    ['split', '.break-layout-split'],
-    ['fullscreen', '.break-layout-fullscreen'],
-    ['overlay', '.break-layout-overlay'],
-  ])('o layout %s é respeitado', async (layout, seletor) => {
+  it.each(['split', 'fullscreen', 'overlay'])('o layout %s é respeitado', async (layout) => {
     await montar({ dia: { ...DIA, broadcast_break_layout: layout } }, noIntervalo());
-    expect(document.querySelector(seletor)).toBeInTheDocument();
+    expect(document.querySelector('.tv-break')).toHaveClass(layout);
   });
 
   it('um vídeo do YouTube é embutido a partir da URL', async () => {
@@ -563,18 +610,10 @@ describe('intervalo', () => {
       { dia: { ...DIA, broadcast_break_youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } },
       noIntervalo()
     );
-    expect(document.querySelector('.break-video-iframe')).toHaveAttribute(
+    expect(document.querySelector('.tv-break-video')).toHaveAttribute(
       'src',
       expect.stringContaining('youtube.com/embed/dQw4w9WgXcQ')
     );
-  });
-
-  it('o formato curto youtu.be também funciona', async () => {
-    await montar(
-      { dia: { ...DIA, broadcast_break_youtube_url: 'https://youtu.be/dQw4w9WgXcQ' } },
-      noIntervalo()
-    );
-    expect(document.querySelector('.break-video-iframe')).toBeInTheDocument();
   });
 
   it('URL que não é do YouTube não vira vídeo', async () => {
@@ -583,46 +622,23 @@ describe('intervalo', () => {
       { dia: { ...DIA, broadcast_break_youtube_url: 'https://exemplo.com/video' } },
       noIntervalo()
     );
-    expect(document.querySelector('.break-video-iframe')).toBeNull();
-    expect(document.querySelector('.break-video-placeholder')).toBeInTheDocument();
+    expect(document.querySelector('.tv-break-video')).toBeNull();
+    expect(document.querySelector('.tv-break-video-placeholder')).toBeInTheDocument();
   });
 
-  it('o vídeo entra mudo por padrão', async () => {
+  it('o vídeo entra mudo por padrão e o som pode ser ligado', async () => {
     // O som do vídeo abafaria o anúncio do staff no salão.
     await montar(
       { dia: { ...DIA, broadcast_break_youtube_url: 'https://youtu.be/dQw4w9WgXcQ' } },
       noIntervalo()
     );
-    expect(document.querySelector('.break-video-iframe').getAttribute('src')).toContain('mute=1');
-  });
-
-  it('o som pode ser ligado explicitamente', async () => {
+    expect(document.querySelector('.tv-break-video').getAttribute('src')).toContain('mute=1');
+    document.body.innerHTML = '';
     await montar(
-      {
-        dia: {
-          ...DIA,
-          broadcast_break_youtube_url: 'https://youtu.be/dQw4w9WgXcQ',
-          broadcast_break_video_muted: false,
-        },
-      },
+      { dia: { ...DIA, broadcast_break_youtube_url: 'https://youtu.be/dQw4w9WgXcQ', broadcast_break_video_muted: false } },
       noIntervalo()
     );
-    expect(document.querySelector('.break-video-iframe').getAttribute('src')).toContain('mute=0');
-  });
-
-  it('desligar o vídeo mantém o painel de informações', async () => {
-    await montar(
-      {
-        dia: {
-          ...DIA,
-          broadcast_break_youtube_url: 'https://youtu.be/dQw4w9WgXcQ',
-          broadcast_break_show_video: false,
-        },
-      },
-      noIntervalo()
-    );
-    expect(document.querySelector('.break-video-iframe')).toBeNull();
-    expect(document.querySelector('.break-timer-text')).toBeInTheDocument();
+    expect(document.querySelector('.tv-break-video').getAttribute('src')).toContain('mute=0');
   });
 
   it('cada informação do intervalo pode ser desligada', async () => {
@@ -638,28 +654,28 @@ describe('intervalo', () => {
       },
       noIntervalo()
     );
-    expect(document.querySelectorAll('.break-stat').length).toBe(0);
+    expect(document.querySelectorAll('.tv-break-stat').length).toBe(0);
   });
 
   it('durante o intervalo o prizepool sai da tela', async () => {
     await montar({}, noIntervalo());
-    expect(document.querySelector('.broadcast-prizepool-corner')).toBeNull();
-    expect(document.querySelector('.prize-ticker-bar')).toBeNull();
+    expect(document.querySelector('.tv-pool')).toBeNull();
+    expect(document.querySelector('.tv-prizes-bar')).toBeNull();
   });
 });
 
 describe('torneio encerrado', () => {
-  it('mostra a tela de encerrado com o total de jogadores', async () => {
-    await montar({ dia: { ...DIA, status: 'completed' } });
-    expect(document.querySelector('.broadcast-completed')).toBeInTheDocument();
-    expect(within(document.querySelector('.completed-stats')).getByText('2')).toBeInTheDocument();
+  it('mostra a tela de encerrado com o total de jogadores, no idioma do telão', async () => {
+    await montar({ dia: { ...DIA, status: 'completed', broadcast_language: 'es' } });
+    expect(document.querySelector('.tv-completed')).toHaveTextContent('FINALIZADO');
+    expect(within(document.querySelector('.tv-completed-stats')).getByText('2')).toBeInTheDocument();
   });
 
   it('a premiação continua visível depois de encerrado', async () => {
     // É o momento em que mais gente olha para os prêmios.
     await montar({ dia: { ...DIA, status: 'completed' } });
-    expect(document.querySelector('.prize-ticker-bar')).toBeInTheDocument();
-    expect(document.querySelector('.broadcast-prizepool-corner')).toBeInTheDocument();
+    expect(document.querySelector('.tv-prizes-bar')).toBeInTheDocument();
+    expect(document.querySelector('.tv-pool')).toBeInTheDocument();
   });
 });
 
@@ -671,12 +687,12 @@ describe('dia final', () => {
       dia: { ...DIA, day_type: 'final' },
       estatisticas: { qualifying_days: [{ total_players: 120 }, { total_players: 80 }] },
     });
-    expect(barraLateral()).toHaveTextContent('200');
+    expect(document.querySelector('.tv-tile--players')).toHaveTextContent('18 de 200');
   });
 
   it('sem estatísticas agregadas usa o número do próprio dia', async () => {
     await montar({ dia: { ...DIA, day_type: 'final' }, estatisticas: new Error('500') });
-    expect(barraLateral()).toHaveTextContent('25');
+    expect(document.querySelector('.tv-tile--players')).toHaveTextContent('18 de 25');
   });
 });
 
@@ -715,7 +731,7 @@ describe('alerta sonoro de fim de nível', () => {
     // continuar de pé.
     global.AudioContext = jest.fn(() => { throw new Error('bloqueado'); });
     await montarComTempo(30);
-    expect(document.querySelector('.timer-display')).toBeInTheDocument();
+    expect(relogioNaTela()).toBeInTheDocument();
   });
 });
 
@@ -728,9 +744,9 @@ describe('contagem local (torneio sem dia)', () => {
     useTimerSync.mockReturnValue({ timerState: null });
     render(<TournamentBroadcast />);
     await act(async () => {});
-    const antes = document.querySelector('.timer-display').textContent;
+    const antes = relogioNaTela().textContent;
     await act(async () => { jest.advanceTimersByTime(3000); });
-    expect(document.querySelector('.timer-display').textContent).not.toBe(antes);
+    expect(relogioNaTela().textContent).not.toBe(antes);
     jest.useRealTimers();
   });
 
@@ -740,10 +756,20 @@ describe('contagem local (torneio sem dia)', () => {
     useTimerSync.mockReturnValue({ timerState: null });
     render(<TournamentBroadcast />);
     await act(async () => {});
-    const antes = document.querySelector('.timer-display').textContent;
+    const antes = relogioNaTela().textContent;
     await act(async () => { jest.advanceTimersByTime(5000); });
-    expect(document.querySelector('.timer-display').textContent).toBe(antes);
+    expect(relogioNaTela().textContent).toBe(antes);
     jest.useRealTimers();
+  });
+
+  it('a contagem para o intervalo aparece no tile', async () => {
+    await montar({ comoDia: false, torneio: { ...TORNEIO, break_interval: 60, start_time: new Date().toISOString() } }, null);
+    expect(document.querySelector('.tv-tile--break')).toHaveTextContent('1:00:00');
+  });
+
+  it('torneio antigo sem data de início não deixa o tile em NaN', async () => {
+    await montar({ comoDia: false, torneio: { ...TORNEIO, break_interval: 60 } }, null);
+    expect(document.querySelector('.tv-tile--break')).toHaveTextContent('1:00:00');
   });
 });
 
@@ -757,13 +783,13 @@ describe('ajuste de fonte pelo próprio telão', () => {
   const CHAVE_LOCAL = 'aceblind:broadcastFontSize:x1';
   const mais = () => screen.getByRole('button', { name: 'broadcast.fontIncrease' });
   const menos = () => screen.getByRole('button', { name: 'broadcast.fontDecrease' });
-  const relogio = () => document.querySelector('.timer-display');
+  const fonte = () => tela().style.getPropertyValue('--tv-font');
 
   it('clicar em + aumenta a fonte em 10% na hora', async () => {
     await montar();
-    expect(relogio().style.fontSize).toBe('160px');
+    expect(fonte()).toBe('1');
     fireEvent.click(mais());
-    expect(relogio().style.fontSize).toBe('176px');
+    expect(fonte()).toBe('1.1');
     expect(screen.getByText('110%')).toBeInTheDocument();
   });
 
@@ -782,14 +808,14 @@ describe('ajuste de fonte pelo próprio telão', () => {
     fireEvent.click(mais());
     fireEvent.click(mais());
     fireEvent.click(mais());
-    expect(relogio().style.fontSize).toBe('208px');
+    expect(fonte()).toBe('1.3');
     expect(api.patch).not.toHaveBeenCalled();
     await act(async () => { jest.advanceTimersByTime(600); });
     expect(api.patch).toHaveBeenCalledTimes(1);
     expect(api.patch).toHaveBeenCalledWith('/tournament-days/x1', { broadcast_font_size: 130 });
     expect(localStorage.getItem(CHAVE_LOCAL)).toBeNull();
     // Servidor virou a fonte da verdade e a tela continua no tamanho pedido.
-    expect(relogio().style.fontSize).toBe('208px');
+    expect(fonte()).toBe('1.3');
     jest.useRealTimers();
   });
 
@@ -801,7 +827,7 @@ describe('ajuste de fonte pelo próprio telão', () => {
     fireEvent.click(mais());
     await act(async () => { jest.advanceTimersByTime(600); });
     expect(api.patch).toHaveBeenCalledTimes(1);
-    expect(relogio().style.fontSize).toBe('176px');
+    expect(fonte()).toBe('1.1');
     expect(localStorage.getItem(CHAVE_LOCAL)).toBe('110');
     jest.useRealTimers();
   });
@@ -829,13 +855,13 @@ describe('ajuste de fonte pelo próprio telão', () => {
   it('o valor guardado no aparelho vence o do servidor ao abrir', async () => {
     localStorage.setItem(CHAVE_LOCAL, '130');
     await montar({ dia: { ...DIA, broadcast_font_size: 100 } });
-    expect(relogio().style.fontSize).toBe('208px');
+    expect(fonte()).toBe('1.3');
   });
 
   it('lixo guardado no aparelho é ignorado', async () => {
     localStorage.setItem(CHAVE_LOCAL, '999');
     await montar();
-    expect(relogio().style.fontSize).toBe('160px');
+    expect(fonte()).toBe('1');
   });
 
   it('mexer o mouse em qualquer ponto mostra os botões por alguns segundos', async () => {

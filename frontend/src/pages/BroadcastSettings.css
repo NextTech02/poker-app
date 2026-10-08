@@ -635,8 +635,10 @@
 }
 
 /* ── Preview internals ── */
-.bpv-outer { padding: 0; }
-.bpv-wrap  { width: 100%; }
+/* O palco (`TvStage`, fit=width) escala o telão de 1920×1080 pela largura
+   do cartão; a altura vem do aspect-ratio 16:9 do próprio palco. */
+.bs-preview-stage { width: 100%; }
+.bs-preview-stage .tv-root--width { border-radius: 0; }
 
 .bpv-notice {
   padding: 0.45rem 0.875rem 0.6rem;

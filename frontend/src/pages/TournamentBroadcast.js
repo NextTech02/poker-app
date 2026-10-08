@@ -2,16 +2,28 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
-import aceblindLogo from '../assets/aceblind-logo-white.png';
-import { useTimerSync, formatTime as formatTimerTime, formatTimeHuman } from '../hooks/useTimerSync';
+import { useTimerSync } from '../hooks/useTimerSync';
 import { usePolling } from '../hooks/usePolling';
 import BROADCAST_LABELS from '../utils/broadcastLabels';
-import { useCurrency } from '../contexts/CurrencyContext';
 import {
   lerFonteLocal, gravarFonteLocal, limparFonteLocal, proximaFonte, FONTE_MIN, FONTE_MAX, FONTE_PASSO,
 } from '../utils/broadcastFontLocal';
-import { nivelExibido } from '../utils/nivelExibido';
+import TvStage from '../components/broadcast/TvStage';
+import TvScreen from '../components/broadcast/TvScreen';
+import { buildTvModel, buildTvSettings, blindValuesAt, formatClock } from '../components/broadcast/tvModel';
+import { resolveBackground } from '../components/broadcast/tvBackgrounds';
 import './TournamentBroadcast.css';
+
+/**
+ * Tela de transmissão (o telão do salão). Pública: abre por `/tv/<código>`
+ * sem login, ou por `/broadcast/:id` com id de DIA ou de TORNEIO (legado).
+ *
+ * A página só busca e sincroniza; quem desenha é `TvScreen` dentro de
+ * `TvStage` (mesmos componentes da prévia das Configurações). Para o dia, o
+ * relógio enriquecido (`useTimerSync`) é a fonte única; prêmios, moeda e nome
+ * do clube vêm do endpoint PÚBLICO de extras — os endpoints de premiação
+ * exigem login, e a TV do salão não tem.
+ */
 
 // Generate blinds structure from tournament day configuration (legacy fallback)
 const generateBlindsFromDayConfig = (dayConfig, numLevels = 20) => {
@@ -37,214 +49,28 @@ const generateBlindsFromDayConfig = (dayConfig, numLevels = 20) => {
   return blinds;
 };
 
-const extractYouTubeId = (url) => {
-  if (!url) return null;
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : null;
-};
-
-// ── Logo do clube (canto direito do cabeçalho, logo acima do relógio) ────────
-// A div externa fica SEMPRE montada, mesmo sem imagem: é ela que reserva os
-// 250px que mantêm o título centralizado no telão do salão.
-const ClubLogoSlot = ({ settings }) => (
-  <div
-    className="broadcast-club-logo"
-    style={{ '--club-logo-scale': (settings.clubLogoSize || 100) / 100 }}
-  >
-    {settings.showClubLogo && settings.clubLogoUrl && (
-      <img src={settings.clubLogoUrl} alt="" className="broadcast-club-logo-img" />
-    )}
-  </div>
-);
-
-// ── Prize Sidebar (right column) ─────────────────────────────────────────────
-const PrizeSidebar = ({ prizes, prizeScale = 1, labels }) => {
-  const { formatCurrency } = useCurrency();
-  if (!prizes || prizes.length === 0) return null;
-  const L = labels || BROADCAST_LABELS['pt-BR'];
-  const s = prizeScale;
-  // Auto-scroll when there are too many entries to fit comfortably
-  const shouldScroll = prizes.length > 8;
-  const items = shouldScroll ? [...prizes, ...prizes] : prizes;
-  const animDuration = prizes.length * 4; // seconds
-
-  return (
-    <aside className="prize-sidebar" style={{ '--prize-scale': s }}>
-      <div className="prize-sidebar-header" style={{ fontSize: `${13 * s}px` }}>
-        {L.awards}
-      </div>
-      <div className="prize-sidebar-list-wrap">
-        <div
-          className={`prize-sidebar-list ${shouldScroll ? 'scrolling' : ''}`}
-          style={shouldScroll ? { animationDuration: `${animDuration}s` } : undefined}
-        >
-          {items.map((prize, idx) => (
-            <div key={idx} className="prize-sidebar-row">
-              <span className="prize-sidebar-pos" style={{ fontSize: `${14 * s}px` }}>
-                {L.placeLabel(prize.position)}
-              </span>
-              <span className="prize-sidebar-val" style={{ fontSize: `${16 * s}px` }}>
-                {formatCurrency(prize.prize_amount)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </aside>
-  );
-};
-
-// ── Prize Ticker ─────────────────────────────────────────────────────────────
-const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, labels }) => {
-  const { formatCurrency } = useCurrency();
-  if (!prizes || prizes.length === 0) return null;
-
-  const L = labels || BROADCAST_LABELS['pt-BR'];
-  const s = prizeScale;
-  const items = [...prizes, ...prizes];
-  const duration = prizes.length * 5;
-  const barHeight = Math.round(48 * s);
-
-  return (
-    <div className="prize-ticker-bar" style={{ height: `${barHeight}px` }}>
-      <div className="prize-ticker-label" style={{ fontSize: `${12 * s}px` }}>
-        {L.awards}
-      </div>
-      <div className="prize-ticker-track-wrap">
-        <div
-          className="prize-ticker-track"
-          style={{ animationDuration: `${duration}s` }}
-        >
-          {items.map((prize, idx) => (
-            <span key={idx} className="prize-ticker-item">
-              <span className="prize-ticker-pos" style={{ fontSize: `${14 * s}px` }}>
-                {L.placeLabel(prize.position)}
-              </span>
-              <span className="prize-ticker-sep">:</span>
-              <span className="prize-ticker-val" style={{ fontSize: `${16 * s}px` }}>
-                {formatCurrency(prize.prize_amount)}
-              </span>
-              <span className="prize-ticker-dot">◆</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── Break Screen ──────────────────────────────────────────────────────────────
-const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlayers, totalPlayers, labels, blinds }) => {
-  const L = labels || BROADCAST_LABELS['pt-BR'];
-  const layout  = settings.breakLayout || 'split';
-  const videoId = extractYouTubeId(settings.breakYoutubeUrl);
-  const showVid = settings.breakShowVideo && !!videoId;
-  const opacity = ((settings.breakOverlayOpacity ?? 70) / 100).toFixed(2);
-  const breakFS = ((settings.breakFontSize ?? 100) / 100).toFixed(3);
-
-  const timeLeft = formatTimerTime(timerState?.time_remaining_current_level);
-  const nextBlind = timerState?.next_blind;
-  // Número MOSTRADO do próximo nível: sem contar o intervalo como nível.
-  const nextLevelNum = nextBlind ? nivelExibido(nextBlind, blinds, nextBlind.level) : null;
-
-  const bgStyle = showVid
-    ? {}
-    : settings.breakBgImageUrl
-      ? { backgroundImage: `url(${settings.breakBgImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-      : { background: settings.breakBgColor || '#0a0e13' };
-
-  const muteFlag = settings.breakVideoMuted !== false ? 1 : 0;
-  const embedUrl = videoId
-    ? `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${muteFlag}&loop=1&playlist=${videoId}&controls=0&modestbranding=1`
-    : null;
-
-  const InfoPanel = () => (
-    <div className="break-info-panel">
-      <div className="break-title-text" style={{ color: settings.breakTitleColor }}>{L.breakTitle}</div>
-      <div className="break-timer-text" style={{ color: settings.breakTimerColor }}>{timeLeft}</div>
-
-      {settings.breakShowNextLevel && nextBlind && (
-        <div className="break-stat">
-          <span className="break-stat-label" style={{ color: settings.breakLabelColor }}>{L.next}</span>
-          <span className="break-stat-value" style={{ color: settings.breakValueColor }}>
-            {L.levelPrefix} {nextLevelNum}: {(nextBlind.small_blind || 0).toLocaleString('pt-BR')}/{(nextBlind.big_blind || 0).toLocaleString('pt-BR')}
-            {nextBlind.ante > 0 && ` ( ${(nextBlind.ante).toLocaleString('pt-BR')} )`}
-          </span>
-        </div>
-      )}
-
-      {settings.breakShowPlayers && (
-        <div className="break-stat">
-          <span className="break-stat-label" style={{ color: settings.breakLabelColor }}>{L.players}</span>
-          <span className="break-stat-value" style={{ color: settings.breakValueColor }}>
-            {activePlayers} {L.of} {totalPlayers}
-          </span>
-        </div>
-      )}
-
-      {settings.breakShowChipcount && chipcount > 0 && (
-        <div className="break-stat">
-          <span className="break-stat-label" style={{ color: settings.breakLabelColor }}>{L.chipcount}</span>
-          <span className="break-stat-value" style={{ color: settings.breakValueColor }}>
-            {chipcount.toLocaleString('pt-BR')}
-          </span>
-        </div>
-      )}
-
-      {settings.breakShowAverage && averageStack > 0 && (
-        <div className="break-stat">
-          <span className="break-stat-label" style={{ color: settings.breakLabelColor }}>{L.average}</span>
-          <span className="break-stat-value" style={{ color: settings.breakValueColor }}>
-            {averageStack.toLocaleString('pt-BR')}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-
-  const fsVar = { '--break-fs': breakFS };
-
-  if (layout === 'split') {
-    return (
-      <div className="break-screen break-layout-split" style={{ ...bgStyle, ...fsVar }}>
-        <InfoPanel />
-        <div className="break-video-wrap">
-          {showVid
-            ? <iframe className="break-video-iframe" src={embedUrl} allow="autoplay; encrypted-media" allowFullScreen title="break-video" />
-            : <div className="break-video-placeholder" />
-          }
-        </div>
-      </div>
-    );
+// Legacy: calculate level from elapsed time (non-day tournaments only)
+const calculateCurrentLevel = (elapsedSeconds, blindsArray) => {
+  if (!blindsArray || blindsArray.length === 0) {
+    return { level: 1, remainingSeconds: 0 };
   }
-
-  if (layout === 'fullscreen') {
-    return (
-      <div className="break-screen break-layout-fullscreen" style={{ ...bgStyle, ...fsVar }}>
-        {showVid && <iframe className="break-video-bg" src={embedUrl} allow="autoplay; encrypted-media" allowFullScreen title="break-video" />}
-        <div className="break-bottom-bar" style={{ background: `rgba(5,8,12,${opacity})`, borderTop: '2px solid #5b5be8' }}>
-          <InfoPanel />
-        </div>
-      </div>
-    );
+  let accumulatedTime = 0;
+  for (let i = 0; i < blindsArray.length; i++) {
+    const blind = blindsArray[i];
+    const blindDurationSeconds = blind.duration * 60;
+    if (elapsedSeconds < accumulatedTime + blindDurationSeconds) {
+      const elapsedInLevel = elapsedSeconds - accumulatedTime;
+      const remainingSeconds = blindDurationSeconds - elapsedInLevel;
+      return { level: blind.level, remainingSeconds };
+    }
+    accumulatedTime += blindDurationSeconds;
   }
-
-  // overlay layout
-  return (
-    <div className="break-screen break-layout-overlay" style={{ ...bgStyle, ...fsVar }}>
-      {showVid && <iframe className="break-video-bg" src={embedUrl} allow="autoplay; encrypted-media" allowFullScreen title="break-video" />}
-      <div className="break-overlay-panel" style={{ background: `rgba(5,8,12,${opacity})`, border: '1px solid rgba(91,91,232,0.4)' }}>
-        <InfoPanel />
-      </div>
-    </div>
-  );
+  const lastBlind = blindsArray[blindsArray.length - 1];
+  return { level: lastBlind.level, remainingSeconds: 0 };
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 const TournamentBroadcast = () => {
   const { t } = useTranslation();
-  const { formatCurrency } = useCurrency();
   const { id } = useParams();
   const [tournament, setTournament] = useState(null);
   const [tournamentDay, setTournamentDay] = useState(null);
@@ -256,11 +82,11 @@ const TournamentBroadcast = () => {
   const [error, setError] = useState(null);
   const [isOnBreak, setIsOnBreak] = useState(false);
   const [breakTimeRemaining, setBreakTimeRemaining] = useState(0);
-  const [prizeSummary, setPrizeSummary] = useState(null);
   const [totalPlayTime, setTotalPlayTime] = useState(0);
   const [isDayBased, setIsDayBased] = useState(false);
-  const [prizeAllocations, setPrizeAllocations] = useState([]);
   const [aggregatedStats, setAggregatedStats] = useState(null);
+  // Nome do clube, moeda, prize pool e prêmios visíveis — rota pública.
+  const [extras, setExtras] = useState(null);
 
   // Tamanho de fonte ajustado pelos botões +/− do próprio telão. Enquanto
   // houver um valor aqui, ele vence o do servidor; vira null assim que o
@@ -320,6 +146,15 @@ const TournamentBroadcast = () => {
     }
   }, []);
 
+  const fetchExtras = async () => {
+    try {
+      const res = await api.get(`/public/tv/days/${id}/extras`, { _silentError: true });
+      setExtras(res.data || null);
+    } catch {
+      setExtras(null);
+    }
+  };
+
   // Fetch tournament data (initial load)
   const fetchTournamentData = async (initializeTimer = false) => {
     try {
@@ -369,18 +204,13 @@ const TournamentBroadcast = () => {
         blindsData = blindsRes.data;
       }
 
-      try {
-        const tournamentIdForPrizes = dayData ? dayData.tournament_id : id;
-        // Rota PÚBLICA: a TV do salão abre pelo código, sem login, e as rotas
-        // normais de prêmios exigem usuário — por isso a TV nunca mostrava a
-        // premiação. Esta devolve só prizepool disponível e faixas visíveis.
-        const { data } = await api.get(`/public/broadcast/${tournamentIdForPrizes}/prizes`);
-        // O servidor já esconde visible=false; o filtro fica como cinto de segurança.
-        setPrizeAllocations((data?.prizes || []).filter((p) => p.visible !== false));
-        setPrizeSummary(data?.prize_pool != null ? { available_prize_pool: data.prize_pool } : null);
-      } catch {
-        setPrizeAllocations([]);
-        setPrizeSummary(null);
+      // Prêmios, moeda e clube: só pelo endpoint público (sem login). Os de
+      // premiação exigem autenticação e a TV do salão não tem — era por isso
+      // que a premiação nunca aparecia no telão. Só existe por DIA.
+      if (dayData) {
+        await fetchExtras();
+      } else {
+        setExtras(null);
       }
 
       if (dayData && dayData.day_type === 'final') {
@@ -439,56 +269,22 @@ const TournamentBroadcast = () => {
     }
   };
 
-  // Legacy: calculate level from elapsed time (non-day tournaments only)
-  const calculateCurrentLevel = (elapsedSeconds, blindsArray) => {
-    if (!blindsArray || blindsArray.length === 0) {
-      return { level: 1, remainingSeconds: 0 };
-    }
-    let accumulatedTime = 0;
-    for (let i = 0; i < blindsArray.length; i++) {
-      const blind = blindsArray[i];
-      const blindDurationSeconds = blind.duration * 60;
-      if (elapsedSeconds < accumulatedTime + blindDurationSeconds) {
-        const elapsedInLevel = elapsedSeconds - accumulatedTime;
-        const remainingSeconds = blindDurationSeconds - elapsedInLevel;
-        return { level: blind.level, remainingSeconds };
-      }
-      accumulatedTime += blindDurationSeconds;
-    }
-    const lastBlind = blindsArray[blindsArray.length - 1];
-    return { level: lastBlind.level, remainingSeconds: 0 };
-  };
-
-  // Legacy: get blind values from local array (non-day tournaments only)
-  const getBlindValues = (level) => {
-    if (!blinds || blinds.length === 0) {
-      return { smallBlind: 0, bigBlind: 0, ante: 0, duration: 15 };
-    }
-    const blind = blinds.find(b => b.level === level);
-    if (blind) {
-      return { smallBlind: blind.small_blind, bigBlind: blind.big_blind, ante: blind.ante || 0, duration: blind.duration || 15 };
-    }
-    const lastBlind = blinds[blinds.length - 1];
-    return { smallBlind: lastBlind?.small_blind || 0, bigBlind: lastBlind?.big_blind || 0, ante: lastBlind?.ante || 0, duration: lastBlind?.duration || 15 };
-  };
-
-  const getNextBlindValues = (level) => getBlindValues(level + 1);
-
   // Initial load
   useEffect(() => {
     fetchTournamentData(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Polling de jogadores (10s) e das configurações do dia (30s), ambos pausando
-  // quando a aba fica oculta. No display da transmissão (sempre visível) seguem
-  // normais; numa aba de fundo, param de martelar a API.
+  // Polling de jogadores (10s) e das configurações do dia + extras (30s),
+  // ambos pausando quando a aba fica oculta. No display da transmissão
+  // (sempre visível) seguem normais; numa aba de fundo, param de martelar a API.
   usePolling(() => fetchPlayersOnly(), 10000);
   usePolling(() => {
     if (!isDayBased) return;
     api.get(`/tournament-days/${id}`)
       .then((res) => setTournamentDay(res.data))
       .catch(() => { /* ignore */ });
+    fetchExtras();
   }, isDayBased ? 30000 : 0);
 
   // Legacy timer countdown (NON-day tournaments only)
@@ -508,7 +304,7 @@ const TournamentBroadcast = () => {
           if (prev <= 1) {
             setBlindLevel((currentLevel) => {
               const nextLevel = currentLevel + 1;
-              const nextBlindData = getBlindValues(nextLevel);
+              const nextBlindData = blindValuesAt(blinds, nextLevel);
               setTimeRemaining(nextBlindData.duration * 60);
               return nextLevel;
             });
@@ -570,61 +366,15 @@ const TournamentBroadcast = () => {
     }
   }, [currentTimeForAlert, currentLevelForAlert, currentBlindIsBreakForAlert, blindAlertsEnabled, playBeep]);
 
-  // Format helpers
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const formatInterval = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
   const getTimeUntilBreak = () => {
     if (!tournament) return 0;
     const breakInterval = (tournament.break_interval || 60) * 60;
-    const timeIntoCurrentCycle = totalPlayTime % breakInterval;
+    // Torneio antigo sem data de início: o tempo jogado sai NaN e o tile
+    // mostraria "00:00" para sempre; conta como recém-começado.
+    const played = Number.isFinite(totalPlayTime) ? totalPlayTime : 0;
+    const timeIntoCurrentCycle = played % breakInterval;
     return breakInterval - timeIntoCurrentCycle;
   };
-
-  // Compute ticker height before any early returns (Rules of Hooks)
-  const prizeScaleEarly = ((tournamentDay?.broadcast_prize_size ?? tournament?.broadcast_prize_size) || 100) / 100;
-  const prizesLayoutEarly = (tournamentDay?.broadcast_prizes_layout ?? tournament?.broadcast_prizes_layout) === 'sidebar' ? 'sidebar' : 'bottom';
-  const tickerHeightEarly = prizesLayoutEarly === 'sidebar' ? 0 : Math.round(48 * prizeScaleEarly);
-  const prizeSidebarWidthEarly = prizesLayoutEarly === 'sidebar' ? Math.round(240 * prizeScaleEarly) : 0;
-
-  // Propagate ticker height + sidebar width to :root so position:fixed elements adapt
-  useEffect(() => {
-    document.documentElement.style.setProperty('--prize-ticker-height', `${tickerHeightEarly}px`);
-    document.documentElement.style.setProperty('--prize-sidebar-width', `${prizeSidebarWidthEarly}px`);
-    return () => {
-      document.documentElement.style.removeProperty('--prize-ticker-height');
-      document.documentElement.style.removeProperty('--prize-sidebar-width');
-    };
-  }, [tickerHeightEarly, prizeSidebarWidthEarly]);
-
-  // Measure header height so the right-side prize sidebar can flush against it
-  useEffect(() => {
-    const setHeaderH = () => {
-      const el = document.querySelector('.broadcast-header');
-      const h = el ? Math.round(el.getBoundingClientRect().height) : 99;
-      document.documentElement.style.setProperty('--broadcast-header-height', `${h}px`);
-    };
-    setHeaderH();
-    const ro = new ResizeObserver(setHeaderH);
-    const el = document.querySelector('.broadcast-header');
-    if (el) ro.observe(el);
-    window.addEventListener('resize', setHeaderH);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', setHeaderH);
-      document.documentElement.style.removeProperty('--broadcast-header-height');
-    };
-  }, [tournament, tournamentDay]);
 
   if (loading) {
     return (
@@ -642,56 +392,10 @@ const TournamentBroadcast = () => {
     );
   }
 
-  // Broadcast settings - read from tournament day (per-day config), fallback to tournament
+  // Configurações: do DIA (por-dia), com o torneio como reserva no legado.
   const bSource = tournamentDay || tournament;
-  const broadcastSettings = {
-    bgColor: bSource?.broadcast_bg_color || '#0a0e13',
-    bgImageUrl: bSource?.broadcast_bg_image_url || null,
-    displayName: bSource?.broadcast_display_name || null,
-    fontSize: fonteLocal ?? (bSource?.broadcast_font_size || 100),
-    showLogo: bSource?.broadcast_show_logo !== false,
-    clubLogoUrl: bSource?.broadcast_club_logo_url || null,
-    showClubLogo: bSource?.broadcast_show_club_logo !== false,
-    clubLogoSize: bSource?.broadcast_club_logo_size ?? 100,
-    showTitle: bSource?.broadcast_show_title !== false,
-    showPrizepool: bSource?.broadcast_show_prizepool !== false,
-    showLevel: bSource?.broadcast_show_level !== false,
-    showPlayers: bSource?.broadcast_show_players !== false,
-    // `=== true` e nao `!== false`: o padrao aqui e NAO mostrar. O numero nao
-    // existia ate agora, e liga-lo sozinho mudaria o telao de todos os clubes
-    // sem ninguem ter pedido.
-    showReentries: bSource?.broadcast_show_reentries === true,
-    showInterval: bSource?.broadcast_show_interval !== false,
-    showTimer: bSource?.broadcast_show_timer !== false,
-    showBlinds: bSource?.broadcast_show_blinds !== false,
-    showAnte: bSource?.broadcast_show_ante !== false,
-    showNextBlind: bSource?.broadcast_show_next_blind !== false,
-    showPrizes: bSource?.broadcast_show_prizes !== false,
-    showChipcount: bSource?.broadcast_show_chipcount !== false,
-    showAverage: bSource?.broadcast_show_average !== false,
-    prizesLayout: bSource?.broadcast_prizes_layout === 'sidebar' ? 'sidebar' : 'bottom',
-    // Break screen settings
-    breakLayout:          bSource?.broadcast_break_layout          || 'split',
-    breakBgColor:         bSource?.broadcast_break_bg_color        || '#0a0e13',
-    breakBgImageUrl:      bSource?.broadcast_break_bg_image_url    || null,
-    breakYoutubeUrl:      bSource?.broadcast_break_youtube_url     || null,
-    breakShowVideo:       bSource?.broadcast_break_show_video      !== false,
-    breakVideoMuted:      bSource?.broadcast_break_video_muted     !== false,
-    breakShowNextLevel:   bSource?.broadcast_break_show_next_level !== false,
-    breakShowPlayers:     bSource?.broadcast_break_show_players    !== false,
-    breakShowChipcount:   bSource?.broadcast_break_show_chipcount  !== false,
-    breakShowAverage:     bSource?.broadcast_break_show_average    !== false,
-    breakOverlayOpacity:  bSource?.broadcast_break_overlay_opacity ?? 70,
-    breakFontSize:        bSource?.broadcast_break_font_size        ?? 100,
-    language:             bSource?.broadcast_language               || 'pt-BR',
-    breakTimerColor:      bSource?.broadcast_break_timer_color     || '#5b5be8',
-    breakLabelColor:      bSource?.broadcast_break_label_color     || '#9ca3af',
-    breakValueColor:      bSource?.broadcast_break_value_color     || '#5b5be8',
-    breakTitleColor:      bSource?.broadcast_break_title_color     || '#ffffff',
-  };
-
-  const L = BROADCAST_LABELS[broadcastSettings.language] || BROADCAST_LABELS['pt-BR'];
-  const fontScale = broadcastSettings.fontSize / 100;
+  const settings = buildTvSettings(bSource, { fontSizeOverride: fonteLocal });
+  const L = BROADCAST_LABELS[settings.language] || BROADCAST_LABELS['pt-BR'];
 
   // Botões +/− do canto: a tela muda na hora; a gravação decide o destino.
   // Logado (o mesmo token que api.js manda no Authorization) e com dia: vai
@@ -700,8 +404,8 @@ const TournamentBroadcast = () => {
   // sem rede): fica só neste aparelho. Sem toast — é tela pública, ninguém
   // está operando; o próprio tamanho na tela é o retorno.
   const ajustarFonte = (delta) => {
-    const proximo = proximaFonte(broadcastSettings.fontSize, delta);
-    if (proximo === broadcastSettings.fontSize) return;
+    const proximo = proximaFonte(settings.fontSize, delta);
+    if (proximo === settings.fontSize) return;
     setFonteLocal(proximo);
 
     let logado = false;
@@ -726,322 +430,54 @@ const TournamentBroadcast = () => {
     }, 500);
   };
 
-  const prizeScale = (bSource?.broadcast_prize_size || 100) / 100;
-  const prizepoolScale = (bSource?.broadcast_prizepool_size || 100) / 100;
-  const prizepoolLabelColor = bSource?.broadcast_prizepool_label_color || '#ffffff';
-  const prizepoolValueColor = bSource?.broadcast_prizepool_value_color || '#ffffff';
+  const model = buildTvModel({
+    isDayBased,
+    timerState,
+    tournament,
+    tournamentDay,
+    players,
+    blinds,
+    blindLevel,
+    timeRemaining,
+    legacyBreakIn: !isDayBased ? getTimeUntilBreak() : null,
+    aggregatedStats,
+    extras,
+  });
 
-  // Per-element colors
-  const colors = {
-    timer:        bSource?.broadcast_timer_color         || '#5b5be8',
-    title:        bSource?.broadcast_title_color         || '#5b5be8',
-    blindsLabel:  bSource?.broadcast_blinds_label_color  || '#5b5be8',
-    blindsValue:  bSource?.broadcast_blinds_value_color  || '#ffffff',
-    anteLabel:    bSource?.broadcast_ante_label_color    || '#5b5be8',
-    anteValue:    bSource?.broadcast_ante_value_color    || '#5b5be8',
-    nextLabel:    bSource?.broadcast_next_label_color    || '#5b5be8',
-    nextValue:    bSource?.broadcast_next_value_color    || '#9ca3af',
-    sidebarLabel: bSource?.broadcast_sidebar_label_color || '#9ca3af',
-    sidebarValue: bSource?.broadcast_sidebar_value_color || '#5b5be8',
-  };
+  let mode = 'live';
+  if (model.status === 'completed') mode = 'completed';
+  else if (isDayBased && model.isBreak) mode = 'break';
 
-  // Prizepool = guaranteed + all-days entries net of rake (from backend summary)
-  const displayPrizePool = parseFloat(prizeSummary?.available_prize_pool || tournamentDay?.prize_pool || 0);
-
-  const containerStyle = {};
-  if (broadcastSettings.bgImageUrl) {
-    containerStyle.backgroundImage = `url(${broadcastSettings.bgImageUrl})`;
-    containerStyle.backgroundSize = 'cover';
-    containerStyle.backgroundPosition = 'center';
-    containerStyle.backgroundRepeat = 'no-repeat';
-  } else if (broadcastSettings.bgColor && broadcastSettings.bgColor !== '#0a0e13') {
-    containerStyle.background = broadcastSettings.bgColor;
-  }
-
-  const displayName = broadcastSettings.displayName ||
-    (tournamentDay ? `${tournament.name} - ${tournamentDay.day_name}` : tournament.name);
-
-  // Check if completed
-  const currentStatus = tournamentDay?.status || tournament?.status;
-  if (currentStatus === 'completed') {
-    return (
-      <div className="broadcast-container" style={containerStyle}>
-        <header className="broadcast-header">
-          {broadcastSettings.showLogo && (
-            <div className="broadcast-logo">
-              <img src={aceblindLogo} alt="AceBlind" className="broadcast-logo-img" />
-            </div>
-          )}
-          {broadcastSettings.showTitle && (
-            <div className="broadcast-title"><h1 style={{ color: colors.title, backgroundImage: 'none', WebkitTextFillColor: colors.title }}>{displayName}</h1></div>
-          )}
-          <ClubLogoSlot settings={broadcastSettings} />
-        </header>
-        <div className="broadcast-main">
-          <div className="broadcast-completed">
-            <div className="completed-icon">&#127942;</div>
-            <h2>{t('common.completed').toUpperCase()}</h2>
-            <p>{t('common.noData')}</p>
-            <div className="completed-stats">
-              <div className="stat-item">
-                <span className="stat-label">{t('elimination.totalPlayers')}</span>
-                <span className="stat-value">{players.length}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        {broadcastSettings.showPrizepool && (
-          <div className="broadcast-prizepool-corner">
-            <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>{t('broadcast.prizepoolLabel')}</div>
-            <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
-              {formatCurrency(displayPrizePool)}
-            </div>
-          </div>
-        )}
-        {broadcastSettings.showPrizes && prizeAllocations.length > 0 && (
-          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} />
-        )}
-      </div>
-    );
-  }
-
-  // === DISPLAY VALUES ===
-  // For day-based: use enriched endpoint (timerState) as SINGLE SOURCE
-  // For legacy: use local state
-  let displayBlindLevel, displayTimeRemaining, displaySmallBlind, displayBigBlind, displayAnte;
-  let displayNextSmallBlind, displayNextBigBlind, displayNextAnte;
-  let currentBlindIsBreak = false;
-  let nextBlindIsBreak = false;
-  // Existe um proximo nivel? No ultimo da estrutura nao existe, e sem esta
-  // distincao o telao anunciava "0/0 ( 0 )" — zero nao e um blind, e a mesa
-  // inteira le isso.
-  let temProximoBlind = true;
-
-  if (isDayBased && timerState) {
-    // `current_level` é a POSIÇÃO na estrutura (o intervalo ocupa uma). O que
-    // a mesa lê é o número sem os intervalos — o mesmo da tela de blinds.
-    displayBlindLevel = nivelExibido(timerState, blinds, timerState.current_level);
-    displayTimeRemaining = timerState.time_remaining_current_level;
-    displaySmallBlind = timerState.current_blind?.small_blind || 0;
-    displayBigBlind = timerState.current_blind?.big_blind || 0;
-    displayAnte = timerState.current_blind?.ante || 0;
-    currentBlindIsBreak = timerState.current_blind?.is_break === true;
-
-    temProximoBlind = !!timerState.next_blind;
-    displayNextSmallBlind = timerState.next_blind?.small_blind || 0;
-    displayNextBigBlind = timerState.next_blind?.big_blind || 0;
-    displayNextAnte = timerState.next_blind?.ante || 0;
-    nextBlindIsBreak = timerState.next_blind?.is_break === true;
-  } else {
-    const currentBlinds = getBlindValues(blindLevel);
-    const nextBlinds = getNextBlindValues(blindLevel);
-    temProximoBlind = !!nextBlinds && (nextBlinds.bigBlind || 0) > 0;
-    displayBlindLevel = blindLevel;
-    displayTimeRemaining = timeRemaining;
-    displaySmallBlind = currentBlinds.smallBlind;
-    displayBigBlind = currentBlinds.bigBlind;
-    displayAnte = currentBlinds.ante;
-    displayNextSmallBlind = nextBlinds.smallBlind;
-    displayNextBigBlind = nextBlinds.bigBlind;
-    displayNextAnte = nextBlinds.ante;
-  }
-
-  // For day-based: active players and entries come from enriched endpoint (entries - eliminations)
-  const activePlayers = (isDayBased && timerState) ? (timerState.active_players || 0) : players.filter(p => p.status !== 'eliminated').length;
-  // ENTRADA = buy-in. Quem recompra voltou ao torneio, nao entrou nele de novo:
-  // um dia com 2 inscritos e 5 recompras tem 2 entradas, nao 7. As recompras
-  // aparecem em `totalReentries`, logo abaixo.
-  const totalEntries = (isDayBased && timerState) ? (timerState.total_entries || 0) : players.reduce((sum, p) => {
-    return sum + (p.buy_in_count || 0);
-  }, 0);
-
-  // Reentradas (recompra + add-on). Nao somam jogadores: quem recompra continua
-  // sendo a mesma pessoa na mesa — por isso e um numero proprio, e nao entra no
-  // "Jogadores" nem no "Entradas".
-  const totalReentries = (isDayBased && timerState) ? (timerState.total_reentries || 0) : players.reduce((sum, p) => {
-    return sum + (p.rebuy_count || 0) + (p.addon_count || 0);
-  }, 0);
-
-  // Chipcount and average stack (day-based only, from enriched endpoint)
-  const chipcount = (isDayBased && timerState) ? (timerState.chipcount || 0) : 0;
-  const averageStack = (isDayBased && timerState) ? (timerState.average_stack || 0) : 0;
-
-  const formatChips = (n) => n.toLocaleString('pt-BR');
-
-  const isFinalDay = tournamentDay?.day_type === 'final' || players.some(p => p.is_qualified_entry);
-  let displayActivePlayers = activePlayers;
-  let displayTotalPlayers = totalEntries;
-
-  if (isFinalDay && aggregatedStats) {
-    const totalQualifyingPlayers = aggregatedStats.qualifying_days?.reduce(
-      (sum, day) => sum + (day.total_players || 0), 0
-    ) || 0;
-    if (totalQualifyingPlayers > 0) displayTotalPlayers = totalQualifyingPlayers;
-  }
+  const background = resolveBackground(settings.bgValue, settings.bgColor, settings.bgOverlay);
+  const currency = extras?.currency || 'BRL';
 
   return (
-    <div className="broadcast-container" style={{ ...containerStyle, ...(isDayBased && currentBlindIsBreak ? { paddingBottom: 0 } : {}) }}>
-      <header className="broadcast-header">
-        {broadcastSettings.showLogo && (
-          <div className="broadcast-logo">
-            <img src={aceblindLogo} alt="AceBlind" className="broadcast-logo-img" />
-          </div>
-        )}
-        {broadcastSettings.showTitle && (
-          <div className="broadcast-title">
-            <h1 style={{ color: colors.title, backgroundImage: 'none', WebkitTextFillColor: colors.title }}>{displayName}</h1>
-          </div>
-        )}
-        <ClubLogoSlot settings={broadcastSettings} />
-      </header>
-
-      {/* Break Screen — replaces entire main area when on break */}
-      {isDayBased && currentBlindIsBreak ? (
-        <BreakScreen
-          timerState={timerState}
-          settings={broadcastSettings}
-          chipcount={chipcount}
-          averageStack={averageStack}
-          activePlayers={displayActivePlayers}
-          totalPlayers={displayTotalPlayers}
-          blinds={blinds}
+    <>
+      <TvStage fit="viewport" background={background}>
+        <TvScreen
+          mode={mode}
+          model={model}
+          settings={settings}
+          labels={L}
+          currency={currency}
+          fontScale={settings.fontSize / 100}
         />
-      ) : (
-        <div className="broadcast-main">
-          {(broadcastSettings.showLevel || broadcastSettings.showPlayers || broadcastSettings.showInterval || broadcastSettings.showChipcount || broadcastSettings.showAverage) && (
-            <aside className="broadcast-sidebar">
-              {broadcastSettings.showLevel && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.level} {displayBlindLevel}</div>
-                </div>
-              )}
-
-              {broadcastSettings.showPlayers && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.players}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{displayActivePlayers} {L.of} {displayTotalPlayers}</div>
-                </div>
-              )}
-
-              {broadcastSettings.showPlayers && totalEntries > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.entries}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{totalEntries}</div>
-                </div>
-              )}
-
-              {broadcastSettings.showReentries && totalReentries > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.reentries}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>{totalReentries}</div>
-                </div>
-              )}
-
-              {isDayBased && broadcastSettings.showChipcount && chipcount > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.chipcount}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${28 * fontScale}px`, color: colors.sidebarValue }}>{formatChips(chipcount)}</div>
-                </div>
-              )}
-
-              {isDayBased && broadcastSettings.showAverage && averageStack > 0 && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.average}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${28 * fontScale}px`, color: colors.sidebarValue }}>{formatChips(averageStack)}</div>
-                </div>
-              )}
-
-              {/* Break countdown from enriched endpoint for day-based */}
-              {isDayBased && timerState?.next_break && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px`, color: colors.sidebarLabel }}>{L.intervalIn}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px`, color: colors.sidebarValue }}>
-                    {formatTimeHuman(timerState.next_break.time_until_break)}
-                  </div>
-                </div>
-              )}
-
-              {/* Legacy break countdown for non-day tournaments */}
-              {broadcastSettings.showInterval && !isDayBased && (
-                <div className="sidebar-section">
-                  <div className="sidebar-label" style={{ fontSize: `${13 * fontScale}px` }}>{t('broadcast.intervalIn').toUpperCase()}</div>
-                  <div className="sidebar-value" style={{ fontSize: `${32 * fontScale}px` }}>{formatInterval(getTimeUntilBreak())}</div>
-                </div>
-              )}
-            </aside>
-          )}
-
-          <main className="broadcast-center">
-            {broadcastSettings.showTimer && (
-              <div className="timer-display" style={{ fontSize: `${160 * fontScale}px`, color: colors.timer }}>
-                {formatTimerTime(displayTimeRemaining)}
-              </div>
-            )}
-
-            {broadcastSettings.showBlinds && (
-              <div className="blinds-section">
-                <div className="blinds-label" style={{ fontSize: `${16 * fontScale}px`, color: colors.blindsLabel }}>{t('broadcast.blinds')}</div>
-                <div className="blinds-value" style={{ fontSize: `${80 * fontScale}px`, color: colors.blindsValue }}>{displaySmallBlind}/{displayBigBlind}</div>
-              </div>
-            )}
-
-            {broadcastSettings.showAnte && (
-              <div className="ante-section">
-                <div className="ante-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.anteLabel }}>{t('broadcast.ante')}</div>
-                <div className="ante-value" style={{ fontSize: `${36 * fontScale}px`, color: colors.anteValue }}>{displayAnte}</div>
-              </div>
-            )}
-
-            {broadcastSettings.showNextBlind && (
-              <div className="next-blind-section">
-                <div className="next-blind-label" style={{ fontSize: `${14 * fontScale}px`, color: colors.nextLabel }}>{t('broadcast.nextBlinds')}</div>
-                <div className="next-blind-value" style={{ fontSize: `${24 * fontScale}px`, color: colors.nextValue }}>
-                  {!temProximoBlind
-                    ? '—'
-                    : nextBlindIsBreak
-                      ? t('broadcast.break').toUpperCase()
-                      : `${displayNextSmallBlind}/${displayNextBigBlind} ( ${displayNextAnte} )`
-                  }
-                </div>
-              </div>
-            )}
-          </main>
-        </div>
-      )}
-
-      {/* Prizepool - Bottom Right */}
-      {broadcastSettings.showPrizepool && !(isDayBased && currentBlindIsBreak) && (
-        <div className="broadcast-prizepool-corner">
-          <div className="prize-label" style={{ fontSize: `${13 * prizepoolScale}px`, color: prizepoolLabelColor }}>PRIZEPOOL</div>
-          <div className="prize-amount" style={{ fontSize: `${32 * prizepoolScale}px`, color: prizepoolValueColor }}>
-            {formatCurrency(displayPrizePool)}
-          </div>
-        </div>
-      )}
-
-      {/* Prize display — bottom ticker or right sidebar */}
-      {broadcastSettings.showPrizes && prizeAllocations.length > 0 && !(isDayBased && currentBlindIsBreak) && (
-        broadcastSettings.prizesLayout === 'sidebar' ? (
-          <PrizeSidebar prizes={prizeAllocations} prizeScale={prizeScale} labels={L} />
-        ) : (
-          <PrizeTicker prizes={prizeAllocations} fontScale={fontScale} prizeScale={prizeScale} labels={L} />
-        )
-      )}
+      </TvStage>
 
       {/* Legacy Break Overlay (non-day tournaments only) */}
       {!isDayBased && isOnBreak && (
         <div className="break-overlay">
           <div className="break-content">
-            <div className="break-icon"></div>
-            <h1 className="break-title">{t('broadcast.break').toUpperCase()}</h1>
-            <div className="break-timer">{formatTime(breakTimeRemaining)}</div>
+            <div className="break-title">{t('broadcast.break').toUpperCase()}</div>
+            <div className="break-timer">{formatClock(breakTimeRemaining)}</div>
             <p className="break-subtitle">{t('broadcast.breakMessage')}</p>
           </div>
         </div>
       )}
 
       {/* Ajuste de fonte — invisível até o cursor chegar no canto inferior direito.
-          Fica fora do BreakScreen de propósito: no intervalo também se calibra. */}
+          Fica fora do palco de propósito: é controle, não conteúdo, e no
+          intervalo também se calibra. */}
       <div
         className={`broadcast-font-controls${controlesVisiveis ? ' is-visible' : ''}`}
         role="group"
@@ -1051,21 +487,21 @@ const TournamentBroadcast = () => {
           type="button"
           className="broadcast-font-controls__btn"
           onClick={() => ajustarFonte(+FONTE_PASSO)}
-          disabled={broadcastSettings.fontSize >= FONTE_MAX}
+          disabled={settings.fontSize >= FONTE_MAX}
           aria-label={t('broadcast.fontIncrease')}
           title={t('broadcast.fontIncrease')}
         >+</button>
-        <span className="broadcast-font-controls__value">{broadcastSettings.fontSize}%</span>
+        <span className="broadcast-font-controls__value">{settings.fontSize}%</span>
         <button
           type="button"
           className="broadcast-font-controls__btn"
           onClick={() => ajustarFonte(-FONTE_PASSO)}
-          disabled={broadcastSettings.fontSize <= FONTE_MIN}
+          disabled={settings.fontSize <= FONTE_MIN}
           aria-label={t('broadcast.fontDecrease')}
           title={t('broadcast.fontDecrease')}
         >−</button>
       </div>
-    </div>
+    </>
   );
 };
 

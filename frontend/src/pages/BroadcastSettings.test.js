@@ -15,18 +15,23 @@
  * O código público da TV é carregado em SEPARADO, para que uma falha nele não
  * trave a tela de configuração.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import BroadcastSettings from './BroadcastSettings';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { supabase } from '../config/supabase';
+import { downscaleImage } from '../utils/imageDownscale';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
   default: { get: jest.fn(), patch: jest.fn() },
 }));
+// Biblioteca de fundos: Storage + tabela direto do navegador (sem backend).
+jest.mock('../config/supabase', () => ({ supabase: { from: jest.fn(), storage: { from: jest.fn() } } }));
+jest.mock('../utils/imageDownscale', () => ({ downscaleImage: jest.fn() }));
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
@@ -81,15 +86,46 @@ const alternar = async (rotulo) => {
   await userEvent.click(marca.querySelector('input[type="checkbox"]'));
 };
 
+const FUNDO = { id: 'b1', path: 'org-1/salao.webp', name: 'salao.webp', content_type: 'image/webp', size_bytes: 100, created_at: '2026-10-01' };
+const FUNDO_URL = 'https://cdn/org-1/salao.webp';
+
+let confirmar;
+let tabela;
+let storage;
+
+/** Builder encadeável e "thenable" do supabase-js (resetMocks apaga tudo: refeito a cada teste). */
+const builder = (rows) => {
+  const q = { _result: { data: rows, error: null } };
+  ['select', 'order', 'eq', 'single'].forEach((m) => { q[m] = jest.fn(() => q); });
+  q.insert = jest.fn((row) => { q._result = { data: { id: 'novo', created_at: '2026-10-08', ...row }, error: null }; return q; });
+  q.delete = jest.fn(() => { q._result = { error: null }; return q; });
+  q.then = (ok, ko) => Promise.resolve(q._result).then(ok, ko);
+  return q;
+};
+
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
-  useToast.mockReturnValue({ toast });
-  useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}` });
+  confirmar = jest.fn().mockResolvedValue(true);
+  useToast.mockReturnValue({ toast, confirm: confirmar });
+  useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${Number(v || 0).toFixed(2)}`, currency: 'BRL' });
   api.patch.mockResolvedValue({ data: {} });
+  tabela = builder([FUNDO]);
+  storage = {
+    upload: jest.fn(async () => ({ error: null })),
+    remove: jest.fn(async () => ({ error: null })),
+    getPublicUrl: jest.fn((p) => ({ data: { publicUrl: `https://cdn/${p}` } })),
+  };
+  supabase.from.mockImplementation(() => tabela);
+  supabase.storage.from.mockImplementation(() => storage);
+  downscaleImage.mockImplementation(async (f) => ({ blob: f, ext: 'jpg', contentType: 'image/jpeg' }));
+  localStorage.setItem('supabase_token', `x.${btoa(JSON.stringify({ organization_id: 'org-1' }))}.y`);
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
-afterEach(() => console.error.mockRestore());
+afterEach(() => {
+  console.error.mockRestore();
+  localStorage.clear();
+});
 
 describe('carga', () => {
   it('mostra o carregamento antes dos dados', () => {
@@ -159,6 +195,123 @@ describe('padrões de um dia antigo', () => {
     await salvar();
     await waitFor(() => expect(api.patch).toHaveBeenCalled());
     expect(enviado().broadcast_timer_color).toBe('#ff0000');
+  });
+
+  it('reentradas nasce DESLIGADA e o escurecimento do fundo em 45%', async () => {
+    // Reentradas é número novo: ligar sozinho mudaria o telão de todo clube.
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_reentries).toBe(false);
+    expect(enviado().broadcast_bg_overlay).toBe(45);
+  });
+});
+
+/**
+ * Biblioteca de fundos: as imagens ficam no Storage (bucket público) e o dia
+ * guarda só a URL — antes o arquivo inteiro viajava em base64 na linha do dia,
+ * reenviado a cada poll de 30 s do telão.
+ */
+describe('biblioteca de fundos', () => {
+  const galeriaPrincipal = () => document.querySelectorAll('.bg-gallery')[0];
+  const galeriaIntervalo = () => document.querySelectorAll('.bg-gallery')[1];
+  const arquivo = (tipo = 'image/png') => new File(['x'], 'nova.png', { type: tipo });
+
+  it('lista as imagens do clube nos dois seletores (principal e intervalo)', async () => {
+    await montar();
+    expect(supabase.from).toHaveBeenCalledWith('broadcast_backgrounds');
+    expect(galeriaPrincipal().querySelector(`img[src="${FUNDO_URL}"]`)).toBeInTheDocument();
+    expect(galeriaIntervalo().querySelector(`img[src="${FUNDO_URL}"]`)).toBeInTheDocument();
+  });
+
+  it('escolher um preset grava preset:<nome>; "nenhuma" grava NULO', async () => {
+    await montar();
+    await userEvent.click(galeriaPrincipal().querySelector('[data-preset="navy"]'));
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_image_url).toBe('preset:navy');
+
+    api.patch.mockClear();
+    await userEvent.click(galeriaPrincipal().querySelector('.bg-tile--none'));
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_image_url).toBeNull();
+  });
+
+  it('escolher uma imagem da biblioteca grava a URL pública e a prévia a usa', async () => {
+    await montar();
+    await userEvent.click(galeriaPrincipal().querySelector('.bg-tile-pick'));
+    expect(document.querySelector('.bs-preview-stage .tv-bg').style.backgroundImage).toBe(`url(${FUNDO_URL})`);
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_image_url).toBe(FUNDO_URL);
+  });
+
+  it('enviar uma imagem sobe para {org}/{uuid}.{ext}, grava a linha e seleciona a URL pública', async () => {
+    await montar();
+    await userEvent.upload(screen.getByTestId('bg-upload-input'), arquivo());
+    await waitFor(() => expect(storage.upload).toHaveBeenCalled());
+    const [path] = storage.upload.mock.calls[0];
+    expect(path).toMatch(/^org-1\/[A-Za-z0-9-]+\.jpg$/);
+    expect(tabela.insert).toHaveBeenCalledWith(expect.objectContaining({ path, name: 'nova.png' }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Imagem enviada.'));
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_image_url).toBe(`https://cdn/${path}`);
+  });
+
+  it('tipo que não é imagem suportada é recusado e nada sobe', async () => {
+    await montar();
+    // `fireEvent` e não `userEvent.upload`: este último respeita o `accept` do
+    // input e nem entregaria o GIF — aqui se testa a recusa do hook.
+    fireEvent.change(screen.getByTestId('bg-upload-input'), { target: { files: [arquivo('image/gif')] } });
+    await waitFor(() => expect(toast.warning).toHaveBeenCalledWith('Use JPG, PNG ou WebP.'));
+    expect(storage.upload).not.toHaveBeenCalled();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_image_url).toBeNull();
+  });
+
+  it('excluir a imagem em uso limpa o fundo principal E o do intervalo', async () => {
+    await montar({ dia: { ...DIA, broadcast_bg_image_url: FUNDO_URL, broadcast_break_bg_image_url: FUNDO_URL } });
+    await userEvent.click(galeriaPrincipal().querySelector('.bg-tile-delete'));
+    await waitFor(() => expect(storage.remove).toHaveBeenCalledWith(['org-1/salao.webp']));
+    expect(tabela.delete).toHaveBeenCalled();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_image_url).toBeNull();
+    expect(enviado().broadcast_break_bg_image_url).toBeNull();
+  });
+
+  it('escurecimento é salvo, e zero é respeitado', async () => {
+    await montar({ dia: { ...DIA, broadcast_bg_overlay: 0 } });
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_overlay).toBe(0);
+
+    api.patch.mockClear();
+    fireEvent.change(screen.getByTestId('bg-overlay-input'), { target: { value: '60' } });
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_overlay).toBe(60);
+  });
+
+  it('o fundo do intervalo tem seletor próprio, sem escurecimento', async () => {
+    await montar();
+    expect(screen.queryByTestId('break-bg-overlay-input')).toBeNull();
+    await userEvent.click(galeriaIntervalo().querySelector('[data-preset="felt"]'));
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_break_bg_image_url).toBe('preset:felt');
+    expect(enviado().broadcast_bg_image_url).toBeNull();
+  });
+
+  it('imagem antiga em base64 continua valendo e aparece como tile', async () => {
+    await montar({ dia: { ...DIA, broadcast_bg_image_url: 'data:image/png;base64,AAAA' } });
+    expect(galeriaPrincipal().querySelector('.bg-tile--legacy')).toHaveClass('is-selected');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_bg_image_url).toBe('data:image/png;base64,AAAA');
   });
 });
 
@@ -320,7 +473,7 @@ describe('logo do clube', () => {
     // Sem isso o operador configura a logo, não a vê na prévia e acha que
     // está quebrado.
     await montar({ dia: { ...DIA, broadcast_club_logo_url: 'https://clube.com/logo.png' } });
-    expect(document.querySelector('.bs-preview-club-logo')).toHaveAttribute(
+    expect(document.querySelector('.tv-club-logo-img')).toHaveAttribute(
       'src', 'https://clube.com/logo.png'
     );
   });
@@ -329,7 +482,7 @@ describe('logo do clube', () => {
     await montar({
       dia: { ...DIA, broadcast_club_logo_url: 'https://clube.com/logo.png', broadcast_show_club_logo: false },
     });
-    expect(document.querySelector('.bs-preview-club-logo')).toBeNull();
+    expect(document.querySelector('.tv-club-logo-img')).toBeNull();
   });
 });
 

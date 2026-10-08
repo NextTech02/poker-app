@@ -1,5 +1,9 @@
 # Tournament Broadcast Feature - Setup Instructions
 
+> **Atualização (out/2026):** o telão ganhou layout novo, biblioteca de fundos
+> no Storage e uma rota pública de extras (prêmios/moeda/clube). Ordem de
+> deploy e detalhes em [BROADCAST_TV_LAYOUT_2026-10.md](BROADCAST_TV_LAYOUT_2026-10.md).
+
 ## Overview
 I've implemented a tournament broadcast display system with configurable blind structures. This guide will help you complete the setup.
 

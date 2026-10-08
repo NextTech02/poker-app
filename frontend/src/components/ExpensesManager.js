@@ -6,20 +6,13 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import Button from './Button';
 import EmptyState from './EmptyState';
+// A organização vem do token: o caminho do arquivo começa por ela e é isso que
+// a policy do Storage compara para isolar os clubes (mesmo helper da
+// biblioteca de fundos do telão).
+import { currentOrgId } from '../utils/orgFromToken';
 import './ExpensesManager.css';
 
 const BUCKET = 'comprovantes';
-
-// A organização vem do token: o caminho do arquivo começa por ela e é isso que
-// a policy do Storage compara para isolar os clubes.
-const currentOrgId = () => {
-  try {
-    const tok = localStorage.getItem('supabase_token');
-    return JSON.parse(atob(tok.split('.')[1])).organization_id || null;
-  } catch (_) {
-    return null;
-  }
-};
 
 const fmtSize = (b) => {
   const n = Number(b) || 0;

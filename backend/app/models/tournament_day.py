@@ -82,25 +82,29 @@ class TournamentDayBase(BaseModel):
 
     # Broadcast settings (per-day)
     broadcast_language: str = Field(default='pt-BR', description="Display language for broadcast screen (pt-BR, en, es)")
-    broadcast_bg_color: Optional[str] = Field(default="#0a0e13")
+    # Cores: NULL = "padrão do app" (o telão decide; hoje dourado sobre marinho).
+    # Sem default aqui de propósito — `create_tournament_day` grava TODOS os
+    # campos do modelo, e um default fixo congelaria a paleta de cada dia na
+    # cor da época em que ele foi criado (foi o que aconteceu com #d4af37).
+    broadcast_bg_color: Optional[str] = Field(default=None)
     broadcast_bg_image_url: Optional[str] = Field(default=None)
     broadcast_display_name: Optional[str] = Field(default=None)
     broadcast_font_size: int = Field(default=100, ge=50, le=200)
     broadcast_prize_size: int = Field(default=100, ge=50, le=300, description="Font size % for prize ticker bar")
-    broadcast_prizepool_label_color: str = Field(default='#ffffff')
-    broadcast_prizepool_value_color: str = Field(default='#ffffff')
+    broadcast_prizepool_label_color: Optional[str] = Field(default=None)
+    broadcast_prizepool_value_color: Optional[str] = Field(default=None)
     broadcast_prizepool_size: int = Field(default=100, ge=50, le=300)
     # Per-element colors
-    broadcast_timer_color: str = Field(default='#d4af37')
-    broadcast_title_color: str = Field(default='#d4af37')
-    broadcast_blinds_label_color: str = Field(default='#d4af37')
-    broadcast_blinds_value_color: str = Field(default='#ffffff')
-    broadcast_ante_label_color: str = Field(default='#d4af37')
-    broadcast_ante_value_color: str = Field(default='#d4af37')
-    broadcast_next_label_color: str = Field(default='#d4af37')
-    broadcast_next_value_color: str = Field(default='#9ca3af')
-    broadcast_sidebar_label_color: str = Field(default='#9ca3af')
-    broadcast_sidebar_value_color: str = Field(default='#d4af37')
+    broadcast_timer_color: Optional[str] = Field(default=None)
+    broadcast_title_color: Optional[str] = Field(default=None)
+    broadcast_blinds_label_color: Optional[str] = Field(default=None)
+    broadcast_blinds_value_color: Optional[str] = Field(default=None)
+    broadcast_ante_label_color: Optional[str] = Field(default=None)
+    broadcast_ante_value_color: Optional[str] = Field(default=None)
+    broadcast_next_label_color: Optional[str] = Field(default=None)
+    broadcast_next_value_color: Optional[str] = Field(default=None)
+    broadcast_sidebar_label_color: Optional[str] = Field(default=None)
+    broadcast_sidebar_value_color: Optional[str] = Field(default=None)
     broadcast_show_logo: bool = Field(default=True)
     # Logo DO CLUBE (canto direito do cabeçalho). É separada da logo do AceBlind,
     # à esquerda: o clube quer a marca dele no telão do salão sem perder a nossa.
@@ -119,12 +123,15 @@ class TournamentDayBase(BaseModel):
     broadcast_show_prizes: bool = Field(default=True)
     broadcast_show_chipcount: bool = Field(default=True)
     broadcast_show_average: bool = Field(default=True)
+    # Padrão DESLIGADO: o número não existia até 2026-09 e ligá-lo sozinho
+    # mudaria o telão de todos os clubes sem ninguém ter pedido.
+    broadcast_show_reentries: bool = Field(default=False, description="Show re-entries (rebuys + add-ons) on the broadcast sidebar")
     broadcast_blind_alerts_enabled: bool = Field(default=True, description="Whether audio beeps fire 60s/30s/1s before a blind change")
     broadcast_prizes_layout: str = Field(default='bottom', description="Where the prize list renders: 'bottom' (scrolling ticker) or 'sidebar' (right column)")
 
     # Break screen settings (separate configurable layout shown during breaks)
     broadcast_break_layout: Optional[str] = Field(default='split')
-    broadcast_break_bg_color: Optional[str] = Field(default='#0a0e13')
+    broadcast_break_bg_color: Optional[str] = Field(default=None)
     broadcast_break_bg_image_url: Optional[str] = Field(default=None)
     broadcast_break_youtube_url: Optional[str] = Field(default=None)
     broadcast_break_show_video: bool = Field(default=True)
@@ -135,10 +142,10 @@ class TournamentDayBase(BaseModel):
     broadcast_break_show_average: bool = Field(default=True)
     broadcast_break_overlay_opacity: int = Field(default=70, ge=0, le=100)
     broadcast_break_font_size: int = Field(default=100, ge=50, le=300, description="Font size % for break screen info panel")
-    broadcast_break_timer_color: Optional[str] = Field(default='#d4af37')
-    broadcast_break_label_color: Optional[str] = Field(default='#9ca3af')
-    broadcast_break_value_color: Optional[str] = Field(default='#d4af37')
-    broadcast_break_title_color: Optional[str] = Field(default='#ffffff')
+    broadcast_break_timer_color: Optional[str] = Field(default=None)
+    broadcast_break_label_color: Optional[str] = Field(default=None)
+    broadcast_break_value_color: Optional[str] = Field(default=None)
+    broadcast_break_title_color: Optional[str] = Field(default=None)
 
 
 class TournamentDayCreate(TournamentDayBase):
@@ -216,6 +223,7 @@ class TournamentDayUpdate(BaseModel):
     broadcast_show_prizes: Optional[bool] = None
     broadcast_show_chipcount: Optional[bool] = None
     broadcast_show_average: Optional[bool] = None
+    broadcast_show_reentries: Optional[bool] = None
     broadcast_blind_alerts_enabled: Optional[bool] = None
     broadcast_prizes_layout: Optional[str] = None
 
@@ -236,6 +244,9 @@ class TournamentDayUpdate(BaseModel):
     broadcast_break_label_color: Optional[str] = None
     broadcast_break_value_color: Optional[str] = None
     broadcast_break_title_color: Optional[str] = None
+    # Escurecimento (%) sobre a imagem de fundo do telão. 0..90: acima disso a
+    # imagem some e o clube acha que o upload falhou.
+    broadcast_bg_overlay: Optional[int] = Field(None, ge=0, le=90)
 
 
 class TournamentDay(TournamentDayBase):
@@ -271,6 +282,11 @@ class TournamentDay(TournamentDayBase):
     sales_blocked_reason: Optional[str] = None
     sales_blocked_at: Optional[datetime] = None
     sales_blocked_by: Optional[str] = None
+
+    # Escurecimento da imagem de fundo do telão. Mesmo motivo do
+    # sales_blocked: só na resposta/update, para a criação do dia não
+    # depender da coluna existir.
+    broadcast_bg_overlay: int = 45
 
     class Config:
         from_attributes = True

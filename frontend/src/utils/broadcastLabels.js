@@ -23,6 +23,9 @@ const BROADCAST_LABELS = {
     placeLabel:     (n) => `${n}º Lugar`,
     breakOverlay:   'INTERVALO',
     breakOverlayMsg:'O torneio está em intervalo',
+    completed:      'ENCERRADO',
+    totalPlayers:   'TOTAL DE JOGADORES',
+    seat:           'VAGA',           // prêmio do tipo vaga (sem valor em dinheiro)
   },
   'en': {
     level:          'LEVEL',
@@ -49,6 +52,9 @@ const BROADCAST_LABELS = {
     },
     breakOverlay:   'BREAK',
     breakOverlayMsg:'Tournament is on break',
+    completed:      'COMPLETED',
+    totalPlayers:   'TOTAL PLAYERS',
+    seat:           'SEAT',
   },
   'es': {
     level:          'NIVEL',
@@ -71,6 +77,9 @@ const BROADCAST_LABELS = {
     placeLabel:     (n) => `${n}º Puesto`,
     breakOverlay:   'DESCANSO',
     breakOverlayMsg:'El torneo está en descanso',
+    completed:      'FINALIZADO',
+    totalPlayers:   'TOTAL DE JUGADORES',
+    seat:           'ENTRADA',
   },
 };
 

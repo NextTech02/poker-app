@@ -367,7 +367,6 @@ def delete_organization(org_id: str):
     """
     try:
         result = supabase_admin.rpc("delete_organization", {"p_org": org_id}).execute()
-        return result.data if not isinstance(result.data, list) else (result.data or [{}])[0]
     except Exception as exc:
         msg = str(exc)
         if "Suspenda" in msg:
@@ -385,6 +384,47 @@ def delete_organization(org_id: str):
             "falha_ao_excluir_organizacao",
             "Não foi possível excluir a organização. Consulte o suporte.",
         )
+
+    # Só DEPOIS de o banco confirmar: se a RPC recusar (org ativa, inexistente),
+    # os arquivos têm de continuar lá. O Storage não participa do cascade SQL.
+    _limpar_storage_da_org(org_id)
+    return result.data if not isinstance(result.data, list) else (result.data or [{}])[0]
+
+
+# Buckets com pasta por organização (`{org}/...`). Ao excluir o clube, as
+# linhas de metadados caem pelo cascade, mas os objetos ficariam órfãos —
+# ocupando espaço e, no bucket público de fundos, acessíveis por link.
+_BUCKETS_POR_ORG = ("broadcast-backgrounds", "comprovantes")
+
+
+def _listar_arquivos(bucket: str, pasta: str, profundidade: int = 0) -> list:
+    """Caminhos de TODOS os objetos sob `pasta` (recursivo; o Storage lista
+    um nível por vez e devolve subpastas como itens sem `id`)."""
+    if profundidade > 4:
+        return []
+    caminhos = []
+    for item in supabase_admin.storage.from_(bucket).list(pasta) or []:
+        nome = (item or {}).get("name")
+        if not nome:
+            continue
+        caminho = f"{pasta}/{nome}"
+        if item.get("id") is None:  # subpasta
+            caminhos.extend(_listar_arquivos(bucket, caminho, profundidade + 1))
+        else:
+            caminhos.append(caminho)
+    return caminhos
+
+
+def _limpar_storage_da_org(org_id: str) -> None:
+    """Best-effort: falha aqui vira aviso no log, nunca erro para o painel —
+    a organização já foi excluída do banco."""
+    for bucket in _BUCKETS_POR_ORG:
+        try:
+            caminhos = _listar_arquivos(bucket, org_id)
+            for i in range(0, len(caminhos), 100):
+                supabase_admin.storage.from_(bucket).remove(caminhos[i:i + 100])
+        except Exception as exc:
+            logger.warning("Storage da org %s no bucket %s não foi limpo: %s", org_id, bucket, exc)
 
 
 # ── Multi-organização: o mesmo usuário pode pertencer a vários clubes ────────
