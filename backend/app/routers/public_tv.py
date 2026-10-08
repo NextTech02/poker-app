@@ -1,12 +1,29 @@
 """Rotas PÚBLICAS (sem auth) para exibição de blinds em TVs via código."""
+from uuid import UUID
+
 from fastapi import APIRouter
 
+from app.models.prize_allocation import BroadcastPrizes
+from app.services.prize_allocation_service import PrizeAllocationService
 from app.services.tournament_day_service import TournamentDayService
 # A TV do salao e publica, mas a recusa ainda e lida por quem a instala:
 # vai com `code` para a tela escolher a frase (ver app/utils/erros.py).
 from app.utils.erros import da_excecao
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+
+@router.get("/broadcast/{tournament_id}/prizes", response_model=BroadcastPrizes)
+def broadcast_prizes(tournament_id: UUID):
+    """Premiação para o telão do salão, sem autenticação.
+
+    `GET /tournaments/{id}/prizes` e `/prizes/summary` exigem login, e a TV
+    aberta pelo código não tem — por isso ela nunca mostrava a coluna de
+    prêmios e exibia o prizepool antigo do dia. Esta rota devolve só o que o
+    público pode ver: prizepool disponível e faixas visíveis, sem rake, sem
+    entradas brutas, sem nome de ganhador nem situação de pagamento.
+    """
+    return PrizeAllocationService.get_broadcast_prizes(tournament_id)
 
 
 @router.get("/tv/{code}")

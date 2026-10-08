@@ -111,10 +111,12 @@ const responder = ({
       return torneio instanceof Error ? Promise.reject(torneio) : ok(torneio);
     }
     if (url.startsWith('/tournament-players/')) return ok(inscritos);
-    if (url.endsWith('/prizes')) {
-      return premios instanceof Error ? Promise.reject(premios) : ok(premios);
+    // Rota pública da premiação: prizepool disponível + faixas. `resumo: {}`
+    // simula servidor sem prizepool calculado (cai no prize pool do dia).
+    if (url === '/public/broadcast/t1/prizes' || url === '/public/broadcast/x1/prizes') {
+      if (premios instanceof Error) return Promise.reject(premios);
+      return ok({ prize_pool: resumo?.available_prize_pool ?? null, prizes: premios });
     }
-    if (url.endsWith('/prizes/summary')) return ok(resumo);
     if (url.endsWith('/aggregated-stats')) {
       return estatisticas instanceof Error ? Promise.reject(estatisticas) : ok(estatisticas);
     }

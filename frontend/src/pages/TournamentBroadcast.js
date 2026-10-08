@@ -368,13 +368,13 @@ const TournamentBroadcast = () => {
 
       try {
         const tournamentIdForPrizes = dayData ? dayData.tournament_id : id;
-        const [prizesRes, summaryRes] = await Promise.all([
-          api.get(`/tournaments/${tournamentIdForPrizes}/prizes`),
-          api.get(`/tournaments/${tournamentIdForPrizes}/prizes/summary`),
-        ]);
-        // Feature 4.4: faixas com visible=false somem da exibição pública (sem apagar o dado)
-        setPrizeAllocations((prizesRes.data || []).filter((p) => p.visible !== false));
-        setPrizeSummary(summaryRes.data || null);
+        // Rota PÚBLICA: a TV do salão abre pelo código, sem login, e as rotas
+        // normais de prêmios exigem usuário — por isso a TV nunca mostrava a
+        // premiação. Esta devolve só prizepool disponível e faixas visíveis.
+        const { data } = await api.get(`/public/broadcast/${tournamentIdForPrizes}/prizes`);
+        // O servidor já esconde visible=false; o filtro fica como cinto de segurança.
+        setPrizeAllocations((data?.prizes || []).filter((p) => p.visible !== false));
+        setPrizeSummary(data?.prize_pool != null ? { available_prize_pool: data.prize_pool } : null);
       } catch {
         setPrizeAllocations([]);
         setPrizeSummary(null);

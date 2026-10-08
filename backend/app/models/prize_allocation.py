@@ -89,3 +89,21 @@ class PrizeSummary(BaseModel):
     remaining_balance: Decimal = Decimal("0")  # payable_pool - allocated
     allocations: list[PrizeAllocationResponse] = []
     has_qualifying_days: bool = False  # True if tournament has qualifying structure
+
+
+class BroadcastPrize(BaseModel):
+    """Uma faixa de premiação como o telão a mostra: só posição e valor."""
+    position: int
+    prize_amount: Decimal
+
+
+class BroadcastPrizes(BaseModel):
+    """O que a TV do salão precisa saber sobre a premiação, e NADA além disso.
+
+    A tela de transmissão é pública (abre pelo código da TV, sem login), e o
+    PrizeSummary completo leva junto rake, entradas brutas, reserva e quem já
+    foi pago — nada disso é para o salão. Aqui vai só o prizepool disponível e
+    as faixas marcadas como visíveis.
+    """
+    prize_pool: Decimal = Decimal("0")
+    prizes: list[BroadcastPrize] = []
