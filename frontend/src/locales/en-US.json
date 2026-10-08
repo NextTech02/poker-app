@@ -526,7 +526,10 @@
     "breakMessage": "Tournament will resume shortly",
     "intervalIn": "Break in",
     "finalDay": "FINAL DAY",
-    "qualifyingDay": "QUALIFYING"
+    "qualifyingDay": "QUALIFYING",
+    "fontSizeControls": "Font size",
+    "fontIncrease": "Increase font",
+    "fontDecrease": "Decrease font"
   },
   "cashRegister": {
     "unknownError": "Unknown error",

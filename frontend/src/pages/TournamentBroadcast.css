@@ -1020,3 +1020,61 @@
   position: absolute;
   inset: 0;
 }
+
+/* ── Ajuste de fonte pelo próprio telão (canto inferior direito) ──────────────
+   Invisível até o cursor chegar perto: o padding cria uma zona de acerto maior
+   que os botões, então não é preciso mirar neles. Empilhado na vertical e
+   colado à borda para não cobrir a caixa do prizepool, que termina ~72px antes
+   da borda. z-index acima do prizepool (100) e do ticker/sidebar (50), abaixo
+   do OrgScopeBanner (900) e dos toasts. Tamanhos em px fixos de propósito:
+   é controle, não conteúdo — não acompanha a fonte que ele mesmo ajusta. */
+.broadcast-font-controls {
+  position: fixed;
+  right: 8px;
+  bottom: calc(var(--prize-ticker-height, 0px) + 8px);
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.broadcast-font-controls:hover,
+.broadcast-font-controls:focus-within {
+  opacity: 1;
+}
+
+.broadcast-font-controls__btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.broadcast-font-controls__btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.85);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.broadcast-font-controls__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.broadcast-font-controls__value {
+  font-size: 12px;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+}

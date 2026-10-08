@@ -526,7 +526,10 @@
     "breakMessage": "El torneo continuará pronto",
     "intervalIn": "Descanso en",
     "finalDay": "DÍA FINAL",
-    "qualifyingDay": "CLASIFICATORIO"
+    "qualifyingDay": "CLASIFICATORIO",
+    "fontSizeControls": "Tamaño de fuente",
+    "fontIncrease": "Aumentar fuente",
+    "fontDecrease": "Reducir fuente"
   },
   "cashRegister": {
     "unknownError": "Error desconocido",

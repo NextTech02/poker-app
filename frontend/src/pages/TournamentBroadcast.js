@@ -7,6 +7,9 @@ import { useTimerSync, formatTime as formatTimerTime, formatTimeHuman } from '..
 import { usePolling } from '../hooks/usePolling';
 import BROADCAST_LABELS from '../utils/broadcastLabels';
 import { useCurrency } from '../contexts/CurrencyContext';
+import {
+  lerFonteLocal, gravarFonteLocal, limparFonteLocal, proximaFonte, FONTE_MIN, FONTE_MAX, FONTE_PASSO,
+} from '../utils/broadcastFontLocal';
 import './TournamentBroadcast.css';
 
 // Generate blinds structure from tournament day configuration (legacy fallback)
@@ -255,6 +258,13 @@ const TournamentBroadcast = () => {
   const [isDayBased, setIsDayBased] = useState(false);
   const [prizeAllocations, setPrizeAllocations] = useState([]);
   const [aggregatedStats, setAggregatedStats] = useState(null);
+
+  // Tamanho de fonte ajustado pelos botões +/− do próprio telão. Enquanto
+  // houver um valor aqui, ele vence o do servidor; vira null assim que o
+  // servidor aceita o PATCH (aí o dado volta a ter uma fonte só).
+  const [fonteLocal, setFonteLocal] = useState(() => lerFonteLocal(id));
+  const patchFonteTimer = useRef(null);
+  useEffect(() => () => clearTimeout(patchFonteTimer.current), []);
 
   // SINGLE SOURCE OF TRUTH for day-based tournaments (blinds passed for offline fallback)
   const { timerState } = useTimerSync(isDayBased ? id : null, blinds);
@@ -616,7 +626,7 @@ const TournamentBroadcast = () => {
     bgColor: bSource?.broadcast_bg_color || '#0a0e13',
     bgImageUrl: bSource?.broadcast_bg_image_url || null,
     displayName: bSource?.broadcast_display_name || null,
-    fontSize: bSource?.broadcast_font_size || 100,
+    fontSize: fonteLocal ?? (bSource?.broadcast_font_size || 100),
     showLogo: bSource?.broadcast_show_logo !== false,
     clubLogoUrl: bSource?.broadcast_club_logo_url || null,
     showClubLogo: bSource?.broadcast_show_club_logo !== false,
@@ -660,6 +670,40 @@ const TournamentBroadcast = () => {
 
   const L = BROADCAST_LABELS[broadcastSettings.language] || BROADCAST_LABELS['pt-BR'];
   const fontScale = broadcastSettings.fontSize / 100;
+
+  // Botões +/− do canto: a tela muda na hora; a gravação decide o destino.
+  // Logado (o mesmo token que api.js manda no Authorization) e com dia: vai
+  // para o servidor, com debounce para que cinco cliques virem um PATCH só.
+  // Sem login, sem dia, ou se o servidor recusar (token velho, sem permissão,
+  // sem rede): fica só neste aparelho. Sem toast — é tela pública, ninguém
+  // está operando; o próprio tamanho na tela é o retorno.
+  const ajustarFonte = (delta) => {
+    const proximo = proximaFonte(broadcastSettings.fontSize, delta);
+    if (proximo === broadcastSettings.fontSize) return;
+    setFonteLocal(proximo);
+
+    let logado = false;
+    try { logado = Boolean(localStorage.getItem('supabase_token')); } catch (e) { /* storage bloqueado */ }
+
+    if (!isDayBased || !logado) {
+      gravarFonteLocal(id, proximo);
+      return;
+    }
+
+    clearTimeout(patchFonteTimer.current);
+    patchFonteTimer.current = setTimeout(() => {
+      api.patch(`/tournament-days/${id}`, { broadcast_font_size: proximo })
+        .then(() => {
+          setTournamentDay((prev) => (prev ? { ...prev, broadcast_font_size: proximo } : prev));
+          // Se a pessoa clicou de novo enquanto este PATCH voava, o valor
+          // novo já está na tela e tem seu próprio PATCH a caminho: não apagar.
+          setFonteLocal((atual) => (atual === proximo ? null : atual));
+          limparFonteLocal(id);
+        })
+        .catch(() => gravarFonteLocal(id, proximo));
+    }, 500);
+  };
+
   const prizeScale = (bSource?.broadcast_prize_size || 100) / 100;
   const prizepoolScale = (bSource?.broadcast_prizepool_size || 100) / 100;
   const prizepoolLabelColor = bSource?.broadcast_prizepool_label_color || '#ffffff';
@@ -970,6 +1014,28 @@ const TournamentBroadcast = () => {
           </div>
         </div>
       )}
+
+      {/* Ajuste de fonte — invisível até o cursor chegar no canto inferior direito.
+          Fica fora do BreakScreen de propósito: no intervalo também se calibra. */}
+      <div className="broadcast-font-controls" role="group" aria-label={t('broadcast.fontSizeControls')}>
+        <button
+          type="button"
+          className="broadcast-font-controls__btn"
+          onClick={() => ajustarFonte(+FONTE_PASSO)}
+          disabled={broadcastSettings.fontSize >= FONTE_MAX}
+          aria-label={t('broadcast.fontIncrease')}
+          title={t('broadcast.fontIncrease')}
+        >+</button>
+        <span className="broadcast-font-controls__value">{broadcastSettings.fontSize}%</span>
+        <button
+          type="button"
+          className="broadcast-font-controls__btn"
+          onClick={() => ajustarFonte(-FONTE_PASSO)}
+          disabled={broadcastSettings.fontSize <= FONTE_MIN}
+          aria-label={t('broadcast.fontDecrease')}
+          title={t('broadcast.fontDecrease')}
+        >−</button>
+      </div>
     </div>
   );
 };
