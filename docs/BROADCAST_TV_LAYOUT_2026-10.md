@@ -115,6 +115,14 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   em todas as telas) e `POST /tournament-days/{id}/timer/pause|start`, com
   `refetch` para reconciliar. `user-select: none` no palco para o duplo
   clique não selecionar texto.
+- **Navegador de TV antigo (regra de CSS).** O telão roda no navegador da
+  própria TV (Hisense/VIDAA e afins, Chromium velho). Na foto do cliente
+  (2026-10-08) o título saiu minúsculo e o resto grande: o teto do título
+  usava `min()` (Chrome 79+) SEM reserva, a regra era descartada e sobrava o
+  tamanho padrão do `h1`. Regra: em `TvScreen.css`, toda propriedade com
+  `min()`/`max()`/`clamp()`/`inset` fora de `@supports` tem antes uma
+  declaração simples (`calc(... * var(--tv-font))`, `top/right/bottom/left`);
+  container queries ficam só dentro de `@supports (container-type: size)`.
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas

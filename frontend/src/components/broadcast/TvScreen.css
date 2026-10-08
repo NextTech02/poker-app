@@ -35,6 +35,7 @@
 
 .tv-root--viewport {
   position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;   /* reserva p/ navegador de TV antigo */
   inset: 0;
   width: 100vw;
   height: 100vh;
@@ -47,12 +48,14 @@
 
 .tv-bg {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;   /* reserva p/ navegador de TV antigo */
   inset: 0;
   background: #0b1020;
 }
 
 .tv-bg-overlay {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;   /* reserva p/ navegador de TV antigo */
   inset: 0;
   background: rgba(4, 7, 18, var(--tv-overlay, 0));
 }
@@ -152,7 +155,10 @@
 .tv-title-text {
   margin: 0;
   font-family: var(--font-display, 'Sora', sans-serif);
-  /* teto: a fonte de 160% não pode comer o corpo da tela */
+  /* Reserva SEM min(): navegador de TV antigo (Hisense/VIDAA, Chrome < 79)
+     não entende min() e descartava a regra — o título ficava minúsculo
+     enquanto o resto crescia. A linha de baixo é o teto nos modernos. */
+  font-size: calc(58px * var(--tv-font, 1));
   font-size: min(calc(58px * var(--tv-font, 1)), 76px);
   font-weight: 800;
   line-height: 1.05;
@@ -372,6 +378,7 @@
 
 .tv-ring {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;   /* reserva p/ navegador de TV antigo */
   inset: 0;
   width: 100%;
   height: 100%;
@@ -561,6 +568,7 @@
 }
 
 .tv-buytype-name {
+  font-size: calc(30px * var(--tv-font, 1));
   font-size: min(calc(30px * var(--tv-font, 1)), 40px);
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -569,12 +577,14 @@
 }
 
 .tv-buytype-colon {
+  font-size: calc(30px * var(--tv-font, 1));
   font-size: min(calc(30px * var(--tv-font, 1)), 40px);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.55);
 }
 
 .tv-buytype-amount {
+  font-size: calc(34px * var(--tv-font, 1));
   font-size: min(calc(34px * var(--tv-font, 1)), 44px);
   font-weight: 800;
   color: var(--tv-c-tile-value, var(--tv-accent));
@@ -875,6 +885,7 @@
 
 .tv-break-video-placeholder {
   position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;   /* reserva p/ navegador de TV antigo */
   inset: 0;
   background:
     radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.05), transparent 60%);
