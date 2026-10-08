@@ -85,3 +85,12 @@ describe('colocação', () => {
     expect(BROADCAST_LABELS.en.placeLabel(posicao)).toBe(esperado);
   });
 });
+
+describe('faixa de colocações', () => {
+  it('português e espanhol: "7º–9º"; inglês com ordinais', () => {
+    expect(BROADCAST_LABELS['pt-BR'].placeRangeLabel(7, 9)).toBe('7º–9º Lugar');
+    expect(BROADCAST_LABELS.es.placeRangeLabel(20, 35)).toBe('20º–35º Puesto');
+    expect(BROADCAST_LABELS.en.placeRangeLabel(7, 9)).toBe('7th–9th Place');
+    expect(BROADCAST_LABELS.en.placeRangeLabel(21, 23)).toBe('21st–23rd Place');
+  });
+});

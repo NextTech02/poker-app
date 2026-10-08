@@ -6,7 +6,7 @@
  */
 import {
   buildTvModel, buildTvSettings, blindValuesAt, formatClock, formatCountdown, formatChips,
-  shadeHex, extractYouTubeId, promoKind,
+  shadeHex, extractYouTubeId, promoKind, groupPrizeRanges,
 } from './tvModel';
 import { TV_ACCENT, TV_DEFAULT_SETTINGS } from './tvDefaults';
 
@@ -277,5 +277,35 @@ describe('divulgação (promoKind e settings)', () => {
     expect(buildTvSettings({ broadcast_show_promo: false }).showPromo).toBe(false);
     expect(buildTvSettings({ broadcast_promo_fit: 'cover' }).promoFit).toBe('cover');
     expect(buildTvSettings({ broadcast_promo_fit: 'qualquer' }).promoFit).toBe('contain');
+  });
+});
+
+describe('groupPrizeRanges (faixas de premiação no telão)', () => {
+  const cash = (position, prize_amount, extra = {}) => ({ position, prize_amount, prize_type: 'cash', ...extra });
+
+  it('colocações consecutivas de mesmo prêmio viram uma faixa', () => {
+    const g = groupPrizeRanges([cash(1, 1000), cash(2, 500), cash(3, 300), cash(4, 300), cash(5, 300), cash(6, 100)]);
+    expect(g.map((p) => [p.position, p.position_end])).toEqual([[1, null], [2, null], [3, 5], [6, null]]);
+    expect(g[2].prize_amount).toBe(300);
+  });
+
+  it('ordena antes de agrupar e ignora posição inválida', () => {
+    const g = groupPrizeRanges([cash(9, 400), cash(7, 400), { position: 'x', prize_amount: 1 }, cash(8, 400)]);
+    expect(g).toHaveLength(1);
+    expect([g[0].position, g[0].position_end]).toEqual([7, 9]);
+  });
+
+  it('mesmo valor mas tipos (ou dias de vaga) diferentes não se misturam; buraco na sequência separa', () => {
+    const g = groupPrizeRanges([
+      cash(1, 250), { position: 2, prize_amount: 250, prize_type: 'vaga', vaga_target_day_id: 'd1' },
+      { position: 3, prize_amount: 250, prize_type: 'vaga', vaga_target_day_id: 'd2' },
+      cash(5, 250), cash(6, 250),
+    ]);
+    expect(g.map((p) => [p.position, p.position_end])).toEqual([[1, null], [2, null], [3, null], [5, 6]]);
+  });
+
+  it('vazio ou nulo devolve lista vazia', () => {
+    expect(groupPrizeRanges([])).toEqual([]);
+    expect(groupPrizeRanges(null)).toEqual([]);
   });
 });

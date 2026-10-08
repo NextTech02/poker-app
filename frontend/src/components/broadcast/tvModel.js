@@ -48,6 +48,32 @@ export const formatCountdown = (seconds) => {
 
 export const formatChips = (n) => (Number(n) || 0).toLocaleString('pt-BR');
 
+/**
+ * Agrupa colocações CONSECUTIVAS com o mesmo prêmio numa faixa ("7º–9º"):
+ * o cadastro continua sendo uma linha por posição (cada uma é paga a um
+ * jogador), mas o telão lê como a tabela de pagamentos de sempre. Vaga e
+ * dinheiro de mesmo valor não se misturam; vagas para dias diferentes idem.
+ * Devolve `{ ...faixa, position, position_end }` (position_end nulo = só uma).
+ */
+export const groupPrizeRanges = (prizes) => {
+  const ordenados = [...(prizes || [])]
+    .filter((p) => p && Number.isFinite(Number(p.position)))
+    .sort((a, b) => Number(a.position) - Number(b.position));
+  const grupos = [];
+  for (const p of ordenados) {
+    const pos = Number(p.position);
+    const ultimo = grupos[grupos.length - 1];
+    const continua = !!ultimo
+      && pos === Number(ultimo.position_end ?? ultimo.position) + 1
+      && Number(ultimo.prize_amount || 0) === Number(p.prize_amount || 0)
+      && (ultimo.prize_type || 'cash') === (p.prize_type || 'cash')
+      && (ultimo.vaga_target_day_id || null) === (p.vaga_target_day_id || null);
+    if (continua) ultimo.position_end = pos;
+    else grupos.push({ ...p, position: pos, position_end: null });
+  }
+  return grupos;
+};
+
 /** Escurece um hex (#rrggbb) — a 2ª parada do gradiente do selo de prêmios. */
 export const shadeHex = (hex, amount = 0.18) => {
   const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim());

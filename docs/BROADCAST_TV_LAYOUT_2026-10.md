@@ -76,6 +76,15 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   intervalo (que tem o próprio vídeo). `promoKind()` em `tvModel.js` decide
   o elemento pela URL. Configurações: card "Divulgação (coluna da direita)"
   com interruptor, galeria (`idPrefix="promo"`) e ajuste.
+- **Faixas de premiação** (pedido do cliente, 2026-10-08): no "Adicionar
+  Premiação" a posição aceita uma faixa ("7-9", "20-35"); o backend
+  (`POST /tournaments/{id}/prizes/range`, `PrizeRangeCreate`) cria UMA linha
+  por colocação numa inserção só (o pagamento continua por jogador, posição a
+  posição; qualquer posição já ocupada recusa o lote com `posicoes`). O telão
+  agrupa de volta as colocações consecutivas de mesmo prêmio
+  (`groupPrizeRanges` em `tvModel.js`) e mostra "7º–9º Lugar : S/ 400"
+  (`placeRangeLabel` em `broadcastLabels.js`, nos 3 idiomas), na barra e na
+  coluna lateral. Vaga e dinheiro de mesmo valor não se misturam.
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Literal
 from datetime import datetime
 from uuid import UUID
@@ -20,6 +20,24 @@ class PrizeAllocationCreate(PrizeAllocationBase):
     prize_type: PrizeType = 'cash'
     vaga_target_tournament_id: Optional[UUID] = None
     vaga_target_day_id: Optional[UUID] = None
+
+
+class PrizeRangeCreate(PrizeAllocationCreate):
+    """Uma FAIXA de colocações (ex.: 7 a 9) com o mesmo prêmio.
+
+    Cada posição vira uma linha própria (o pagamento continua sendo por
+    jogador, posição a posição); o telão agrupa de volta as posições
+    consecutivas de mesmo valor e mostra "7º–9º Lugar : S/ 400".
+    """
+    position_end: int = Field(..., gt=0, description="Última posição da faixa (inclusive)")
+
+    @model_validator(mode="after")
+    def _faixa_valida(self):
+        if self.position_end < self.position:
+            raise ValueError("position_end must be greater than or equal to position")
+        if self.position_end - self.position + 1 > 200:
+            raise ValueError("Range too large (max 200 positions)")
+        return self
 
 
 class PrizeAllocationUpdate(BaseModel):

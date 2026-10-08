@@ -6,7 +6,7 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { resolveBackground } from './tvBackgrounds';
 import {
   buildTvSettings, extractYouTubeId, formatClock, formatCountdown, formatChips, shadeHex, alphaHex,
-  promoKind,
+  promoKind, groupPrizeRanges,
 } from './tvModel';
 import './TvScreen.css';
 
@@ -42,6 +42,11 @@ const prizeText = (prize, L, currency) => {
   if (prize.prize_type === 'vaga' && amount <= 0) return L.seat;
   return formatCurrency(amount, currency);
 };
+
+// "7º Lugar" ou, numa faixa agrupada, "7º–9º Lugar".
+const placeText = (prize, L) => (
+  prize.position_end ? L.placeRangeLabel(prize.position, prize.position_end) : L.placeLabel(prize.position)
+);
 
 // ── Cabeçalho ───────────────────────────────────────────────────────────────
 
@@ -210,7 +215,7 @@ const PrizeGroup = React.forwardRef(({ prizes, L, currency }, ref) => (
       <React.Fragment key={`${p.position}-${i}`}>
         {i > 0 && <span className="tv-prize-sep" aria-hidden="true" />}
         <span className="tv-prize-item">
-          <span className="tv-prize-pos">{L.placeLabel(p.position)}</span>
+          <span className="tv-prize-pos">{placeText(p, L)}</span>
           <span className="tv-prize-colon">:</span>
           <span className="tv-prize-val">{prizeText(p, L, currency)}</span>
         </span>
@@ -257,7 +262,8 @@ const PrizeTrack = ({ prizes, L, currency, forceScroll }) => {
 };
 
 const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
-  const prizes = settings.showPrizes ? model.prizes : [];
+  // Colocações consecutivas de mesmo prêmio viram uma faixa ("7º–9º").
+  const prizes = settings.showPrizes ? groupPrizeRanges(model.prizes) : [];
   if (!settings.showPrizepool && prizes.length === 0) return null;
 
   const pool = settings.showPrizepool ? (
@@ -286,7 +292,7 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
             >
               {items.map((p, i) => (
                 <div key={`${p.position}-${i}`} className="tv-prizes-sidebar-row">
-                  <span className="tv-prize-pos">{L.placeLabel(p.position)}</span>
+                  <span className="tv-prize-pos">{placeText(p, L)}</span>
                   <span className="tv-prize-val">{prizeText(p, L, currency)}</span>
                 </div>
               ))}

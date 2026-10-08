@@ -378,3 +378,73 @@ class TestRevogacaoDeLiberacao:
         with pytest.raises(HTTPException) as exc:
             PrizeAllocationService.set_released(TOURNAMENT_UUID, ALLOC_UUID, released=True)
         assert exc.value.status_code == 404
+
+
+class TestFaixaDePremiacao:
+    """Faixa de colocações (ex.: 7–9) com o mesmo prêmio: uma linha por
+    posição, numa inserção só. O pagamento continua por jogador; o telão
+    agrupa de volta ("7º–9º Lugar")."""
+
+    def _monta(self, monkeypatch, faixas=None):
+        fake = FakeSupabase({
+            "tournaments": [{"id": TOURNAMENT_UUID, "guaranteed_prize": 0}],
+            "tournament_days": [{"id": DAY_UUID, "tournament_id": TOURNAMENT_UUID, "buy_in": 250}],
+            "prize_allocations": faixas or [],
+        })
+        monkeypatch.setattr(prize_allocation_service, "supabase", fake)
+        return fake
+
+    def _faixa(self, **kw):
+        from app.models.prize_allocation import PrizeRangeCreate
+        base = {"position": 7, "position_end": 9, "prize_amount": 400}
+        base.update(kw)
+        return PrizeRangeCreate(**base)
+
+    def test_cria_uma_linha_por_posicao_com_o_mesmo_valor(self, monkeypatch):
+        fake = self._monta(monkeypatch)
+        criadas = PrizeAllocationService.create_range(TOURNAMENT_UUID, self._faixa())
+        assert [c.position for c in criadas] == [7, 8, 9]
+        assert {float(c.prize_amount) for c in criadas} == {400.0}
+        assert {c.prize_type for c in criadas} == {"cash"}
+        assert len(fake.store["prize_allocations"]) == 3
+
+    def test_posicao_unica_tambem_passa_pela_faixa(self, monkeypatch):
+        self._monta(monkeypatch)
+        criadas = PrizeAllocationService.create_range(
+            TOURNAMENT_UUID, self._faixa(position=4, position_end=4))
+        assert [c.position for c in criadas] == [4]
+
+    def test_posicao_ja_ocupada_recusa_a_faixa_inteira_e_diz_quais(self, monkeypatch):
+        fake = self._monta(monkeypatch, faixas=[
+            {"id": ALLOC_UUID, "tournament_id": TOURNAMENT_UUID, "position": 8,
+             "prize_amount": 100, "prize_type": "cash", "paid": False},
+        ])
+        with pytest.raises(HTTPException) as exc:
+            PrizeAllocationService.create_range(TOURNAMENT_UUID, self._faixa())
+        assert exc.value.status_code == 400
+        assert exc.value.detail["code"] == "posicao_de_premio_duplicada"
+        assert exc.value.detail["posicoes"] == [8]
+        assert exc.value.detail["position"] == 8
+        assert len(fake.store["prize_allocations"]) == 1   # nada entrou
+
+    def test_faixa_de_vagas_usa_o_buy_in_do_dia_alvo_em_cada_posicao(self, monkeypatch):
+        self._monta(monkeypatch)
+        criadas = PrizeAllocationService.create_range(TOURNAMENT_UUID, self._faixa(
+            position=10, position_end=12, prize_type="vaga", vaga_target_day_id=DAY_UUID))
+        assert [c.position for c in criadas] == [10, 11, 12]
+        assert {float(c.prize_amount) for c in criadas} == {250.0}
+        assert {str(c.vaga_target_day_id) for c in criadas} == {DAY_UUID}
+
+    def test_torneio_inexistente_da_404(self, monkeypatch):
+        fake = self._monta(monkeypatch)
+        fake.store["tournaments"] = []
+        with pytest.raises(HTTPException) as exc:
+            PrizeAllocationService.create_range(TOURNAMENT_UUID, self._faixa())
+        assert exc.value.status_code == 404
+
+    def test_faixa_invertida_ou_gigante_nao_passa_no_modelo(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            self._faixa(position=9, position_end=7)
+        with pytest.raises(ValidationError):
+            self._faixa(position=1, position_end=500)

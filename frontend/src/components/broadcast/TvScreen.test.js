@@ -242,7 +242,8 @@ describe('prêmios', () => {
   });
 
   it('coluna com mais de 8 faixas rola, com a lista duplicada', () => {
-    const muitos = Array.from({ length: 10 }, (_, i) => ({ position: i + 1, prize_amount: 100 }));
+    // Valores distintos: iguais e consecutivos virariam UMA faixa ("1º–10º").
+    const muitos = Array.from({ length: 10 }, (_, i) => ({ position: i + 1, prize_amount: 1000 - i * 50 }));
     montar({ model: { prizes: muitos } }, { broadcast_prizes_layout: 'sidebar' });
     expect(document.querySelector('.tv-prizes-sidebar-list')).toHaveClass('scrolling');
     expect(document.querySelectorAll('.tv-prizes-sidebar-row').length).toBe(20);
@@ -441,5 +442,42 @@ describe('divulgação (coluna da direita)', () => {
   it('no intervalo não aparece (a tela de intervalo tem o próprio vídeo)', () => {
     montar({ mode: 'break' }, { broadcast_promo_url: 'https://cdn/flyer.webp' });
     expect(document.querySelector('.tv-promo')).toBeNull();
+  });
+});
+
+/**
+ * Faixas de premiação: o cadastro é uma linha por colocação (cada uma paga a
+ * um jogador), mas o telão agrupa as consecutivas de mesmo prêmio — "7º–9º
+ * Lugar : S/ 400", não 7º, 8º e 9º repetidos.
+ */
+describe('faixas de premiação', () => {
+  const FAIXAS = [
+    { position: 1, prize_amount: 1000 }, { position: 2, prize_amount: 500 },
+    { position: 3, prize_amount: 300 }, { position: 4, prize_amount: 300 }, { position: 5, prize_amount: 300 },
+    { position: 6, prize_amount: 100 },
+  ];
+
+  it('na barra, 3º–5º é um item só', () => {
+    montar({ model: { prizes: FAIXAS }, currency: 'PEN' });
+    const itens = Array.from(document.querySelectorAll('.tv-prize-item'));
+    expect(itens).toHaveLength(4);
+    expect(itens[2]).toHaveTextContent('3º–5º Lugar');
+    expect(itens[2]).toHaveTextContent('S/ 300.00');
+    expect(document.querySelector('.tv-prizes-bar')).not.toHaveTextContent('4º Lugar');
+  });
+
+  it('na coluna lateral também', () => {
+    montar({ model: { prizes: FAIXAS } }, { broadcast_prizes_layout: 'sidebar' });
+    const linhas = Array.from(document.querySelectorAll('.tv-prizes-sidebar-row'));
+    expect(linhas).toHaveLength(4);
+    expect(linhas[2]).toHaveTextContent('3º–5º Lugar');
+  });
+
+  it('em inglês e espanhol a faixa segue o idioma', () => {
+    montar({ model: { prizes: FAIXAS }, labels: BROADCAST_LABELS.en });
+    expect(document.querySelector('.tv-prizes-bar')).toHaveTextContent('3rd–5th Place');
+    document.body.innerHTML = '';
+    montar({ model: { prizes: FAIXAS }, labels: BROADCAST_LABELS.es });
+    expect(document.querySelector('.tv-prizes-bar')).toHaveTextContent('3º–5º Puesto');
   });
 });

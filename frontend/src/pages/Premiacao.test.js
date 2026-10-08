@@ -602,13 +602,13 @@ describe('nova posição', () => {
     // A última configurada é a 3ª; digitar "1" de novo criaria conflito.
     await montar();
     await abrir();
-    expect(screen.getByPlaceholderText('premiacao.positionPlaceholder')).toHaveValue(4);
+    expect(screen.getByPlaceholderText('premiacao.positionPlaceholder')).toHaveValue('4');
   });
 
   it('sem posição nenhuma configurada começa na primeira', async () => {
     await montar({ resumo: { ...RESUMO, allocations: [] } });
     await abrir();
-    expect(screen.getByPlaceholderText('premiacao.positionPlaceholder')).toHaveValue(1);
+    expect(screen.getByPlaceholderText('premiacao.positionPlaceholder')).toHaveValue('1');
   });
 
   it('cria um prêmio em dinheiro', async () => {
@@ -622,6 +622,52 @@ describe('nova posição', () => {
         prize_amount: 2500,
       })
     );
+  });
+
+  it('uma faixa (7-9) cria uma linha por colocação, numa chamada só', async () => {
+    // Cada colocação continua sendo paga a um jogador; o telão agrupa de volta.
+    await montar();
+    await abrir();
+    const posicao = screen.getByPlaceholderText('premiacao.positionPlaceholder');
+    await userEvent.clear(posicao);
+    await userEvent.type(posicao, '7-9');
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '400');
+    expect(screen.getByText(/premiacao\.rangeTotal:3,/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'common.add' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments/t1/prizes/range', {
+        position: 7, position_end: 9, prize_amount: 400,
+      })
+    );
+  });
+
+  it('faixa de vagas aponta para o dia e vai pela rota de faixa', async () => {
+    await montar();
+    await abrir();
+    const posicao = screen.getByPlaceholderText('premiacao.positionPlaceholder');
+    await userEvent.clear(posicao);
+    await userEvent.type(posicao, '10-12');
+    await userEvent.selectOptions(document.querySelector('.modal select'), 'vaga');
+    await userEvent.selectOptions(screen.getAllByRole('combobox')[1], 'd2');
+    await userEvent.click(screen.getByRole('button', { name: 'common.add' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments/t1/prizes/range', {
+        position: 10, position_end: 12, prize_type: 'vaga',
+        vaga_target_tournament_id: 't1', vaga_target_day_id: 'd2',
+      })
+    );
+  });
+
+  it('faixa invertida (9-7) ou lixo é recusada antes de ir ao servidor', async () => {
+    await montar();
+    const form = await abrir();
+    const posicao = screen.getByPlaceholderText('premiacao.positionPlaceholder');
+    await userEvent.clear(posicao);
+    await userEvent.type(posicao, '9-7');
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '400');
+    fireEvent.submit(form);
+    expect(await screen.findByText(/positionInvalid|Posição inválida/)).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
   });
 
   it('mostra quanto ainda cabe no pool na hora de digitar', async () => {

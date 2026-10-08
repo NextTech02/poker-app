@@ -1,6 +1,13 @@
 // Broadcast display labels for each supported language.
 // Used by TournamentBroadcast.js and BroadcastSettings.js preview.
 
+// 1st, 2nd, 3rd, 4th… 11th–13th são "th" (a exceção da casa das dezenas).
+const ordinalEn = (n) => {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+};
+
 const BROADCAST_LABELS = {
   'pt-BR': {
     level:          'NÍVEL',
@@ -21,6 +28,7 @@ const BROADCAST_LABELS = {
     prizepool:      'PRIZEPOOL',
     awards:         'PREMIAÇÕES',
     placeLabel:     (n) => `${n}º Lugar`,
+    placeRangeLabel:(a, b) => `${a}º–${b}º Lugar`,   // faixa: colocações consecutivas de mesmo prêmio
     breakOverlay:   'INTERVALO',
     breakOverlayMsg:'O torneio está em intervalo',
     completed:      'ENCERRADO',
@@ -45,11 +53,8 @@ const BROADCAST_LABELS = {
     of:             'of',
     prizepool:      'PRIZEPOOL',
     awards:         'AWARDS',
-    placeLabel:     (n) => {
-      const s = ['th', 'st', 'nd', 'rd'];
-      const v = n % 100;
-      return `${n}${s[(v - 20) % 10] || s[v] || s[0]} Place`;
-    },
+    placeLabel:     (n) => `${ordinalEn(n)} Place`,
+    placeRangeLabel:(a, b) => `${ordinalEn(a)}–${ordinalEn(b)} Place`,
     breakOverlay:   'BREAK',
     breakOverlayMsg:'Tournament is on break',
     completed:      'COMPLETED',
@@ -75,6 +80,7 @@ const BROADCAST_LABELS = {
     prizepool:      'PRIZEPOOL',
     awards:         'PREMIOS',
     placeLabel:     (n) => `${n}º Puesto`,
+    placeRangeLabel:(a, b) => `${a}º–${b}º Puesto`,
     breakOverlay:   'DESCANSO',
     breakOverlayMsg:'El torneo está en descanso',
     completed:      'FINALIZADO',

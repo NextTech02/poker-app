@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from app.database import supabase
 from ..models.prize_allocation import (
     PrizeAllocationCreate,
+    PrizeRangeCreate,
     PrizeAllocationUpdate,
     PrizeAllocationResponse,
     PrizePayoutRequest,
@@ -208,37 +209,10 @@ class PrizeAllocationService:
                 position=allocation.position,
             )
 
-        prize_type = getattr(allocation, "prize_type", "cash") or "cash"
-        data = {
-            "tournament_id": str(tournament_id),
-            "position": allocation.position,
-            "prize_amount": float(allocation.prize_amount or 0),
-            "prize_type": prize_type,
-        }
-
-        if prize_type == "vaga":
-            # Value of a 'vaga' is the target day's buy-in (feature 4.2)
-            day_id = getattr(allocation, "vaga_target_day_id", None)
-            tgt_tournament_id = getattr(allocation, "vaga_target_tournament_id", None)
-            if not day_id:
-                raise recusado(
-                    "vaga_sem_dia_alvo",
-                    "Vaga requer um dia alvo (vaga_target_day_id)",
-                )
-            day = supabase.table("tournament_days")\
-                .select("buy_in, tournament_id")\
-                .eq("id", str(day_id))\
-                .execute()
-            if not day.data:
-                raise nao_encontrado(
-                    "dia_alvo_da_vaga_nao_encontrado",
-                    "Dia alvo da vaga não encontrado",
-                )
-            data["prize_amount"] = float(day.data[0]["buy_in"] or 0)
-            data["vaga_target_day_id"] = str(day_id)
-            data["vaga_target_tournament_id"] = str(
-                tgt_tournament_id or day.data[0]["tournament_id"]
-            )
+        vaga = PrizeAllocationService._campos_da_vaga(allocation)
+        data = PrizeAllocationService._linha_do_premio(
+            tournament_id, allocation, allocation.position, vaga
+        )
 
         response = supabase.table("prize_allocations").insert(data).execute()
 
@@ -249,6 +223,95 @@ class PrizeAllocationService:
             )
 
         return PrizeAllocationService._to_response(response.data[0])
+
+    @staticmethod
+    def create_range(
+        tournament_id: UUID,
+        faixa: PrizeRangeCreate
+    ) -> list[PrizeAllocationResponse]:
+        """Uma FAIXA de colocações (ex.: 7 a 9) com o MESMO prêmio.
+
+        Uma linha por posição, numa inserção só: o pagamento continua sendo
+        por jogador, posição a posição, e o telão agrupa de volta as
+        posições consecutivas de mesmo valor ("7º–9º Lugar"). Se qualquer
+        posição da faixa já tiver prêmio, nada entra — o operador vê quais.
+        """
+        PrizeAllocationService.get_tournament_info(tournament_id)
+        posicoes = list(range(faixa.position, faixa.position_end + 1))
+
+        existing = supabase.table("prize_allocations")\
+            .select("position")\
+            .eq("tournament_id", str(tournament_id))\
+            .in_("position", posicoes)\
+            .execute()
+        ocupadas = sorted(
+            int(r["position"]) for r in (existing.data or []) if r.get("position") is not None
+        )
+        if ocupadas:
+            raise recusado(
+                "posicao_de_premio_duplicada",
+                f"Positions {', '.join(str(p) for p in ocupadas)} already have a prize allocation",
+                position=ocupadas[0],
+                posicoes=ocupadas,
+            )
+
+        vaga = PrizeAllocationService._campos_da_vaga(faixa)
+        linhas = [
+            PrizeAllocationService._linha_do_premio(tournament_id, faixa, p, vaga)
+            for p in posicoes
+        ]
+        response = supabase.table("prize_allocations").insert(linhas).execute()
+
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create prize allocations"
+            )
+
+        criadas = sorted(response.data, key=lambda r: int(r.get("position") or 0))
+        return [PrizeAllocationService._to_response(r) for r in criadas]
+
+    @staticmethod
+    def _campos_da_vaga(allocation) -> dict:
+        """Campos extras de um prêmio do tipo VAGA: o valor é o buy-in do dia
+        alvo (feature 4.2). Para dinheiro, nada."""
+        prize_type = getattr(allocation, "prize_type", "cash") or "cash"
+        if prize_type != "vaga":
+            return {}
+        day_id = getattr(allocation, "vaga_target_day_id", None)
+        tgt_tournament_id = getattr(allocation, "vaga_target_tournament_id", None)
+        if not day_id:
+            raise recusado(
+                "vaga_sem_dia_alvo",
+                "Vaga requer um dia alvo (vaga_target_day_id)",
+            )
+        day = supabase.table("tournament_days")\
+            .select("buy_in, tournament_id")\
+            .eq("id", str(day_id))\
+            .execute()
+        if not day.data:
+            raise nao_encontrado(
+                "dia_alvo_da_vaga_nao_encontrado",
+                "Dia alvo da vaga não encontrado",
+            )
+        return {
+            "prize_amount": float(day.data[0]["buy_in"] or 0),
+            "vaga_target_day_id": str(day_id),
+            "vaga_target_tournament_id": str(
+                tgt_tournament_id or day.data[0]["tournament_id"]
+            ),
+        }
+
+    @staticmethod
+    def _linha_do_premio(tournament_id: UUID, allocation, position: int, vaga: dict) -> dict:
+        prize_type = getattr(allocation, "prize_type", "cash") or "cash"
+        return {
+            "tournament_id": str(tournament_id),
+            "position": int(position),
+            "prize_amount": float(allocation.prize_amount or 0),
+            "prize_type": prize_type,
+            **vaga,
+        }
 
     @staticmethod
     def update_allocation(

@@ -30,6 +30,19 @@ const aoClicarNoFundo = (aoFechar) => (evento) => {
 
 const getPositionLabel = (position) => `${position}°`;
 
+/**
+ * "4" → posição única; "7-9" → faixa (cada colocação de 7 a 9 recebe o mesmo
+ * prêmio; o servidor cria uma linha por posição). Inválido → null.
+ */
+export const parseFaixaDePosicao = (texto) => {
+  const m = /^\s*(\d+)\s*(?:[-–]\s*(\d+))?\s*$/.exec(String(texto ?? ''));
+  if (!m) return null;
+  const position = parseInt(m[1], 10);
+  const position_end = m[2] ? parseInt(m[2], 10) : null;
+  if (position < 1 || (position_end !== null && position_end < position)) return null;
+  return { position, position_end };
+};
+
 /** Destaque do pódio: 1º ouro, 2º prata, 3º bronze; o resto neutro.
  *  Antes a função ignorava o argumento e devolvia sempre 'rank-other' — as
  *  três classes existiam no CSS e nunca eram aplicadas. */
@@ -248,20 +261,31 @@ const Premiacao = () => {
       return;
     }
     if (!isVaga && !newAmount) return;
+    const faixa = parseFaixaDePosicao(newPosition);
+    if (!faixa) {
+      setError(t('premiacao.positionInvalid', 'Posição inválida. Use um número (ex.: 4) ou uma faixa (ex.: 7-9).'));
+      return;
+    }
     try {
       setSaving(true);
       const payload = isVaga
         ? {
-            position: parseInt(newPosition),
+            position: faixa.position,
             prize_type: 'vaga',
             vaga_target_tournament_id: tournamentId,
             vaga_target_day_id: newVagaDayId,
           }
         : {
-            position: parseInt(newPosition),
+            position: faixa.position,
             prize_amount: parseFloat(newAmount),
           };
-      await api.post(`/tournaments/${tournamentId}/prizes`, payload);
+      // Faixa (7-9): o servidor cria uma linha por colocação, numa chamada só;
+      // o telão mostra de volta como "7º–9º Lugar".
+      if (faixa.position_end) {
+        await api.post(`/tournaments/${tournamentId}/prizes/range`, { ...payload, position_end: faixa.position_end });
+      } else {
+        await api.post(`/tournaments/${tournamentId}/prizes`, payload);
+      }
       setShowAddModal(false);
       setNewPosition('');
       setNewAmount('');
@@ -1035,14 +1059,17 @@ const Premiacao = () => {
                 <div className="form-group">
                   <label>{t('premiacao.positionRequired')}</label>
                   <input
-                    type="number"
-                    min="1"
+                    type="text"
+                    inputMode="numeric"
                     value={newPosition}
                     onChange={(e) => setNewPosition(e.target.value)}
                     required
                     placeholder={t('premiacao.positionPlaceholder')}
                   />
-                  <small>{t('premiacao.positionHint')}</small>
+                  <small>
+                    {t('premiacao.positionHint')}{' '}
+                    {t('premiacao.positionRangeHint', 'Faixa: "7-9" dá o mesmo prêmio a cada colocação de 7º a 9º.')}
+                  </small>
                 </div>
                 <div className="form-group">
                   <label>{t('premiacao.prizeType')}</label>
@@ -1080,6 +1107,20 @@ const Premiacao = () => {
                       placeholder="0.00"
                     />
                     <small>{t('premiacao.availableBalance', { value: formatCurrency(remainingBalance) })}</small>
+                    {(() => {
+                      // Faixa: mostra o total que sai do pool (N colocações × valor).
+                      const faixa = parseFaixaDePosicao(newPosition);
+                      const valor = parseFloat(newAmount);
+                      if (!faixa?.position_end || !Number.isFinite(valor)) return null;
+                      const count = faixa.position_end - faixa.position + 1;
+                      return (
+                        <small className="range-total">
+                          {t('premiacao.rangeTotal', {
+                            count, amount: formatCurrency(valor), total: formatCurrency(valor * count),
+                          })}
+                        </small>
+                      );
+                    })()}
                   </div>
                 )}
                 <div className="modal-actions">

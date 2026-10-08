@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ..auth.jwt import get_current_user
 from ..models.prize_allocation import (
     PrizeAllocationCreate,
+    PrizeRangeCreate,
     PrizeAllocationUpdate,
     PrizeAllocationResponse,
     PrizeAllocationBulkCreate,
@@ -67,6 +68,18 @@ def create_prize_allocation(
 ):
     """Create a new prize allocation for a specific position"""
     return PrizeAllocationService.create_allocation(tournament_id, allocation)
+
+
+@router.post("/{tournament_id}/prizes/range", response_model=List[PrizeAllocationResponse], status_code=status.HTTP_201_CREATED)
+def create_prize_range(
+    tournament_id: UUID,
+    faixa: PrizeRangeCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Cria uma FAIXA de colocações (ex.: 7 a 9) com o mesmo prêmio: uma
+    linha por posição, numa inserção só. Qualquer posição já ocupada recusa
+    o lote inteiro (400 `posicao_de_premio_duplicada`, com `posicoes`)."""
+    return PrizeAllocationService.create_range(tournament_id, faixa)
 
 
 @router.post("/{tournament_id}/prizes/bulk", response_model=List[PrizeAllocationResponse], status_code=status.HTTP_201_CREATED)
