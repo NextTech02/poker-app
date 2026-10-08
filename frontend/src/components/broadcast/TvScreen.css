@@ -28,6 +28,9 @@
   color: #ffffff;
   font-family: var(--font-body, 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
+  /* O duplo clique pausa/retoma o relógio; sem isto ele selecionava texto. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tv-root--viewport {

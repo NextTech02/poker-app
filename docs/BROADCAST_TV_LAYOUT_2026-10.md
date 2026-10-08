@@ -108,6 +108,13 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   (ninguém os ouvia no salão; só o do último segundo era percebido). O
   interruptor `broadcast_blind_alerts_enabled` e o silêncio no intervalo
   continuam. `playBeep` tenta `resume()` num AudioContext suspenso.
+- **Duplo clique pausa/retoma o relógio** (pedido do cliente, 2026-10-08):
+  em qualquer ponto do telão, só LOGADO (o diretor abriu o telão pelo
+  "Ver", na mesma sessão) e com dia — a TV anônima do salão ignora. Mesmo
+  comando do Controle: `broadcastCommand` + `applyOptimistic` (vira na hora
+  em todas as telas) e `POST /tournament-days/{id}/timer/pause|start`, com
+  `refetch` para reconciliar. `user-select: none` no palco para o duplo
+  clique não selecionar texto.
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas

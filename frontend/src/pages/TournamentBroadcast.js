@@ -97,7 +97,34 @@ const TournamentBroadcast = () => {
   useEffect(() => () => clearTimeout(patchFonteTimer.current), []);
 
   // SINGLE SOURCE OF TRUTH for day-based tournaments (blinds passed for offline fallback)
-  const { timerState } = useTimerSync(isDayBased ? id : null, blinds);
+  const { timerState, applyOptimistic, broadcastCommand, refetch: refetchTimer } = useTimerSync(isDayBased ? id : null, blinds);
+
+  // Duplo clique no telão = pausar/retomar o relógio (pedido do cliente). Só
+  // faz efeito LOGADO (o mesmo token que api.js manda) e com dia: a TV
+  // anônima do salão não controla nada — ignora em silêncio. Mesmo comando do
+  // Controle: vira o relógio na hora (otimista + broadcast para as outras
+  // telas) e manda ao servidor; a resposta reconcilia o tempo exato.
+  const comandoEmVooRef = useRef(false);
+  const alternarRelogio = useCallback(async () => {
+    if (!isDayBased || !timerState) return;
+    let logado = false;
+    try { logado = Boolean(localStorage.getItem('supabase_token')); } catch (e) { /* storage bloqueado */ }
+    if (!logado || comandoEmVooRef.current) return;
+
+    const pausar = !timerState.is_paused;
+    const cmd = (typeof broadcastCommand === 'function' ? broadcastCommand({ is_paused: pausar }) : null) || { is_paused: pausar };
+    if (typeof applyOptimistic === 'function') applyOptimistic(cmd);
+
+    comandoEmVooRef.current = true;
+    try {
+      await api.post(`/tournament-days/${id}/timer/${pausar ? 'pause' : 'start'}`);
+    } catch (error) {
+      console.error('Error toggling timer from broadcast:', error);
+    } finally {
+      comandoEmVooRef.current = false;
+      if (typeof refetchTimer === 'function') refetchTimer();
+    }
+  }, [isDayBased, timerState, id, applyOptimistic, broadcastCommand, refetchTimer]);
 
   // === Audio Alert System ===
   const audioContextRef = useRef(null);
@@ -450,16 +477,19 @@ const TournamentBroadcast = () => {
 
   return (
     <>
-      <TvStage fit="viewport" background={background}>
-        <TvScreen
-          mode={mode}
-          model={model}
-          settings={settings}
-          labels={L}
-          currency={currency}
-          fontScale={settings.fontSize / 100}
-        />
-      </TvStage>
+      {/* Duplo clique em qualquer ponto do telão pausa/retoma o relógio (logado). */}
+      <div className="broadcast-stage-area" onDoubleClick={alternarRelogio} data-testid="broadcast-stage-area">
+        <TvStage fit="viewport" background={background}>
+          <TvScreen
+            mode={mode}
+            model={model}
+            settings={settings}
+            labels={L}
+            currency={currency}
+            fontScale={settings.fontSize / 100}
+          />
+        </TvStage>
+      </div>
 
       {/* Legacy Break Overlay (non-day tournaments only) */}
       {!isDayBased && isOnBreak && (

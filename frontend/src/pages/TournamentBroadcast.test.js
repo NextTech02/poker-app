@@ -26,7 +26,7 @@ import TournamentBroadcast from './TournamentBroadcast';
 import api from '../config/api';
 import { useTimerSync } from '../hooks/useTimerSync';
 
-jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn(), patch: jest.fn() } }));
+jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), patch: jest.fn() } }));
 jest.mock('../hooks/usePolling', () => ({ usePolling: jest.fn() }));
 jest.mock('../hooks/useTimerSync', () => ({ useTimerSync: jest.fn() }));
 jest.mock('react-router-dom', () => ({
@@ -922,5 +922,66 @@ describe('meios de entrada no telão', () => {
   it('desligado (padrão), nada aparece mesmo com lista', async () => {
     await montar({ extras: { ...EXTRAS, buy_types: [{ name: 'Buy-in', amount: 50 }] } });
     expect(document.querySelector('.tv-buytypes')).toBeNull();
+  });
+});
+
+
+/**
+ * Duplo clique no telão = pausar/retomar o relógio. Só logado (o diretor
+ * abriu o telão pelo "Ver", na mesma sessão) e com dia; a TV anônima do
+ * salão ignora. Mesmo comando do Controle: otimista + broadcast + POST.
+ */
+describe('duplo clique pausa/retoma o relógio', () => {
+  const area = () => screen.getByTestId('broadcast-stage-area');
+  const montarLogado = async (estadoRelogio, extras = {}) => {
+    localStorage.setItem('supabase_token', 'tok');
+    api.post.mockResolvedValue({ data: {} });
+    const applyOptimistic = jest.fn();
+    const broadcastCommand = jest.fn((patch) => ({ ...patch, remaining: 300 }));
+    const refetch = jest.fn();
+    responder({});
+    useTimerSync.mockReturnValue({ timerState: estadoRelogio, applyOptimistic, broadcastCommand, refetch, ...extras });
+    render(<TournamentBroadcast />);
+    await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+    return { applyOptimistic, broadcastCommand, refetch };
+  };
+
+  it('relógio rodando: pausa na hora e manda o comando ao servidor', async () => {
+    const { applyOptimistic, broadcastCommand, refetch } = await montarLogado(relogio({ is_paused: false }));
+    fireEvent.doubleClick(area());
+    expect(broadcastCommand).toHaveBeenCalledWith({ is_paused: true });
+    expect(applyOptimistic).toHaveBeenCalledWith({ is_paused: true, remaining: 300 });
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/tournament-days/x1/timer/pause'));
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
+  });
+
+  it('relógio pausado: retoma', async () => {
+    await montarLogado(relogio({ is_paused: true }));
+    fireEvent.doubleClick(area());
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/tournament-days/x1/timer/start'));
+  });
+
+  it('sem login (TV do salão) o duplo clique não faz nada', async () => {
+    await montar();
+    fireEvent.doubleClick(area());
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('torneio sem dia (contagem local) também não manda comando', async () => {
+    localStorage.setItem('supabase_token', 'tok');
+    responder({ comoDia: false });
+    useTimerSync.mockReturnValue({ timerState: null });
+    render(<TournamentBroadcast />);
+    await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+    fireEvent.doubleClick(area());
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('falha do servidor não derruba o telão e reconcilia com o relógio', async () => {
+    const { refetch } = await montarLogado(relogio({ is_paused: false }));
+    api.post.mockRejectedValue(new Error('rede'));
+    fireEvent.doubleClick(area());
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
+    expect(screen.getByTestId('broadcast-stage-area')).toBeInTheDocument();
   });
 });
