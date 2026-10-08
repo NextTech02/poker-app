@@ -48,6 +48,10 @@ export const TV_DEFAULT_SETTINGS = {
   broadcast_club_logo_url: '',
   broadcast_show_club_logo: true,
   broadcast_club_logo_size: 100,
+  // Divulgação na coluna da direita (imagem, vídeo direto ou YouTube).
+  broadcast_promo_url: '',
+  broadcast_show_promo: true,
+  broadcast_promo_fit: 'contain',
   broadcast_show_title: true,
   broadcast_show_prizepool: true,
   broadcast_show_level: true,

@@ -6,6 +6,7 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { resolveBackground } from './tvBackgrounds';
 import {
   buildTvSettings, extractYouTubeId, formatClock, formatCountdown, formatChips, shadeHex, alphaHex,
+  promoKind,
 } from './tvModel';
 import './TvScreen.css';
 
@@ -310,6 +311,47 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
   );
 };
 
+// ── Divulgação (coluna da direita) ──────────────────────────────────────────
+
+/**
+ * Peça do clube na coluna da direita: imagem da biblioteca, vídeo direto
+ * (.mp4/.webm, em loop e mudo) ou YouTube (embed em loop e mudo). A coluna
+ * tem o mesmo tamanho da dos tiles, então o relógio continua no centro da
+ * tela — a peça só ocupa o que antes ficava vazio.
+ */
+const TvPromo = ({ settings }) => {
+  const kind = promoKind(settings.promoUrl);
+  if (!kind) return null;
+  const fit = settings.promoFit === 'cover' ? 'cover' : 'contain';
+  let media;
+  if (kind === 'youtube') {
+    const id = extractYouTubeId(settings.promoUrl);
+    media = (
+      <iframe
+        className="tv-promo-media tv-promo-youtube"
+        src={`https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&modestbranding=1&rel=0&playsinline=1`}
+        allow="autoplay; encrypted-media"
+        title="promo-video"
+      />
+    );
+  } else if (kind === 'video') {
+    media = (
+      <video
+        className="tv-promo-media"
+        src={settings.promoUrl}
+        autoPlay
+        muted
+        loop
+        playsInline
+        style={{ objectFit: fit }}
+      />
+    );
+  } else {
+    media = <img className="tv-promo-media" src={settings.promoUrl} alt="" style={{ objectFit: fit }} />;
+  }
+  return <div className={`tv-promo tv-promo--${kind} tv-promo--${fit}`}>{media}</div>;
+};
+
 // ── Intervalo ───────────────────────────────────────────────────────────────
 
 const BREAK_LAYOUTS = ['split', 'fullscreen', 'overlay'];
@@ -466,11 +508,16 @@ const TvScreen = ({
   const hasPrizeContent = s.showPrizepool || (s.showPrizes && model.prizes.length > 0);
   const sidebarPrizes = prizesAllowed && s.prizesLayout === 'sidebar' && hasPrizeContent;
   const bottomPrizes = prizesAllowed && s.prizesLayout !== 'sidebar' && hasPrizeContent;
+  // Divulgação: fora do intervalo (que tem o próprio vídeo), se ligada e com
+  // uma URL reconhecível. Com a premiação na lateral, as duas dividem a
+  // coluna da direita (divulgação em cima, prêmios embaixo).
+  const hasPromo = mode !== 'break' && s.showPromo && !!promoKind(s.promoUrl);
 
   const classes = [
     'tv-screen',
     `tv-screen--${mode}`,
     sidebarPrizes ? 'tv-screen--with-sidebar' : '',
+    hasPromo ? 'tv-screen--with-side' : '',
     bottomPrizes ? 'tv-screen--with-bar' : '',
     className,
   ].filter(Boolean).join(' ');
@@ -480,14 +527,21 @@ const TvScreen = ({
   else if (mode === 'break') body = <TvBreak model={model} settings={s} L={L} />;
   else body = <TvLive model={model} settings={s} L={L} />;
 
+  const prizesSidebar = sidebarPrizes
+    ? <TvPrizes model={model} settings={s} L={L} currency={currency} forceScroll={forceScroll} />
+    : null;
+
   return (
     <div className={classes} style={vars}>
       <TvHeader model={model} settings={s} />
       <div className="tv-body">
         {body}
-        {sidebarPrizes && (
-          <TvPrizes model={model} settings={s} L={L} currency={currency} forceScroll={forceScroll} />
-        )}
+        {hasPromo ? (
+          <aside className="tv-side">
+            <TvPromo settings={s} />
+            {prizesSidebar}
+          </aside>
+        ) : prizesSidebar}
       </div>
       {bottomPrizes && (
         <TvPrizes model={model} settings={s} L={L} currency={currency} forceScroll={forceScroll} />

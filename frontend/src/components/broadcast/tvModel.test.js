@@ -6,7 +6,7 @@
  */
 import {
   buildTvModel, buildTvSettings, blindValuesAt, formatClock, formatCountdown, formatChips,
-  shadeHex, extractYouTubeId,
+  shadeHex, extractYouTubeId, promoKind,
 } from './tvModel';
 import { TV_ACCENT, TV_DEFAULT_SETTINGS } from './tvDefaults';
 
@@ -252,5 +252,30 @@ describe('formatadores', () => {
     expect(extractYouTubeId('https://youtu.be/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
     expect(extractYouTubeId('https://exemplo.com/video')).toBeNull();
     expect(extractYouTubeId(null)).toBeNull();
+  });
+});
+
+describe('divulgação (promoKind e settings)', () => {
+  it('reconhece YouTube, vídeo direto e imagem; vazio é nulo', () => {
+    expect(promoKind('https://youtu.be/dQw4w9WgXcQ')).toBe('youtube');
+    expect(promoKind('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBe('youtube');
+    expect(promoKind('https://cdn/promo.MP4?x=1')).toBe('video');
+    expect(promoKind('https://cdn/promo.webm')).toBe('video');
+    expect(promoKind('https://cdn/flyer.webp')).toBe('image');
+    expect(promoKind('data:video/mp4;base64,AAAA')).toBe('video');
+    expect(promoKind('')).toBeNull();
+    expect(promoKind(null)).toBeNull();
+    expect(promoKind('   ')).toBeNull();
+  });
+
+  it('settings: URL aparada, ligada por padrão, ajuste só contain/cover', () => {
+    const s = buildTvSettings({ broadcast_promo_url: '  https://cdn/flyer.webp  ' });
+    expect(s.promoUrl).toBe('https://cdn/flyer.webp');
+    expect(s.showPromo).toBe(true);
+    expect(s.promoFit).toBe('contain');
+    expect(buildTvSettings({}).promoUrl).toBeNull();
+    expect(buildTvSettings({ broadcast_show_promo: false }).showPromo).toBe(false);
+    expect(buildTvSettings({ broadcast_promo_fit: 'cover' }).promoFit).toBe('cover');
+    expect(buildTvSettings({ broadcast_promo_fit: 'qualquer' }).promoFit).toBe('contain');
   });
 });

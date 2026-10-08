@@ -211,9 +211,56 @@
   gap: 24px;
 }
 
-/* Com a coluna de prêmios à direita, ela é o contrapeso. */
-.tv-screen--with-sidebar .tv-live {
+/* Com a coluna de prêmios (ou a de divulgação) à direita, ela é o contrapeso. */
+.tv-screen--with-sidebar .tv-live,
+.tv-screen--with-side .tv-live {
   grid-template-columns: 440px minmax(0, 1fr);
+}
+
+/* ── Divulgação: coluna da direita ──────────────────────────────────────── */
+/* Mesma largura da coluna dos tiles, para o relógio continuar no centro da
+   tela. Colada na borda direita, como a coluna de prêmios. */
+.tv-side {
+  flex: 0 0 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.tv-side .tv-prizes-sidebar {
+  flex: 0 1 auto;
+  max-height: 46%;
+}
+
+.tv-promo {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 14px 0 0 14px;
+  background: rgba(8, 13, 32, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-right: 0;
+}
+
+.tv-promo--cover {
+  background: #000;
+}
+
+.tv-promo-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: 0;
+}
+
+.tv-promo-youtube {
+  background: #000;
 }
 
 .tv-live.tv-live--no-tiles {

@@ -380,3 +380,66 @@ describe('cores e tamanhos', () => {
     expect(tiles()[0]).toHaveTextContent('LEVEL');
   });
 });
+
+/**
+ * Divulgação na coluna da direita: a coluna que antes só equilibrava o relógio
+ * passa a mostrar a peça do clube (imagem, vídeo direto ou YouTube), quando o
+ * diretor liga e preenche. Com a premiação na lateral, as duas dividem a coluna.
+ */
+describe('divulgação (coluna da direita)', () => {
+  const YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+
+  it('imagem: aparece na coluna da direita e a grade ganha o contrapeso', () => {
+    montar({}, { broadcast_promo_url: 'https://cdn/flyer.webp' });
+    const promo = document.querySelector('.tv-side .tv-promo');
+    expect(promo).toHaveClass('tv-promo--image');
+    expect(promo.querySelector('img')).toHaveAttribute('src', 'https://cdn/flyer.webp');
+    expect(promo.querySelector('img').style.objectFit).toBe('contain');
+    expect(tela()).toHaveClass('tv-screen--with-side');
+  });
+
+  it('ajuste "cover" preenche a coluna', () => {
+    montar({}, { broadcast_promo_url: 'https://cdn/flyer.webp', broadcast_promo_fit: 'cover' });
+    expect(document.querySelector('.tv-promo')).toHaveClass('tv-promo--cover');
+    expect(document.querySelector('.tv-promo img').style.objectFit).toBe('cover');
+  });
+
+  it('vídeo direto toca em loop, mudo e sem controles', () => {
+    montar({}, { broadcast_promo_url: 'https://cdn/promo.mp4?v=2' });
+    const video = document.querySelector('.tv-promo--video video');
+    expect(video).toHaveAttribute('src', 'https://cdn/promo.mp4?v=2');
+    expect(video).toHaveAttribute('autoplay');
+    expect(video).toHaveAttribute('loop');
+    expect(video.muted).toBe(true);
+  });
+
+  it('YouTube vira embed em loop e mudo', () => {
+    montar({}, { broadcast_promo_url: YT });
+    const frame = document.querySelector('.tv-promo--youtube iframe');
+    expect(frame.getAttribute('src')).toContain('youtube.com/embed/dQw4w9WgXcQ');
+    expect(frame.getAttribute('src')).toContain('mute=1');
+    expect(frame.getAttribute('src')).toContain('loop=1');
+  });
+
+  it('desligada ou sem URL, a coluna some e a grade volta ao contrapeso vazio', () => {
+    montar({}, { broadcast_promo_url: 'https://cdn/flyer.webp', broadcast_show_promo: false });
+    expect(document.querySelector('.tv-promo')).toBeNull();
+    expect(tela()).not.toHaveClass('tv-screen--with-side');
+    document.body.innerHTML = '';
+    montar({}, { broadcast_promo_url: '   ' });
+    expect(document.querySelector('.tv-promo')).toBeNull();
+  });
+
+  it('com a premiação na lateral, as duas dividem a coluna da direita', () => {
+    montar({}, { broadcast_promo_url: 'https://cdn/flyer.webp', broadcast_prizes_layout: 'sidebar' });
+    const side = document.querySelector('.tv-side');
+    expect(side.querySelector('.tv-promo')).toBeInTheDocument();
+    expect(side.querySelector('.tv-prizes-sidebar')).toBeInTheDocument();
+    expect(document.querySelectorAll('.tv-prizes-sidebar').length).toBe(1);
+  });
+
+  it('no intervalo não aparece (a tela de intervalo tem o próprio vídeo)', () => {
+    montar({ mode: 'break' }, { broadcast_promo_url: 'https://cdn/flyer.webp' });
+    expect(document.querySelector('.tv-promo')).toBeNull();
+  });
+});

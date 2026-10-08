@@ -247,6 +247,10 @@ class TournamentDayUpdate(BaseModel):
     # Escurecimento (%) sobre a imagem de fundo do telão. 0..90: acima disso a
     # imagem some e o clube acha que o upload falhou.
     broadcast_bg_overlay: Optional[int] = Field(None, ge=0, le=90)
+    # Divulgação na coluna da direita do telão: imagem, vídeo direto ou YouTube.
+    broadcast_promo_url: Optional[str] = None
+    broadcast_show_promo: Optional[bool] = None
+    broadcast_promo_fit: Optional[str] = Field(None, pattern="^(contain|cover)$")
 
 
 class TournamentDay(TournamentDayBase):
@@ -287,6 +291,12 @@ class TournamentDay(TournamentDayBase):
     # sales_blocked: só na resposta/update, para a criação do dia não
     # depender da coluna existir.
     broadcast_bg_overlay: int = 45
+
+    # Divulgação na coluna da direita do telão (mesmo motivo: só resposta e
+    # update, para a criação do dia não depender das colunas existirem).
+    broadcast_promo_url: Optional[str] = None
+    broadcast_show_promo: bool = True
+    broadcast_promo_fit: str = "contain"
 
     class Config:
         from_attributes = True

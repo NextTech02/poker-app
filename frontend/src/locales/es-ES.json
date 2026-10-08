@@ -1149,7 +1149,17 @@
     "clubLogoUpload": "Subir el logo del club",
     "clubLogoUploadHint": "PNG con fondo transparente, hasta 512KB",
     "clubLogoUrlLabel": "o pega la URL",
-    "visReentries": "Reentradas (recompras)"
+    "visReentries": "Reentradas (recompras)",
+    "sectionPromo": "Publicidad (columna derecha)",
+    "promoHint": "Imagen o video del club en la columna derecha de la pantalla, junto al reloj. El formato vertical funciona mejor (como una historia, 9:16). Con los premios en la lateral, quedan debajo de la publicidad.",
+    "promoShow": "Mostrar la publicidad en la pantalla",
+    "promoNone": "Sin publicidad",
+    "promoUrlLabel": "o pega la URL de una imagen, de un video (.mp4/.webm) o de YouTube",
+    "promoUrlPlaceholder": "https://youtube.com/watch?v=… o https://…/video.mp4",
+    "promoVideoHint": "El video y YouTube se reproducen en bucle y sin sonido.",
+    "promoFit": "Ajuste de la imagen/video",
+    "promoFitContain": "Mostrar entera (sin recortar)",
+    "promoFitCover": "Rellenar la columna (puede recortar los bordes)"
   },
   "errors": {
     "meio_de_entrada_de_outro_torneio": "El medio de entrada elegido no pertenece a este torneo.",

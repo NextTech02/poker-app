@@ -198,6 +198,28 @@ class TestModeloDoDia:
     def test_overlay_tem_padrao_na_resposta(self):
         assert TournamentDay(**self._linha()).broadcast_bg_overlay == 45
 
+    def test_divulgacao_tem_padrao_na_resposta_e_nao_entra_na_criacao(self):
+        """Coluna da direita do telão: sem URL, ligada, inteira. A criação
+        do dia não manda as colunas (podem não existir ainda)."""
+        from app.models.tournament_day import TournamentDayCreate, TournamentDayUpdate
+        dia = TournamentDay(**self._linha())
+        assert dia.broadcast_promo_url is None
+        assert dia.broadcast_show_promo is True
+        assert dia.broadcast_promo_fit == "contain"
+        dados = TournamentDayCreate(tournament_id=TOUR, day_name="Dia 1",
+                                    buy_in=100, max_players=200).model_dump()
+        for campo in ("broadcast_promo_url", "broadcast_show_promo", "broadcast_promo_fit"):
+            assert campo not in dados
+        patch = TournamentDayUpdate(broadcast_promo_url="https://cdn/x.webp",
+                                    broadcast_promo_fit="cover").model_dump(exclude_unset=True)
+        assert patch == {"broadcast_promo_url": "https://cdn/x.webp", "broadcast_promo_fit": "cover"}
+
+    def test_ajuste_da_divulgacao_so_aceita_contain_ou_cover(self):
+        from pydantic import ValidationError
+        from app.models.tournament_day import TournamentDayUpdate
+        with pytest.raises(ValidationError):
+            TournamentDayUpdate(broadcast_promo_fit="stretch")
+
     def test_reentradas_entram_e_saem_do_modelo(self):
         """Antes o campo existia no banco e no toggle mas não no modelo: o
         PATCH descartava e o GET nunca devolvia."""

@@ -36,6 +36,12 @@ const BackgroundGallery = ({
   showOverlay = false,
   onItemRemoved,
   idPrefix = 'bg',
+  // Divulgação reaproveita a galeria: sem presets (gradiente não é peça de
+  // divulgação) e com o campo de URL aceitando vídeo/YouTube.
+  showPresets = true,
+  noneLabel,
+  urlLabel,
+  urlPlaceholder,
 }) => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
@@ -89,12 +95,12 @@ const BackgroundGallery = ({
           className={`bg-tile bg-tile--none${current === '' ? ' is-selected' : ''}`}
           style={{ background: bgColor || TV_BG }}
           onClick={() => onChange('')}
-          title={tt('bgNone', 'Nenhuma (cor de fundo)')}
+          title={noneLabel || tt('bgNone', 'Nenhuma (cor de fundo)')}
         >
-          <span className="bg-tile-caption">{tt('bgNone', 'Nenhuma (cor de fundo)')}</span>
+          <span className="bg-tile-caption">{noneLabel || tt('bgNone', 'Nenhuma (cor de fundo)')}</span>
         </button>
 
-        {Object.entries(BG_PRESETS).map(([name, preset]) => (
+        {showPresets && Object.entries(BG_PRESETS).map(([name, preset]) => (
           <button
             key={name}
             type="button"
@@ -169,12 +175,12 @@ const BackgroundGallery = ({
       )}
 
       <div className="bs-url-row">
-        <span className="bs-or-label">{tt('bgImageUrlLabel', 'ou cole uma URL de imagem')}</span>
+        <span className="bs-or-label">{urlLabel || tt('bgImageUrlLabel', 'ou cole uma URL de imagem')}</span>
         <input
           type="text"
           value={isExternal ? current : ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={tt('bgImageUrlPlaceholder', 'https://exemplo.com/imagem.jpg')}
+          placeholder={urlPlaceholder || tt('bgImageUrlPlaceholder', 'https://exemplo.com/imagem.jpg')}
           className="bs-input"
           data-testid={`${idPrefix}-url-input`}
         />

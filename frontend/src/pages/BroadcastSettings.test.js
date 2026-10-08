@@ -213,8 +213,11 @@ describe('padrões de um dia antigo', () => {
  * reenviado a cada poll de 30 s do telão.
  */
 describe('biblioteca de fundos', () => {
-  const galeriaPrincipal = () => document.querySelectorAll('.bg-gallery')[0];
-  const galeriaIntervalo = () => document.querySelectorAll('.bg-gallery')[1];
+  // Pela galeria certa, não pela posição: a de divulgação entrou entre as duas.
+  const galeriaDe = (prefixo) => Array.from(document.querySelectorAll('.bg-gallery'))
+    .find((g) => g.querySelector(`[data-testid="${prefixo}-url-input"]`));
+  const galeriaPrincipal = () => galeriaDe('bg');
+  const galeriaIntervalo = () => galeriaDe('break-bg');
   const arquivo = (tipo = 'image/png') => new File(['x'], 'nova.png', { type: tipo });
 
   it('lista as imagens do clube nos dois seletores (principal e intervalo)', async () => {
@@ -509,5 +512,54 @@ describe('código público da TV', () => {
     await montar({ codigo: new Error('500') });
     expect(document.querySelector('.bs-tv-code')).toBeNull();
     expect(document.querySelector('.bs-btn-save')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Divulgação na coluna da direita do telão: a galeria do clube é reaproveitada
+ * (sem presets), a URL também aceita vídeo/YouTube, e o diretor liga/desliga
+ * sem apagar a peça.
+ */
+describe('divulgação (coluna da direita)', () => {
+  it('nasce ligada, sem peça e inteira; vazio vai nulo', async () => {
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_promo_url).toBeNull();
+    expect(enviado().broadcast_show_promo).toBe(true);
+    expect(enviado().broadcast_promo_fit).toBe('contain');
+  });
+
+  it('a galeria da divulgação não oferece presets de gradiente', async () => {
+    await montar();
+    const galerias = document.querySelectorAll('.bg-gallery');
+    const daDivulgacao = Array.from(galerias).find((g) => g.querySelector('[data-testid="promo-url-input"]'));
+    expect(daDivulgacao).toBeDefined();
+    expect(daDivulgacao.querySelector('.bg-tile--preset')).toBeNull();
+    expect(daDivulgacao).toHaveTextContent('Sem divulgação');
+  });
+
+  it('URL de YouTube colada e ajuste "cover" vão no payload', async () => {
+    await montar();
+    await userEvent.type(screen.getByTestId('promo-url-input'), 'https://youtu.be/dQw4w9WgXcQ');
+    await userEvent.selectOptions(document.querySelector('#promo-fit'), 'cover');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_promo_url).toBe('https://youtu.be/dQw4w9WgXcQ');
+    expect(enviado().broadcast_promo_fit).toBe('cover');
+  });
+
+  it('desligar mantém a URL gravada (só esconde)', async () => {
+    await montar({ dia: { ...DIA, broadcast_promo_url: 'https://cdn/flyer.webp', broadcast_show_promo: true } });
+    await alternar('Mostrar divulgação');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_promo).toBe(false);
+    expect(enviado().broadcast_promo_url).toBe('https://cdn/flyer.webp');
+  });
+
+  it('a prévia mostra a peça na coluna da direita', async () => {
+    await montar({ dia: { ...DIA, broadcast_promo_url: 'https://cdn/flyer.webp' } });
+    expect(document.querySelector('.bs-preview-stage .tv-promo img')).toHaveAttribute('src', 'https://cdn/flyer.webp');
   });
 });

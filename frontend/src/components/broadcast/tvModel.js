@@ -11,8 +11,22 @@ import { nivelExibido } from '../../utils/nivelExibido';
 
 export const extractYouTubeId = (url) => {
   if (!url) return null;
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
+};
+
+/**
+ * Que tipo de peça de divulgação é a URL: 'youtube', 'video' (arquivo direto)
+ * ou 'image'. Nulo quando não há URL. O telão escolhe o elemento por aqui.
+ */
+export const promoKind = (url) => {
+  const u = String(url || '').trim();
+  if (!u) return null;
+  if (extractYouTubeId(u)) return 'youtube';
+  if (u.startsWith('data:video')) return 'video';
+  const caminho = u.split(/[?#]/)[0].toLowerCase();
+  if (/\.(mp4|webm|ogv|ogg|mov|m4v)$/.test(caminho)) return 'video';
+  return 'image';
 };
 
 /** "MM:SS" — minutos sem teto (um nível de 75 min mostra 75:00). */
@@ -81,6 +95,10 @@ export const buildTvSettings = (source, { fontSizeOverride = null } = {}) => {
     clubLogoUrl: s.broadcast_club_logo_url || null,
     showClubLogo: on(s, 'broadcast_show_club_logo'),
     clubLogoSize: s.broadcast_club_logo_size ?? 100,
+    // Divulgação na coluna da direita: imagem, vídeo direto ou YouTube.
+    promoUrl: String(s.broadcast_promo_url || '').trim() || null,
+    showPromo: on(s, 'broadcast_show_promo'),
+    promoFit: s.broadcast_promo_fit === 'cover' ? 'cover' : 'contain',
     showTitle: on(s, 'broadcast_show_title'),
     showPrizepool: on(s, 'broadcast_show_prizepool'),
     showLevel: on(s, 'broadcast_show_level'),

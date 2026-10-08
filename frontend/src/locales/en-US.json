@@ -1149,7 +1149,17 @@
     "clubLogoUpload": "Upload the club logo",
     "clubLogoUploadHint": "PNG with a transparent background, up to 512KB",
     "clubLogoUrlLabel": "or paste the URL",
-    "visReentries": "Re-entries (rebuys)"
+    "visReentries": "Re-entries (rebuys)",
+    "sectionPromo": "Promotion (right column)",
+    "promoHint": "A club image or video in the right column of the display, next to the clock. Portrait works best (like a story, 9:16). With prizes in the side column, they sit below the promotion.",
+    "promoShow": "Show the promotion on the display",
+    "promoNone": "No promotion",
+    "promoUrlLabel": "or paste the URL of an image, a video (.mp4/.webm) or YouTube",
+    "promoUrlPlaceholder": "https://youtube.com/watch?v=… or https://…/video.mp4",
+    "promoVideoHint": "Video and YouTube play on loop, muted.",
+    "promoFit": "Image/video fit",
+    "promoFitContain": "Show it whole (no cropping)",
+    "promoFitCover": "Fill the column (edges may be cropped)"
   },
   "errors": {
     "meio_de_entrada_de_outro_torneio": "The chosen entry method does not belong to this tournament.",

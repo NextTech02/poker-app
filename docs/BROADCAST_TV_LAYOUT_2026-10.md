@@ -64,6 +64,18 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   Sem suporte, valem os px simples (comportamento anterior).
 - Cor padrão do próximo nível na pílula passou a ser o dourado
   (`broadcast_next_value_color`), como no mockup.
+- **Divulgação na coluna da direita** (pedido do cliente, 2026-10-08): o
+  diretor pode pôr uma peça do clube na coluna que só equilibrava o relógio
+  — imagem da biblioteca (mesma galeria dos fundos, sem presets), vídeo
+  direto (.mp4/.webm, loop e mudo) ou YouTube (embed loop/mudo). Colunas
+  `broadcast_promo_url`, `broadcast_show_promo` (default true) e
+  `broadcast_promo_fit` (`contain` | `cover`), só na resposta/update do
+  backend (`database_migration_broadcast_promo.sql`). No telão: `TvPromo`
+  dentro de `.tv-side` (440 px, colada na borda direita); com a premiação
+  na lateral, ela fica abaixo da divulgação na mesma coluna. Não aparece no
+  intervalo (que tem o próprio vídeo). `promoKind()` em `tvModel.js` decide
+  o elemento pela URL. Configurações: card "Divulgação (coluna da direita)"
+  com interruptor, galeria (`idPrefix="promo"`) e ajuste.
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas
@@ -123,6 +135,7 @@ Também corrigido: `broadcast_show_reentries` faltava nos modelos do backend
 - `db/migrations/database_migration_broadcast_backgrounds.sql`
 - `db/migrations/database_migration_broadcast_gold_defaults.sql`
 - `db/migrations/database_migration_broadcast_show_reentries_default_on.sql`
+- `db/migrations/database_migration_broadcast_promo.sql`
 
 ## Ordem de deploy (IMPORTANTE)
 

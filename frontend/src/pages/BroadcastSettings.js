@@ -157,6 +157,10 @@ const BroadcastSettings = () => {
           broadcast_bg_color:              d.broadcast_bg_color              || DEFAULT_SETTINGS.broadcast_bg_color,
           broadcast_bg_image_url:          d.broadcast_bg_image_url          || '',
           broadcast_bg_overlay:            d.broadcast_bg_overlay            ?? DEFAULT_SETTINGS.broadcast_bg_overlay,
+          // Divulgação na coluna da direita do telão
+          broadcast_promo_url:             d.broadcast_promo_url             || '',
+          broadcast_show_promo:            d.broadcast_show_promo            !== false,
+          broadcast_promo_fit:             d.broadcast_promo_fit === 'cover' ? 'cover' : 'contain',
           broadcast_display_name:          d.broadcast_display_name          || '',
           broadcast_font_size:             d.broadcast_font_size             || 100,
           broadcast_prize_size:            d.broadcast_prize_size            || 100,
@@ -246,6 +250,7 @@ const BroadcastSettings = () => {
     ...prev,
     broadcast_bg_image_url:       prev.broadcast_bg_image_url       === url ? '' : prev.broadcast_bg_image_url,
     broadcast_break_bg_image_url: prev.broadcast_break_bg_image_url === url ? '' : prev.broadcast_break_bg_image_url,
+    broadcast_promo_url: prev.broadcast_promo_url === url ? '' : prev.broadcast_promo_url,
   }));
 
   const handleSave = async () => {
@@ -258,6 +263,7 @@ const BroadcastSettings = () => {
         broadcast_display_name:       settings.broadcast_display_name       || null,
         broadcast_break_youtube_url:  settings.broadcast_break_youtube_url  || null,
         broadcast_break_bg_image_url: settings.broadcast_break_bg_image_url || null,
+        broadcast_promo_url:          (settings.broadcast_promo_url || '').trim() || null,
       });
       toast.success(t('broadcastSettings.saved'));
     } catch (err) {
@@ -425,6 +431,50 @@ const BroadcastSettings = () => {
                   settingsKey="broadcast_club_logo_size" min={50} max={300}
                   settings={settings} onChange={set}
                 />
+              </div>
+            </SectionCard>
+
+            {/* ── Divulgação: coluna da direita do telão (imagem, vídeo ou YouTube) ── */}
+            <SectionCard title={t('broadcastSettings.sectionPromo', 'Divulgação (coluna da direita)')}>
+              <span className="bs-hint">
+                {t('broadcastSettings.promoHint', 'Imagem ou vídeo do clube na coluna da direita do telão, ao lado do relógio. Formato em pé funciona melhor (como um story, 9:16). Com a premiação na lateral, ela fica abaixo da divulgação.')}
+              </span>
+              <label className={`bs-toggle ${settings.broadcast_show_promo ? 'on' : 'off'}`} style={{ marginTop: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.broadcast_show_promo}
+                  onChange={(e) => set('broadcast_show_promo', e.target.checked)}
+                />
+                <span className="bs-toggle-track">
+                  <span className="bs-toggle-thumb" />
+                </span>
+                <span className="bs-toggle-label">{t('broadcastSettings.promoShow', 'Mostrar divulgação no telão')}</span>
+              </label>
+              <div className="bs-field-full" style={{ marginTop: '0.5rem' }}>
+                <BackgroundGallery
+                  idPrefix="promo"
+                  value={settings.broadcast_promo_url}
+                  onChange={(v) => set('broadcast_promo_url', v)}
+                  library={library}
+                  showPresets={false}
+                  noneLabel={t('broadcastSettings.promoNone', 'Sem divulgação')}
+                  urlLabel={t('broadcastSettings.promoUrlLabel', 'ou cole a URL de uma imagem, de um vídeo (.mp4/.webm) ou do YouTube')}
+                  urlPlaceholder={t('broadcastSettings.promoUrlPlaceholder', 'https://youtube.com/watch?v=… ou https://…/video.mp4')}
+                  onItemRemoved={limparFundoRemovido}
+                />
+                <span className="bs-hint">{t('broadcastSettings.promoVideoHint', 'Vídeo e YouTube tocam em loop e sem som.')}</span>
+              </div>
+              <div className="bs-field-full" style={{ marginTop: '0.5rem' }}>
+                <label className="bs-label" htmlFor="promo-fit">{t('broadcastSettings.promoFit', 'Ajuste da imagem/vídeo')}</label>
+                <select
+                  id="promo-fit"
+                  className="bs-input"
+                  value={settings.broadcast_promo_fit}
+                  onChange={(e) => set('broadcast_promo_fit', e.target.value)}
+                >
+                  <option value="contain">{t('broadcastSettings.promoFitContain', 'Mostrar inteira (sem cortar)')}</option>
+                  <option value="cover">{t('broadcastSettings.promoFitCover', 'Preencher a coluna (pode cortar as bordas)')}</option>
+                </select>
               </div>
             </SectionCard>
 
