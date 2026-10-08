@@ -17,6 +17,11 @@ import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Torneios.css';
 
+// As duas formas de eliminar jogadores, na ordem em que aparecem no modal.
+// Os dois modos seguem a mesma conta: toda entrada soma um jogador e toda
+// reentrada traz de volta um eliminado. Muda só QUEM mexe no contador.
+const MODOS_DE_ELIMINACAO = ['table', 'bulk'];
+
 // O formulário do modal. Buy-in, rebuy, add-on e as fichas de cada um não moram
 // mais aqui: viraram linhas da lista de MEIOS DE ENTRADA do torneio (estado
 // próprio, `entryRows`), que é de onde o Caixa vende e de onde as colunas
@@ -24,6 +29,9 @@ import './Torneios.css';
 const FORM_INICIAL = {
   name: '',
   has_qualifying: false,
+  // Como o diretor elimina jogadores. 'bulk' é o padrão do banco e o único
+  // modo que existia antes da escolha.
+  elimination_mode: 'bulk',
   sponsor_id: '',
   qualifying_days: 2,
   qualifying_max_players: 100,
@@ -146,6 +154,7 @@ const Torneios = () => {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
         sponsor_id: formData.sponsor_id || null,
+        elimination_mode: formData.elimination_mode || 'bulk',
       });
       const newTournamentId = res?.data?.id;
 
@@ -267,6 +276,9 @@ const Torneios = () => {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
         sponsor_id: formData.sponsor_id || null,
+        // Trocar para "por mesa" com eliminações em massa já lançadas é
+        // recusado pelo servidor (409) — a mensagem vem traduzida no erro.
+        elimination_mode: formData.elimination_mode || 'bulk',
       });
       if (!entryLoadFailed) {
         try {
@@ -299,7 +311,13 @@ const Torneios = () => {
 
   const openEditModal = async (tournament) => {
     setEditingTournament(tournament);
-    setFormData({ ...FORM_INICIAL, name: tournament.name, has_qualifying: tournament.has_qualifying || false, sponsor_id: tournament.sponsor_id || '' });
+    setFormData({
+      ...FORM_INICIAL,
+      name: tournament.name,
+      has_qualifying: tournament.has_qualifying || false,
+      sponsor_id: tournament.sponsor_id || '',
+      elimination_mode: tournament.elimination_mode === 'table' ? 'table' : 'bulk',
+    });
     setFormError('');
     setEntryError('');
     setEntryLoadFailed(false);
@@ -528,7 +546,7 @@ const Torneios = () => {
                         </span>
                       </div>
                       {reentries > 0 && (
-                        <div className="tr-stat" title={t('tournaments.reentriesHint', 'Recompras e add-ons. Não somam jogadores: quem recompra continua sendo a mesma pessoa na mesa.')}>
+                        <div className="tr-stat" title={t('tournaments.reentriesHint')}>
                           <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
                             <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
                           </svg>
@@ -708,6 +726,37 @@ const TournamentModal = ({
             ))}
           </select>
         </div>
+
+        {/* Como eliminar jogadores: escolha do diretor, na criação e na
+            edição. Os dois modos seguem a mesma regra de entradas e
+            reentradas; muda só onde o diretor marca a eliminação. */}
+        <div className="tr-section-label" id="tr-elim-label">{t('tournaments.eliminationModeSection')}</div>
+        <div className="tr-elim-options" role="radiogroup" aria-labelledby="tr-elim-label">
+          {MODOS_DE_ELIMINACAO.map((modo) => {
+            const ativo = (formData.elimination_mode || 'bulk') === modo;
+            return (
+              <label key={modo} className={`tr-elim-option ${ativo ? 'active' : ''}`}>
+                <input
+                  type="radio"
+                  name="elimination_mode"
+                  value={modo}
+                  checked={ativo}
+                  onChange={onChange}
+                  disabled={submitting}
+                />
+                <span className="tr-elim-text">
+                  <span className="tr-elim-title">
+                    {modo === 'table' ? t('tournaments.eliminationModeTable') : t('tournaments.eliminationModeBulk')}
+                  </span>
+                  <span className="tr-elim-hint">
+                    {modo === 'table' ? t('tournaments.eliminationModeTableHint') : t('tournaments.eliminationModeBulkHint')}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <small className="tr-elim-rule">{t('tournaments.eliminationModeRule')}</small>
 
         {/* Meios de entrada: nos DOIS caminhos (com e sem classificatórios) e
             também na edição. A lista é do torneio e vale para todos os dias. */}

@@ -232,6 +232,14 @@
   font-size: 0.9rem;
 }
 
+/* Dica curta sob o campo (ex.: reentrada por mesa só lista eliminados). */
+.cx-field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
 /* ── Meio de entrada no recibo ─────────────────────────────────────────────
    O que a pessoa acabou de comprar, pelo nome configurado no dia. A categoria
    sozinha não distingue duas entradas de preços diferentes. */

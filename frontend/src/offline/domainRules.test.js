@@ -19,6 +19,7 @@ import {
   applySangria,
   applyPlayerCreate,
   applyEliminate,
+  applyUneliminate,
 } from './domainRules';
 import { putEntity } from './db';
 
@@ -251,6 +252,20 @@ describe('rebuy', () => {
     expect(tp.status).toBe('active');
   });
 
+  it('a reentrada devolve a eliminação ao contador do dia (uma por venda)', async () => {
+    // ATIVOS = ENTRADAS − ELIMINAÇÕES na tela offline também: quem reentra
+    // volta à mesa, como no servidor.
+    await applyEliminate({ tournament_player_id: 'tp-local-1' });
+    expect(ler('tournament_days', DIA).eliminations_count).toBe(1);
+    await applyRebuy({ ...corpoRebuy(), quantity: 3 });
+    expect(ler('tournament_days', DIA).eliminations_count).toBe(0);
+  });
+
+  it('o contador nunca fica negativo', async () => {
+    await applyRebuy(corpoRebuy());
+    expect(ler('tournament_days', DIA).eliminations_count).toBe(0);
+  });
+
   it('alimenta prêmio e caixa como o buy-in', async () => {
     await applyRebuy(corpoRebuy());
     expect(ler('tournament_days', DIA).prize_pool).toBe(480); // 240 + 240
@@ -309,6 +324,8 @@ describe('add-on', () => {
     await applyEliminate({ tournament_player_id: 'tp-local-1' });
     const { tp } = await applyAddon(corpoAddon());
     expect(tp.status).toBe('eliminated');
+    // E não mexe no contador de eliminações.
+    expect(ler('tournament_days', DIA).eliminations_count).toBe(1);
   });
 
   it('alimenta prêmio e caixa', async () => {
@@ -592,5 +609,30 @@ describe('eliminação', () => {
 
   it('inscrição inexistente devolve null', async () => {
     expect(await applyEliminate({ tournament_player_id: 'x' })).toBeNull();
+  });
+});
+
+
+describe('eliminação no assento (offline)', () => {
+  beforeEach(async () => {
+    await applyRegister(corpoRegistro());
+    jest.clearAllMocks();
+  });
+
+  it('eliminar soma no contador que a tela lê, uma vez só', async () => {
+    await applyEliminate({ tournament_player_id: 'tp-local-1' });
+    await applyEliminate({ tournament_player_id: 'tp-local-1' });
+    expect(ler('tournament_days', DIA).eliminations_count).toBe(1);
+  });
+
+  it('desfazer a eliminação devolve o jogador e o contador', async () => {
+    await applyEliminate({ tournament_player_id: 'tp-local-1' });
+    const { tp } = await applyUneliminate({ tournament_player_id: 'tp-local-1' });
+    expect(tp.status).toBe('active');
+    expect(ler('tournament_days', DIA).eliminations_count).toBe(0);
+  });
+
+  it('desfazer quem não está eliminado não mexe em nada', async () => {
+    expect(await applyUneliminate({ tournament_player_id: 'tp-local-1' })).toBeNull();
   });
 });

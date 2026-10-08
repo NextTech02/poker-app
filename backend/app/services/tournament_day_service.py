@@ -36,6 +36,16 @@ from app.services.tournament_service import (
     contar_pagantes,
     resumir_vendas,
 )
+# A regra de ENTRADAS / REENTRADAS / ELIMINACOES dos dois modos (mesa e em
+# massa) mora num lugar so — ver app/services/eliminacao.py.
+from app.services.eliminacao import (
+    COLUNAS_DE_ENTRADA,
+    MODO_MESA,
+    entradas_para_ativos as _entradas_para_ativos,
+    modo_do_torneio,
+    reentradas as _reentradas,
+    registrar_eliminacao,
+)
 
 MSG_DIA_COM_MOVIMENTO = (
     "Este dia tem movimento financeiro e não pode ser excluído. "
@@ -48,6 +58,7 @@ MSG_DIA_COM_MOVIMENTO = (
 # ele não é sobrevivente: não avança para a final nem entra na contagem de
 # classificados que o diretor usa para montar as mesas.
 STATUS_FORA_DO_DIA = ("eliminated", "cancelled")
+
 
 
 class TournamentDayService:
@@ -174,7 +185,9 @@ class TournamentDayService:
             return []
 
         # total_entries per day in ONE round-trip (was one query per day = N+1).
-        entries_by_day, reentries_by_day = TournamentDayService._entries_by_day([r["id"] for r in rows])
+        entries_by_day, reentries_by_day = TournamentDayService._entries_by_day(
+            [r["id"] for r in rows], {r["id"]: r for r in rows}
+        )
 
         days = []
         for item in rows:
@@ -185,7 +198,7 @@ class TournamentDayService:
         return days
 
     @staticmethod
-    def _entries_by_day(day_ids: List[str]) -> tuple:
+    def _entries_by_day(day_ids: List[str], dias: Optional[dict] = None) -> tuple:
         """Devolve (entradas_por_dia, reentradas_por_dia) numa consulta so.
 
         ENTRADA e BUY-IN. So isso. Quem recompra nao entrou de novo no torneio:
@@ -193,24 +206,33 @@ class TournamentDayService:
         a mesma vaga. Um torneio com 2 inscritos e 5 recompras tem 2 entradas e
         5 reentradas — nao 7 entradas, que era o que a tela mostrava.
 
-        REENTRADA (recompra + add-on) tem campo proprio, e o clube escolhe se
-        exibe. O dinheiro das recompras continua inteiro na premiacao: quem soma
-        arrecadacao e PrizeAllocationService, nao este contador."""
+        REENTRADA e so a recompra: o add-on compra fichas, nao traz ninguem de
+        volta. O dinheiro das recompras e add-ons continua inteiro na
+        premiacao: quem soma arrecadacao e PrizeAllocationService, nao este
+        contador.
+
+        Entrada inclui o classificado vindo de outro dia (ver
+        `_entradas_para_ativos`); `dias` (por id) deixa o dia final contar os
+        que o avanco pelo contador somou sem criar linha."""
         if not day_ids:
             return {}, {}
         players = (
             supabase.table("tournament_players")
-            .select("tournament_day_id, buy_in_count, rebuy_count, addon_count")
+            .select(f"tournament_day_id, {COLUNAS_DE_ENTRADA}")
             .in_("tournament_day_id", day_ids)
             .execute()
             .data
             or []
         )
-        agg = defaultdict(int)
-        reentradas = defaultdict(int)
+        por_dia = defaultdict(list)
         for p in players:
-            agg[p["tournament_day_id"]] += p.get("buy_in_count") or 0
-            reentradas[p["tournament_day_id"]] += (p.get("rebuy_count") or 0) + (p.get("addon_count") or 0)
+            por_dia[p["tournament_day_id"]].append(p)
+        dias = dias or {}
+        agg = {}
+        for d in day_ids:
+            if d in por_dia or d in dias:
+                agg[d] = _entradas_para_ativos(por_dia.get(d, []), dias.get(d))
+        reentradas = {d: _reentradas(linhas) for d, linhas in por_dia.items()}
         return agg, reentradas
 
     @staticmethod
@@ -229,17 +251,20 @@ class TournamentDayService:
             total_entries = 0
             total_reentries = 0
             if include_entries:
-                players_response = supabase.table("tournament_players")                    .select("buy_in_count, rebuy_count, addon_count")                    .eq("tournament_day_id", day_id)                    .execute()
-
-                if players_response.data:
-                    for player in players_response.data:
-                        buy_ins = player.get("buy_in_count", 0) or 0
-                        rebuys = player.get("rebuy_count", 0) or 0
-                        addons = player.get("addon_count", 0) or 0
-                        # Entrada e buy-in. A recompra devolve o jogador ao
-                        # torneio; ela nao e uma entrada nova.
-                        total_entries += buy_ins
-                        total_reentries += rebuys + addons
+                linhas = (
+                    supabase.table("tournament_players")
+                    .select(COLUNAS_DE_ENTRADA)
+                    .eq("tournament_day_id", day_id)
+                    .execute()
+                    .data
+                    or []
+                )
+                # Entrada e buy-in (e o classificado vindo de outro dia). A
+                # recompra devolve o jogador ao torneio; ela nao e uma entrada
+                # nova. Add-on nao conta em nada. E a mesma conta da TV, para
+                # "ENTRADAS − ELIMINACOES = ATIVOS" fechar.
+                total_entries = _entradas_para_ativos(linhas, item)
+                total_reentries = _reentradas(linhas)
 
             item["total_entries"] = total_entries
             item["total_reentries"] = total_reentries
@@ -606,7 +631,7 @@ class TournamentDayService:
                     coberto = quantas
                 total_chips += somado + max(0, quantas - coberto) * padrao[tipo]
             total_entries += contadores["buy_in"]
-            total_reentradas += contadores["rebuy"] + contadores["addon"]
+            total_reentradas += contadores["rebuy"]
         return total_chips, total_entries, total_reentradas
 
     @staticmethod
@@ -673,6 +698,11 @@ class TournamentDayService:
             == len(sobreviventes)
         )
         usa_fluxo_por_jogador = alguma_ficha_contada or contador_bate
+        # No modo MESA nao ha o que adivinhar: o diretor elimina jogador a
+        # jogador, a lista de sobreviventes e a verdade. A heuristica acima
+        # continua valendo so para o modo em massa.
+        if modo_do_torneio(qualifying_day.tournament_id, supabase) == MODO_MESA:
+            usa_fluxo_por_jogador = True
 
         if sobreviventes and tem_coluna_de_fichas and usa_fluxo_por_jogador:
             return TournamentDayService._avancar_por_jogador(
@@ -708,7 +738,7 @@ class TournamentDayService:
                 "Nenhum sobrevivente para avançar (todos eliminados)",
             )
 
-        total_chips, total_entries, _reentradas = TournamentDayService._entradas_do_dia(qualifying_day)
+        total_chips, total_entries, _ = TournamentDayService._entradas_do_dia(qualifying_day)
 
         # Carry over prize pool
         qualifying_prize_pool = qualifying_day.prize_pool or 0
@@ -818,7 +848,7 @@ class TournamentDayService:
                 "chips": fichas,
             })
 
-        _, total_entries, _reentradas = TournamentDayService._entradas_do_dia(qualifying_day)
+        _, total_entries, _ = TournamentDayService._entradas_do_dia(qualifying_day)
 
         # Lido ANTES do insert de propósito: no banco, o trigger de prize_pool
         # dispara a cada linha nova e recalcula o prêmio do dia final a partir
@@ -972,7 +1002,8 @@ class TournamentDayService:
                 total_buy_ins=day_buy_ins,
                 total_rebuys=day_rebuys,
                 total_addons=day_addons,
-                total_entries=day_buy_ins + day_rebuys,
+                # Entrada e buy-in; a recompra ja vai em total_rebuys.
+                total_entries=day_buy_ins,
                 buy_in_amount=day_buy_in_amount,
                 rebuy_amount=day_rebuy_amount,
                 addon_amount=day_addon_amount,
@@ -1027,7 +1058,7 @@ class TournamentDayService:
             total_qualifying_buy_ins=total_qualifying_buy_ins,
             total_qualifying_rebuys=total_qualifying_rebuys,
             total_qualifying_addons=total_qualifying_addons,
-            total_qualifying_entries=total_qualifying_buy_ins + total_qualifying_rebuys,
+            total_qualifying_entries=total_qualifying_buy_ins,
             total_qualifying_buy_in_amount=total_qualifying_buy_in_amount,
             total_qualifying_rebuy_amount=total_qualifying_rebuy_amount,
             total_qualifying_addon_amount=total_qualifying_addon_amount,
@@ -1078,7 +1109,8 @@ class TournamentDayService:
             total_buy_ins=buy_ins,
             total_rebuys=rebuys,
             total_addons=addons,
-            total_entries=buy_ins + rebuys,
+            # Entrada e buy-in; a recompra ja vai em total_rebuys.
+            total_entries=buy_ins,
             buy_in_amount=buy_in_amount,
             rebuy_amount=rebuy_amount,
             addon_amount=addon_amount,
@@ -1304,13 +1336,16 @@ class TournamentDayService:
         # One players scan feeds both active count and total_entries (so we don't
         # depend on day.total_entries — the day may be fetched without that scan)
         players_response = supabase.table("tournament_players")\
-            .select("status, buy_in_count, rebuy_count")\
+            .select(COLUNAS_DE_ENTRADA)\
             .eq("tournament_day_id", day_id)\
             .execute()
 
         rows = players_response.data or []
-        active_players = len([p for p in rows if p.get("status") == "active"])
-        total_entries = sum((p.get("buy_in_count") or 0) + (p.get("rebuy_count") or 0) for p in rows)
+        # A MESMA conta da TV e do Controle: ATIVOS = ENTRADAS − ELIMINACOES.
+        # Contar status 'active' errava duas vezes: o inscrito novo nasce
+        # 'registered', e no modo em massa ninguem muda de status ao sair.
+        total_entries = _entradas_para_ativos(rows, day)
+        active_players = max(0, total_entries - (getattr(day, "eliminations_count", 0) or 0))
 
         # Calculate current elapsed time if timer is running
         current_elapsed = day.elapsed_time
@@ -1544,24 +1579,22 @@ class TournamentDayService:
         else:
             try:
                 agg_resp = supabase.table("tournament_players")\
-                    .select("total_chips, buy_in_count, rebuy_count, addon_count")\
+                    .select(f"total_chips, {COLUNAS_DE_ENTRADA}")\
                     .eq("tournament_day_id", day_id)\
                     .execute()
                 players_data = agg_resp.data or []
                 if not players_data:
                     agg_resp2 = supabase.table("tournament_players")\
-                        .select("total_chips, buy_in_count, rebuy_count, addon_count")\
+                        .select(f"total_chips, {COLUNAS_DE_ENTRADA}")\
                         .eq("tournament_id", day.tournament_id)\
                         .execute()
                     players_data = agg_resp2.data or []
                 chipcount = sum(int(p.get("total_chips") or 0) for p in players_data)
-                # ENTRADA = buy-in. Quem recompra voltou ao torneio; nao entrou
-                # nele de novo.
-                total_entries = sum((p.get("buy_in_count") or 0) for p in players_data)
-                total_reentries = sum(
-                    (p.get("rebuy_count") or 0) + (p.get("addon_count") or 0)
-                    for p in players_data
-                )
+                # ENTRADA = buy-in (e o classificado vindo de outro dia). Quem
+                # recompra voltou ao torneio; nao entrou nele de novo.
+                total_entries = _entradas_para_ativos(players_data, day)
+                # REENTRADA = recompra. Add-on nao traz ninguem de volta.
+                total_reentries = _reentradas(players_data)
                 _chipcount_cache[day_id] = (now, chipcount, total_entries, total_reentries)
             except Exception:
                 chipcount = cached[1] if cached else 0
@@ -1620,7 +1653,7 @@ class TournamentDayService:
             "next_break_starts_at": next_break_starts_at,
             "active_players": active_players,
             "total_entries": total_entries,
-            # Recompras + add-ons, para o telao exibir separado de "Jogadores".
+            # So recompras (add-on fica fora), para o telao exibir separado.
             "total_reentries": total_reentries,
             "eliminations_count": eliminations_count,
             "chipcount": chipcount,
@@ -1633,29 +1666,37 @@ class TournamentDayService:
 
     @staticmethod
     def adjust_eliminations(day_id: str, count: int):
-        """Adjust eliminations counter. Positive = add eliminations, negative = undo."""
+        """Contador de eliminacoes EM MASSA. Positivo elimina, negativo desfaz.
+
+        So vale no modo 'bulk'. No modo mesa o contador e a contagem dos
+        jogadores eliminados no assento: um "Eliminar 1" sem nome deixaria o
+        numero descolado da lista, e a proxima reentrada nao teria a quem
+        devolver.
+
+        Teto nas ENTRADAS do dia: mais eliminados que entradas deixaria
+        "jogadores ativos" negativo na TV. Cada reentrada ja baixou o contador
+        quando foi vendida, entao um dia de 2 inscritos e 5 reentradas cabe
+        exatamente 2 eliminacoes por vez.
+        """
         day = TournamentDayService.get_tournament_day(day_id)
         if not day:
             raise ErroDeNegocio(
                 "dia_nao_encontrado", "Tournament day not found", status=404
             )
 
-        current = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
-        new_count = max(0, current + count)
+        if modo_do_torneio(day.tournament_id, supabase) == MODO_MESA:
+            raise ErroDeNegocio(
+                "eliminacao_por_mesa",
+                "Este torneio elimina jogadores pelas mesas: use o botão de "
+                "eliminar no assento do jogador.",
+                status=409,
+            )
 
-        # Mais eliminados que entradas deixaria "jogadores ativos" negativo na
-        # TV. O teto sao as entradas mesmo: cada recompra ja baixou o contador
-        # quando foi vendida, entao um dia de 2 inscritos e 5 recompras cabe
-        # exatamente 2 eliminacoes por vez — as recompras abrem espaco para as
-        # proximas conforme acontecem.
         total_entries = day.total_entries or 0
-        if new_count > total_entries:
-            new_count = total_entries
-
-        response = supabase.table("tournament_days")\
-            .update({"eliminations_count": new_count})\
-            .eq("id", day_id)\
-            .execute()
+        # Atomico no banco (dois operadores clicando juntos nao perdem um clique).
+        new_count = registrar_eliminacao(day_id, count, supabase)
+        if new_count is None:
+            new_count = day.eliminations_count or 0
 
         return {
             "eliminations_count": new_count,

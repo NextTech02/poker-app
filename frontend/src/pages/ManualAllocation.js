@@ -182,24 +182,24 @@ const ManualAllocation = () => {
     if (!ok) return;
 
     try {
-      // Find the tournament player
+      // A inscrição DAQUELE dia, quando a cadeira sabe o dia: pelo torneio só,
+      // o jogador do 1A e do 1B achava a linha do outro dia.
       const tournamentPlayersRes = await api.get(`/tournament-players/tournament/${tournamentId}`);
-      const tournamentPlayer = tournamentPlayersRes.data.find(tp => tp.player_id === allocation.player_id);
+      const tournamentPlayer = (tournamentPlayersRes.data || []).find((tp) => (
+        tp.player_id === allocation.player_id
+        && (!allocation.tournament_day_id || tp.tournament_day_id === allocation.tournament_day_id)
+      ));
 
       if (tournamentPlayer) {
-        // Eliminate player (set status to eliminated with current timestamp)
-        await api.patch(`/tournament-players/${tournamentPlayer.id}`, {
-          status: 'eliminated',
-          eliminated_at: new Date().toISOString(),
-          final_position: null  // Will be set by ranking system
-        });
-
-        // Recalculate rankings after elimination
-        await api.post(`/rankings/tournament/${tournamentId}/recalculate`);
+        // Uma chamada só: o servidor marca a eliminação (com a hora), soma no
+        // contador que a TV lê, libera a cadeira e a vaga da mesa e recalcula o
+        // ranking. Gravar só o status deixava a TV sem ver a eliminação.
+        await api.post(`/tournament-players/${tournamentPlayer.id}/eliminate`);
+      } else {
+        // Sem inscrição: um assento preso por um registro inconsistente
+        // travaria a mesa.
+        await api.delete(`/allocations/${allocation.id}`);
       }
-
-      // Remove allocation
-      await api.delete(`/allocations/${allocation.id}`);
 
       await loadData();
       toast.success(t('manualAllocation.eliminatedSuccess', { name: playerName }));

@@ -24,6 +24,21 @@ class AllocationType(str, Enum):
     manual = "manual"
 
 
+class EliminationMode(str, Enum):
+    """Como o diretor elimina jogadores — escolhido na criação do torneio.
+
+    Os dois modos seguem a MESMA conta (ATIVOS = ENTRADAS − ELIMINAÇÕES, e toda
+    reentrada traz de volta um eliminado); muda só quem mexe no contador:
+
+    - `table` (por posição nas mesas): o jogador é eliminado no assento. Mais
+      organizado — o sistema sabe QUEM saiu, e o contador é a contagem deles.
+    - `bulk` (em massa): o diretor clica "Eliminar 1 / Eliminar N" no Controle.
+      Mais prático — o contador não sabe quem saiu.
+    """
+    table = "table"
+    bulk = "bulk"
+
+
 class BroadcastSettings(BaseModel):
     """Broadcast display settings for tournament"""
     bg_color: Optional[str] = Field(default="#0a0e13", description="Background color (hex)")
@@ -49,6 +64,10 @@ class TournamentBase(BaseModel):
     sponsor_id: Optional[str] = Field(None, description="Sponsor/Patrocinador ID")
     has_qualifying: bool = Field(default=False, description="Whether this tournament has qualifying days leading to a final")
     is_satellite: bool = Field(default=False, description="Whether this is a satellite tournament that awards tickets")
+    elimination_mode: EliminationMode = Field(
+        default=EliminationMode.bulk,
+        description="Como eliminar jogadores: 'table' (no assento) ou 'bulk' (contador em massa)",
+    )
 
 
 class TournamentCreate(TournamentBase):
@@ -62,6 +81,7 @@ class TournamentUpdate(BaseModel):
     sponsor_id: Optional[str] = Field(None, description="Sponsor/Patrocinador ID (null clears it)")
     has_qualifying: Optional[bool] = None
     is_satellite: Optional[bool] = None
+    elimination_mode: Optional[EliminationMode] = None
     # Broadcast settings
     broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
     broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
@@ -152,12 +172,13 @@ class TournamentSummary(BaseModel):
     sponsor_name: Optional[str] = None  # joined from sponsors table
     has_qualifying: bool = False
     is_satellite: bool = False
+    elimination_mode: EliminationMode = EliminationMode.bulk
     status: Optional[str] = "pending"  # A2: campo incluído para exibição de badges no frontend
     total_entries: int = 0  # Somado dos dias. So buy-ins: recompra vai em total_reentries.
     # JOGADOR e REENTRADA sao coisas diferentes, e misturar as duas inflava a
     # contagem do torneio: quem recompra tres vezes continua sendo UMA pessoa na
-    # mesa. `total_players` conta gente; `total_reentries` conta recompra e
-    # add-on, que e o numero que o clube pode ou nao querer exibir.
+    # mesa. `total_players` conta gente; `total_reentries` conta so a
+    # recompra — add-on compra fichas, nao traz ninguem de volta.
     total_players: int = 0
     total_reentries: int = 0
     total_days: int = 0  # Number of tournament days

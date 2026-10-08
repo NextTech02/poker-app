@@ -219,9 +219,11 @@ export const buildTvModel = ({
   const entries = live
     ? (timerState.total_entries || 0)
     : players.reduce((sum, p) => sum + (p.buy_in_count || 0), 0);
+  // REENTRADA = recompra. O add-on compra fichas para quem já está na mesa
+  // e não traz ninguém de volta, então não conta (mesma regra do backend).
   const reentries = live
     ? (timerState.total_reentries || 0)
-    : players.reduce((sum, p) => sum + (p.rebuy_count || 0) + (p.addon_count || 0), 0);
+    : players.reduce((sum, p) => sum + (p.rebuy_count || 0), 0);
   const chipcount = live ? (timerState.chipcount || 0) : 0;
   const averageStack = live ? (timerState.average_stack || 0) : 0;
 
