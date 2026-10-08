@@ -1,6 +1,10 @@
 -- ============================================================================
 -- Modo de eliminação do torneio: por posição nas mesas ou em massa
 -- ============================================================================
+-- Já APLICADA em produção (Supabase, projeto App Poker) em 08/10/2026, como a
+-- migração `modo_de_eliminacao`. Os 30 torneios existentes ficaram em 'bulk' e
+-- nenhum contador de eliminações mudou.
+--
 -- APLICAR NO SUPABASE ANTES DO DEPLOY DO BACKEND: `create_tournament` grava o
 -- modelo inteiro, e um backend novo contra um banco sem a coluna recusaria a
 -- criação de torneios.
@@ -370,13 +374,15 @@ $function$;
 -- ── 8) Resumo por dia: ENTRADA é buy-in ─────────────────────────────────────
 -- O fallback em Python (`_get_tournament_day_summary_batched`) já contava só
 -- buy-ins; a função somava as recompras. Agora os dois caminhos concordam.
-CREATE OR REPLACE FUNCTION get_tournament_day_summaries(
+-- `search_path` fixo, como a migração summary_rpcs_pin_search_path deixou.
+CREATE OR REPLACE FUNCTION public.get_tournament_day_summaries(
     p_tournament_id uuid DEFAULT NULL,
     p_day_id uuid DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE sql
 STABLE
+SET search_path TO 'public'
 AS $$
     SELECT coalesce(
         jsonb_agg(
