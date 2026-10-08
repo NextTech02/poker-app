@@ -61,9 +61,10 @@ jest.mock('../offline/db', () => {
 });
 jest.mock('../hooks/usePolling', () => ({ usePolling: jest.fn() }));
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
-jest.mock('../components/PlayerSelect', () => ({ value, onChange, name }) => (
+jest.mock('../components/PlayerSelect', () => ({ value, onChange, name, allowedIds }) => (
   <select
     aria-label="jogador"
+    data-permitidos={Array.isArray(allowedIds) ? allowedIds.join(',') : 'todos'}
     value={value}
     onChange={(e) => onChange({ target: { name: name || 'player_id', value: e.target.value } })}
   >
@@ -711,21 +712,9 @@ describe('rebuy', () => {
     expect(enviada.params.client_mutation_id).toBe(enviada.clientMutationId);
   });
 
-  it('jogador eliminado sai do ranking antes de voltar ao jogo', async () => {
-    // Se ele recomprou, não terminou naquela posição — deixar o ranking
-    // antigo daria prêmio a quem ainda está jogando.
-    offlineRead.mockResolvedValue([{ ...JOGADOR_TORNEIO, status: 'eliminated' }]);
-    await montar();
-    await comoRebuy();
-    await enviar();
-    await waitFor(() =>
-      expect(api.delete).toHaveBeenCalledWith('/rankings/tournament-player/tp1/ranking')
-    );
-  });
-
-  it('offline não tenta mexer no ranking', async () => {
-    // A remoção do ranking é online-only; tentar sem rede só geraria erro.
-    isOnline.mockReturnValue(false);
+  it('a tela não mexe no ranking: o servidor faz isso na própria venda', async () => {
+    // Tirar do ranking ANTES da venda reativava o jogador, e a reentrada por
+    // mesa — que exige o jogador ELIMINADO — era recusada.
     offlineRead.mockResolvedValue([{ ...JOGADOR_TORNEIO, status: 'eliminated' }]);
     await montar();
     await comoRebuy();
@@ -734,13 +723,26 @@ describe('rebuy', () => {
     expect(api.delete).not.toHaveBeenCalled();
   });
 
-  it('falha ao sair do ranking não impede a recompra', async () => {
-    offlineRead.mockResolvedValue([{ ...JOGADOR_TORNEIO, status: 'eliminated' }]);
-    api.delete.mockRejectedValue(new Error('500'));
+  it('o jogador é procurado no DIA da venda, não no torneio inteiro', async () => {
+    // Quem joga o 1A e o 1B tem duas inscrições; pelo torneio a reentrada
+    // caía na do outro dia.
     await montar();
     await comoRebuy();
     await enviar();
     await waitFor(() => expect(chamada('/rebuy')).toBeTruthy());
+    expect(offlineRead).toHaveBeenCalledWith('/tournament-players/day/d1', expect.anything());
+  });
+
+  it('reentrada recusada pelo servidor mostra o motivo', async () => {
+    const recusa = new Error('409');
+    recusa.userMessage = 'Reentrada recusada: não há jogador eliminado para voltar.';
+    offlineWrite.mockRejectedValue(recusa);
+    await montar();
+    await comoRebuy();
+    await enviar();
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Reentrada recusada: não há jogador eliminado para voltar.')
+    );
   });
 
   it('rebuy com alocação automática também imprime bilhete', async () => {
@@ -1797,5 +1799,60 @@ describe('bilhete sem assento: por que saiu assim', () => {
     await preencher({ tipo: 'b2' });
     await enviar();
     expect(await screen.findByText('Registrado — nenhuma mesa cadastrada')).toBeInTheDocument();
+  });
+});
+
+
+describe('reentrada traz de volta um eliminado', () => {
+  /** Toda reentrada traz de volta UM jogador eliminado; sem eliminado o
+   *  servidor recusa. A tela antecipa isso para o operador não descobrir só
+   *  depois de cobrar: por MESA, o seletor oferece só os eliminados do dia;
+   *  em MASSA, avisa quando o contador do dia está em zero. */
+  const comoRebuy = async () => {
+    await abrirModal();
+    await preencher({ tipo: 'b2' });
+  };
+
+  it('por mesa, o seletor oferece só os eliminados do dia', async () => {
+    offlineRead.mockResolvedValue([
+      { id: 'tp1', player_id: 'p1', tournament_day_id: 'd1', status: 'eliminated' },
+      { id: 'tp2', player_id: 'p2', tournament_day_id: 'd1', status: 'active' },
+    ]);
+    await montar({ torneios: [{ ...TORNEIO, elimination_mode: 'table' }] });
+    await comoRebuy();
+    await waitFor(() =>
+      expect(screen.getByLabelText('jogador')).toHaveAttribute('data-permitidos', 'p1')
+    );
+    expect(screen.getByText('cashRegister.reentryOnlyEliminated')).toBeInTheDocument();
+  });
+
+  it('por mesa, sem eliminado no dia, o operador é avisado', async () => {
+    offlineRead.mockResolvedValue([
+      { id: 'tp1', player_id: 'p1', tournament_day_id: 'd1', status: 'active' },
+    ]);
+    await montar({ torneios: [{ ...TORNEIO, elimination_mode: 'table' }] });
+    await comoRebuy();
+    expect(await screen.findByText('cashRegister.reentryNoEliminatedTable')).toBeInTheDocument();
+  });
+
+  it('em massa, contador em zero gera aviso (o servidor decide)', async () => {
+    await montar({ dias: [{ ...DIA, eliminations_count: 0 }] });
+    await comoRebuy();
+    expect(await screen.findByText('cashRegister.reentryNoEliminatedBulk')).toBeInTheDocument();
+    expect(screen.getByLabelText('jogador')).toHaveAttribute('data-permitidos', 'todos');
+  });
+
+  it('em massa, com eliminação no contador, não há aviso', async () => {
+    await montar({ dias: [{ ...DIA, eliminations_count: 2 }] });
+    await comoRebuy();
+    await waitFor(() => expect(screen.getByLabelText('jogador')).toBeInTheDocument());
+    expect(screen.queryByText('cashRegister.reentryNoEliminatedBulk')).toBeNull();
+  });
+
+  it('add-on não exige eliminado', async () => {
+    await montar({ dias: [{ ...DIA, eliminations_count: 0 }] });
+    await abrirModal();
+    await preencher({ tipo: 'b3' });
+    expect(screen.queryByText('cashRegister.reentryNoEliminatedBulk')).toBeNull();
   });
 });

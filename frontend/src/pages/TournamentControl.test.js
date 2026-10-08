@@ -502,3 +502,53 @@ describe('operação sem internet', () => {
     });
   });
 });
+
+describe('modo de eliminação', () => {
+  /** O diretor escolhe na criação do torneio COMO elimina. Os dois modos
+   *  seguem a mesma conta (ENTRADAS − ELIMINAÇÕES = ATIVOS); muda o lugar
+   *  onde a eliminação é marcada. */
+  const comModo = (modo) => {
+    api.get.mockImplementation((url) => (
+      url === '/tournaments/torneio-9'
+        ? Promise.resolve({ data: { id: 'torneio-9', elimination_mode: modo } })
+        : Promise.resolve({ data: DIA })
+    ));
+  };
+
+  it('em massa mantém os botões do contador', async () => {
+    comModo('bulk');
+    await montar();
+    expect(await screen.findByText('control.eliminateOne')).toBeInTheDocument();
+    expect(screen.queryByText('control.eliminateAtTables')).toBeNull();
+  });
+
+  it('por mesa troca os botões pelo caminho até as mesas', async () => {
+    // Por mesa, o contador é a contagem dos eliminados no assento: um
+    // "Eliminar 1" sem nome descolaria o número da lista.
+    comModo('table');
+    await montar();
+    const link = (await screen.findByText('control.eliminateAtTables')).closest('a');
+    expect(link).toHaveAttribute('href', '/alocacao/dia/dia-1');
+    expect(screen.queryByText('control.eliminateOne')).toBeNull();
+    expect(screen.queryByText('control.bulkEliminate')).toBeNull();
+  });
+
+  it('mostra as reentradas fora da conta dos ativos', async () => {
+    comModo('bulk');
+    await montar({ total_reentries: 6 });
+    expect(screen.getByText('CONTROL.REENTRIES')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
+  });
+
+  it('recusa do servidor ao eliminar em massa chega ao diretor', async () => {
+    comModo('bulk');
+    const recusa = new Error('409');
+    recusa.userMessage = 'Este torneio elimina jogadores pelas mesas.';
+    offlineWrite.mockRejectedValue(recusa);
+    await montar();
+    await userEvent.click(await screen.findByText('control.eliminateOne'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Este torneio elimina jogadores pelas mesas.')
+    );
+  });
+});
