@@ -1022,22 +1022,25 @@
 }
 
 /* ── Ajuste de fonte pelo próprio telão (canto inferior direito) ──────────────
-   Invisível até o cursor chegar perto: o padding cria uma zona de acerto maior
-   que os botões, então não é preciso mirar neles. Empilhado na vertical e
-   colado à borda para não cobrir a caixa do prizepool, que termina ~72px antes
-   da borda. z-index acima do prizepool (100) e do ticker/sidebar (50), abaixo
-   do OrgScopeBanner (900) e dos toasts. Tamanhos em px fixos de propósito:
-   é controle, não conteúdo — não acompanha a fonte que ele mesmo ajusta. */
+   Invisível até o cursor chegar perto. O padding assimétrico é a zona de
+   acerto: ~220px de largura por ~200px de altura, transparente, encostada no
+   canto — basta levar o cursor em direção ao canto para os botões surgirem,
+   sem precisar mirar neles (com 16px em volta ninguém os achava). Os botões
+   em si ficam empilhados na vertical e colados à borda, para não cobrir a
+   caixa do prizepool, que termina ~72px antes da borda. z-index acima do
+   prizepool (100) e do ticker/sidebar (50), abaixo do OrgScopeBanner (900) e
+   dos toasts. Tamanhos em px fixos de propósito: é controle, não conteúdo —
+   não acompanha a fonte que ele mesmo ajusta. */
 .broadcast-font-controls {
   position: fixed;
-  right: 8px;
-  bottom: calc(var(--prize-ticker-height, 0px) + 8px);
+  right: 0;
+  bottom: var(--prize-ticker-height, 0px);
   z-index: 110;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 16px;
+  padding: 80px 24px 24px 160px;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
