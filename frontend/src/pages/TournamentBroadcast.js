@@ -10,6 +10,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import {
   lerFonteLocal, gravarFonteLocal, limparFonteLocal, proximaFonte, FONTE_MIN, FONTE_MAX, FONTE_PASSO,
 } from '../utils/broadcastFontLocal';
+import { nivelExibido } from '../utils/nivelExibido';
 import './TournamentBroadcast.css';
 
 // Generate blinds structure from tournament day configuration (legacy fallback)
@@ -133,7 +134,7 @@ const PrizeTicker = ({ prizes, fontScale = 1, prizeScale = 1, labels }) => {
 };
 
 // ── Break Screen ──────────────────────────────────────────────────────────────
-const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlayers, totalPlayers, labels }) => {
+const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlayers, totalPlayers, labels, blinds }) => {
   const L = labels || BROADCAST_LABELS['pt-BR'];
   const layout  = settings.breakLayout || 'split';
   const videoId = extractYouTubeId(settings.breakYoutubeUrl);
@@ -143,6 +144,8 @@ const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlay
 
   const timeLeft = formatTimerTime(timerState?.time_remaining_current_level);
   const nextBlind = timerState?.next_blind;
+  // Número MOSTRADO do próximo nível: sem contar o intervalo como nível.
+  const nextLevelNum = nextBlind ? nivelExibido(nextBlind, blinds, nextBlind.level) : null;
 
   const bgStyle = showVid
     ? {}
@@ -164,7 +167,7 @@ const BreakScreen = ({ timerState, settings, chipcount, averageStack, activePlay
         <div className="break-stat">
           <span className="break-stat-label" style={{ color: settings.breakLabelColor }}>{L.next}</span>
           <span className="break-stat-value" style={{ color: settings.breakValueColor }}>
-            {L.levelPrefix} {nextBlind.level}: {(nextBlind.small_blind || 0).toLocaleString('pt-BR')}/{(nextBlind.big_blind || 0).toLocaleString('pt-BR')}
+            {L.levelPrefix} {nextLevelNum}: {(nextBlind.small_blind || 0).toLocaleString('pt-BR')}/{(nextBlind.big_blind || 0).toLocaleString('pt-BR')}
             {nextBlind.ante > 0 && ` ( ${(nextBlind.ante).toLocaleString('pt-BR')} )`}
           </span>
         </div>
@@ -796,7 +799,9 @@ const TournamentBroadcast = () => {
   let temProximoBlind = true;
 
   if (isDayBased && timerState) {
-    displayBlindLevel = timerState.current_level;
+    // `current_level` é a POSIÇÃO na estrutura (o intervalo ocupa uma). O que
+    // a mesa lê é o número sem os intervalos — o mesmo da tela de blinds.
+    displayBlindLevel = nivelExibido(timerState, blinds, timerState.current_level);
     displayTimeRemaining = timerState.time_remaining_current_level;
     displaySmallBlind = timerState.current_blind?.small_blind || 0;
     displayBigBlind = timerState.current_blind?.big_blind || 0;
@@ -880,6 +885,7 @@ const TournamentBroadcast = () => {
           averageStack={averageStack}
           activePlayers={displayActivePlayers}
           totalPlayers={displayTotalPlayers}
+          blinds={blinds}
         />
       ) : (
         <div className="broadcast-main">

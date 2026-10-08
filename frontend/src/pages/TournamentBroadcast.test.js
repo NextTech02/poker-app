@@ -71,9 +71,12 @@ const INSCRITOS = [
 
 const relogio = (extra = {}) => ({
   current_level: 4,
+  // O servidor manda os dois: a POSIÇÃO (`current_level`) e o número MOSTRADO
+  // (`display_level`, sem contar intervalos). Aqui não há intervalo antes.
+  display_level: 4,
   time_remaining_current_level: 305,
-  current_blind: { level: 4, small_blind: 500, big_blind: 1000, ante: 1000, is_break: false },
-  next_blind: { level: 5, small_blind: 800, big_blind: 1600, ante: 1600, is_break: false },
+  current_blind: { level: 4, display_level: 4, small_blind: 500, big_blind: 1000, ante: 1000, is_break: false },
+  next_blind: { level: 5, display_level: 5, small_blind: 800, big_blind: 1600, ante: 1600, is_break: false },
   active_players: 18,
   total_entries: 25,
   chipcount: 750000,
@@ -255,6 +258,36 @@ describe('o que a tela mostra ao vivo', () => {
   it('mostra o nível atual', async () => {
     await montar();
     expect(barraLateral()).toHaveTextContent('4');
+  });
+
+  it('o intervalo não conta como nível', async () => {
+    // 800/1600 é o "Nível 9" na tela de blinds, mas ocupa a POSIÇÃO 10 na
+    // estrutura (há um intervalo antes). A TV mostrava "NÍVEL 10" — a mesa
+    // inteira via um número diferente do que o operador cadastrou.
+    await montar({}, relogio({
+      current_level: 10,
+      display_level: 9,
+      current_blind: { level: 10, display_level: 9, small_blind: 800, big_blind: 1600, ante: 1600, is_break: false },
+    }));
+    expect(barraLateral()).toHaveTextContent('9');
+    expect(barraLateral()).not.toHaveTextContent('10');
+  });
+
+  it('sem display_level do servidor, conta na estrutura em cache', async () => {
+    // Estado montado localmente (troca de nível sem rede) não passa pelo
+    // servidor; o número ainda tem que pular o intervalo.
+    const comIntervalo = [
+      { level: 1, small_blind: 100, big_blind: 200, ante: 0, duration: 20 },
+      { level: 2, small_blind: 0, big_blind: 0, ante: 0, duration: 10, is_break: true },
+      { level: 3, small_blind: 200, big_blind: 400, ante: 200, duration: 20 },
+    ];
+    await montar({ blindsDoDia: comIntervalo }, relogio({
+      current_level: 3,
+      display_level: undefined,
+      current_blind: { level: 3, small_blind: 200, big_blind: 400, ante: 200, is_break: false },
+    }));
+    expect(barraLateral()).toHaveTextContent('2');
+    expect(barraLateral()).not.toHaveTextContent('3');
   });
 
   it('mostra restantes e total de entradas', async () => {
@@ -499,6 +532,14 @@ describe('intervalo', () => {
     // É a informação que faz o jogador voltar na hora certa.
     await montar({}, noIntervalo());
     expect(document.querySelector('.break-info-panel')).toHaveTextContent('800/1.600');
+  });
+
+  it('o número do próximo nível não conta o intervalo', async () => {
+    // Depois do intervalo (posição 5) vem o 4º nível de jogo, não o "5".
+    await montar({}, noIntervalo({
+      next_blind: { level: 5, display_level: 4, small_blind: 800, big_blind: 1600, ante: 0 },
+    }));
+    expect(document.querySelector('.break-info-panel')).toHaveTextContent('4: 800/1.600');
   });
 
   it('ante zero não aparece no anúncio', async () => {

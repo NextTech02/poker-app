@@ -345,6 +345,27 @@ describe('useTimerSync', () => {
       expect(result.current.timerState.time_remaining_current_level).toBeGreaterThan(590);
     });
 
+    test('a troca local de nivel pula o intervalo na numeracao mostrada', async () => {
+      // A posicao 3 da estrutura vem depois de um intervalo (posicao 2): e o
+      // 2o nivel de jogo. Sem rede o estado e montado aqui, nao no servidor —
+      // e o telao nao pode voltar a mostrar a posicao crua ("NIVEL 3").
+      const comIntervalo = [
+        { level: 1, small_blind: 25, big_blind: 50, ante: 0, duration: 10, is_break: false },
+        { level: 2, small_blind: 0, big_blind: 0, ante: 0, duration: 10, is_break: true },
+        { level: 3, small_blind: 100, big_blind: 200, ante: 0, duration: 10, is_break: false },
+      ];
+      api.get.mockResolvedValue({ data: { ...mockTimerState, display_level: 1 } });
+
+      const { result } = renderHook(() => useTimerSync(mockDayId, comIntervalo));
+      await waitFor(() => expect(result.current.timerState).toBeTruthy());
+
+      act(() => { result.current.applyLocalCommand('next-level'); });
+
+      expect(result.current.timerState.current_level).toBe(3);
+      expect(result.current.timerState.display_level).toBe(2);
+      expect(result.current.timerState.current_blind.display_level).toBe(2);
+    });
+
     test('o ajuste de tempo tambem vale offline', async () => {
       api.get.mockResolvedValue({ data: mockTimerState });
 
