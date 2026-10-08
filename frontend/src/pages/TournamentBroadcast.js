@@ -110,6 +110,11 @@ const TournamentBroadcast = () => {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
       }
       const ctx = audioContextRef.current;
+      // O navegador pode deixar o contexto suspenso até um gesto do usuário;
+      // tentar retomar não custa e evita a contagem muda na TV.
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        ctx.resume().catch(() => {});
+      }
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
@@ -310,7 +315,12 @@ const TournamentBroadcast = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournament, isOnBreak, isDayBased]);
 
-  // === Audio alerts at 60s, 30s, and 1s before blind change ===
+  // === Aviso sonoro: contagem dos últimos 10 segundos do nível ===
+  // Pedido do cliente (2026-10): o bipe começa 10 s antes da troca de blinds,
+  // um por segundo, e o último (1 s) é mais longo e agudo — é o "termina a
+  // mão" do dealer. Antes havia um bipe suave em 60 s e 30 s que ninguém
+  // percebia no salão, e só o do último segundo era ouvido.
+  const ALERTA_INICIO_S = 10;
   const currentLevelForAlert = isDayBased && timerState ? timerState.current_level : blindLevel;
   const currentTimeForAlert = isDayBased && timerState ? timerState.time_remaining_current_level : timeRemaining;
   const currentBlindIsBreakForAlert = isDayBased && timerState ? timerState.current_blind?.is_break === true : false;
@@ -333,18 +343,16 @@ const TournamentBroadcast = () => {
 
     const seconds = currentTimeForAlert;
     if (seconds === undefined || seconds === null) return;
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > ALERTA_INICIO_S) return;
+    if (firedAlertsRef.current.has(seconds)) return;   // cada segundo toca uma vez
+    firedAlertsRef.current.add(seconds);
 
-    const alertThresholds = [
-      { time: 60, freq: 660, dur: 0.3, vol: 0.3 },  // gentle beep at 60s
-      { time: 30, freq: 880, dur: 0.4, vol: 0.5 },   // medium beep at 30s
-      { time: 1, freq: 1100, dur: 0.6, vol: 0.7 },    // urgent beep at 1s
-    ];
-
-    for (const alert of alertThresholds) {
-      if (seconds === alert.time && !firedAlertsRef.current.has(alert.time)) {
-        firedAlertsRef.current.add(alert.time);
-        playBeep(alert.freq, alert.dur, alert.vol);
-      }
+    if (seconds === 1) {
+      playBeep(1100, 0.7, 0.8);          // tom final: mais longo e mais agudo
+    } else if (seconds <= 3) {
+      playBeep(990, 0.18, 0.7);          // reta final: um pouco mais agudo
+    } else {
+      playBeep(880, 0.12, 0.6);          // tique curto, um por segundo
     }
   }, [currentTimeForAlert, currentLevelForAlert, currentBlindIsBreakForAlert, blindAlertsEnabled, playBeep]);
 

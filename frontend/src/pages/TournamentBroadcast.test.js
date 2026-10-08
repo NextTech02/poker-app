@@ -726,27 +726,29 @@ describe('alerta sonoro de fim de nível', () => {
   const montarComTempo = async (segundos, extraDia = {}) =>
     montar({ dia: { ...DIA, ...extraDia } }, relogio({ time_remaining_current_level: segundos }));
 
-  it.each([60, 30, 1])('toca faltando %is', async (segundos) => {
-    // É o aviso que faz o dealer terminar a mão antes da subida.
+  it.each([10, 7, 3, 1])('toca faltando %is (contagem dos últimos 10 s)', async (segundos) => {
+    // É o aviso que faz o dealer terminar a mão antes da subida: começa 10 s
+    // antes e bate a cada segundo até a troca.
     await montarComTempo(segundos);
-    expect(bipes.length).toBeGreaterThan(0);
+    expect(bipes.length).toBe(1);
   });
 
-  it('não toca em qualquer segundo', async () => {
-    await montarComTempo(45);
+  it.each([60, 30, 11, 45])('não toca faltando %is', async (segundos) => {
+    // Antes havia bipes suaves em 60 s e 30 s que ninguém ouvia no salão.
+    await montarComTempo(segundos);
     expect(bipes.length).toBe(0);
   });
 
   it('o clube pode desligar o alerta', async () => {
     // Em sala pequena o bipe incomoda mais do que ajuda.
-    await montarComTempo(30, { broadcast_blind_alerts_enabled: false });
+    await montarComTempo(5, { broadcast_blind_alerts_enabled: false });
     expect(bipes.length).toBe(0);
   });
 
   it('não toca durante o intervalo', async () => {
     // No intervalo não há mão para terminar.
     await montar({}, relogio({
-      time_remaining_current_level: 30,
+      time_remaining_current_level: 5,
       current_blind: { is_break: true },
     }));
     expect(bipes.length).toBe(0);
@@ -756,7 +758,7 @@ describe('alerta sonoro de fim de nível', () => {
     // Sem interação do usuário o navegador bloqueia áudio; a tela precisa
     // continuar de pé.
     global.AudioContext = jest.fn(() => { throw new Error('bloqueado'); });
-    await montarComTempo(30);
+    await montarComTempo(5);
     expect(relogioNaTela()).toBeInTheDocument();
   });
 });

@@ -96,6 +96,12 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   (`broadcast_show_entries`, nasce ligado) para quem mostra os meios
   embaixo poder esconder a contagem. Migração
   `database_migration_broadcast_buy_types.sql`.
+- **Aviso sonoro = contagem dos últimos 10 s** (pedido do cliente,
+  2026-10-08): um bipe por segundo de 10 s a 2 s (mais agudo nos 3 últimos) e
+  um tom final mais longo em 1 s. Os bipes suaves em 60 s e 30 s saíram
+  (ninguém os ouvia no salão; só o do último segundo era percebido). O
+  interruptor `broadcast_blind_alerts_enabled` e o silêncio no intervalo
+  continuam. `playBeep` tenta `resume()` num AudioContext suspenso.
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas
