@@ -9,6 +9,11 @@ class TournamentPlayerStatus(str, Enum):
     active = "active"
     eliminated = "eliminated"
     winner = "winner"
+    # Inscrição ESTORNADA (cancelamento de venda, `transaction_service`). O banco
+    # já aceitava o valor no CHECK; faltava aqui — e sem ele TODO endpoint que
+    # devolve a lista de jogadores de um dia com um estorno caía em 500
+    # (validação do modelo), levando o telão daquele dia junto.
+    cancelled = "cancelled"
 
 
 class TournamentPlayerBase(BaseModel):

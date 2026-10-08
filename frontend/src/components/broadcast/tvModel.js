@@ -211,9 +211,10 @@ export const buildTvModel = ({
 
   // Jogadores/entradas: no dia vêm do relógio enriquecido (entradas −
   // eliminações); no legado, da lista de inscritos.
+  // Fora do dia: eliminado E cancelado (inscrição estornada não está na mesa).
   const activePlayers = live
     ? (timerState.active_players || 0)
-    : players.filter((p) => p.status !== 'eliminated').length;
+    : players.filter((p) => p.status !== 'eliminated' && p.status !== 'cancelled').length;
   // ENTRADA = buy-in. Quem recompra voltou ao torneio, não entrou de novo.
   const entries = live
     ? (timerState.total_entries || 0)

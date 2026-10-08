@@ -162,6 +162,15 @@ describe('buildTvModel — legado (torneio sem dia)', () => {
     expect(m.chipcount).toBe(0);
   });
 
+  it('inscrição estornada (cancelled) não conta como jogador na mesa', () => {
+    const m = buildTvModel({
+      ...base,
+      players: [...INSCRITOS, { player_id: 'p3', status: 'cancelled', buy_in_count: 0, rebuy_count: 0 }],
+    });
+    expect(m.players.active).toBe(1);
+    expect(m.entries).toBe(2);
+  });
+
   it('contagem para o intervalo vem da página', () => {
     expect(buildTvModel({ ...base, legacyBreakIn: 900 }).breakIn).toBe(900);
   });
