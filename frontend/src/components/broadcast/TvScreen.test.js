@@ -481,3 +481,44 @@ describe('faixas de premiação', () => {
     expect(document.querySelector('.tv-prizes-bar')).toHaveTextContent('3º–5º Puesto');
   });
 });
+
+/**
+ * Meios de entrada abaixo dos blinds: "BUY-IN: 50 · REBUY: 20 · ADD-ON: 50",
+ * só quando o diretor liga (nasce desligado) e o torneio tem a lista.
+ */
+describe('meios de entrada (linha abaixo dos blinds)', () => {
+  it('nasce desligado: nada aparece sem o interruptor', () => {
+    montar();
+    expect(document.querySelector('.tv-buytypes')).toBeNull();
+    expect(tela()).not.toHaveClass('tv-screen--with-buytypes');
+  });
+
+  it('ligado, lista nome e valor de cada meio, na ordem', () => {
+    montar({}, { broadcast_show_buy_types: true });
+    const itens = Array.from(document.querySelectorAll('.tv-buytype'));
+    expect(itens.map((i) => i.textContent)).toEqual(['Buy-in:50', 'Rebuy:20', 'Add-on:50']);
+    expect(tela()).toHaveClass('tv-screen--with-buytypes');
+  });
+
+  it('valor grande vem com separador de milhar; sem lista a linha some', () => {
+    montar({ model: { buyTypes: [{ name: 'Buy-in', amount: 1500, category: 'buy_in' }] } }, { broadcast_show_buy_types: true });
+    expect(document.querySelector('.tv-buytype-amount')).toHaveTextContent('1.500');
+    document.body.innerHTML = '';
+    montar({ model: { buyTypes: [] } }, { broadcast_show_buy_types: true });
+    expect(document.querySelector('.tv-buytypes')).toBeNull();
+  });
+
+  it('no intervalo e no encerrado não aparece', () => {
+    montar({ mode: 'break' }, { broadcast_show_buy_types: true });
+    expect(document.querySelector('.tv-buytypes')).toBeNull();
+    document.body.innerHTML = '';
+    montar({ mode: 'completed' }, { broadcast_show_buy_types: true });
+    expect(document.querySelector('.tv-buytypes')).toBeNull();
+  });
+
+  it('o tile "Entradas" tem interruptor próprio', () => {
+    montar({}, { broadcast_show_entries: false });
+    expect(document.querySelector('.tv-tile--entries')).toBeNull();
+    expect(document.querySelector('.tv-tile--players')).toBeInTheDocument();
+  });
+});

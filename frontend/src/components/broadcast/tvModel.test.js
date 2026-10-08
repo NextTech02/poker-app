@@ -6,7 +6,7 @@
  */
 import {
   buildTvModel, buildTvSettings, blindValuesAt, formatClock, formatCountdown, formatChips,
-  shadeHex, extractYouTubeId, promoKind, groupPrizeRanges,
+  shadeHex, extractYouTubeId, promoKind, groupPrizeRanges, formatBuyAmount,
 } from './tvModel';
 import { TV_ACCENT, TV_DEFAULT_SETTINGS } from './tvDefaults';
 
@@ -307,5 +307,33 @@ describe('groupPrizeRanges (faixas de premiação no telão)', () => {
   it('vazio ou nulo devolve lista vazia', () => {
     expect(groupPrizeRanges([])).toEqual([]);
     expect(groupPrizeRanges(null)).toEqual([]);
+  });
+});
+
+describe('meios de entrada no telão', () => {
+  it('settings: nasce desligado; "Entradas" nasce ligada', () => {
+    expect(buildTvSettings({}).showBuyTypes).toBe(false);
+    expect(buildTvSettings({ broadcast_show_buy_types: true }).showBuyTypes).toBe(true);
+    expect(buildTvSettings({}).showEntries).toBe(true);
+    expect(buildTvSettings({ broadcast_show_entries: false }).showEntries).toBe(false);
+  });
+
+  it('modelo: vem dos extras, sem nome vazio, valor numérico', () => {
+    const m = buildTvModel({
+      isDayBased: true, timerState: null, tournament: {}, tournamentDay: {},
+      extras: { buy_types: [{ name: ' Buy-in ', amount: '50', category: 'buy_in' }, { name: '  ', amount: 1 }, { name: 'Rebuy', amount: null }] },
+    });
+    expect(m.buyTypes).toEqual([
+      { name: 'Buy-in', amount: 50, category: 'buy_in' },
+      { name: 'Rebuy', amount: 0, category: 'buy_in' },
+    ]);
+    expect(buildTvModel({ isDayBased: false, tournament: {} }).buyTypes).toEqual([]);
+  });
+
+  it('formatBuyAmount: inteiro sem decimais, milhar com ponto', () => {
+    expect(formatBuyAmount(50)).toBe('50');
+    expect(formatBuyAmount(1500)).toBe('1.500');
+    expect(formatBuyAmount(12.5)).toBe('12,5');
+    expect(formatBuyAmount(null)).toBe('0');
   });
 });

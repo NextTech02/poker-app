@@ -6,7 +6,7 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { resolveBackground } from './tvBackgrounds';
 import {
   buildTvSettings, extractYouTubeId, formatClock, formatCountdown, formatChips, shadeHex, alphaHex,
-  promoKind, groupPrizeRanges,
+  promoKind, groupPrizeRanges, formatBuyAmount,
 } from './tvModel';
 import './TvScreen.css';
 
@@ -126,7 +126,11 @@ const buildTiles = (model, settings, L) => {
       kind: 'players', icon: 'users', label: L.players,
       value: `${model.players.active} ${L.of} ${model.players.total}`,
     });
-    tiles.push({ kind: 'entries', icon: 'ticket', label: L.entries, value: model.entries || 0 });
+    // "Entradas" tem interruptor próprio: quem mostra os meios de entrada
+    // embaixo pode esconder a contagem.
+    if (settings.showEntries) {
+      tiles.push({ kind: 'entries', icon: 'ticket', label: L.entries, value: model.entries || 0 });
+    }
   }
   if (settings.showReentries) {
     tiles.push({ kind: 'reentries', icon: 'refresh', label: L.reentries, value: model.reentries || 0 });
@@ -316,6 +320,25 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
     </div>
   );
 };
+
+// ── Meios de entrada (linha abaixo dos blinds) ──────────────────────────────
+
+/**
+ * "BUY-IN: 50 · REBUY: 20 · DOBLE: 30 · ADDON: 50 · TASA: 50" — os meios de
+ * entrada ATIVOS do torneio com seus valores, numa linha entre o relógio e a
+ * barra de prêmios, quando o diretor liga. Vem dos extras públicos.
+ */
+const TvBuyTypes = ({ model }) => (
+  <div className="tv-buytypes" role="list">
+    {model.buyTypes.map((b, i) => (
+      <span key={`${b.name}-${i}`} className={`tv-buytype tv-buytype--${b.category || 'buy_in'}`} role="listitem">
+        <span className="tv-buytype-name">{b.name}</span>
+        <span className="tv-buytype-colon">:</span>
+        <span className="tv-buytype-amount">{formatBuyAmount(b.amount)}</span>
+      </span>
+    ))}
+  </div>
+);
 
 // ── Divulgação (coluna da direita) ──────────────────────────────────────────
 
@@ -518,12 +541,15 @@ const TvScreen = ({
   // uma URL reconhecível. Com a premiação na lateral, as duas dividem a
   // coluna da direita (divulgação em cima, prêmios embaixo).
   const hasPromo = mode !== 'break' && s.showPromo && !!promoKind(s.promoUrl);
+  // Meios de entrada: só ao vivo, ligado pelo diretor e com lista no torneio.
+  const hasBuyTypes = mode === 'live' && s.showBuyTypes && (model.buyTypes || []).length > 0;
 
   const classes = [
     'tv-screen',
     `tv-screen--${mode}`,
     sidebarPrizes ? 'tv-screen--with-sidebar' : '',
     hasPromo ? 'tv-screen--with-side' : '',
+    hasBuyTypes ? 'tv-screen--with-buytypes' : '',
     bottomPrizes ? 'tv-screen--with-bar' : '',
     className,
   ].filter(Boolean).join(' ');
@@ -549,6 +575,7 @@ const TvScreen = ({
           </aside>
         ) : prizesSidebar}
       </div>
+      {hasBuyTypes && <TvBuyTypes model={model} />}
       {bottomPrizes && (
         <TvPrizes model={model} settings={s} L={L} currency={currency} forceScroll={forceScroll} />
       )}

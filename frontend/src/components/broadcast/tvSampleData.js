@@ -37,5 +37,10 @@ export const sampleModel = ({
   breakIn: 1112,
   prizes: SAMPLE_PRIZES,
   prizePool: 34300,
+  buyTypes: [
+    { name: 'Buy-in', amount: 50, category: 'buy_in' },
+    { name: 'Rebuy', amount: 20, category: 'rebuy' },
+    { name: 'Add-on', amount: 50, category: 'addon' },
+  ],
   totalPlayers: 120,
 });

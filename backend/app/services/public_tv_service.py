@@ -15,7 +15,7 @@ import logging
 from typing import Optional
 
 from app.database.supabase_client import supabase_admin
-from app.models.public_tv import PublicTvExtras, PublicTvPrize
+from app.models.public_tv import PublicTvBuyType, PublicTvExtras, PublicTvPrize
 from app.services.module_service import ModuleService
 from app.services.prize_allocation_service import PrizeAllocationService
 from app.utils.erros import ErroDeNegocio
@@ -60,7 +60,35 @@ class PublicTvService:
             language=ajustes["language"],
             prize_pool=PublicTvService._prize_pool(tournament_id),
             prizes=PublicTvService._prizes(tournament_id),
+            buy_types=PublicTvService._buy_types(tournament_id),
         )
+
+    @staticmethod
+    def _buy_types(tournament_id: str) -> list[PublicTvBuyType]:
+        """Meios de entrada ATIVOS do torneio, na ordem do Caixa. Falhou ou
+        não há lista (torneio antigo, por etapa)? Vazio — o telão só esconde
+        a linha."""
+        try:
+            resp = (
+                supabase_admin.table("buy_types")
+                .select("name, amount, category, active, sort_order")
+                .eq("tournament_id", str(tournament_id))
+                .order("sort_order")
+                .execute()
+            )
+        except Exception as exc:  # decorativo: nunca derruba o telão
+            logger.warning("Meios de entrada do torneio %s não lidos para o telão: %s", tournament_id, exc)
+            return []
+        saida = []
+        for row in resp.data or []:
+            if row.get("active") is False:
+                continue
+            saida.append(PublicTvBuyType(
+                name=str(row.get("name") or "").strip() or "—",
+                amount=float(row.get("amount") or 0),
+                category=row.get("category") or "buy_in",
+            ))
+        return saida
 
     # ── partes ────────────────────────────────────────────────────────────
 

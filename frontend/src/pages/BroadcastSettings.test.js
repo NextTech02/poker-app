@@ -563,3 +563,28 @@ describe('divulgação (coluna da direita)', () => {
     expect(document.querySelector('.bs-preview-stage .tv-promo img')).toHaveAttribute('src', 'https://cdn/flyer.webp');
   });
 });
+
+describe('meios de entrada abaixo dos blinds', () => {
+  it('nasce desligado e "Entradas" ligada; ligar vai no payload', async () => {
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_buy_types).toBe(false);
+    expect(enviado().broadcast_show_entries).toBe(true);
+  });
+
+  it('ligar os meios de entrada e desligar a contagem de entradas', async () => {
+    await montar();
+    await alternar('Meios de entrada');
+    await alternar('Entradas (contagem)');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_buy_types).toBe(true);
+    expect(enviado().broadcast_show_entries).toBe(false);
+  });
+
+  it('a prévia mostra a linha quando ligado', async () => {
+    await montar({ dia: { ...DIA, broadcast_show_buy_types: true } });
+    expect(document.querySelector('.bs-preview-stage .tv-buytypes')).toHaveTextContent('Buy-in');
+  });
+});

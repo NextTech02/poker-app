@@ -52,6 +52,10 @@ export const TV_DEFAULT_SETTINGS = {
   broadcast_promo_url: '',
   broadcast_show_promo: true,
   broadcast_promo_fit: 'contain',
+  // Meios de entrada (valores) abaixo dos blinds: elemento novo, nasce desligado.
+  broadcast_show_buy_types: false,
+  // Tile "Entradas" (contagem) — interruptor próprio, ligado como sempre foi.
+  broadcast_show_entries: true,
   broadcast_show_title: true,
   broadcast_show_prizepool: true,
   broadcast_show_level: true,

@@ -1150,6 +1150,8 @@
     "clubLogoUploadHint": "PNG with a transparent background, up to 512KB",
     "clubLogoUrlLabel": "or paste the URL",
     "visReentries": "Re-entries (rebuys)",
+    "visEntries": "Entries (count)",
+    "visBuyTypes": "Entry options with prices (below the blinds)",
     "sectionPromo": "Promotion (right column)",
     "promoHint": "A club image or video in the right column of the display, next to the clock. Portrait works best (like a story, 9:16). With prizes in the side column, they sit below the promotion.",
     "promoShow": "Show the promotion on the display",

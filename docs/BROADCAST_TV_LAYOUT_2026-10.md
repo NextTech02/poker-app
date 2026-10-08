@@ -85,6 +85,17 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   (`groupPrizeRanges` em `tvModel.js`) e mostra "7º–9º Lugar : S/ 400"
   (`placeRangeLabel` em `broadcastLabels.js`, nos 3 idiomas), na barra e na
   coluna lateral. Vaga e dinheiro de mesmo valor não se misturam.
+- **Meios de entrada abaixo dos blinds** (pedido do cliente, 2026-10-08):
+  interruptor "Meios de entrada com valores" (`broadcast_show_buy_types`,
+  nasce DESLIGADO) mostra uma linha entre o corpo e a barra de prêmios com
+  os `buy_types` ATIVOS do torneio ("BUY-IN: 50 · REBUY: 20 · DOBLE: 30 ·
+  ADDON: 50 · TASA: 50"), que passam a vir em `buy_types` nos extras
+  públicos (só nome, valor e categoria). Linha própria da grade
+  (`tv-screen--with-buytypes`); o anel encolhe pelo container query. Só ao
+  vivo. O tile "Entradas" ganhou interruptor próprio
+  (`broadcast_show_entries`, nasce ligado) para quem mostra os meios
+  embaixo poder esconder a contagem. Migração
+  `database_migration_broadcast_buy_types.sql`.
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas
@@ -145,6 +156,7 @@ Também corrigido: `broadcast_show_reentries` faltava nos modelos do backend
 - `db/migrations/database_migration_broadcast_gold_defaults.sql`
 - `db/migrations/database_migration_broadcast_show_reentries_default_on.sql`
 - `db/migrations/database_migration_broadcast_promo.sql`
+- `db/migrations/database_migration_broadcast_buy_types.sql`
 
 ## Ordem de deploy (IMPORTANTE)
 

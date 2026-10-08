@@ -533,6 +533,51 @@
   .tv-next-value { font-size: 5.6cqh; }
 }
 
+/* ── Meios de entrada: linha entre o relógio e a barra de prêmios ───────── */
+/* Linha própria da grade (só existe quando ligada): o corpo encolhe e o anel
+   acompanha pelo container query. */
+.tv-screen--with-buytypes {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+.tv-buytypes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px 64px;
+  padding: 6px 48px 10px;
+}
+
+.tv-buytype {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+  font-family: var(--font-display, 'Sora', sans-serif);
+}
+
+.tv-buytype-name {
+  font-size: min(calc(30px * var(--tv-font, 1)), 40px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tv-c-tile-label, #f3f4f6);
+}
+
+.tv-buytype-colon {
+  font-size: min(calc(30px * var(--tv-font, 1)), 40px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.tv-buytype-amount {
+  font-size: min(calc(34px * var(--tv-font, 1)), 44px);
+  font-weight: 800;
+  color: var(--tv-c-tile-value, var(--tv-accent));
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Prêmios: barra inferior ────────────────────────────────────────────── */
 .tv-prizes-bar {
   display: flex;

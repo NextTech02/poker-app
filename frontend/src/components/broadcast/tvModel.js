@@ -125,6 +125,9 @@ export const buildTvSettings = (source, { fontSizeOverride = null } = {}) => {
     promoUrl: String(s.broadcast_promo_url || '').trim() || null,
     showPromo: on(s, 'broadcast_show_promo'),
     promoFit: s.broadcast_promo_fit === 'cover' ? 'cover' : 'contain',
+    // Meios de entrada (valores) abaixo dos blinds: elemento novo, só ligado.
+    showBuyTypes: s.broadcast_show_buy_types === true,
+    showEntries: on(s, 'broadcast_show_entries'),
     showTitle: on(s, 'broadcast_show_title'),
     showPrizepool: on(s, 'broadcast_show_prizepool'),
     showLevel: on(s, 'broadcast_show_level'),
@@ -295,6 +298,10 @@ export const buildTvModel = ({
 
   const prizes = (extras?.prizes || []).filter((p) => p.visible !== false);
   const prizePool = parseFloat(extras?.prize_pool ?? tournamentDay?.prize_pool ?? 0) || 0;
+  // Meios de entrada ativos do torneio (nome e valor), na ordem do Caixa.
+  const buyTypes = (extras?.buy_types || [])
+    .filter((b) => b && String(b.name || '').trim())
+    .map((b) => ({ name: String(b.name).trim(), amount: Number(b.amount) || 0, category: b.category || 'buy_in' }));
 
   return {
     tournamentName: tournament?.name || '',
@@ -317,6 +324,10 @@ export const buildTvModel = ({
     breakIn,
     prizes,
     prizePool,
+    buyTypes,
     totalPlayers: players.length,
   };
 };
+
+/** Valor de um meio de entrada como o telão mostra: "50", "1.500", "12,5". */
+export const formatBuyAmount = (n) => (Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });

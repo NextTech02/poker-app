@@ -52,6 +52,16 @@ def banco(monkeypatch, stub):
             _premio(3, 5000, visible=False),
             _premio(4, 0, prize_type="vaga", vaga_target_day_id="d-final"),
         ],
+        "buy_types": [
+            {"id": "bt2", "tournament_id": TOUR, "name": "Rebuy", "amount": 20, "category": "rebuy",
+             "active": True, "sort_order": 2, "rake_percentage": 20, "chips": 10000},
+            {"id": "bt1", "tournament_id": TOUR, "name": "Buy-in", "amount": 50, "category": "buy_in",
+             "active": True, "sort_order": 1, "rake_percentage": 20, "chips": 20000},
+            {"id": "bt3", "tournament_id": TOUR, "name": "Antigo", "amount": 99, "category": "addon",
+             "active": False, "sort_order": 3},
+            {"id": "bt9", "tournament_id": "outro-torneio", "name": "Alheio", "amount": 1,
+             "category": "buy_in", "active": True, "sort_order": 0},
+        ],
     })
     monkeypatch.setattr(mod, "supabase_admin", fake)
     # `org_name` lê com o client de verdade por dentro; aqui ele é decorativo.
@@ -74,6 +84,30 @@ class TestServico:
         """Antes a TV lia `app_settings` sem filtro e pegava a linha de
         qualquer clube (USD, aqui). O dia é do clube peruano: S/."""
         assert PublicTvService.get_day_extras(DIA).currency == "PEN"
+
+    def test_meios_de_entrada_ativos_do_torneio_na_ordem_do_caixa(self, banco):
+        """Só os ATIVOS deste torneio, por sort_order; sem rake, fichas ou id."""
+        r = PublicTvService.get_day_extras(DIA)
+        assert [(b.name, b.amount, b.category) for b in r.buy_types] == [
+            ("Buy-in", 50.0, "buy_in"), ("Rebuy", 20.0, "rebuy"),
+        ]
+        corpo = r.model_dump()["buy_types"][0]
+        assert set(corpo.keys()) == {"name", "amount", "category"}
+
+    def test_sem_meios_de_entrada_a_lista_vem_vazia(self, banco):
+        banco.store["buy_types"] = []
+        assert PublicTvService.get_day_extras(DIA).buy_types == []
+
+    def test_falha_ao_ler_meios_de_entrada_vira_lista_vazia(self, banco, monkeypatch):
+        class _Explode:
+            def table(self, name):
+                if name == "buy_types":
+                    raise RuntimeError("boom")
+                return banco.table(name)
+        monkeypatch.setattr(mod, "supabase_admin", _Explode())
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.buy_types == []
+        assert r.currency == "PEN"   # o resto segue normal
 
     def test_idioma_e_da_organizacao_do_dia(self, banco):
         """A TV do salão não tem login: o idioma do clube só chega por aqui."""
@@ -213,6 +247,16 @@ class TestModeloDoDia:
         patch = TournamentDayUpdate(broadcast_promo_url="https://cdn/x.webp",
                                     broadcast_promo_fit="cover").model_dump(exclude_unset=True)
         assert patch == {"broadcast_promo_url": "https://cdn/x.webp", "broadcast_promo_fit": "cover"}
+
+    def test_meios_de_entrada_no_telao_nascem_desligados_e_entradas_ligada(self):
+        from app.models.tournament_day import TournamentDayCreate
+        dia = TournamentDay(**self._linha())
+        assert dia.broadcast_show_buy_types is False
+        assert dia.broadcast_show_entries is True
+        dados = TournamentDayCreate(tournament_id=TOUR, day_name="Dia 1",
+                                    buy_in=100, max_players=200).model_dump()
+        assert "broadcast_show_buy_types" not in dados
+        assert "broadcast_show_entries" not in dados
 
     def test_ajuste_da_divulgacao_so_aceita_contain_ou_cover(self):
         from pydantic import ValidationError

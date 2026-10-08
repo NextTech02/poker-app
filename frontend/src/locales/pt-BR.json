@@ -1150,6 +1150,8 @@
     "clubLogoUploadHint": "PNG com fundo transparente, até 512KB",
     "clubLogoUrlLabel": "ou cole a URL",
     "visReentries": "Reentradas (recompras)",
+    "visEntries": "Entradas (contagem)",
+    "visBuyTypes": "Meios de entrada com valores (abaixo dos blinds)",
     "sectionPromo": "Divulgação (coluna da direita)",
     "promoHint": "Imagem ou vídeo do clube na coluna da direita do telão, ao lado do relógio. Formato em pé funciona melhor (como um story, 9:16). Com a premiação na lateral, ela fica abaixo da divulgação.",
     "promoShow": "Mostrar divulgação no telão",

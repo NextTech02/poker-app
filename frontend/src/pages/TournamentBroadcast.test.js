@@ -902,3 +902,20 @@ describe('ajuste de fonte pelo próprio telão', () => {
     expect(mais()).toBeInTheDocument();
   });
 });
+
+describe('meios de entrada no telão', () => {
+  it('com o interruptor do dia ligado, a linha mostra os meios dos extras', async () => {
+    await montar({
+      dia: { ...DIA, broadcast_show_buy_types: true },
+      extras: { ...EXTRAS, buy_types: [{ name: 'Buy-in', amount: 50, category: 'buy_in' }, { name: 'Tasa', amount: 50, category: 'addon' }] },
+    });
+    const linha = document.querySelector('.tv-buytypes');
+    expect(linha).toHaveTextContent('Buy-in');
+    expect(linha).toHaveTextContent('Tasa');
+  });
+
+  it('desligado (padrão), nada aparece mesmo com lista', async () => {
+    await montar({ extras: { ...EXTRAS, buy_types: [{ name: 'Buy-in', amount: 50 }] } });
+    expect(document.querySelector('.tv-buytypes')).toBeNull();
+  });
+});

@@ -251,6 +251,9 @@ class TournamentDayUpdate(BaseModel):
     broadcast_promo_url: Optional[str] = None
     broadcast_show_promo: Optional[bool] = None
     broadcast_promo_fit: Optional[str] = Field(None, pattern="^(contain|cover)$")
+    # Meios de entrada (valores) abaixo dos blinds; tile "Entradas" com interruptor próprio.
+    broadcast_show_buy_types: Optional[bool] = None
+    broadcast_show_entries: Optional[bool] = None
 
 
 class TournamentDay(TournamentDayBase):
@@ -297,6 +300,10 @@ class TournamentDay(TournamentDayBase):
     broadcast_promo_url: Optional[str] = None
     broadcast_show_promo: bool = True
     broadcast_promo_fit: str = "contain"
+    # Meios de entrada abaixo dos blinds (elemento novo: nasce desligado) e
+    # o tile "Entradas" (nasce ligado, como sempre foi).
+    broadcast_show_buy_types: bool = False
+    broadcast_show_entries: bool = True
 
     class Config:
         from_attributes = True

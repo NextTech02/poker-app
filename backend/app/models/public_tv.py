@@ -17,6 +17,14 @@ class PublicTvPrize(BaseModel):
     vaga_target_day_id: Optional[str] = None
 
 
+class PublicTvBuyType(BaseModel):
+    """Meio de entrada do torneio como o telão mostra: nome e valor. Rake,
+    fichas e id ficam de fora — a rota é aberta."""
+    name: str
+    amount: float = 0
+    category: str = "buy_in"  # 'buy_in' | 'rebuy' | 'addon'
+
+
 class PublicTvExtras(BaseModel):
     """O que o telão precisa além do relógio e que, antes, só existia atrás
     de autenticação: nome do clube, moeda da organização, prize pool e a
@@ -34,3 +42,6 @@ class PublicTvExtras(BaseModel):
         description="Prize pool disponível (garantido + pool dos jogadores). None se o resumo falhar.",
     )
     prizes: list[PublicTvPrize] = []
+    # Meios de entrada ATIVOS do torneio, na ordem do Caixa (o telão mostra
+    # "BUY-IN: 50 · REBUY: 20 …" quando o diretor liga).
+    buy_types: list[PublicTvBuyType] = []
