@@ -43,8 +43,8 @@ def banco(monkeypatch, stub):
     fake = FakeSupabase({
         "tournament_days": [{"id": DIA, "tournament_id": TOUR, "organization_id": ORG}],
         "app_settings": [
-            {"id": 1, "organization_id": OUTRA_ORG, "currency": "USD"},
-            {"id": 2, "organization_id": ORG, "currency": "PEN"},
+            {"id": 1, "organization_id": OUTRA_ORG, "currency": "USD", "language": "en-US"},
+            {"id": 2, "organization_id": ORG, "currency": "PEN", "language": "es-ES"},
         ],
         "prize_allocations": [
             _premio(2, 7500),
@@ -75,9 +75,15 @@ class TestServico:
         qualquer clube (USD, aqui). O dia é do clube peruano: S/."""
         assert PublicTvService.get_day_extras(DIA).currency == "PEN"
 
-    def test_sem_app_settings_cai_em_brl(self, banco):
+    def test_idioma_e_da_organizacao_do_dia(self, banco):
+        """A TV do salão não tem login: o idioma do clube só chega por aqui."""
+        assert PublicTvService.get_day_extras(DIA).language == "es-ES"
+
+    def test_sem_app_settings_cai_em_brl_e_portugues(self, banco):
         banco.store["app_settings"] = []
-        assert PublicTvService.get_day_extras(DIA).currency == "BRL"
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.currency == "BRL"
+        assert r.language == "pt-BR"
 
     def test_nada_sensivel_sai_pela_rota_aberta(self, banco):
         """A rota não tem login: nome de jogador, documento e pagamento ficam
@@ -123,7 +129,9 @@ class TestServico:
                     raise RuntimeError("tabela fora")
                 return banco.table(name)
         monkeypatch.setattr(mod, "supabase_admin", _Explode())
-        assert PublicTvService.get_day_extras(DIA).currency == "BRL"
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.currency == "BRL"
+        assert r.language == "pt-BR"
 
 
 class TestRota:
@@ -132,11 +140,12 @@ class TestRota:
     def test_extras_sem_login(self, client, stub):
         stub(PublicTvService, get_day_extras=lambda did: PublicTvExtras(
             day_id=did, tournament_id=TOUR, organization_name="Clube", currency="PEN",
-            prize_pool=45000, prizes=[{"position": 1, "prize_amount": 15000}]))
+            language="es-ES", prize_pool=45000, prizes=[{"position": 1, "prize_amount": 15000}]))
         r = client.get(f"/public/tv/days/{DIA}/extras")
         assert r.status_code == 200
         corpo = r.json()
         assert corpo["currency"] == "PEN"
+        assert corpo["language"] == "es-ES"
         assert corpo["prizes"][0]["position"] == 1
         assert corpo["prizes"][0]["prize_type"] == "cash"
 

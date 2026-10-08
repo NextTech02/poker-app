@@ -547,20 +547,45 @@ describe('logo do clube', () => {
   });
 });
 
+/**
+ * Idioma do telão = a mesma regra do app: escolha explícita da pessoa
+ * (bandeiras) > idioma do CLUBE (extras públicos, porque a TV do salão não
+ * tem login) > idioma em que o app está > português. A coluna
+ * `broadcast_language` do dia nunca ganhou tela e ficava em pt-BR para todo
+ * mundo — o telão "não traduzia" quando o resto do app estava em espanhol.
+ */
 describe('idioma do telão', () => {
+  const i18nDoApp = () => jest.requireMock('react-i18next').useTranslation().i18n;
+
   it('padrão é português', async () => {
     await montar();
     expect(tiles()).toHaveTextContent('JOGADORES');
   });
 
-  it('a transmissão pode estar em inglês mesmo com o app em português', async () => {
-    // O telão é lido pelo público, que pode não falar a língua do operador.
-    await montar({ dia: { ...DIA, broadcast_language: 'en' } });
+  it('segue o idioma do clube (extras), mesmo com a coluna do dia em pt-BR', async () => {
+    await montar({ dia: { ...DIA, broadcast_language: 'pt-BR' }, extras: { ...EXTRAS, language: 'es-ES' } });
+    expect(tiles()).toHaveTextContent('JUGADORES');
+  });
+
+  it('a escolha explícita da pessoa neste aparelho vence o clube', async () => {
+    localStorage.setItem('aceblind:idiomaEscolhido', 'en-US');
+    await montar({ extras: { ...EXTRAS, language: 'es-ES' } });
     expect(tiles()).toHaveTextContent('PLAYERS');
   });
 
+  it('sem extras (backend antigo) segue o idioma em que o app está', async () => {
+    const i18n = i18nDoApp();
+    i18n.language = 'es-ES';
+    try {
+      await montar({ extras: new Error('404') });
+      expect(tiles()).toHaveTextContent('JUGADORES');
+    } finally {
+      i18n.language = 'pt-BR';
+    }
+  });
+
   it('idioma desconhecido cai no português', async () => {
-    await montar({ dia: { ...DIA, broadcast_language: 'xx-YY' } });
+    await montar({ extras: { ...EXTRAS, language: 'xx-YY' } });
     expect(tiles()).toHaveTextContent('JOGADORES');
   });
 });
@@ -665,7 +690,7 @@ describe('intervalo', () => {
 
 describe('torneio encerrado', () => {
   it('mostra a tela de encerrado com o total de jogadores, no idioma do telão', async () => {
-    await montar({ dia: { ...DIA, status: 'completed', broadcast_language: 'es' } });
+    await montar({ dia: { ...DIA, status: 'completed' }, extras: { ...EXTRAS, language: 'es-ES' } });
     expect(document.querySelector('.tv-completed')).toHaveTextContent('FINALIZADO');
     expect(within(document.querySelector('.tv-completed-stats')).getByText('2')).toBeInTheDocument();
   });

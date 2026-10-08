@@ -1,16 +1,30 @@
 /**
- * Os rótulos da TV NÃO passam pelo i18n do app. O idioma da transmissão é
- * escolhido por DIA (um clube em Medellín pode operar em português e exibir
- * em espanhol para o salão), então ele não pode seguir o idioma de quem está
- * logado no computador do caixa.
- *
- * Consequência: qualquer chave faltando num idioma aparece como "undefined"
- * na tela grande, na frente do salão. Por isso o teste principal aqui é de
- * PARIDADE entre os três idiomas.
+ * Os rótulos da TV NÃO passam pelo i18n do app (são poucos, em caixa alta,
+ * e precisam existir ANTES de qualquer idioma ser baixado): são escolhidos
+ * aqui por código de idioma. Qualquer chave faltando num idioma aparece como
+ * "undefined" na tela grande, na frente do salão. Por isso o teste principal
+ * aqui é de PARIDADE entre os três idiomas.
  */
-import BROADCAST_LABELS from './broadcastLabels';
+import BROADCAST_LABELS, { labelsForLanguage } from './broadcastLabels';
 
 const IDIOMAS = ['pt-BR', 'en', 'es'];
+
+describe('labelsForLanguage', () => {
+  it('só a língua importa, não a região', () => {
+    expect(labelsForLanguage('es-ES')).toBe(BROADCAST_LABELS.es);
+    expect(labelsForLanguage('es')).toBe(BROADCAST_LABELS.es);
+    expect(labelsForLanguage('en-US')).toBe(BROADCAST_LABELS.en);
+    expect(labelsForLanguage('EN')).toBe(BROADCAST_LABELS.en);
+    expect(labelsForLanguage('pt-BR')).toBe(BROADCAST_LABELS['pt-BR']);
+    expect(labelsForLanguage('pt_PT')).toBe(BROADCAST_LABELS['pt-BR']);
+  });
+
+  it('desconhecido ou vazio cai no português', () => {
+    expect(labelsForLanguage('xx-YY')).toBe(BROADCAST_LABELS['pt-BR']);
+    expect(labelsForLanguage(null)).toBe(BROADCAST_LABELS['pt-BR']);
+    expect(labelsForLanguage(undefined)).toBe(BROADCAST_LABELS['pt-BR']);
+  });
+});
 
 describe('paridade entre idiomas', () => {
   it('os três idiomas existem', () => {

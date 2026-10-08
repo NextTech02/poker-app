@@ -25,6 +25,10 @@ class PublicTvExtras(BaseModel):
     tournament_id: str
     organization_name: Optional[str] = None
     currency: str = "BRL"
+    language: str = Field(
+        default="pt-BR",
+        description="Idioma do clube (app_settings.language): a TV anônima do salão usa este para os rótulos.",
+    )
     prize_pool: Optional[float] = Field(
         default=None,
         description="Prize pool disponível (garantido + pool dos jogadores). None se o resumo falhar.",

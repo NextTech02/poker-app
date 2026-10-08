@@ -25,12 +25,24 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
 
 ## Ajustes do cliente (2026-10-08, 2ª rodada)
 
-- **Tiles encostados na borda esquerda e relógio no centro da TELA.** Padding
-  da tela caiu para 26 px laterais; a grade do corpo é `440px | 1fr | 440px`
-  (coluna da direita vazia, do tamanho da esquerda) — com a coluna de prêmios
-  lateral ela é o contrapeso. Barra de prêmios de borda a borda, com borda
-  dourada translúcida (`--tv-accent-soft`) e selo "PRÊMIOS" em dourado sobre
-  escuro, como no mockup.
+- **Tiles COLADOS na borda esquerda (sem padding lateral) e relógio no centro
+  da TELA.** A tela não tem padding horizontal; só o cabeçalho guarda 22 px
+  para as marcas. Os tiles perdem a borda e o canto arredondado do lado da
+  tela; a coluna de prêmios lateral idem, do lado direito; a barra de prêmios
+  vira uma faixa de ponta a ponta (bordas só em cima e embaixo), dourada
+  translúcida (`--tv-accent-soft`), com o selo "PRÊMIOS" em dourado sobre
+  escuro. A grade do corpo é `440px | 1fr | 440px` (coluna da direita vazia,
+  do tamanho da esquerda) — com a coluna de prêmios lateral ela é o contrapeso.
+- **Idioma do telão = regra do app.** Escolha explícita da pessoa (bandeiras,
+  `aceblind:idiomaEscolhido` neste aparelho) > idioma do CLUBE
+  (`app_settings.language`, que agora vem em `language` nos extras públicos —
+  a TV do salão não tem login) > idioma em que o app está (`i18n.language`,
+  o que vale com o backend antigo sem extras) > pt-BR. A coluna
+  `tournament_days.broadcast_language` nunca ganhou tela e ficava em `pt-BR`
+  para todo mundo, por isso "o telão não traduzia"; ela deixa de ser lida
+  (continua no banco). `utils/broadcastLabels.labelsForLanguage` mapeia
+  `pt-BR`/`en-US`/`es-ES` (só a língua importa). A prévia das Configurações
+  segue o idioma da tela.
 - **Todo tile ligado aparece SEMPRE, mesmo em zero** ("Entradas 0",
   "Reentradas 0"). Era o bug relatado: o cliente ligou as reentradas e não as
   via porque ainda não havia recompra. "Nível" é o único tile de linha única

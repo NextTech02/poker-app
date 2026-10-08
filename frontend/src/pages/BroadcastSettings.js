@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import BROADCAST_LABELS from '../utils/broadcastLabels';
+import { labelsForLanguage } from '../utils/broadcastLabels';
 import TvStage from '../components/broadcast/TvStage';
 import TvScreen from '../components/broadcast/TvScreen';
 import { TV_DEFAULT_SETTINGS } from '../components/broadcast/tvDefaults';
@@ -84,9 +84,11 @@ const SliderField = ({ label, settingsKey, min, max, settings, onChange, step = 
 // cada mudança no telão de verdade.
 // ─────────────────────────────────────────────────────────────────
 const BroadcastPreview = ({ settings, tournamentName, dayName, notice, previewBreak }) => {
+  const { i18n } = useTranslation();
   const { currency } = useCurrency();
   const tvSettings = buildTvSettings(settings);
-  const labels = BROADCAST_LABELS[tvSettings.language] || BROADCAST_LABELS['pt-BR'];
+  // Mesmo idioma da tela em que a pessoa está (escolha dela ou o do clube).
+  const labels = labelsForLanguage(i18n?.language);
   const model = sampleModel({ tournamentName, dayName, isBreak: previewBreak });
   const background = resolveBackground(tvSettings.bgValue, tvSettings.bgColor, tvSettings.bgOverlay);
 

@@ -83,4 +83,16 @@ const BROADCAST_LABELS = {
   },
 };
 
+/**
+ * Rótulos para um código de idioma do APP (`pt-BR`, `en-US`, `es-ES`…): só a
+ * língua importa, a região não. Desconhecido ou vazio cai no português — um
+ * rótulo "undefined" na frente do salão é pior que o idioma errado.
+ */
+export const labelsForLanguage = (code) => {
+  const lingua = String(code || '').trim().toLowerCase().split(/[-_]/)[0];
+  if (lingua === 'en') return BROADCAST_LABELS.en;
+  if (lingua === 'es') return BROADCAST_LABELS.es;
+  return BROADCAST_LABELS['pt-BR'];
+};
+
 export default BROADCAST_LABELS;

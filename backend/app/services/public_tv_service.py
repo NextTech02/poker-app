@@ -23,6 +23,7 @@ from app.utils.erros import ErroDeNegocio
 logger = logging.getLogger(__name__)
 
 MOEDA_PADRAO = "BRL"
+IDIOMA_PADRAO = "pt-BR"
 
 # Só o que o telão mostra. `player_name`, documento e `paid_*` ficam de fora:
 # a rota é aberta à internet.
@@ -50,11 +51,13 @@ class PublicTvService:
         tournament_id = str(day.get("tournament_id"))
         org_id = day.get("organization_id")
 
+        ajustes = PublicTvService._org_settings(org_id)
         return PublicTvExtras(
             day_id=str(day["id"]),
             tournament_id=tournament_id,
             organization_name=ModuleService.org_name(org_id),
-            currency=PublicTvService._currency(org_id),
+            currency=ajustes["currency"],
+            language=ajustes["language"],
             prize_pool=PublicTvService._prize_pool(tournament_id),
             prizes=PublicTvService._prizes(tournament_id),
         )
@@ -62,25 +65,32 @@ class PublicTvService:
     # ── partes ────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _currency(org_id: Optional[str]) -> str:
-        """Moeda da ORGANIZAÇÃO do dia (não a de quem abriu a tela)."""
+    def _org_settings(org_id: Optional[str]) -> dict:
+        """Moeda e idioma da ORGANIZAÇÃO do dia (não os de quem abriu a tela).
+        A TV do salão não tem login, então o idioma do clube só chega a ela
+        por aqui."""
+        padrao = {"currency": MOEDA_PADRAO, "language": IDIOMA_PADRAO}
         if not org_id:
-            return MOEDA_PADRAO
+            return padrao
         try:
             resp = (
                 supabase_admin.table("app_settings")
-                .select("currency")
+                .select("currency, language")
                 .eq("organization_id", org_id)
                 .limit(1)
                 .execute()
             )
         except Exception as exc:  # decorativo: nunca derruba o telão
-            logger.warning("Moeda da org %s não lida para o telão: %s", org_id, exc)
-            return MOEDA_PADRAO
+            logger.warning("Ajustes da org %s não lidos para o telão: %s", org_id, exc)
+            return padrao
         rows = resp.data or []
         if not rows:
-            return MOEDA_PADRAO
-        return (rows[0] or {}).get("currency") or MOEDA_PADRAO
+            return padrao
+        row = rows[0] or {}
+        return {
+            "currency": row.get("currency") or MOEDA_PADRAO,
+            "language": row.get("language") or IDIOMA_PADRAO,
+        }
 
     @staticmethod
     def _prize_pool(tournament_id: str) -> Optional[float]:

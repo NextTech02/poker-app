@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { usePolling } from '../hooks/usePolling';
-import BROADCAST_LABELS from '../utils/broadcastLabels';
+import { labelsForLanguage } from '../utils/broadcastLabels';
+import { idiomaEscolhidoPeloUsuario } from '../utils/idiomaDoUsuario';
 import {
   lerFonteLocal, gravarFonteLocal, limparFonteLocal, proximaFonte, FONTE_MIN, FONTE_MAX, FONTE_PASSO,
 } from '../utils/broadcastFontLocal';
@@ -70,7 +71,7 @@ const calculateCurrentLevel = (elapsedSeconds, blindsArray) => {
 };
 
 const TournamentBroadcast = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useParams();
   const [tournament, setTournament] = useState(null);
   const [tournamentDay, setTournamentDay] = useState(null);
@@ -376,7 +377,14 @@ const TournamentBroadcast = () => {
   // Configurações: do DIA (por-dia), com o torneio como reserva no legado.
   const bSource = tournamentDay || tournament;
   const settings = buildTvSettings(bSource, { fontSizeOverride: fonteLocal });
-  const L = BROADCAST_LABELS[settings.language] || BROADCAST_LABELS['pt-BR'];
+
+  // Idioma do telão, na mesma regra do resto do app: a escolha explícita da
+  // pessoa (bandeiras, guardada neste aparelho) vence; sem ela, o idioma do
+  // CLUBE (vem nos extras públicos — a TV do salão não tem login para
+  // aplicá-lo de outro jeito); sem extras (backend antigo), o idioma em que o
+  // app está. A coluna `broadcast_language` do dia nunca ganhou tela para ser
+  // escolhida e ficava em pt-BR para todo mundo: o telão "não traduzia".
+  const L = labelsForLanguage(idiomaEscolhidoPeloUsuario() || extras?.language || i18n?.language);
 
   // Botões +/− do canto: a tela muda na hora; a gravação decide o destino.
   // Logado (o mesmo token que api.js manda no Authorization) e com dia: vai

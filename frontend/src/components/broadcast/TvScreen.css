@@ -66,11 +66,14 @@
 }
 
 /* ── Tela ───────────────────────────────────────────────────────────────── */
+/* Laterais SEM padding (pedido do cliente): os tiles encostam na borda
+   esquerda, a coluna de prêmios na direita e a barra de prêmios vai de
+   ponta a ponta. Só o cabeçalho guarda um respiro para as marcas. */
 .tv-screen {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: 16px 26px 20px;
+  padding: 14px 0 16px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 12px 0;
@@ -106,6 +109,7 @@
   align-items: center;
   gap: 24px;
   min-height: 96px;
+  padding: 0 22px;
 }
 
 .tv-header-side {
@@ -237,16 +241,18 @@
   min-width: 0;
 }
 
+/* Colado na borda esquerda: sem borda nem canto arredondado desse lado. */
 .tv-tile {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
   gap: 16px;
-  padding: 10px 20px 10px 12px;
+  padding: 10px 20px 10px 14px;
   min-height: 0;
-  border-radius: 14px;
+  border-radius: 0 14px 14px 0;
   background: rgba(8, 13, 32, 0.62);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   overflow: hidden;
 }
@@ -497,10 +503,13 @@
   align-items: center;
   gap: 20px;
   min-height: calc(80px * var(--tv-prize, 1));
-  padding: 8px 14px 8px 8px;
-  border-radius: 14px;
+  padding: 8px 14px 8px 10px;
+  /* faixa de ponta a ponta: só as bordas de cima e de baixo */
+  border-radius: 0;
   background: rgba(8, 13, 32, 0.62);
   border: 1px solid var(--tv-accent-soft, rgba(242, 204, 92, 0.55));
+  border-left: 0;
+  border-right: 0;
   box-shadow:
     0 0 28px var(--tv-accent-glow, rgba(242, 204, 92, 0.12)),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -615,9 +624,11 @@
   gap: 12px;
   min-height: 0;
   padding: 16px;
-  border-radius: 14px;
+  /* colada na borda direita */
+  border-radius: 14px 0 0 14px;
   background: rgba(8, 13, 32, 0.62);
   border: 1px solid var(--tv-accent-soft, rgba(242, 204, 92, 0.55));
+  border-right: 0;
 }
 
 .tv-prizes-sidebar-header {
@@ -688,10 +699,12 @@
   min-width: 0;
   min-height: 0;
   display: flex;
-  border-radius: 18px;
+  border-radius: 0;
   overflow: hidden;
   background: #0b1020;
   border: 1px solid rgba(255, 255, 255, 0.10);
+  border-left: 0;
+  border-right: 0;
 }
 
 .tv-break-info {
