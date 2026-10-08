@@ -32,7 +32,6 @@ const FORM_INICIAL = {
   // Como o diretor elimina jogadores. 'bulk' é o padrão do banco e o único
   // modo que existia antes da escolha.
   elimination_mode: 'bulk',
-  sponsor_id: '',
   qualifying_days: 2,
   qualifying_max_players: 100,
   qualifying_rebuy_level_limit: '',
@@ -63,14 +62,12 @@ const Torneios = () => {
   // Na edição a lista vem do servidor. Se não vier, o editor trava e o PUT é
   // pulado ao salvar: uma carga falhada nunca pode sobrescrever a lista real.
   const [entryLoadFailed, setEntryLoadFailed] = useState(false);
-  const [sponsors, setSponsors] = useState([]);
   const [blindTemplates, setBlindTemplates] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     loadTournaments();
-    loadSponsors();
     loadBlindTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -97,15 +94,9 @@ const Torneios = () => {
     ativo: hasStage,
   });
 
-  const loadSponsors = async () => {
-    try {
-      const data = await cachedGet(api, '/sponsors?status=active', 60000);
-      setSponsors(data || []);
-    } catch (err) {
-      console.error('Erro ao carregar patrocinadores:', err);
-    }
-  };
-
+  // Patrocinador NÃO é do torneio: é do jogador (cadastro de jogadores). O
+  // campo saiu do formulário a pedido do cliente (2026-10); a coluna
+  // `sponsor_id` dos torneios antigos fica como está, só não é mais editada.
   const loadBlindTemplates = async () => {
     try {
       const data = await cachedGet(api, '/blind-templates', 60000);
@@ -153,7 +144,6 @@ const Torneios = () => {
       const res = await api.post('/tournaments', {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
-        sponsor_id: formData.sponsor_id || null,
         elimination_mode: formData.elimination_mode || 'bulk',
       });
       const newTournamentId = res?.data?.id;
@@ -275,7 +265,6 @@ const Torneios = () => {
       await api.patch(`/tournaments/${editingTournament.id}`, {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
-        sponsor_id: formData.sponsor_id || null,
         // Trocar para "por mesa" com eliminações em massa já lançadas é
         // recusado pelo servidor (409) — a mensagem vem traduzida no erro.
         elimination_mode: formData.elimination_mode || 'bulk',
@@ -315,7 +304,6 @@ const Torneios = () => {
       ...FORM_INICIAL,
       name: tournament.name,
       has_qualifying: tournament.has_qualifying || false,
-      sponsor_id: tournament.sponsor_id || '',
       elimination_mode: tournament.elimination_mode === 'table' ? 'table' : 'bulk',
     });
     setFormError('');
@@ -620,7 +608,6 @@ const Torneios = () => {
             submitLabel={t('tournaments.createFirst')}
             submitting={submitting}
             formError={formError}
-            sponsors={sponsors}
             blindTemplates={blindTemplates}
             currency={currency}
             entryRows={entryRows}
@@ -643,7 +630,6 @@ const Torneios = () => {
             submitLabel={t('tournaments.saveChanges')}
             submitting={submitting}
             formError={formError}
-            sponsors={sponsors}
             currency={currency}
             entryRows={entryRows}
             onEntryRowsChange={setEntryRows}
@@ -663,7 +649,7 @@ const Torneios = () => {
 /* ── Shared Modal — A7: inline error + loading state ── */
 const TournamentModal = ({
   title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting,
-  formError, sponsors = [], blindTemplates = [], currency, t, isEditing,
+  formError, blindTemplates = [], currency, t, isEditing,
   entryRows = [], onEntryRowsChange, entryError = '', onEntryError, entryLoadFailed = false,
 }) => {
   // O backdrop fecha no clique (mouse); no teclado o equivalente é o Esc.
@@ -709,22 +695,6 @@ const TournamentModal = ({
             disabled={submitting}
           />
           {!isEditing && <small>{t('tournaments.nameHint')}</small>}
-        </div>
-
-        <div className="tr-field">
-          <label htmlFor="tr-sponsor">{t('tournaments.sponsor')}</label>
-          <select
-            id="tr-sponsor"
-            name="sponsor_id"
-            value={formData.sponsor_id || ''}
-            onChange={onChange}
-            disabled={submitting}
-          >
-            <option value="">{t('tournaments.noSponsor')}</option>
-            {sponsors.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
         </div>
 
         {/* Como eliminar jogadores: escolha do diretor, na criação e na

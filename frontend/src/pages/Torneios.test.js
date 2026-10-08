@@ -68,7 +68,6 @@ const TORNEIOS = [
   { id: 't3', name: 'Antigo', status: 'completed', total_entries: 55, total_players: 55, total_reentries: 0 },
 ];
 
-const PATROCINADORES = [{ id: 'sp1', name: 'Cerveja X' }];
 const MODELOS = [{ id: 'bt1', name: 'Turbo 15min' }];
 
 const ETAPA = { id: 'e1', name: 'Etapa 1' };
@@ -76,12 +75,11 @@ const ETAPA = { id: 'e1', name: 'Etapa 1' };
 let toast;
 let confirmar;
 
-const responder = ({ torneios = TORNEIOS, patrocinadores = PATROCINADORES, modelos = MODELOS } = {}) => {
+const responder = ({ torneios = TORNEIOS, modelos = MODELOS } = {}) => {
   cachedGet.mockImplementation((_api, url) => {
     if (url === '/tournaments') {
       return torneios instanceof Error ? Promise.reject(torneios) : Promise.resolve(torneios);
     }
-    if (url.startsWith('/sponsors')) return Promise.resolve(patrocinadores);
     if (url === '/blind-templates') return Promise.resolve(modelos);
     return Promise.resolve([]);
   });
@@ -244,7 +242,7 @@ describe('vínculo com a etapa', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/tournaments', {
-        name: 'Novo', has_qualifying: false, sponsor_id: null, elimination_mode: 'bulk',
+        name: 'Novo', has_qualifying: false, elimination_mode: 'bulk',
       })
     );
   });
@@ -279,23 +277,15 @@ describe('criar torneio simples', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
   };
 
-  it('o patrocinador escolhido acompanha o torneio', async () => {
-    await montar();
-    await abrirNovo();
-    await userEvent.type(campo(/tournaments.tournamentName/), 'Novo');
-    await userEvent.selectOptions(campo('tournaments.sponsor'), 'sp1');
-    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
-    await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/tournaments', expect.objectContaining({ sponsor_id: 'sp1' }))
-    );
-  });
-
-  it('sem patrocinador o campo vai nulo, não string vazia', async () => {
+  it('não há patrocinador no torneio: o campo não existe e nada vai no payload', async () => {
+    // Patrocinador é do JOGADOR (cadastro de jogadores), não do torneio.
+    // Pedido do cliente, 2026-10. A lista de patrocinadores nem é buscada.
     await montar();
     await criar();
-    await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/tournaments', expect.objectContaining({ sponsor_id: null }))
-    );
+    expect(screen.queryByLabelText(/tournaments.sponsor/)).toBeNull();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1]).not.toHaveProperty('sponsor_id');
+    expect(cachedGet.mock.calls.some(([, url]) => String(url).startsWith('/sponsors'))).toBe(false);
   });
 
   it('criar invalida o cache da lista', async () => {
@@ -738,7 +728,7 @@ describe('editar torneio', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/tournaments/t1', {
-        name: 'Main Event 2026', has_qualifying: true, sponsor_id: null, elimination_mode: 'bulk',
+        name: 'Main Event 2026', has_qualifying: true, elimination_mode: 'bulk',
       })
     );
     expect(invalidateCache).toHaveBeenCalledWith('/tournaments');
