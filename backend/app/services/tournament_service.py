@@ -4,12 +4,15 @@ from datetime import datetime
 from collections import defaultdict
 from app.database import supabase
 from app.models.tournament import (
+    EliminationMode,
     TournamentCreate,
     TournamentUpdate,
     Tournament,
     TournamentSummary,
     TournamentDeleteImpact,
 )
+from app.utils.erros import ErroDeNegocio
+from app.services.eliminacao import modo_do_torneio
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -82,12 +85,22 @@ class TournamentService:
     def create_tournament(tournament_data: TournamentCreate, user_id: str) -> Tournament:
         """Create a new tournament - simplified to just name and stage"""
         data = {
-            **tournament_data.model_dump(),
+            **tournament_data.model_dump(mode="json"),
             "created_by": user_id,
         }
+        # 'bulk' é o padrão do BANCO: não mandá-lo deixa a criação funcionando
+        # num banco que ainda não recebeu a coluna (o deploy não é atômico com
+        # a migração). Só quem escolhe "por mesa" precisa dela.
+        if data.get("elimination_mode") == EliminationMode.bulk.value:
+            data.pop("elimination_mode")
 
         response = supabase.table("tournaments").insert(data).execute()
         return Tournament(**response.data[0])
+
+    @staticmethod
+    def modo_de_eliminacao(tournament_id: Optional[str]) -> str:
+        """'table' ou 'bulk' (padrão quando falta a coluna ou o valor)."""
+        return modo_do_torneio(tournament_id, supabase)
 
     @staticmethod
     def get_tournaments(stage_id: Optional[str] = None) -> List[Tournament]:
@@ -211,7 +224,8 @@ class TournamentService:
         # ENTRADAS, JOGADORES e REENTRADAS sao tres numeros distintos:
         #   entrada   = buy-in. Quem recompra voltou ao torneio, nao entrou de novo.
         #   jogador   = uma pessoa na mesa, por mais que recompre.
-        #   reentrada = recompra + add-on, em campo proprio.
+        #   reentrada = recompra, em campo proprio. Add-on compra fichas, nao
+        #               traz ninguem de volta, e nao entra em contagem nenhuma.
         # Somar tudo num numero so era o que inflava a contagem do torneio.
         entries_by_day = defaultdict(int)
         players_by_day = defaultdict(int)
@@ -222,9 +236,7 @@ class TournamentService:
             # Inscricao estornada nao conta como gente na mesa.
             if (p.get("status") or "") != "cancelled":
                 players_by_day[dia] += 1
-            reentries_by_day[dia] += (
-                (p.get("rebuy_count") or 0) + (p.get("addon_count") or 0)
-            )
+            reentries_by_day[dia] += p.get("rebuy_count") or 0
 
         days_by_tournament = defaultdict(list)
         for d in days:
@@ -277,7 +289,11 @@ class TournamentService:
     @staticmethod
     def update_tournament(tournament_id: str, tournament_data: TournamentUpdate) -> Optional[Tournament]:
         """Update a tournament (name and/or stage_id)"""
-        data = tournament_data.model_dump(exclude_unset=True)
+        data = tournament_data.model_dump(exclude_unset=True, mode="json")
+        if data.get("elimination_mode") is None:
+            data.pop("elimination_mode", None)
+        elif data["elimination_mode"] == EliminationMode.table.value:
+            TournamentService._recusar_mesa_com_eliminacoes(tournament_id)
 
         response = (
             supabase.table("tournaments")
@@ -289,6 +305,34 @@ class TournamentService:
         if response.data:
             return Tournament(**response.data[0])
         return None
+
+    @staticmethod
+    def _recusar_mesa_com_eliminacoes(tournament_id: str) -> None:
+        """Passar para "por mesa" com eliminações já lançadas no contador?
+
+        No modo mesa o contador É a contagem de jogadores eliminados. As
+        eliminações em massa não dizem QUEM saiu — virar a chave agora faria a
+        primeira recontagem apagar todas elas e os ATIVOS subirem na TV no meio
+        do evento. O caminho contrário (mesa → em massa) é seguro: o contador
+        já está certo e só passa a ser mexido pelos botões.
+        """
+        if TournamentService.modo_de_eliminacao(tournament_id) == EliminationMode.table.value:
+            return
+        dias = (
+            supabase.table("tournament_days")
+            .select("id, eliminations_count")
+            .eq("tournament_id", tournament_id)
+            .execute()
+            .data
+            or []
+        )
+        if any(int(d.get("eliminations_count") or 0) > 0 for d in dias):
+            raise ErroDeNegocio(
+                "modo_de_eliminacao_bloqueado",
+                "Este torneio já tem eliminações lançadas em massa. Para eliminar "
+                "pelas mesas, zere o contador no Controle antes de trocar o modo.",
+                status=409,
+            )
 
     @staticmethod
     def get_delete_impact(tournament_id: str) -> Optional[TournamentDeleteImpact]:

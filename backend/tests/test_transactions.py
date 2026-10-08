@@ -983,11 +983,10 @@ class TestContadoresSaoDecrementados:
         TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert fake.store["tournament_days"][0]["eliminations_count"] == 1
 
-    def test_cancelar_uma_de_varias_recompras_nao_devolve_nada(self, monkeypatch):
-        """A venda desconta UMA eliminacao por VENDA, mesmo sendo cinco
-        recompras de uma vez. Devolver uma por transacao cancelada faria sair 1
-        e voltarem 5 — o jogador que continua com recompras nao voltou a estar
-        fora da mesa."""
+    def test_cancelar_uma_de_varias_reentradas_devolve_uma_eliminacao(self, monkeypatch):
+        """Cada reentrada trouxe UM eliminado de volta (a venda so passa se ha
+        alguem para voltar). Estornar uma delas devolve a sua eliminacao —
+        nao importa quantas outras o jogador ainda tenha."""
         fake = _cenario(
             monkeypatch,
             venda=_venda(tipo="rebuy"),
@@ -1000,7 +999,51 @@ class TestContadoresSaoDecrementados:
         )
         TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert fake.store["tournament_players"][0]["rebuy_count"] == 4
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 2
+
+    def test_linha_extra_de_lote_antigo_nao_devolve_eliminacao(self, monkeypatch):
+        """O lote antigo (`quantity=3`) gravou `cmid:0`, `cmid:1`, `cmid:2` mas
+        trouxe UM jogador de volta. So a linha `:0` devolve a eliminacao."""
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(tipo="rebuy", client_id="cmid:2"),
+            jogador={"buy_in_count": 3, "rebuy_count": 3},
+            tabelas={"tournament_days": [{
+                "id": DIA, "tournament_id": TOUR, "registered_players": 10,
+                "rebuy_chips": 10000, "addon_chips": 10000,
+                "eliminations_count": 1,
+            }]},
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+
+    def test_modo_mesa_estornar_a_reentrada_elimina_o_jogador_de_novo(self, monkeypatch):
+        """Por mesa, a reentrada tinha trazido AQUELE jogador de volta. Sem ela
+        ele esta fora: volta a 'eliminated', o contador e recontado e a
+        cadeira volta para o pool."""
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(tipo="rebuy"),
+            jogador={"buy_in_count": 1, "rebuy_count": 1},
+            tabelas={
+                "tournaments": [{"id": TOUR, "name": "Torneio A", "stage_id": STAGE,
+                                 "elimination_mode": "table"}],
+                "tournament_days": [{
+                    "id": DIA, "tournament_id": TOUR, "registered_players": 10,
+                    "rebuy_chips": 10000, "addon_chips": 10000,
+                    "eliminations_count": 0,
+                }],
+                "seat_allocations": [{"id": "a1", "tournament_id": TOUR,
+                                      "tournament_day_id": DIA, "player_id": PLAYER,
+                                      "table_id": "m1", "seat_number": 2}],
+                "tournament_tables": [{"id": "m1", "occupied_seats": 5}],
+            },
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        assert fake.store["tournament_players"][0]["status"] == "eliminated"
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 1
+        assert fake.store["seat_allocations"] == []
+        assert fake.store["tournament_tables"][0]["occupied_seats"] == 4
 
     def test_cancelar_add_on_nao_mexe_no_contador(self, monkeypatch):
         """Add-on nunca tirou ninguem da mesa: quem faz add-on ja esta jogando."""

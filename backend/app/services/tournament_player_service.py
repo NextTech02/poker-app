@@ -3,6 +3,16 @@ from app.database import supabase
 from app.services.tournament_day_service import _chipcount_cache
 from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService, seguir_sem_a_trava
+from app.services.allocation_service import liberar_assento_do_dia
+# A regra dos dois modos de eliminação (por mesa / em massa) mora num lugar só.
+from app.services.eliminacao import (
+    MODO_MESA,
+    acertar_contador,
+    consumir_eliminacao,
+    modo_do_torneio,
+    normalizar_modo,
+    registrar_eliminacao,
+)
 from app.utils.erros import ErroDeNegocio
 from app.models.tournament_player import (
     TournamentPlayerCreate,
@@ -30,12 +40,18 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
     trava do dia — a mesma escolha de `seguir_sem_a_trava`. Filtrar pelo texto
     do erro só criaria um jeito novo de a recompra parar no balcão.
     """
-    def _buscar(colunas: str, com_trava: bool):
+    def _buscar(colunas: str, com_trava: bool, com_modo: bool = False):
         # A ETAPA vem embutida junto de propósito: sem isso, toda venda fazia uma
         # segunda ida ao banco só para saber se a etapa está bloqueada. Nesta
         # instalação o banco fica em outra região e cada ida custa ~270ms — é a
-        # consulta mais cara que dá para simplesmente não fazer.
-        etapa = ", tournaments(stage_id, stages(sales_blocked, sales_blocked_reason))" if com_trava else ""
+        # consulta mais cara que dá para simplesmente não fazer. O MODO DE
+        # ELIMINAÇÃO do torneio vem no mesmo embed, pelo mesmo motivo: a
+        # reentrada precisa dele para saber a quem devolver a vaga.
+        modo = "elimination_mode, " if com_modo else ""
+        etapa = (
+            f", tournaments(stage_id, {modo}stages(sales_blocked, sales_blocked_reason))"
+            if com_trava else ""
+        )
         return (
             supabase.table("tournament_players")
             .select(f"*, {_EMBED_DO_DIA}({colunas}){etapa}")
@@ -43,6 +59,13 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
             .execute()
         )
 
+    try:
+        return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}", com_trava=True, com_modo=True)
+    except Exception:
+        # Banco sem a coluna do modo (migração do modo de eliminação pendente):
+        # perder a TRAVA DE VENDAS por causa dela seria trocar um defeito por
+        # outro pior. Refaz só sem o modo; quem precisar dele lê à parte.
+        pass
     try:
         return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}", com_trava=True)
     except Exception as exc:
@@ -52,6 +75,25 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
         # `seguir_sem_a_trava`: parar o balcão seria pior.
         seguir_sem_a_trava(exc, f"dia embutido do inscrito {tournament_player_id}")
         return _buscar(colunas_do_dia, com_trava=False)
+
+
+def _modo_do_inscrito(tp: dict) -> str:
+    """Modo de eliminação do torneio do inscrito: do embed, ou lido à parte."""
+    torneio = tp.get("tournaments")
+    if isinstance(torneio, dict) and "elimination_mode" in torneio:
+        return normalizar_modo(torneio.get("elimination_mode"))
+    return modo_do_torneio(tp.get("tournament_id"), supabase)
+
+
+def _recalcular_ranking(tournament_id: Optional[str]) -> None:
+    """Posições dos eliminados. Falhar aqui não desfaz a operação já gravada."""
+    if not tournament_id:
+        return
+    from app.services.ranking_service import RankingService
+    try:
+        RankingService.calculate_rankings(tournament_id)
+    except Exception as e:
+        print(f"Error recalculating rankings: {str(e)}")
 
 
 class TournamentPlayerService:
@@ -432,8 +474,21 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1, permitir_meio_inativo: bool = False) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1, permitir_meio_inativo: bool = False, skip_elimination_gate: bool = False) -> TournamentPlayer:
         """Registra UMA OU MAIS recompras do jogador, numa ida só.
+
+        REENTRADA TRAZ DE VOLTA UM ELIMINADO — e só isso. Sem ninguém
+        eliminado para voltar, a venda é RECUSADA antes de cobrar
+        (`reentrada_sem_eliminado`, 409):
+
+        - modo MESA: AQUELE jogador precisa estar 'eliminated';
+        - modo EM MASSA: o contador do dia precisa estar acima de zero.
+
+        Antes a venda passava com o contador no piso zero e o número ficava
+        certo por acaso; se o diretor clicasse "Eliminar" DEPOIS, o jogador era
+        descontado duas vezes. `skip_elimination_gate` é só do replay offline:
+        o operador vendeu quando era permitido, e recusar agora deixaria
+        dinheiro na gaveta sem venda.
 
         `quantity` existe por desempenho medido, não por elegância: o banco deste
         projeto fica em outra região (us-west-2) e cada ida custa ~270ms de rede.
@@ -508,6 +563,28 @@ class TournamentPlayerService:
         # calculado pelo relógio do dia quando o caixa não informa).
         TournamentPlayerService._recusar_rebuy_fora_do_nivel(day_info, current_blind_level, skip_level_gate)
 
+        if tp.get("status") == "cancelled":
+            # Inscrição estornada: o dinheiro da entrada voltou, ele não está
+            # no torneio para reentrar.
+            raise ErroDeNegocio(
+                "reentrada_inscricao_estornada",
+                "A inscrição deste jogador foi estornada; não há o que reentrar.",
+                status=409,
+            )
+
+        day_id = tp.get("tournament_day_id")
+        modo = _modo_do_inscrito(tp)
+        com_trava = not skip_elimination_gate
+        estava_eliminado = tp.get("status") == "eliminated"
+        # Em massa: a eliminação é CONSUMIDA antes de qualquer escrita de
+        # dinheiro. No banco, conferir e baixar é a mesma instrução — duas
+        # caixas com o contador em 1 não vendem as duas.
+        consumiu = False
+        if com_trava and modo != MODO_MESA:
+            consumiu = consumir_eliminacao(day_id, supabase)
+            if not consumiu:
+                raise TournamentPlayerService._sem_eliminado(modo)
+
         # Update tournament player - if eliminated, reactivate them
         # Uma atualização só, com os contadores já multiplicados: N recompras não
         # podem virar N idas ao banco (ver docstring).
@@ -518,8 +595,25 @@ class TournamentPlayerService:
             "total_chips": tp["total_chips"] + (rebuy_chips * quantity),
             "status": "active",  # Reactivate player if they were eliminated
         }
+        if estava_eliminado:
+            # Voltou para a mesa: sai do ranking dos eliminados.
+            updated_data.update({"eliminated_at": None, "final_position": None})
 
-        response = supabase.table("tournament_players").update(updated_data).eq("id", tournament_player_id).execute()
+        try:
+            query = supabase.table("tournament_players").update(updated_data).eq("id", tournament_player_id)
+            if com_trava and modo == MODO_MESA:
+                # Modo mesa: a trava É a condição do UPDATE. Se outra caixa já
+                # vendeu a reentrada (ou ele nunca foi eliminado), nada é
+                # gravado e a venda para aqui, antes de cobrar.
+                query = query.eq("status", "eliminated")
+            response = query.execute()
+            if not response.data:
+                raise TournamentPlayerService._sem_eliminado(modo)
+        except Exception:
+            if consumiu:
+                # A eliminação foi consumida para uma venda que não aconteceu.
+                registrar_eliminacao(day_id, 1, supabase)
+            raise
 
         # Invalidate chipcount cache for this day
         _chipcount_cache.pop(tp.get("tournament_day_id"), None)
@@ -572,9 +666,43 @@ class TournamentPlayerService:
         # UMA por VENDA, nao por recompra: o jogador que compra 5 recompras de
         # uma vez foi ao caixa UMA vez e sentou UMA vez. Descontar 5 daria 104
         # ativos num torneio de 100 entradas.
-        TournamentPlayerService._desfazer_eliminacoes(tp.get("tournament_day_id"))
+        if modo == MODO_MESA:
+            # O contador e a contagem dos eliminados: ele saiu dela.
+            TournamentPlayerService._recontar(day_id)
+        elif not consumiu:
+            # Replay offline (sem trava): o caminho de sempre, com piso em zero.
+            TournamentPlayerService._desfazer_eliminacoes(day_id)
+        if estava_eliminado:
+            _recalcular_ranking(tp.get("tournament_id"))
 
         return TournamentPlayer(**response.data[0])
+
+    @staticmethod
+    def _sem_eliminado(modo: str) -> ErroDeNegocio:
+        """A recusa da reentrada sem ninguém para voltar, no idioma do modo."""
+        if modo == MODO_MESA:
+            return ErroDeNegocio(
+                "reentrada_sem_eliminado",
+                "Reentrada só para jogador eliminado. Elimine o jogador na mesa "
+                "antes de vender a reentrada.",
+                status=409,
+                modo=modo,
+            )
+        return ErroDeNegocio(
+            "reentrada_sem_eliminado",
+            "Não há jogador eliminado para reentrar. Registre a eliminação no "
+            "Controle antes de vender a reentrada.",
+            status=409,
+            modo=modo,
+        )
+
+    @staticmethod
+    def _recontar(day_id) -> None:
+        """Modo mesa: reconta sem derrubar a operação já gravada."""
+        try:
+            acertar_contador(day_id, MODO_MESA, 0, supabase)
+        except Exception:
+            print(f"Error recounting eliminations for day {day_id}")
 
     @staticmethod
     def _desfazer_eliminacoes(day_id) -> None:
@@ -755,7 +883,30 @@ class TournamentPlayerService:
     @staticmethod
     def update_tournament_player(tournament_player_id: str, update_data: TournamentPlayerUpdate) -> Optional[TournamentPlayer]:
         """Update tournament player (position, prize, status, etc.)"""
-        data = update_data.model_dump(exclude_unset=True)
+        data = update_data.model_dump(exclude_unset=True, mode="json")
+
+        # Entrar ou sair de 'eliminated' mexe no contador do dia e na cadeira.
+        # Gravar o status direto (como a tela de alocação antiga e o replay
+        # offline de "restore" faziam) deixava a TV sem ver a mudança.
+        novo_status = data.get("status")
+        if novo_status is not None:
+            atual = (
+                supabase.table("tournament_players").select("status")
+                .eq("id", tournament_player_id).execute().data or []
+            )
+            status_atual = atual[0].get("status") if atual else None
+            mudou = None
+            if novo_status == "eliminated" and status_atual not in (None, "eliminated"):
+                mudou = TournamentPlayerService.eliminate_player(tournament_player_id)
+            elif status_atual == "eliminated" and novo_status in ("active", "registered"):
+                mudou = TournamentPlayerService.uneliminate_player(tournament_player_id)
+            if mudou is not None:
+                data.pop("status", None)
+                data.pop("eliminated_at", None)
+                if novo_status != "eliminated":
+                    data.pop("final_position", None)
+                if not data:
+                    return mudou
 
         response = (
             supabase.table("tournament_players")
@@ -769,10 +920,14 @@ class TournamentPlayerService:
         return None
 
     @staticmethod
-    def eliminate_player(tournament_player_id: str, user_id: str, idempotent: bool = False) -> TournamentPlayer:
-        """Eliminate a player from the tournament (mark as eliminated)"""
+    def eliminate_player(tournament_player_id: str, user_id: Optional[str] = None, idempotent: bool = False) -> TournamentPlayer:
+        """Elimina UM jogador: status 'eliminated', cadeira liberada, contador.
+
+        É o caminho do modo MESA (o ✕ no assento), mas vale nos dois modos —
+        no em massa ele soma 1 ao contador, como o botão "Eliminar 1". Antes
+        ele mudava só o status: a TV, que lê o contador, não via a eliminação.
+        """
         from datetime import datetime
-        from app.services.ranking_service import RankingService
 
         # Get tournament player info
         tp_response = supabase.table("tournament_players").select("*").eq("id", tournament_player_id).execute()
@@ -786,22 +941,83 @@ class TournamentPlayerService:
         if tp.get("status") == "eliminated":
             if idempotent:
                 return TournamentPlayer(**tp)
-            raise ValueError("Player is already eliminated")
+            raise ErroDeNegocio(
+                "jogador_ja_eliminado", "Este jogador já está eliminado.", status=409
+            )
+        if tp.get("status") == "cancelled":
+            raise ErroDeNegocio(
+                "jogador_estornado",
+                "A inscrição deste jogador foi estornada; ele não está no torneio.",
+                status=409,
+            )
 
-        # Update tournament player status to eliminated with timestamp
-        updated_data = {
-            "status": "eliminated",
-            "eliminated_at": datetime.now().isoformat(),
-        }
+        # Update tournament player status to eliminated with timestamp. A
+        # condição no próprio UPDATE faz o clique duplo contar UMA vez.
+        response = (
+            supabase.table("tournament_players")
+            .update({"status": "eliminated", "eliminated_at": datetime.now().isoformat()})
+            .eq("id", tournament_player_id)
+            .neq("status", "eliminated")
+            .execute()
+        )
+        if not response.data:
+            atual = supabase.table("tournament_players").select("*").eq("id", tournament_player_id).execute()
+            return TournamentPlayer(**(atual.data or [tp])[0])
 
-        response = supabase.table("tournament_players").update(updated_data).eq("id", tournament_player_id).execute()
+        day_id = tp.get("tournament_day_id")
+        # Quem sai da mesa devolve a cadeira — e a vaga da mesa, senão ela
+        # parece cheia para a próxima alocação.
+        try:
+            liberar_assento_do_dia(tp["tournament_id"], tp["player_id"], day_id, supabase)
+        except Exception as e:
+            print(f"Error releasing seat after elimination: {str(e)}")
+
+        try:
+            acertar_contador(day_id, _modo_do_inscrito(tp), 1, supabase)
+        except Exception as e:
+            print(f"Error counting elimination for day {day_id}: {str(e)}")
 
         # Recalculate rankings for this tournament
-        tournament_id = tp["tournament_id"]
+        _recalcular_ranking(tp["tournament_id"])
+
+        return TournamentPlayer(**response.data[0])
+
+    @staticmethod
+    def uneliminate_player(tournament_player_id: str, idempotent: bool = False) -> TournamentPlayer:
+        """Desfaz uma eliminação lançada por engano: o jogador volta à mesa.
+
+        Não é reentrada — não há venda, nem fichas novas. O contador volta 1
+        (em massa) ou é recontado (mesa). A cadeira não volta sozinha: o
+        diretor o senta de novo na tela de mesas.
+        """
+        tp_response = supabase.table("tournament_players").select("*").eq("id", tournament_player_id).execute()
+        if not tp_response.data:
+            raise ValueError("Tournament player not found")
+        tp = tp_response.data[0]
+
+        if tp.get("status") != "eliminated":
+            if idempotent:
+                return TournamentPlayer(**tp)
+            raise ErroDeNegocio(
+                "jogador_nao_eliminado", "Este jogador não está eliminado.", status=409
+            )
+
+        response = (
+            supabase.table("tournament_players")
+            .update({"status": "active", "eliminated_at": None, "final_position": None})
+            .eq("id", tournament_player_id)
+            .eq("status", "eliminated")
+            .execute()
+        )
+        if not response.data:
+            atual = supabase.table("tournament_players").select("*").eq("id", tournament_player_id).execute()
+            return TournamentPlayer(**(atual.data or [tp])[0])
+
+        day_id = tp.get("tournament_day_id")
         try:
-            RankingService.calculate_rankings(tournament_id)
+            acertar_contador(day_id, _modo_do_inscrito(tp), -1, supabase)
         except Exception as e:
-            print(f"Error recalculating rankings after elimination: {str(e)}")
-            # Don't fail the elimination if ranking calculation fails
+            print(f"Error undoing elimination for day {day_id}: {str(e)}")
+        _recalcular_ranking(tp.get("tournament_id"))
 
         return TournamentPlayer(**response.data[0])

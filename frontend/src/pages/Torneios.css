@@ -530,6 +530,73 @@
   .tr-qual-grid { grid-template-columns: 1fr; }
 }
 
+/* Modo de eliminação: dois cartões de rádio lado a lado (empilham no celular). */
+.tr-elim-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 520px) {
+  .tr-elim-options { grid-template-columns: 1fr; }
+}
+
+.tr-elim-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--surface);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tr-elim-option:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--border-light);
+}
+
+.tr-elim-option.active {
+  background: rgba(91, 91, 232, 0.07);
+  border-color: rgba(91, 91, 232, 0.3);
+}
+
+.tr-elim-option:focus-within {
+  outline: 2px solid var(--brand-gold, #5b5be8);
+  outline-offset: 2px;
+}
+
+.tr-elim-option input {
+  margin-top: 0.2rem;
+  accent-color: var(--brand-gold, #5b5be8);
+}
+
+.tr-elim-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.tr-elim-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #c0d0e0;
+}
+
+.tr-elim-option.active .tr-elim-title { color: var(--warning-color); }
+
+.tr-elim-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.tr-elim-rule {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* Toggle Card */
 /* Virou <button role="switch"> por acessibilidade; estes resets mantêm o visual de card. */
 .tr-toggle-card {

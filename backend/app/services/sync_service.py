@@ -21,7 +21,7 @@ from app.services.tournament_player_service import TournamentPlayerService
 from app.services.cash_register_service import CashRegisterService
 from app.services.tournament_day_service import TournamentDayService
 from app.services.player_service import PlayerService
-from app.models.tournament_player import TournamentPlayerCreate, TournamentPlayerUpdate
+from app.models.tournament_player import TournamentPlayerCreate
 from app.models.cash_register import SangriaTransactionCreate
 from app.models.player import PlayerCreate, PlayerUpdate
 
@@ -115,6 +115,9 @@ class SyncService:
                     skip_level_gate=True,  # offline: feito em tempo real; não re-gatear no sync
                     skip_sales_block=True,
                     permitir_meio_inativo=True,
+                    # A reentrada foi vendida quando havia eliminado para
+                    # voltar; recusar no sync deixaria dinheiro sem venda.
+                    skip_elimination_gate=True,
                 )
                 out.update(status="applied")
             elif kind == "addon":
@@ -132,8 +135,9 @@ class SyncService:
                 TournamentPlayerService.eliminate_player(p["tournament_player_id"], user_id, idempotent=True)
                 out.update(status="applied")
             elif kind == "restore":
-                TournamentPlayerService.update_tournament_player(
-                    p["tournament_player_id"], TournamentPlayerUpdate(status="active")
+                # Desfazer eliminação: o contador do dia volta junto.
+                TournamentPlayerService.uneliminate_player(
+                    p["tournament_player_id"], idempotent=True
                 )
                 out.update(status="applied")
             elif kind == "sangria":

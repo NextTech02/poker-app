@@ -236,7 +236,8 @@ class TestDemaisOperacoes:
         feitos = []
         monkeypatch.setattr(TournamentPlayerService, "eliminate_player",
                             staticmethod(lambda *a, **k: feitos.append("elim")))
-        monkeypatch.setattr(TournamentPlayerService, "update_tournament_player",
+        # Restaurar e DESFAZER a eliminacao: o contador do dia volta junto.
+        monkeypatch.setattr(TournamentPlayerService, "uneliminate_player",
                             staticmethod(lambda *a, **k: feitos.append("restore")))
 
         SyncService.apply_op(_op("eliminate", "cm-e", {"tournament_player_id": TP}), "u1", ORG)

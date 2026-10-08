@@ -4,10 +4,10 @@
  * É a tela usada quando o torneio não tem estrutura de dias. O que ela tem de
  * próprio, e que os testes cercam:
  *
- * - **Eliminar daqui é uma operação em três passos.** Marcar o jogador como
- *   eliminado, RECALCULAR o ranking e só então liberar o assento. Pular o
- *   recálculo deixaria a posição final errada; liberar o assento antes de
- *   eliminar deixaria o jogador vivo sem cadeira.
+ * - **Eliminar daqui é UMA chamada ao servidor.** Ele marca o jogador como
+ *   eliminado, soma no contador que a TV lê, libera a cadeira e recalcula o
+ *   ranking. Gravar só o status (como antes) deixava a TV sem ver a
+ *   eliminação.
  * - **Assento ocupado recusa o drop**, e mesa com gente não é removida.
  * - **Mover alguém já sentado é PATCH**, não uma nova alocação — criar outra o
  *   deixaria ocupando dois assentos ao mesmo tempo.
@@ -275,25 +275,33 @@ describe('eliminar da mesa', () => {
     );
   });
 
-  it('marca como eliminado, RECALCULA o ranking e só então libera o assento', async () => {
-    // A ordem importa: sem o recálculo a posição final fica errada; liberar o
-    // assento antes deixaria um jogador vivo sem cadeira se algo falhasse.
+  it('elimina pelo servidor, numa chamada só', async () => {
+    // O servidor marca a eliminação, soma no contador que a TV lê, libera a
+    // cadeira e recalcula o ranking — a tela não faz nenhum desses passos.
     await montar();
     await eliminar();
-    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/allocations/a1'));
-    expect(api.patch).toHaveBeenCalledWith(
-      '/tournament-players/tp1',
-      expect.objectContaining({ status: 'eliminated', final_position: null })
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournament-players/tp1/eliminate')
     );
-    expect(api.post).toHaveBeenCalledWith('/rankings/tournament/t1/recalculate');
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(api.delete).not.toHaveBeenCalled();
   });
 
-  it('a hora da eliminação é carimbada', async () => {
-    // É ela que define a ordem de saída, e portanto a posição no ranking.
-    await montar();
+  it('a inscrição é a do mesmo dia da cadeira', async () => {
+    // Quem joga o 1A e o 1B tem duas inscrições; eliminar a do outro dia
+    // tiraria do torneio quem está sentado jogando.
+    await montar({
+      alocacoes: [{ id: 'a1', table_id: 'm1', seat_number: 1, player_id: 'p1',
+        tournament_day_id: 'd2', players: { name: 'Ana' } }],
+      inscritos: [
+        { id: 'tp-d1', player_id: 'p1', tournament_day_id: 'd1' },
+        { id: 'tp-d2', player_id: 'p1', tournament_day_id: 'd2' },
+      ],
+    });
     await eliminar();
-    await waitFor(() => expect(api.patch).toHaveBeenCalled());
-    expect(api.patch.mock.calls[0][1].eliminated_at).toEqual(expect.any(String));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournament-players/tp-d2/eliminate')
+    );
   });
 
   it('jogador sem inscrição no torneio ainda libera o assento', async () => {
@@ -301,7 +309,7 @@ describe('eliminar da mesa', () => {
     await montar({ inscritos: [] });
     await eliminar();
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/allocations/a1'));
-    expect(api.patch).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalledWith(expect.stringMatching(/eliminate$/));
   });
 
   it('recusar a confirmação não elimina', async () => {
@@ -313,7 +321,7 @@ describe('eliminar da mesa', () => {
   });
 
   it('erro na eliminação mostra o motivo', async () => {
-    api.patch.mockRejectedValue(erroHttp('Torneio encerrado'));
+    api.post.mockRejectedValue(erroHttp('Torneio encerrado'));
     await montar();
     await eliminar();
     await waitFor(() =>

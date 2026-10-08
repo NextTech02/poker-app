@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
@@ -12,6 +12,7 @@ import { usePermissions } from '../contexts/PermissionContext';
 import { offlineWrite } from '../offline/apiOffline';
 import { uuid } from '../offline/db';
 import { nivelExibido } from '../utils/nivelExibido';
+import { MODO_MESA, useModoDeEliminacao } from '../hooks/useModoDeEliminacao';
 import './TournamentControl.css';
 
 const TournamentControl = () => {
@@ -48,6 +49,15 @@ const TournamentControl = () => {
   // vendas" no meio do evento, levava "Sem permissão para bloquear vendas" e
   // ficava sem saber se a trava valeu ou não.
   const podeBloquear = isAdmin || hasPermission('cashbox.admin');
+
+  // Como o diretor elimina, escolhido na criação do torneio. Por MESA, o
+  // contador é a contagem dos jogadores eliminados no assento: os botões em
+  // massa somem e o caminho é a tela de mesas. Enquanto o modo não chega,
+  // nenhum dos dois aparece — oferecer o botão errado por um instante é
+  // convite ao clique que o servidor vai recusar.
+  const modo = useModoDeEliminacao(day?.tournament_id);
+  const porMesa = modo === MODO_MESA;
+  const modoConhecido = modo !== null || !day?.tournament_id;
 
   // SINGLE SOURCE OF TRUTH - enriched timer from backend
   const {
@@ -206,6 +216,8 @@ const TournamentControl = () => {
       refetchTimer();
     } catch (error) {
       console.error('Error adjusting eliminations:', error);
+      // Ex.: torneio que elimina pelas mesas (409 `eliminacao_por_mesa`).
+      if (error?.userMessage) toast.error(error.userMessage);
     }
   };
 
@@ -265,6 +277,9 @@ const TournamentControl = () => {
   const activePlayersCount = timerState?.active_players || 0;
   const totalEntries = timerState?.total_entries || 0;
   const eliminationsCount = timerState?.eliminations_count || 0;
+  // Reentradas = recompras (add-on fica fora). Não entram na conta acima:
+  // cada uma já desfez uma eliminação quando foi vendida.
+  const totalReentries = timerState?.total_reentries || 0;
 
   return (
     <div className="app-container">
@@ -467,8 +482,22 @@ const TournamentControl = () => {
                   <div className="elimination-stat-label">{t('control.activePlayers').toUpperCase()}</div>
                   <div className="elimination-stat-value active">{activePlayersCount}</div>
                 </div>
+                <div className="elimination-stat elimination-stat-extra">
+                  <div className="elimination-stat-label">{t('control.reentries').toUpperCase()}</div>
+                  <div className="elimination-stat-value reentries">{totalReentries}</div>
+                </div>
               </div>
 
+              {porMesa && (
+                <div className="elimination-by-table">
+                  <p className="elimination-mode-hint">{t('control.eliminationByTableHint')}</p>
+                  <Link className="elimination-by-table-link" to={`/alocacao/dia/${dayId}`}>
+                    {t('control.eliminateAtTables')}
+                  </Link>
+                </div>
+              )}
+
+              {modoConhecido && !porMesa && (
               <div className="elimination-controls">
                 <Button
                   onClick={() => handleEliminate(-1)}
@@ -502,6 +531,7 @@ const TournamentControl = () => {
                   </Button>
                 </div>
               </div>
+              )}
             </div>
           </Card>
         </div>

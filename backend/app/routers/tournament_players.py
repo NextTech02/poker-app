@@ -125,3 +125,22 @@ def eliminate_player(
         return TournamentPlayerService.eliminate_player(tournament_player_id, user_id)
     except ValueError as e:
         raise da_excecao(e, status=404)
+
+
+@router.post(
+    "/{tournament_player_id}/uneliminate",
+    response_model=TournamentPlayer,
+    responses={
+        409: {"description": "O jogador não está eliminado."},
+        404: {"description": "Inscrição não encontrada."},
+    },
+)
+def uneliminate_player(
+    tournament_player_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Desfaz uma eliminação lançada por engano (não é reentrada: sem venda)."""
+    try:
+        return TournamentPlayerService.uneliminate_player(tournament_player_id)
+    except ValueError as e:
+        raise da_excecao(e, status=404)

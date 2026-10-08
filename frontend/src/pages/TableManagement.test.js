@@ -22,7 +22,11 @@ import { MemoryRouter } from 'react-router-dom';
 import TableManagement from './TableManagement';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
+import { offlineWrite } from '../offline/apiOffline';
 
+jest.mock('../offline/apiOffline', () => ({ offlineWrite: jest.fn() }));
+jest.mock('../offline/db', () => ({ uuid: () => 'mut-fixa' }));
+jest.mock('../offline/domainRules', () => ({ applyEliminate: jest.fn(), applyUneliminate: jest.fn() }));
 jest.mock('../config/api', () => ({
   __esModule: true,
   default: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
@@ -72,7 +76,7 @@ let confirmar;
 
 const responder = ({
   dia = DIA, mesas = MESAS, alocacoes = ALOCACOES, semMesa = SEM_MESA,
-  torneio = { id: 't1', name: 'Main Event' },
+  torneio = { id: 't1', name: 'Main Event' }, inscritos = [],
 } = {}) => {
   api.get.mockImplementation((url) => {
     if (url === '/tournament-days/d1') {
@@ -82,6 +86,7 @@ const responder = ({
     if (url === '/allocations/day/d1') return Promise.resolve({ data: alocacoes });
     if (url === '/allocations/day/d1/unallocated') return Promise.resolve({ data: semMesa });
     if (url === '/tournaments/t1') return Promise.resolve({ data: torneio });
+    if (url === '/tournament-players/day/d1') return Promise.resolve({ data: inscritos });
     if (url.startsWith('/allocations/')) {
       return Promise.resolve({ data: { player_name: 'Ana', table_number: 2, seat_number: 3 } });
     }
@@ -565,5 +570,78 @@ describe('distribuição em lote', () => {
     await userEvent.click(screen.getByRole('button', { name: 'common.cancel' }));
     expect(document.querySelector('.tm-mode-card')).toBeNull();
     expect(api.post).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('eliminar no assento (modo por mesa)', () => {
+  /** "Por posição nas mesas": o diretor elimina o jogador na cadeira. O
+   *  servidor marca a eliminação, soma no contador que a TV lê e libera a
+   *  cadeira — pela inscrição DO DIA, nunca a de outro dia do torneio. */
+  const POR_MESA = { id: 't1', name: 'Main Event', elimination_mode: 'table' };
+  const INSCRITOS = [
+    { id: 'tp-a', player_id: 'p1', player_name: 'Ana', status: 'active' },
+    { id: 'tp-z', player_id: 'p9', player_name: 'Zeca', status: 'eliminated',
+      eliminated_at: '2026-06-08T22:00:00Z' },
+  ];
+
+  beforeEach(() => {
+    offlineWrite.mockReset();
+    offlineWrite.mockResolvedValue({ offline: false, data: {} });
+  });
+
+  it('em massa, o assento não tem botão de eliminar', async () => {
+    await montar({ inscritos: INSCRITOS });
+    expect(screen.queryByRole('button', { name: /tableManagement.eliminatePlayer/ })).toBeNull();
+    expect(screen.queryByText('tableManagement.panelEliminated')).toBeNull();
+  });
+
+  it('por mesa, o ✕ elimina pela inscrição do dia', async () => {
+    await montar({ torneio: POR_MESA, inscritos: INSCRITOS });
+    await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
+    expect(confirmar).toHaveBeenCalledWith(
+      'tableManagement.confirmEliminate:Ana', expect.objectContaining({ variant: 'danger' })
+    );
+    await waitFor(() =>
+      expect(offlineWrite).toHaveBeenCalledWith(expect.objectContaining({
+        kind: 'eliminate', url: '/tournament-players/tp-a/eliminate',
+      }))
+    );
+    expect(toast.success).toHaveBeenCalledWith('tableManagement.eliminatedSuccess:Ana');
+  });
+
+  it('desistir da confirmação não elimina', async () => {
+    confirmar.mockResolvedValue(false);
+    await montar({ torneio: POR_MESA, inscritos: INSCRITOS });
+    await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('jogador sem inscrição no dia não é eliminado às cegas', async () => {
+    await montar({ torneio: POR_MESA, inscritos: [] });
+    await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
+    expect(toast.error).toHaveBeenCalled();
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('o painel lista os eliminados e desfaz a eliminação lançada por engano', async () => {
+    await montar({ torneio: POR_MESA, inscritos: INSCRITOS });
+    expect(await screen.findByText('Zeca')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.undoElimination: Zeca' }));
+    await waitFor(() =>
+      expect(offlineWrite).toHaveBeenCalledWith(expect.objectContaining({
+        kind: 'restore', url: '/tournament-players/tp-z/uneliminate',
+      }))
+    );
+  });
+
+  it('recusa do servidor chega ao diretor', async () => {
+    const recusa = new Error('409');
+    recusa.userMessage = 'Este jogador já está eliminado.';
+    offlineWrite.mockRejectedValue(recusa);
+    await montar({ torneio: POR_MESA, inscritos: INSCRITOS });
+    await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Este jogador já está eliminado.'));
   });
 });

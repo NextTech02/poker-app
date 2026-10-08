@@ -12,6 +12,53 @@ import random
 _sorteio = random.SystemRandom()
 
 
+def liberar_assento_do_dia(tournament_id: str, player_id: str, day_id: Optional[str], cliente=None) -> int:
+    """Tira o jogador da cadeira DO DIA e devolve a vaga à mesa.
+
+    Usada quando o jogador sai do dia (eliminado na mesa, inscrição estornada).
+    Só a cadeira do dia: as mesas são por dia, e apagar por (torneio, jogador)
+    tiraria da cadeira o mesmo jogador sentado em outro dia.
+
+    Baixa `occupied_seats` junto — apagar só a alocação deixava a mesa
+    "cheia" para `manual_allocate_player_for_day`, que confia nesse número.
+
+    `cliente`: o `supabase` de quem chama (os testes trocam módulo a módulo).
+    Devolve quantas cadeiras foram liberadas.
+    """
+    db = cliente or supabase
+
+    def _ler(com_dia: bool):
+        q = (
+            db.table("seat_allocations").select("id, table_id")
+            .eq("tournament_id", tournament_id)
+            .eq("player_id", player_id)
+        )
+        if com_dia:
+            q = q.eq("tournament_day_id", day_id)
+        return q.execute().data or []
+
+    if day_id:
+        try:
+            assentos = _ler(True)
+        except Exception:
+            # Base anterior à coluna por dia: cai no filtro antigo em vez de
+            # deixar a vaga presa a um jogador que saiu.
+            assentos = _ler(False)
+    else:
+        assentos = _ler(False)
+
+    for assento in assentos:
+        db.table("seat_allocations").delete().eq("id", assento["id"]).execute()
+        mesa_id = assento.get("table_id")
+        if not mesa_id:
+            continue
+        mesa = db.table("tournament_tables").select("occupied_seats").eq("id", mesa_id).execute().data or []
+        if mesa:
+            ocupados = max(0, int(mesa[0].get("occupied_seats") or 0) - 1)
+            db.table("tournament_tables").update({"occupied_seats": ocupados}).eq("id", mesa_id).execute()
+    return len(assentos)
+
+
 class AllocationService:
     @staticmethod
     def auto_allocate_player(tournament_id: str, player_id: str) -> SeatAllocationWithDetails:

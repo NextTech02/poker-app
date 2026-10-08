@@ -244,9 +244,31 @@ describe('vínculo com a etapa', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/tournaments', {
-        name: 'Novo', has_qualifying: false, sponsor_id: null,
+        name: 'Novo', has_qualifying: false, sponsor_id: null, elimination_mode: 'bulk',
       })
     );
+  });
+
+  it('o diretor escolhe eliminar pelas mesas na criação', async () => {
+    // "Por posição nas mesas" é mais organizado: o jogador é eliminado no
+    // assento e a reentrada é dele. O padrão segue "em massa".
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Novo');
+    await userEvent.click(screen.getByRole('radio', { name: /tournaments.eliminationModeTable/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments', expect.objectContaining({
+        elimination_mode: 'table',
+      }))
+    );
+  });
+
+  it('em massa vem marcado por padrão', async () => {
+    await montar();
+    await abrirNovo();
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeBulk/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeTable/ })).not.toBeChecked();
   });
 });
 
@@ -716,7 +738,7 @@ describe('editar torneio', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/tournaments/t1', {
-        name: 'Main Event 2026', has_qualifying: true, sponsor_id: null,
+        name: 'Main Event 2026', has_qualifying: true, sponsor_id: null, elimination_mode: 'bulk',
       })
     );
     expect(invalidateCache).toHaveBeenCalledWith('/tournaments');

@@ -1,8 +1,11 @@
+import re
 import logging
 from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 
 from app.database import supabase
+from app.services.allocation_service import liberar_assento_do_dia
+from app.services.eliminacao import MODO_MESA, modo_do_torneio, recontar_eliminacoes, registrar_eliminacao
 from app.models.transaction import TransactionCreate, Transaction, TransactionDetail
 from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService
@@ -349,42 +352,48 @@ class TransactionService:
 
         if tx["type"] == "buy_in" and day_id:
             TransactionService._liberar_assento(tp, day_id)
+        elif tx["type"] == "rebuy" and day_id:
+            # Modo mesa: sem a reentrada, ele voltou a estar fora (o banco o
+            # marcou 'eliminated'). Fora da mesa, a cadeira volta ao pool.
+            atual = (
+                supabase.table("tournament_players").select("status")
+                .eq("id", tp_id).execute().data or []
+            )
+            if atual and atual[0].get("status") == "eliminated":
+                TransactionService._liberar_assento(tp, day_id)
 
         _chipcount_cache.pop(day_id, None)
         return []
 
     @staticmethod
-    def _refazer_eliminacao(dia: dict, day_id: str) -> None:
-        """Devolve uma eliminação ao contador do dia, sem passar do total.
+    def _refazer_eliminacao(tx: dict, tp: dict, day_id: str) -> None:
+        """Estorno de REENTRADA: a eliminação que ela tinha desfeito volta.
 
-        LIMITE CONHECIDO: se o jogador recomprou em VENDAS separadas (três idas
-        ao caixa, três eliminações desfeitas) e todas forem canceladas, isto
-        devolve uma só. O contador fica abaixo do real e o operador acerta no
-        botão "Eliminar 1". Cancelar recompra é estorno — operação excepcional,
-        sempre conferida — e o caso comum, o do lote vendido de uma vez, fica
-        exato.
+        Toda reentrada trouxe UM eliminado de volta; cancelá-la o devolve à
+        condição de eliminado:
+
+        - modo MESA: o jogador volta a 'eliminated' (se está na mesa) e o
+          contador é recontado;
+        - modo EM MASSA: +1 no contador, com teto nas ENTRADAS. Exceção: as
+          linhas 1..N de um lote antigo (`quantity`), gravadas como `cmid:1`,
+          `cmid:2`... — aquela venda trouxe UM jogador de volta, então só a
+          linha `:0` devolve.
 
         Só é usada no caminho anterior à migração — onde o RPC existe, o mesmo
         acerto acontece dentro dele, na mesma transação. Falhar aqui não derruba
         o estorno: o dinheiro já voltou, e o pior caso é um ativo a mais na TV
-        até o operador ajustar no botão.
+        até o operador ajustar.
         """
         try:
-            entradas = sum(
-                int(linha.get("buy_in_count") or 0)
-                for linha in (
-                    supabase.table("tournament_players")
-                    .select("buy_in_count")
-                    .eq("tournament_day_id", day_id)
-                    .execute()
-                    .data
-                    or []
-                )
-            )
-            atual = int(dia.get("eliminations_count") or 0)
-            supabase.table("tournament_days").update(
-                {"eliminations_count": min(atual + 1, entradas)}
-            ).eq("id", day_id).execute()
+            if modo_do_torneio(tp.get("tournament_id"), supabase) == MODO_MESA:
+                supabase.table("tournament_players").update(
+                    {"status": "eliminated", "eliminated_at": "now()"}
+                ).eq("id", tp["id"]).in_("status", ["active", "registered"]).execute()
+                recontar_eliminacoes(day_id, supabase)
+                return
+            if re.search(r":[1-9][0-9]*$", str(tx.get("client_id") or "")):
+                return
+            registrar_eliminacao(day_id, 1, supabase)
         except Exception:
             logger.warning(
                 "não consegui devolver a eliminação ao contador do dia %s", day_id,
@@ -465,6 +474,7 @@ class TransactionService:
         É o mesmo compromisso que o caixa da etapa já assume enquanto a migração
         não roda, e vale a corrida rara contra o erro certo do outro lado.
         """
+        refazer = False
         if tx["type"] in ("rebuy", "addon"):
             if tx["type"] == "rebuy":
                 campo_conta, campo_total = "rebuy_count", "total_rebuy_amount"
@@ -487,16 +497,12 @@ class TransactionService:
                 campo_total: max(round(float(tp.get(campo_total) or 0) - valor, 2), 0.0),
                 "total_chips": max(int(tp.get("total_chips") or 0) - fichas_do_tipo, 0),
             }
-            # A venda da recompra tinha baixado o contador de eliminações (quem
-            # recompra volta à mesa); o estorno devolve. Sem isto o telão fica
+            # A venda da reentrada tinha baixado o contador de eliminações (quem
+            # reentra volta à mesa); o estorno devolve. Sem isto o telão fica
             # com um jogador ativo a mais para sempre, e ninguém percebe: o
-            # número está a um dígito do certo.
-            #
-            # SÓ quando some a ÚLTIMA recompra do jogador. A venda desconta UMA
-            # eliminação por VENDA, mesmo quando são cinco recompras de uma vez;
-            # devolver uma por transação faria sair 1 e voltarem 5.
-            if tx["type"] == "rebuy" and day_id and dados[campo_conta] == 0:
-                TransactionService._refazer_eliminacao(dia, day_id)
+            # número está a um dígito do certo. UMA por reentrada estornada —
+            # cada uma trouxe um eliminado de volta (ver _refazer_eliminacao).
+            refazer = tx["type"] == "rebuy" and day_id
         else:
             # Buy-in cancelado = inscrição desfeita: o jogador sai do dia.
             # `buy_in_count` precisa zerar junto com o valor: é ELE que todo
@@ -523,6 +529,9 @@ class TransactionService:
         )
         supabase.table("tournament_players").update(dados).eq("id", tp["id"]).execute()
 
+        if tx["type"] in ("rebuy", "addon") and refazer:
+            TransactionService._refazer_eliminacao(tx, tp, day_id)
+
         if tx["type"] == "buy_in" and day_id:
             # O trigger de contagem só dispara em INSERT/DELETE da linha; aqui é
             # UPDATE, então o inscrito precisa ser descontado na mão — senão o
@@ -537,6 +546,20 @@ class TransactionService:
             supabase.table("tournament_days").update(
                 {"registered_players": inscritos}
             ).eq("id", day_id).execute()
+
+            # Uma entrada a menos: o contador de eliminações não pode passar
+            # das ENTRADAS (ativos negativos na TV). No modo mesa, ele é a
+            # contagem dos eliminados — e o estornado saiu dela.
+            try:
+                if modo_do_torneio(tp.get("tournament_id"), supabase) == MODO_MESA:
+                    recontar_eliminacoes(day_id, supabase)
+                else:
+                    registrar_eliminacao(day_id, 0, supabase)
+            except Exception:
+                logger.warning(
+                    "não consegui acertar o contador de eliminações do dia %s", day_id,
+                    exc_info=True,
+                )
 
         # Feito na mão, o recibo fica assim mesmo: é ele que a próxima tentativa
         # consulta. Só falha no banco sem a migração — e aí a proteção volta a
@@ -559,31 +582,10 @@ class TransactionService:
 
         As mesas são por dia (database_migration_table_management_per_day.sql).
         Apagar por (torneio, jogador) tiraria da cadeira o mesmo jogador no 1B,
-        que está sentado jogando agora, e outro seria alocado no lugar dele.
+        que está sentado jogando agora, e outro seria alocado no lugar dele. A
+        vaga da mesa (`occupied_seats`) volta junto.
         """
-        def _apagar(com_dia: bool):
-            q = (
-                supabase.table("seat_allocations").delete()
-                .eq("tournament_id", tp["tournament_id"])
-                .eq("player_id", tp["player_id"])
-            )
-            if com_dia:
-                q = q.eq("tournament_day_id", day_id)
-            q.execute()
-
-        if not day_id:
-            _apagar(False)
-            return
-        try:
-            _apagar(True)
-        except Exception:
-            # Base anterior à coluna por dia: cai no filtro antigo em vez de
-            # deixar a vaga presa a uma inscrição que não existe mais.
-            logger.warning(
-                "seat_allocations sem tournament_day_id; liberando assento por torneio",
-                exc_info=True,
-            )
-            _apagar(False)
+        liberar_assento_do_dia(tp["tournament_id"], tp["player_id"], day_id, supabase)
 
     @staticmethod
     def _desfazer_caixa_da_etapa(transaction_id: str, tx: dict, valor: float) -> List[str]:

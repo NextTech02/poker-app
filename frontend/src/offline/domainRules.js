@@ -168,8 +168,17 @@ export const applyRebuy = async (body) => {
   tp.total_rebuy_amount = round2(Number(tp.total_rebuy_amount || 0) + amount * qtd);
   tp.total_chips = Number(tp.total_chips || 0) + chips * qtd;
   tp.total_spent = round2(Number(tp.total_spent || 0) + amount * qtd);
+  const estavaEliminado = tp.status === 'eliminated';
   tp.status = 'active';
+  if (estavaEliminado) { tp.eliminated_at = null; tp.final_position = null; }
   await putEntity('tournament_players', tp);
+
+  // Reentrada traz de volta UM eliminado (uma por VENDA, como no servidor):
+  // sem baixar aqui, a tela offline mostraria um ativo a menos até o sync.
+  if (day) {
+    day.eliminations_count = Math.max(0, Number(day.eliminations_count || 0) - 1);
+    await putEntity('tournament_days', day);
+  }
 
   // Uma LINHA por recompra, com o mesmo sufixo que o backend usa — o relatorio
   // conta linhas, e o replay precisa reconhecer as que ja entraram.
@@ -269,12 +278,36 @@ export const applyPlayerCreate = async (body) => {
   await putEntity('players', { ...body, id: body.client_id, _offline: true });
 };
 
-/** Eliminação (offline): marca status. Rankings são recalculados no servidor no sync. */
+/** Ajusta o contador de eliminações do dia na réplica (piso em zero). */
+const somarEliminacao = async (tp, delta) => {
+  if (!tp.tournament_day_id) return;
+  const day = await getEntity('tournament_days', tp.tournament_day_id);
+  if (!day) return;
+  day.eliminations_count = Math.max(0, Number(day.eliminations_count || 0) + delta);
+  await putEntity('tournament_days', day);
+};
+
+/** Eliminação (offline): marca status e soma no contador que a TV lê.
+ *  Rankings são recalculados no servidor no sync. */
 export const applyEliminate = async (body) => {
   const tp = await getEntity('tournament_players', body.tournament_player_id);
   if (!tp) return null;
+  const jaEstava = tp.status === 'eliminated';
   tp.status = 'eliminated';
   tp.eliminated_at = nowISO();
   await putEntity('tournament_players', tp);
+  if (!jaEstava) await somarEliminacao(tp, 1);
+  return { tp };
+};
+
+/** Desfazer eliminação (offline): o jogador volta e o contador desce um. */
+export const applyUneliminate = async (body) => {
+  const tp = await getEntity('tournament_players', body.tournament_player_id);
+  if (!tp || tp.status !== 'eliminated') return null;
+  tp.status = 'active';
+  tp.eliminated_at = null;
+  tp.final_position = null;
+  await putEntity('tournament_players', tp);
+  await somarEliminacao(tp, -1);
   return { tp };
 };

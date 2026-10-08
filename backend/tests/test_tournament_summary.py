@@ -86,9 +86,10 @@ class TestOsTresNumeros:
         assert r.total_players == 2
 
     def test_add_on_nao_cria_jogador_nem_entrada(self, banco):
+        """Add-on nao e nem entrada nem reentrada: nao traz ninguem de volta."""
         banco.store["tournament_players"] = [_inscrito(addon=3)]
         r = S._get_tournament_summary_batched(tournament_id=TOUR)[0]
-        assert (r.total_players, r.total_entries, r.total_reentries) == (1, 1, 3)
+        assert (r.total_players, r.total_entries, r.total_reentries) == (1, 1, 0)
 
     def test_o_dia_final_nao_soma_de_novo(self, banco):
         """Quem chega ao dia final veio classificado do dia anterior. Contá-lo
