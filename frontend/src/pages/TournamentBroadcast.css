@@ -1045,6 +1045,10 @@
   transition: opacity 0.2s ease;
 }
 
+/* `is-visible`: o JS liga por 3s a cada movimento do mouse em qualquer ponto
+   da tela. Hover e foco de teclado seguram os botões visíveis enquanto a
+   pessoa está neles. */
+.broadcast-font-controls.is-visible,
 .broadcast-font-controls:hover,
 .broadcast-font-controls:focus-within {
   opacity: 1;

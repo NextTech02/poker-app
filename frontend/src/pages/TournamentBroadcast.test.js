@@ -794,4 +794,24 @@ describe('ajuste de fonte pelo próprio telão', () => {
     await montar();
     expect(relogio().style.fontSize).toBe('160px');
   });
+
+  it('mexer o mouse em qualquer ponto mostra os botões por alguns segundos', async () => {
+    // Só hover em cima deles não bastava: com a coluna de premiação no canto,
+    // ninguém sabia onde estavam. Parado, o telão volta a ficar limpo.
+    await montar();
+    jest.useFakeTimers();
+    const grupo = () => document.querySelector('.broadcast-font-controls');
+    expect(grupo().classList.contains('is-visible')).toBe(false);
+    fireEvent.mouseMove(window, { clientX: 300, clientY: 300 });
+    expect(grupo().classList.contains('is-visible')).toBe(true);
+    act(() => { jest.advanceTimersByTime(2500); });
+    expect(grupo().classList.contains('is-visible')).toBe(true);
+    fireEvent.mouseMove(window, { clientX: 310, clientY: 300 });
+    act(() => { jest.advanceTimersByTime(2500); });
+    // O segundo movimento reiniciou a contagem.
+    expect(grupo().classList.contains('is-visible')).toBe(true);
+    act(() => { jest.advanceTimersByTime(600); });
+    expect(grupo().classList.contains('is-visible')).toBe(false);
+    jest.useRealTimers();
+  });
 });
