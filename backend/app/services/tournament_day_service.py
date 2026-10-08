@@ -1387,6 +1387,24 @@ class TournamentDayService:
         return min(seguintes, key=lambda b: b["level"]) if seguintes else None
 
     @staticmethod
+    def _numero_exibido(blinds: list, level: Optional[int]) -> Optional[int]:
+        """O número que a TV e o controle MOSTRAM para uma posição da estrutura.
+
+        `level` no banco é posição: o intervalo ocupa uma (1, 2, ..., INTERVALO=7,
+        8...). Mas intervalo não é nível de jogo — a tela de blinds renumera
+        pulando os intervalos, e o telão mostrava a posição crua: 800/1600 era
+        "Nível 9" na estrutura e "NÍVEL 10" na TV, e a diferença crescia a cada
+        intervalo. Conta só os níveis de jogo até esta posição (inclusive); para
+        um intervalo, é o número do último nível jogado.
+        """
+        if level is None:
+            return None
+        return sum(
+            1 for b in blinds
+            if b.get("level") is not None and b["level"] <= level and not b.get("is_break", False)
+        )
+
+    @staticmethod
     def _sum_durations_before_level(blinds: list, target_level: int) -> int:
         """Calculate total duration (in seconds) of all levels before target_level"""
         total_seconds = 0
@@ -1492,11 +1510,21 @@ class TournamentDayService:
                 .eq("id", day_id)\
                 .execute()
 
-        # Find current blind
+        # Find current blind (cópia: o número exibido é derivado, não vai pro banco)
         current_blind = TournamentDayService._find_blind_by_level(blinds, correct_level)
+        if current_blind:
+            current_blind = {
+                **current_blind,
+                "display_level": TournamentDayService._numero_exibido(blinds, current_blind.get("level")),
+            }
 
         # Find next blind
         next_blind = TournamentDayService._proximo_blind(blinds, correct_level)
+        if next_blind:
+            next_blind = {
+                **next_blind,
+                "display_level": TournamentDayService._numero_exibido(blinds, next_blind.get("level")),
+            }
 
         # Find next break and calculate time until it
         next_break_info = TournamentDayService._find_next_break(blinds, correct_level, current_elapsed)
@@ -1578,6 +1606,9 @@ class TournamentDayService:
 
         return {
             "current_level": correct_level,
+            # Número para MOSTRAR (sem contar intervalos). `current_level` segue
+            # sendo a posição interna, usada para sincronizar e avançar.
+            "display_level": TournamentDayService._numero_exibido(blinds, correct_level),
             "elapsed_time": current_elapsed,
             "is_paused": effective_paused,
             "timer_started_at": day.timer_started_at.isoformat() if day.timer_started_at else None,

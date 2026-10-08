@@ -995,6 +995,45 @@ class TestStatusEnriquecido:
         assert r["next_blind"]["level"] == 2
         assert r["next_break"]["level"] == 3
 
+    def test_numero_exibido_nao_conta_o_intervalo(self, monkeypatch):
+        """O intervalo ocupa uma POSICAO na estrutura, mas nao e nivel de jogo.
+
+        A tela de blinds renumera pulando os intervalos (800/1600 e "Nivel 9");
+        o telao mostrava a posicao crua ("NIVEL 10"), e a diferenca crescia a
+        cada intervalo. O numero exibido conta so os niveis de jogo.
+        """
+        estrutura = [
+            {"id": "b1", "tournament_day_id": D1, "level": 1, "duration": 10,
+             "small_blind": 100, "big_blind": 200, "ante": 0, "is_break": False},
+            {"id": "b2", "tournament_day_id": D1, "level": 2, "duration": 10,
+             "small_blind": 0, "big_blind": 0, "ante": 0, "is_break": True},
+            {"id": "b3", "tournament_day_id": D1, "level": 3, "duration": 10,
+             "small_blind": 200, "big_blind": 400, "ante": 0, "is_break": False},
+            {"id": "b4", "tournament_day_id": D1, "level": 4, "duration": 10,
+             "small_blind": 0, "big_blind": 0, "ante": 0, "is_break": True},
+            {"id": "b5", "tournament_day_id": D1, "level": 5, "duration": 10,
+             "small_blind": 300, "big_blind": 600, "ante": 0, "is_break": False},
+        ]
+        assert S._numero_exibido(estrutura, 1) == 1
+        assert S._numero_exibido(estrutura, 2) == 1   # intervalo: ultimo jogado
+        assert S._numero_exibido(estrutura, 3) == 2
+        assert S._numero_exibido(estrutura, 5) == 3   # posicao 5, nivel 3
+        assert S._numero_exibido(estrutura, None) is None
+
+        # Posicao 3 (200/400) e o segundo nivel de jogo: a TV mostra 2, nao 3.
+        # O nivel e recalculado pelo tempo: 10 min de nivel 1 + 10 de intervalo.
+        _monta(monkeypatch, blinds=estrutura,
+               tournament_days=[_dia(current_level=3, elapsed_time=20 * 60)])
+        r = S.get_enriched_timer_status(D1)
+        assert r["current_level"] == 3
+        assert r["display_level"] == 2
+        assert r["current_blind"]["display_level"] == 2
+        # Proximo na ordem e o intervalo (posicao 4); depois dele vem o nivel 3.
+        assert r["next_blind"]["is_break"] is True
+        assert r["next_blind"]["display_level"] == 2
+        # O numero exibido e derivado: nao vaza para a linha do banco.
+        assert "display_level" not in estrutura[2]
+
     def test_proximo_nivel_atravessa_buraco_na_numeracao(self, monkeypatch):
         """A numeracao tem buracos na vida real.
 

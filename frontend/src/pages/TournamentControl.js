@@ -11,6 +11,7 @@ import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { offlineWrite } from '../offline/apiOffline';
 import { uuid } from '../offline/db';
+import { nivelExibido } from '../utils/nivelExibido';
 import './TournamentControl.css';
 
 const TournamentControl = () => {
@@ -406,7 +407,7 @@ const TournamentControl = () => {
           <div className="control-stats-grid">
             <Card className="control-stat-card">
               <div className="stat-label">{t('control.level')}</div>
-              <div className="stat-value">{timerState?.current_level || 1}</div>
+              <div className="stat-value">{nivelExibido(timerState, blinds, timerState?.current_level) || 1}</div>
             </Card>
 
             {!isBreak && currentBlind && (

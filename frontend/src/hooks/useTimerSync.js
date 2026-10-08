@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../config/api';
 import { supabase } from '../config/supabase';
 import { isOnline as redeOnline, subscribe as assinarConectividade } from '../offline/connectivity';
+import { nivelExibido } from '../utils/nivelExibido';
 
 /**
  * Shared hook for timer synchronization between Control Panel and Broadcast Screen.
@@ -75,8 +76,9 @@ const acharProximoIntervalo = (blinds, indiceDoAlvo, segundosDoAlvo) => {
 };
 
 // Formato de blind que o estado do relógio (e as telas) esperam. null vira null.
-const blindDoEstado = (b) => (b ? {
+const blindDoEstado = (b, blinds) => (b ? {
   level: b.level,
+  display_level: nivelExibido(b, blinds, b.level),
   small_blind: b.small_blind,
   big_blind: b.big_blind,
   ante: b.ante || 0,
@@ -212,17 +214,22 @@ export const useTimerSync = (dayId, blinds = null) => {
     }
 
     // Synthesize new timerState matching the server response shape
+    const novoNivel = typeof alvo.level === 'number' ? alvo.level : currentLevel + delta;
+    const blindsParaContar = temEstrutura ? currentBlinds : null;
     const newState = {
       ...currentState,
-      current_level: typeof alvo.level === 'number' ? alvo.level : currentLevel + delta,
+      current_level: novoNivel,
+      // Número MOSTRADO (sem contar intervalos): vem do blind alvo quando o
+      // servidor já o mandou, senão é contado na estrutura em cache.
+      display_level: nivelExibido(alvo, blindsParaContar, novoNivel),
       time_remaining_current_level: alvo.duration * 60,
       // Os instantes ABSOLUTOS vieram do servidor para o nível ANTIGO. Herdá-los
       // faria a âncora ler um fim já vencido e o telão travar em 00:00 no nível
       // novo — o "relógio travado" que o cliente viu ao mudar o blind sem rede.
       current_level_ends_at: null,
       next_break_starts_at: null,
-      current_blind: blindDoEstado(alvo),
-      next_blind: blindDoEstado(depoisDoAlvo),
+      current_blind: blindDoEstado(alvo, blindsParaContar),
+      next_blind: blindDoEstado(depoisDoAlvo, blindsParaContar),
       next_break: nextBreakInfo,
     };
 
@@ -371,6 +378,7 @@ export const useTimerSync = (dayId, blinds = null) => {
         } else {
           manterNivelLocal = true;
           data.current_level = local.current_level;
+          data.display_level = local.display_level;
           data.current_blind = local.current_blind;
           data.next_blind = local.next_blind;
           data.next_break = local.next_break;
