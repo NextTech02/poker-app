@@ -380,6 +380,15 @@ const BroadcastSettings = () => {
                   className="bs-input"
                 />
                 <span className="bs-hint">{t('broadcastSettings.displayNameHint')}</span>
+                {/* Tamanho SÓ do nome de exibição (o título do telão), em separado
+                    da fonte geral — pedido do cliente. Fica junto do campo do
+                    nome para ninguém procurar em outro lugar. */}
+                <SliderField
+                  label={t('broadcastSettings.displayNameSize', 'Tamanho do nome de exibição')}
+                  settingsKey="broadcast_title_size" min={50} max={300}
+                  settings={settings} onChange={set}
+                />
+                <span className="bs-hint">{t('broadcastSettings.displayNameSizeHint', 'Só o título do telão (este nome ou, se vazio, o nome do torneio e do dia). Não mexe no resto da fonte.')}</span>
               </div>
 
               <div className="bs-row-2">
@@ -388,8 +397,6 @@ const BroadcastSettings = () => {
               </div>
 
               <SliderField label={t('broadcastSettings.fontSize')} settingsKey="broadcast_font_size" min={50} max={200} settings={settings} onChange={set} />
-              {/* Só o título, em separado da fonte geral (pedido do cliente). */}
-              <SliderField label={t('broadcastSettings.titleSize', 'Tamanho do título')} settingsKey="broadcast_title_size" min={50} max={300} settings={settings} onChange={set} />
 
               <div className="bs-field-full" style={{ marginTop: '0.25rem' }}>
                 <label className="bs-label">{t('broadcastSettings.bgImage')}</label>

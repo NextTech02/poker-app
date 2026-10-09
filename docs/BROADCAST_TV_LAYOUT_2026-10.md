@@ -128,8 +128,9 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   antes funciona; (3) container queries só dentro de
   `@supports (container-type: size)`; (4) `inset` com `top/right/bottom/left`
   antes. O teto do título saiu; no lugar entrou o **tamanho do título em
-  separado** (`broadcast_title_size`, 50–300 %, slider "Tamanho do título"
-  nas Configurações, `--tv-title`), multiplicado pela fonte geral.
+  separado** (`broadcast_title_size`, 50–300 %, slider "Tamanho do nome de
+  exibição" logo abaixo do campo do nome nas Configurações, `--tv-title`),
+  multiplicado pela fonte geral.
   Migração `database_migration_broadcast_title_size.sql`.
 - **Telão se recarrega sozinho depois de um deploy**
   (`hooks/useReloadOnNewBuild.js`): a TV fica dias aberta e só busca dados;
