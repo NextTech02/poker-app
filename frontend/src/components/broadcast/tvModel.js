@@ -47,11 +47,11 @@ export const formatCountdown = (seconds) => {
 };
 
 /**
- * Fichas e blinds com separador de milhar no idioma do telão: "1.000" em
- * português, "1,000" em espanhol e inglês (o cliente peruano lê com vírgula;
- * o `es` daqui usa a convenção da América Latina, não a da Espanha).
+ * Fichas e blinds com separador de milhar: "1,000". O cliente pediu VÍRGULA
+ * em todo idioma do telão (pedido de 2026-10-09: "1.000 debe ser 1,000"), por
+ * isso o padrão é en-US; `locale` fica para quem precisar de outro.
  */
-export const formatChips = (n, locale = 'pt-BR') => (Number(n) || 0).toLocaleString(locale || 'pt-BR');
+export const formatChips = (n, locale = 'en-US') => (Number(n) || 0).toLocaleString(locale || 'en-US');
 
 /**
  * Agrupa colocações CONSECUTIVAS com o mesmo prêmio numa faixa ("7º–9º"):

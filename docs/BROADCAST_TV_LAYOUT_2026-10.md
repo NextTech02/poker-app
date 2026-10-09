@@ -140,9 +140,10 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   `main.*.js` com o carregado; mudou → `registration.update()` do service
   worker e `location.reload()`. Só em produção.
 - **Formato dos blinds** (pedido do cliente, 2026-10-09): "50,000-100,000
-  (100,000)". Separador de milhar no idioma do telão (`numberLocale` em
-  `broadcastLabels.js`: pt-BR ponto; en e es vírgula — o `es` segue a
-  América Latina, não a Espanha), hífen entre small e big (era "/"), ante
+  (100,000)". Separador de milhar SEMPRE vírgula no telão, em todo idioma
+  (`numberLocale: 'en-US'` nos três idiomas em `broadcastLabels.js`;
+  `formatChips` tem en-US como padrão) — o cliente foi explícito: "1.000
+  debe ser 1,000". Hífen entre small e big (era "/"), ante
   em span próprio e menor (`.tv-ante` 0.6em, `.tv-next-ante` 0.78em). Vale
   para a linha principal, a pílula "Próximo", o próximo nível no intervalo
   e as fichas (chip count / média). Só no telão; o Controle segue com "/".

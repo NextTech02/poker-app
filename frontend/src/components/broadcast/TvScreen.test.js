@@ -68,7 +68,7 @@ describe('tiles', () => {
     const rotulos = tiles().map((t) => t.querySelector('.tv-tile-label').textContent);
     expect(rotulos).toEqual(['NÍVEL', 'JOGADORES', 'ENTRADAS', 'REENTRADAS', 'INTERVALO EM', 'CHIP COUNT', 'MÉDIA']);
     const valores = tiles().map((t) => t.querySelector('.tv-tile-value').textContent);
-    expect(valores).toEqual(['5', '45 de 120', '165', '6', '18:32', '1.650.000', '36.667']);
+    expect(valores).toEqual(['5', '45 de 120', '165', '6', '18:32', '1,650,000', '36,667']);
   });
 
   it('"NÍVEL 5" é o único tile de linha única, como no mockup', () => {
@@ -284,7 +284,7 @@ describe('intervalo', () => {
     expect(document.querySelector('.tv-clock')).toBeNull();
     expect(document.querySelector('.tv-break')).toHaveClass('split');
     expect(document.querySelector('.tv-break-timer')).toHaveTextContent('05:05');
-    expect(document.querySelector('.tv-break-info')).toHaveTextContent('Nível 5: 800-1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('Nível 5: 800-1,600');
     expect(document.querySelector('.tv-break-info')).not.toHaveTextContent('(0)');
   });
 
@@ -543,7 +543,7 @@ describe('meios de entrada (linha abaixo dos blinds)', () => {
 describe('formato dos blinds', () => {
   const GRANDES = { blinds: { sb: 50000, bb: 100000, ante: 100000 }, nextBlind: { level: 28, sb: 60000, bb: 120000, ante: 120000, isBreak: false }, chipcount: 1650000 };
 
-  it('espanhol: vírgula de milhar (convenção da América Latina)', () => {
+  it('espanhol: vírgula de milhar', () => {
     montar({ model: GRANDES, labels: BROADCAST_LABELS.es });
     expect(document.querySelector('.tv-blinds')).toHaveTextContent('50,000-100,000');
     expect(document.querySelector('.tv-ante')).toHaveTextContent('(100,000)');
@@ -551,12 +551,13 @@ describe('formato dos blinds', () => {
     expect(document.querySelector('.tv-tile--chips')).toHaveTextContent('1,650,000');
   });
 
-  it('inglês: vírgula; português: ponto', () => {
+  it('inglês e português também com vírgula (pedido do cliente: nunca ponto no telão)', () => {
     montar({ model: GRANDES, labels: BROADCAST_LABELS.en });
     expect(document.querySelector('.tv-blinds')).toHaveTextContent('50,000-100,000');
     document.body.innerHTML = '';
     montar({ model: GRANDES });
-    expect(document.querySelector('.tv-blinds')).toHaveTextContent('50.000-100.000');
-    expect(document.querySelector('.tv-ante')).toHaveTextContent('(100.000)');
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('50,000-100,000');
+    expect(document.querySelector('.tv-ante')).toHaveTextContent('(100,000)');
+    expect(document.querySelector('.tv-screen')).not.toHaveTextContent('50.000');
   });
 });

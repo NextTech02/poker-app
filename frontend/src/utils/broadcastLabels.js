@@ -10,7 +10,7 @@ const ordinalEn = (n) => {
 
 const BROADCAST_LABELS = {
   'pt-BR': {
-    numberLocale:   'pt-BR',          // 1.000 — separador de milhar dos blinds/fichas
+    numberLocale:   'en-US',          // 1,000 — o cliente quer VÍRGULA de milhar em todo idioma (2026-10-09)
     level:          'NÍVEL',
     players:        'JOGADORES',
     entries:        'ENTRADAS',
@@ -37,7 +37,7 @@ const BROADCAST_LABELS = {
     seat:           'VAGA',           // prêmio do tipo vaga (sem valor em dinheiro)
   },
   'en': {
-    numberLocale:   'en-US',          // 1,000
+    numberLocale:   'en-US',          // 1,000 — vírgula em todo idioma
     level:          'LEVEL',
     players:        'PLAYERS',
     entries:        'ENTRIES',
@@ -64,7 +64,7 @@ const BROADCAST_LABELS = {
     seat:           'SEAT',
   },
   'es': {
-    numberLocale:   'en-US',          // 1,000 — convenção da América Latina (cliente do Peru)
+    numberLocale:   'en-US',          // 1,000 — vírgula em todo idioma
     level:          'NIVEL',
     players:        'JUGADORES',
     entries:        'ENTRADAS',

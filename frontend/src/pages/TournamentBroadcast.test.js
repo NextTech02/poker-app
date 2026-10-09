@@ -252,8 +252,8 @@ describe('o que a tela mostra ao vivo', () => {
   it('o relógio é a fonte única quando o id é de um dia', async () => {
     await montar();
     expect(relogioNaTela()).toHaveTextContent('05:05');
-    expect(document.querySelector('.tv-blinds')).toHaveTextContent('500-1.000');
-    expect(document.querySelector('.tv-ante')).toHaveTextContent('1.000');
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('500-1,000');
+    expect(document.querySelector('.tv-ante')).toHaveTextContent('1,000');
   });
 
   it('mostra o nível atual', async () => {
@@ -304,8 +304,8 @@ describe('o que a tela mostra ao vivo', () => {
 
   it('mostra chipcount e stack médio formatados', async () => {
     await montar();
-    expect(tiles()).toHaveTextContent('750.000');
-    expect(tiles()).toHaveTextContent('41.666');
+    expect(tiles()).toHaveTextContent('750,000');
+    expect(tiles()).toHaveTextContent('41,666');
   });
 
   it('chipcount zerado não ocupa espaço no telão', async () => {
@@ -320,7 +320,7 @@ describe('o que a tela mostra ao vivo', () => {
 
   it('o próximo nível é anunciado', async () => {
     await montar();
-    expect(document.querySelector('.tv-next-value')).toHaveTextContent('800-1.600 (1.600)');
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent('800-1,600 (1,600)');
   });
 
   it('se o próximo nível é INTERVALO, o telão diz isso', async () => {
@@ -610,7 +610,7 @@ describe('intervalo', () => {
   it('anuncia o nível que vem depois do intervalo', async () => {
     // É a informação que faz o jogador voltar na hora certa.
     await montar({}, noIntervalo());
-    expect(document.querySelector('.tv-break-info')).toHaveTextContent('800-1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('800-1,600');
   });
 
   it('ante zero não aparece no anúncio', async () => {
@@ -623,7 +623,7 @@ describe('intervalo', () => {
     await montar({}, noIntervalo({
       next_blind: { level: 5, display_level: 4, small_blind: 800, big_blind: 1600, ante: 0 },
     }));
-    expect(document.querySelector('.tv-break-info')).toHaveTextContent('4: 800-1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('4: 800-1,600');
   });
 
   it.each(['split', 'fullscreen', 'overlay'])('o layout %s é respeitado', async (layout) => {

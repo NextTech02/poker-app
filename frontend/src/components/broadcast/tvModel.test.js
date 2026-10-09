@@ -242,8 +242,8 @@ describe('formatadores', () => {
     expect(formatCountdown(1112)).toBe('18:32');
     expect(formatCountdown(4800)).toBe('1:20:00');
   });
-  it('fichas em pt-BR', () => {
-    expect(formatChips(1650000)).toBe('1.650.000');
+  it('fichas com vírgula de milhar (padrão do telão)', () => {
+    expect(formatChips(1650000)).toBe('1,650,000');
   });
   it('shadeHex escurece e tolera lixo', () => {
     expect(shadeHex('#ffffff', 0.5)).toBe('#808080');
@@ -342,9 +342,9 @@ describe('meios de entrada no telão', () => {
 
 
 describe('formatChips por idioma', () => {
-  it('português com ponto (padrão), espanhol/inglês com vírgula', () => {
-    expect(formatChips(1650000)).toBe('1.650.000');
-    expect(formatChips(1650000, 'pt-BR')).toBe('1.650.000');
+  it('vírgula por padrão; locale explícito respeitado', () => {
+    expect(formatChips(1650000)).toBe('1,650,000');            // padrão: vírgula (pedido do cliente)
+    expect(formatChips(1650000, 'pt-BR')).toBe('1.650.000');   // locale explícito ainda funciona
     expect(formatChips(1650000, 'en-US')).toBe('1,650,000');
     expect(formatChips(0, 'en-US')).toBe('0');
     expect(formatChips(null, undefined)).toBe('0');
