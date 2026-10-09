@@ -115,6 +115,8 @@ export const buildTvSettings = (source, { fontSizeOverride = null } = {}) => {
     bgOverlay: num(s, 'broadcast_bg_overlay'),
     displayName: s.broadcast_display_name || null,
     fontSize: fontSizeOverride ?? (s.broadcast_font_size || 100),
+    // Título em separado: fração sobre o tamanho base, além da fonte geral.
+    titleScale: (s.broadcast_title_size || 100) / 100,
     prizeScale: (s.broadcast_prize_size || 100) / 100,
     prizepoolScale: (s.broadcast_prizepool_size || 100) / 100,
     showLogo: on(s, 'broadcast_show_logo'),

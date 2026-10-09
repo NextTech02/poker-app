@@ -213,6 +213,8 @@ describe('buildTvSettings', () => {
     expect(buildTvSettings({ broadcast_font_size: 120 }, { fontSizeOverride: 90 }).fontSize).toBe(90);
     expect(buildTvSettings({ broadcast_prize_size: 150 }).prizeScale).toBe(1.5);
     expect(buildTvSettings({}).prizepoolScale).toBe(1);
+    expect(buildTvSettings({}).titleScale).toBe(1);
+    expect(buildTvSettings({ broadcast_title_size: 180 }).titleScale).toBe(1.8);
   });
 
   it('fundo, escurecimento e layout dos prêmios', () => {

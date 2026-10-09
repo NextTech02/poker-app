@@ -155,11 +155,13 @@
 .tv-title-text {
   margin: 0;
   font-family: var(--font-display, 'Sora', sans-serif);
-  /* Reserva SEM min(): navegador de TV antigo (Hisense/VIDAA, Chrome < 79)
-     não entende min() e descartava a regra — o título ficava minúsculo
-     enquanto o resto crescia. A linha de baixo é o teto nos modernos. */
-  font-size: calc(58px * var(--tv-font, 1));
-  font-size: min(calc(58px * var(--tv-font, 1)), 76px);
+  /* NUNCA `min()`/`clamp()` com `var()` aqui. Uma declaração com var() é
+     sempre válida na leitura e VENCE a reserva anterior; o navegador antigo
+     da TV (sem min()) só descobre o problema ao calcular e zera o tamanho
+     (cai no herdado, 16px) — foi o título minúsculo do cliente, que a
+     "reserva" não resolveu. O teto virou escolha do diretor: tamanho do
+     título em separado (`--tv-title`), além da fonte geral. */
+  font-size: calc(58px * var(--tv-font, 1) * var(--tv-title, 1));
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: 0.02em;
@@ -568,8 +570,8 @@
 }
 
 .tv-buytype-name {
+  /* sem min() com var(): ver .tv-title-text */
   font-size: calc(30px * var(--tv-font, 1));
-  font-size: min(calc(30px * var(--tv-font, 1)), 40px);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -578,14 +580,12 @@
 
 .tv-buytype-colon {
   font-size: calc(30px * var(--tv-font, 1));
-  font-size: min(calc(30px * var(--tv-font, 1)), 40px);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.55);
 }
 
 .tv-buytype-amount {
   font-size: calc(34px * var(--tv-font, 1));
-  font-size: min(calc(34px * var(--tv-font, 1)), 44px);
   font-weight: 800;
   color: var(--tv-c-tile-value, var(--tv-accent));
   font-variant-numeric: tabular-nums;

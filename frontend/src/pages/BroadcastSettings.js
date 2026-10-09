@@ -163,6 +163,7 @@ const BroadcastSettings = () => {
           broadcast_promo_fit:             d.broadcast_promo_fit === 'cover' ? 'cover' : 'contain',
           broadcast_display_name:          d.broadcast_display_name          || '',
           broadcast_font_size:             d.broadcast_font_size             || 100,
+          broadcast_title_size:            d.broadcast_title_size            || 100,
           broadcast_prize_size:            d.broadcast_prize_size            || 100,
           broadcast_prizepool_label_color: d.broadcast_prizepool_label_color || DEFAULT_SETTINGS.broadcast_prizepool_label_color,
           broadcast_prizepool_value_color: d.broadcast_prizepool_value_color || DEFAULT_SETTINGS.broadcast_prizepool_value_color,
@@ -387,6 +388,8 @@ const BroadcastSettings = () => {
               </div>
 
               <SliderField label={t('broadcastSettings.fontSize')} settingsKey="broadcast_font_size" min={50} max={200} settings={settings} onChange={set} />
+              {/* Só o título, em separado da fonte geral (pedido do cliente). */}
+              <SliderField label={t('broadcastSettings.titleSize', 'Tamanho do título')} settingsKey="broadcast_title_size" min={50} max={300} settings={settings} onChange={set} />
 
               <div className="bs-field-full" style={{ marginTop: '0.25rem' }}>
                 <label className="bs-label">{t('broadcastSettings.bgImage')}</label>

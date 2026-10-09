@@ -295,6 +295,18 @@ class TestModeloDoDia:
         assert "broadcast_show_buy_types" not in dados
         assert "broadcast_show_entries" not in dados
 
+    def test_tamanho_do_titulo_nasce_100_e_fica_entre_50_e_300(self):
+        from pydantic import ValidationError
+        from app.models.tournament_day import TournamentDayCreate, TournamentDayUpdate
+        assert TournamentDay(**self._linha()).broadcast_title_size == 100
+        assert TournamentDay(**self._linha(broadcast_title_size=180)).broadcast_title_size == 180
+        dados = TournamentDayCreate(tournament_id=TOUR, day_name="Dia 1",
+                                    buy_in=100, max_players=200).model_dump()
+        assert "broadcast_title_size" not in dados
+        assert TournamentDayUpdate(broadcast_title_size=150).model_dump(exclude_unset=True) == {"broadcast_title_size": 150}
+        with pytest.raises(ValidationError):
+            TournamentDayUpdate(broadcast_title_size=400)
+
     def test_ajuste_da_divulgacao_so_aceita_contain_ou_cover(self):
         from pydantic import ValidationError
         from app.models.tournament_day import TournamentDayUpdate

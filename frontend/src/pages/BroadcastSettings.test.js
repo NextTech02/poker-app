@@ -598,3 +598,22 @@ describe('meios de entrada abaixo dos blinds', () => {
     expect(document.querySelector('.bs-preview-stage .tv-buytypes')).toHaveTextContent('Buy-in');
   });
 });
+
+
+describe('tamanho do título', () => {
+  it('nasce em 100% e vai no payload separado da fonte geral', async () => {
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_title_size).toBe(100);
+    expect(enviado().broadcast_font_size).toBe(100);
+  });
+
+  it('o valor salvo do dia aparece e a prévia escala o título', async () => {
+    await montar({ dia: { ...DIA, broadcast_title_size: 180 } });
+    expect(document.querySelector('.bs-preview-stage .tv-screen').style.getPropertyValue('--tv-title')).toBe('1.8');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_title_size).toBe(180);
+  });
+});

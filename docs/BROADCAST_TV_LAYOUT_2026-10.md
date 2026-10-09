@@ -116,13 +116,21 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   `refetch` para reconciliar. `user-select: none` no palco para o duplo
   clique não selecionar texto.
 - **Navegador de TV antigo (regra de CSS).** O telão roda no navegador da
-  própria TV (Hisense/VIDAA e afins, Chromium velho). Na foto do cliente
-  (2026-10-08) o título saiu minúsculo e o resto grande: o teto do título
-  usava `min()` (Chrome 79+) SEM reserva, a regra era descartada e sobrava o
-  tamanho padrão do `h1`. Regra: em `TvScreen.css`, toda propriedade com
-  `min()`/`max()`/`clamp()`/`inset` fora de `@supports` tem antes uma
-  declaração simples (`calc(... * var(--tv-font))`, `top/right/bottom/left`);
-  container queries ficam só dentro de `@supports (container-type: size)`.
+  própria TV (Hisense/VIDAA e afins, Chromium velho, sem `min()`). Na foto
+  do cliente (2026-10-08) o título saiu minúsculo e o resto grande. Causa
+  exata: `font-size: min(calc(58px * var(--tv-font)), 76px)`. Uma
+  declaração com `var()` é SEMPRE válida na leitura e vence a reserva
+  anterior; na hora de calcular, o navegador sem `min()` invalida o valor e
+  a propriedade vira `unset` (herda 16 px). Por isso "declarar a reserva
+  antes" NÃO resolve quando há `var()` na declaração moderna. Regras em
+  `TvScreen.css`: (1) nunca `min()`/`max()`/`clamp()` junto com `var()` fora
+  de `@supports`; (2) sem `var()` (ex.: `clamp(20px, 2vw, 40px)`), a reserva
+  antes funciona; (3) container queries só dentro de
+  `@supports (container-type: size)`; (4) `inset` com `top/right/bottom/left`
+  antes. O teto do título saiu; no lugar entrou o **tamanho do título em
+  separado** (`broadcast_title_size`, 50–300 %, slider "Tamanho do título"
+  nas Configurações, `--tv-title`), multiplicado pela fonte geral.
+  Migração `database_migration_broadcast_title_size.sql`.
 - **Telão se recarrega sozinho depois de um deploy**
   (`hooks/useReloadOnNewBuild.js`): a TV fica dias aberta e só busca dados;
   o código era o de quando a página abriu (o cliente viu o título

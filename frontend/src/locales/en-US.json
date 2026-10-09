@@ -1066,6 +1066,7 @@
     "displayNameHint": "Leave empty to use the default tournament name",
     "bgColor": "Background color",
     "fontSize": "Font size",
+    "titleSize": "Title size",
     "bgImage": "Background Image",
     "bgImageUrlLabel": "or paste an image URL",
     "bgImageUrlPlaceholder": "https://example.com/image.jpg",

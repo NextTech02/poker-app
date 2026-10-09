@@ -1066,6 +1066,7 @@
     "displayNameHint": "Deixe vazio para usar o nome padrão do torneio",
     "bgColor": "Cor de fundo",
     "fontSize": "Tamanho da fonte",
+    "titleSize": "Tamanho do título",
     "bgImage": "Imagem de Fundo",
     "bgImageUrlLabel": "ou cole uma URL de imagem",
     "bgImageUrlPlaceholder": "https://exemplo.com/imagem.jpg",

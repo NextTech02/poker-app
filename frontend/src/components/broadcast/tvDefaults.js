@@ -27,6 +27,8 @@ export const TV_DEFAULT_SETTINGS = {
   broadcast_bg_overlay: 45,
   broadcast_display_name: '',
   broadcast_font_size: 100,
+  // Título em separado (%), multiplicado pela fonte geral.
+  broadcast_title_size: 100,
   broadcast_prize_size: 100,
   broadcast_prizepool_label_color: TV_LABEL,
   broadcast_prizepool_value_color: TV_ACCENT,

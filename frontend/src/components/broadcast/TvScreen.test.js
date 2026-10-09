@@ -365,8 +365,9 @@ describe('cores e tamanhos', () => {
   });
 
   it('fonte e escalas de prêmio viram multiplicadores', () => {
-    montar({ fontScale: 1.3 }, { broadcast_prize_size: 150, broadcast_prizepool_size: 80 });
+    montar({ fontScale: 1.3 }, { broadcast_prize_size: 150, broadcast_prizepool_size: 80, broadcast_title_size: 180 });
     expect(tela().style.getPropertyValue('--tv-font')).toBe('1.3');
+    expect(tela().style.getPropertyValue('--tv-title')).toBe('1.8');   // título em separado
     expect(tela().style.getPropertyValue('--tv-prize')).toBe('1.5');
     expect(tela().style.getPropertyValue('--tv-pool')).toBe('0.8');
   });

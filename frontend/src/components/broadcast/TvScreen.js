@@ -510,6 +510,7 @@ const TvScreen = ({
 
   const vars = {
     '--tv-font': fs,
+    '--tv-title': s.titleScale ?? 1,
     '--tv-prize': s.prizeScale,
     '--tv-pool': s.prizepoolScale,
     '--tv-accent': accent,

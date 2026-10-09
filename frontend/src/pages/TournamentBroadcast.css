@@ -19,6 +19,7 @@
 
 .broadcast-loading,
 .broadcast-error {
+  font-size: 28px; /* reserva p/ navegador de TV antigo (sem var(): a reserva vale) */
   font-size: clamp(20px, 2.4vw, 40px);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -56,6 +57,7 @@
 
 .break-title {
   font-family: var(--font-display, 'Sora', sans-serif);
+  font-size: 48px; /* reserva p/ navegador de TV antigo (sem var(): a reserva vale) */
   font-size: clamp(28px, 3.5vw, 72px);
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -65,6 +67,7 @@
 .break-timer {
   font-family: var(--font-display, 'Sora', sans-serif);
   font-variant-numeric: tabular-nums;
+  font-size: 140px; /* reserva p/ navegador de TV antigo (sem var(): a reserva vale) */
   font-size: clamp(64px, 10vw, 220px);
   font-weight: 800;
   line-height: 1;
@@ -73,6 +76,7 @@
 
 .break-subtitle {
   margin: 0;
+  font-size: 22px; /* reserva p/ navegador de TV antigo (sem var(): a reserva vale) */
   font-size: clamp(16px, 1.6vw, 32px);
   color: #d1d5db;
 }
