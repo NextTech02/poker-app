@@ -46,7 +46,12 @@ export const formatCountdown = (seconds) => {
   return `${h}:${String(Math.floor(rest / 60)).padStart(2, '0')}:${String(rest % 60).padStart(2, '0')}`;
 };
 
-export const formatChips = (n) => (Number(n) || 0).toLocaleString('pt-BR');
+/**
+ * Fichas e blinds com separador de milhar no idioma do telão: "1.000" em
+ * português, "1,000" em espanhol e inglês (o cliente peruano lê com vírgula;
+ * o `es` daqui usa a convenção da América Latina, não a da Espanha).
+ */
+export const formatChips = (n, locale = 'pt-BR') => (Number(n) || 0).toLocaleString(locale || 'pt-BR');
 
 /**
  * Agrupa colocações CONSECUTIVAS com o mesmo prêmio numa faixa ("7º–9º"):

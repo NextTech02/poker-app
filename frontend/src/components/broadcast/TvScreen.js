@@ -139,10 +139,10 @@ const buildTiles = (model, settings, L) => {
     tiles.push({ kind: 'break', icon: 'clock', label: L.intervalIn, value: formatCountdown(model.breakIn) });
   }
   if (model.isDayBased && settings.showChipcount && model.chipcount > 0) {
-    tiles.push({ kind: 'chips', icon: 'chips', label: L.chipcount, value: formatChips(model.chipcount) });
+    tiles.push({ kind: 'chips', icon: 'chips', label: L.chipcount, value: formatChips(model.chipcount, L.numberLocale) });
   }
   if (model.isDayBased && settings.showAverage && model.averageStack > 0) {
-    tiles.push({ kind: 'average', icon: 'chart', label: L.average, value: formatChips(model.averageStack) });
+    tiles.push({ kind: 'average', icon: 'chart', label: L.average, value: formatChips(model.averageStack, L.numberLocale) });
   }
   return tiles;
 };
@@ -155,9 +155,17 @@ const TvLive = ({ model, settings, L }) => {
   const { sb, bb, ante } = model.blinds;
   const anteShown = settings.showAnte && ante > 0;
   const nb = model.nextBlind;
-  let nextText = '—';
+  // Blinds como o cliente lê: "50,000-100,000 (100,000)" — separador de
+  // milhar no idioma do telão, hífen entre small e big, ante menor.
+  const num = (n) => formatChips(n, L.numberLocale);
+  let nextValue = '—';
   if (nb) {
-    nextText = nb.isBreak ? L.breakNext : `${nb.sb}/${nb.bb}${nb.ante > 0 ? ` (${nb.ante})` : ''}`;
+    nextValue = nb.isBreak ? L.breakNext : (
+      <>
+        <span className="tv-next-blinds">{num(nb.sb)}-{num(nb.bb)}</span>
+        {nb.ante > 0 && <span className="tv-next-ante"> ({num(nb.ante)})</span>}
+      </>
+    );
   }
 
   return (
@@ -190,9 +198,9 @@ const TvLive = ({ model, settings, L }) => {
               <div className="tv-blinds-block">
                 <div className="tv-blinds-label">{anteShown ? L.ante : L.blinds}</div>
                 <div className="tv-blinds-line">
-                  {settings.showBlinds && <span className="tv-blinds">{sb}/{bb}</span>}
+                  {settings.showBlinds && <span className="tv-blinds">{num(sb)}-{num(bb)}</span>}
                   {anteShown && (
-                    <span className="tv-ante">{settings.showBlinds ? ` (${ante})` : ante}</span>
+                    <span className="tv-ante">{settings.showBlinds ? ` (${num(ante)})` : num(ante)}</span>
                   )}
                 </div>
               </div>
@@ -201,7 +209,7 @@ const TvLive = ({ model, settings, L }) => {
             {settings.showNextBlind && (
               <div className="tv-next">
                 <span className="tv-next-label">{L.next}:</span>
-                <span className="tv-next-value">{nextText}</span>
+                <span className="tv-next-value">{nextValue}</span>
               </div>
             )}
           </div>
@@ -408,8 +416,8 @@ const TvBreak = ({ model, settings, L }) => {
         <div className="tv-break-stat">
           <span className="tv-break-stat-label">{L.next}</span>
           <span className="tv-break-stat-value">
-            {L.levelPrefix} {nb.level}: {formatChips(nb.sb)}/{formatChips(nb.bb)}
-            {nb.ante > 0 && ` (${formatChips(nb.ante)})`}
+            {L.levelPrefix} {nb.level}: {formatChips(nb.sb, L.numberLocale)}-{formatChips(nb.bb, L.numberLocale)}
+            {nb.ante > 0 && ` (${formatChips(nb.ante, L.numberLocale)})`}
           </span>
         </div>
       )}
@@ -422,13 +430,13 @@ const TvBreak = ({ model, settings, L }) => {
       {settings.breakShowChipcount && model.chipcount > 0 && (
         <div className="tv-break-stat">
           <span className="tv-break-stat-label">{L.chipcount}</span>
-          <span className="tv-break-stat-value">{formatChips(model.chipcount)}</span>
+          <span className="tv-break-stat-value">{formatChips(model.chipcount, L.numberLocale)}</span>
         </div>
       )}
       {settings.breakShowAverage && model.averageStack > 0 && (
         <div className="tv-break-stat">
           <span className="tv-break-stat-label">{L.average}</span>
-          <span className="tv-break-stat-value">{formatChips(model.averageStack)}</span>
+          <span className="tv-break-stat-value">{formatChips(model.averageStack, L.numberLocale)}</span>
         </div>
       )}
     </div>

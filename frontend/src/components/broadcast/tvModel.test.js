@@ -339,3 +339,14 @@ describe('meios de entrada no telão', () => {
     expect(formatBuyAmount(null)).toBe('0');
   });
 });
+
+
+describe('formatChips por idioma', () => {
+  it('português com ponto (padrão), espanhol/inglês com vírgula', () => {
+    expect(formatChips(1650000)).toBe('1.650.000');
+    expect(formatChips(1650000, 'pt-BR')).toBe('1.650.000');
+    expect(formatChips(1650000, 'en-US')).toBe('1,650,000');
+    expect(formatChips(0, 'en-US')).toBe('0');
+    expect(formatChips(null, undefined)).toBe('0');
+  });
+});

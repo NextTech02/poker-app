@@ -458,6 +458,12 @@
 .tv-ante {
   color: var(--tv-c-ante-value, #ffffff);
   white-space: pre;
+  /* O ante entre parênteses é menor que os blinds (pedido do cliente). */
+  font-size: 0.6em;
+}
+
+.tv-next-ante {
+  font-size: 0.78em;
 }
 
 .tv-next {

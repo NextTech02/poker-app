@@ -143,10 +143,10 @@ describe('relógio, anel, blinds e próximo nível', () => {
     expect(document.querySelector('.tv-clock-wrap')).toHaveClass('tv-clock-wrap--paused');
   });
 
-  it('"Ante" acima de 100/200 (200)', () => {
+  it('"Ante" acima de 100-200 (200)', () => {
     montar();
     expect(document.querySelector('.tv-blinds-label')).toHaveTextContent('ANTE');
-    expect(document.querySelector('.tv-blinds')).toHaveTextContent('100/200');
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('100-200');
     expect(document.querySelector('.tv-ante')).toHaveTextContent('(200)');
   });
 
@@ -156,7 +156,7 @@ describe('relógio, anel, blinds e próximo nível', () => {
     expect(document.querySelector('.tv-ante')).toBeNull();
   });
 
-  it('ante desligado esconde só o parêntese; blinds desligado esconde só o 100/200', () => {
+  it('ante desligado esconde só o parêntese; blinds desligado esconde só o 100-200', () => {
     montar({}, { broadcast_show_ante: false });
     expect(document.querySelector('.tv-blinds')).toBeInTheDocument();
     expect(document.querySelector('.tv-ante')).toBeNull();
@@ -169,7 +169,8 @@ describe('relógio, anel, blinds e próximo nível', () => {
   it('pílula do próximo nível: valor, intervalo ou travessão', () => {
     montar();
     expect(document.querySelector('.tv-next')).toHaveTextContent('PRÓXIMO:');
-    expect(document.querySelector('.tv-next-value')).toHaveTextContent('200/400 (400)');
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent('200-400 (400)');
+    expect(document.querySelector('.tv-next-ante')).toHaveTextContent('(400)');   // ante menor, em span próprio
     document.body.innerHTML = '';
     montar({ model: { nextBlind: { level: 6, sb: 1, bb: 2, ante: 0, isBreak: true } } });
     expect(document.querySelector('.tv-next-value')).toHaveTextContent('INTERVALO');
@@ -178,7 +179,7 @@ describe('relógio, anel, blinds e próximo nível', () => {
     expect(document.querySelector('.tv-next-value')).toHaveTextContent('—');
     document.body.innerHTML = '';
     montar({ model: { nextBlind: { level: 2, sb: 50, bb: 100, ante: 0, isBreak: false } } });
-    expect(document.querySelector('.tv-next-value')).toHaveTextContent('50/100');
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent('50-100');
     expect(document.querySelector('.tv-next-value')).not.toHaveTextContent('(');
   });
 
@@ -282,7 +283,7 @@ describe('intervalo', () => {
     expect(document.querySelector('.tv-clock')).toBeNull();
     expect(document.querySelector('.tv-break')).toHaveClass('split');
     expect(document.querySelector('.tv-break-timer')).toHaveTextContent('05:05');
-    expect(document.querySelector('.tv-break-info')).toHaveTextContent('Nível 5: 800/1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('Nível 5: 800-1.600');
     expect(document.querySelector('.tv-break-info')).not.toHaveTextContent('(0)');
   });
 
@@ -529,5 +530,32 @@ describe('meios de entrada (linha abaixo dos blinds)', () => {
     montar({}, { broadcast_show_entries: false });
     expect(document.querySelector('.tv-tile--entries')).toBeNull();
     expect(document.querySelector('.tv-tile--players')).toBeInTheDocument();
+  });
+});
+
+
+/**
+ * Blinds como o cliente lê: "50,000-100,000 (100,000)" — separador de milhar
+ * no idioma do telão (vírgula em espanhol/inglês, ponto em português), hífen
+ * entre small e big, ante em span próprio (menor, via CSS).
+ */
+describe('formato dos blinds', () => {
+  const GRANDES = { blinds: { sb: 50000, bb: 100000, ante: 100000 }, nextBlind: { level: 28, sb: 60000, bb: 120000, ante: 120000, isBreak: false }, chipcount: 1650000 };
+
+  it('espanhol: vírgula de milhar (convenção da América Latina)', () => {
+    montar({ model: GRANDES, labels: BROADCAST_LABELS.es });
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('50,000-100,000');
+    expect(document.querySelector('.tv-ante')).toHaveTextContent('(100,000)');
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent('60,000-120,000 (120,000)');
+    expect(document.querySelector('.tv-tile--chips')).toHaveTextContent('1,650,000');
+  });
+
+  it('inglês: vírgula; português: ponto', () => {
+    montar({ model: GRANDES, labels: BROADCAST_LABELS.en });
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('50,000-100,000');
+    document.body.innerHTML = '';
+    montar({ model: GRANDES });
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('50.000-100.000');
+    expect(document.querySelector('.tv-ante')).toHaveTextContent('(100.000)');
   });
 });

@@ -219,7 +219,7 @@ describe('estrutura de blinds nunca falta', () => {
       },
       null
     );
-    expect(screen.getByText('50/100')).toBeInTheDocument();
+    expect(screen.getByText('50-100')).toBeInTheDocument();
   });
 
   it('erro ao buscar blinds também gera a estrutura', async () => {
@@ -228,9 +228,9 @@ describe('estrutura de blinds nunca falta', () => {
   });
 
   it.each([
-    ['double', '50/100'],
-    ['triple', '75/150'],
-    ['1.5x', '38/75'],
+    ['double', '50-100'],
+    ['triple', '75-150'],
+    ['1.5x', '38-75'],
   ])('o crescimento %s define o nível seguinte (%s)', async (tipo, esperado) => {
     // O tipo de crescimento é o que separa um turbo de um regular.
     await montar(
@@ -252,8 +252,8 @@ describe('o que a tela mostra ao vivo', () => {
   it('o relógio é a fonte única quando o id é de um dia', async () => {
     await montar();
     expect(relogioNaTela()).toHaveTextContent('05:05');
-    expect(document.querySelector('.tv-blinds')).toHaveTextContent('500/1000');
-    expect(document.querySelector('.tv-ante')).toHaveTextContent('1000');
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('500-1.000');
+    expect(document.querySelector('.tv-ante')).toHaveTextContent('1.000');
   });
 
   it('mostra o nível atual', async () => {
@@ -320,7 +320,7 @@ describe('o que a tela mostra ao vivo', () => {
 
   it('o próximo nível é anunciado', async () => {
     await montar();
-    expect(document.querySelector('.tv-next-value')).toHaveTextContent('800/1600 (1600)');
+    expect(document.querySelector('.tv-next-value')).toHaveTextContent('800-1.600 (1.600)');
   });
 
   it('se o próximo nível é INTERVALO, o telão diz isso', async () => {
@@ -340,7 +340,7 @@ describe('o que a tela mostra ao vivo', () => {
     // O nível local vem do tempo decorrido desde o início: começando agora,
     // o torneio está no nível 1.
     await montar({ comoDia: false, torneio: { ...TORNEIO, start_time: new Date().toISOString() } }, null);
-    expect(document.querySelector('.tv-blinds')).toHaveTextContent('100/200');
+    expect(document.querySelector('.tv-blinds')).toHaveTextContent('100-200');
   });
 
   it('em torneio sem dia, os jogadores vêm da lista', async () => {
@@ -610,7 +610,7 @@ describe('intervalo', () => {
   it('anuncia o nível que vem depois do intervalo', async () => {
     // É a informação que faz o jogador voltar na hora certa.
     await montar({}, noIntervalo());
-    expect(document.querySelector('.tv-break-info')).toHaveTextContent('800/1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('800-1.600');
   });
 
   it('ante zero não aparece no anúncio', async () => {
@@ -623,7 +623,7 @@ describe('intervalo', () => {
     await montar({}, noIntervalo({
       next_blind: { level: 5, display_level: 4, small_blind: 800, big_blind: 1600, ante: 0 },
     }));
-    expect(document.querySelector('.tv-break-info')).toHaveTextContent('4: 800/1.600');
+    expect(document.querySelector('.tv-break-info')).toHaveTextContent('4: 800-1.600');
   });
 
   it.each(['split', 'fullscreen', 'overlay'])('o layout %s é respeitado', async (layout) => {

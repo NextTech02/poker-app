@@ -138,6 +138,13 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   a ficar visível) lê `/asset-manifest.json` (sem cache) e compara o
   `main.*.js` com o carregado; mudou → `registration.update()` do service
   worker e `location.reload()`. Só em produção.
+- **Formato dos blinds** (pedido do cliente, 2026-10-09): "50,000-100,000
+  (100,000)". Separador de milhar no idioma do telão (`numberLocale` em
+  `broadcastLabels.js`: pt-BR ponto; en e es vírgula — o `es` segue a
+  América Latina, não a Espanha), hífen entre small e big (era "/"), ante
+  em span próprio e menor (`.tv-ante` 0.6em, `.tv-next-ante` 0.78em). Vale
+  para a linha principal, a pílula "Próximo", o próximo nível no intervalo
+  e as fichas (chip count / média). Só no telão; o Controle segue com "/".
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas

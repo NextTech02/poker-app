@@ -10,6 +10,7 @@ const ordinalEn = (n) => {
 
 const BROADCAST_LABELS = {
   'pt-BR': {
+    numberLocale:   'pt-BR',          // 1.000 — separador de milhar dos blinds/fichas
     level:          'NÍVEL',
     players:        'JOGADORES',
     entries:        'ENTRADAS',
@@ -36,6 +37,7 @@ const BROADCAST_LABELS = {
     seat:           'VAGA',           // prêmio do tipo vaga (sem valor em dinheiro)
   },
   'en': {
+    numberLocale:   'en-US',          // 1,000
     level:          'LEVEL',
     players:        'PLAYERS',
     entries:        'ENTRIES',
@@ -62,6 +64,7 @@ const BROADCAST_LABELS = {
     seat:           'SEAT',
   },
   'es': {
+    numberLocale:   'en-US',          // 1,000 — convenção da América Latina (cliente do Peru)
     level:          'NIVEL',
     players:        'JUGADORES',
     entries:        'ENTRADAS',
