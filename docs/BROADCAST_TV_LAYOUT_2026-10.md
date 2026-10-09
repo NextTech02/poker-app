@@ -123,6 +123,13 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   `min()`/`max()`/`clamp()`/`inset` fora de `@supports` tem antes uma
   declaração simples (`calc(... * var(--tv-font))`, `top/right/bottom/left`);
   container queries ficam só dentro de `@supports (container-type: size)`.
+- **Telão se recarrega sozinho depois de um deploy**
+  (`hooks/useReloadOnNewBuild.js`): a TV fica dias aberta e só busca dados;
+  o código era o de quando a página abriu (o cliente viu o título
+  minúsculo horas depois da correção publicada). A cada 5 min (e ao voltar
+  a ficar visível) lê `/asset-manifest.json` (sem cache) e compara o
+  `main.*.js` com o carregado; mudou → `registration.update()` do service
+  worker e `location.reload()`. Só em produção.
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas

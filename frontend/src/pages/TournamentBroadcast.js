@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { usePolling } from '../hooks/usePolling';
+import { useReloadOnNewBuild } from '../hooks/useReloadOnNewBuild';
 import { labelsForLanguage } from '../utils/broadcastLabels';
 import { idiomaEscolhidoPeloUsuario } from '../utils/idiomaDoUsuario';
 import {
@@ -95,6 +96,10 @@ const TournamentBroadcast = () => {
   const [fonteLocal, setFonteLocal] = useState(() => lerFonteLocal(id));
   const patchFonteTimer = useRef(null);
   useEffect(() => () => clearTimeout(patchFonteTimer.current), []);
+
+  // A TV fica dias aberta e só busca dados: depois de um deploy continuava
+  // com o código antigo. Com build novo publicado, recarrega sozinha.
+  useReloadOnNewBuild(true);
 
   // SINGLE SOURCE OF TRUTH for day-based tournaments (blinds passed for offline fallback)
   const { timerState, applyOptimistic, broadcastCommand, refetch: refetchTimer } = useTimerSync(isDayBased ? id : null, blinds);
