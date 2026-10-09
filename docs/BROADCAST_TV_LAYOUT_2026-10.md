@@ -145,6 +145,10 @@ com os tiles longe do canto. A prévia (`fit="width"`) continua 1920×1080.
   em span próprio e menor (`.tv-ante` 0.6em, `.tv-next-ante` 0.78em). Vale
   para a linha principal, a pílula "Próximo", o próximo nível no intervalo
   e as fichas (chip count / média). Só no telão; o Controle segue com "/".
+- **Sem a palavra "ANTE"/"BLINDS" em cima dos números** (pedido do cliente,
+  2026-10-09): o `.tv-blinds-label` saiu do ao vivo; as cores
+  `broadcast_blinds_label_color`/`broadcast_ante_label_color` ficam sem
+  uso no telão (as Configurações continuam aceitando).
 - **Sem nome do clube no canto direito.** O texto automático
   (`organization_name` dos extras) saiu; à esquerda fica só o logo AceBlind
   (`broadcast_show_logo`, o diretor liga/desliga). À direita aparece apenas

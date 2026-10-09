@@ -196,7 +196,8 @@ const TvLive = ({ model, settings, L }) => {
 
             {(settings.showBlinds || anteShown) && (
               <div className="tv-blinds-block">
-                <div className="tv-blinds-label">{anteShown ? L.ante : L.blinds}</div>
+                {/* Sem rótulo "ANTE"/"BLINDS" em cima dos números: o cliente pediu
+                    para tirar (2026-10-09). "50,000-100,000 (100,000)" se explica. */}
                 <div className="tv-blinds-line">
                   {settings.showBlinds && <span className="tv-blinds">{num(sb)}-{num(bb)}</span>}
                   {anteShown && (

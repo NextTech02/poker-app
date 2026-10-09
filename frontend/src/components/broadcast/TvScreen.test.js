@@ -143,16 +143,17 @@ describe('relógio, anel, blinds e próximo nível', () => {
     expect(document.querySelector('.tv-clock-wrap')).toHaveClass('tv-clock-wrap--paused');
   });
 
-  it('"Ante" acima de 100-200 (200)', () => {
+  it('100-200 (200), sem a palavra "ANTE" em cima (pedido do cliente)', () => {
     montar();
-    expect(document.querySelector('.tv-blinds-label')).toHaveTextContent('ANTE');
+    expect(document.querySelector('.tv-blinds-label')).toBeNull();
+    expect(document.querySelector('.tv-blinds-block')).not.toHaveTextContent('ANTE');
     expect(document.querySelector('.tv-blinds')).toHaveTextContent('100-200');
     expect(document.querySelector('.tv-ante')).toHaveTextContent('(200)');
   });
 
-  it('sem ante o rótulo volta a ser BLINDS e o parêntese some', () => {
+  it('sem ante o parêntese some (e continua sem rótulo)', () => {
     montar({ model: { blinds: { sb: 25, bb: 50, ante: 0 } } });
-    expect(document.querySelector('.tv-blinds-label')).toHaveTextContent('BLINDS');
+    expect(document.querySelector('.tv-blinds-label')).toBeNull();
     expect(document.querySelector('.tv-ante')).toBeNull();
   });
 
