@@ -1884,6 +1884,7 @@
     "enter": "Entrar",
     "loading": "Abrindo…",
     "invalid": "Código inválido. Confira e tente de novo.",
+    "unreachable": "Não foi possível conectar ao sistema. Verifique a internet e tente de novo.",
     "noDay": "Torneio sem dia para exibir.",
     "codeButton": "Código TV",
     "codeButtonTitle": "Código para exibir os blinds deste dia numa TV",

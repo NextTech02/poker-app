@@ -1884,6 +1884,7 @@
     "enter": "Entrar",
     "loading": "Abriendo…",
     "invalid": "Código inválido. Verifica e inténtalo de nuevo.",
+    "unreachable": "No se pudo conectar con el sistema. Revisa la conexión a internet e inténtalo de nuevo.",
     "noDay": "El torneo no tiene día para mostrar.",
     "codeButton": "Código TV",
     "codeButtonTitle": "Código para mostrar las ciegas de este día en una TV",

@@ -16,14 +16,20 @@ const api = axios.create({
 
 // Add auth token and selected stage to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('supabase_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  // `_public: true` = requisição da TV do salão (tela do código e telão): vai
+  // SEM token e sem etapa, seja quem for que esteja logado neste navegador.
+  // Com o token de um operador de OUTRA organização, o backend rodava a rota
+  // pública sob o RLS dele e o código da TV "não existia".
+  if (!config._public) {
+    const token = localStorage.getItem('supabase_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
 
-  const stageId = getSelectedStageId();
-  if (stageId) {
-    config.headers['X-Stage-ID'] = stageId;
+    const stageId = getSelectedStageId();
+    if (stageId) {
+      config.headers['X-Stage-ID'] = stageId;
+    }
   }
 
   // Idioma da interface: o backend redige nele os e-mails que a ação dispara

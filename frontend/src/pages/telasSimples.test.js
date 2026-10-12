@@ -174,6 +174,30 @@ describe('TVCode', () => {
     expect(await screen.findByText(/Código inválido/)).toBeInTheDocument();
   });
 
+  it('sem rede não diz que o código é inválido', async () => {
+    // Servidor fora ou TV sem internet: "código inválido" mandaria o operador
+    // conferir um código que está certo.
+    api.get.mockRejectedValue({ message: 'Network Error' });
+    montar();
+    await userEvent.type(screen.getByPlaceholderText('XXXXXX'), 'ABC234');
+    await userEvent.click(screen.getByRole('button'));
+    expect(await screen.findByText(/Não foi possível conectar/)).toBeInTheDocument();
+    expect(screen.queryByText(/Código inválido/)).not.toBeInTheDocument();
+  });
+
+  it('consulta o código SEM o token de quem estiver logado no navegador', async () => {
+    // Regressão: um código certo dava "inválido" quando a TV era aberta num
+    // navegador logado em OUTRA organização — o token ia junto e o backend
+    // buscava o dia sob o RLS desse usuário. A TV não faz login.
+    api.get.mockResolvedValue({ data: { day_id: 'dia-1' } });
+    montar();
+    await userEvent.type(screen.getByPlaceholderText('XXXXXX'), 'ABC234');
+    await userEvent.click(screen.getByRole('button'));
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/public/tv/ABC234', { _public: true })
+    );
+  });
+
   it('espaços em volta do código são removidos', async () => {
     api.get.mockResolvedValue({ data: { day_id: 'dia-1' } });
     render(
@@ -183,7 +207,9 @@ describe('TVCode', () => {
         </Routes>
       </MemoryRouter>
     );
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/public/tv/ABC234'));
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/public/tv/ABC234', { _public: true })
+    );
   });
 
   it('o código na URL resolve sozinho', async () => {

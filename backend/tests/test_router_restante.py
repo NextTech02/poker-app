@@ -484,6 +484,36 @@ class TestTvPublica:
                                                        "tournament_id": TOUR})
         assert client.get("/public/tv/ABC234").json()["day_id"] == DIA
 
+    def test_token_de_outra_organizacao_nao_entra_na_rota_publica(self, client, stub):
+        """O navegador do operador manda Authorization em TODA requisição. Na
+        rota pública o middleware tem de ignorá-lo: com o token no contexto, a
+        busca rodava sob o RLS de quem abriu a TV, e um código certo "não
+        existia" para quem estava logado em outra organização."""
+        from app.database import supabase_client as sc
+        visto = {}
+
+        def _resolve(code):
+            visto["jwt"] = sc._request_jwt.get()
+            return {"day_id": DIA, "tournament_id": TOUR}
+        stub(TDS, resolve_broadcast_code=_resolve)
+        r = client.get("/public/tv/ABC234",
+                       headers={"Authorization": "Bearer token-de-outra-org"})
+        assert r.status_code == 200
+        assert visto["jwt"] is None
+
+    def test_fora_de_public_o_token_segue_para_o_contexto(self, client, stub):
+        """Contraprova: a exceção é só para /public. Nas demais rotas o JWT
+        continua indo para o contexto, que é o que faz o RLS valer."""
+        from app.database import supabase_client as sc
+        visto = {}
+
+        def _stats(stage_id=None):
+            visto["jwt"] = sc._request_jwt.get()
+            return {"active_tournaments": 0}
+        stub(DS, get_stats=_stats)
+        client.get("/dashboard/stats", headers={"Authorization": "Bearer token-do-operador"})
+        assert visto["jwt"] == "token-do-operador"
+
     def test_codigo_inexistente_da_404_seco(self, client, stub):
         """Sem revelar nada do torneio: a rota é aberta à internet."""
         def _estoura(code):

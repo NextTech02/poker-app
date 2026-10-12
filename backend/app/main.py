@@ -86,14 +86,19 @@ class SupabaseUserContextMiddleware(BaseHTTPMiddleware):
 
     Não valida o token — quem valida é o `verify_token` das rotas protegidas.
     Um token inválido aqui simplesmente não enxerga nada (o Postgres rejeita).
-    Rotas públicas não mandam Authorization e seguem na service_role.
+    Rotas públicas (`/public/*`) seguem na service_role MESMO que venha um
+    Authorization: o axios do app anexa o token do usuário logado em toda
+    requisição, e um operador logado em OUTRA organização fazia o código da
+    TV "não existir" (a busca rodava sob o RLS dele, que esconde o dia do
+    clube dono do código). A TV do salão não faz login: o código é a credencial.
     """
 
     async def dispatch(self, request: Request, call_next):
         token = None
-        auth = request.headers.get("authorization") or ""
-        if auth.lower().startswith("bearer "):
-            token = auth[7:].strip() or None
+        if not request.url.path.startswith("/public/"):
+            auth = request.headers.get("authorization") or ""
+            if auth.lower().startswith("bearer "):
+                token = auth[7:].strip() or None
 
         ctx = set_request_jwt(token)
         try:

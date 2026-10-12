@@ -102,7 +102,7 @@ const TournamentBroadcast = () => {
   useReloadOnNewBuild(true);
 
   // SINGLE SOURCE OF TRUTH for day-based tournaments (blinds passed for offline fallback)
-  const { timerState, applyOptimistic, broadcastCommand, refetch: refetchTimer } = useTimerSync(isDayBased ? id : null, blinds);
+  const { timerState, applyOptimistic, broadcastCommand, refetch: refetchTimer } = useTimerSync(isDayBased ? id : null, blinds, { publico: true });
 
   // Duplo clique no telão = pausar/retomar o relógio (pedido do cliente). Só
   // faz efeito LOGADO (o mesmo token que api.js manda) e com dia: a TV
@@ -167,7 +167,7 @@ const TournamentBroadcast = () => {
 
   const fetchExtras = async () => {
     try {
-      const res = await api.get(`/public/tv/days/${id}/extras`, { _silentError: true });
+      const res = await api.get(`/public/tv/days/${id}/extras`, { _silentError: true, _public: true });
       setExtras(res.data || null);
     } catch {
       setExtras(null);
@@ -182,20 +182,23 @@ const TournamentBroadcast = () => {
       let playersData = null;
       let blindsData = null;
 
+      // Leituras do telão vão SEM token (`_public`): a TV não faz login, e com
+      // o token de alguém logado em OUTRA organização o backend rodaria sob o
+      // RLS dele e o dia "não existiria". Pausar/iniciar continua autenticado.
       // ISSUE-010 fix: the `/broadcast/:id` route accepts either a tournament
       // day id or a tournament id. The initial probe against /tournament-days/:id
       // is expected to 404 when `id` is actually a tournament, so mark the
       // request as silent to avoid polluting the console with false positives.
       try {
-        const dayRes = await api.get(`/tournament-days/${id}`, { _silentError: true });
+        const dayRes = await api.get(`/tournament-days/${id}`, { _silentError: true, _public: true });
         dayData = dayRes.data;
         setIsDayBased(true);
         setTournamentDay(dayData);
 
-        const tournamentRes = await api.get(`/tournaments/${dayData.tournament_id}`);
+        const tournamentRes = await api.get(`/tournaments/${dayData.tournament_id}`, { _public: true });
         tournamentData = tournamentRes.data;
 
-        const playersRes = await api.get(`/tournament-players/day/${id}`);
+        const playersRes = await api.get(`/tournament-players/day/${id}`, { _public: true });
         playersData = playersRes.data;
 
         try {
@@ -214,7 +217,7 @@ const TournamentBroadcast = () => {
       } catch {
         setIsDayBased(false);
         const [tournamentRes, playersRes, blindsRes] = await Promise.all([
-          api.get(`/tournaments/${id}`),
+          api.get(`/tournaments/${id}`, { _public: true }),
           api.get(`/tournament-players/tournament/${id}`),
           api.get(`/tournaments/${id}/blinds`, { _silentError: true }),
         ]);
@@ -234,7 +237,7 @@ const TournamentBroadcast = () => {
 
       if (dayData && dayData.day_type === 'final') {
         try {
-          const statsRes = await api.get(`/tournament-days/${id}/aggregated-stats`);
+          const statsRes = await api.get(`/tournament-days/${id}/aggregated-stats`, { _public: true });
           setAggregatedStats(statsRes.data);
         } catch {
           setAggregatedStats(null);
@@ -276,7 +279,7 @@ const TournamentBroadcast = () => {
     try {
       let playersRes;
       if (isDayBased) {
-        playersRes = await api.get(`/tournament-players/day/${id}`);
+        playersRes = await api.get(`/tournament-players/day/${id}`, { _public: true });
       } else {
         playersRes = await api.get(`/tournament-players/tournament/${id}`);
       }
@@ -300,7 +303,7 @@ const TournamentBroadcast = () => {
   usePolling(() => fetchPlayersOnly(), 10000);
   usePolling(() => {
     if (!isDayBased) return;
-    api.get(`/tournament-days/${id}`)
+    api.get(`/tournament-days/${id}`, { _public: true })
       .then((res) => setTournamentDay(res.data))
       .catch(() => { /* ignore */ });
     fetchExtras();

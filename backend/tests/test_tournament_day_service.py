@@ -161,16 +161,31 @@ class TestJogadoresSeparadoDeReentradas:
 
 class TestCodigoDeTV:
     def test_resolve_o_codigo_para_o_dia(self, monkeypatch):
-        _monta(monkeypatch, tournament_days=[_dia(
+        fake = _monta(monkeypatch, tournament_days=[_dia(
             broadcast_code="ABC234", tournaments={"name": "Torneio"})])
+        monkeypatch.setattr(mod, "supabase_admin", fake)
         r = S.resolve_broadcast_code("abc234")
         assert r["day_id"] == D1
         assert r["tournament_name"] == "Torneio"
 
     def test_codigo_e_normalizado_para_maiusculo(self, monkeypatch):
         """Quem digita na TV não vai se preocupar com caixa."""
-        _monta(monkeypatch, tournament_days=[_dia(broadcast_code="ABC234")])
+        fake = _monta(monkeypatch, tournament_days=[_dia(broadcast_code="ABC234")])
+        monkeypatch.setattr(mod, "supabase_admin", fake)
         assert S.resolve_broadcast_code("  abc234  ")["day_id"] == D1
+
+    def test_resolve_pela_chave_de_servico_e_nao_como_o_usuario(self, monkeypatch):
+        """Regressão: um código CERTO dava "inválido" para quem estava logado
+        em OUTRA organização. O axios do app manda o token em toda requisição,
+        e o proxy `supabase` rodava a busca sob o RLS desse usuário — que não
+        enxerga o dia do clube dono do código. A TV não faz login: o código é
+        a credencial, e a leitura tem de ignorar quem abriu a tela."""
+        _monta(monkeypatch, tournament_days=[])   # o que o logado enxerga: nada
+        monkeypatch.setattr(mod, "supabase_admin", FakeSupabase({
+            "tournament_days": [_dia(broadcast_code="ABC234")],
+            "tournaments": [{"id": TOUR, "name": "Torneio", "status": "active"}],
+        }))
+        assert S.resolve_broadcast_code("ABC234")["day_id"] == D1
 
     @pytest.mark.parametrize("entrada", ["", "   ", None])
     def test_codigo_vazio_e_recusado(self, monkeypatch, entrada):

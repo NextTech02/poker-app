@@ -23,7 +23,8 @@ const TVCode = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get(`/public/tv/${encodeURIComponent(c)}`);
+      // Sem token: a TV não faz login, e o código é a credencial.
+      const res = await api.get(`/public/tv/${encodeURIComponent(c)}`, { _public: true });
       const dayId = res.data?.day_id;
       const tId = res.data?.tournament_id;
       if (dayId) {
@@ -34,7 +35,11 @@ const TVCode = () => {
         setError(t('tv.noDay', 'Torneio sem dia para exibir.'));
       }
     } catch (e) {
-      setError(t('tv.invalid', 'Código inválido. Confira e tente de novo.'));
+      // Só o 404 é "código inválido". Sem rede ou com o servidor fora, dizer
+      // isso mandaria o operador conferir um código que está certo.
+      setError(e?.response?.status === 404
+        ? t('tv.invalid', 'Código inválido. Confira e tente de novo.')
+        : t('tv.unreachable', 'Não foi possível conectar ao sistema. Verifique a internet e tente de novo.'));
     } finally {
       setLoading(false);
     }

@@ -81,6 +81,17 @@ describe('interceptor de requisição', () => {
     expect(mock.history.get[0].headers['X-Stage-ID']).toBeUndefined();
   });
 
+  it('`_public` vai sem token e sem etapa, mesmo com sessão (TV do salão)', async () => {
+    // A TV não faz login. Com o token de alguém logado em OUTRA organização,
+    // o backend rodava a rota pública sob o RLS dele e o código "não existia".
+    localStorage.setItem('supabase_token', 'token-abc');
+    getSelectedStageId.mockReturnValue('etapa-1');
+    mock.onGet('/public/tv/ABC234').reply(200, {});
+    await api.get('/public/tv/ABC234', { _public: true });
+    expect(mock.history.get[0].headers.Authorization).toBeUndefined();
+    expect(mock.history.get[0].headers['X-Stage-ID']).toBeUndefined();
+  });
+
   it('anexa o idioma da interface', async () => {
     // O backend redige nele os e-mails que a ação dispara (convite,
     // redefinição de senha): quem convida em espanhol manda convite em espanhol.

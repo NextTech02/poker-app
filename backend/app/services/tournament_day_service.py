@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from collections import defaultdict
 import time
 from app.database import supabase
+# Chave de serviço para a leitura do código da TV — ver `resolve_broadcast_code`.
+from app.database.supabase_client import supabase_admin
 # Venda estornada não entregou ficha nenhuma: contá-la infla o chipcount do
 # telão com fichas que voltaram para o caixa.
 from app.services.transaction_filters import ler_transacoes_ativas
@@ -105,7 +107,11 @@ class TournamentDayService:
             raise ErroDeNegocio(
                 "codigo_de_tv_invalido", "Código inválido", status=404
             )
-        d = supabase.table("tournament_days") \
+        # `supabase_admin`, e não o proxy: a TV do salão não faz login, e quando
+        # alguém logado em OUTRA organização abre /tv, o proxy rodaria a busca
+        # como ele e o RLS esconderia o dia — "Código inválido" para um código
+        # certo. O código é a credencial aqui (mesma razão do public_tv_service).
+        d = supabase_admin.table("tournament_days") \
             .select("id, day_name, tournament_id, tournaments(name)") \
             .eq("broadcast_code", code).execute()
         if not d.data:

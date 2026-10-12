@@ -1884,6 +1884,7 @@
     "enter": "Enter",
     "loading": "Opening…",
     "invalid": "Invalid code. Check it and try again.",
+    "unreachable": "Could not reach the system. Check the internet connection and try again.",
     "noDay": "Tournament has no day to display.",
     "codeButton": "TV Code",
     "codeButtonTitle": "Code to show this day's blinds on a TV",

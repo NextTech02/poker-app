@@ -356,7 +356,7 @@ describe('o que a tela mostra ao vivo', () => {
 describe('premiação exibida (rota pública)', () => {
   it('a TV busca prêmios no endpoint público, sem login', async () => {
     await montar();
-    expect(api.get).toHaveBeenCalledWith('/public/tv/days/x1/extras', { _silentError: true });
+    expect(api.get).toHaveBeenCalledWith('/public/tv/days/x1/extras', { _silentError: true, _public: true });
     expect(api.get.mock.calls.some(([url]) => url.endsWith('/prizes'))).toBe(false);
   });
 

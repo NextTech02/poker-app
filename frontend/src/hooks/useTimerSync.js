@@ -125,7 +125,10 @@ const anchorNow = (a) => {
   };
 };
 
-export const useTimerSync = (dayId, blinds = null) => {
+// `publico`: o telão consulta o relógio SEM token (a TV não faz login; com o
+// token de alguém de outra organização o RLS esconderia o dia). O controle
+// continua autenticado.
+export const useTimerSync = (dayId, blinds = null, { publico = false } = {}) => {
   const [timerState, setTimerState] = useState(null); // server metadata (blinds, players, is_paused, level…)
   const [renderTick, setRenderTick] = useState(0);     // forces the smooth countdown to recompute
   const [error, setError] = useState(null);
@@ -334,7 +337,8 @@ export const useTimerSync = (dayId, blinds = null) => {
     const requestStart = Date.now();
 
     try {
-      const res = await api.get(`/tournament-days/${dayId}/timer/status-enriched`);
+      const url = `/tournament-days/${dayId}/timer/status-enriched`;
+      const res = publico ? await api.get(url, { _public: true }) : await api.get(url);
       const data = { ...res.data };
 
       // Compensação de latência: o servidor calcula time_remaining ~metade do
@@ -428,7 +432,7 @@ export const useTimerSync = (dayId, blinds = null) => {
       inFlightRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayId]);
+  }, [dayId, publico]);
 
   // Poll server a cada ~3s, SEM empilhar: só agenda a próxima após a anterior terminar.
   useEffect(() => {
