@@ -153,3 +153,59 @@
     font-size: 1.5rem;
   }
 }
+
+/* Compra da venda: o floor lê aqui quantas fichas entregar. */
+.ticket-preview-purchase {
+  margin-top: 1rem;
+}
+
+.ticket-preview-purchase-title {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-preview-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ticket-preview-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed rgba(42, 52, 65, 0.5);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+}
+
+.ticket-preview-item .item-amount,
+.ticket-preview-item .item-chips {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-preview-item--total {
+  border-bottom: none;
+  border-top: 2px solid var(--border-light);
+  font-weight: 700;
+}
+
+.ticket-preview-chips {
+  margin-top: 1rem;
+}
+
+.ticket-preview-chips-label {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+}

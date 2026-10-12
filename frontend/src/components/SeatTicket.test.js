@@ -221,3 +221,93 @@ describe('impressão', () => {
     expect(impresso.html).toContain('¡Buena suerte!');
   });
 });
+
+/**
+ * Compra da venda: a lista do que o jogador levou e o TOTAL DE FICHAS. É o
+ * número que o floor confere para entregar a pilha — antes ele somava de
+ * cabeça dois ou três bilhetes da mesma venda.
+ */
+describe('compra e total de fichas', () => {
+  const COMPRA = {
+    itens: [
+      { name: 'Entrada', amount: 200, chips: 20000 },
+      { name: 'Bono Dealer', amount: 20, chips: 10000 },
+    ],
+    total_amount: 220,
+    total_chips: 30000,
+  };
+  const soles = (v) => `S/ ${Number(v).toFixed(2)}`;
+
+  it('a prévia lista cada item com valor e fichas, e o total', () => {
+    render(<SeatTicket allocation={{ ...ALOCACAO, ...COMPRA }} formatarValor={soles} />);
+    expect(screen.getByText('Entrada')).toBeInTheDocument();
+    expect(screen.getByText('Bono Dealer')).toBeInTheDocument();
+    expect(screen.getByText('S/ 220.00')).toBeInTheDocument();
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30.000 fichas');
+  });
+
+  it('sem itens o bilhete é o de sempre, sem bloco de compra', () => {
+    render(<SeatTicket allocation={ALOCACAO} />);
+    expect(screen.queryByTestId('bilhete-compra')).toBeNull();
+  });
+
+  it('o total sai dos itens quando não vem pronto', () => {
+    render(<SeatTicket allocation={{ ...ALOCACAO, itens: COMPRA.itens }} />);
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30.000 fichas');
+  });
+
+  it('o bilhete impresso traz os itens, o total cobrado e as fichas a entregar', async () => {
+    const impresso = espiaoDeImpressao();
+    render(<SeatTicket allocation={{ ...ALOCACAO, ...COMPRA }} formatarValor={soles} />);
+    await userEvent.click(screen.getByRole('button'));
+    expect(impresso.html).toContain('Bono Dealer');
+    expect(impresso.html).toContain('S/ 20.00');
+    expect(impresso.html).toContain('S/ 220.00');
+    expect(impresso.html).toContain('Fichas a entregar');
+    expect(impresso.html).toContain('30.000');
+    // A mesa continua no papel junto com a compra.
+    expect(impresso.html).toContain('MESA 3 - ASSENTO 7');
+  });
+
+  it('venda sem assento (alocação manual) não imprime "MESA undefined"', async () => {
+    const impresso = espiaoDeImpressao();
+    render(
+      <SeatTicket
+        allocation={{ ...ALOCACAO, table_number: undefined, seat_number: undefined, sem_assento: true, ...COMPRA }}
+      />
+    );
+    expect(screen.queryByText(/Mesa .* Assento/)).toBeNull();
+    await userEvent.click(screen.getByRole('button'));
+    expect(impresso.html).not.toContain('undefined');
+    expect(impresso.html).not.toContain('Sua Mesa e Assento');
+    expect(impresso.html).toContain('30.000');
+  });
+
+  it('só add-on vira bilhete de FICHAS', async () => {
+    const impresso = espiaoDeImpressao();
+    render(<SeatTicket allocation={{ ...ALOCACAO, sem_assento: true, so_fichas: true, ...COMPRA }} />);
+    expect(screen.getByText('Bilhete de Fichas')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button'));
+    expect(impresso.html).toContain('BILHETE DE FICHAS');
+    expect(impresso.html).toContain('Entregue este bilhete ao floor');
+  });
+
+  it('em espanhol o total sai como "Fichas a entregar" e o número no formato de lá', async () => {
+    mockIdioma = 'es-ES';
+    const impresso = espiaoDeImpressao();
+    render(<SeatTicket allocation={{ ...ALOCACAO, ...COMPRA, total_chips: 130000 }} />);
+    await userEvent.click(screen.getByRole('button'));
+    expect(impresso.html).toContain('Fichas a entregar');
+    expect(impresso.html).toContain('130.000');
+  });
+
+  it('nome com "<" não quebra o HTML impresso', async () => {
+    const impresso = espiaoDeImpressao();
+    render(
+      <SeatTicket allocation={{ ...ALOCACAO, itens: [{ name: '<b>VIP</b>', amount: 1, chips: 1 }] }} />
+    );
+    await userEvent.click(screen.getByRole('button'));
+    expect(impresso.html).toContain('&lt;b&gt;VIP&lt;/b&gt;');
+    expect(impresso.html).not.toContain('<b>VIP</b>');
+  });
+});
