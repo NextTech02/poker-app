@@ -1274,7 +1274,9 @@ const Caixa = () => {
                             forma de pagamento o backend recusa com 400. */}
                         {!estaCancelada(transaction) && (
                           <>
-                            {(transaction.type === 'buy_in' || transaction.type === 'rebuy') && (
+                            {/* Add-on também reimprime: sai como bilhete de
+                                FICHAS, com a mesa atual (ver handleReprint). */}
+                            {['buy_in', 'rebuy', 'addon'].includes(transaction.type) && (
                               <button
                                 type="button"
                                 className="reprint-btn"

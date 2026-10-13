@@ -930,10 +930,25 @@ describe('reimpressão do bilhete', () => {
     expect(await screen.findByTestId('bilhete-alternado')).toHaveTextContent('true');
   });
 
-  it('só buy-in e rebuy podem ser reimpressos', async () => {
-    // Add-on não tem bilhete de assento para reimprimir.
+  it('buy-in, rebuy e add-on podem ser reimpressos', async () => {
+    // O add-on também tem papel: o bilhete de fichas que o floor leva à mesa.
     await montar();
-    expect(screen.getAllByRole('button', { name: /cashRegister.reprint/ }).length).toBe(2);
+    expect(screen.getAllByRole('button', { name: /cashRegister.reprint/ }).length).toBe(3);
+  });
+
+  it('add-on reimprime como bilhete de FICHAS, com a mesa atual do jogador', async () => {
+    // Papel perdido ou impressora falhou: a pilha extra ainda precisa chegar
+    // à cadeira certa.
+    await montar({
+      alocacoes: [{ id: 'a3', player_id: 'p3', seat_number: 2, tournament_tables: { table_number: 5 } }],
+    });
+    const linha = screen.getByText('Carla').closest('tr');
+    const reimprimir = Array.from(linha.querySelectorAll('button'))
+      .find((b) => /cashRegister\.reprint/.test(b.textContent));
+    await userEvent.click(reimprimir);
+    expect(await screen.findByTestId('bilhete-so-fichas')).toHaveTextContent('true');
+    expect(screen.getByTestId('bilhete-mesa')).toHaveTextContent('5');
+    expect(screen.getByTestId('bilhete-assento')).toHaveTextContent('2');
   });
 
   it('fechar o bilhete recarrega o extrato', async () => {
