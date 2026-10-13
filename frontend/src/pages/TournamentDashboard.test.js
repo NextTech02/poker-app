@@ -58,13 +58,16 @@ const INSCRITOS = [
     total_buy_in_amount: 99999, total_rebuy_amount: 0, total_addon_amount: 0 },
 ];
 
-const responder = ({ torneio = TORNEIO, dias = DIAS, inscritos = INSCRITOS } = {}) => {
+const responder = ({ torneio = TORNEIO, dias = DIAS, inscritos = INSCRITOS, transacoes = [] } = {}) => {
   api.get.mockImplementation((url) => {
     if (url === '/tournaments/t1') {
       return torneio instanceof Error ? Promise.reject(torneio) : Promise.resolve({ data: torneio });
     }
     if (url === '/tournament-days/tournament/t1') return Promise.resolve({ data: dias });
     if (url === '/tournament-players/tournament/t1') return Promise.resolve({ data: inscritos });
+    if (url === '/transactions/tournament/t1') {
+      return transacoes instanceof Error ? Promise.reject(transacoes) : Promise.resolve({ data: transacoes });
+    }
     return Promise.resolve({ data: [] });
   });
 };
@@ -174,5 +177,63 @@ describe('contagem de itens', () => {
   it('com um dia só, usa o singular', async () => {
     await montar({ dias: [DIAS[0]] });
     expect(screen.getByText(/tournamentItems:1,tournamentDashboard.day/)).toBeInTheDocument();
+  });
+});
+
+describe('itens por meio de entrada', () => {
+  // O clube quer ver "Entrada normal", "Addon" e "Bonus Dealer" cada um com
+  // a sua quantidade — não três linhas fixas por categoria.
+  const INSCRITOS_COM_ID = [
+    { id: 'tp1', player_id: 'p1', tournament_day_id: 'd1', buy_in_count: 1, total_buy_in_amount: 200 },
+    { id: 'tp9', player_id: 'p9', tournament_day_id: 'f1', buy_in_count: 1, total_buy_in_amount: 999 },
+  ];
+  let seq = 0;
+  const venda = (extra) => ({
+    id: `v${seq += 1}`, tournament_id: 't1', player_id: 'p1', tournament_player_id: 'tp1',
+    status: 'active', amount: 200, created_at: '2026-06-08T20:00:00Z', ...extra,
+  });
+  const VENDAS = [
+    venda({ type: 'buy_in', buy_type_id: 'b1', buy_type_name: 'Entrada normal' }),
+    venda({ type: 'buy_in', buy_type_id: 'b1', buy_type_name: 'Entrada normal' }),
+    venda({ type: 'addon', buy_type_id: 'b3', buy_type_name: 'Addon' }),
+    venda({ type: 'addon', buy_type_id: 'b3', buy_type_name: 'Addon' }),
+    venda({ type: 'addon', buy_type_id: 'b3', buy_type_name: 'Addon' }),
+    venda({ type: 'addon', buy_type_id: 'b5', buy_type_name: 'Bonus Dealer', amount: 20 }),
+    // Cancelada: saiu do caixa, não conta.
+    venda({ type: 'addon', buy_type_id: 'b3', buy_type_name: 'Addon', status: 'cancelled' }),
+    // Venda antiga, sem meio de entrada: entra pelo rótulo da categoria.
+    venda({ type: 'rebuy', buy_type_id: null, buy_type_name: null, amount: 100 }),
+    // Prêmio pago não é item vendido.
+    venda({ type: 'prize', amount: 5000 }),
+    // Entrada do dia FINAL: o jogador veio classificado, não comprou.
+    venda({ type: 'buy_in', buy_type_id: 'b1', buy_type_name: 'Entrada normal', tournament_player_id: 'tp9', player_id: 'p9', amount: 999 }),
+  ];
+  const celulas = (nome) => Array.from(screen.getByText(nome).closest('tr').querySelectorAll('td')).map((td) => td.textContent);
+
+  it('lista cada meio com o nome gravado na venda, a quantidade e o valor', async () => {
+    await montar({ inscritos: INSCRITOS_COM_ID, transacoes: VENDAS });
+    expect(celulas('Entrada normal').slice(0, 3)).toEqual(['Entrada normal', '2', 'R$ 400.00']);
+    expect(celulas('Addon').slice(0, 3)).toEqual(['Addon', '3', 'R$ 600.00']);
+    expect(celulas('Bonus Dealer').slice(0, 3)).toEqual(['Bonus Dealer', '1', 'R$ 20.00']);
+    expect(celulas('tournamentDashboard.rebuy').slice(0, 3)).toEqual(['tournamentDashboard.rebuy', '1', 'R$ 100.00']);
+    // Sem prêmio, sem cancelada, sem o dia final: 4 linhas.
+    expect(screen.getAllByTestId('linha-item')).toHaveLength(4);
+  });
+
+  it('ordena por categoria (entrada, recompra, add-on) e depois pelo nome', async () => {
+    await montar({ inscritos: INSCRITOS_COM_ID, transacoes: VENDAS });
+    const nomes = screen.getAllByTestId('linha-item').map((tr) => tr.querySelector('td').textContent);
+    expect(nomes).toEqual(['Entrada normal', 'tournamentDashboard.rebuy', 'Addon', 'Bonus Dealer']);
+  });
+
+  it('sem vendas carregadas, cai nas categorias dos inscritos, como antes', async () => {
+    await montar();
+    const nomes = screen.getAllByTestId('linha-item').map((tr) => tr.querySelector('td').textContent);
+    expect(nomes).toEqual(['tournamentDashboard.tournamentBuyIn', 'tournamentDashboard.rebuy', 'tournamentDashboard.addon']);
+  });
+
+  it('falha ao carregar as vendas não derruba a tabela', async () => {
+    await montar({ transacoes: new Error('500') });
+    expect(screen.getByText('tournamentDashboard.tournamentBuyIn')).toBeInTheDocument();
   });
 });

@@ -9,6 +9,9 @@ import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentDashboard.css';
 
+// Ordem das categorias na tabela de itens: entrada, recompra, add-on.
+const ORDEM_DA_CATEGORIA = { buy_in: 0, rebuy: 1, addon: 2 };
+
 const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   const { t } = useTranslation();
   const { id: paramId } = useParams();
@@ -21,6 +24,9 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   const [tournament, setTournament] = useState(null);
   const [days, setDays] = useState([]);
   const [allPlayers, setAllPlayers] = useState([]);
+  // Vendas do torneio, para a tabela de itens por MEIO de entrada. null =
+  // não carregou (a tabela cai no agrupamento por categoria).
+  const [transacoes, setTransacoes] = useState(null);
   const [loading, setLoading] = useState(true);
   const { formatCurrency } = useCurrency();
 
@@ -52,9 +58,23 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
     }
   };
 
+  // Vendas do torneio: é delas que sai a tabela de itens por MEIO de entrada
+  // (o nome gravado na venda: "Entrada normal", "Addon", "Bonus Dealer").
+  // Falhando, a tabela cai no agrupamento por categoria, que vem dos inscritos.
+  const loadTransacoes = async () => {
+    try {
+      const res = await api.get(`/transactions/tournament/${tournamentId}`);
+      setTransacoes(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Error loading transactions:', err);
+      setTransacoes(null);
+    }
+  };
+
   const refresh = () => {
     loadTournamentData();
     loadPlayers();
+    loadTransacoes();
   };
 
   useEffect(() => {
@@ -128,6 +148,55 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       averageRakePercentage,
     };
   }, [allPlayers, days]);
+
+  // Itens vendidos por MEIO de entrada — o nome gravado na venda, não a
+  // categoria fixa: o clube quer ver "Addon" e "Bonus Dealer" separados,
+  // cada um com a sua quantidade. Venda antiga, sem meio, entra pelo rótulo
+  // da categoria. Só vendas ativas e fora dos dias finais — a mesma regra da
+  // receita acima. null = sem vendas carregadas.
+  const itensVendidos = useMemo(() => {
+    if (!transacoes || transacoes.length === 0) return null;
+    const rotuloDaCategoria = {
+      buy_in: t('tournamentDashboard.tournamentBuyIn'),
+      rebuy: t('tournamentDashboard.rebuy'),
+      addon: t('tournamentDashboard.addon'),
+    };
+    const finalDayIds = new Set(days.filter(d => d.day_type === 'final').map(d => d.id));
+    const diaDoInscrito = new Map(allPlayers.map(p => [p.id, p.tournament_day_id]));
+    const grupos = new Map();
+    for (const venda of transacoes) {
+      if ((venda.status || 'active') !== 'active') continue;
+      if (!(venda.type in ORDEM_DA_CATEGORIA)) continue; // prêmio não é item vendido
+      if (finalDayIds.has(diaDoInscrito.get(venda.tournament_player_id))) continue;
+      const chave = venda.buy_type_id || `categoria:${venda.type}`;
+      const grupo = grupos.get(chave) || {
+        key: chave,
+        name: (venda.buy_type_name || '').trim() || rotuloDaCategoria[venda.type],
+        category: venda.type,
+        count: 0,
+        amount: 0,
+      };
+      grupo.count += 1;
+      grupo.amount += Number(venda.amount) || 0;
+      grupos.set(chave, grupo);
+    }
+    return [...grupos.values()].sort((a, b) => (
+      (ORDEM_DA_CATEGORIA[a.category] - ORDEM_DA_CATEGORIA[b.category])
+      || a.name.localeCompare(b.name)
+    ));
+  }, [transacoes, allPlayers, days, t]);
+
+  // Linhas da tabela de itens: por meio de entrada quando as vendas
+  // carregaram; senão, por categoria (dos inscritos), como era.
+  const linhasDeItens = itensVendidos || [
+    { key: 'buy_in', name: t('tournamentDashboard.tournamentBuyIn'), count: financials.totalBuyInsCount, amount: financials.totalBuyInsRevenue },
+    ...(financials.totalRebuysCount > 0
+      ? [{ key: 'rebuy', name: t('tournamentDashboard.rebuy'), count: financials.totalRebuysCount, amount: financials.totalRebuysRevenue }]
+      : []),
+    ...(financials.totalAddonsCount > 0
+      ? [{ key: 'addon', name: t('tournamentDashboard.addon'), count: financials.totalAddonsCount, amount: financials.totalAddonsRevenue }]
+      : []),
+  ];
 
   if (loading) {
     const content = <div className="loading">{t('common.loading')}</div>;
@@ -280,34 +349,16 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>{t('tournamentDashboard.tournamentBuyIn')}</td>
-                <td className="text-center">{financials.totalBuyInsCount}</td>
-                <td className="text-right">{formatCurrency(financials.totalBuyInsRevenue)}</td>
-                <td className="text-right">{formatCurrency(0)}</td>
-                <td className="text-right">{formatCurrency(financials.totalBuyInsRevenue)}</td>
-                <td className="text-right total-value">{formatCurrency(financials.totalBuyInsRevenue)}</td>
-              </tr>
-              {financials.totalRebuysCount > 0 && (
-                <tr>
-                  <td>{t('tournamentDashboard.rebuy')}</td>
-                  <td className="text-center">{financials.totalRebuysCount}</td>
-                  <td className="text-right">{formatCurrency(financials.totalRebuysRevenue)}</td>
+              {linhasDeItens.map((item) => (
+                <tr key={item.key} data-testid="linha-item">
+                  <td>{item.name}</td>
+                  <td className="text-center">{item.count}</td>
+                  <td className="text-right">{formatCurrency(item.amount)}</td>
                   <td className="text-right">{formatCurrency(0)}</td>
-                  <td className="text-right">{formatCurrency(financials.totalRebuysRevenue)}</td>
-                  <td className="text-right total-value">{formatCurrency(financials.totalRebuysRevenue)}</td>
+                  <td className="text-right">{formatCurrency(item.amount)}</td>
+                  <td className="text-right total-value">{formatCurrency(item.amount)}</td>
                 </tr>
-              )}
-              {financials.totalAddonsCount > 0 && (
-                <tr>
-                  <td>{t('tournamentDashboard.addon')}</td>
-                  <td className="text-center">{financials.totalAddonsCount}</td>
-                  <td className="text-right">{formatCurrency(financials.totalAddonsRevenue)}</td>
-                  <td className="text-right">{formatCurrency(0)}</td>
-                  <td className="text-right">{formatCurrency(financials.totalAddonsRevenue)}</td>
-                  <td className="text-right total-value">{formatCurrency(financials.totalAddonsRevenue)}</td>
-                </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
