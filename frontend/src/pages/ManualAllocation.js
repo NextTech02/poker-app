@@ -257,13 +257,16 @@ const ManualAllocation = () => {
   const renderSeat = (table, seatNumber) => {
     const allocation = getAllocationForSeat(table.id, seatNumber);
     const isOccupied = !!allocation;
+    // Assento desativado na Gestão de Mesas: aparece, mas não recebe ninguém.
+    const desativado = !isOccupied && (table.blocked_seats || []).includes(seatNumber);
+    const recebe = !isOccupied && !desativado;
 
     return (
       <div
         key={seatNumber}
-        className={`seat ${isOccupied ? 'occupied' : 'empty'} ${draggedPlayer ? 'drop-zone' : ''}`}
-        onDragOver={!isOccupied ? handleDragOver : undefined}
-        onDrop={!isOccupied ? (e) => handleDrop(e, table.id, seatNumber) : undefined}
+        className={`seat ${isOccupied ? 'occupied' : 'empty'} ${desativado ? 'blocked' : ''} ${draggedPlayer && recebe ? 'drop-zone' : ''}`}
+        onDragOver={recebe ? handleDragOver : undefined}
+        onDrop={recebe ? (e) => handleDrop(e, table.id, seatNumber) : undefined}
       >
         <div className="seat-number">{seatNumber}</div>
         {isOccupied ? (
@@ -289,7 +292,9 @@ const ManualAllocation = () => {
             </button>
           </div>
         ) : (
-          <div className="seat-empty-label">{t('manualAllocation.empty')}</div>
+          <div className="seat-empty-label">
+            {desativado ? t('tableManagement.seatDisabled') : t('manualAllocation.empty')}
+          </div>
         )}
       </div>
     );
@@ -310,7 +315,10 @@ const ManualAllocation = () => {
           <h3>{t('manualAllocation.tableTitle', { number: table.table_number })}</h3>
           <div className="table-header-actions">
             <span className="table-occupancy">
-              {t('manualAllocation.occupiedCount', { occupied: occupiedSeats, total: table.seats })}
+              {t('manualAllocation.occupiedCount', {
+                occupied: occupiedSeats,
+                total: table.seats - (table.blocked_seats || []).length,
+              })}
             </span>
             {canRemove && (
               <button

@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict
 from app.database import supabase
 from app.models.seat_allocation import SeatAllocation, SeatAllocationCreate, SeatAllocationUpdate, SeatAllocationWithDetails
+from app.utils.erros import ErroDeNegocio
 import random
 
 # Sorteio de lugar usa a entropia do sistema operacional (os.urandom), não o
@@ -10,6 +11,21 @@ import random
 # real). Com SystemRandom o sorteio não é reproduzível nem previsível, e o
 # custo é irrelevante — são poucas dezenas de sorteios por noite.
 _sorteio = random.SystemRandom()
+
+
+def _assentos_livres(mesa: dict, ocupados) -> List[int]:
+    """Onde dá para sentar alguém: existe na mesa, ninguém sentado e o floor
+    não desativou (cadeira quebrada, lugar encostado na parede)."""
+    bloqueados = set(mesa.get("blocked_seats") or [])
+    return [s for s in range(1, int(mesa["seats"]) + 1)
+            if s not in ocupados and s not in bloqueados]
+
+
+def _recusa_assento_desativado(seat_number: int) -> ErroDeNegocio:
+    return ErroDeNegocio(
+        "assento_indisponivel", "Este lugar está bloqueado.",
+        status=409, seat_number=seat_number,
+    )
 
 
 def liberar_assento_do_dia(tournament_id: str, player_id: str, day_id: Optional[str], cliente=None) -> int:
@@ -118,8 +134,8 @@ class AllocationService:
             current_count = table_counts[table_id]
             max_seats = table["seats"]
 
-            # Check if table has available seats
-            if current_count < max_seats:
+            # Check if table has available seats (desativados não contam)
+            if current_count < max_seats and _assentos_livres(table, occupied_seats[table_id]):
                 if current_count < min_players:
                     min_players = current_count
                     best_table = table
@@ -133,7 +149,7 @@ class AllocationService:
         taken_seats = occupied_seats[table_id]
 
         # Get random available seat
-        available_seats = [i for i in range(1, max_seats + 1) if i not in taken_seats]
+        available_seats = _assentos_livres(best_table, taken_seats)
         if not available_seats:
             raise ValueError("No available seats at selected table")
 
@@ -203,7 +219,10 @@ class AllocationService:
                 occupied_seats_map[a["table_id"]].add(a["seat_number"])
 
         # Select table and seat based on mode
-        tables_with_space = [t for t in tables if table_counts[t["id"]] < t["seats"]]
+        tables_with_space = [
+            t for t in tables
+            if table_counts[t["id"]] < t["seats"] and _assentos_livres(t, occupied_seats_map[t["id"]])
+        ]
         if not tables_with_space:
             raise ValueError("All tables are full")
 
@@ -216,7 +235,7 @@ class AllocationService:
 
         table_id = best_table["id"]
         taken = occupied_seats_map[table_id]
-        available = [i for i in range(1, best_table["seats"] + 1) if i not in taken]
+        available = _assentos_livres(best_table, taken)
 
         if mode == "random_balanced":
             seat_number = _sorteio.choice(available)
@@ -259,6 +278,8 @@ class AllocationService:
 
         if seat_number > table["seats"]:
             raise ValueError(f"Invalid seat number. Table only has {table['seats']} seats")
+        if seat_number in (table.get("blocked_seats") or []):
+            raise _recusa_assento_desativado(seat_number)
 
         # Check if player is already allocated in this tournament
         existing_allocation = supabase.table("seat_allocations").select("*").eq("tournament_id", tournament_id).eq("player_id", player_id).execute()
@@ -302,6 +323,8 @@ class AllocationService:
             raise ValueError("Table is full")
         if seat_number > table["seats"]:
             raise ValueError(f"Invalid seat number. Table only has {table['seats']} seats")
+        if seat_number in (table.get("blocked_seats") or []):
+            raise _recusa_assento_desativado(seat_number)
 
         # Check if player already allocated for this day
         existing_alloc = supabase.table("seat_allocations").select("*")\
@@ -400,7 +423,7 @@ class AllocationService:
                 t = tables[table_idx % len(tables)]
                 tid = t["id"]
                 if table_counts[tid] < t["seats"]:
-                    available = [s for s in range(1, t["seats"] + 1) if s not in occupied_seats_map[tid]]
+                    available = _assentos_livres(t, occupied_seats_map[tid])
                     if available:
                         seat = available[0]  # Sequential: first available seat
                         pending.append({
@@ -413,7 +436,7 @@ class AllocationService:
                         table_counts[tid] += 1
                         occupied_seats_map[tid].add(seat)
                         # Move to next table only when current is full
-                        if table_counts[tid] >= t["seats"]:
+                        if table_counts[tid] >= t["seats"] or not _assentos_livres(t, occupied_seats_map[tid]):
                             table_idx += 1
                         placed = True
                         continue
@@ -443,7 +466,7 @@ class AllocationService:
             for t in sorted_tables:
                 tid = t["id"]
                 if table_counts[tid] < t["seats"]:
-                    available = [s for s in range(1, t["seats"] + 1) if s not in occupied_seats_map[tid]]
+                    available = _assentos_livres(t, occupied_seats_map[tid])
                     if available:
                         seat = _sorteio.choice(available) if randomize_seat else available[0]
                         pending.append({
@@ -568,6 +591,11 @@ class AllocationService:
 
             if existing.data and existing.data[0]["id"] != allocation_id:
                 raise ValueError("Target seat is already occupied")
+
+            alvo = supabase.table("tournament_tables").select("blocked_seats") \
+                .eq("id", new_table_id).execute().data or []
+            if alvo and new_seat_number in (alvo[0].get("blocked_seats") or []):
+                raise _recusa_assento_desativado(new_seat_number)
 
         # Update allocation
         update_dict = update_data.model_dump(exclude_unset=True)

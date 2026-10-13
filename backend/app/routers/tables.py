@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List, Optional
-from app.models.table import TableCreate, TableUpdate, Table
+from app.models.table import SeatStatusUpdate, TableCreate, TableUpdate, Table
 from app.services.table_service import TableService
 from app.auth import get_current_user
 # Recusas com CODIGO para a tela traduzir (ver app/utils/erros.py).
@@ -179,6 +179,23 @@ def update_table(
     except ValueError as e:
         # Número repetido no dia chega aqui como ErroDeNegocio (409 com código).
         raise da_excecao(e, "atualizacao_de_mesa_recusada")
+    if not table:
+        raise nao_encontrado("mesa_nao_encontrada", "Table not found")
+    return table
+
+
+@router.patch("/{table_id}/seats/{seat_number}", response_model=Table)
+def set_seat_status(
+    table_id: str,
+    seat_number: int,
+    body: SeatStatusUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Ativa ou desativa um assento da mesa."""
+    try:
+        table = TableService.set_seat_active(table_id, seat_number, body.active)
+    except ValueError as e:
+        raise da_excecao(e, "alteracao_de_assento_recusada")
     if not table:
         raise nao_encontrado("mesa_nao_encontrada", "Table not found")
     return table

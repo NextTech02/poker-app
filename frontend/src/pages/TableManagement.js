@@ -22,6 +22,9 @@ const aoClicarNoFundo = (aoFechar) => (evento) => {
 
 // O interceptor de `config/api.js` já traduz a recusa com código e a deixa
 // em `userMessage`; sem ela, vale o que a API mandou (frase ou {code, message}).
+// Assentos que recebem jogador: os da mesa menos os desativados pelo floor.
+const assentosAtivos = (mesa) => mesa.seats - (mesa.blocked_seats || []).length;
+
 const motivoDoErro = (err) => {
   const detail = err?.response?.data?.detail;
   return err?.userMessage || (typeof detail === 'string' ? detail : detail?.message) || err?.message;
@@ -229,6 +232,20 @@ const TableManagement = () => {
     }
   };
 
+  // ── Ativar / desativar assento ────────────────────────────────────────────
+  // Cadeira quebrada, lugar encostado na parede: o assento sai de circulação
+  // sem mudar o tamanho da mesa. Ninguém é alocado nele (automático, em massa
+  // ou arrastando). Com alguém sentado a API recusa — o jogador precisa ser
+  // movido antes, e o botão nem aparece em assento ocupado.
+  const handleToggleSeat = async (table, seatNum, desativado) => {
+    try {
+      await api.patch(`/tables/${table.id}/seats/${seatNum}`, { active: desativado });
+      await loadData();
+    } catch (err) {
+      toast.error(t('tableManagement.errorToggleSeat', { detail: motivoDoErro(err) }));
+    }
+  };
+
   // ── Mudar o número da mesa ────────────────────────────────────────────────
   // O número identifica a mesa FÍSICA no salão. Quem está sentado continua
   // sentado (a alocação aponta para o id, não para o número); só o rótulo
@@ -340,7 +357,7 @@ const TableManagement = () => {
       }
       await loadData();
     } catch (err) {
-      toast.error(t('tableManagement.errorAllocate', { detail: err.response?.data?.detail || err.message }));
+      toast.error(t('tableManagement.errorAllocate', { detail: motivoDoErro(err) }));
     } finally {
       setDraggedPlayer(null);
     }
@@ -425,13 +442,21 @@ const TableManagement = () => {
     const allocation = getAllocationForSeat(table.id, seatNum);
     const occupied = !!allocation;
     const inactive = table.status !== 'active';
+    const desativado = !occupied && (table.blocked_seats || []).includes(seatNum);
+    const recebe = !occupied && !inactive && !desativado;
+    let rotuloVazio = t('tableManagement.seatEmpty');
+    if (inactive) rotuloVazio = '—';
+    else if (desativado) rotuloVazio = t('tableManagement.seatDisabled');
+    const rotuloDoBotao = desativado
+      ? t('tableManagement.enableSeat', { number: seatNum })
+      : t('tableManagement.disableSeat', { number: seatNum });
 
     return (
       <div
         key={seatNum}
-        className={`tm-seat ${occupied ? 'occupied' : 'empty'} ${inactive ? 'inactive' : ''} ${draggedPlayer && !occupied && !inactive ? 'droppable' : ''}`}
-        onDragOver={!occupied && !inactive ? handleDragOver : undefined}
-        onDrop={!occupied && !inactive ? (e) => handleDropToSeat(e, table.id, seatNum) : undefined}
+        className={`tm-seat ${occupied ? 'occupied' : 'empty'} ${inactive ? 'inactive' : ''} ${desativado ? 'blocked' : ''} ${draggedPlayer && recebe ? 'droppable' : ''}`}
+        onDragOver={recebe ? handleDragOver : undefined}
+        onDrop={recebe ? (e) => handleDropToSeat(e, table.id, seatNum) : undefined}
       >
         <span className="tm-seat-num">{seatNum}</span>
         {occupied ? (
@@ -457,7 +482,19 @@ const TableManagement = () => {
             )}
           </div>
         ) : (
-          <span className="tm-seat-empty">{inactive ? '—' : t('tableManagement.seatEmpty')}</span>
+          <>
+            <span className="tm-seat-empty">{rotuloVazio}</span>
+            {!inactive && (
+              <button
+                type="button"
+                className={`tm-seat-toggle ${desativado ? 'is-off' : ''}`}
+                title={rotuloDoBotao}
+                aria-label={rotuloDoBotao}
+                aria-pressed={desativado}
+                onClick={() => handleToggleSeat(table, seatNum, desativado)}
+              >{desativado ? '✓' : '⊘'}</button>
+            )}
+          </>
         )}
       </div>
     );
@@ -502,7 +539,7 @@ const TableManagement = () => {
             {isInactive && <span className="tm-badge-closed">{table.status === 'closed' ? t('tableManagement.badgeClosed') : t('tableManagement.badgeBroken')}</span>}
           </div>
           <div className="tm-table-meta">
-            <span className="tm-occupancy">{occupied}/{table.seats}</span>
+            <span className="tm-occupancy">{occupied}/{assentosAtivos(table)}</span>
             <button
               type="button"
               className={`tm-btn-icon ${isInactive ? 'btn-green' : 'btn-orange'}`}
@@ -536,7 +573,7 @@ const TableManagement = () => {
     );
   }
 
-  const totalSeats = tables.filter(t => t.status === 'active').reduce((s, t) => s + t.seats, 0);
+  const totalSeats = tables.filter(t => t.status === 'active').reduce((s, t) => s + assentosAtivos(t), 0);
   const totalOccupied = allocations.length;
 
   return (

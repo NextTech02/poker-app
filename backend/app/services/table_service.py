@@ -125,6 +125,14 @@ class TableService:
         """Update table information (number, seats, status)"""
         data = update_data.model_dump(exclude_unset=True)
 
+        # Mesa que encolhe leva junto os assentos desativados que deixaram de
+        # existir: um "assento 9 desativado" numa mesa de 8 contaria contra a
+        # capacidade dela sem aparecer na tela.
+        if data.get("seats") is not None:
+            atual = TableService.get_table(table_id)
+            if atual and any(s > data["seats"] for s in atual.blocked_seats):
+                data["blocked_seats"] = [s for s in atual.blocked_seats if s <= data["seats"]]
+
         try:
             response = supabase.table("tournament_tables").update(data).eq("id", table_id).execute()
         except Exception as exc:
@@ -135,6 +143,44 @@ class TableService:
         if response.data:
             return Table(**response.data[0])
         return None
+
+    @staticmethod
+    def set_seat_active(table_id: str, seat_number: int, active: bool) -> Optional[Table]:
+        """Liga ou desliga um assento. None = mesa inexistente.
+
+        Desligar um assento com alguém sentado é recusado: o jogador ficaria
+        numa cadeira que o sistema diz não existir. O operador move o
+        jogador antes. Repetir o mesmo comando não muda nada (idempotente).
+        """
+        mesa = TableService.get_table(table_id)
+        if not mesa:
+            return None
+        if seat_number < 1 or seat_number > mesa.seats:
+            raise ErroDeNegocio(
+                "assento_invalido", "Este lugar não existe nesta mesa.",
+                status=400, seat_number=seat_number, seats=mesa.seats,
+            )
+
+        bloqueados = set(mesa.blocked_seats)
+        if active:
+            bloqueados.discard(seat_number)
+        else:
+            sentado = supabase.table("seat_allocations").select("id") \
+                .eq("table_id", table_id).eq("seat_number", seat_number) \
+                .limit(1).execute()
+            if sentado.data:
+                raise ErroDeNegocio(
+                    "assento_ocupado", "Este lugar já está ocupado.",
+                    status=409, seat_number=seat_number,
+                )
+            bloqueados.add(seat_number)
+
+        novos = sorted(bloqueados)
+        if novos == sorted(mesa.blocked_seats):
+            return mesa
+        response = supabase.table("tournament_tables") \
+            .update({"blocked_seats": novos}).eq("id", table_id).execute()
+        return Table(**response.data[0]) if response.data else None
 
     @staticmethod
     def delete_table(table_id: str) -> bool:
@@ -162,7 +208,7 @@ class TableService:
 
         total_tables = len(tables)
         active_tables = len([t for t in tables if t.status == "active"])
-        total_seats = sum(t.seats for t in tables)
+        total_seats = sum(t.seats - len(t.blocked_seats) for t in tables)
         occupied_seats = sum(t.occupied_seats for t in tables)
 
         return {
@@ -180,7 +226,7 @@ class TableService:
 
         total_tables = len(tables)
         active_tables = len([t for t in tables if t.status == "active"])
-        total_seats = sum(t.seats for t in tables if t.status == "active")
+        total_seats = sum(t.seats - len(t.blocked_seats) for t in tables if t.status == "active")
         occupied_seats = sum(t.occupied_seats for t in tables if t.status == "active")
 
         return {

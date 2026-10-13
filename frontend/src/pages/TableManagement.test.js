@@ -811,3 +811,72 @@ describe('número da mesa', () => {
     expect(within(segunda).getByRole('spinbutton')).toBeInTheDocument();
   });
 });
+
+describe('ativar e desativar assento', () => {
+  // Cadeira quebrada, lugar encostado na parede: o assento sai de circulação
+  // sem mudar o tamanho da mesa, e ninguém é alocado nele.
+  const MESA_1_SEM_O_2 = { ...MESAS[0], blocked_seats: [2] };
+  const botao = (mesa, nome) => within(mesa).queryByRole('button', { name: nome });
+
+  it('desativar um assento vazio manda o comando e recarrega', async () => {
+    await montar();
+    const chamadasAntes = api.get.mock.calls.length;
+    await userEvent.click(botao(mesaDoNumero(2), 'tableManagement.disableSeat:1'));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/tables/m2/seats/1', { active: false }));
+    await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(chamadasAntes));
+  });
+
+  it('assento desativado aparece riscado e oferece reativar', async () => {
+    await montar({ mesas: [MESA_1_SEM_O_2, MESAS[1]] });
+    const assento = assentos(mesaDoNumero(1))[1];
+    expect(assento).toHaveClass('blocked');
+    expect(assento).toHaveTextContent('tableManagement.seatDisabled');
+    await userEvent.click(botao(mesaDoNumero(1), 'tableManagement.enableSeat:2'));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/tables/m1/seats/2', { active: true }));
+  });
+
+  it('assento desativado não recebe jogador arrastado', async () => {
+    await montar({ mesas: [MESA_1_SEM_O_2, MESAS[1]] });
+    await arrastarParaAssento('Beto', mesaDoNumero(1), 1);
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it('assento ocupado não oferece desativar', async () => {
+    // O jogador ficaria numa cadeira que o sistema diz não existir.
+    await montar();
+    expect(botao(mesaDoNumero(1), 'tableManagement.disableSeat:1')).toBeNull();
+    expect(botao(mesaDoNumero(1), 'tableManagement.disableSeat:2')).not.toBeNull();
+  });
+
+  it('mesa fechada não oferece desativar assento', async () => {
+    await montar({ mesas: [MESAS[0], { ...MESAS[1], status: 'closed' }] });
+    expect(within(mesaDoNumero(2)).queryAllByRole('button', { name: /disableSeat/ })).toEqual([]);
+  });
+
+  it('ocupação da mesa e do dia contam só os assentos ativos', async () => {
+    // Mesa 1: 3 lugares, 1 desativado, 1 ocupado → 1/2. Dia: 2 + 3 = 5.
+    await montar({ mesas: [MESA_1_SEM_O_2, MESAS[1]] });
+    expect(within(mesaDoNumero(1)).getByText('1/2')).toBeInTheDocument();
+    expect(document.querySelector('.tm-subtitle')).toHaveTextContent('Dia 1A,1,5');
+  });
+
+  it('recusa da API mostra o motivo', async () => {
+    api.patch.mockRejectedValue(erroHttp('Este lugar já está ocupado.'));
+    await montar();
+    await userEvent.click(botao(mesaDoNumero(2), 'tableManagement.disableSeat:3'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('tableManagement.errorToggleSeat:Este lugar já está ocupado.')
+    );
+  });
+
+  it('recusa com código usa a frase já traduzida pelo interceptor', async () => {
+    const erro = erroHttp({ code: 'assento_ocupado', message: 'Este lugar já está ocupado.' });
+    erro.userMessage = 'Este puesto ya está ocupado.';
+    api.patch.mockRejectedValue(erro);
+    await montar();
+    await userEvent.click(botao(mesaDoNumero(2), 'tableManagement.disableSeat:3'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('tableManagement.errorToggleSeat:Este puesto ya está ocupado.')
+    );
+  });
+});

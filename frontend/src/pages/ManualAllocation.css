@@ -189,6 +189,13 @@
   transform: scale(1.05);
 }
 
+/* Assento desativado na Gestão de Mesas: visível, mas fora de uso. */
+.seat.blocked {
+  opacity: 0.45;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
 .seat.occupied {
   background: linear-gradient(135deg, rgba(91, 91, 232, 0.2) 0%, rgba(91, 91, 232, 0.05) 100%);
   border-color: var(--gold-accent);
