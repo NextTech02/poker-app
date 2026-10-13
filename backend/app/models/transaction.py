@@ -47,6 +47,12 @@ class Transaction(TransactionBase):
     # O extrato do Caixa precisa deles para mostrar o TIPO vendido e para
     # decidir se a venda pode ser cancelada (crédito/ticket não pode).
     buy_type_id: Optional[str] = None
+    # Nome do meio de entrada e fichas CONGELADOS na venda. As duas colunas já
+    # existiam na tabela, mas sumiam aqui: o extrato caía no rótulo genérico da
+    # categoria e a reimpressão do bilhete não tinha como dizer quantas fichas
+    # o jogador comprou — que é o que o floor confere antes de entregar a pilha.
+    buy_type_name: Optional[str] = None
+    chips: Optional[int] = None
     rake_percentage: Optional[float] = None
     rake_amount: Optional[float] = None
     payment_source: Optional[str] = None

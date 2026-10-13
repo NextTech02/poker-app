@@ -79,6 +79,15 @@ jest.mock('../components/SeatTicket', () => ({ allocation, onPrint }) => (
     <span data-testid="bilhete-mesa">{allocation.table_number ?? '-'}</span>
     <span data-testid="bilhete-assento">{allocation.seat_number ?? '-'}</span>
     <span data-testid="bilhete-alternado">{String(!!allocation.is_alternate)}</span>
+    <span data-testid="bilhete-sem-assento">{String(!!allocation.sem_assento)}</span>
+    <span data-testid="bilhete-so-fichas">{String(!!allocation.so_fichas)}</span>
+    <ul data-testid="bilhete-itens">
+      {(allocation.itens || []).map((item) => (
+        <li key={item.name}>{item.name}|{item.amount}|{item.chips}</li>
+      ))}
+    </ul>
+    <span data-testid="bilhete-total-valor">{allocation.total_amount ?? '-'}</span>
+    <span data-testid="bilhete-total-fichas">{allocation.total_chips ?? '-'}</span>
     <button onClick={onPrint}>imprimir</button>
   </div>
 ));
@@ -225,12 +234,24 @@ const escolherDia = async (dia) => {
   if (seletor) await userEvent.selectOptions(seletor, dia);
 };
 
-/** Preenche torneio → dia → jogador → meio de entrada, a ordem real de uso. */
+/** A caixa de marcar de um meio de entrada (pelo id, que é o valor dela). */
+const caixaDoMeio = (id) => document.querySelector(`input[name="buy_type_ids"][value="${id}"]`);
+
+/** Marca um meio de entrada na lista da venda. */
+const marcarMeio = async (id) => {
+  await userEvent.click(caixaDoMeio(id));
+};
+
+/** Preenche torneio → dia → jogador → meio(s) de entrada, a ordem real de uso.
+ *  `tipo` aceita um id ou uma lista (venda composta: entrada + extras). */
 const preencher = async ({ dia = 'd1', jogador = 'p1', tipo = 'b1' } = {}) => {
   await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
   if (dia) await escolherDia(dia);
   if (jogador) await userEvent.selectOptions(screen.getByLabelText('jogador'), jogador);
-  if (tipo) await userEvent.selectOptions(screen.getByLabelText('Meio de entrada'), tipo);
+  for (const id of [].concat(tipo || [])) {
+    // eslint-disable-next-line no-await-in-loop -- marca na ordem de uso
+    await marcarMeio(id);
+  }
 };
 
 /** Sem meios de entrada cadastrados, o campo é "Categoria". */
@@ -515,9 +536,14 @@ describe('valor cobrado', () => {
   });
 
   it('sem dia nenhum, o valor vem do torneio', async () => {
+    // O total só existe com algo escolhido: sem entrada marcada a tela mostra
+    // zero, e não um preço que ninguém está cobrando.
+    useBuyTypes.mockReturnValue({ activeBuyTypes: [], tournamentId: 't1', tiposCarregados: true, selectTournament });
     await montar({ dias: [] });
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+    await userEvent.selectOptions(screen.getByLabelText('Categoria'), 'buy_in');
     await waitFor(() => expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(500));
   });
 });
@@ -786,12 +812,17 @@ describe('add-on', () => {
     expect(chamada('/addon')[0].url).toBe('/tournament-players/tp1/addon');
   });
 
-  it('add-on não abre bilhete: o jogador já está sentado', async () => {
+  it('add-on abre um bilhete de FICHAS, sem assento: o jogador já está sentado', async () => {
+    // Não há mesa a mostrar, mas o floor precisa saber quantas fichas entregar.
     await montar();
     await comoAddon();
     await enviar();
-    await waitFor(() => expect(chamada('/addon')).toBeTruthy());
-    expect(screen.queryByTestId('bilhete')).toBeNull();
+    expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
+    expect(screen.getByTestId('bilhete-so-fichas')).toHaveTextContent('true');
+    expect(screen.getByTestId('bilhete-sem-assento')).toHaveTextContent('true');
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('15000');
+    // Só add-on não pede assento ao servidor.
+    expect(api.post).not.toHaveBeenCalledWith(expect.stringContaining('/allocations/'));
   });
 
   it('jogador não registrado é recusado', async () => {
@@ -924,10 +955,9 @@ describe('meios de entrada', () => {
     // não homologada de que o clube reclamou.
     await montar();
     await abrirModal();
-    const select = screen.getByLabelText('Meio de entrada');
-    const opcoes = Array.from(select.querySelectorAll('option'));
-    expect(opcoes.filter((o) => !o.disabled).map((o) => o.value)).toEqual(['b1', 'b2', 'b3', 'b4']);
-    expect(opcoes[0].disabled).toBe(true);
+    const caixas = Array.from(document.querySelectorAll('input[name="buy_type_ids"]'));
+    expect(caixas.map((c) => c.value)).toEqual(['b1', 'b2', 'b3', 'b4']);
+    expect(caixas.every((c) => !c.checked)).toBe(true);
   });
 
   it('o meio de entrada escolhido define a categoria da transação', async () => {
@@ -991,7 +1021,7 @@ describe('meios de entrada', () => {
     await abrirModal();
     await preencher({ tipo: 'b2' });
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.day'), 'd1b');
-    expect(screen.getByLabelText('Meio de entrada')).toHaveValue('b2');
+    expect(caixaDoMeio('b2')).toBeChecked();
     expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
   });
 
@@ -1002,7 +1032,7 @@ describe('meios de entrada', () => {
     await abrirModal();
     await preencher({ tipo: 'b2' });
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't2');
-    expect(screen.getByLabelText('Meio de entrada')).toHaveValue('');
+    expect(caixaDoMeio('b2')).not.toBeChecked();
   });
 
   it('o recibo mostra o nome do meio de entrada vendido', async () => {
@@ -1014,7 +1044,7 @@ describe('meios de entrada', () => {
     await preencher({ tipo: 'b1' });
     await enviar();
     expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
-    expect(screen.getByText('Entrada normal')).toBeInTheDocument();
+    expect(within(screen.getByTestId('bilhete-itens')).getByText(/Entrada normal/)).toBeInTheDocument();
   });
 
   it('o meio de entrada vai junto na transação, porque ele carrega o rake', async () => {
@@ -1854,5 +1884,183 @@ describe('reentrada traz de volta um eliminado', () => {
     await abrirModal();
     await preencher({ tipo: 'b3' });
     expect(screen.queryByText('cashRegister.reentryNoEliminatedBulk')).toBeNull();
+  });
+});
+
+
+/**
+ * Venda COMPOSTA: o jogador leva mais de um meio de entrada na mesma ida ao
+ * caixa (ex.: entrada + bono dealer). A tela soma valor e fichas, cada item
+ * vira a sua transação (relatórios e estorno continuam contando linhas), e sai
+ * UM bilhete com a lista e o total de fichas — que é o que o floor entrega.
+ */
+describe('venda com vários meios de entrada', () => {
+  const BONO = {
+    id: 'b5', name: 'Bono Dealer', category: 'addon', amount: 20, rake_percentage: 100, chips: 10000, active: true,
+  };
+  const ENTRADA = {
+    id: 'b6', name: 'Entrada', category: 'buy_in', amount: 200, rake_percentage: 10, chips: 20000, active: true,
+  };
+  const comBono = () => useBuyTypes.mockReturnValue({
+    activeBuyTypes: [...TIPOS, ENTRADA, BONO], tournamentId: 't1', tiposCarregados: true, selectTournament,
+  });
+
+  it('soma o valor e as fichas de tudo o que foi marcado', async () => {
+    comBono();
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(220);
+    expect(screen.getByLabelText('Fichas a entregar')).toHaveValue('30.000');
+  });
+
+  it('só cabe UMA entrada por venda: marcar outra troca a anterior', async () => {
+    // Inscrição e reentrada não andam juntas — a reentrada exige o jogador
+    // eliminado, e ninguém se inscreve duas vezes no mesmo dia.
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b1', 'b3'] });
+    await marcarMeio('b2');
+    expect(caixaDoMeio('b1')).not.toBeChecked();
+    expect(caixaDoMeio('b2')).toBeChecked();
+    expect(caixaDoMeio('b3')).toBeChecked();
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(1000);
+  });
+
+  it('desmarcar tira o item da soma', async () => {
+    comBono();
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await marcarMeio('b5');
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(200);
+  });
+
+  it('entrada + bono: inscreve primeiro e soma o bono na pilha do MESMO jogador', async () => {
+    comBono();
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b5', 'b6'] }); // ordem de clique não importa
+    await enviar();
+    await waitFor(() => expect(chamada('/addon')).toBeTruthy());
+    const urls = offlineWrite.mock.calls.map((c) => c[0].url);
+    expect(urls).toEqual(['/tournament-players', '/tournament-players/tp1/addon']);
+    expect(chamada('/tournament-players')[0].body.buy_type_id).toBe('b6');
+    expect(chamada('/addon')[0].body.buy_type_id).toBe('b5');
+    // Cada item com a sua chave de idempotência: o replay offline não pode
+    // confundir o bono com a entrada.
+    expect(chamada('/addon')[0].clientMutationId).not.toBe(chamada('/tournament-players')[0].clientMutationId);
+  });
+
+  it('sai UM bilhete com cada item e o total de fichas', async () => {
+    comBono();
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await enviar();
+    expect(await screen.findAllByTestId('bilhete')).toHaveLength(1);
+    const itens = within(screen.getByTestId('bilhete-itens')).getAllByRole('listitem');
+    expect(itens.map((li) => li.textContent)).toEqual(['Entrada|200|20000', 'Bono Dealer|20|10000']);
+    expect(screen.getByTestId('bilhete-total-valor')).toHaveTextContent('220');
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30000');
+  });
+
+  it('com assento automático, o bilhete traz a mesa E a compra', async () => {
+    comBono();
+    api.post.mockResolvedValue({ data: { player_name: 'Ana', table_number: 4, seat_number: 2 } });
+    await montar({ dias: [DIA_AUTO] });
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await enviar();
+    expect(await screen.findByTestId('bilhete-mesa')).toHaveTextContent('4');
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30000');
+    // Um assento só, para uma venda só.
+    expect(api.post.mock.calls.filter((c) => c[0].includes('/allocations/'))).toHaveLength(1);
+  });
+
+  it('reentrada + add-on: procura o inscrito do dia e lança os dois nele', async () => {
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b2', 'b3'] });
+    await enviar();
+    await waitFor(() => expect(chamada('/addon')).toBeTruthy());
+    expect(chamada('/rebuy')[0].url).toBe('/tournament-players/tp1/rebuy');
+    expect(chamada('/addon')[0].url).toBe('/tournament-players/tp1/addon');
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('45000');
+  });
+
+  it('extra recusado com a entrada já gravada: avisa o que faltou e o bilhete sai só com o que entrou', async () => {
+    comBono();
+    offlineWrite.mockImplementation(async (o) => {
+      if (o.url.includes('/addon')) {
+        const erro = new Error('recusado');
+        erro.response = { data: { detail: 'Caixa fechado' } };
+        throw erro;
+      }
+      return { offline: false, data: { id: 'tp1' } };
+    });
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await enviar();
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(toast.error.mock.calls[0][0]).toContain('Bono Dealer (Caixa fechado)');
+    const itens = within(await screen.findByTestId('bilhete-itens')).getAllByRole('listitem');
+    expect(itens.map((li) => li.textContent)).toEqual(['Entrada|200|20000']);
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('20000');
+  });
+
+  it('venda só de add-ons recusada não abre bilhete nenhum', async () => {
+    offlineWrite.mockRejectedValue(Object.assign(new Error('x'), { response: { data: { detail: 'Fora do nível' } } }));
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b3'] });
+    await enviar();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Fora do nível'));
+    expect(screen.queryByTestId('bilhete')).toBeNull();
+  });
+
+  it('offline, entrada + bono vão os dois para a fila, apontando para o mesmo jogador', async () => {
+    comBono();
+    offlineWrite.mockImplementation(async (o) => ({ offline: true, data: o.synthetic }));
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await enviar();
+    await waitFor(() => expect(chamada('/addon')).toBeTruthy());
+    const idDoJogador = chamada('/tournament-players')[0].body.client_id;
+    expect(chamada('/addon')[0].body.tournament_player_id).toBe(idDoJogador);
+    expect(await screen.findByTestId('bilhete-alternado')).toHaveTextContent('true');
+    // Um aviso de "salvo offline", não um por item.
+    expect(toast.success).toHaveBeenCalledTimes(1);
+  });
+
+  it('alocação manual também imprime o bilhete com as fichas, sem assento', async () => {
+    comBono();
+    await montar(); // dia padrão: alocação manual
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await enviar();
+    expect(await screen.findByTestId('bilhete-sem-assento')).toHaveTextContent('true');
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30000');
+  });
+
+  it('a reimpressão traz a venda inteira: a entrada e o bono lançados juntos', async () => {
+    const linha = (x) => ({
+      tournament_id: 't1', player_id: 'p1', tournament_player_id: 'tp1', player_name: 'Ana',
+      tournament_name: 'Main Event', created_by: 'u1', status: 'active', ...x,
+    });
+    await montar({
+      transacoes: [
+        linha({ id: 'v2', type: 'addon', amount: 20, chips: 10000, buy_type_name: 'Bono Dealer', created_at: '2026-06-08T20:00:20Z' }),
+        linha({ id: 'v1', type: 'buy_in', amount: 200, chips: 20000, buy_type_name: 'Entrada', created_at: '2026-06-08T20:00:05Z' }),
+        // Add-on de horas depois é outra ida ao caixa: fica fora.
+        linha({ id: 'v3', type: 'addon', amount: 400, chips: 15000, buy_type_name: 'Add-on padrão', created_at: '2026-06-08T23:00:00Z' }),
+      ],
+    });
+    await userEvent.click(screen.getAllByRole('button', { name: /cashRegister.reprint/ })[0]);
+    const itens = within(await screen.findByTestId('bilhete-itens')).getAllByRole('listitem');
+    expect(itens.map((li) => li.textContent)).toEqual(['Entrada|200|20000', 'Bono Dealer|20|10000']);
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30000');
   });
 });

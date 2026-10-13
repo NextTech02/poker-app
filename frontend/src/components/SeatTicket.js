@@ -4,6 +4,13 @@ import './SeatTicket.css';
 
 const LANGS = {
   pt: {
+    header_chips: 'BILHETE DE FICHAS',
+    preview_header_chips: 'Bilhete de Fichas',
+    label_purchase: 'Compra',
+    label_total: 'TOTAL',
+    label_chips_to_deliver: 'Fichas a entregar',
+    chips_unit: 'fichas',
+    footer_chips: 'Entregue este bilhete ao floor<br>para receber as fichas.',
     header_entry: 'BILHETE DE ENTRADA',
     header_alternate: 'BILHETE DE ALTERNATE',
     label_tournament: 'Torneio',
@@ -29,6 +36,13 @@ const LANGS = {
     alternate_waiting: 'Aguardando alocação de mesa',
   },
   es: {
+    header_chips: 'BOLETO DE FICHAS',
+    preview_header_chips: 'Boleto de Fichas',
+    label_purchase: 'Compra',
+    label_total: 'TOTAL',
+    label_chips_to_deliver: 'Fichas a entregar',
+    chips_unit: 'fichas',
+    footer_chips: 'Entregue este boleto al floor<br>para recibir sus fichas.',
     header_entry: 'BOLETO DE ENTRADA',
     header_alternate: 'BOLETO DE ALTERNATE',
     label_tournament: 'Torneo',
@@ -54,6 +68,13 @@ const LANGS = {
     alternate_waiting: 'Esperando asignación de mesa',
   },
   en: {
+    header_chips: 'CHIPS TICKET',
+    preview_header_chips: 'Chips Ticket',
+    label_purchase: 'Purchase',
+    label_total: 'TOTAL',
+    label_chips_to_deliver: 'Chips to deliver',
+    chips_unit: 'chips',
+    footer_chips: 'Hand this ticket to the floor<br>to receive your chips.',
     header_entry: 'ENTRY TICKET',
     header_alternate: 'ALTERNATE TICKET',
     label_tournament: 'Tournament',
@@ -80,16 +101,58 @@ const LANGS = {
   },
 };
 
-const SeatTicket = ({ allocation, onPrint }) => {
+// O que vai para o HTML da impressão é texto configurado pelo clube (nome do
+// meio de entrada, do jogador). Escapado, um "<" num nome não quebra o bilhete.
+const escapar = (texto) => String(texto ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+const valorPadrao = (v) => Number(v || 0).toFixed(2);
+
+/**
+ * `allocation.itens` (opcional): o que o jogador comprou NESTA ida ao caixa —
+ * `[{ name, amount, chips }]`, com `total_amount` e `total_chips`. Com itens, o
+ * bilhete lista cada um e traz o TOTAL DE FICHAS em destaque: é o número que o
+ * floor confere para entregar a pilha, sem somar de cabeça.
+ *
+ * `allocation.sem_assento`: venda sem assento a mostrar (alocação manual ou só
+ * add-on). O bloco de mesa sai do papel em vez de imprimir "MESA undefined".
+ * `allocation.so_fichas`: venda só de add-ons — o título vira "bilhete de fichas".
+ */
+const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
   const isAlternate = !!allocation.is_alternate;
+  const semAssento = !isAlternate && !!allocation.sem_assento;
+  const soFichas = !!allocation.so_fichas;
+  const itens = Array.isArray(allocation.itens) ? allocation.itens : [];
+  const temItens = itens.length > 0;
   const { i18n } = useTranslation();
   // Map i18next locale ('pt-BR', 'en-US', 'es-ES') to LANGS key
   const langCode = i18n.language?.startsWith('en') ? 'en' : i18n.language?.startsWith('es') ? 'es' : 'pt';
   const t = LANGS[langCode] || LANGS.pt;
+  const locale = langCode === 'en' ? 'en-US' : langCode === 'es' ? 'es-ES' : 'pt-BR';
+  const formatarFichas = (n) => Number(n || 0).toLocaleString(locale);
+  const totalFichas = allocation.total_chips
+    ?? itens.reduce((soma, item) => soma + (Number(item.chips) || 0), 0);
+  const totalValor = allocation.total_amount
+    ?? itens.reduce((soma, item) => soma + (Number(item.amount) || 0), 0);
+
+  let cabecalho = t.header_entry;
+  let cabecalhoPrevia = t.preview_header_entry;
+  if (isAlternate) {
+    cabecalho = t.header_alternate;
+    cabecalhoPrevia = t.preview_header_alternate;
+  } else if (soFichas) {
+    cabecalho = t.header_chips;
+    cabecalhoPrevia = t.preview_header_chips;
+  }
+  let rodape = t.footer_entry;
+  if (isAlternate) rodape = t.footer_alternate;
+  else if (soFichas) rodape = t.footer_chips;
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    const locale = langCode === 'en' ? 'en-US' : langCode === 'es' ? 'es-ES' : 'pt-BR';
     return date.toLocaleDateString(locale, {
       day: '2-digit',
       month: '2-digit',
@@ -102,7 +165,30 @@ const SeatTicket = ({ allocation, onPrint }) => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
 
-    const seatBlock = isAlternate
+    const purchaseBlock = temItens
+      ? `<div class="ticket-section">
+           <div class="ticket-label">${t.label_purchase}</div>
+           <table class="ticket-items">
+             ${itens.map((item) => `<tr>
+               <td class="item-name">${escapar(item.name)}</td>
+               <td class="item-amount">${escapar(formatarValor(item.amount))}</td>
+               <td class="item-chips">${formatarFichas(item.chips)}</td>
+             </tr>`).join('')}
+             <tr class="item-total">
+               <td class="item-name">${t.label_total}</td>
+               <td class="item-amount">${escapar(formatarValor(totalValor))}</td>
+               <td class="item-chips">${formatarFichas(totalFichas)}</td>
+             </tr>
+           </table>
+         </div>
+         <div class="ticket-highlight chips-highlight">
+           <div class="ticket-label">${t.label_chips_to_deliver}</div>
+           <div class="ticket-chips-total">${formatarFichas(totalFichas)}</div>
+           <div class="ticket-label">${t.chips_unit}</div>
+         </div>`
+      : '';
+
+    let seatBlock = isAlternate
       ? `<div class="ticket-highlight alternate-highlight">
            <div class="ticket-label">${t.label_status}</div>
            <div class="ticket-table-seat alternate-text">${t.alternate_text}</div>
@@ -114,18 +200,19 @@ const SeatTicket = ({ allocation, onPrint }) => {
              ${t.seat_display(allocation.table_number, allocation.seat_number)}
            </div>
          </div>`;
+    if (semAssento) seatBlock = '';
 
     const tournamentRow = allocation.tournament_name
       ? `<div class="ticket-section">
            <div class="ticket-label">${t.label_tournament}</div>
-           <div class="ticket-value">${allocation.tournament_name}</div>
+           <div class="ticket-value">${escapar(allocation.tournament_name)}</div>
          </div>`
       : '';
 
     const dayRow = allocation.day_name
       ? `<div class="ticket-section">
            <div class="ticket-label">${t.label_day}</div>
-           <div class="ticket-value">${allocation.day_name}</div>
+           <div class="ticket-value">${escapar(allocation.day_name)}</div>
          </div>`
       : '';
 
@@ -133,7 +220,7 @@ const SeatTicket = ({ allocation, onPrint }) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${t.header_entry} - ${allocation.player_name}</title>
+          <title>${cabecalho} - ${escapar(allocation.player_name)}</title>
           <style>
             @media print {
               @page {
@@ -201,6 +288,40 @@ const SeatTicket = ({ allocation, onPrint }) => {
               color: #bf360c;
               margin-top: 4px;
             }
+            .ticket-items {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 4px;
+              font-size: 12px;
+            }
+            .ticket-items td {
+              padding: 3px 0;
+              border-bottom: 1px dotted #999;
+            }
+            .ticket-items .item-name {
+              text-align: left;
+              font-weight: bold;
+            }
+            .ticket-items .item-amount,
+            .ticket-items .item-chips {
+              text-align: right;
+              white-space: nowrap;
+              padding-left: 6px;
+            }
+            .ticket-items .item-total td {
+              border-top: 2px solid #333;
+              border-bottom: none;
+              font-weight: bold;
+              font-size: 14px;
+            }
+            .chips-highlight {
+              border: 2px solid #333;
+            }
+            .ticket-chips-total {
+              font-size: 30px;
+              font-weight: bold;
+              margin: 6px 0;
+            }
             .ticket-footer {
               margin-top: 20px;
               padding-top: 10px;
@@ -213,7 +334,7 @@ const SeatTicket = ({ allocation, onPrint }) => {
         <body>
           <div class="ticket">
             <div class="ticket-header">
-              ${isAlternate ? t.header_alternate : t.header_entry}
+              ${cabecalho}
             </div>
 
             ${tournamentRow}
@@ -221,10 +342,12 @@ const SeatTicket = ({ allocation, onPrint }) => {
 
             <div class="ticket-section">
               <div class="ticket-label">${t.label_player}</div>
-              <div class="ticket-value">${allocation.player_name}</div>
+              <div class="ticket-value">${escapar(allocation.player_name)}</div>
             </div>
 
             ${seatBlock}
+
+            ${purchaseBlock}
 
             <div class="ticket-section">
               <div class="ticket-label">${t.label_datetime}</div>
@@ -237,7 +360,7 @@ const SeatTicket = ({ allocation, onPrint }) => {
             </div>
 
             <div class="ticket-footer">
-              ${isAlternate ? t.footer_alternate : t.footer_entry}
+              ${rodape}
             </div>
           </div>
           <script>
@@ -258,7 +381,7 @@ const SeatTicket = ({ allocation, onPrint }) => {
     <div className="seat-ticket">
       <div className={`ticket-preview ${isAlternate ? 'alternate-preview' : ''}`}>
         <div className="ticket-preview-header">
-          <h4>{isAlternate ? t.preview_header_alternate : t.preview_header_entry}</h4>
+          <h4>{cabecalhoPrevia}</h4>
         </div>
         <div className="ticket-preview-body">
           {allocation.tournament_name && (
@@ -284,15 +407,43 @@ const SeatTicket = ({ allocation, onPrint }) => {
             <span className="value">{allocation.player_name}</span>
           </div>
 
-          {isAlternate ? (
+          {isAlternate && (
             <div className="ticket-preview-highlight alternate-highlight">
               <div className="alternate-badge">{t.alternate_text}</div>
               <div className="alternate-waiting">{t.alternate_waiting}</div>
             </div>
-          ) : (
+          )}
+          {!isAlternate && !semAssento && (
             <div className="ticket-preview-highlight">
               <div className="table-seat-display">
                 {t.preview_seat(allocation.table_number, allocation.seat_number)}
+              </div>
+            </div>
+          )}
+
+          {temItens && (
+            <div className="ticket-preview-purchase" data-testid="bilhete-compra">
+              <div className="ticket-preview-purchase-title">{t.label_purchase}</div>
+              <ul className="ticket-preview-items">
+                {itens.map((item, indice) => (
+                  // Índice na chave: o nome pode repetir entre meios diferentes.
+                  <li key={`${item.name}-${indice}`} className="ticket-preview-item">
+                    <span className="item-name">{item.name}</span>
+                    <span className="item-amount">{formatarValor(item.amount)}</span>
+                    <span className="item-chips">{formatarFichas(item.chips)}</span>
+                  </li>
+                ))}
+                <li className="ticket-preview-item ticket-preview-item--total">
+                  <span className="item-name">{t.label_total}</span>
+                  <span className="item-amount">{formatarValor(totalValor)}</span>
+                  <span className="item-chips">{formatarFichas(totalFichas)}</span>
+                </li>
+              </ul>
+              <div className="ticket-preview-highlight ticket-preview-chips">
+                <div className="ticket-preview-chips-label">{t.label_chips_to_deliver}</div>
+                <div className="table-seat-display" data-testid="bilhete-total-fichas">
+                  {formatarFichas(totalFichas)} {t.chips_unit}
+                </div>
               </div>
             </div>
           )}

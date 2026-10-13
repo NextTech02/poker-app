@@ -240,17 +240,83 @@
   font-size: 0.8rem;
 }
 
-/* ── Meio de entrada no recibo ─────────────────────────────────────────────
-   O que a pessoa acabou de comprar, pelo nome configurado no dia. A categoria
-   sozinha não distingue duas entradas de preços diferentes. */
-.cx-ticket-buytype {
-  margin: 0 0 0.75rem;
-  color: var(--text-secondary);
+/* ── Venda composta: meios de entrada marcados ──────────────────────────────
+   Uma linha por meio de entrada, com caixa de marcar. O operador marca a
+   entrada e os extras (add-on, bono dealer) e a soma aparece logo abaixo. */
+.cx-buytypes-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+  font-weight: 600;
   font-size: 0.9rem;
 }
 
-.cx-ticket-buytype strong {
+.cx-buytype-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.cx-buytypes .cx-buytype-option {
+  display: grid;
+  margin-bottom: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.cx-buytypes .cx-buytype-option:hover {
+  border-color: var(--border-light);
+}
+
+.cx-buytypes .cx-buytype-option.is-checked {
+  border-color: var(--accent-color, #7233f8);
+  background: rgba(114, 51, 248, 0.08);
+}
+
+.cx-buytypes .cx-buytype-option input[type='checkbox'] {
+  grid-row: 1 / span 2;
+  width: 1.1rem;
+  height: 1.1rem;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent-color, #7233f8);
+}
+
+.cx-buytype-name {
   color: var(--text-primary);
+  font-weight: 600;
+}
+
+.cx-buytype-meta {
+  grid-column: 2;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Total cobrado e total de fichas lado a lado: é o que o operador confere
+   antes de registrar. */
+.cx-sale-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .cx-sale-totals {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Venda cancelada no extrato ────────────────────────────────────────────

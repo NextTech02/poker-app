@@ -25,6 +25,9 @@ import { uuid, putEntities, getEntity, getAllByTable } from '../offline/db';
 import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 import { MODO_MESA, modoDoTorneio } from '../hooks/useModoDeEliminacao';
+import {
+  alternarItem, eEntrada, fichasDoDia, fichasDoTipo, linhasDaMesmaVenda, montarItens, totaisDosItens,
+} from '../utils/vendaComposta';
 import './Caixa.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -53,8 +56,9 @@ const lerInscritos = async (tournamentId, dayId) => {
 };
 
 const Caixa = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { formatCurrency } = useCurrency();
+  const formatarFichas = (n) => Number(n || 0).toLocaleString(i18n?.language || 'pt-BR');
   const { activeMethods } = usePaymentMethods();
   const { activeBuyTypes, tournamentId: torneioDosMeios, tiposCarregados, selectTournament } = useBuyTypes();
   const { selectedStage } = useStage();
@@ -72,6 +76,10 @@ const Caixa = () => {
       return t('cashRegister.registeredNoTables', 'Registrado — nenhuma mesa cadastrada');
     }
     if (dados.is_alternate) return t('cashRegister.registeredAsAlternate');
+    // Sem assento a mostrar: só add-on (o jogador já está sentado) ou alocação
+    // feita pelo staff. Dizer "alocado" aqui mandaria procurar uma mesa no papel.
+    if (dados.so_fichas) return t('cashRegister.chipsSoldTitle', 'Fichas vendidas');
+    if (dados.sem_assento) return t('cashRegister.registeredNoSeat', 'Venda registrada — o staff define o assento');
     return t('cashRegister.registeredAndAllocated');
   };
   const [transactions, setTransactions] = useState([]);
@@ -118,12 +126,11 @@ const Caixa = () => {
     amount: '',
     payment_method: 'cash',
     payment_source: 'cash',
-    buy_type_id: '',
+    // VÁRIOS meios de entrada por venda: uma entrada (buy-in OU reentrada) e
+    // os add-ons que o jogador levar junto (bono dealer, add-on...). Cada um
+    // vira a sua transação; o bilhete sai um só, com o total de fichas.
+    buy_type_ids: [],
   });
-  // Nome do meio de entrada da venda que acabou de sair, para o recibo. Fica
-  // em estado próprio porque o formulário é limpo assim que a venda é aceita —
-  // ler dele na hora de montar o bilhete devolveria vazio.
-  const [meioDeEntradaVendido, setMeioDeEntradaVendido] = useState(null);
 
   // Sem meio de entrada à mão a venda NÃO para: cai no modo categoria (buy-in /
   // rebuy / add-on com o rake do dia), que é como o clube operava antes dos
@@ -355,14 +362,10 @@ const Caixa = () => {
       // guarda pelo torneio descarta a resposta de uma troca já superada.
       if (activeDays.length === 1) {
         const unico = activeDays[0];
-        // O meio de entrada já escolhido fica: ele é do torneio, não do dia.
-        // Só sem meio escolhido o valor é a reserva do dia.
+        // Os meios de entrada já marcados ficam: eles são do torneio, não do
+        // dia. O valor é recalculado a partir do dia escolhido.
         setFormData((prev) => (prev.tournament_id === tournamentId
-          ? {
-              ...prev,
-              tournament_day_id: unico.id,
-              amount: prev.buy_type_id ? prev.amount : valorDoDia(prev.type, unico),
-            }
+          ? { ...prev, tournament_day_id: unico.id }
           : prev));
       }
       // Hidrata os dias na réplica (buy_in/rake/chips/registered_players offline)
@@ -370,6 +373,103 @@ const Caixa = () => {
     } catch (error) {
       console.error('Erro ao carregar dias do torneio:', error);
       setTournamentDays([]);
+    }
+  };
+
+  // Nome do jogador para o bilhete. Offline vem da réplica; online do
+  // servidor. Sem nenhum dos dois, travessão — nunca "undefined" no papel.
+  const nomeDoJogador = async (playerId, offline) => {
+    try {
+      if (offline) {
+        const pInfo = await offlineRead(`/players/${playerId}`, {
+          fromReplica: () => getEntity('players', playerId),
+        });
+        return pInfo?.name || '—';
+      }
+      const pRes = await api.get(`/players/${playerId}`);
+      return pRes.data?.name || '—';
+    } catch (_) {
+      return '—';
+    }
+  };
+
+  /* Assento de quem acabou de ENTRAR (buy-in ou reentrada) — devolve os dados
+     do bilhete, ou null quando o assento tem de ser feito na mão.
+
+     - offline: sem auto-assento (o servidor aloca no sync) → alternado;
+     - mesas travadas: alternado (ou "sem mesa", se nenhuma foi cadastrada);
+     - alocação automática: pede o assento ao servidor; sem lugar livre vira
+       alternado, outro erro avisa para alocar na mão;
+     - alocação manual: o staff senta o jogador; o bilhete sai SEM assento,
+       só com a compra e as fichas. */
+  const assentoDaEntrada = async ({ entradaOffline, tournament, selectedDay, avisoDeAlocacao }) => {
+    const base = {
+      tournament_name: tournament?.name || '',
+      day_name: selectedDay?.day_name || '',
+      created_at: new Date().toISOString(),
+      id: formData.player_id,
+    };
+    if (entradaOffline) {
+      // Offline não dá para conferir mesa nenhuma: o bilhete diz que o
+      // assento sai no sync, não que existe fila de alternados.
+      return {
+        ...base,
+        player_name: await nomeDoJogador(formData.player_id, true),
+        is_alternate: true,
+        offline: true,
+        motivo_alternate: 'sem-conexao',
+      };
+    }
+
+    const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
+    if (allocationTypeToUse !== 'automatic') {
+      return { ...base, player_name: await nomeDoJogador(formData.player_id, false), sem_assento: true };
+    }
+
+    const tablesLocked = selectedDay?.tables_locked ?? false;
+    if (tablesLocked) {
+      // Mesas travadas SEM mesa nenhuma cadastrada não é fila de
+      // alternados, é etapa por configurar: o bilhete precisa dizer qual
+      // dos dois é, senão o operador procura uma fila que não existe.
+      return {
+        ...base,
+        player_name: await nomeDoJogador(formData.player_id, false),
+        is_alternate: true,
+        motivo_alternate: estadoDasMesas === 'sem-mesas' ? 'sem-mesas' : 'travadas',
+      };
+    }
+
+    try {
+      const allocationResponse = formData.tournament_day_id
+        // Day-scoped auto-allocation
+        ? await api.post(`/allocations/day/${formData.tournament_day_id}/auto?player_id=${formData.player_id}`)
+        // Tournament-scoped fallback
+        : await api.post(`/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`);
+      return {
+        ...allocationResponse.data,
+        day_name: selectedDay?.day_name || allocationResponse.data.day_name || '',
+      };
+    } catch (allocationError) {
+      console.error('Erro ao alocar jogador:', allocationError);
+      const errDetail = allocationError.response?.data?.detail || '';
+      const semMesaAtiva = errDetail.toLowerCase().includes('no active tables');
+      const noSeats = errDetail.toLowerCase().includes('tables are full') || semMesaAtiva;
+      if (noSeats) {
+        // Sem assento o jogador vira alternado — mas o MOTIVO muda a
+        // ação: mesa cheia é fila de alternados; nenhuma mesa ativa é
+        // configuração faltando, e o staff tem de cadastrar as mesas.
+        if (semMesaAtiva) setEstadoDasMesas('sem-mesas');
+        return {
+          ...base,
+          player_name: await nomeDoJogador(formData.player_id, false),
+          is_alternate: true,
+          motivo_alternate: semMesaAtiva ? 'sem-mesas' : 'lotadas',
+        };
+      }
+      toast.warning(t(avisoDeAlocacao, { reason: errDetail || t('cashRegister.unknownError') }));
+      // A venda está paga: o bilhete sai mesmo assim, sem assento, para o
+      // floor entregar as fichas enquanto alguém senta o jogador na mão.
+      return { ...base, player_name: await nomeDoJogador(formData.player_id, false), sem_assento: true };
     }
   };
 
@@ -398,10 +498,10 @@ const Caixa = () => {
       return;
     }
 
-    // Com meios de entrada disponíveis, exige o meio (é ele que carrega valor,
-    // rake e fichas). No modo categoria, exige ao menos a categoria — sem ela
-    // não dá para saber o que está sendo vendido.
-    if (!formData.type || (!semTiposDeBuy && !formData.buy_type_id)) {
+    // Com meios de entrada disponíveis, exige ao menos um marcado (é ele que
+    // carrega valor, rake e fichas). No modo categoria, exige a categoria —
+    // sem ela não dá para saber o que está sendo vendido.
+    if (itensDaVenda.length === 0) {
       toast.warning(
         semTiposDeBuy
           ? t('cashRegister.categoryRequired', 'Escolha a categoria da entrada.')
@@ -410,17 +510,27 @@ const Caixa = () => {
       return;
     }
 
-    // Guardado ANTES da venda: o recibo mostra o nome que o clube configurou
-    // ("Rebuy duplo"), não a categoria genérica — é por ele que o jogador
-    // confere o que comprou.
-    const tipoVendido = activeBuyTypes.find((b) => b.id === formData.buy_type_id);
-    setMeioDeEntradaVendido(tipoVendido ? tipoVendido.name : null);
+    // Retrato da venda ANTES de mandar: o formulário é limpo assim que ela é
+    // aceita, e o bilhete precisa dos itens que o jogador pagou.
+    const itens = itensDaVenda;
+    const entrada = itens.find((item) => eEntrada(item.category)) || null;
+    const extras = itens.filter((item) => !eEntrada(item.category));
+    const tournament = tournaments.find((tr) => tr.id === formData.tournament_id);
+    const selectedDay = tournamentDays.find((d) => d.id === formData.tournament_day_id);
+    const pagamento = {
+      payment_source: formData.payment_source || 'cash',
+      payment_method: formData.payment_method || 'cash',
+    };
 
     try {
-      // If it's a buy_in, register the player in the tournament day
-      if (formData.type === 'buy_in') {
+      let tpId = null;
+      let entradaOffline = false;
+      let algoOffline = false;
+
+      if (entrada?.category === 'buy_in') {
         // Camada offline: online chama o backend; sem rede, aplica na réplica e
-        // enfileira (com id gerado no cliente p/ idempotência e p/ rebuy referenciar).
+        // enfileira (com id gerado no cliente p/ idempotência e p/ o rebuy e o
+        // add-on desta mesma venda referenciarem o jogador).
         const clientTpId = uuid();
         const clientMutId = uuid();
         const regBody = {
@@ -428,9 +538,8 @@ const Caixa = () => {
           tournament_day_id: formData.tournament_day_id || null,
           player_id: formData.player_id,
           buy_in_count: 1,
-          payment_source: formData.payment_source || 'cash',
-          payment_method: formData.payment_method || 'cash',
-          buy_type_id: formData.buy_type_id || null,
+          ...pagamento,
+          buy_type_id: entrada.buy_type_id || null,
           notes: `Registrado via Caixa - ${formData.payment_method}`,
           client_id: clientTpId,
           client_mutation_id: clientMutId,
@@ -443,144 +552,45 @@ const Caixa = () => {
           synthetic: { id: clientTpId },
           applyLocal: () => applyRegister(regBody),
         });
-
-        // Check allocation: prefer day-scoped if a day is selected
-        const tournament = tournaments.find(t => t.id === formData.tournament_id);
-        const selectedDay = tournamentDays.find(d => d.id === formData.tournament_day_id);
-
-        if (reg.offline) {
-          // Offline: sem auto-assento (o servidor aloca no sync) — bilhete de alternado.
-          const pInfo = await offlineRead(`/players/${formData.player_id}`, {
-            fromReplica: () => getEntity('players', formData.player_id),
-          });
-          setAllocationData({
-            player_name: pInfo?.name || '—',
-            tournament_name: tournament?.name || '',
-            day_name: selectedDay?.day_name || '',
-            is_alternate: true,
-            offline: true,
-            // Offline não dá para conferir mesa nenhuma: o bilhete diz que o
-            // assento sai no sync, não que existe fila de alternados.
-            motivo_alternate: 'sem-conexao',
-            created_at: new Date().toISOString(),
-            id: formData.player_id,
-          });
-          setShowTicketModal(true);
-          toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
-        }
-
-        const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
-        const tablesLocked = selectedDay?.tables_locked ?? false;
-
-        if (!reg.offline && allocationTypeToUse === 'automatic') {
-          if (tablesLocked) {
-            // Tables are locked — player becomes alternate, show alternate ticket.
-            // Mesas travadas SEM mesa nenhuma cadastrada não é fila de
-            // alternados, é etapa por configurar: o bilhete precisa dizer qual
-            // dos dois é, senão o operador procura uma fila que não existe.
-            setAllocationData({
-              player_name: null, // filled below
-              tournament_name: tournament?.name || '',
-              day_name: selectedDay?.day_name || '',
-              is_alternate: true,
-              motivo_alternate: estadoDasMesas === 'sem-mesas' ? 'sem-mesas' : 'travadas',
-              created_at: new Date().toISOString(),
-              id: formData.player_id,
-            });
-            // Fetch player name for ticket
-            try {
-              const pRes = await api.get(`/players/${formData.player_id}`);
-              setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
-            } catch (_) {
-              setAllocationData(prev => ({ ...prev, player_name: '—' }));
-            }
-            setShowTicketModal(true);
-          } else {
-            try {
-              let allocationResponse;
-              if (formData.tournament_day_id) {
-                // Day-scoped auto-allocation
-                allocationResponse = await api.post(
-                  `/allocations/day/${formData.tournament_day_id}/auto?player_id=${formData.player_id}`
-                );
-              } else {
-                // Tournament-scoped fallback
-                allocationResponse = await api.post(
-                  `/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`
-                );
-              }
-              setAllocationData({
-                ...allocationResponse.data,
-                day_name: selectedDay?.day_name || allocationResponse.data.day_name || '',
-              });
-              setShowTicketModal(true);
-            } catch (allocationError) {
-              console.error('Erro ao alocar jogador:', allocationError);
-              const errDetail = allocationError.response?.data?.detail || '';
-              const semMesaAtiva = errDetail.toLowerCase().includes('no active tables');
-              const noSeats = errDetail.toLowerCase().includes('tables are full') || semMesaAtiva;
-              if (noSeats) {
-                // Sem assento o jogador vira alternado — mas o MOTIVO muda a
-                // ação: mesa cheia é fila de alternados; nenhuma mesa ativa é
-                // configuração faltando, e o staff tem de cadastrar as mesas.
-                if (semMesaAtiva) setEstadoDasMesas('sem-mesas');
-                const baseData = {
-                  player_name: null,
-                  tournament_name: tournament?.name || '',
-                  day_name: selectedDay?.day_name || '',
-                  is_alternate: true,
-                  motivo_alternate: semMesaAtiva ? 'sem-mesas' : 'lotadas',
-                  created_at: new Date().toISOString(),
-                  id: formData.player_id,
-                };
-                setAllocationData(baseData);
-                try {
-                  const pRes = await api.get(`/players/${formData.player_id}`);
-                  setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
-                } catch (_) {
-                  setAllocationData(prev => ({ ...prev, player_name: '—' }));
-                }
-                setShowTicketModal(true);
-              } else {
-                const errorMsg = errDetail || t('cashRegister.unknownError');
-                toast.warning(t('cashRegister.allocationManualWarning', { reason: errorMsg }));
-              }
-            }
-          }
-        }
-      } else if (formData.type === 'rebuy') {
-        // Resolve o jogador DO DIA (online: backend; offline: réplica).
+        // O servidor grava a inscrição com o id gerado aqui (client_id vira a
+        // chave), então os add-ons desta venda já sabem a quem se somar.
+        tpId = reg.data?.id || clientTpId;
+        entradaOffline = !!reg.offline;
+      } else {
+        // Reentrada ou só add-on: o jogador já está no DIA (online: backend;
+        // offline: réplica).
         const tpList = await lerInscritos(formData.tournament_id, formData.tournament_day_id);
-        const tournamentPlayer = tpList.find(p => p.player_id === formData.player_id);
-        if (tournamentPlayer) {
+        const tournamentPlayer = tpList.find((p) => p.player_id === formData.player_id);
+        if (!tournamentPlayer) {
+          toast.error(t('cashRegister.playerNotRegistered'));
+          return;
+        }
+        tpId = tournamentPlayer.id;
+
+        if (entrada?.category === 'rebuy') {
           // O ranking NÃO é mexido aqui: tirar o jogador do ranking antes da
           // venda o reativava, e a reentrada por mesa — que exige o jogador
           // ELIMINADO — era recusada. O servidor faz isso na própria venda.
-
-          // UMA recompra por venda. A "quantidade de rebuys" saiu da tela: ela
-          // multiplicava o valor e as fichas do rebuy simples, e um rebuy duplo
-          // NÃO é rebuy × 2 — tem valor e fichas próprios. Agora ele é um meio
-          // de entrada próprio, escolhido no seletor, e a conta sai certa por
-          // construção em vez de por acidente.
+          //
+          // UMA recompra por item. "Rebuy duplo" NÃO é rebuy × 2 — é um meio
+          // de entrada próprio, com valor e fichas próprios.
           const cmid = uuid();
           const rbBody = {
-            tournament_player_id: tournamentPlayer.id,
-            payment_source: formData.payment_source || 'cash',
-            payment_method: formData.payment_method || 'cash',
-            buy_type_id: formData.buy_type_id || null,
+            tournament_player_id: tpId,
+            ...pagamento,
+            buy_type_id: entrada.buy_type_id || null,
             client_mutation_id: cmid,
           };
           const rr = await offlineWrite({
             kind: 'rebuy', method: 'post',
-            url: `/tournament-players/${tournamentPlayer.id}/rebuy`,
+            url: `/tournament-players/${tpId}/rebuy`,
             // `client_mutation_id` vai como PARAMETRO: a rota le parametros de
             // consulta, e o corpo era descartado — foi assim que a protecao
             // contra registrar a mesma venda duas vezes se perdeu.
             params: {
-              payment_source: rbBody.payment_source,
-              payment_method: rbBody.payment_method,
+              ...pagamento,
               client_mutation_id: cmid,
-              ...(formData.buy_type_id ? { buy_type_id: formData.buy_type_id } : {}),
+              ...(entrada.buy_type_id ? { buy_type_id: entrada.buy_type_id } : {}),
             },
             body: rbBody,
             clientMutationId: cmid,
@@ -588,120 +598,97 @@ const Caixa = () => {
             synthetic: { ok: true },
             applyLocal: () => applyRebuy(rbBody),
           });
-          const rebuyOffline = !!rr.offline;
-
-          const tournament = tournaments.find(t => t.id === formData.tournament_id);
-          const selectedDay = tournamentDays.find(d => d.id === formData.tournament_day_id);
-
-          if (rebuyOffline) {
-            const pInfo = await offlineRead(`/players/${formData.player_id}`, { fromReplica: () => getEntity('players', formData.player_id) });
-            setAllocationData({ player_name: pInfo?.name || '—', tournament_name: tournament?.name || '', day_name: selectedDay?.day_name || '', is_alternate: true, offline: true, motivo_alternate: 'sem-conexao', created_at: new Date().toISOString(), id: formData.player_id });
-            setShowTicketModal(true);
-            toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
-          }
-
-          const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
-          const tablesLocked = selectedDay?.tables_locked ?? false;
-
-          if (!rebuyOffline && allocationTypeToUse === 'automatic') {
-            if (tablesLocked) {
-              setAllocationData({
-                player_name: null,
-                tournament_name: tournament?.name || '',
-                day_name: selectedDay?.day_name || '',
-                is_alternate: true,
-                motivo_alternate: estadoDasMesas === 'sem-mesas' ? 'sem-mesas' : 'travadas',
-                created_at: new Date().toISOString(),
-                id: formData.player_id,
-              });
-              try {
-                const pRes = await api.get(`/players/${formData.player_id}`);
-                setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
-              } catch (_) {
-                setAllocationData(prev => ({ ...prev, player_name: '—' }));
-              }
-              setShowTicketModal(true);
-            } else {
-              try {
-                let allocationResponse;
-                if (formData.tournament_day_id) {
-                  allocationResponse = await api.post(
-                    `/allocations/day/${formData.tournament_day_id}/auto?player_id=${formData.player_id}`
-                  );
-                } else {
-                  allocationResponse = await api.post(
-                    `/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`
-                  );
-                }
-                setAllocationData({
-                  ...allocationResponse.data,
-                  day_name: selectedDay?.day_name || allocationResponse.data.day_name || '',
-                });
-                setShowTicketModal(true);
-              } catch (allocationError) {
-                console.error('Erro ao alocar jogador após rebuy:', allocationError);
-                const errDetail = allocationError.response?.data?.detail || '';
-                const semMesaAtiva = errDetail.toLowerCase().includes('no active tables');
-                const noSeats = errDetail.toLowerCase().includes('tables are full') || semMesaAtiva;
-                if (noSeats) {
-                  if (semMesaAtiva) setEstadoDasMesas('sem-mesas');
-                  const baseData = {
-                    player_name: null,
-                    tournament_name: tournament?.name || '',
-                    day_name: selectedDay?.day_name || '',
-                    is_alternate: true,
-                    motivo_alternate: semMesaAtiva ? 'sem-mesas' : 'lotadas',
-                    created_at: new Date().toISOString(),
-                    id: formData.player_id,
-                  };
-                  setAllocationData(baseData);
-                  try {
-                    const pRes = await api.get(`/players/${formData.player_id}`);
-                    setAllocationData(prev => ({ ...prev, player_name: pRes.data.name }));
-                  } catch (_) {
-                    setAllocationData(prev => ({ ...prev, player_name: '—' }));
-                  }
-                  setShowTicketModal(true);
-                } else {
-                  const errorMsg = errDetail || t('cashRegister.unknownError');
-                  toast.warning(t('cashRegister.rebuyAllocationManualWarning', { reason: errorMsg }));
-                }
-              }
-            }
-          }
-        } else {
-          toast.error(t('cashRegister.playerNotRegistered'));
-          return;
+          entradaOffline = !!rr.offline;
         }
-      } else if (formData.type === 'addon') {
-        // Resolve o jogador DO DIA (online: backend; offline: réplica).
-        const tpList = await lerInscritos(formData.tournament_id, formData.tournament_day_id);
-        const tournamentPlayer = tpList.find(p => p.player_id === formData.player_id);
-        if (tournamentPlayer) {
-          const cmid = uuid();
-          const adBody = {
-            tournament_player_id: tournamentPlayer.id,
-            payment_source: formData.payment_source || 'cash',
-            payment_method: formData.payment_method || 'cash',
-            buy_type_id: formData.buy_type_id || null,
-            client_mutation_id: cmid,
-          };
+      }
+      algoOffline = entradaOffline;
+
+      // Os extras (add-ons, bono dealer) vão DEPOIS da entrada, um a um, na
+      // pilha do mesmo jogador. Se um deles for recusado com a entrada já
+      // gravada, a venda NÃO é desfeita em silêncio: o que entrou fica, o
+      // bilhete sai só com ele, e o operador vê exatamente o que faltou.
+      const extrasVendidos = [];
+      const extrasRecusados = [];
+      for (const item of extras) {
+        const cmid = uuid();
+        const adBody = {
+          tournament_player_id: tpId,
+          ...pagamento,
+          buy_type_id: item.buy_type_id || null,
+          client_mutation_id: cmid,
+        };
+        try {
+          // eslint-disable-next-line no-await-in-loop -- a ordem importa: um add-on por vez, na pilha do mesmo jogador
           const ar = await offlineWrite({
             kind: 'addon', method: 'post',
-            url: `/tournament-players/${tournamentPlayer.id}/addon`,
-            params: { payment_source: adBody.payment_source, payment_method: adBody.payment_method, ...(formData.buy_type_id ? { buy_type_id: formData.buy_type_id } : {}) },
+            url: `/tournament-players/${tpId}/addon`,
+            params: {
+              ...pagamento,
+              ...(item.buy_type_id ? { buy_type_id: item.buy_type_id } : {}),
+            },
             body: adBody,
             clientMutationId: cmid,
             meta: { kind: 'addon', player_id: formData.player_id },
             synthetic: { ok: true },
             applyLocal: () => applyAddon(adBody),
           });
-          if (ar.offline) toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
-        } else {
-          toast.error(t('cashRegister.playerNotRegistered'));
-          return;
+          if (ar.offline) algoOffline = true;
+          extrasVendidos.push(item);
+        } catch (erroDoExtra) {
+          // Nada vendido ainda (venda só de add-ons): é o erro da venda inteira.
+          if (!entrada && extrasVendidos.length === 0) throw erroDoExtra;
+          extrasRecusados.push({
+            item,
+            motivo: erroDoExtra.userMessage || erroDoExtra.response?.data?.detail || '',
+          });
         }
       }
+
+      if (algoOffline) {
+        toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
+      }
+      if (extrasRecusados.length) {
+        toast.error(t('cashRegister.partialSaleError', {
+          defaultValue: 'A entrada foi registrada, mas não deu para lançar: {{itens}}. Lance de novo só o que faltou.',
+          itens: extrasRecusados
+            .map(({ item, motivo }) => (typeof motivo === 'string' && motivo ? `${item.name} (${motivo})` : item.name))
+            .join(', '),
+        }));
+      }
+
+      // UM bilhete para a venda inteira, com cada item e o total de fichas.
+      const itensVendidos = [...(entrada ? [entrada] : []), ...extrasVendidos];
+      const totais = totaisDosItens(itensVendidos);
+      const compra = {
+        itens: itensVendidos.map(({ name, amount, chips }) => ({ name, amount, chips })),
+        total_amount: totais.amount,
+        total_chips: totais.chips,
+      };
+      if (entrada) {
+        const assento = await assentoDaEntrada({
+          entradaOffline,
+          tournament,
+          selectedDay,
+          avisoDeAlocacao: entrada.category === 'rebuy'
+            ? 'cashRegister.rebuyAllocationManualWarning'
+            : 'cashRegister.allocationManualWarning',
+        });
+        setAllocationData({ ...assento, ...compra });
+      } else {
+        // Só add-ons: o jogador já está sentado. O bilhete é de FICHAS — é
+        // por ele que o floor entrega a pilha extra.
+        setAllocationData({
+          tournament_name: tournament?.name || '',
+          day_name: selectedDay?.day_name || '',
+          created_at: new Date().toISOString(),
+          id: formData.player_id,
+          player_name: await nomeDoJogador(formData.player_id, algoOffline),
+          sem_assento: true,
+          so_fichas: true,
+          ...compra,
+        });
+      }
+      setShowTicketModal(true);
 
       setShowModal(false);
       setFormData({
@@ -712,7 +699,7 @@ const Caixa = () => {
         amount: '',
         payment_method: 'cash',
         payment_source: 'cash',
-        buy_type_id: '',
+        buy_type_ids: [],
       });
       setPlayerCredit(0);
       setTournamentDays([]);
@@ -734,9 +721,24 @@ const Caixa = () => {
   // assento, reimprime como alternate.
   const handleReprint = async (transaction) => {
     setReprintingId(transaction.id);
-    // Na reimpressão o nome vem da venda gravada, não do cadastro de hoje:
-    // renomear o meio de entrada depois não pode reescrever o recibo.
-    setMeioDeEntradaVendido(transaction.buy_type_name || null);
+    // A compra reimpressa é a da VENDA: a entrada e os add-ons lançados com
+    // ela (ver linhasDaMesmaVenda). Nome e fichas vêm do que foi gravado na
+    // venda, não do cadastro de hoje — renomear o meio de entrada depois ou
+    // mudar as fichas dele não pode reescrever o recibo. Venda antiga, sem as
+    // fichas gravadas, reimprime como antes, sem a lista.
+    const linhas = linhasDaMesmaVenda(transaction, transactions);
+    const fichasConhecidas = linhas.every((l) => l.chips !== null && l.chips !== undefined);
+    const itensReimpressos = fichasConhecidas
+      ? linhas.map((l) => ({
+          name: l.buy_type_name || buyCategoryLabel(l.type),
+          amount: Number(l.amount) || 0,
+          chips: Number(l.chips) || 0,
+        }))
+      : [];
+    const totaisReimpressos = totaisDosItens(itensReimpressos);
+    const compra = itensReimpressos.length
+      ? { itens: itensReimpressos, total_amount: totaisReimpressos.amount, total_chips: totaisReimpressos.chips }
+      : {};
     try {
       const res = await api
         .get(`/allocations/tournament/${transaction.tournament_id}`)
@@ -754,6 +756,7 @@ const Caixa = () => {
           created_at: alloc.created_at || transaction.created_at,
           is_alternate: false,
           is_reprint: true,
+          ...compra,
         });
       } else {
         // Sem assento alocado → jogador é alternate (ou torneio com alocação manual)
@@ -765,6 +768,7 @@ const Caixa = () => {
           is_alternate: true,
           created_at: transaction.created_at,
           is_reprint: true,
+          ...compra,
         });
       }
       setShowTicketModal(true);
@@ -820,33 +824,54 @@ const Caixa = () => {
     return 0;
   };
 
-  // O meio de entrada escolhido define categoria, rake, fichas e VALOR. O valor
-  // vem dele, não do dia: é isso que faz "Rebuy duplo" cobrar o preço próprio
-  // em vez de o dobro do rebuy simples. `amount ?? ...` porque zero é um preço
-  // legítimo (dia final de classificados) e cairia na reserva do dia.
-  const handleBuyTypeChange = (e) => {
-    const id = e.target.value;
-    const bt = activeBuyTypes.find((b) => b.id === id);
-    setFormData((prev) => ({
-      ...prev,
-      buy_type_id: bt ? id : '',
-      type: bt ? bt.category : '',
-      amount: bt
-        ? (bt.amount ?? valorDaCategoria(bt.category, prev.tournament_day_id, prev.tournament_id))
-        : prev.amount,
-    }));
+  // O que está sendo vendido AGORA, item por item, com valor e fichas de cada
+  // um. Com meios de entrada, são os marcados (entrada primeiro). Sem nenhum à
+  // mão, é a categoria escolhida, com valor e fichas do dia. Calculado a cada
+  // render: o total na tela e o que vai ao servidor saem da mesma lista.
+  const itensDaVenda = semTiposDeBuy
+    ? (formData.type
+      ? [{
+          buy_type_id: null,
+          name: buyCategoryLabel(formData.type),
+          category: formData.type,
+          amount: Number(valorDaCategoria(formData.type, formData.tournament_day_id, formData.tournament_id)) || 0,
+          chips: fichasDoDia(formData.type, diaSelecionado),
+        }]
+      : [])
+    : montarItens(
+      formData.buy_type_ids,
+      activeBuyTypes,
+      diaSelecionado,
+      (categoria) => valorDaCategoria(categoria, formData.tournament_day_id, formData.tournament_id),
+    );
+  const totaisDaVenda = totaisDosItens(itensDaVenda);
+
+  // Categoria "da venda": a da ENTRADA marcada (buy-in/reentrada) ou, sem
+  // entrada, add-on. É ela que decide se a venda inscreve, traz de volta ou só
+  // completa a pilha de quem já está sentado.
+  const categoriaDaVenda = (ids) => {
+    const marcados = activeBuyTypes.filter((b) => ids.includes(b.id));
+    const entrada = marcados.find((b) => eEntrada(b.category));
+    if (entrada) return entrada.category;
+    return marcados.length ? 'addon' : '';
+  };
+
+  // Marca/desmarca um meio de entrada. Só cabe UMA entrada por venda: marcar
+  // outra troca a anterior (ver utils/vendaComposta). Valor e fichas não ficam
+  // guardados: saem da lista marcada a cada render, e por isso nunca descolam
+  // do que está na tela.
+  const alternarMeio = (id) => {
+    setFormData((prev) => {
+      const ids = alternarItem(prev.buy_type_ids, id, activeBuyTypes);
+      return { ...prev, buy_type_ids: ids, type: categoriaDaVenda(ids) };
+    });
   };
 
   // Modo sem meios de entrada: a categoria é escolhida direto e o valor/rake
   // ficam sendo os do dia (comportamento anterior aos meios de entrada).
   const handleCategoriaChange = (e) => {
     const categoria = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      buy_type_id: '',
-      type: categoria,
-      amount: valorDaCategoria(categoria, prev.tournament_day_id, prev.tournament_id),
-    }));
+    setFormData((prev) => ({ ...prev, buy_type_ids: [], type: categoria }));
   };
 
   const handleChange = async (e) => {
@@ -869,18 +894,13 @@ const Caixa = () => {
       loadTournamentDays(value);
     }
 
-    // Trocar de TORNEIO invalida o meio de entrada escolhido: eles pertencem ao
-    // torneio, e manter a escolha cobraria o preço do torneio anterior (ou de
-    // um cadastro que nem existe no novo). O valor volta para a reserva do dia
-    // até o operador escolher de novo.
+    // Trocar de TORNEIO invalida os meios de entrada marcados: eles pertencem
+    // ao torneio, e manter a escolha cobraria o preço do torneio anterior (ou
+    // de um cadastro que nem existe no novo). Trocar de DIA os mantém — a
+    // lista é a mesma em todos os dias do torneio.
     if (name === 'tournament_id') {
-      newFormData.buy_type_id = '';
-      newFormData.amount = valorDaCategoria(formData.type, newFormData.tournament_day_id, value);
-    } else if (name === 'tournament_day_id' && !formData.buy_type_id) {
-      // Trocar de dia MANTÉM o meio escolhido — a lista é a mesma em todos os
-      // dias do torneio. Só sem meio escolhido o valor é a reserva do dia, e
-      // essa muda com ele.
-      newFormData.amount = valorDaCategoria(formData.type, value, formData.tournament_id);
+      newFormData.buy_type_ids = [];
+      if (!semTiposDeBuy) newFormData.type = '';
     }
 
     setFormData(newFormData);
@@ -1442,46 +1462,76 @@ const Caixa = () => {
                     </select>
                   </div>
                 ) : (
-                  <div className="form-group">
-                    <label htmlFor="buy_type_id">{t('cashRegister.buyType', 'Meio de entrada')}</label>
-                    <select
-                      id="buy_type_id"
-                      name="buy_type_id"
-                      value={formData.buy_type_id}
-                      onChange={handleBuyTypeChange}
-                      required
-                    >
-                      <option value="" disabled>
-                        {t('cashRegister.selectBuyType', 'Selecione o meio de entrada')}
-                      </option>
-                      {/* O NOME configurado no torneio vem primeiro: é por ele
-                          que o operador escolhe. O valor ao lado é o do próprio
-                          meio de entrada — "Rebuy duplo" cobra o preço dele,
-                          não o dobro do rebuy simples. */}
-                      {activeBuyTypes.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name} — {buyCategoryLabel(b.category)} · {formatCurrency(b.amount)} · {Number(b.rake_percentage)}% rake
-                        </option>
-                      ))}
-                    </select>
+                  <div
+                    className="form-group cx-buytypes"
+                    role="group"
+                    aria-labelledby="cx-buytypes-label"
+                  >
+                    <span id="cx-buytypes-label" className="cx-buytypes-label">
+                      {t('cashRegister.buyType', 'Meio de entrada')}
+                    </span>
+                    <small className="cx-field-hint">
+                      {t(
+                        'cashRegister.buyTypesHint',
+                        'Marque tudo o que o jogador está comprando: uma entrada (buy-in ou reentrada) e os extras, como add-on e bono dealer. Sai um bilhete só, com o total de fichas.'
+                      )}
+                    </small>
+                    {/* O NOME configurado no torneio vem primeiro: é por ele
+                        que o operador escolhe. Valor e fichas ao lado são os do
+                        próprio meio de entrada — "Rebuy duplo" cobra o preço
+                        dele, não o dobro do rebuy simples. */}
+                    <div className="cx-buytype-list">
+                      {activeBuyTypes.map((b) => {
+                        const marcado = formData.buy_type_ids.includes(b.id);
+                        return (
+                          <label
+                            key={b.id}
+                            className={`cx-buytype-option${marcado ? ' is-checked' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              name="buy_type_ids"
+                              value={b.id}
+                              checked={marcado}
+                              onChange={() => alternarMeio(b.id)}
+                            />
+                            <span className="cx-buytype-name">{b.name}</span>
+                            <span className="cx-buytype-meta">
+                              {buyCategoryLabel(b.category)} · {formatCurrency(b.amount)} · {formatarFichas(fichasDoTipo(b, diaSelecionado))} {t('cashRegister.chipsUnit', 'fichas')} · {Number(b.rake_percentage)}% rake
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-                <div className="form-group">
-                  <label htmlFor="amount">{t('cashRegister.amount')}</label>
-                  {/* Somente leitura: o backend IGNORA o que for digitado aqui —
-                      o valor vem do meio de entrada escolhido (do dia, quando
-                      não há nenhum). Editável, o campo prometia um desconto que
-                      nunca aconteceria. */}
-                  <input
-                    id="amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    readOnly
-                    placeholder="0.00"
-                  />
+                <div className="cx-sale-totals">
+                  <div className="form-group">
+                    <label htmlFor="amount">{t('cashRegister.amount')}</label>
+                    {/* Somente leitura: o backend IGNORA qualquer valor digitado
+                        — cada item cobra o do seu meio de entrada (o do dia,
+                        quando não há nenhum). Aqui é só a SOMA deles. */}
+                    <input
+                      id="amount"
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      value={totaisDaVenda.amount}
+                      readOnly
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="total_chips">{t('cashRegister.totalChips', 'Fichas a entregar')}</label>
+                    <input
+                      id="total_chips"
+                      name="total_chips"
+                      type="text"
+                      value={formatarFichas(totaisDaVenda.chips)}
+                      readOnly
+                    />
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -1517,11 +1567,11 @@ const Caixa = () => {
                     >
                       <option value="cash">{t('cashRegister.paymentSourceCash')}</option>
                       <option value="credit">{t('cashRegister.paymentSourceCredit')}</option>
-                      {formData.amount > playerCredit && (
+                      {totaisDaVenda.amount > playerCredit && (
                         <option value="mixed">{t('cashRegister.paymentSourceMixed')}</option>
                       )}
                     </select>
-                    {formData.payment_source === 'credit' && formData.amount > playerCredit && (
+                    {formData.payment_source === 'credit' && totaisDaVenda.amount > playerCredit && (
                       <p className="cx-credit-warning">
                         {t('cashRegister.insufficientCreditWarning')}
                       </p>
@@ -1680,16 +1730,6 @@ const Caixa = () => {
                 </button>
               </div>
               <div className="modal-body">
-                {/* O que a pessoa acabou de comprar, pelo nome que o clube
-                    configurou ("Rebuy duplo"). A categoria sozinha não
-                    distingue duas entradas de preços diferentes, e é por aqui
-                    que o operador confere a venda antes de entregar as fichas. */}
-                {meioDeEntradaVendido && (
-                  <p className="cx-ticket-buytype">
-                    {t('cashRegister.ticketBuyType', 'Meio de entrada')}:{' '}
-                    <strong>{meioDeEntradaVendido}</strong>
-                  </p>
-                )}
                 {/* Por que este bilhete saiu sem assento. "Mesas cheias" é fila
                     de alternados de verdade; "nenhuma mesa cadastrada" é a
                     etapa por configurar e o bilhete NÃO significa fila. */}
@@ -1719,7 +1759,15 @@ const Caixa = () => {
                     seat_number: allocationData.seat_number,
                     created_at: allocationData.created_at,
                     is_alternate: allocationData.is_alternate,
+                    sem_assento: allocationData.sem_assento,
+                    so_fichas: allocationData.so_fichas,
+                    // O que o jogador comprou NESTA venda e o total de fichas:
+                    // é por esse número que o floor entrega a pilha.
+                    itens: allocationData.itens,
+                    total_amount: allocationData.total_amount,
+                    total_chips: allocationData.total_chips,
                   }}
+                  formatarValor={formatCurrency}
                   onPrint={() => {
                     setShowTicketModal(false);
                     loadData();
