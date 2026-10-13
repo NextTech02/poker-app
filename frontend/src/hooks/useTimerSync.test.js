@@ -1,5 +1,8 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useTimerSync, formatTime, formatTimeHuman } from './useTimerSync';
+import {
+  useTimerSync, formatTime, formatTimeHuman,
+  registrarHoraDoServidor, agoraDoServidor, zerarRelogioDoServidor,
+} from './useTimerSync';
 import api from '../config/api';
 // Modulo REAL de conectividade: markOffline/markOnline sao exatamente o que o
 // wrapper axios chama quando QUALQUER requisicao falha ou passa. Usar o modulo
@@ -471,5 +474,97 @@ describe('Helper Functions', () => {
       expect(formatTimeHuman(7200)).toBe('2h 0m');
       expect(formatTimeHuman(7380)).toBe('2h 3m');
     });
+  });
+});
+
+// ── Relógio do servidor ─────────────────────────────────────────────────────
+// O restante do nível é `ends_at − agora`. Se `agora` for o relógio do APARELHO,
+// duas TVs com relógios diferentes mostram tempos diferentes — exatamente a
+// diferença entre os relógios. Com a hora do servidor na resposta, cada tela
+// mede a própria diferença e passa a contar pelo relógio do servidor.
+describe('relógio do servidor', () => {
+  const DIA = 'dia-relogio';
+  const base = {
+    current_level: 2, is_paused: false, timer_started_at: '2024-01-15T10:30:00Z',
+    current_blind: { level: 2, small_blind: 50, big_blind: 100, ante: 0, duration: 10, is_break: false },
+    next_blind: null, next_break: null, active_players: 10, total_entries: 10,
+  };
+  const montar = async (extra) => {
+    api.get.mockResolvedValue({ data: { ...base, ...extra } });
+    const { result } = renderHook(() => useTimerSync(DIA));
+    await waitFor(() => expect(result.current.timerState).toBeTruthy());
+    return result;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    zerarRelogioDoServidor();
+    markOnline();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+    zerarRelogioDoServidor();
+  });
+
+  test('aparelho 40s ADIANTADO: o restante sai do relógio do servidor', async () => {
+    // Pelo relógio do aparelho faltariam 60s; pelo do servidor, 100.
+    const agoraNoServidor = Date.now() / 1000 - 40;
+    const result = await montar({
+      time_remaining_current_level: 100,
+      current_level_ends_at: agoraNoServidor + 100,
+      server_time: agoraNoServidor,
+    });
+    expect(result.current.timerState.time_remaining_current_level).toBeGreaterThanOrEqual(99);
+    expect(result.current.timerState.time_remaining_current_level).toBeLessThanOrEqual(100);
+  });
+
+  test('aparelho 40s ATRASADO: idem, sem passar do tempo cheio', async () => {
+    const agoraNoServidor = Date.now() / 1000 + 40;
+    const result = await montar({
+      time_remaining_current_level: 100,
+      current_level_ends_at: agoraNoServidor + 100,
+      server_time: agoraNoServidor,
+    });
+    expect(result.current.timerState.time_remaining_current_level).toBeGreaterThanOrEqual(99);
+    expect(result.current.timerState.time_remaining_current_level).toBeLessThanOrEqual(100);
+  });
+
+  test('sem server_time (backend antigo) a conta continua pelo relógio do aparelho', async () => {
+    const result = await montar({
+      time_remaining_current_level: 100,
+      current_level_ends_at: Date.now() / 1000 + 100,
+    });
+    expect(result.current.timerState.time_remaining_current_level).toBeGreaterThanOrEqual(99);
+    expect(result.current.timerState.time_remaining_current_level).toBeLessThanOrEqual(100);
+    expect(agoraDoServidor()).toBeCloseTo(Date.now() / 1000, 1);
+  });
+
+  test('vale a amostra de MENOR latência, não a última', () => {
+    // Um pico de rede (ida e volta de 2s) desloca a estimativa em segundos; a
+    // amostra limpa de 20ms é a que o NTP escolheria — e é a que fica.
+    const t = Date.now();
+    registrarHoraDoServidor(t / 1000 + 0.05, t, t + 20);
+    registrarHoraDoServidor(t / 1000 + 10, t + 100, t + 2100);
+    expect(agoraDoServidor() - Date.now() / 1000).toBeCloseTo(0.04, 1);
+  });
+
+  test('amostra velha sai da janela: um acerto de hora no aparelho é absorvido', () => {
+    const t = Date.now();
+    registrarHoraDoServidor(t / 1000 + 30, t, t + 20); // aparelho 30s atrasado, rtt 20ms
+    // 61s depois o aparelho acertou a hora: diferença zero, rtt pior (300ms).
+    // Pela latência a amostra antiga venceria; mas ela já saiu da janela.
+    registrarHoraDoServidor((t + 61150) / 1000, t + 61000, t + 61300);
+    expect(agoraDoServidor() - Date.now() / 1000).toBeCloseTo(0, 1);
+  });
+
+  test('server_time ausente ou inválido não mexe na diferença', () => {
+    const t = Date.now();
+    registrarHoraDoServidor(undefined, t, t + 20);
+    registrarHoraDoServidor(NaN, t, t + 20);
+    registrarHoraDoServidor('abc', t, t + 20);
+    expect(agoraDoServidor()).toBeCloseTo(Date.now() / 1000, 3);
   });
 });

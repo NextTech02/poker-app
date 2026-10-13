@@ -86,6 +86,42 @@ const blindDoEstado = (b, blinds) => (b ? {
   is_break: b.is_break || false,
 } : null);
 
+// ── Relógio do servidor ───────────────────────────────────────────────────
+// O restante do nível é `ends_at − agora`, e `agora` vinha do relógio do
+// APARELHO. Duas TVs com relógios diferentes mostravam tempos diferentes —
+// exatamente a diferença entre os relógios (smart TV sem acerto automático de
+// hora erra por dezenas de segundos). Cada resposta do servidor traz a hora
+// dele (`server_time`); daqui sai a diferença para o relógio local, descontada
+// metade da ida e volta, e `agoraDoServidor()` vira o "agora" de toda conta
+// de tempo. Vale a amostra de MENOR latência da janela (como o NTP faz): um
+// pico de rede não desloca o relógio. A janela é curta para que um acerto de
+// hora no próprio aparelho seja absorvido em menos de um minuto.
+const JANELA_DO_RELOGIO_MS = 60 * 1000;
+const MAX_AMOSTRAS_DO_RELOGIO = 10;
+let amostrasDoRelogio = []; // { offset: s a somar ao relógio local, rtt: ms, em: ms local }
+let diferencaDoRelogio = 0;
+
+export const registrarHoraDoServidor = (serverTimeSec, requestStartMs, responseEndMs) => {
+  if (typeof serverTimeSec !== 'number' || !Number.isFinite(serverTimeSec)) return;
+  const rtt = Math.max(0, responseEndMs - requestStartMs);
+  const offset = serverTimeSec - (requestStartMs + rtt / 2) / 1000;
+  amostrasDoRelogio = [
+    ...amostrasDoRelogio.filter((s) => responseEndMs - s.em <= JANELA_DO_RELOGIO_MS),
+    { offset, rtt, em: responseEndMs },
+  ].slice(-MAX_AMOSTRAS_DO_RELOGIO);
+  diferencaDoRelogio = amostrasDoRelogio
+    .reduce((melhor, s) => (s.rtt < melhor.rtt ? s : melhor)).offset;
+};
+
+/** Epoch em SEGUNDOS pelo relógio do servidor (local + diferença medida). */
+export const agoraDoServidor = () => Date.now() / 1000 + diferencaDoRelogio;
+
+/** Só para testes: esquece a diferença medida. */
+export const zerarRelogioDoServidor = () => {
+  amostrasDoRelogio = [];
+  diferencaDoRelogio = 0;
+};
+
 const anchorFromData = (data) => {
   const paused = !!data.is_paused;
   if (!paused && typeof data.current_level_ends_at === 'number') {
@@ -112,7 +148,8 @@ const anchorFromData = (data) => {
 const anchorNow = (a) => {
   if (!a) return { remaining: null, breakRemaining: null };
   if (a.endsAt != null) {
-    const now = Date.now() / 1000;
+    // Relógio do SERVIDOR, não do aparelho: é o que deixa duas TVs iguais.
+    const now = agoraDoServidor();
     return {
       remaining: Math.max(0, a.endsAt - now),
       breakRemaining: a.breakEndsAt != null ? Math.max(0, a.breakEndsAt - now) : null,
@@ -340,6 +377,7 @@ export const useTimerSync = (dayId, blinds = null, { publico = false } = {}) => 
       const url = `/tournament-days/${dayId}/timer/status-enriched`;
       const res = publico ? await api.get(url, { _public: true }) : await api.get(url);
       const data = { ...res.data };
+      registrarHoraDoServidor(data.server_time, requestStart, Date.now());
 
       // Compensação de latência: o servidor calcula time_remaining ~metade do
       // round-trip atrás. Descontamos essa idade para ancorar no tempo "de agora".

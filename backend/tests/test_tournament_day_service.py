@@ -1150,6 +1150,15 @@ class TestStatusEnriquecido:
         assert r["current_level_ends_at"] is None
         assert r["next_break_starts_at"] is None
 
+    def test_publica_a_hora_do_servidor_para_a_tela_corrigir_o_relogio(self, monkeypatch):
+        """O restante é `ends_at − agora` calculado no APARELHO. Duas TVs com
+        relógios diferentes mostravam tempos diferentes; com a hora do servidor
+        na resposta a tela mede a diferença e corrige. Sai sempre, pausado ou
+        não — a diferença do relógio não depende do estado do timer."""
+        _monta(monkeypatch, blinds=self._blinds())
+        r = S.get_enriched_timer_status(D1)
+        assert r["server_time"] == pytest.approx(datetime.now(timezone.utc).timestamp(), abs=2)
+
     def test_stack_medio_e_ativos_saem_das_entradas_menos_eliminados(self, monkeypatch):
         _monta(monkeypatch,
                tournament_days=[_dia(D1, eliminations_count=2)],

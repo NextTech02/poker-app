@@ -1657,6 +1657,12 @@ class TournamentDayService:
             "next_break": next_break_info,
             "current_level_ends_at": current_level_ends_at,
             "next_break_starts_at": next_break_starts_at,
+            # Hora do servidor (epoch, segundos). O restante do nível é
+            # `ends_at − agora` calculado NO APARELHO: duas TVs com relógios
+            # diferentes mostravam tempos diferentes, exatamente a diferença
+            # entre os relógios. Com esta hora na resposta a tela mede a sua
+            # diferença e passa a contar pelo relógio do servidor.
+            "server_time": datetime.now(timezone.utc).timestamp(),
             "active_players": active_players,
             "total_entries": total_entries,
             # So recompras (add-on fica fora), para o telao exibir separado.
