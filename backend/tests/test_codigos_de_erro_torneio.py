@@ -384,10 +384,12 @@ class TestMesasEAlocacao:
         assert (r.json()["detail"]["minimo"], r.json()["detail"]["maximo"]) == (1, 50)
 
     def test_lote_com_lugares_invalidos_leva_os_limites(self, client):
-        r = client.post(f"/tables/tournament/{TOUR}/bulk?count=2&seats=11")
+        r = client.post(f"/tables/tournament/{TOUR}/bulk?count=2&seats=0")
         assert r.status_code == 400
         assert codigo(r) == "lugares_por_mesa_invalido"
-        assert (r.json()["detail"]["minimo"], r.json()["detail"]["maximo"]) == (1, 10)
+        # Assentos não têm teto: só o mínimo viaja para a tela.
+        assert r.json()["detail"]["minimo"] == 1
+        assert "maximo" not in r.json()["detail"]
 
     def test_alocacao_inexistente(self, client, stub):
         stub(ASvc, remove_allocation=lambda aid: False)

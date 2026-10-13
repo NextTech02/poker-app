@@ -20,6 +20,13 @@ const aoClicarNoFundo = (aoFechar) => (evento) => {
   if (evento.target === evento.currentTarget) aoFechar();
 };
 
+// O interceptor de `config/api.js` já traduz a recusa com código e a deixa
+// em `userMessage`; sem ela, vale o que a API mandou (frase ou {code, message}).
+const motivoDoErro = (err) => {
+  const detail = err?.response?.data?.detail;
+  return err?.userMessage || (typeof detail === 'string' ? detail : detail?.message) || err?.message;
+};
+
 const TableManagement = () => {
   const { t } = useTranslation();
   const { dayId } = useParams();
@@ -55,8 +62,26 @@ const TableManagement = () => {
   useEscapeKey(showBulkModal, fecharBulk);
 
   // Add table form
+  // Assentos e número ficam como TEXTO enquanto o operador digita: corrigir
+  // a cada tecla transformava "12" em "22" (o 1 virava 2 pelo mínimo antes
+  // do 2 chegar). A correção acontece ao sair do campo e ao gravar.
   const [newTableSeats, setNewTableSeats] = useState(9);
   const [newTableCount, setNewTableCount] = useState(1);
+  // Número da (primeira) mesa do lote: vem sugerido como o próximo livre, mas
+  // é do operador — o salão pode já ter as mesas 1-4 de outro evento.
+  const [newTableStart, setNewTableStart] = useState(1);
+  // Troca de número na própria mesa: {id, value} enquanto edita.
+  const [editingTable, setEditingTable] = useState(null);
+
+  const proximoNumeroLivre = () =>
+    (tables.length > 0 ? Math.max(...tables.map(t => t.table_number)) + 1 : 1);
+  // Mesa de 1 assento não existe no salão; vazio volta ao padrão de 9.
+  const assentosValidos = () => Math.max(2, parseInt(newTableSeats, 10) || 9);
+  const numeroInicialValido = () => Math.max(1, parseInt(newTableStart, 10) || proximoNumeroLivre());
+  const abrirAddTable = () => {
+    setNewTableStart(proximoNumeroLivre());
+    setShowAddTableModal(true);
+  };
 
   // Bulk allocation
   const [bulkMode, setBulkMode] = useState('balanced');
@@ -156,11 +181,12 @@ const TableManagement = () => {
   // ── Add Tables ────────────────────────────────────────────────────────────
   const handleAddTables = async () => {
     try {
+      const seats = assentosValidos();
+      const numero = numeroInicialValido();
       if (newTableCount === 1) {
-        const nextNum = tables.length > 0 ? Math.max(...tables.map(t => t.table_number)) + 1 : 1;
-        await api.post(`/tables/day/${dayId}`, { table_number: nextNum, seats: newTableSeats });
+        await api.post(`/tables/day/${dayId}`, { table_number: numero, seats });
       } else {
-        await api.post(`/tables/day/${dayId}/bulk?count=${newTableCount}&seats=${newTableSeats}`);
+        await api.post(`/tables/day/${dayId}/bulk?count=${newTableCount}&seats=${seats}&start_number=${numero}`);
       }
       await loadData();
       setShowAddTableModal(false);
@@ -168,7 +194,7 @@ const TableManagement = () => {
         ? t('tableManagement.tablesAddedSuccessPlural', { count: newTableCount })
         : t('tableManagement.tablesAddedSuccessSingular'));
     } catch (err) {
-      toast.error(t('tableManagement.errorAddTable', { detail: err.response?.data?.detail || err.message }));
+      toast.error(t('tableManagement.errorAddTable', { detail: motivoDoErro(err) }));
     }
   };
 
@@ -200,6 +226,34 @@ const TableManagement = () => {
       await loadData();
     } catch (err) {
       toast.error(t('tableManagement.errorToggleTableStatus', { detail: err.response?.data?.detail || err.message }));
+    }
+  };
+
+  // ── Mudar o número da mesa ────────────────────────────────────────────────
+  // O número identifica a mesa FÍSICA no salão. Quem está sentado continua
+  // sentado (a alocação aponta para o id, não para o número); só o rótulo
+  // muda. Número já usado no dia é recusado pela API (409 com código).
+  const iniciarTrocaDeNumero = (table) =>
+    setEditingTable({ id: table.id, value: String(table.table_number) });
+  const cancelarTrocaDeNumero = () => setEditingTable(null);
+
+  const handleRenameTable = async (table) => {
+    const novo = parseInt(editingTable?.value, 10);
+    if (!Number.isInteger(novo) || novo < 1) {
+      toast.warning(t('tableManagement.invalidTableNumber'));
+      return;
+    }
+    if (novo === table.table_number) {
+      setEditingTable(null);
+      return;
+    }
+    try {
+      await api.patch(`/tables/${table.id}`, { table_number: novo });
+      setEditingTable(null);
+      await loadData();
+      toast.success(t('tableManagement.tableRenamedSuccess', { from: table.table_number, to: novo }));
+    } catch (err) {
+      toast.error(t('tableManagement.errorRenameTable', { detail: motivoDoErro(err) }));
     }
   };
 
@@ -419,7 +473,32 @@ const TableManagement = () => {
       <div key={table.id} className={`tm-table ${isInactive ? 'tm-table-inactive' : ''}`}>
         <div className="tm-table-header">
           <div className="tm-table-title">
-            <span className="tm-table-num">{t('tableManagement.tableTitle', { number: table.table_number })}</span>
+            {editingTable?.id === table.id ? (
+              <form className="tm-rename" onSubmit={(e) => { e.preventDefault(); handleRenameTable(table); }}>
+                <input
+                  type="number" min="1"
+                  className="tm-input tm-input-num"
+                  aria-label={t('tableManagement.tableNumberLabel')}
+                  value={editingTable.value}
+                  autoFocus
+                  onChange={(e) => setEditingTable({ id: table.id, value: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === 'Escape') cancelarTrocaDeNumero(); }}
+                />
+                <button type="submit" className="tm-btn-icon btn-green">{t('common.save')}</button>
+                <button type="button" className="tm-btn-icon" onClick={cancelarTrocaDeNumero}>{t('common.cancel')}</button>
+              </form>
+            ) : (
+              <>
+                <span className="tm-table-num">{t('tableManagement.tableTitle', { number: table.table_number })}</span>
+                <button
+                  type="button"
+                  className="tm-btn-icon tm-btn-rename"
+                  title={t('tableManagement.renameTable')}
+                  aria-label={t('tableManagement.renameTable')}
+                  onClick={() => iniciarTrocaDeNumero(table)}
+                >✎</button>
+              </>
+            )}
             {isInactive && <span className="tm-badge-closed">{table.status === 'closed' ? t('tableManagement.badgeClosed') : t('tableManagement.badgeBroken')}</span>}
           </div>
           <div className="tm-table-meta">
@@ -490,7 +569,7 @@ const TableManagement = () => {
             <button type="button" className="tm-btn-secondary" onClick={() => setShowBulkModal(true)}>
               {t('tableManagement.bulkAllocate')}
             </button>
-            <button type="button" className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
+            <button type="button" className="tm-btn-secondary" onClick={abrirAddTable}>
               {t('tableManagement.addTable')}
             </button>
             <button type="button" className="tm-btn-back" onClick={() => navigate(-1)}>
@@ -586,7 +665,7 @@ const TableManagement = () => {
             {tables.length === 0 ? (
               <div className="tm-no-tables">
                 <p>{t('tableManagement.noTablesRegistered')}</p>
-                <button type="button" className="tm-btn-secondary" onClick={() => setShowAddTableModal(true)}>
+                <button type="button" className="tm-btn-secondary" onClick={abrirAddTable}>
                   {t('tableManagement.addFirstTable')}
                 </button>
               </div>
@@ -632,9 +711,20 @@ const TableManagement = () => {
                 <div className="tm-form-row">
                   <label>{t('tableManagement.seatsPerTableLabel')}</label>
                   <input
-                    type="number" min="2" max="10"
+                    type="number" min="2"
                     value={newTableSeats}
-                    onChange={(e) => setNewTableSeats(Math.max(2, Math.min(10, parseInt(e.target.value) || 9)))}
+                    onChange={(e) => setNewTableSeats(e.target.value)}
+                    onBlur={() => setNewTableSeats(assentosValidos())}
+                    className="tm-input"
+                  />
+                </div>
+                <div className="tm-form-row">
+                  <label>{newTableCount > 1 ? t('tableManagement.tableStartNumberLabel') : t('tableManagement.tableNumberLabel')}</label>
+                  <input
+                    type="number" min="1"
+                    value={newTableStart}
+                    onChange={(e) => setNewTableStart(e.target.value)}
+                    onBlur={() => setNewTableStart(numeroInicialValido())}
                     className="tm-input"
                   />
                 </div>

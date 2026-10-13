@@ -785,3 +785,29 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Troca de número na própria mesa ─────────────────────────────────── */
+.tm-rename {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tm-input-num {
+  width: 64px;
+  padding: 4px 6px;
+  font-size: 0.9rem;
+}
+
+.tm-btn-rename {
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  opacity: 0.7;
+}
+
+.tm-btn-rename:hover,
+.tm-btn-rename:focus-visible {
+  opacity: 1;
+  color: #e8f0fe;
+  border-color: var(--card-bg-active);
+}

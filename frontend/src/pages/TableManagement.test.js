@@ -106,9 +106,10 @@ const montar = async (opcoes) => {
   await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
 };
 
+// Uma mesa em edição de número não mostra o título; ela simplesmente não casa.
 const mesaDoNumero = (n) =>
   Array.from(document.querySelectorAll('.tm-table')).find((el) =>
-    el.querySelector('.tm-table-num').textContent.includes(`:${n}`)
+    el.querySelector('.tm-table-num')?.textContent.includes(`:${n}`)
   );
 
 const assentos = (mesa) => Array.from(mesa.querySelectorAll('.tm-seat'));
@@ -278,7 +279,7 @@ describe('mesas', () => {
     fireEvent.change(qtd, { target: { value: '4' } });
     await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTablesButtonMulti:4' }));
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith('/tables/day/d1/bulk?count=4&seats=9')
+      expect(api.post).toHaveBeenCalledWith('/tables/day/d1/bulk?count=4&seats=9&start_number=3')
     );
   });
 
@@ -290,14 +291,40 @@ describe('mesas', () => {
     expect(qtd).toHaveValue(1);
   });
 
-  it('assentos por mesa ficam entre 2 e 10', async () => {
-    // Mesa de 1 assento ou de 30 não existe no salão.
+  it('assentos por mesa não têm teto: a mesa de 12 vai como 12', async () => {
+    // O salão monta mesa de 11 na final, de 12 em evento especial. O teto
+    // de 10 que existia aqui (e no banco) transformava "12" em 10 calado.
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTable' }));
+    const lugares = document.querySelectorAll('.tm-input')[1];
+    fireEvent.change(lugares, { target: { value: '12' } });
+    expect(lugares).toHaveValue(12);
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTablesButtonSingle' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tables/day/d1', { table_number: 3, seats: 12 })
+    );
+  });
+
+  it('digitar "12" assento a assento não vira "22"', async () => {
+    // Corrigir a cada tecla fazia o 1 virar 2 (mínimo) antes do 2 chegar.
     await montar();
     await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTable' }));
     const lugares = document.querySelectorAll('.tm-input')[1];
     await userEvent.clear(lugares);
-    await userEvent.type(lugares, '30');
-    expect(lugares).toHaveValue(10);
+    await userEvent.type(lugares, '12');
+    expect(lugares).toHaveValue(12);
+  });
+
+  it('mesa de 1 assento vira 2 ao sair do campo; vazio volta a 9', async () => {
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTable' }));
+    const lugares = document.querySelectorAll('.tm-input')[1];
+    fireEvent.change(lugares, { target: { value: '1' } });
+    fireEvent.blur(lugares);
+    expect(lugares).toHaveValue(2);
+    fireEvent.change(lugares, { target: { value: '' } });
+    fireEvent.blur(lugares);
+    expect(lugares).toHaveValue(9);
   });
 
   it('erro ao criar mesa mostra o motivo', async () => {
@@ -643,5 +670,144 @@ describe('eliminar no assento (modo por mesa)', () => {
     await montar({ torneio: POR_MESA, inscritos: INSCRITOS });
     await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Este jogador já está eliminado.'));
+  });
+});
+
+describe('número da mesa', () => {
+  // O número é o rótulo da mesa FÍSICA no salão. O app sugere o próximo
+  // livre, mas quem manda é o operador: o salão pode já ter as mesas 1-4
+  // de outro evento, ou a mesa 7 pode ter virado a 3 depois de um quebra.
+
+  it('o número vem sugerido como o próximo livre e pode ser trocado', async () => {
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTable' }));
+    const numero = document.querySelectorAll('.tm-input')[2];
+    expect(numero).toHaveValue(3);
+    fireEvent.change(numero, { target: { value: '7' } });
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTablesButtonSingle' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tables/day/d1', { table_number: 7, seats: 9 })
+    );
+  });
+
+  it('o lote começa no número escolhido', async () => {
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTable' }));
+    const campos = document.querySelectorAll('.tm-input');
+    fireEvent.change(campos[0], { target: { value: '3' } });
+    fireEvent.change(campos[2], { target: { value: '10' } });
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTablesButtonMulti:3' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tables/day/d1/bulk?count=3&seats=9&start_number=10')
+    );
+  });
+
+  it('número vazio ao gravar volta ao próximo livre', async () => {
+    await montar();
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTable' }));
+    fireEvent.change(document.querySelectorAll('.tm-input')[2], { target: { value: '' } });
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.addTablesButtonSingle' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tables/day/d1', { table_number: 3, seats: 9 })
+    );
+  });
+
+  const abrirTroca = async (n) => {
+    const mesa = mesaDoNumero(n);
+    await userEvent.click(within(mesa).getByRole('button', { name: 'tableManagement.renameTable' }));
+    const campo = within(mesa).getByRole('spinbutton', { name: 'tableManagement.tableNumberLabel' });
+    return { mesa, campo };
+  };
+
+  it('mudar o número de uma mesa grava e avisa', async () => {
+    await montar();
+    const { mesa, campo } = await abrirTroca(2);
+    expect(campo).toHaveValue(2);
+    fireEvent.change(campo, { target: { value: '5' } });
+    await userEvent.click(within(mesa).getByRole('button', { name: 'common.save' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/tables/m2', { table_number: 5 }));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('tableManagement.tableRenamedSuccess:2,5')
+    );
+  });
+
+  it('Enter no campo também grava', async () => {
+    await montar();
+    const { campo } = await abrirTroca(2);
+    fireEvent.change(campo, { target: { value: '8' } });
+    fireEvent.submit(campo.closest('form'));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/tables/m2', { table_number: 8 }));
+  });
+
+  it('número já usado mostra o motivo e mantém a edição aberta', async () => {
+    // Duas "Mesa 1" no mesmo dia mandariam o jogador para a cadeira errada;
+    // a API recusa e o operador corrige sem recomeçar.
+    api.patch.mockRejectedValue(erroHttp('Já existe uma mesa com este número neste dia.'));
+    await montar();
+    const { mesa, campo } = await abrirTroca(2);
+    fireEvent.change(campo, { target: { value: '1' } });
+    await userEvent.click(within(mesa).getByRole('button', { name: 'common.save' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'tableManagement.errorRenameTable:Já existe uma mesa com este número neste dia.'
+      )
+    );
+    expect(within(mesa).getByRole('spinbutton', { name: 'tableManagement.tableNumberLabel' })).toHaveValue(1);
+  });
+
+  it('a recusa com código usa a frase já traduzida pelo interceptor', async () => {
+    const erro = erroHttp({ code: 'numero_de_mesa_repetido', message: 'Já existe' });
+    erro.userMessage = 'Traduzida';
+    api.patch.mockRejectedValue(erro);
+    await montar();
+    const { mesa, campo } = await abrirTroca(2);
+    fireEvent.change(campo, { target: { value: '1' } });
+    await userEvent.click(within(mesa).getByRole('button', { name: 'common.save' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('tableManagement.errorRenameTable:Traduzida')
+    );
+  });
+
+  it('Esc cancela sem chamar a API', async () => {
+    await montar();
+    const { mesa, campo } = await abrirTroca(2);
+    fireEvent.change(campo, { target: { value: '9' } });
+    fireEvent.keyDown(campo, { key: 'Escape' });
+    expect(within(mesa).queryByRole('spinbutton')).toBeNull();
+    expect(within(mesa).getByText('tableManagement.tableTitle:2')).toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('cancelar pelo botão também não chama a API', async () => {
+    await montar();
+    const { mesa } = await abrirTroca(2);
+    await userEvent.click(within(mesa).getByRole('button', { name: 'common.cancel' }));
+    expect(within(mesa).queryByRole('spinbutton')).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('gravar o mesmo número só fecha a edição', async () => {
+    await montar();
+    const { mesa } = await abrirTroca(2);
+    await userEvent.click(within(mesa).getByRole('button', { name: 'common.save' }));
+    expect(within(mesa).queryByRole('spinbutton')).toBeNull();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('número zero ou vazio é recusado antes de ir à API', async () => {
+    await montar();
+    const { mesa, campo } = await abrirTroca(2);
+    fireEvent.change(campo, { target: { value: '0' } });
+    await userEvent.click(within(mesa).getByRole('button', { name: 'common.save' }));
+    expect(toast.warning).toHaveBeenCalledWith('tableManagement.invalidTableNumber');
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('só uma mesa entra em edição por vez', async () => {
+    await montar();
+    await abrirTroca(1);
+    const { mesa: segunda } = await abrirTroca(2);
+    expect(within(mesaDoNumero(1)).queryByRole('spinbutton')).toBeNull();
+    expect(within(segunda).getByRole('spinbutton')).toBeInTheDocument();
   });
 });

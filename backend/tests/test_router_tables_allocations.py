@@ -72,7 +72,7 @@ class TestMesasPorTorneio:
         assert r.status_code == 400
 
     def test_cria_varias_de_uma_vez(self, client, stub):
-        stub(TSvc, create_multiple_tables=lambda tid, n, s, tournament_day_id=None:
+        stub(TSvc, create_multiple_tables=lambda tid, n, s, tournament_day_id=None, **kw:
              [_mesa(numero=i + 1) for i in range(n)])
         r = client.post(f"/tables/tournament/{TOUR}/bulk?count=3&seats=9")
         assert r.status_code == 201
@@ -82,11 +82,11 @@ class TestMesasPorTorneio:
         ("count=0&seats=9", "Count"),
         ("count=51&seats=9", "Count"),
         ("count=2&seats=0", "Seats"),
-        ("count=2&seats=11", "Seats"),
     ])
     def test_limites_do_lote_sao_recusados(self, client, qs, motivo):
-        """Um lote de 500 mesas de 40 lugares seria erro de digitação, não
-        intenção — e criaria linhas que alguém teria de apagar na mão."""
+        """Um lote de 500 mesas seria erro de digitação, não intenção — e
+        criaria linhas que alguém teria de apagar na mão. Assentos NÃO têm
+        teto (mesa de 12 existe no salão); só zero é recusado."""
         r = client.post(f"/tables/tournament/{TOUR}/bulk?{qs}")
         assert r.status_code == 400
         assert motivo in r.json()["detail"]["message"]
@@ -111,7 +111,7 @@ class TestMesasPorDia:
         assert r.status_code == 404
 
     def test_lote_no_dia(self, client, stub, dia_no_banco):
-        stub(TSvc, create_multiple_tables=lambda tid, n, s, tournament_day_id=None:
+        stub(TSvc, create_multiple_tables=lambda tid, n, s, tournament_day_id=None, **kw:
              [_mesa(numero=i + 1) for i in range(n)])
         r = client.post(f"/tables/day/{DIA}/bulk?count=2&seats=8")
         assert len(r.json()) == 2

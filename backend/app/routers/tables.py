@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from typing import List
+from typing import List, Optional
 from app.models.table import TableCreate, TableUpdate, Table
 from app.services.table_service import TableService
 from app.auth import get_current_user
@@ -7,6 +7,44 @@ from app.auth import get_current_user
 from app.utils.erros import da_excecao, nao_encontrado, recusado
 
 router = APIRouter(prefix="/tables", tags=["tables"])
+
+
+def _validar_lote(count: int, seats: int, start_number: Optional[int]) -> None:
+    """Limites do lote. Os valores vão TAMBÉM como dado nomeado: a tela monta
+    "entre 1 e 50" no idioma dela sem depender da frase em inglês.
+
+    Quantidade tem teto (500 mesas seria erro de digitação, não intenção).
+    Assentos NÃO têm: o clube monta a mesa que o salão pede — só precisa ser
+    positivo. O número inicial, quando vem, idem.
+    """
+    if count < 1 or count > 50:
+        raise recusado(
+            "quantidade_de_mesas_invalida",
+            "Count must be between 1 and 50",
+            minimo=1, maximo=50,
+        )
+    if seats < 1:
+        raise recusado(
+            "lugares_por_mesa_invalido",
+            "Seats must be at least 1",
+            minimo=1,
+        )
+    if start_number is not None and start_number < 1:
+        raise recusado(
+            "numero_de_mesa_invalido",
+            "Table number must be at least 1",
+            minimo=1,
+        )
+
+
+def _torneio_do_dia(day_id: str) -> str:
+    """As rotas por dia descobrem o torneio a partir do dia. Dia inexistente é
+    404, não 500: o operador escolheu o dia errado, o sistema não quebrou."""
+    from app.database import supabase
+    day = supabase.table("tournament_days").select("tournament_id").eq("id", day_id).single().execute()
+    if not day.data:
+        raise nao_encontrado("dia_nao_encontrado", "Day not found")
+    return day.data["tournament_id"]
 
 
 # ── Tournament-scoped (legacy) endpoints ──────────────────────────────────────
@@ -29,25 +67,13 @@ def create_multiple_tables(
     tournament_id: str,
     count: int,
     seats: int,
+    start_number: Optional[int] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """Create multiple tables at once"""
+    _validar_lote(count, seats, start_number)
     try:
-        # Os limites vao TAMBEM como dado nomeado: a tela monta "entre 1 e
-        # 50" no idioma dela sem depender da frase em ingles.
-        if count < 1 or count > 50:
-            raise recusado(
-                "quantidade_de_mesas_invalida",
-                "Count must be between 1 and 50",
-                minimo=1, maximo=50,
-            )
-        if seats < 1 or seats > 10:
-            raise recusado(
-                "lugares_por_mesa_invalido",
-                "Seats must be between 1 and 10",
-                minimo=1, maximo=10,
-            )
-        return TableService.create_multiple_tables(tournament_id, count, seats)
+        return TableService.create_multiple_tables(tournament_id, count, seats, start_number=start_number)
     except ValueError as e:
         raise da_excecao(e, "criacao_de_mesas_recusada")
 
@@ -80,12 +106,7 @@ def create_table_for_day(
 ):
     """Create a new table scoped to a tournament day"""
     try:
-        # Look up the tournament_id from the day
-        from app.database import supabase
-        day = supabase.table("tournament_days").select("tournament_id").eq("id", day_id).single().execute()
-        if not day.data:
-            raise nao_encontrado("dia_nao_encontrado", "Day not found")
-        tournament_id = day.data["tournament_id"]
+        tournament_id = _torneio_do_dia(day_id)
         return TableService.create_table(tournament_id, table_data, tournament_day_id=day_id)
     except HTTPException:
         raise
@@ -98,30 +119,16 @@ def create_multiple_tables_for_day(
     day_id: str,
     count: int,
     seats: int,
+    start_number: Optional[int] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """Create multiple tables scoped to a tournament day"""
+    _validar_lote(count, seats, start_number)
     try:
-        # Os limites vao TAMBEM como dado nomeado: a tela monta "entre 1 e
-        # 50" no idioma dela sem depender da frase em ingles.
-        if count < 1 or count > 50:
-            raise recusado(
-                "quantidade_de_mesas_invalida",
-                "Count must be between 1 and 50",
-                minimo=1, maximo=50,
-            )
-        if seats < 1 or seats > 10:
-            raise recusado(
-                "lugares_por_mesa_invalido",
-                "Seats must be between 1 and 10",
-                minimo=1, maximo=10,
-            )
-        from app.database import supabase
-        day = supabase.table("tournament_days").select("tournament_id").eq("id", day_id).single().execute()
-        if not day.data:
-            raise nao_encontrado("dia_nao_encontrado", "Day not found")
-        tournament_id = day.data["tournament_id"]
-        return TableService.create_multiple_tables(tournament_id, count, seats, tournament_day_id=day_id)
+        tournament_id = _torneio_do_dia(day_id)
+        return TableService.create_multiple_tables(
+            tournament_id, count, seats, tournament_day_id=day_id, start_number=start_number,
+        )
     except HTTPException:
         raise
     except ValueError as e:
@@ -166,8 +173,12 @@ def update_table(
     update_data: TableUpdate,
     current_user: dict = Depends(get_current_user)
 ):
-    """Update table information"""
-    table = TableService.update_table(table_id, update_data)
+    """Update table information (number, seats, status)"""
+    try:
+        table = TableService.update_table(table_id, update_data)
+    except ValueError as e:
+        # Número repetido no dia chega aqui como ErroDeNegocio (409 com código).
+        raise da_excecao(e, "atualizacao_de_mesa_recusada")
     if not table:
         raise nao_encontrado("mesa_nao_encontrada", "Table not found")
     return table

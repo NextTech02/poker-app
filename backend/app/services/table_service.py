@@ -1,6 +1,25 @@
 from typing import List, Optional
 from app.database import supabase
 from app.models.table import TableCreate, TableUpdate, Table, TableWithPlayers
+from app.utils.erros import ErroDeNegocio
+
+
+def _numero_repetido(exc: Exception) -> bool:
+    """O banco recusou por UNIQUE (tournament_day_id, table_number)."""
+    texto = str(exc).lower()
+    return "duplicate key" in texto or "23505" in texto
+
+
+def _recusa_numero_repetido(numero: Optional[int]) -> ErroDeNegocio:
+    # O número é o que identifica a mesa NO SALÃO: duas "Mesa 3" no mesmo dia
+    # mandariam o jogador para a cadeira errada. É recusa de regra (409), não
+    # erro de servidor — o operador resolve escolhendo outro número.
+    return ErroDeNegocio(
+        "numero_de_mesa_repetido",
+        "Já existe uma mesa com este número neste dia.",
+        status=409,
+        table_number=numero,
+    )
 
 
 class TableService:
@@ -17,23 +36,44 @@ class TableService:
         if tournament_day_id:
             data["tournament_day_id"] = tournament_day_id
 
-        response = supabase.table("tournament_tables").insert(data).execute()
+        try:
+            response = supabase.table("tournament_tables").insert(data).execute()
+        except Exception as exc:
+            if _numero_repetido(exc):
+                raise _recusa_numero_repetido(table_data.table_number) from exc
+            raise
         return Table(**response.data[0])
 
     @staticmethod
-    def create_multiple_tables(tournament_id: str, count: int, seats: int, tournament_day_id: str = None) -> List[Table]:
-        """Create multiple tables with the same seat count"""
-        tables = []
+    def create_multiple_tables(
+        tournament_id: str,
+        count: int,
+        seats: int,
+        tournament_day_id: str = None,
+        start_number: Optional[int] = None,
+    ) -> List[Table]:
+        """Create multiple tables with the same seat count.
 
-        # Get the highest table number (scoped by day if provided)
+        Sem `start_number`, a numeração continua da maior mesa existente. Com
+        ele, o operador escolhe onde começar (o salão já tem as mesas 1-4 de
+        outro evento, o torneio usa as 5-8) — e aí conferimos antes de gravar
+        se algum número do lote já está em uso, para recusar com o número
+        certo em vez de deixar o banco responder com uma frase em inglês.
+        """
         query = supabase.table("tournament_tables").select("table_number").eq("tournament_id", tournament_id)
         if tournament_day_id:
             query = query.eq("tournament_day_id", tournament_day_id)
-        existing = query.order("table_number", desc=True).limit(1).execute()
 
-        start_number = 1
-        if existing.data:
-            start_number = existing.data[0]["table_number"] + 1
+        if start_number is None:
+            existing = query.order("table_number", desc=True).limit(1).execute()
+            start_number = 1
+            if existing.data:
+                start_number = existing.data[0]["table_number"] + 1
+        else:
+            numeros = list(range(start_number, start_number + count))
+            em_uso = query.in_("table_number", numeros).execute().data or []
+            if em_uso:
+                raise _recusa_numero_repetido(min(r["table_number"] for r in em_uso))
 
         # Create tables
         tables_data = []
@@ -49,12 +89,14 @@ class TableService:
                 row["tournament_day_id"] = tournament_day_id
             tables_data.append(row)
 
-        response = supabase.table("tournament_tables").insert(tables_data).execute()
+        try:
+            response = supabase.table("tournament_tables").insert(tables_data).execute()
+        except Exception as exc:
+            if _numero_repetido(exc):
+                raise _recusa_numero_repetido(start_number) from exc
+            raise
 
-        for table_data in response.data:
-            tables.append(Table(**table_data))
-
-        return tables
+        return [Table(**table_data) for table_data in response.data]
 
     @staticmethod
     def get_tournament_tables(tournament_id: str) -> List[Table]:
@@ -80,10 +122,15 @@ class TableService:
 
     @staticmethod
     def update_table(table_id: str, update_data: TableUpdate) -> Optional[Table]:
-        """Update table information"""
+        """Update table information (number, seats, status)"""
         data = update_data.model_dump(exclude_unset=True)
 
-        response = supabase.table("tournament_tables").update(data).eq("id", table_id).execute()
+        try:
+            response = supabase.table("tournament_tables").update(data).eq("id", table_id).execute()
+        except Exception as exc:
+            if _numero_repetido(exc):
+                raise _recusa_numero_repetido(data.get("table_number")) from exc
+            raise
 
         if response.data:
             return Table(**response.data[0])
