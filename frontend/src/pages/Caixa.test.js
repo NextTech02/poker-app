@@ -196,6 +196,7 @@ const responder = ({
     if (url.startsWith('/player-credits/')) return Promise.resolve({ data: { available_credit: credito } });
     if (url.startsWith('/players/')) return Promise.resolve({ data: { name: 'Ana' } });
     if (url.startsWith('/allocations/tournament/')) return Promise.resolve({ data: alocacoes });
+    if (url.startsWith('/allocations/day/')) return Promise.resolve({ data: alocacoes });
     if (url.startsWith('/tables/')) {
       return mesas instanceof Error ? Promise.reject(mesas) : Promise.resolve({ data: mesas });
     }
@@ -812,8 +813,24 @@ describe('add-on', () => {
     expect(chamada('/addon')[0].url).toBe('/tournament-players/tp1/addon');
   });
 
-  it('add-on abre um bilhete de FICHAS, sem assento: o jogador já está sentado', async () => {
-    // Não há mesa a mostrar, mas o floor precisa saber quantas fichas entregar.
+  it('add-on leva a mesa e o assento onde o jogador está', async () => {
+    // O floor leva a pilha extra até a cadeira: o bilhete diz nome, mesa e
+    // assento, e o item — sem pedir assento novo ao servidor.
+    await montar({ alocacoes: [{ id: 'al1', player_id: 'p1', seat_number: 5, tournament_tables: { table_number: 3 } }] });
+    await comoAddon();
+    await enviar();
+    expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
+    expect(screen.getByTestId('bilhete-so-fichas')).toHaveTextContent('true');
+    expect(screen.getByTestId('bilhete-sem-assento')).toHaveTextContent('false');
+    expect(screen.getByTestId('bilhete-mesa')).toHaveTextContent('3');
+    expect(screen.getByTestId('bilhete-assento')).toHaveTextContent('5');
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('15000');
+    expect(api.post).not.toHaveBeenCalledWith(expect.stringContaining('/allocations/'));
+  });
+
+  it('add-on de quem ainda não tem assento abre o bilhete de FICHAS sem mesa', async () => {
+    // Alternado ou alocação manual: não há mesa a mostrar, mas o floor
+    // precisa saber quantas fichas entregar.
     await montar();
     await comoAddon();
     await enviar();

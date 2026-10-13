@@ -311,3 +311,48 @@ describe('compra e total de fichas', () => {
     expect(impresso.html).not.toContain('<b>VIP</b>');
   });
 });
+
+/**
+ * Bilhete de add-on: o floor leva a pilha extra até a cadeira. O papel diz o
+ * nome, a mesa e o assento onde o jogador ESTÁ, e o item no formato que o
+ * clube pediu — "ADDON: 200 / fichas".
+ */
+describe('bilhete de add-on', () => {
+  const ADDON = { itens: [{ name: 'Addon', amount: 200, chips: 50000 }], total_amount: 200, total_chips: 50000 };
+  const semTags = (html) => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
+
+  it('traz nome, mesa e assento, e o item como NOME: valor / fichas', async () => {
+    const impresso = espiaoDeImpressao();
+    render(<SeatTicket allocation={{ ...ALOCACAO, so_fichas: true, ...ADDON }} />);
+    expect(screen.getByText('Ana Souza')).toBeInTheDocument();
+    expect(screen.getByText('Mesa 3 - Assento 7')).toBeInTheDocument();
+    expect(screen.getByText('Addon').closest('li')).toHaveTextContent('Addon: 200.00 / 50.000 fichas');
+    await userEvent.click(screen.getByRole('button'));
+    const texto = semTags(impresso.html);
+    expect(texto).toContain('BILHETE DE FICHAS');
+    expect(texto).toContain('Ana Souza');
+    expect(texto).toContain('MESA 3 - ASSENTO 7');
+    expect(texto).toContain('Addon: 200.00 / 50.000 fichas');
+  });
+
+  it('com um item só não há linha TOTAL; com dois, há', () => {
+    const { unmount } = render(<SeatTicket allocation={{ ...ALOCACAO, so_fichas: true, ...ADDON }} />);
+    expect(screen.queryByText('TOTAL')).toBeNull();
+    unmount();
+    render(
+      <SeatTicket allocation={{ ...ALOCACAO, itens: [...ADDON.itens, { name: 'Bono Dealer', amount: 20, chips: 10000 }] }} />
+    );
+    expect(screen.getByText('TOTAL').closest('li')).toHaveTextContent('TOTAL: 220.00 / 60.000 fichas');
+  });
+
+  it('em espanhol sai com MESA e ASIENTO e o mesmo formato do item', async () => {
+    mockIdioma = 'es-ES';
+    const impresso = espiaoDeImpressao();
+    render(<SeatTicket allocation={{ ...ALOCACAO, so_fichas: true, ...ADDON }} />);
+    await userEvent.click(screen.getByRole('button'));
+    const texto = semTags(impresso.html);
+    expect(texto).toContain('BOLETO DE FICHAS');
+    expect(texto).toContain('MESA 3 - ASIENTO 7');
+    expect(texto).toContain('Addon: 200.00 / 50.000 fichas');
+  });
+});

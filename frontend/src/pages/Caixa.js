@@ -378,6 +378,18 @@ const Caixa = () => {
 
   // Nome do jogador para o bilhete. Offline vem da réplica; online do
   // servidor. Sem nenhum dos dois, travessão — nunca "undefined" no papel.
+  // Mesa e assento ATUAIS do jogador no dia, para o bilhete de add-on: o floor
+  // leva a pilha extra até a cadeira dele. Sem rede, sem assento (alternado) ou
+  // com alocação manual, o bloco de mesa sai do papel em vez de "MESA undefined".
+  const assentoAtual = async (tournamentId, dayId, playerId) => {
+    const url = dayId ? `/allocations/day/${dayId}` : `/allocations/tournament/${tournamentId}`;
+    const res = await api.get(url).catch(() => ({ data: [] }));
+    const alloc = (res.data || []).find((a) => a.player_id === playerId);
+    const mesa = alloc?.tournament_tables?.table_number ?? alloc?.table_number;
+    if (!alloc || mesa == null || alloc.seat_number == null) return null;
+    return { table_number: mesa, seat_number: alloc.seat_number };
+  };
+
   const nomeDoJogador = async (playerId, offline) => {
     try {
       if (offline) {
@@ -676,14 +688,19 @@ const Caixa = () => {
         setAllocationData({ ...assento, ...compra });
       } else {
         // Só add-ons: o jogador já está sentado. O bilhete é de FICHAS — é
-        // por ele que o floor entrega a pilha extra.
+        // por ele que o floor entrega a pilha extra — e leva a mesa e o
+        // assento onde ele está, para a pilha chegar à cadeira certa.
+        const assento = await assentoAtual(
+          formData.tournament_id, formData.tournament_day_id, formData.player_id,
+        );
         setAllocationData({
           tournament_name: tournament?.name || '',
           day_name: selectedDay?.day_name || '',
           created_at: new Date().toISOString(),
           id: formData.player_id,
           player_name: await nomeDoJogador(formData.player_id, algoOffline),
-          sem_assento: true,
+          ...(assento || {}),
+          sem_assento: !assento,
           so_fichas: true,
           ...compra,
         });
@@ -736,9 +753,14 @@ const Caixa = () => {
         }))
       : [];
     const totaisReimpressos = totaisDosItens(itensReimpressos);
-    const compra = itensReimpressos.length
-      ? { itens: itensReimpressos, total_amount: totaisReimpressos.amount, total_chips: totaisReimpressos.chips }
-      : {};
+    // Venda só de add-ons reimprime como bilhete de FICHAS (com a mesa atual).
+    const soFichas = !linhas.some((l) => eEntrada(l.type));
+    const compra = {
+      ...(itensReimpressos.length
+        ? { itens: itensReimpressos, total_amount: totaisReimpressos.amount, total_chips: totaisReimpressos.chips }
+        : {}),
+      so_fichas: soFichas,
+    };
     try {
       const res = await api
         .get(`/allocations/tournament/${transaction.tournament_id}`)

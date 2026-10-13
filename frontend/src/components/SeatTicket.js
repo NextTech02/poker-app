@@ -115,7 +115,9 @@ const valorPadrao = (v) => Number(v || 0).toFixed(2);
  * `allocation.itens` (opcional): o que o jogador comprou NESTA ida ao caixa —
  * `[{ name, amount, chips }]`, com `total_amount` e `total_chips`. Com itens, o
  * bilhete lista cada um e traz o TOTAL DE FICHAS em destaque: é o número que o
- * floor confere para entregar a pilha, sem somar de cabeça.
+ * floor confere para entregar a pilha, sem somar de cabeça. Cada item sai
+ * como "NOME: valor / fichas" (o formato que o clube pediu para o add-on); a
+ * linha TOTAL só aparece com dois ou mais itens.
  *
  * `allocation.sem_assento`: venda sem assento a mostrar (alocação manual ou só
  * add-on). O bloco de mesa sai do papel em vez de imprimir "MESA undefined".
@@ -165,21 +167,22 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
 
+    // "NOME: valor / fichas" — o nome em caixa alta sai do CSS, para o texto
+    // gravado continuar sendo o do meio de entrada.
+    const linhaDoItem = (nome, valor, fichas, classe = '') => (
+      `<div class="ticket-item ${classe}">`
+      + `<span class="item-name">${escapar(nome)}</span>: `
+      + `<span class="item-amount">${escapar(formatarValor(valor))}</span> / `
+      + `<span class="item-chips">${formatarFichas(fichas)} ${t.chips_unit}</span>`
+      + '</div>'
+    );
     const purchaseBlock = temItens
       ? `<div class="ticket-section">
            <div class="ticket-label">${t.label_purchase}</div>
-           <table class="ticket-items">
-             ${itens.map((item) => `<tr>
-               <td class="item-name">${escapar(item.name)}</td>
-               <td class="item-amount">${escapar(formatarValor(item.amount))}</td>
-               <td class="item-chips">${formatarFichas(item.chips)}</td>
-             </tr>`).join('')}
-             <tr class="item-total">
-               <td class="item-name">${t.label_total}</td>
-               <td class="item-amount">${escapar(formatarValor(totalValor))}</td>
-               <td class="item-chips">${formatarFichas(totalFichas)}</td>
-             </tr>
-           </table>
+           <div class="ticket-items">
+             ${itens.map((item) => linhaDoItem(item.name, item.amount, item.chips)).join('')}
+             ${itens.length > 1 ? linhaDoItem(t.label_total, totalValor, totalFichas, 'item-total') : ''}
+           </div>
          </div>
          <div class="ticket-highlight chips-highlight">
            <div class="ticket-label">${t.label_chips_to_deliver}</div>
@@ -289,26 +292,23 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
               margin-top: 4px;
             }
             .ticket-items {
-              width: 100%;
-              border-collapse: collapse;
               margin-top: 4px;
-              font-size: 12px;
+              font-size: 13px;
             }
-            .ticket-items td {
-              padding: 3px 0;
+            .ticket-item {
+              padding: 4px 0;
               border-bottom: 1px dotted #999;
-            }
-            .ticket-items .item-name {
               text-align: left;
+            }
+            .ticket-item .item-name {
               font-weight: bold;
+              text-transform: uppercase;
             }
-            .ticket-items .item-amount,
-            .ticket-items .item-chips {
-              text-align: right;
+            .ticket-item .item-amount,
+            .ticket-item .item-chips {
               white-space: nowrap;
-              padding-left: 6px;
             }
-            .ticket-items .item-total td {
+            .ticket-item.item-total {
               border-top: 2px solid #333;
               border-bottom: none;
               font-weight: bold;
@@ -429,15 +429,21 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
                   // Índice na chave: o nome pode repetir entre meios diferentes.
                   <li key={`${item.name}-${indice}`} className="ticket-preview-item">
                     <span className="item-name">{item.name}</span>
+                    <span className="item-sep">: </span>
                     <span className="item-amount">{formatarValor(item.amount)}</span>
-                    <span className="item-chips">{formatarFichas(item.chips)}</span>
+                    <span className="item-sep"> / </span>
+                    <span className="item-chips">{formatarFichas(item.chips)} {t.chips_unit}</span>
                   </li>
                 ))}
-                <li className="ticket-preview-item ticket-preview-item--total">
-                  <span className="item-name">{t.label_total}</span>
-                  <span className="item-amount">{formatarValor(totalValor)}</span>
-                  <span className="item-chips">{formatarFichas(totalFichas)}</span>
-                </li>
+                {itens.length > 1 && (
+                  <li className="ticket-preview-item ticket-preview-item--total">
+                    <span className="item-name">{t.label_total}</span>
+                    <span className="item-sep">: </span>
+                    <span className="item-amount">{formatarValor(totalValor)}</span>
+                    <span className="item-sep"> / </span>
+                    <span className="item-chips">{formatarFichas(totalFichas)} {t.chips_unit}</span>
+                  </li>
+                )}
               </ul>
               <div className="ticket-preview-highlight ticket-preview-chips">
                 <div className="ticket-preview-chips-label">{t.label_chips_to_deliver}</div>
