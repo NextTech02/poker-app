@@ -4,12 +4,26 @@
 
 /* ── Page Layout ────────────────────────────────────────────── */
 
-.tm-page {
-  padding: 0;
+/* A barra do topo é FIXA (TopBar, --topbar-height) e .main-content recua por
+   ela. O `padding: 0` que ficava aqui jogava esse recuo fora, e o cabeçalho
+   da tela (título, trava, botões) sumia embaixo da barra — só o subtítulo
+   aparecia. O recuo do topo fica; só o padding lateral sai, porque o
+   cabeçalho e as colunas desta tela vão de borda a borda. Seletor composto
+   para vencer o .main-content do App.css em qualquer ordem de carga. */
+.main-content.tm-page {
+  padding: var(--topbar-height, 56px) 0 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
+}
+
+/* No celular a barra do topo dá lugar ao cabeçalho móvel, de 60px. */
+@media (max-width: 768px) {
+  .main-content.tm-page {
+    padding-top: 60px;
+    min-height: 0;
+  }
 }
 
 /* ── Header ─────────────────────────────────────────────────── */
