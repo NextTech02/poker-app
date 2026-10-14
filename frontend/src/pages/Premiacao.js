@@ -19,6 +19,8 @@ import {
 } from '../utils/payoutEditing';
 import { validarDocumento, TIPOS_DOCUMENTO, TIPOS_LEGADO } from '../utils/documentos';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import KoTab from '../components/premiacao/KoTab';
+import { ehTorneioKo } from '../utils/ko';
 import './Premiacao.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -29,6 +31,20 @@ const aoClicarNoFundo = (aoFechar) => (evento) => {
 };
 
 const getPositionLabel = (position) => `${position}°`;
+
+/**
+ * O motivo da recusa, como o servidor mandou. O interceptor da API já traduz
+ * as recusas com código (`errors.<code>`) para o idioma da tela — mostrar o
+ * `detail` cru deixava o caixa lendo "Error al registrar el pago" quando o
+ * motivo real era, por exemplo, falta de saldo no caixa geral. Sem resposta
+ * (rede) não há motivo: vale o texto da própria tela.
+ */
+const motivoDaRecusa = (err, padrao) => {
+  const detail = err?.response?.data?.detail;
+  if (!detail) return padrao;
+  if (err.userMessage) return err.userMessage;
+  return typeof detail === 'string' ? detail : padrao;
+};
 
 /**
  * "4" → posição única; "7-9" → faixa (cada colocação de 7 a 9 recebe o mesmo
@@ -215,8 +231,7 @@ const Premiacao = () => {
       toast.success(t('premiacao.reservedSaved'));
       await loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : t('premiacao.reservedSaveError'));
+      setError(motivoDaRecusa(err, t('premiacao.reservedSaveError')));
     } finally {
       setSaving(false);
     }
@@ -231,8 +246,7 @@ const Premiacao = () => {
       toast.success(!allocation.released ? t('premiacao.releaseGranted') : t('premiacao.releaseRevoked'));
       await loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : t('premiacao.releaseError'));
+      setError(motivoDaRecusa(err, t('premiacao.releaseError')));
     } finally {
       setSaving(false);
     }
@@ -293,8 +307,7 @@ const Premiacao = () => {
       setNewVagaDayId('');
       await loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : t('premiacao.addError'));
+      setError(motivoDaRecusa(err, t('premiacao.addError')));
     } finally {
       setSaving(false);
     }
@@ -308,8 +321,7 @@ const Premiacao = () => {
       await api.delete(`/tournaments/${tournamentId}/prizes/${allocationId}`);
       await loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setError(typeof detail === 'string' ? detail : t('premiacao.removeError'));
+      setError(motivoDaRecusa(err, t('premiacao.removeError')));
     } finally {
       setSaving(false);
     }
@@ -418,13 +430,12 @@ const Premiacao = () => {
       toast.success(t('premiacao.autoApplied', { count: autoPreview.length }));
       await loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail;
       // Toast, não o banner da página: o modal do cálculo continua aberto por
       // cima e o banner ficaria ATRÁS dele. As recusas do servidor (soma acima
       // do pool pagável, torneio com faixa já paga) são justamente as que o
       // operador precisa ler para corrigir os valores antes de tentar de novo —
       // sem retorno visível ele reclica achando que o botão travou.
-      toast.error(typeof detail === 'string' ? detail : t('premiacao.autoApplyError'));
+      toast.error(motivoDaRecusa(err, t('premiacao.autoApplyError')));
     } finally {
       setSaving(false);
     }
@@ -567,10 +578,9 @@ const Premiacao = () => {
 
       await loadData();
     } catch (err) {
-      const detail = err.response?.data?.detail;
       // Dentro do modal, que continua aberto: é aqui que o servidor diz por que
       // recusou. Sem rede, `detail` não existe — mesmo assim a tela responde.
-      setPayoutError(typeof detail === 'string' ? detail : t('premiacao.paymentError'));
+      setPayoutError(motivoDaRecusa(err, t('premiacao.paymentError')));
     } finally {
       pagamentoEmCursoRef.current = false;
       setPayoutSaving(false);
@@ -588,6 +598,10 @@ const Premiacao = () => {
   const remainingBalance = payablePool - totalAllocated;
   const allocatedPercentage = percentageFromAmount(totalAllocated, payablePool);
   const paidCount = allocations.filter(a => a.paid).length;
+  // Premiação por eliminação: parte do pool líquido vira o pool KO, e as
+  // posições (e o cálculo automático) usam só o resto.
+  const comKo = ehTorneioKo(tournament) || (prizeSummary?.ko_format && prizeSummary.ko_format !== 'none');
+  const koPool = parseFloat(prizeSummary?.ko_pool || 0);
 
   // ── Prévia do cálculo automático (rascunho editável) ────────────────────
   const autoTotal = sumAmounts(autoPreview);
@@ -709,7 +723,26 @@ const Premiacao = () => {
               <span className="tab-badge">{allocations.filter(a => a.released && !a.paid).length}</span>
             )}
           </button>
+          {comKo && (
+            <button
+              type="button"
+              className={`prem-tab ${activeTab === 'ko' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ko')}
+            >
+              {t('ko.tab', 'KO')}
+            </button>
+          )}
         </div>
+
+        {/* ── TAB: KO (premiação por eliminação) ─────────────────────────── */}
+        {activeTab === 'ko' && comKo && (
+          <KoTab
+            tournamentId={tournamentId}
+            torneio={tournament}
+            inscritos={tournamentPlayers}
+            onMudou={loadData}
+          />
+        )}
 
         {/* ── TAB: PREMIAÇÃO RESERVADA ──────────────────────────────────── */}
         {activeTab === 'reservada' && (
@@ -805,10 +838,24 @@ const Premiacao = () => {
               <div className="summary-card player-pool-card">
                 <div className="card-header">
                   <h3>{t('premiacao.playerPool')}</h3>
-                  <span className="card-subtitle">{t('premiacao.percentOfEntries', { percent: 100 - parseFloat(prizeSummary?.rake_percentage || 20) })}</span>
+                  <span className="card-subtitle">
+                    {comKo
+                      ? t('ko.positionsAfterKo', { net: formatCurrency(parseFloat(prizeSummary?.net_pool || 0)), defaultValue: `Pool líquido ${formatCurrency(parseFloat(prizeSummary?.net_pool || 0))} − KO` })
+                      : t('premiacao.percentOfEntries', { percent: 100 - parseFloat(prizeSummary?.rake_percentage || 20) })}
+                  </span>
                 </div>
                 <div className="card-value">{formatCurrency(prizeSummary?.player_pool)}</div>
               </div>
+
+              {comKo && (
+                <div className="summary-card ko-pool-card">
+                  <div className="card-header">
+                    <h3>{t('ko.pool', 'Pool KO')}</h3>
+                    <span className="card-subtitle">{t('ko.poolShare', { percent: parseFloat(prizeSummary?.ko_percentage || 0), defaultValue: `${parseFloat(prizeSummary?.ko_percentage || 0)}% do pool líquido` })}</span>
+                  </div>
+                  <div className="card-value">{formatCurrency(koPool)}</div>
+                </div>
+              )}
 
               <div className="summary-card rake-card">
                 <div className="card-header">

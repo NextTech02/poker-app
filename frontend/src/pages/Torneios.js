@@ -13,6 +13,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { colunasDoDia, linhasDaApi, meiosPadrao, meiosParaApi, validarMeios } from '../utils/entryTypes';
+import { FORMATOS_KO, formatoKo, koParaApi } from '../utils/ko';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Torneios.css';
@@ -21,6 +22,15 @@ import './Torneios.css';
 // Os dois modos seguem a mesma conta: toda entrada soma um jogador e toda
 // reentrada traz de volta um eliminado. Muda só QUEM mexe no contador.
 const MODOS_DE_ELIMINACAO = ['table', 'bulk'];
+
+// Rótulos e dicas dos formatos de KO (padrão das chaves tournaments.koFormat_*).
+const ROTULO_KO = { none: 'Nenhuma', ko: 'KO fixo', pko: 'PKO (progressivo)', mystery: 'Mystery Bounty' };
+const DICA_KO = {
+  none: 'Sem prêmio por eliminação: todo o pool vai para as posições.',
+  ko: 'Quem elimina leva o bounty inteiro do jogador, pago na hora pelo caixa geral. Exige eliminação pelas mesas.',
+  pko: 'Quem elimina leva parte do bounty em dinheiro; o resto soma no bounty dele. O campeão leva o próprio bounty no fim. Exige eliminação pelas mesas.',
+  mystery: 'O pool KO vira envelopes quando o floor inicia a fase Mystery; cada eliminação sorteia um envelope. Exige eliminação pelas mesas.',
+};
 
 // O formulário do modal. Buy-in, rebuy, add-on e as fichas de cada um não moram
 // mais aqui: viraram linhas da lista de MEIOS DE ENTRADA do torneio (estado
@@ -32,6 +42,12 @@ const FORM_INICIAL = {
   // Como o diretor elimina jogadores. 'bulk' é o padrão do banco e o único
   // modo que existia antes da escolha.
   elimination_mode: 'bulk',
+  // Premiação por eliminação: formato, % do pozo líquido que vira pozo KO e,
+  // no PKO, quanto do bounty é pago em dinheiro (o resto soma no de quem
+  // eliminou). Não muda depois da primeira venda — o servidor recusa.
+  ko_format: 'none',
+  ko_percentage: '',
+  ko_cash_share: '50',
   qualifying_days: 2,
   qualifying_max_players: 100,
   qualifying_rebuy_level_limit: '',
@@ -145,6 +161,7 @@ const Torneios = () => {
         name: formData.name,
         has_qualifying: formData.has_qualifying,
         elimination_mode: formData.elimination_mode || 'bulk',
+        ...koParaApi(formData),
       });
       const newTournamentId = res?.data?.id;
 
@@ -268,6 +285,7 @@ const Torneios = () => {
         // Trocar para "por mesa" com eliminações em massa já lançadas é
         // recusado pelo servidor (409) — a mensagem vem traduzida no erro.
         elimination_mode: formData.elimination_mode || 'bulk',
+        ...koParaApi(formData),
       });
       if (!entryLoadFailed) {
         try {
@@ -295,8 +313,23 @@ const Torneios = () => {
     }
   };
 
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((atual) => {
+      const novo = { ...atual, [name]: value };
+      // KO exige eliminação por mesa: é nela que o floor diz quem eliminou.
+      if (name === 'ko_format' && value !== 'none') novo.elimination_mode = 'table';
+      return novo;
+    });
+  };
+
+  // KO é só para torneio sem classificatórios (v1): ligar os classificatórios
+  // desliga o KO, e o aviso no modal diz por quê.
+  const toggleQualifying = () => setFormData((atual) => ({
+    ...atual,
+    has_qualifying: !atual.has_qualifying,
+    ko_format: !atual.has_qualifying ? 'none' : atual.ko_format,
+  }));
 
   const openEditModal = async (tournament) => {
     setEditingTournament(tournament);
@@ -305,6 +338,9 @@ const Torneios = () => {
       name: tournament.name,
       has_qualifying: tournament.has_qualifying || false,
       elimination_mode: tournament.elimination_mode === 'table' ? 'table' : 'bulk',
+      ko_format: formatoKo(tournament),
+      ko_percentage: tournament.ko_percentage != null && Number(tournament.ko_percentage) > 0 ? String(Number(tournament.ko_percentage)) : '',
+      ko_cash_share: String(tournament.ko_cash_share != null ? Number(tournament.ko_cash_share) : 50),
     });
     setFormError('');
     setEntryError('');
@@ -602,7 +638,7 @@ const Torneios = () => {
             title={t('tournaments.newTournament')}
             formData={formData}
             onChange={handleChange}
-            onToggleQualifying={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}
+            onToggleQualifying={toggleQualifying}
             onSubmit={handleSubmit}
             onClose={() => { setShowModal(false); setFormError(''); }}
             submitLabel={t('tournaments.createFirst')}
@@ -624,7 +660,7 @@ const Torneios = () => {
             title={t('tournaments.editTitle')}
             formData={formData}
             onChange={handleChange}
-            onToggleQualifying={() => setFormData({ ...formData, has_qualifying: !formData.has_qualifying })}
+            onToggleQualifying={toggleQualifying}
             onSubmit={handleEditSubmit}
             onClose={() => { setShowEditModal(false); setFormError(''); }}
             submitLabel={t('tournaments.saveChanges')}
@@ -654,6 +690,7 @@ const TournamentModal = ({
 }) => {
   // O backdrop fecha no clique (mouse); no teclado o equivalente é o Esc.
   useEscapeKey(!submitting, onClose);
+  const comKo = (formData.ko_format || 'none') !== 'none';
 
   return (
   <div
@@ -704,6 +741,8 @@ const TournamentModal = ({
         <div className="tr-elim-options" role="radiogroup" aria-labelledby="tr-elim-label">
           {MODOS_DE_ELIMINACAO.map((modo) => {
             const ativo = (formData.elimination_mode || 'bulk') === modo;
+            // Em massa não registra quem eliminou: indisponível com KO.
+            const bloqueado = modo === 'bulk' && comKo;
             return (
               <label key={modo} className={`tr-elim-option ${ativo ? 'active' : ''}`}>
                 <input
@@ -712,7 +751,7 @@ const TournamentModal = ({
                   value={modo}
                   checked={ativo}
                   onChange={onChange}
-                  disabled={submitting}
+                  disabled={submitting || bloqueado}
                 />
                 <span className="tr-elim-text">
                   <span className="tr-elim-title">
@@ -727,6 +766,65 @@ const TournamentModal = ({
           })}
         </div>
         <small className="tr-elim-rule">{t('tournaments.eliminationModeRule')}</small>
+
+        {/* Premiação por eliminação: parte do pozo líquido vira prêmio para
+            quem elimina (KO fixo, PKO ou envelopes Mystery). */}
+        <div className="tr-section-label">{t('tournaments.koSection', 'Premiação por eliminação (KO)')}</div>
+        <div className="tr-qual-grid">
+          <div className="tr-field">
+            <label htmlFor="tr-ko-format">{t('tournaments.koFormat', 'Formato')}</label>
+            <select
+              id="tr-ko-format"
+              name="ko_format"
+              value={formData.ko_format || 'none'}
+              onChange={onChange}
+              disabled={submitting || !!formData.has_qualifying}
+            >
+              {FORMATOS_KO.map((f) => (
+                <option key={f} value={f}>{t(`tournaments.koFormat_${f}`, ROTULO_KO[f])}</option>
+              ))}
+            </select>
+          </div>
+          {comKo && (
+            <div className="tr-field">
+              <label htmlFor="tr-ko-pct">{t('tournaments.koPercentage', '% do pool para KO')}</label>
+              <input
+                id="tr-ko-pct"
+                name="ko_percentage"
+                type="number"
+                min="1"
+                max="100"
+                step="0.5"
+                value={formData.ko_percentage}
+                onChange={onChange}
+                disabled={submitting}
+                required
+              />
+            </div>
+          )}
+          {formData.ko_format === 'pko' && (
+            <div className="tr-field">
+              <label htmlFor="tr-ko-cash">{t('tournaments.koCashShare', 'PKO: % pago em dinheiro')}</label>
+              <input
+                id="tr-ko-cash"
+                name="ko_cash_share"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                value={formData.ko_cash_share}
+                onChange={onChange}
+                disabled={submitting}
+                required
+              />
+            </div>
+          )}
+        </div>
+        <small className="tr-elim-rule">
+          {formData.has_qualifying
+            ? t('tournaments.koNoQualifying', 'A premiação por eliminação funciona só em torneio sem dias classificatórios.')
+            : t(`tournaments.koHint_${formData.ko_format || 'none'}`, DICA_KO[formData.ko_format || 'none'])}
+        </small>
 
         {/* Meios de entrada: nos DOIS caminhos (com e sem classificatórios) e
             também na edição. A lista é do torneio e vale para todos os dias. */}

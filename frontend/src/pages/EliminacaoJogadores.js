@@ -10,6 +10,11 @@ import { useToast } from '../contexts/ToastContext';
 import { offlineWrite } from '../offline/apiOffline';
 import { applyEliminate } from '../offline/domainRules';
 import { uuid, getEntity, putEntity } from '../offline/db';
+import EliminadorModal from '../components/ko/EliminadorModal';
+import KoResultadoModal from '../components/ko/KoResultadoModal';
+import {
+  candidatosAEliminador, codigoDaRecusa, corpoDaEliminacao, exigeEliminador, formatoKo,
+} from '../utils/ko';
 import './EliminacaoJogadores.css';
 
 const EliminacaoJogadores = () => {
@@ -28,6 +33,10 @@ const EliminacaoJogadores = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('active'); // 'active', 'all', 'eliminated'
+  // Torneio KO: "Quem eliminou?" antes de eliminar, e o KO para pagar na hora.
+  const [eliminando, setEliminando] = useState(null); // { id, nome }
+  const [enviandoElim, setEnviandoElim] = useState(false);
+  const [resultadoKo, setResultadoKo] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -95,25 +104,50 @@ const EliminacaoJogadores = () => {
   });
 
   const handleEliminate = async (tournamentPlayerId, playerName) => {
+    // Em torneio KO o "Quem eliminou?" já é a confirmação.
+    if (exigeEliminador(tournament)) {
+      setEliminando({ id: tournamentPlayerId, nome: playerName });
+      return;
+    }
     const ok = await confirm(t('elimination.confirmEliminate', { name: playerName }), { variant: 'danger', confirmText: t('elimination.eliminate') });
     if (!ok) return;
+    await eliminar(tournamentPlayerId, playerName);
+  };
 
-    const body = { tournament_player_id: tournamentPlayerId };
+  const eliminar = async (tournamentPlayerId, playerName, quem = null) => {
+    const cmid = uuid();
+    const body = corpoDaEliminacao(tournamentPlayerId, cmid, quem);
+    setEnviandoElim(true);
     try {
       const r = await offlineWrite({
         kind: 'eliminate', method: 'post',
         url: `/tournament-players/${tournamentPlayerId}/eliminate`,
-        body, clientMutationId: uuid(), meta: { kind: 'eliminate', name: playerName },
+        body, clientMutationId: cmid, meta: { kind: 'eliminate', name: playerName },
         synthetic: { ok: true }, applyLocal: () => applyEliminate(body),
       });
+      setEliminando(null);
       // otimista na lista + reconcilia se online
       setPlayers(prev => prev.map(p => p.id === tournamentPlayerId ? { ...p, status: 'eliminated' } : p));
-      if (r.offline) toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
-      else loadData();
+      if (r.offline) {
+        toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
+        if (quem) toast.info(t('ko.offlinePending', 'Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.'));
+      } else {
+        if (r.data?.knockout) setResultadoKo(r.data.knockout);
+        loadData();
+      }
     } catch (error) {
+      // A fase Mystery pode ter começado depois que esta tela abriu: relê o
+      // torneio e pergunta quem eliminou, em vez de só recusar.
+      if (!quem && codigoDaRecusa(error) === 'eliminador_obrigatorio') {
+        await loadData();
+        setEliminando({ id: tournamentPlayerId, nome: playerName });
+        return;
+      }
       console.error('Error eliminating player:', error);
-      const errorMessage = error.response?.data?.detail || t('common.error');
+      const errorMessage = error.userMessage || error.response?.data?.detail || t('common.error');
       toast.error(typeof errorMessage === 'string' ? errorMessage : t('common.error'));
+    } finally {
+      setEnviandoElim(false);
     }
   };
 
@@ -138,7 +172,8 @@ const EliminacaoJogadores = () => {
       else loadData();
     } catch (error) {
       console.error('Error restoring player:', error);
-      const errorMessage = error.response?.data?.detail || t('common.error');
+      // Desfazer pode ser recusado com motivo (KO já pago, por exemplo).
+      const errorMessage = error.userMessage || error.response?.data?.detail || t('common.error');
       toast.error(typeof errorMessage === 'string' ? errorMessage : t('common.error'));
     }
   };
@@ -171,6 +206,12 @@ const EliminacaoJogadores = () => {
       );
     });
   }, [players, statusFilter, searchTerm]);
+
+  const candidatos = useMemo(() => (
+    eliminando
+      ? candidatosAEliminador(players.map((p) => ({ ...p, nome: p.player_name })), eliminando.id)
+      : []
+  ), [eliminando, players]);
 
   const selectedDay = useMemo(
     () => tournamentDays.find((d) => d.id === selectedDayId),
@@ -362,6 +403,26 @@ const EliminacaoJogadores = () => {
               )}
             </Card>
           </>
+        )}
+
+        {eliminando && (
+          <EliminadorModal
+            vitima={eliminando.nome}
+            formato={formatoKo(tournament)}
+            candidatos={candidatos}
+            enviando={enviandoElim}
+            onFechar={() => { if (!enviandoElim) setEliminando(null); }}
+            onConfirmar={(quem) => eliminar(eliminando.id, eliminando.nome, quem)}
+          />
+        )}
+
+        {resultadoKo && (
+          <KoResultadoModal
+            tournamentId={tournamentId}
+            knockout={resultadoKo}
+            torneioNome={tournament?.name}
+            onFechar={() => setResultadoKo(null)}
+          />
         )}
       </main>
     </div>

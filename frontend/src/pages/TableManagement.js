@@ -7,7 +7,12 @@ import Sidebar from '../components/Sidebar';
 import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
-import { MODO_MESA, useModoDeEliminacao } from '../hooks/useModoDeEliminacao';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { MODO_MESA, modoDoTorneio } from '../hooks/useModoDeEliminacao';
+import { useTorneioKo } from '../hooks/useTorneioKo';
+import EliminadorModal from '../components/ko/EliminadorModal';
+import KoResultadoModal from '../components/ko/KoResultadoModal';
+import { candidatosAEliminador, codigoDaRecusa, corpoDaEliminacao } from '../utils/ko';
 import { offlineWrite } from '../offline/apiOffline';
 import { applyEliminate, applyUneliminate } from '../offline/domainRules';
 import { uuid } from '../offline/db';
@@ -35,6 +40,7 @@ const TableManagement = () => {
   const { dayId } = useParams();
   const navigate = useNavigate();
   const { toast, confirm } = useToast();
+  const { formatCurrency = (v) => String(v) } = useCurrency() || {};
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [day, setDay] = useState(null);
@@ -96,11 +102,34 @@ const TableManagement = () => {
 
   // Modo "por posição nas mesas": é AQUI que o diretor elimina, no assento.
   // No modo em massa o ✕ não aparece — quem elimina é o contador do Controle.
-  const porMesa = useModoDeEliminacao(day?.tournament_id) === MODO_MESA;
+  // A mesma leitura do torneio diz se ele tem premiação por eliminação (KO):
+  // aí o ✕ pergunta QUEM eliminou, e o prêmio sai na hora.
+  const ko = useTorneioKo(day?.tournament_id);
+  const porMesa = !!ko.torneio && modoDoTorneio(ko.torneio) === MODO_MESA;
+  const [eliminando, setEliminando] = useState(null); // { inscrito, nome, mesa }
+  const [enviandoElim, setEnviandoElim] = useState(false);
+  const [resultadoKo, setResultadoKo] = useState(null);
+  const [bounties, setBounties] = useState(() => new Map());
   const inscritoPorJogador = useMemo(
     () => new Map(inscritos.map((i) => [i.player_id, i])),
     [inscritos]
   );
+  // Mesa e assento de cada jogador sentado: ordenam o "Quem eliminou?" (a
+  // mesma mesa da vítima primeiro) e vão no bilhete do KO.
+  const assentoPorJogador = useMemo(() => {
+    const numeroDaMesa = new Map(tables.map((m) => [m.id, m.table_number]));
+    return new Map(allocations.map((a) => [
+      a.player_id, { mesa: numeroDaMesa.get(a.table_id) ?? null, assento: a.seat_number },
+    ]));
+  }, [allocations, tables]);
+  const candidatos = useMemo(() => {
+    if (!eliminando) return [];
+    const mesas = new Map(inscritos.map((i) => [i.id, assentoPorJogador.get(i.player_id)?.mesa ?? null]));
+    return candidatosAEliminador(
+      inscritos.map((i) => ({ ...i, nome: i.player_name })),
+      eliminando.inscrito.id, mesas, eliminando.mesa,
+    );
+  }, [eliminando, inscritos, assentoPorJogador]);
   const eliminados = useMemo(
     () => inscritos
       .filter((i) => i.status === 'eliminated')
@@ -152,6 +181,18 @@ const TableManagement = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Bounty atual de cada jogador (KO fixo e PKO): o selo no assento. Muda a
+  // cada venda e a cada KO — por isso acompanha a lista de inscritos.
+  const torneioDoDia = day?.tournament_id;
+  const carregarBounties = useCallback(async () => {
+    if (!ko.comBounty || !torneioDoDia) return;
+    try {
+      const res = await api.get(`/tournaments/${torneioDoDia}/knockouts/summary`, { _silentError: true });
+      setBounties(new Map((res?.data?.bounties || []).map((b) => [b.tournament_player_id, Number(b.bounty || 0)])));
+    } catch (_) { /* o selo é só informação */ }
+  }, [ko.comBounty, torneioDoDia]);
+  useEffect(() => { carregarBounties(); }, [carregarBounties, inscritos]);
 
   // Polling de 5s que pausa quando a aba está oculta.
   useRealtimeRefresh({
@@ -367,6 +408,10 @@ const TableManagement = () => {
   // Elimina, libera a cadeira e soma no contador que a TV lê — tudo no
   // servidor, numa chamada só. Pela fila offline, como as outras operações do
   // salão: sem rede a eliminação entra na fila e a tela já reflete.
+  //
+  // Torneio KO: o ✕ abre "Quem eliminou?" (que já é a confirmação) e, online,
+  // o quadro do KO com o pagamento na hora. Offline o KO nasce no sync e o
+  // pagamento fica pendente na aba KO da Premiação.
   const handleEliminate = async (allocation) => {
     const nome = allocation.players?.name || t('tableManagement.defaultPlayer');
     const inscrito = inscritoPorJogador.get(allocation.player_id);
@@ -374,27 +419,52 @@ const TableManagement = () => {
       toast.error(t('tableManagement.errorEliminate', { detail: t('tableManagement.playerNotInDay') }));
       return;
     }
+    const mesa = assentoPorJogador.get(allocation.player_id)?.mesa ?? null;
+    if (ko.exige) {
+      setEliminando({ inscrito, nome, mesa });
+      return;
+    }
     const ok = await confirm(
       t('tableManagement.confirmEliminate', { name: nome }),
       { variant: 'danger', confirmText: t('tableManagement.eliminatePlayer') }
     );
     if (!ok) return;
+    await eliminar(inscrito, nome, mesa);
+  };
 
-    const body = { tournament_player_id: inscrito.id };
+  const eliminar = async (inscrito, nome, mesa, quem = null) => {
+    const cmid = uuid();
+    const body = corpoDaEliminacao(inscrito.id, cmid, quem);
+    setEnviandoElim(true);
     try {
       const r = await offlineWrite({
         kind: 'eliminate', method: 'post',
         url: `/tournament-players/${inscrito.id}/eliminate`,
-        body, clientMutationId: uuid(), meta: { kind: 'eliminate', name: nome },
+        body, clientMutationId: cmid, meta: { kind: 'eliminate', name: nome },
         synthetic: { ok: true }, applyLocal: () => applyEliminate(body),
       });
+      setEliminando(null);
       setInscritos((prev) => prev.map((i) => (
         i.id === inscrito.id ? { ...i, status: 'eliminated', eliminated_at: new Date().toISOString() } : i
       )));
       toast.success(t('tableManagement.eliminatedSuccess', { name: nome }));
-      if (!r?.offline) await loadData();
+      if (r?.offline) {
+        if (quem) toast.info(t('ko.offlinePending', 'Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.'));
+      } else {
+        if (r?.data?.knockout) setResultadoKo(r.data.knockout);
+        await loadData();
+      }
     } catch (err) {
+      // A fase Mystery pode ter começado depois que esta tela abriu: o
+      // servidor pede o eliminador e a tela pergunta, em vez de só recusar.
+      if (!quem && codigoDaRecusa(err) === 'eliminador_obrigatorio') {
+        await ko.recarregar();
+        setEliminando({ inscrito, nome, mesa });
+        return;
+      }
       toast.error(err.userMessage || t('tableManagement.errorEliminate', { detail: err.response?.data?.detail || err.message }));
+    } finally {
+      setEnviandoElim(false);
     }
   };
 
@@ -450,6 +520,9 @@ const TableManagement = () => {
     const rotuloDoBotao = desativado
       ? t('tableManagement.enableSeat', { number: seatNum })
       : t('tableManagement.disableSeat', { number: seatNum });
+    const inscritoDoAssento = occupied ? inscritoPorJogador.get(allocation.player_id) : null;
+    const bounty = ko.comBounty && inscritoDoAssento && bounties.has(inscritoDoAssento.id)
+      ? bounties.get(inscritoDoAssento.id) : null;
 
     return (
       <div
@@ -469,6 +542,9 @@ const TableManagement = () => {
             <svg className="tm-player-icon-svg" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
             </svg>
+            {bounty != null && (
+              <span className="ko-selo-bounty" title={t('ko.bounty', 'Bounty')}>{formatCurrency(bounty)}</span>
+            )}
             {porMesa && (
               <button
                 type="button"
@@ -838,6 +914,29 @@ const TableManagement = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {eliminando && (
+          <EliminadorModal
+            vitima={eliminando.nome}
+            formato={ko.formato}
+            candidatos={candidatos}
+            mesaDaVitima={eliminando.mesa}
+            enviando={enviandoElim}
+            onFechar={() => { if (!enviandoElim) setEliminando(null); }}
+            onConfirmar={(quem) => eliminar(eliminando.inscrito, eliminando.nome, eliminando.mesa, quem)}
+          />
+        )}
+
+        {resultadoKo && (
+          <KoResultadoModal
+            tournamentId={day?.tournament_id}
+            knockout={resultadoKo}
+            torneioNome={tournamentName}
+            assentoDoJogador={(playerId) => assentoPorJogador.get(playerId) || null}
+            onFechar={() => setResultadoKo(null)}
+            onPago={() => carregarBounties()}
+          />
         )}
 
       </main>

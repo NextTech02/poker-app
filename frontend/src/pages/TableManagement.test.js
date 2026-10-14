@@ -42,6 +42,7 @@ jest.mock('../components/SeatTicket', () => ({ allocation }) => (
   </div>
 ));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
+jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: () => ({ formatCurrency: (v) => `S/ ${Number(v).toFixed(2)}` }) }));
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -878,5 +879,90 @@ describe('ativar e desativar assento', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('tableManagement.errorToggleSeat:Este puesto ya está ocupado.')
     );
+  });
+});
+
+describe('torneio KO: quem eliminou', () => {
+  /** Em torneio com premiação por eliminação o ✕ pergunta QUEM eliminou (a
+   *  pergunta já é a confirmação) e, online, mostra o KO para pagar na hora. */
+  const PKO = { id: 't1', name: 'START UP PKO', elimination_mode: 'table', ko_format: 'pko', ko_percentage: 40 };
+  const ALOC_KO = [
+    { id: 'a1', table_id: 'm1', seat_number: 1, player_id: 'p1', players: { name: 'Ana' } },
+    { id: 'a2', table_id: 'm1', seat_number: 2, player_id: 'p2', players: { name: 'Bruno' } },
+    { id: 'a3', table_id: 'm2', seat_number: 1, player_id: 'p3', players: { name: 'Carla' } },
+  ];
+  const INSC_KO = [
+    { id: 'tp-a', player_id: 'p1', player_name: 'Ana', status: 'active' },
+    { id: 'tp-b', player_id: 'p2', player_name: 'Bruno', status: 'active' },
+    { id: 'tp-c', player_id: 'p3', player_name: 'Carla', status: 'active' },
+  ];
+  const KNOCKOUT = {
+    id: 'k1', format: 'pko', eliminated_name: 'Ana', bounty_value: '100.00',
+    payouts: [{ id: 'po1', eliminator_player_id: 'p2', eliminator_name: 'Bruno', cash_amount: '50.00', added_to_bounty: '50.00', paid: false }],
+  };
+
+  const montarKo = async (torneio = PKO) => {
+    responder({ torneio, alocacoes: ALOC_KO, inscritos: INSC_KO });
+    const base = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/tournaments/t1/knockouts/summary'
+        ? Promise.resolve({ data: { bounties: [{ tournament_player_id: 'tp-a', bounty: '150.00' }] } })
+        : base(url, ...resto)
+    ));
+    render(<MemoryRouter><TableManagement /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+  };
+
+  beforeEach(() => {
+    offlineWrite.mockReset();
+    offlineWrite.mockResolvedValue({ offline: false, data: { knockout: KNOCKOUT } });
+    toast.info = jest.fn();
+  });
+
+  it('o assento mostra o bounty atual do jogador', async () => {
+    await montarKo();
+    expect(await screen.findByText('S/ 150.00')).toBeInTheDocument();
+  });
+
+  it('o ✕ pergunta quem eliminou e manda a resposta com o id da mutação', async () => {
+    await montarKo();
+    await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
+    const dialogo = await screen.findByRole('dialog');
+    expect(confirmar).not.toHaveBeenCalled();
+    // A mesma mesa da vítima vem primeiro.
+    const nomes = within(dialogo).getAllByRole('checkbox').map((c) => c.closest('label').textContent);
+    expect(nomes[0]).toContain('Bruno');
+    await userEvent.click(within(dialogo).getByRole('checkbox', { name: /Bruno/ }));
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'ko.confirmEliminate' }));
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'eliminate',
+      url: '/tournament-players/tp-a/eliminate',
+      clientMutationId: 'mut-fixa',
+      body: { tournament_player_id: 'tp-a', client_mutation_id: 'mut-fixa', eliminated_by: ['tp-b'], no_eliminator: false },
+    })));
+    // Online: o KO aparece para pagar na hora.
+    expect(await screen.findByText('ko.registeredTitle')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ko.payNow' })).toBeInTheDocument();
+  });
+
+  it('offline: avisa que o pagamento fica pendente', async () => {
+    offlineWrite.mockResolvedValue({ offline: true, data: { ok: true } });
+    await montarKo();
+    await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
+    const dialogo = await screen.findByRole('dialog');
+    await userEvent.click(within(dialogo).getByRole('checkbox', { name: /ko.noEliminator/ }));
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'ko.confirmEliminate' }));
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('ko.offlinePending')));
+    expect(screen.queryByText('ko.registeredTitle')).toBeNull();
+  });
+
+  it('fase Mystery iniciada depois de a tela abrir: o servidor pede o eliminador e a tela pergunta', async () => {
+    await montarKo({ ...PKO, ko_format: 'mystery' });
+    offlineWrite.mockRejectedValueOnce(erroHttp({ code: 'eliminador_obrigatorio', message: 'Informe quem eliminou.' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'tableManagement.eliminatePlayer: Ana' }));
+    // Mystery antes da fase: confirmação comum, sem pergunta.
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

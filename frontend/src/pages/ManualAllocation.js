@@ -205,7 +205,9 @@ const ManualAllocation = () => {
       toast.success(t('manualAllocation.eliminatedSuccess', { name: playerName }));
     } catch (error) {
       console.error('Erro ao eliminar jogador:', error);
-      toast.error(t('manualAllocation.errorEliminate', { detail: error.response?.data?.detail || error.message }));
+      // Torneio KO recusa eliminar por aqui (precisa dizer quem eliminou): o
+      // motivo vem traduzido em userMessage — o detail é um objeto com código.
+      toast.error(t('manualAllocation.errorEliminate', { detail: error.userMessage || error.response?.data?.detail || error.message }));
     }
   };
 

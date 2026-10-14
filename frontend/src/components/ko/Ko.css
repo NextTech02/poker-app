@@ -1,0 +1,383 @@
+/* ── Premiação por eliminação: modais e aba KO ─────────────────────────── */
+
+.ko-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-dark, rgba(0, 0, 0, 0.65));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1100;
+}
+
+.ko-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-xl);
+  padding: 18px 20px;
+  color: var(--text-primary);
+}
+
+.ko-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.ko-modal-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ko-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.ko-hint,
+.ko-nota {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 4px 0 12px;
+}
+
+.ko-search {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.ko-candidatos,
+.ko-payouts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.ko-candidato {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+}
+
+.ko-candidato.marcado {
+  border-color: var(--accent-color);
+  background: var(--accent-soft);
+}
+
+.ko-candidato-nome {
+  flex: 1;
+}
+
+.ko-candidato-mesa {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.ko-candidato-mesa.mesma {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.ko-vazio,
+.ko-sem-pagamento {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  padding: 8px 0;
+}
+
+.ko-split {
+  font-size: 0.82rem;
+  color: var(--text-warning);
+  margin: 8px 0 0;
+}
+
+.ko-sem-autor {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.ko-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.ko-actions .ko-nota {
+  margin: 0 auto 0 0;
+}
+
+.ko-btn-primary,
+.ko-btn-secondary,
+.ko-btn-danger {
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.ko-btn-primary {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.ko-btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.ko-btn-secondary {
+  background: transparent;
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.ko-btn-primary:disabled,
+.ko-btn-secondary:disabled,
+.ko-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ko-payout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  flex-wrap: wrap;
+}
+
+.ko-payout-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ko-payout-valor {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-success);
+}
+
+.ko-payout-soma {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.ko-payout-acoes {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ko-pago {
+  color: var(--text-success);
+  font-weight: 600;
+}
+
+.ko-erro {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--danger-bg);
+  color: var(--text-danger);
+  font-size: 0.85rem;
+}
+
+/* Selo do bounty no assento (Gestão de Mesas) */
+.ko-selo-bounty {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--brand-gold, #d4af37);
+  white-space: nowrap;
+}
+
+/* ── Aba KO da Premiação ───────────────────────────────────────────────── */
+.ko-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ko-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.ko-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg, 12px);
+  padding: 12px 14px;
+}
+
+.ko-card-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ko-card-valor {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.ko-card.alerta {
+  border-color: var(--danger);
+}
+
+.ko-secao {
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 16px;
+}
+
+.ko-secao h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.ko-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.ko-tabela th,
+.ko-tabela td {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.ko-tabela td.num,
+.ko-tabela th.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ko-tabela tr.desfeito td {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.ko-linha-acoes {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.ko-envelopes-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ko-envelope-linha {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ko-envelope-linha input {
+  width: 120px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
+.ko-conferencia {
+  font-size: 0.85rem;
+}
+
+.ko-conferencia .ok {
+  color: var(--text-success);
+}
+
+.ko-conferencia .falta {
+  color: var(--text-danger);
+}
+
+.ko-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ko-chip {
+  padding: 4px 10px;
+  border-radius: var(--radius-full, 999px);
+  border: 1px solid var(--border-primary);
+  font-size: 0.82rem;
+}
+
+.ko-encerrar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ko-encerrar select {
+  padding: 7px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
+@media (max-width: 600px) {
+  .ko-modal {
+    padding: 14px;
+  }
+
+  .ko-payout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

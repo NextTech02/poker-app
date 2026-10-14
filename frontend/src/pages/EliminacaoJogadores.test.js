@@ -15,7 +15,7 @@
  * Reativar existe porque o rebuy pós-eliminação é comum: o jogador volta, e
  * sem desfazer a eliminação ele ficaria de fora do ranking.
  */
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import EliminacaoJogadores from './EliminacaoJogadores';
@@ -35,6 +35,7 @@ jest.mock('../offline/db', () => ({
 }));
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
+jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: () => ({ formatCurrency: (v) => `S/ ${Number(v).toFixed(2)}` }) }));
 
 const mockNavegar = jest.fn();
 let mockBusca = 'tournament=t1';
@@ -389,5 +390,40 @@ describe('atualização periódica', () => {
     });
     expect(api.get.mock.calls.length).toBeGreaterThan(antes);
     jest.useRealTimers();
+  });
+});
+
+describe('torneio KO: quem eliminou', () => {
+  const KO = { id: 't1', name: 'Main Event', ko_format: 'ko', ko_percentage: 30, elimination_mode: 'table' };
+
+  it('pergunta quem eliminou (sem a confirmação comum) e mostra o KO', async () => {
+    offlineWrite.mockResolvedValue({
+      offline: false,
+      data: { knockout: { id: 'k1', format: 'ko', eliminated_name: 'Ana Souza', bounty_value: '60.00', payouts: [
+        { id: 'po1', eliminator_name: 'Bruno Lima', cash_amount: '60.00', added_to_bounty: '0', paid: false },
+      ] } },
+    });
+    await montar({ torneio: KO });
+    await userEvent.click(screen.getAllByRole('button', { name: 'elimination.eliminate' })[0]);
+    const dialogo = await screen.findByRole('dialog');
+    expect(confirmar).not.toHaveBeenCalled();
+    // Quem já caiu não aparece como candidato.
+    expect(within(dialogo).queryByText('Carla Dias')).toBeNull();
+    await userEvent.click(within(dialogo).getByRole('checkbox', { name: /Bruno Lima/ }));
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'ko.confirmEliminate' }));
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalledWith(expect.objectContaining({
+      body: { tournament_player_id: 'tp1', client_mutation_id: 'mut-fixa', eliminated_by: ['tp2'], no_eliminator: false },
+    })));
+    expect(await screen.findByText('ko.registeredTitle')).toBeInTheDocument();
+  });
+
+  it('desfazer recusado (KO já pago) mostra o motivo', async () => {
+    const recusa = new Error('409');
+    recusa.userMessage = 'Este KO já foi pago no caixa.';
+    offlineWrite.mockRejectedValue(recusa);
+    await montar({ torneio: KO });
+    await userEvent.click(screen.getByRole('button', { name: 'elimination.eliminatedOnly (1)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'elimination.restore' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Este KO já foi pago no caixa.'));
   });
 });

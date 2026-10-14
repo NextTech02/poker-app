@@ -242,7 +242,7 @@ describe('vínculo com a etapa', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/tournaments', {
-        name: 'Novo', has_qualifying: false, elimination_mode: 'bulk',
+        name: 'Novo', has_qualifying: false, elimination_mode: 'bulk', ko_format: 'none',
       })
     );
   });
@@ -728,7 +728,7 @@ describe('editar torneio', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/tournaments/t1', {
-        name: 'Main Event 2026', has_qualifying: true, elimination_mode: 'bulk',
+        name: 'Main Event 2026', has_qualifying: true, elimination_mode: 'bulk', ko_format: 'none',
       })
     );
     expect(invalidateCache).toHaveBeenCalledWith('/tournaments');
@@ -860,5 +860,81 @@ describe('excluir torneio', () => {
     await montar();
     await excluir('Turbo');
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('tournaments.deleteError'));
+  });
+});
+
+describe('premiação por eliminação (KO)', () => {
+  /** Parte do pool vira prêmio para quem elimina. O formato exige eliminar
+   *  pelas mesas (é lá que o floor diz quem eliminou) e, por enquanto, só
+   *  vale em torneio sem dias classificatórios. */
+  const formatoKo = () => document.getElementById('tr-ko-format');
+  const pctKo = () => document.getElementById('tr-ko-pct');
+  const parteKo = () => document.getElementById('tr-ko-cash');
+
+  it('PKO: troca para eliminação por mesa e manda formato, % do pool e % em dinheiro', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'START UP PKO');
+    await userEvent.selectOptions(formatoKo(), 'pko');
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeTable/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeBulk/ })).toBeDisabled();
+    await userEvent.type(pctKo(), '40');
+    expect(parteKo()).toHaveValue(50);
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments', {
+        name: 'START UP PKO', has_qualifying: false, elimination_mode: 'table',
+        ko_format: 'pko', ko_percentage: 40, ko_cash_share: 50,
+      })
+    );
+  });
+
+  it('sem KO o campo de porcentagem nem aparece', async () => {
+    await montar();
+    await abrirNovo();
+    expect(formatoKo()).toHaveValue('none');
+    expect(pctKo()).toBeNull();
+    expect(screen.getByText(/todo o pool vai para as posições/)).toBeInTheDocument();
+  });
+
+  it('ligar os classificatórios desliga o KO e explica por quê', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.selectOptions(formatoKo(), 'ko');
+    await userEvent.click(screen.getByRole('switch'));
+    expect(formatoKo()).toHaveValue('none');
+    expect(formatoKo()).toBeDisabled();
+    expect(screen.getByText(/só em torneio sem dias classificatórios/)).toBeInTheDocument();
+  });
+
+  it('a edição carrega o formato gravado e salva junto', async () => {
+    const torneios = [{
+      id: 't2', name: 'Mystery Night', status: 'PENDING', total_entries: 0, total_players: 0, total_reentries: 0,
+      elimination_mode: 'table', ko_format: 'mystery', ko_percentage: '25.00', ko_cash_share: '100',
+    }];
+    await montar({ torneios });
+    await userEvent.click(within(cartaoDe('Mystery Night')).getByRole('button', { name: /common.edit|Editar/ }));
+    expect(formatoKo()).toHaveValue('mystery');
+    expect(pctKo()).toHaveValue(25);
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/tournaments/t2', expect.objectContaining({
+        elimination_mode: 'table', ko_format: 'mystery', ko_percentage: 25, ko_cash_share: 100,
+      }))
+    );
+  });
+
+  it('recusa do servidor (torneio já com vendas) aparece no modal', async () => {
+    const torneios = [{
+      id: 't2', name: 'PKO', status: 'active', total_entries: 5, total_players: 5, total_reentries: 0,
+      elimination_mode: 'table', ko_format: 'pko', ko_percentage: '40', ko_cash_share: '50',
+    }];
+    api.patch.mockRejectedValue({ userMessage: 'O torneio já tem vendas: o formato e as porcentagens do KO não podem mais mudar.' });
+    await montar({ torneios });
+    await userEvent.click(within(cartaoDe('PKO')).getByRole('button', { name: /common.edit|Editar/ }));
+    await userEvent.clear(pctKo());
+    await userEvent.type(pctKo(), '30');
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
+    expect(await screen.findByText(/já tem vendas/)).toBeInTheDocument();
   });
 });

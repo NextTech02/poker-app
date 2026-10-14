@@ -1432,3 +1432,67 @@ describe('pagamento', () => {
     });
   });
 });
+
+describe('motivo da recusa', () => {
+  it('recusa com código mostra a frase traduzida (userMessage), não o objeto', async () => {
+    // O servidor manda {code, message}; o interceptor da API traduz para o
+    // idioma da tela. Antes a tela mostrava o texto genérico.
+    api.patch.mockRejectedValue({
+      response: { data: { detail: { code: 'reserva_acima_do_pool', message: 'x' } } },
+      userMessage: 'La reserva supera el pozo.',
+    });
+    await montar();
+    await irPara('premiacao.reservedPrize');
+    await userEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    expect(await screen.findByText('La reserva supera el pozo.')).toBeInTheDocument();
+  });
+
+  it('sem resposta do servidor (rede) fica o texto da tela', async () => {
+    api.patch.mockRejectedValue({ message: 'Network Error', userMessage: 'Network Error' });
+    await montar();
+    await irPara('premiacao.reservedPrize');
+    await userEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    expect(await screen.findByText('premiacao.reservedSaveError')).toBeInTheDocument();
+  });
+});
+
+describe('premiação por eliminação (KO)', () => {
+  const TORNEIO_PKO = { id: 't1', name: 'START UP PKO', ko_format: 'pko', ko_percentage: 40 };
+  const RESUMO_PKO = {
+    ...RESUMO, ko_format: 'pko', ko_percentage: '40', net_pool: '10000', ko_pool: '4000', player_pool: '6000',
+  };
+  const RESUMO_KO = {
+    tournament_id: 't1', ko_format: 'pko', closed_at: null, ko_pool: '4000', paid: '0', pending: '0',
+    unclaimed: '0', bounties: [], knockouts: [], mystery: null,
+  };
+
+  const montarKo = async () => {
+    responder({ torneio: TORNEIO_PKO, resumo: RESUMO_PKO });
+    const base = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/tournaments/t1/knockouts/summary' ? Promise.resolve({ data: RESUMO_KO }) : base(url, ...resto)
+    ));
+    render(<MemoryRouter><Premiacao /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+  };
+
+  it('torneio sem KO não tem a aba', async () => {
+    await montar();
+    expect(screen.queryByRole('button', { name: 'ko.tab' })).toBeNull();
+  });
+
+  it('a configuração mostra a divisão: pool KO e o das posições', async () => {
+    await montarKo();
+    const card = document.querySelector('.ko-pool-card');
+    expect(card).not.toBeNull();
+    expect(within(card).getByText('R$ 4000.00')).toBeInTheDocument();
+    expect(screen.getByText(/^ko\.positionsAfterKo:R\$ 10000\.00/)).toBeInTheDocument();
+  });
+
+  it('a aba KO abre o painel de pagamentos', async () => {
+    await montarKo();
+    await userEvent.click(screen.getByRole('button', { name: 'ko.tab' }));
+    expect(await screen.findByText('ko.pendingPayments')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/tournaments/t1/knockouts/summary');
+  });
+});
