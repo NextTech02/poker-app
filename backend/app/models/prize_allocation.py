@@ -1,10 +1,16 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, Literal
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
 
-DocumentType = Literal['passport', 'national_id', 'driver_license']
+from app.utils.documentos import TIPOS_ACEITOS
+
+# Os MESMOS tipos do cadastro de jogador: os do país (DNI, cédula, CPF...) e
+# os antigos. Era um Literal só com os três antigos, e jogador cadastrado com
+# DNI não conseguia receber prêmio — a tela manda o tipo do cadastro e a API
+# recusava com 422 antes de chegar ao caixa.
+DocumentType = str
 
 
 PrizeType = Literal['cash', 'vaga']
@@ -55,9 +61,17 @@ class PrizeAllocationUpdate(BaseModel):
 class PrizePayoutRequest(BaseModel):
     """Request model for processing a prize payout with document verification"""
     player_id: UUID
-    document_type: DocumentType
+    document_type: DocumentType = Field(..., min_length=1, max_length=30,
+                                        description=f"Um de: {', '.join(TIPOS_ACEITOS)}")
     document_number: str = Field(..., min_length=1, max_length=100)
     paid_by: Optional[str] = Field(None, max_length=255, description="Name of staff processing payment")
+
+    @field_validator("document_type")
+    @classmethod
+    def _tipo_do_cadastro(cls, valor: str) -> str:
+        if valor not in TIPOS_ACEITOS:
+            raise ValueError(f"Input should be one of: {', '.join(TIPOS_ACEITOS)}")
+        return valor
 
 
 class PrizeAllocationResponse(BaseModel):

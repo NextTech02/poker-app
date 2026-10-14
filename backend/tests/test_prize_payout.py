@@ -407,3 +407,43 @@ class TestPremioTipoVaga:
         with pytest.raises(HTTPException) as e:
             PrizeAllocationService.create_allocation(TOUR, arg)
         assert e.value.status_code == 404
+
+class TestTiposDeDocumentoDoPais:
+    """O pagamento aceita os mesmos tipos do cadastro de jogador.
+
+    Era um Literal só com passaporte/identidade/habilitação: num torneio do
+    Peru com os 8 jogadores cadastrados com DNI, NENHUM prêmio podia ser pago
+    (422 antes de chegar ao caixa, mesmo com sangria feita).
+    """
+
+    @pytest.mark.parametrize("tipo", ["dni", "cedula", "cpf", "passport", "national_id", "driver_license"])
+    def test_tipos_do_cadastro_sao_aceitos(self, tipo):
+        pedido = PrizePayoutRequest(player_id=PLAYER, document_type=tipo, document_number="73579148")
+        assert pedido.document_type == tipo
+
+    def test_tipo_desconhecido_continua_recusado(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            PrizePayoutRequest(player_id=PLAYER, document_type="carteirinha", document_number="1")
+
+    def test_jogador_com_dni_recebe_o_premio(self, monkeypatch):
+        fake = _monta(monkeypatch, documento="73579148")
+        fake.store["players"][0]["document_type"] = "dni"
+        pedido = PrizePayoutRequest(player_id=PLAYER, document_type="dni",
+                                    document_number="73579148", paid_by="Caixa")
+        r = PrizeAllocationService.pay_prize(TOUR, ALLOC, pedido)
+        assert r.paid is True
+        assert r.document_type == "dni"
+
+    def test_rota_aceita_dni(self, client, monkeypatch):
+        recebido = {}
+
+        def pagar(tid, aid, pedido, user_id=None):
+            recebido["tipo"] = pedido.document_type
+            raise HTTPException(status_code=409, detail={"code": "teste", "message": "parou aqui"})
+
+        monkeypatch.setattr(PrizeAllocationService, "pay_prize", staticmethod(pagar))
+        r = client.post(f"/tournaments/{TOUR}/prizes/{ALLOC}/pay",
+                        json={"player_id": PLAYER, "document_type": "dni", "document_number": "73579148"})
+        assert r.status_code != 422
+        assert recebido == {"tipo": "dni"}
