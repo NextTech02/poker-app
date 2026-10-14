@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import api from '../config/api';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { ehTorneioKo } from '../utils/ko';
 import './TournamentDashboard.css';
 
 // Ordem das categorias na tabela de itens: entrada, recompra, add-on.
@@ -28,6 +29,9 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   // não carregou (a tabela cai no agrupamento por categoria).
   const [transacoes, setTransacoes] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Torneio KO: a divisão do pool (KO × posições) vem do servidor, que soma
+  // a parte KO congelada em cada venda.
+  const [divisaoKo, setDivisaoKo] = useState(null);
   const { formatCurrency } = useCurrency();
 
   const loadTournamentData = async () => {
@@ -93,6 +97,22 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
     aoMudar: () => refresh(),
     ativo: !!tournamentId,
   });
+
+  useEffect(() => {
+    if (!ehTorneioKo(tournament)) { setDivisaoKo(null); return undefined; }
+    let vivo = true;
+    api.get(`/tournaments/${tournamentId}/prizes/summary`, { _silentError: true })
+      .then((r) => {
+        if (!vivo) return;
+        setDivisaoKo({
+          ko: Number(r?.data?.ko_pool || 0),
+          posicoes: Number(r?.data?.player_pool || 0),
+          percentual: Number(r?.data?.ko_percentage || 0),
+        });
+      })
+      .catch(() => { if (vivo) setDivisaoKo(null); });
+    return () => { vivo = false; };
+  }, [tournament, tournamentId, allPlayers.length]);
 
   // Financeiro do torneio — memoizado (só recalcula quando jogadores/dias mudam)
   // e usando um Map dia→jogadores (O(n)) em vez de filtrar por dia (O(n²)).
@@ -329,6 +349,18 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
             <span className="label">{t('tournamentDashboard.prizePool')}</span>
             <span className="value positive">{formatCurrency(financials.prizePool)}</span>
           </div>
+          {divisaoKo && (
+            <>
+              <div className="financial-row">
+                <span className="label">{t('tournamentDashboard.koPool', { percent: divisaoKo.percentual })}</span>
+                <span className="value neutral">{formatCurrency(divisaoKo.ko)}</span>
+              </div>
+              <div className="financial-row">
+                <span className="label">{t('tournamentDashboard.positionsPool')}</span>
+                <span className="value positive">{formatCurrency(divisaoKo.posicoes)}</span>
+              </div>
+            </>
+          )}
         </Card>
       </div>
 

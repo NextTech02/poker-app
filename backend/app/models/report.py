@@ -97,6 +97,14 @@ class TournamentReport(BaseModel):
     vagas_count: int = 0            # number of 'vaga' tiers
     vagas_generated: int = 0        # vaga tickets already generated
 
+    # Premiação por eliminação (KO fixo, PKO, Mystery): o pool KO sai do pool
+    # líquido; o pago e o pendente vêm dos KOs registrados.
+    ko_format: str = "none"
+    ko_percentage: float = 0.0
+    ko_pool: float = 0.0
+    ko_paid: float = 0.0
+    ko_pending: float = 0.0
+
     days: List[TournamentDayReport] = []
     prizes: List[TournamentPrizeRow] = []
     # Vendas do torneio por MEIO de entrada (o cadastrado pelo diretor).

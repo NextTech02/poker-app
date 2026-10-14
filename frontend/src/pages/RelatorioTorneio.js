@@ -122,6 +122,19 @@ const RelatorioTorneio = () => {
               <Stat label={t('tournamentReport.seats')} value={report.vagas_count} hint={t('tournamentReport.ticketsGenerated', { count: report.vagas_generated })} />
             </div>
 
+            {/* Premiação por eliminação: o pool KO saiu do pool líquido; o
+                pago sai do caixa geral como prêmio. */}
+            {report.ko_format && report.ko_format !== 'none' && (
+              <>
+                <h3 className="rt-section-title">{t('tournamentReport.koSection')}</h3>
+                <div className="rt-stats-grid">
+                  <Stat label={t('tournamentReport.koPool')} value={formatCurrency(report.ko_pool)} hint={`${Number(report.ko_percentage || 0)}%`} />
+                  <Stat label={t('tournamentReport.koPaid')} value={formatCurrency(report.ko_paid)} />
+                  <Stat label={t('tournamentReport.koPending')} value={formatCurrency(report.ko_pending)} />
+                </div>
+              </>
+            )}
+
             {report.days?.length > 0 && (
               <>
                 <h3 className="rt-section-title">{t('tournamentReport.days')}</h3>

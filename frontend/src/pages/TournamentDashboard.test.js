@@ -237,3 +237,25 @@ describe('itens por meio de entrada', () => {
     expect(screen.getByText('tournamentDashboard.tournamentBuyIn')).toBeInTheDocument();
   });
 });
+
+describe('premiação por eliminação (KO)', () => {
+  it('torneio KO mostra a divisão do pool entre KO e posições', async () => {
+    responder({ torneio: { id: 't1', name: 'PKO', ko_format: 'pko', ko_percentage: 40 } });
+    const base = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/tournaments/t1/prizes/summary'
+        ? Promise.resolve({ data: { ko_pool: '4000', player_pool: '6000', ko_percentage: '40' } })
+        : base(url, ...resto)
+    ));
+    render(<MemoryRouter><TournamentDashboard tournamentId="t1" /></MemoryRouter>);
+    await waitFor(() => expect(linhaFinanceira('tournamentDashboard.koPool')).toBeTruthy());
+    expect(linhaFinanceira('tournamentDashboard.koPool')).toHaveTextContent('R$ 4000.00');
+    expect(linhaFinanceira('tournamentDashboard.positionsPool')).toHaveTextContent('R$ 6000.00');
+  });
+
+  it('sem KO não busca a divisão', async () => {
+    await montar();
+    expect(api.get).not.toHaveBeenCalledWith('/tournaments/t1/prizes/summary', expect.anything());
+    expect(linhaFinanceira('tournamentDashboard.koPool')).toBeUndefined();
+  });
+});

@@ -241,3 +241,18 @@ describe('por meio de entrada', () => {
     expect(document.querySelector('.rt-breakdown')).toHaveTextContent('—');
   });
 });
+
+describe('premiação por eliminação (KO)', () => {
+  it('torneio KO mostra pool KO, pago e pendente', async () => {
+    await montar({ relatorio: { ...RELATORIO, ko_format: 'pko', ko_percentage: 40, ko_pool: 40000, ko_paid: 25000, ko_pending: 5000 } });
+    expect(screen.getByText('tournamentReport.koSection')).toBeInTheDocument();
+    expect(conteudo()).toHaveTextContent('R$ 40000.00');
+    expect(conteudo()).toHaveTextContent('R$ 25000.00');
+    expect(conteudo()).toHaveTextContent('R$ 5000.00');
+  });
+
+  it('sem KO a seção não aparece', async () => {
+    await montar();
+    expect(screen.queryByText('tournamentReport.koSection')).toBeNull();
+  });
+});

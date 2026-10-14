@@ -1803,7 +1803,8 @@
     "dreBarNet": "= VENDAS LÍQUIDAS",
     "dreBarCogsLine": "(−) Custo das mercadorias vendidas (CMV, cortesia inclusa)",
     "dreBarMargin": "= MARGEM BRUTA DO BAR",
-    "dreBarOperation": "{{tabs}} comanda(s) fechada(s) · {{shifts}} turno(s)"
+    "dreBarOperation": "{{tabs}} comanda(s) fechada(s) · {{shifts}} turno(s)",
+    "drePrizeKo": "dos quais prêmios KO"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneio",
@@ -1988,7 +1989,9 @@
     "userNote": "Nota Usuária",
     "tournamentBuyIn": "Torneio (Buy-in)",
     "rebuy": "Rebuy",
-    "addon": "Add-on"
+    "addon": "Add-on",
+    "koPool": "Pool KO ({{percent}}%)",
+    "positionsPool": "Pool das posições"
   },
   "dayStats": {
     "loadError": "Erro ao carregar estatísticas",
@@ -2225,7 +2228,11 @@
     "paid": "Paga",
     "visible": "Pública",
     "seatPrize": "Vaga",
-    "cashPrize": "Dinheiro"
+    "cashPrize": "Dinheiro",
+    "koSection": "Premiação por eliminação (KO)",
+    "koPool": "Pool KO",
+    "koPaid": "KO pago",
+    "koPending": "KO pendente"
   },
   "tournamentDetail": {
     "manageTablesTitle": "Gerenciar mesas e alocação de jogadores",

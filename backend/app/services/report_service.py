@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
@@ -11,6 +12,8 @@ from app.models.report import (
     BuyTypeReportRow,
 )
 from app.services.transaction_filters import ler_transacoes_ativas
+
+logger = logging.getLogger(__name__)
 
 # Venda antiga sem meio cadastrado aparece pelo rótulo da categoria.
 ROTULO_DA_CATEGORIA = {"buy_in": "Buy-in", "rebuy": "Rebuy", "addon": "Add-on"}
@@ -208,9 +211,14 @@ class ReportService:
             total_addons=tot_addons,
             total_revenue=total_revenue,
             rake_percentage=float(summary.rake_percentage),
-            # Rake real (Fase 1): rake = entradas brutas − pool dos jogadores
-            # (= soma do rake por transação), em vez de recalcular por %.
-            rake_amount=float(Decimal(str(summary.total_entries)) - Decimal(str(summary.player_pool))),
+            # Rake real (Fase 1): rake = entradas brutas − pool líquido
+            # (= soma do rake por transação), em vez de recalcular por %. Com
+            # KO o `player_pool` já vem sem o pool KO — usá-lo aqui somaria o
+            # KO inteiro ao rake.
+            rake_amount=float(
+                Decimal(str(summary.total_entries))
+                - Decimal(str(getattr(summary, "net_pool", None) or summary.player_pool))
+            ),
             guaranteed_prize=float(summary.guaranteed_prize),
             available_prize_pool=float(summary.available_prize_pool),
             reserved_prize_percentage=float(summary.reserved_prize_percentage),
@@ -222,10 +230,32 @@ class ReportService:
             pending_release=pending_release,
             vagas_count=vagas_count,
             vagas_generated=vagas_generated,
+            **ReportService._ko(tournament_id, summary),
             days=day_reports,
             prizes=prize_rows,
             by_buy_type=agrupar_vendas_por_meio(linhas_tx, ordem_dos_meios),
         )
+
+    @staticmethod
+    def _ko(tournament_id: str, summary) -> dict:
+        """Números do KO para o relatório. Torneio sem KO (ou leitura que
+        falha) devolve os zeros — o relatório não cai por causa do KO."""
+        formato = getattr(summary, "ko_format", None) or "none"
+        if formato == "none":
+            return {}
+        saida = {
+            "ko_format": formato,
+            "ko_percentage": float(getattr(summary, "ko_percentage", 0) or 0),
+            "ko_pool": float(getattr(summary, "ko_pool", 0) or 0),
+        }
+        try:
+            from app.services.knockout_service import KnockoutService
+            resumo = KnockoutService.resumo(tournament_id)
+            saida["ko_paid"] = float(resumo.get("paid") or 0)
+            saida["ko_pending"] = float(resumo.get("pending") or 0)
+        except Exception as exc:  # noqa: BLE001 — o relatório segue sem o pago/pendente
+            logger.warning("KOs do torneio %s não lidos para o relatório: %s", tournament_id, exc)
+        return saida
 
     @staticmethod
     def _ordem_dos_meios(tournament_id: str) -> dict:

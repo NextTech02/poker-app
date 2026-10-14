@@ -102,6 +102,7 @@ class FinancialService:
         rebuy_total = 0.0
         addon_total = 0.0
         prize_total = 0.0
+        knockout_total = 0.0
 
         # Per-tournament aggregation
         tournament_map = {}
@@ -125,6 +126,10 @@ class FinancialService:
                 addon_total += amount
             elif tx_type == "prize":
                 prize_total += amount
+                # O KO sai do mesmo pozo (é prêmio), mas o diretor quer ver
+                # quanto foi por eliminação e quanto por posição.
+                if tx.get("prize_kind") == "knockout":
+                    knockout_total += amount
 
             # Per-tournament
             if t_id and t_id not in tournament_map:
@@ -275,6 +280,7 @@ class FinancialService:
             tickets_redeemed_value=tickets_redeemed_value,
             gross_revenue=gross_revenue,
             prizes=prize_total,
+            knockout_prizes=knockout_total,
             operational_result=operational_result,
             rake=rake_total + cash["cash_revenue"],
             **cash,

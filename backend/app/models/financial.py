@@ -43,6 +43,8 @@ class FinancialSummary(BaseModel):
     tickets_redeemed_value: float = 0
     gross_revenue: float = 0
     prizes: float = 0
+    # Parte de `prizes` paga como prêmio por eliminação (KO/PKO/Mystery).
+    knockout_prizes: float = 0
     operational_result: float = 0   # entradas − premiação (≈ rake)
     rake: float = 0
     # Despesas da etapa (competência: pagas + pendentes).

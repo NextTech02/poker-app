@@ -124,3 +124,40 @@ def test_sem_vendas_as_listas_vem_vazias(monkeypatch):
     r = ReportService.get_reports()
     assert r.byBuyType == []
     assert all(p.by_buy_type == {} for p in r.playerReports)
+
+
+def test_relatorio_com_ko_rake_nao_engole_o_pool_ko(monkeypatch, stub):
+    """Com KO, o `player_pool` já vem sem o pool KO. O rake é entradas −
+    pool LÍQUIDO; pelo player_pool o relatório mostraria o KO como rake."""
+    from app.services.knockout_service import KnockoutService
+    monkeypatch.setattr(mod, "supabase", FakeSupabase(_tabelas()))
+    stub(PAS, get_prize_summary=lambda tid: SimpleNamespace(
+        **{**vars(_resumo_de_premiacao(tid)), "player_pool": 60, "net_pool": 100,
+           "ko_format": "pko", "ko_percentage": 40, "ko_pool": 40},
+    ))
+    stub(KnockoutService, resumo=lambda tid: {"paid": 15, "pending": 5})
+    r = ReportService.get_tournament_report(TOUR)
+    assert r.rake_amount == 25.0
+    assert (r.ko_format, r.ko_percentage, r.ko_pool, r.ko_paid, r.ko_pending) == ("pko", 40.0, 40.0, 15.0, 5.0)
+
+
+def test_relatorio_sem_ko_zera_os_campos_de_ko(monkeypatch, stub):
+    monkeypatch.setattr(mod, "supabase", FakeSupabase(_tabelas()))
+    stub(PAS, get_prize_summary=_resumo_de_premiacao)
+    r = ReportService.get_tournament_report(TOUR)
+    assert r.rake_amount == 25.0
+    assert r.ko_format == "none" and r.ko_pool == 0 and r.ko_paid == 0
+
+
+def test_kos_que_falham_nao_derrubam_o_relatorio(monkeypatch, stub):
+    from app.services.knockout_service import KnockoutService
+    monkeypatch.setattr(mod, "supabase", FakeSupabase(_tabelas()))
+    stub(PAS, get_prize_summary=lambda tid: SimpleNamespace(
+        **{**vars(_resumo_de_premiacao(tid)), "net_pool": 100, "ko_format": "ko", "ko_percentage": 30, "ko_pool": 30},
+    ))
+
+    def explode(tid):
+        raise RuntimeError("boom")
+    stub(KnockoutService, resumo=explode)
+    r = ReportService.get_tournament_report(TOUR)
+    assert r.ko_format == "ko" and r.ko_pool == 30.0 and r.ko_paid == 0

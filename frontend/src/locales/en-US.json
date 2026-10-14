@@ -1803,7 +1803,8 @@
     "dreBarNet": "= NET SALES",
     "dreBarCogsLine": "(−) Cost of goods sold (COGS, courtesy included)",
     "dreBarMargin": "= BAR GROSS MARGIN",
-    "dreBarOperation": "{{tabs}} closed tab(s) · {{shifts}} shift(s)"
+    "dreBarOperation": "{{tabs}} closed tab(s) · {{shifts}} shift(s)",
+    "drePrizeKo": "of which KO prizes"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -1988,7 +1989,9 @@
     "userNote": "User Note",
     "tournamentBuyIn": "Tournament (Buy-in)",
     "rebuy": "Rebuy",
-    "addon": "Add-on"
+    "addon": "Add-on",
+    "koPool": "KO pool ({{percent}}%)",
+    "positionsPool": "Positions pool"
   },
   "dayStats": {
     "loadError": "Error loading statistics",
@@ -2225,7 +2228,11 @@
     "paid": "Paid",
     "visible": "Public",
     "seatPrize": "Seat",
-    "cashPrize": "Cash"
+    "cashPrize": "Cash",
+    "koSection": "Knockout prizes (KO)",
+    "koPool": "KO pool",
+    "koPaid": "KO paid",
+    "koPending": "KO pending"
   },
   "tournamentDetail": {
     "manageTablesTitle": "Manage tables and player allocation",

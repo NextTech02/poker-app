@@ -599,6 +599,13 @@ const Financeiro = () => {
                   <span>{t('financial.drePrize')}</span>
                   <span className="fn-dre-negative">{fmt(data.prizes)}</span>
                 </div>
+                {(data.knockout_prizes || 0) > 0 && (
+                  // Já está dentro da premiação acima: só mostra quanto foi KO.
+                  <div className="fn-dre-row fn-dre-row--muted">
+                    <span>{t('financial.drePrizeKo')}</span>
+                    <span>{fmt(data.knockout_prizes)}</span>
+                  </div>
+                )}
                 <div className="fn-dre-row fn-dre-row--total">
                   <span>{t('financial.dreOperationalResult')}</span>
                   <span className={(data.tournament_operational_result ?? data.operational_result) >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>

@@ -81,6 +81,18 @@ class TestResultadoDaEtapa:
         assert s.expenses == 800
         assert s.net_result == -800
 
+    def test_premio_de_ko_e_premio_e_aparece_separado(self, monkeypatch):
+        """O KO sai do mesmo pozo (entra em `prizes`); `knockout_prizes`
+        mostra quanto disso foi por eliminação."""
+        ko = _entrada("prize", 150)
+        ko["id"] = "tx-ko"
+        ko["prize_kind"] = "knockout"
+        _monta(monkeypatch, transacoes=[_entrada("buy_in", 1000), _entrada("prize", 400), ko])
+        s = FinancialService.get_financial_summary(stage_id=STAGE, organization_id=ORG)
+        assert s.prizes == 550
+        assert s.knockout_prizes == 150
+        assert s.operational_result == 450
+
     def test_entradas_menos_premios_dao_o_operacional(self, monkeypatch):
         _monta(monkeypatch, transacoes=[
             _entrada("buy_in", 1000),

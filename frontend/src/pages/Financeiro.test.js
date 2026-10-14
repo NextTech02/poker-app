@@ -474,3 +474,19 @@ describe('DRE por módulo', () => {
     expect(abas.map((a) => a.textContent)).toEqual(['Torneios', 'Bar']);
   });
 });
+
+describe('premiação por eliminação no DRE', () => {
+  it('mostra quanto da premiação foi KO, sem somar de novo', async () => {
+    await montar({ relatorio: { ...RELATORIO, knockout_prizes: 7000 } });
+    await gerar();
+    const linha = await screen.findByText('financial.drePrizeKo');
+    expect(linha.closest('.fn-dre-row')).toHaveClass('fn-dre-row--muted');
+  });
+
+  it('sem KO a linha não aparece', async () => {
+    await montar();
+    await gerar();
+    await screen.findByText('financial.drePrize');
+    expect(screen.queryByText('financial.drePrizeKo')).toBeNull();
+  });
+});
