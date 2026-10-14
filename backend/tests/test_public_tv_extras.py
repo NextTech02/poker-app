@@ -327,3 +327,50 @@ class TestModeloDoDia:
         assert TournamentDayUpdate(broadcast_bg_overlay=0).model_dump(exclude_unset=True) == {"broadcast_bg_overlay": 0}
         with pytest.raises(ValueError):
             TournamentDayUpdate(broadcast_bg_overlay=95)
+
+
+class TestPremiacaoPorEliminacao:
+    """O telão mostra o pool KO ao lado do prizepool e, na fase Mystery,
+    quantos envelopes faltam sair — nunca quem tem qual bounty."""
+
+    def _resumo(self, **extra):
+        base = dict(available_prize_pool=Decimal("6000"), total_prize_pool=Decimal("10000"),
+                    ko_format="pko", ko_pool=Decimal("4000"))
+        base.update(extra)
+        return SimpleNamespace(**base)
+
+    def test_sem_ko_nao_manda_nada_de_ko(self, banco):
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.ko_format == "none"
+        assert r.ko_pool is None and r.mystery_envelopes_left is None
+
+    def test_pko_mostra_pool_total_e_pool_ko(self, banco, stub):
+        stub(PAS, get_prize_summary=lambda tid: self._resumo())
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.prize_pool == 10000.0   # posições + KO: o que o salão viu entrar
+        assert r.ko_format == "pko"
+        assert r.ko_pool == 4000.0
+        assert r.mystery_envelopes_left is None
+
+    def test_mystery_conta_os_envelopes_que_faltam(self, banco, stub):
+        stub(PAS, get_prize_summary=lambda tid: self._resumo(ko_format="mystery"))
+        banco.store["tournament_mystery_envelopes"] = [
+            {"id": "e1", "tournament_id": TOUR, "value": 100, "drawn_at": None},
+            {"id": "e2", "tournament_id": TOUR, "value": 200, "drawn_at": "2026-10-14T22:00:00Z"},
+            {"id": "e3", "tournament_id": TOUR, "value": 50, "drawn_at": None},
+            {"id": "x", "tournament_id": "outro", "value": 1, "drawn_at": None},
+        ]
+        assert PublicTvService.get_day_extras(DIA).mystery_envelopes_left == 2
+
+    def test_mystery_antes_da_fase_nao_mostra_envelopes(self, banco, stub):
+        stub(PAS, get_prize_summary=lambda tid: self._resumo(ko_format="mystery"))
+        banco.store["tournament_mystery_envelopes"] = []
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.ko_format == "mystery" and r.mystery_envelopes_left is None
+
+    def test_resumo_que_falha_nao_derruba_o_telao(self, banco, stub):
+        def explode(tid):
+            raise RuntimeError("boom")
+        stub(PAS, get_prize_summary=explode)
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.prize_pool is None and r.ko_format == "none"

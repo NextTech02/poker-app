@@ -305,6 +305,13 @@ export const buildTvModel = ({
 
   const prizes = (extras?.prizes || []).filter((p) => p.visible !== false);
   const prizePool = parseFloat(extras?.prize_pool ?? tournamentDay?.prize_pool ?? 0) || 0;
+  // Premiação por eliminação: o pool KO aparece junto do prizepool e, na
+  // fase Mystery, quantos envelopes ainda faltam sair.
+  const koFormat = ['ko', 'pko', 'mystery'].includes(extras?.ko_format) ? extras.ko_format : null;
+  const koPool = koFormat ? (parseFloat(extras?.ko_pool) || 0) : 0;
+  const envelopesLeft = koFormat === 'mystery' && extras?.mystery_envelopes_left != null
+    ? Math.max(0, Math.floor(Number(extras.mystery_envelopes_left) || 0))
+    : null;
   // Meios de entrada ativos do torneio, na ordem do Caixa, com QUANTAS vendas
   // houve por meio neste dia (o telão mostra a contagem, não o valor).
   const buyTypes = (extras?.buy_types || [])
@@ -337,6 +344,9 @@ export const buildTvModel = ({
     breakIn,
     prizes,
     prizePool,
+    koFormat,
+    koPool,
+    envelopesLeft,
     buyTypes,
     totalPlayers: players.length,
   };

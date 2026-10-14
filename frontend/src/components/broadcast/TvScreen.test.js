@@ -561,3 +561,21 @@ describe('formato dos blinds', () => {
     expect(document.querySelector('.tv-screen')).not.toHaveTextContent('50.000');
   });
 });
+
+describe('premiação por eliminação', () => {
+  it('o pool KO aparece junto do prizepool, com os envelopes Mystery restantes', () => {
+    montar({ currency: 'PEN', model: { koFormat: 'mystery', koPool: 4000, envelopesLeft: 5 } });
+    expect(document.querySelector('.tv-pool-ko')).toHaveTextContent('POOL KO: S/ 4,000.00 · ENVELOPES: 5');
+  });
+
+  it('PKO mostra só o pool KO', () => {
+    montar({ currency: 'PEN', model: { koFormat: 'pko', koPool: 4000, envelopesLeft: null } });
+    expect(document.querySelector('.tv-pool-ko')).toHaveTextContent('POOL KO: S/ 4,000.00');
+    expect(document.querySelector('.tv-pool-ko')).not.toHaveTextContent('ENVELOPES');
+  });
+
+  it('sem KO não há linha de KO', () => {
+    montar();
+    expect(document.querySelector('.tv-pool-ko')).toBeNull();
+  });
+});

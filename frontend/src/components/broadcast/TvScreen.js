@@ -283,6 +283,14 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
     <div className="tv-pool">
       <span className="tv-pool-label">{L.prizepool}</span>
       <span className="tv-pool-value">{formatCurrency(model.prizePool, currency)}</span>
+      {model.koFormat && (
+        // Quanto do prizepool é prêmio por eliminação (e, no Mystery, os
+        // envelopes que ainda faltam sair).
+        <span className="tv-pool-ko">
+          {L.koPool}: {formatCurrency(model.koPool, currency)}
+          {model.envelopesLeft != null && ` · ${L.envelopesLeft}: ${model.envelopesLeft}`}
+        </span>
+      )}
     </div>
   ) : null;
 

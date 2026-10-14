@@ -53,15 +53,17 @@ class PublicTvService:
         org_id = day.get("organization_id")
 
         ajustes = PublicTvService._org_settings(org_id)
+        resumo = PublicTvService._resumo(tournament_id)
         return PublicTvExtras(
             day_id=str(day["id"]),
             tournament_id=tournament_id,
             organization_name=ModuleService.org_name(org_id),
             currency=ajustes["currency"],
             language=ajustes["language"],
-            prize_pool=PublicTvService._prize_pool(tournament_id),
+            prize_pool=PublicTvService._prize_pool(resumo),
             prizes=PublicTvService._prizes(tournament_id),
             buy_types=PublicTvService._buy_types(tournament_id, str(day["id"])),
+            **PublicTvService._ko(tournament_id, resumo),
         )
 
     @staticmethod
@@ -175,19 +177,50 @@ class PublicTvService:
         }
 
     @staticmethod
-    def _prize_pool(tournament_id: str) -> Optional[float]:
-        """Prize pool disponível pelo mesmo cálculo da tela de premiação.
+    def _resumo(tournament_id: str):
+        """O resumo da premiação, lido UMA vez para o prizepool e o KO.
         Falhou? `None` — a TV cai no `prize_pool` do dia, e os prêmios
         continuam vindo (são buscados à parte)."""
         try:
-            summary = PrizeAllocationService.get_prize_summary(tournament_id)
-            # Posições + KO: o pozo que o salão viu entrar.
-            total = getattr(summary, "total_prize_pool", None)
-            return float(total or summary.available_prize_pool)
+            return PrizeAllocationService.get_prize_summary(tournament_id)
         except Exception as exc:
             logger.warning("Resumo de premiação do torneio %s indisponível para o telão: %s",
                            tournament_id, exc)
             return None
+
+    @staticmethod
+    def _prize_pool(resumo) -> Optional[float]:
+        """Prize pool pelo mesmo cálculo da tela de premiação."""
+        if resumo is None:
+            return None
+        # Posições + KO: o pozo que o salão viu entrar.
+        total = getattr(resumo, "total_prize_pool", None)
+        return float(total or resumo.available_prize_pool)
+
+    @staticmethod
+    def _ko(tournament_id: str, resumo) -> dict:
+        """Pool KO e, no Mystery já iniciado, os envelopes que faltam sair."""
+        formato = getattr(resumo, "ko_format", None) or "none"
+        if resumo is None or formato == "none":
+            return {"ko_format": "none", "ko_pool": None, "mystery_envelopes_left": None}
+        restantes = None
+        if formato == "mystery":
+            try:
+                envelopes = (
+                    supabase_admin.table("tournament_mystery_envelopes").select("drawn_at")
+                    .eq("tournament_id", tournament_id).execute().data or []
+                )
+                # Sem envelopes = fase ainda não iniciada: nada a contar.
+                if envelopes:
+                    restantes = sum(1 for e in envelopes if not e.get("drawn_at"))
+            except Exception as exc:
+                logger.warning("Envelopes Mystery do torneio %s não lidos para o telão: %s",
+                               tournament_id, exc)
+        return {
+            "ko_format": formato,
+            "ko_pool": float(getattr(resumo, "ko_pool", 0) or 0),
+            "mystery_envelopes_left": restantes,
+        }
 
     @staticmethod
     def _prizes(tournament_id: str) -> list[PublicTvPrize]:

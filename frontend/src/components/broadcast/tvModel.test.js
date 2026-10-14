@@ -350,3 +350,22 @@ describe('formatChips por idioma', () => {
     expect(formatChips(null, undefined)).toBe('0');
   });
 });
+
+describe('buildTvModel — premiação por eliminação', () => {
+  const base = { isDayBased: true, timerState: relogio(), tournament: TORNEIO, tournamentDay: DIA };
+
+  it('pool KO vem dos extras; Mystery traz os envelopes que faltam', () => {
+    const pko = buildTvModel({ ...base, extras: { prize_pool: 10000, ko_format: 'pko', ko_pool: 4000 } });
+    expect(pko.koFormat).toBe('pko');
+    expect(pko.koPool).toBe(4000);
+    expect(pko.envelopesLeft).toBeNull();
+    const mystery = buildTvModel({ ...base, extras: { ko_format: 'mystery', ko_pool: '3000.00', mystery_envelopes_left: 7 } });
+    expect(mystery.envelopesLeft).toBe(7);
+  });
+
+  it('sem KO (ou formato desconhecido) não há linha de KO', () => {
+    expect(buildTvModel({ ...base, extras: { ko_format: 'none', ko_pool: 0 } }).koFormat).toBeNull();
+    expect(buildTvModel({ ...base, extras: { ko_format: 'bounty' } }).koFormat).toBeNull();
+    expect(buildTvModel(base).koFormat).toBeNull();
+  });
+});

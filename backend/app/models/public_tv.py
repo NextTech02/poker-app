@@ -45,6 +45,12 @@ class PublicTvExtras(BaseModel):
         description="Prize pool disponível (garantido + pool dos jogadores). None se o resumo falhar.",
     )
     prizes: list[PublicTvPrize] = []
+    # Premiação por eliminação: o telão mostra o pool KO junto do prizepool e,
+    # na fase Mystery, quantos envelopes ainda faltam sair. Nada de quem
+    # tem qual bounty — a rota é aberta.
+    ko_format: str = "none"
+    ko_pool: Optional[float] = None
+    mystery_envelopes_left: Optional[int] = None
     # Meios de entrada ATIVOS do torneio, na ordem do Caixa (o telão mostra
     # "BUY-IN: 50 · REBUY: 20 …" quando o diretor liga).
     buy_types: list[PublicTvBuyType] = []

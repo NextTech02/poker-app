@@ -662,6 +662,16 @@
   color: var(--tv-c-pool-value, var(--tv-accent));
 }
 
+/* Pool KO (e envelopes Mystery restantes) ao lado do prizepool. */
+.tv-pool-ko {
+  font-size: calc(16px * var(--tv-pool, 1));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tv-c-pool-label, #f3f4f6);
+  opacity: 0.85;
+}
+
 .tv-prizes-track-wrap {
   flex: 1 1 auto;
   min-width: 0;

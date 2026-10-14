@@ -27,6 +27,8 @@ const BROADCAST_LABELS = {
     levelPrefix:    'Nível',          // "Nível 6: ..."
     of:             'de',             // "45 de 120"
     prizepool:      'PRIZEPOOL',
+    koPool:         'POOL KO',
+    envelopesLeft:  'ENVELOPES',
     awards:         'PREMIAÇÕES',
     placeLabel:     (n) => `${n}º Lugar`,
     placeRangeLabel:(a, b) => `${a}º–${b}º Lugar`,   // faixa: colocações consecutivas de mesmo prêmio
@@ -54,6 +56,8 @@ const BROADCAST_LABELS = {
     levelPrefix:    'Level',
     of:             'of',
     prizepool:      'PRIZEPOOL',
+    koPool:         'KO POOL',
+    envelopesLeft:  'ENVELOPES',
     awards:         'AWARDS',
     placeLabel:     (n) => `${ordinalEn(n)} Place`,
     placeRangeLabel:(a, b) => `${ordinalEn(a)}–${ordinalEn(b)} Place`,
@@ -81,6 +85,8 @@ const BROADCAST_LABELS = {
     levelPrefix:    'Nivel',
     of:             'de',
     prizepool:      'PRIZEPOOL',
+    koPool:         'POZO KO',
+    envelopesLeft:  'SOBRES',
     awards:         'PREMIOS',
     placeLabel:     (n) => `${n}º Puesto`,
     placeRangeLabel:(a, b) => `${a}º–${b}º Puesto`,
