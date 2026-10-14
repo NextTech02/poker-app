@@ -728,7 +728,7 @@ describe('editar torneio', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/tournaments/t1', {
-        name: 'Main Event 2026', has_qualifying: true, elimination_mode: 'bulk', ko_format: 'none',
+        name: 'Main Event 2026', has_qualifying: true, elimination_mode: 'bulk',
       })
     );
     expect(invalidateCache).toHaveBeenCalledWith('/tournaments');
@@ -916,14 +916,25 @@ describe('premiação por eliminação (KO)', () => {
     expect(screen.getByText(/só em torneio sem dias classificatórios/)).toBeInTheDocument();
   });
 
+  // A lista de torneios (função do banco) NÃO traz o KO: a edição lê o
+  // torneio completo. Os cartões abaixo vêm sem os campos, como em produção.
+  const comTorneioCompleto = (torneio) =>
+    api.get.mockImplementation((url) =>
+      url === `/tournaments/${torneio.id}`
+        ? Promise.resolve({ data: torneio })
+        : Promise.reject(new Error('sem endpoint'))
+    );
+
   it('a edição carrega o formato gravado e salva junto', async () => {
     const torneios = [{
       id: 't2', name: 'Mystery Night', status: 'PENDING', total_entries: 0, total_players: 0, total_reentries: 0,
-      elimination_mode: 'table', ko_format: 'mystery', ko_percentage: '25.00', ko_cash_share: '100',
+      elimination_mode: 'table',
     }];
+    comTorneioCompleto({ id: 't2', ko_format: 'mystery', ko_percentage: '25.00', ko_cash_share: '100' });
     await montar({ torneios });
     await userEvent.click(within(cartaoDe('Mystery Night')).getByRole('button', { name: /common.edit|Editar/ }));
-    expect(formatoKo()).toHaveValue('mystery');
+    await waitFor(() => expect(formatoKo()).toHaveValue('mystery'));
+    expect(formatoKo()).toBeEnabled();
     expect(pctKo()).toHaveValue(25);
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
     await waitFor(() =>
@@ -933,14 +944,31 @@ describe('premiação por eliminação (KO)', () => {
     );
   });
 
+  it('sem conseguir ler o torneio completo, o KO fica travado e o salvar não mexe nele', async () => {
+    // Era o caso do MISTERY: a lista não trazia o formato, o modal mostrava
+    // "Nenhuma" e salvar mandaria "Nenhuma" por cima do Mystery.
+    const torneios = [{
+      id: 't2', name: 'MISTERY', status: 'active', total_entries: 9, total_players: 7, total_reentries: 1,
+      elimination_mode: 'table',
+    }];
+    await montar({ torneios }); // api.get rejeita por padrão
+    await userEvent.click(within(cartaoDe('MISTERY')).getByRole('button', { name: /common.edit|Editar/ }));
+    expect(formatoKo()).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(api.patch.mock.calls[0][1]).not.toHaveProperty('ko_format');
+  });
+
   it('recusa do servidor (torneio já com vendas) aparece no modal', async () => {
     const torneios = [{
       id: 't2', name: 'PKO', status: 'active', total_entries: 5, total_players: 5, total_reentries: 0,
-      elimination_mode: 'table', ko_format: 'pko', ko_percentage: '40', ko_cash_share: '50',
+      elimination_mode: 'table',
     }];
+    comTorneioCompleto({ id: 't2', ko_format: 'pko', ko_percentage: '40', ko_cash_share: '50' });
     api.patch.mockRejectedValue({ userMessage: 'O torneio já tem vendas: o formato e as porcentagens do KO não podem mais mudar.' });
     await montar({ torneios });
     await userEvent.click(within(cartaoDe('PKO')).getByRole('button', { name: /common.edit|Editar/ }));
+    await waitFor(() => expect(pctKo()).not.toBeNull());
     await userEvent.clear(pctKo());
     await userEvent.type(pctKo(), '30');
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));

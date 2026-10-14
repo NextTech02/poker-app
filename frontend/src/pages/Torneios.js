@@ -54,6 +54,14 @@ const FORM_INICIAL = {
   blind_template_id: '',
 };
 
+// Campos do KO do formulário a partir do torneio gravado.
+const koDoTorneio = (torneio) => ({
+  ko_format: formatoKo(torneio),
+  ko_percentage: torneio?.ko_percentage != null && Number(torneio.ko_percentage) > 0
+    ? String(Number(torneio.ko_percentage)) : '',
+  ko_cash_share: String(torneio?.ko_cash_share != null ? Number(torneio.ko_cash_share) : 50),
+});
+
 const Torneios = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
@@ -80,6 +88,11 @@ const Torneios = () => {
   const [entryLoadFailed, setEntryLoadFailed] = useState(false);
   const [blindTemplates, setBlindTemplates] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  // Na edição, a configuração do KO vem do torneio COMPLETO: a lista de
+  // torneios (função do banco com colunas fixas) não traz esses campos. Até
+  // chegar, o formato fica travado e o salvar não mexe no KO — senão a tela
+  // mandaria "Nenhuma" por cima de um torneio Mystery.
+  const [koCarregado, setKoCarregado] = useState(false);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
@@ -285,7 +298,7 @@ const Torneios = () => {
         // Trocar para "por mesa" com eliminações em massa já lançadas é
         // recusado pelo servidor (409) — a mensagem vem traduzida no erro.
         elimination_mode: formData.elimination_mode || 'bulk',
-        ...koParaApi(formData),
+        ...(koCarregado ? koParaApi(formData) : {}),
       });
       if (!entryLoadFailed) {
         try {
@@ -338,16 +351,22 @@ const Torneios = () => {
       name: tournament.name,
       has_qualifying: tournament.has_qualifying || false,
       elimination_mode: tournament.elimination_mode === 'table' ? 'table' : 'bulk',
-      ko_format: formatoKo(tournament),
-      ko_percentage: tournament.ko_percentage != null && Number(tournament.ko_percentage) > 0 ? String(Number(tournament.ko_percentage)) : '',
-      ko_cash_share: String(tournament.ko_cash_share != null ? Number(tournament.ko_cash_share) : 50),
+      ...koDoTorneio(tournament),
     });
     setFormError('');
     setEntryError('');
     setEntryLoadFailed(false);
     setEntryRows([]);
     setInactiveRows([]);
+    setKoCarregado(false);
     setShowEditModal(true);
+    api.get(`/tournaments/${tournament.id}`, { _silentError: true })
+      .then((res) => {
+        if (!res?.data) return;
+        setFormData((atual) => ({ ...atual, ...koDoTorneio(res.data) }));
+        setKoCarregado(true);
+      })
+      .catch(() => { /* sem o torneio, o KO fica travado e não é enviado */ });
     // A lista do torneio vem do servidor. Falhou? O editor trava e avisa — e o
     // salvar não mexe nela.
     try {
@@ -672,6 +691,7 @@ const Torneios = () => {
             entryError={entryError}
             onEntryError={setEntryError}
             entryLoadFailed={entryLoadFailed}
+            koBloqueado={!koCarregado}
             t={t}
             isEditing
           />
@@ -687,6 +707,7 @@ const TournamentModal = ({
   title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting,
   formError, blindTemplates = [], currency, t, isEditing,
   entryRows = [], onEntryRowsChange, entryError = '', onEntryError, entryLoadFailed = false,
+  koBloqueado = false,
 }) => {
   // O backdrop fecha no clique (mouse); no teclado o equivalente é o Esc.
   useEscapeKey(!submitting, onClose);
@@ -778,7 +799,7 @@ const TournamentModal = ({
               name="ko_format"
               value={formData.ko_format || 'none'}
               onChange={onChange}
-              disabled={submitting || !!formData.has_qualifying}
+              disabled={submitting || koBloqueado || !!formData.has_qualifying}
             >
               {FORMATOS_KO.map((f) => (
                 <option key={f} value={f}>{t(`tournaments.koFormat_${f}`, ROTULO_KO[f])}</option>
@@ -801,7 +822,7 @@ const TournamentModal = ({
                 step="0.5"
                 value={formData.ko_percentage}
                 onChange={onChange}
-                disabled={submitting}
+                disabled={submitting || koBloqueado}
                 required
               />
             </div>
@@ -818,7 +839,7 @@ const TournamentModal = ({
                 step="1"
                 value={formData.ko_cash_share}
                 onChange={onChange}
-                disabled={submitting}
+                disabled={submitting || koBloqueado}
                 required
               />
             </div>
