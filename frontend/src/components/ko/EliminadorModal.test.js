@@ -74,6 +74,8 @@ it('a busca filtra pelo nome e a mesma mesa da vítima fica em destaque', async 
 it('a dica muda com o formato', () => {
   abrir({ formato: 'mystery' });
   expect(screen.getByText('ko.hintMystery')).toBeInTheDocument();
+  // No Mystery, sem eliminador quem fica com o valor é o ENVELOPE, não um bounty.
+  expect(screen.getByText('ko.noEliminatorMystery')).toBeInTheDocument();
 });
 
 it('Esc e Cancelar fecham; enviando trava tudo', async () => {

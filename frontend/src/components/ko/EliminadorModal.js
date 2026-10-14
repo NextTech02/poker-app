@@ -102,7 +102,11 @@ const EliminadorModal = ({
             onChange={(e) => { setSemAutor(e.target.checked); if (e.target.checked) setMarcados(new Set()); }}
             disabled={enviando}
           />
-          <span>{t('ko.noEliminator', 'Sem eliminador (abandono ou desclassificação) — o bounty vai para o campeão')}</span>
+          <span>
+            {formato === 'mystery'
+              ? t('ko.noEliminatorMystery', 'Sem eliminador (abandono ou desclassificação) — o envelope fica para o campeão')
+              : t('ko.noEliminator', 'Sem eliminador (abandono ou desclassificação) — o bounty vai para o campeão')}
+          </span>
         </label>
 
         <div className="ko-actions">

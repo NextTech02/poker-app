@@ -212,6 +212,17 @@ describe('Mystery', () => {
     });
   });
 
+  it('fala de envelopes, não de bounties', async () => {
+    await montarMystery();
+    expect(screen.getByText('ko.poolMystery')).toBeInTheDocument();
+    expect(screen.getByText('ko.historyMystery')).toBeInTheDocument();
+    expect(screen.getByText('ko.noEnvelopesDrawn')).toBeInTheDocument();
+    expect(screen.getByText('ko.closeHintMystery')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ko.closeTitleMystery' })).toBeInTheDocument();
+    expect(screen.queryByText('ko.currentBounties')).toBeNull();
+    expect(screen.queryByText(/ko\.closeButton/)).toBeNull();
+  });
+
   it('fase iniciada: mostra os envelopes restantes e, sem sorteio ainda, deixa desfazer', async () => {
     await montarMystery({
       ...RESUMO_MYSTERY,

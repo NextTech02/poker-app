@@ -33,7 +33,7 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
       setPagos((atual) => new Set(atual).add(p.id));
       if (onPago) onPago(p);
     } catch (err) {
-      setErro(err.userMessage || t('ko.payError', 'Não foi possível pagar o KO.'));
+      setErro(err.userMessage || t('ko.payError', 'Não foi possível pagar o prêmio.'));
     } finally {
       setPagando(null);
     }
@@ -54,7 +54,7 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
     <div className="ko-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !pagando) onFechar(); }}>
       <div className="ko-modal" role="dialog" aria-modal="true" aria-labelledby="ko-res-titulo">
         <div className="ko-modal-header">
-          <h3 id="ko-res-titulo">{t('ko.registeredTitle', 'KO registrado')}</h3>
+          <h3 id="ko-res-titulo">{mystery ? t('ko.envelopeDrawnTitle', 'Envelope sorteado') : t('ko.registeredTitle', 'KO registrado')}</h3>
           <button type="button" className="ko-close" onClick={onFechar} disabled={!!pagando} aria-label={t('common.close', 'Fechar')}>✕</button>
         </div>
         <p className="ko-hint">
@@ -108,7 +108,11 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
         {erro && <div className="ko-erro" role="alert">{erro}</div>}
 
         <div className="ko-actions">
-          <span className="ko-nota">{t('ko.pendingNote', 'O que não for pago agora fica pendente na aba KO da Premiação.')}</span>
+          <span className="ko-nota">
+            {mystery
+              ? t('ko.pendingNoteMystery', 'O que não for pago agora fica pendente na aba Mystery da Premiação.')
+              : t('ko.pendingNote', 'O que não for pago agora fica pendente na aba KO da Premiação.')}
+          </span>
           <button type="button" className="ko-btn-secondary" onClick={onFechar} disabled={!!pagando}>
             {t('common.close', 'Fechar')}
           </button>

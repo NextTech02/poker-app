@@ -20,7 +20,7 @@ import {
 import { validarDocumento, TIPOS_DOCUMENTO, TIPOS_LEGADO } from '../utils/documentos';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import KoTab from '../components/premiacao/KoTab';
-import { ehTorneioKo } from '../utils/ko';
+import { ehTorneioKo, formatoKo } from '../utils/ko';
 import './Premiacao.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -602,6 +602,10 @@ const Premiacao = () => {
   // posições (e o cálculo automático) usam só o resto.
   const comKo = ehTorneioKo(tournament) || (prizeSummary?.ko_format && prizeSummary.ko_format !== 'none');
   const koPool = parseFloat(prizeSummary?.ko_pool || 0);
+  // A aba e os rótulos seguem o formato: "KO", "PKO" ou "Mystery".
+  const formatoDoKo = ehTorneioKo(tournament) ? formatoKo(tournament) : (prizeSummary?.ko_format || 'none');
+  const ehMystery = formatoDoKo === 'mystery';
+  const NOME_DA_ABA = { ko: 'KO', pko: 'PKO', mystery: 'Mystery' };
 
   // ── Prévia do cálculo automático (rascunho editável) ────────────────────
   const autoTotal = sumAmounts(autoPreview);
@@ -729,7 +733,7 @@ const Premiacao = () => {
               className={`prem-tab ${activeTab === 'ko' ? 'active' : ''}`}
               onClick={() => setActiveTab('ko')}
             >
-              {t('ko.tab', 'KO')}
+              {t(`ko.tab_${formatoDoKo}`, NOME_DA_ABA[formatoDoKo] || 'KO')}
             </button>
           )}
         </div>
@@ -850,7 +854,7 @@ const Premiacao = () => {
               {comKo && (
                 <div className="summary-card ko-pool-card">
                   <div className="card-header">
-                    <h3>{t('ko.pool', 'Pool KO')}</h3>
+                    <h3>{ehMystery ? t('ko.poolMystery', 'Pool Mystery') : t('ko.pool', 'Pool KO')}</h3>
                     <span className="card-subtitle">{t('ko.poolShare', { percent: parseFloat(prizeSummary?.ko_percentage || 0), defaultValue: `${parseFloat(prizeSummary?.ko_percentage || 0)}% de cada entrada` })}</span>
                   </div>
                   <div className="card-value">{formatCurrency(koPool)}</div>

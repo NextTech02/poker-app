@@ -279,7 +279,7 @@
     "eliminationModeBulkHint": "Faster: the director adds eliminations in the Control screen (Eliminate 1 / Eliminate N), without saying who left.",
     "eliminationModeRule": "In both modes, every entry adds a player and every re-entry brings back an eliminated player. Add-ons don't count.",
     "reentriesHint": "Rebuys. They don't add players: each re-entry brings back an eliminated player.",
-    "koSection": "Knockout prizes (KO)",
+    "koSection": "Knockout prizes (KO / Mystery)",
     "koFormat": "Format",
     "koFormat_none": "None",
     "koFormat_ko": "Fixed KO",
@@ -1805,7 +1805,7 @@
     "dreBarCogsLine": "(−) Cost of goods sold (COGS, courtesy included)",
     "dreBarMargin": "= BAR GROSS MARGIN",
     "dreBarOperation": "{{tabs}} closed tab(s) · {{shifts}} shift(s)",
-    "drePrizeKo": "of which KO prizes"
+    "drePrizeKo": "of which knockout prizes (KO / Mystery)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -1992,7 +1992,8 @@
     "rebuy": "Rebuy",
     "addon": "Add-on",
     "koPool": "KO pool ({{percent}}%)",
-    "positionsPool": "Positions pool"
+    "positionsPool": "Positions pool",
+    "mysteryPool": "Mystery pool ({{percent}}%)"
   },
   "dayStats": {
     "loadError": "Error loading statistics",
@@ -2230,10 +2231,13 @@
     "visible": "Public",
     "seatPrize": "Seat",
     "cashPrize": "Cash",
-    "koSection": "Knockout prizes (KO)",
+    "koSection": "Knockout prizes (KO / Mystery)",
     "koPool": "KO pool",
     "koPaid": "KO paid",
-    "koPending": "KO pending"
+    "koPending": "KO pending",
+    "mysteryPool": "Mystery pool",
+    "mysteryPaid": "Mystery paid",
+    "mysteryPending": "Mystery pending"
   },
   "tournamentDetail": {
     "manageTablesTitle": "Manage tables and player allocation",
@@ -3367,7 +3371,6 @@
     "note": "Your answer only applies to promotional contact from this club. You can change your mind at any time by asking the club."
   },
   "ko": {
-    "tab": "KO",
     "pool": "KO pool",
     "poolShare": "{{percent}}% of each entry",
     "positionsAfterKo": "Net pool {{net}} − KO",
@@ -3378,7 +3381,7 @@
     "pendingTotal": "Pending",
     "unclaimed": "Unclaimed (goes to the champion)",
     "generalCash": "Main cash register balance",
-    "needSangria": "Balance is below what is pending: make a cash transfer (sangria) to pay the KOs.",
+    "needSangria": "Balance is below what is pending: make a cash transfer (sangria) to pay the prizes.",
     "loadError": "Could not load the KOs.",
     "actionError": "Could not complete the action.",
     "paidSuccess": "Payment recorded.",
@@ -3451,8 +3454,22 @@
     "addedToBounty": "+ {{value}} to the bounty",
     "payNow": "Pay now",
     "paying": "Paying…",
-    "payError": "Could not pay the KO.",
+    "payError": "Could not pay the prize.",
     "pendingNote": "Anything not paid now stays pending in the KO tab of Prizes.",
-    "offlinePending": "Offline: the KO will be recorded when syncing, and the payment stays pending in the KO tab of Prizes."
+    "offlinePending": "Offline: the KO will be recorded when syncing, and the payment stays pending in the KO tab of Prizes.",
+    "tab_ko": "KO",
+    "tab_pko": "PKO",
+    "tab_mystery": "Mystery",
+    "poolMystery": "Mystery pool",
+    "historyMystery": "Envelopes drawn",
+    "noEnvelopesDrawn": "No envelope drawn yet.",
+    "closeTitleMystery": "Close Mystery",
+    "closedMystery": "Mystery closed.",
+    "closeHintMystery": "At the end of the tournament: the champion takes the remaining envelopes and those left without an eliminator.",
+    "confirmCloseMystery": "Close the Mystery with {{name}} as champion?",
+    "envelopeDrawnTitle": "Envelope drawn",
+    "pendingNoteMystery": "Anything not paid now stays pending in the Mystery tab of Prizes.",
+    "noEliminatorMystery": "No eliminator (walk-out or disqualification) — the envelope stays for the champion",
+    "offlinePendingMystery": "Offline: the envelope will be drawn when syncing, and the payment stays pending in the Mystery tab of Prizes."
   }
 }

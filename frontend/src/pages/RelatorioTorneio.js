@@ -128,9 +128,9 @@ const RelatorioTorneio = () => {
               <>
                 <h3 className="rt-section-title">{t('tournamentReport.koSection')}</h3>
                 <div className="rt-stats-grid">
-                  <Stat label={t('tournamentReport.koPool')} value={formatCurrency(report.ko_pool)} hint={`${Number(report.ko_percentage || 0)}%`} />
-                  <Stat label={t('tournamentReport.koPaid')} value={formatCurrency(report.ko_paid)} />
-                  <Stat label={t('tournamentReport.koPending')} value={formatCurrency(report.ko_pending)} />
+                  <Stat label={report.ko_format === 'mystery' ? t('tournamentReport.mysteryPool') : t('tournamentReport.koPool')} value={formatCurrency(report.ko_pool)} hint={`${Number(report.ko_percentage || 0)}%`} />
+                  <Stat label={report.ko_format === 'mystery' ? t('tournamentReport.mysteryPaid') : t('tournamentReport.koPaid')} value={formatCurrency(report.ko_paid)} />
+                  <Stat label={report.ko_format === 'mystery' ? t('tournamentReport.mysteryPending') : t('tournamentReport.koPending')} value={formatCurrency(report.ko_pending)} />
                 </div>
               </>
             )}

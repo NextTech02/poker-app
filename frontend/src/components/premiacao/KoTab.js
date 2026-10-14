@@ -68,6 +68,8 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
   }
 
   const formato = resumo.ko_format;
+  // Mystery tem vocabulário próprio: envelopes, não bounties.
+  const ehMystery = formato === 'mystery';
   const encerrado = !!resumo.closed_at;
   const pendentes = resumo.knockouts
     .filter((k) => k.status === 'active')
@@ -116,12 +118,14 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
 
   const encerrar = async () => {
     if (!campeao) return;
-    const ok = await confirm(t('ko.confirmClose', {
-      name: nomePorInscrito.get(campeao) || '', defaultValue: `Encerrar os bounties com ${nomePorInscrito.get(campeao) || ''} como campeão?`,
-    }), { variant: 'danger' });
+    const nome = nomePorInscrito.get(campeao) || '';
+    const ok = await confirm(ehMystery
+      ? t('ko.confirmCloseMystery', { name: nome, defaultValue: `Encerrar o Mystery com ${nome} como campeão?` })
+      : t('ko.confirmClose', { name: nome, defaultValue: `Encerrar os bounties com ${nome} como campeão?` }),
+    { variant: 'danger' });
     if (!ok) return;
     executar(() => api.post(`/tournaments/${tournamentId}/knockouts/close`, { champion_tp_id: campeao }),
-      t('ko.closedSuccess', 'Bounties encerrados.'));
+      ehMystery ? t('ko.closedMystery', 'Mystery encerrado.') : t('ko.closedSuccess', 'Bounties encerrados.'));
   };
 
   const formatoLabel = {
@@ -132,7 +136,9 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
     <div className="ko-tab">
       <div className="ko-cards">
         <div className="ko-card">
-          <span className="ko-card-label">{t('ko.pool', 'Pool KO')} · {formatoLabel}</span>
+          <span className="ko-card-label">
+            {ehMystery ? t('ko.poolMystery', 'Pool Mystery') : `${t('ko.pool', 'Pool KO')} · ${formatoLabel}`}
+          </span>
           <span className="ko-card-valor">{formatCurrency(pozo)}</span>
         </div>
         <div className="ko-card">
@@ -153,7 +159,7 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
           <div className={`ko-card ${semSaldo ? 'alerta' : ''}`}>
             <span className="ko-card-label">{t('ko.generalCash', 'Saldo do caixa geral')}</span>
             <span className="ko-card-valor">{formatCurrency(saldoGeral)}</span>
-            {semSaldo && <span className="ko-hint">{t('ko.needSangria', 'Saldo menor que o pendente: faça uma sangria para pagar os KOs.')}</span>}
+            {semSaldo && <span className="ko-hint">{t('ko.needSangria', 'Saldo menor que o pendente: faça uma sangria para pagar os prêmios.')}</span>}
           </div>
         )}
       </div>
@@ -295,9 +301,9 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
       </section>
 
       <section className="ko-secao" aria-labelledby="ko-hist-titulo">
-        <h4 id="ko-hist-titulo">{t('ko.history', 'Eliminações com KO')}</h4>
+        <h4 id="ko-hist-titulo">{ehMystery ? t('ko.historyMystery', 'Envelopes sorteados') : t('ko.history', 'Eliminações com KO')}</h4>
         {resumo.knockouts.length === 0 ? (
-          <p className="ko-vazio">{t('ko.noKnockouts', 'Nenhum KO registrado ainda.')}</p>
+          <p className="ko-vazio">{ehMystery ? t('ko.noEnvelopesDrawn', 'Nenhum envelope sorteado ainda.') : t('ko.noKnockouts', 'Nenhum KO registrado ainda.')}</p>
         ) : (
           <table className="ko-tabela">
             <thead>
@@ -330,10 +336,10 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
       </section>
 
       <section className="ko-secao" aria-labelledby="ko-fim-titulo">
-        <h4 id="ko-fim-titulo">{t('ko.closeTitle', 'Encerrar bounties')}</h4>
+        <h4 id="ko-fim-titulo">{ehMystery ? t('ko.closeTitleMystery', 'Encerrar Mystery') : t('ko.closeTitle', 'Encerrar bounties')}</h4>
         {encerrado ? (
           <div className="ko-encerrar">
-            <span className="ko-pago">{t('ko.closedAlready', 'Bounties encerrados.')}</span>
+            <span className="ko-pago">{ehMystery ? t('ko.closedMystery', 'Mystery encerrado.') : t('ko.closedAlready', 'Bounties encerrados.')}</span>
             <button type="button" className="ko-btn-secondary" disabled={ocupado}
               onClick={() => executar(() => api.delete(`/tournaments/${tournamentId}/knockouts/close`),
                 t('ko.closeUndone', 'Encerramento desfeito.'))}>
@@ -342,14 +348,18 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
           </div>
         ) : (
           <>
-            <p className="ko-hint">{t('ko.closeHint', 'No fim do torneio: cada jogador vivo recebe o próprio bounty, e o que ficou sem dono vai para o campeão.')}</p>
+            <p className="ko-hint">
+              {ehMystery
+                ? t('ko.closeHintMystery', 'No fim do torneio: o campeão leva os envelopes que sobraram e os que ficaram sem eliminador.')
+                : t('ko.closeHint', 'No fim do torneio: cada jogador vivo recebe o próprio bounty, e o que ficou sem dono vai para o campeão.')}
+            </p>
             <div className="ko-encerrar">
               <select value={campeao} onChange={(e) => setCampeao(e.target.value)} aria-label={t('ko.champion', 'Campeão')}>
                 <option value="">{t('ko.chooseChampion', 'Escolha o campeão')}</option>
                 {vivos.map((v) => <option key={v.id} value={v.id}>{v.player_name}</option>)}
               </select>
               <button type="button" className="ko-btn-danger" disabled={!campeao || ocupado} onClick={encerrar}>
-                {t('ko.closeButton', 'Encerrar bounties')}
+                {ehMystery ? t('ko.closeTitleMystery', 'Encerrar Mystery') : t('ko.closeButton', 'Encerrar bounties')}
               </button>
             </div>
           </>

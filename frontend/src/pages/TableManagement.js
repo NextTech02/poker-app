@@ -449,7 +449,11 @@ const TableManagement = () => {
       )));
       toast.success(t('tableManagement.eliminatedSuccess', { name: nome }));
       if (r?.offline) {
-        if (quem) toast.info(t('ko.offlinePending', 'Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.'));
+        if (quem) {
+          toast.info(ko.formato === 'mystery'
+            ? t('ko.offlinePendingMystery', 'Sem conexão: o envelope será sorteado ao sincronizar e o pagamento fica pendente na aba Mystery da Premiação.')
+            : t('ko.offlinePending', 'Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.'));
+        }
       } else {
         if (r?.data?.knockout) setResultadoKo(r.data.knockout);
         await loadData();

@@ -279,7 +279,7 @@
     "eliminationModeBulkHint": "Mais prático: o diretor soma eliminações no Controle (Eliminar 1 / Eliminar N), sem dizer quem saiu.",
     "eliminationModeRule": "Nos dois modos, cada entrada soma um jogador e cada reentrada traz de volta um eliminado. Add-on não conta.",
     "reentriesHint": "Recompras. Não somam jogadores: cada reentrada traz de volta um jogador eliminado.",
-    "koSection": "Premiação por eliminação (KO)",
+    "koSection": "Premiação por eliminação (KO / Mystery)",
     "koFormat": "Formato",
     "koFormat_none": "Nenhuma",
     "koFormat_ko": "KO fixo",
@@ -1805,7 +1805,7 @@
     "dreBarCogsLine": "(−) Custo das mercadorias vendidas (CMV, cortesia inclusa)",
     "dreBarMargin": "= MARGEM BRUTA DO BAR",
     "dreBarOperation": "{{tabs}} comanda(s) fechada(s) · {{shifts}} turno(s)",
-    "drePrizeKo": "dos quais prêmios KO"
+    "drePrizeKo": "dos quais prêmios por eliminação (KO / Mystery)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneio",
@@ -1992,7 +1992,8 @@
     "rebuy": "Rebuy",
     "addon": "Add-on",
     "koPool": "Pool KO ({{percent}}%)",
-    "positionsPool": "Pool das posições"
+    "positionsPool": "Pool das posições",
+    "mysteryPool": "Pool Mystery ({{percent}}%)"
   },
   "dayStats": {
     "loadError": "Erro ao carregar estatísticas",
@@ -2230,10 +2231,13 @@
     "visible": "Pública",
     "seatPrize": "Vaga",
     "cashPrize": "Dinheiro",
-    "koSection": "Premiação por eliminação (KO)",
+    "koSection": "Premiação por eliminação (KO / Mystery)",
     "koPool": "Pool KO",
     "koPaid": "KO pago",
-    "koPending": "KO pendente"
+    "koPending": "KO pendente",
+    "mysteryPool": "Pool Mystery",
+    "mysteryPaid": "Mystery pago",
+    "mysteryPending": "Mystery pendente"
   },
   "tournamentDetail": {
     "manageTablesTitle": "Gerenciar mesas e alocação de jogadores",
@@ -3367,7 +3371,6 @@
     "note": "Sua resposta vale só para contatos promocionais deste clube. Você pode mudar de ideia quando quiser, pedindo ao clube."
   },
   "ko": {
-    "tab": "KO",
     "pool": "Pool KO",
     "poolShare": "{{percent}}% de cada entrada",
     "positionsAfterKo": "Pool líquido {{net}} − KO",
@@ -3378,7 +3381,7 @@
     "pendingTotal": "Pendente",
     "unclaimed": "Sem autor (vai ao campeão)",
     "generalCash": "Saldo do caixa geral",
-    "needSangria": "Saldo menor que o pendente: faça uma sangria para pagar os KOs.",
+    "needSangria": "Saldo menor que o pendente: faça uma sangria para pagar os prêmios.",
     "loadError": "Não foi possível carregar os KOs.",
     "actionError": "Não foi possível concluir.",
     "paidSuccess": "Pagamento registrado.",
@@ -3451,8 +3454,22 @@
     "addedToBounty": "+ {{value}} no bounty",
     "payNow": "Pagar agora",
     "paying": "Pagando…",
-    "payError": "Não foi possível pagar o KO.",
+    "payError": "Não foi possível pagar o prêmio.",
     "pendingNote": "O que não for pago agora fica pendente na aba KO da Premiação.",
-    "offlinePending": "Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação."
+    "offlinePending": "Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.",
+    "tab_ko": "KO",
+    "tab_pko": "PKO",
+    "tab_mystery": "Mystery",
+    "poolMystery": "Pool Mystery",
+    "historyMystery": "Envelopes sorteados",
+    "noEnvelopesDrawn": "Nenhum envelope sorteado ainda.",
+    "closeTitleMystery": "Encerrar Mystery",
+    "closedMystery": "Mystery encerrado.",
+    "closeHintMystery": "No fim do torneio: o campeão leva os envelopes que sobraram e os que ficaram sem eliminador.",
+    "confirmCloseMystery": "Encerrar o Mystery com {{name}} como campeão?",
+    "envelopeDrawnTitle": "Envelope sorteado",
+    "pendingNoteMystery": "O que não for pago agora fica pendente na aba Mystery da Premiação.",
+    "noEliminatorMystery": "Sem eliminador (abandono ou desclassificação) — o envelope fica para o campeão",
+    "offlinePendingMystery": "Sem conexão: o envelope será sorteado ao sincronizar e o pagamento fica pendente na aba Mystery da Premiação."
   }
 }

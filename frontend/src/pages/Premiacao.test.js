@@ -1478,7 +1478,7 @@ describe('premiação por eliminação (KO)', () => {
 
   it('torneio sem KO não tem a aba', async () => {
     await montar();
-    expect(screen.queryByRole('button', { name: 'ko.tab' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^ko\.tab_/ })).toBeNull();
   });
 
   it('a configuração mostra a divisão: pool KO e o das posições', async () => {
@@ -1491,8 +1491,23 @@ describe('premiação por eliminação (KO)', () => {
 
   it('a aba KO abre o painel de pagamentos', async () => {
     await montarKo();
-    await userEvent.click(screen.getByRole('button', { name: 'ko.tab' }));
+    // A aba leva o nome do formato do torneio (aqui, PKO).
+    await userEvent.click(screen.getByRole('button', { name: 'ko.tab_pko' }));
     expect(await screen.findByText('ko.pendingPayments')).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith('/tournaments/t1/knockouts/summary');
+  });
+});
+
+describe('torneio Mystery: aba e rótulos com o nome do formato', () => {
+  it('a aba se chama Mystery e o card mostra o Pool Mystery', async () => {
+    responder({
+      torneio: { id: 't1', name: 'MISTERY', ko_format: 'mystery', ko_percentage: 40 },
+      resumo: { ...RESUMO, ko_format: 'mystery', ko_percentage: '40', net_pool: '5412', ko_pool: '2640', player_pool: '2772' },
+    });
+    render(<MemoryRouter><Premiacao /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+    expect(screen.getByRole('button', { name: 'ko.tab_mystery' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ko.tab_ko' })).toBeNull();
+    expect(within(document.querySelector('.ko-pool-card')).getByText('ko.poolMystery')).toBeInTheDocument();
   });
 });

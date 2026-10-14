@@ -279,7 +279,7 @@
     "eliminationModeBulkHint": "Más práctico: el director suma eliminaciones en el Control (Eliminar 1 / Eliminar N), sin indicar quién salió.",
     "eliminationModeRule": "En ambos modos, cada entrada suma un jugador y cada reentrada trae de vuelta a un eliminado. El add-on no cuenta.",
     "reentriesHint": "Recompras. No suman jugadores: cada reentrada trae de vuelta a un jugador eliminado.",
-    "koSection": "Premiación por eliminación (KO)",
+    "koSection": "Premiación por eliminación (KO / Mystery)",
     "koFormat": "Formato",
     "koFormat_none": "Ninguna",
     "koFormat_ko": "KO fijo",
@@ -1805,7 +1805,7 @@
     "dreBarCogsLine": "(−) Costo de las mercancías vendidas (CMV, cortesía incluida)",
     "dreBarMargin": "= MARGEN BRUTO DEL BAR",
     "dreBarOperation": "{{tabs}} comanda(s) cerrada(s) · {{shifts}} turno(s)",
-    "drePrizeKo": "de los cuales premios KO"
+    "drePrizeKo": "de los cuales premios por eliminación (KO / Mystery)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneo",
@@ -1992,7 +1992,8 @@
     "rebuy": "Rebuy",
     "addon": "Add-on",
     "koPool": "Pozo KO ({{percent}}%)",
-    "positionsPool": "Pozo de las posiciones"
+    "positionsPool": "Pozo de las posiciones",
+    "mysteryPool": "Pozo Mystery ({{percent}}%)"
   },
   "dayStats": {
     "loadError": "Error al cargar las estadísticas",
@@ -2230,10 +2231,13 @@
     "visible": "Pública",
     "seatPrize": "Plaza",
     "cashPrize": "Dinero",
-    "koSection": "Premiación por eliminación (KO)",
+    "koSection": "Premiación por eliminación (KO / Mystery)",
     "koPool": "Pozo KO",
     "koPaid": "KO pagado",
-    "koPending": "KO pendiente"
+    "koPending": "KO pendiente",
+    "mysteryPool": "Pozo Mystery",
+    "mysteryPaid": "Mystery pagado",
+    "mysteryPending": "Mystery pendiente"
   },
   "tournamentDetail": {
     "manageTablesTitle": "Gestionar mesas y asignación de jugadores",
@@ -3367,7 +3371,6 @@
     "note": "Su respuesta vale solo para contactos promocionales de este club. Puede cambiar de opinión cuando quiera, solicitándolo al club."
   },
   "ko": {
-    "tab": "KO",
     "pool": "Pozo KO",
     "poolShare": "{{percent}}% de cada entrada",
     "positionsAfterKo": "Pozo neto {{net}} − KO",
@@ -3378,7 +3381,7 @@
     "pendingTotal": "Pendiente",
     "unclaimed": "Sin autor (va al campeón)",
     "generalCash": "Saldo de la caja general",
-    "needSangria": "Saldo menor que lo pendiente: haga una sangría para pagar los KOs.",
+    "needSangria": "Saldo menor que lo pendiente: haga una sangría para pagar los premios.",
     "loadError": "No fue posible cargar los KOs.",
     "actionError": "No fue posible completar.",
     "paidSuccess": "Pago registrado.",
@@ -3451,8 +3454,22 @@
     "addedToBounty": "+ {{value}} al bounty",
     "payNow": "Pagar ahora",
     "paying": "Pagando…",
-    "payError": "No fue posible pagar el KO.",
+    "payError": "No fue posible pagar el premio.",
     "pendingNote": "Lo que no se pague ahora queda pendiente en la pestaña KO de Premiación.",
-    "offlinePending": "Sin conexión: el KO se registrará al sincronizar y el pago queda pendiente en la pestaña KO de Premiación."
+    "offlinePending": "Sin conexión: el KO se registrará al sincronizar y el pago queda pendiente en la pestaña KO de Premiación.",
+    "tab_ko": "KO",
+    "tab_pko": "PKO",
+    "tab_mystery": "Mystery",
+    "poolMystery": "Pozo Mystery",
+    "historyMystery": "Sobres sorteados",
+    "noEnvelopesDrawn": "Ningún sobre sorteado todavía.",
+    "closeTitleMystery": "Cerrar Mystery",
+    "closedMystery": "Mystery cerrado.",
+    "closeHintMystery": "Al final del torneo: el campeón se lleva los sobres que quedaron y los que quedaron sin eliminador.",
+    "confirmCloseMystery": "¿Cerrar el Mystery con {{name}} como campeón?",
+    "envelopeDrawnTitle": "Sobre sorteado",
+    "pendingNoteMystery": "Lo que no se pague ahora queda pendiente en la pestaña Mystery de Premiación.",
+    "noEliminatorMystery": "Sin eliminador (abandono o descalificación) — el sobre queda para el campeón",
+    "offlinePendingMystery": "Sin conexión: el sobre se sorteará al sincronizar y el pago queda pendiente en la pestaña Mystery de Premiación."
   }
 }

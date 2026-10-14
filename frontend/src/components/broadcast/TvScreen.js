@@ -287,7 +287,7 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
         // Quanto do prizepool é prêmio por eliminação (e, no Mystery, os
         // envelopes que ainda faltam sair).
         <span className="tv-pool-ko">
-          {L.koPool}: {formatCurrency(model.koPool, currency)}
+          {model.koFormat === 'mystery' ? L.mysteryPool : L.koPool}: {formatCurrency(model.koPool, currency)}
           {model.envelopesLeft != null && ` · ${L.envelopesLeft}: ${model.envelopesLeft}`}
         </span>
       )}

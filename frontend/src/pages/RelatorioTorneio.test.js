@@ -256,3 +256,10 @@ describe('premiação por eliminação (KO)', () => {
     expect(screen.queryByText('tournamentReport.koSection')).toBeNull();
   });
 });
+
+it('torneio Mystery usa os rótulos do Mystery', async () => {
+  await montar({ relatorio: { ...RELATORIO, ko_format: 'mystery', ko_percentage: 40, ko_pool: 2640, ko_paid: 1000, ko_pending: 0 } });
+  expect(screen.getByText('tournamentReport.mysteryPool')).toBeInTheDocument();
+  expect(screen.getByText('tournamentReport.mysteryPaid')).toBeInTheDocument();
+  expect(screen.queryByText('tournamentReport.koPool')).toBeNull();
+});

@@ -79,6 +79,8 @@ it('sem eliminador: avisa que o valor fica para o campeão', () => {
 
 it('Mystery mostra o envelope sorteado', () => {
   abrir({ knockout: { ...KO, format: 'mystery' } });
+  expect(screen.getByText('ko.envelopeDrawnTitle')).toBeInTheDocument();
+  expect(screen.getByText('ko.pendingNoteMystery')).toBeInTheDocument();
   expect(screen.getByText(/ko.envelopeValue:S\/ 100.00/)).toBeInTheDocument();
 });
 

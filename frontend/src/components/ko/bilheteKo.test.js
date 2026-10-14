@@ -23,7 +23,7 @@ it('em espanhol, e Mystery mostra MYSTERY no lugar de KO', () => {
   const html = htmlDoBilheteKo({
     jogador: 'Luis', mesa: 1, assento: 2, valor: 300, formato: 'mystery', idioma: 'es-ES', formatarValor: formatar,
   });
-  expect(html).toContain('BOLETO DE KO');
+  expect(html).toContain('BOLETO MYSTERY');
   expect(html).toContain('MESA 1 - ASIENTO 2');
   expect(html).toContain('MYSTERY: S/ 300.00');
 });

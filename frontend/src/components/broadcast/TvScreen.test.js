@@ -565,7 +565,7 @@ describe('formato dos blinds', () => {
 describe('premiação por eliminação', () => {
   it('o pool KO aparece junto do prizepool, com os envelopes Mystery restantes', () => {
     montar({ currency: 'PEN', model: { koFormat: 'mystery', koPool: 4000, envelopesLeft: 5 } });
-    expect(document.querySelector('.tv-pool-ko')).toHaveTextContent('POOL KO: S/ 4,000.00 · ENVELOPES: 5');
+    expect(document.querySelector('.tv-pool-ko')).toHaveTextContent('POOL MYSTERY: S/ 4,000.00 · ENVELOPES: 5');
   });
 
   it('PKO mostra só o pool KO', () => {

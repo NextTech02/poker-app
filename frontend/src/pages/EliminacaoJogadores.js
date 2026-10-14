@@ -130,7 +130,11 @@ const EliminacaoJogadores = () => {
       setPlayers(prev => prev.map(p => p.id === tournamentPlayerId ? { ...p, status: 'eliminated' } : p));
       if (r.offline) {
         toast.success(t('offline.savedOffline', 'Salvo offline — será enviado ao sincronizar'));
-        if (quem) toast.info(t('ko.offlinePending', 'Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.'));
+        if (quem) {
+          toast.info(formatoKo(tournament) === 'mystery'
+            ? t('ko.offlinePendingMystery', 'Sem conexão: o envelope será sorteado ao sincronizar e o pagamento fica pendente na aba Mystery da Premiação.')
+            : t('ko.offlinePending', 'Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.'));
+        }
       } else {
         if (r.data?.knockout) setResultadoKo(r.data.knockout);
         loadData();

@@ -9,9 +9,9 @@
  * Os rótulos seguem o idioma da tela, como o bilhete de assento (SeatTicket).
  */
 const LANGS = {
-  pt: { titulo: 'BILHETE DE KO', mesa: (m, a) => `MESA ${m} - ASSENTO ${a}`, eliminou: 'Eliminou', mystery: 'MYSTERY', hora: 'Data e Hora', rodape: 'Apresente este bilhete no caixa.' },
-  es: { titulo: 'BOLETO DE KO', mesa: (m, a) => `MESA ${m} - ASIENTO ${a}`, eliminou: 'Eliminó a', mystery: 'MYSTERY', hora: 'Fecha y Hora', rodape: 'Presente este boleto en la caja.' },
-  en: { titulo: 'KO TICKET', mesa: (m, a) => `TABLE ${m} - SEAT ${a}`, eliminou: 'Eliminated', mystery: 'MYSTERY', hora: 'Date & Time', rodape: 'Present this ticket at the cashier.' },
+  pt: { titulo: 'BILHETE DE KO', tituloMystery: 'BILHETE MYSTERY', mesa: (m, a) => `MESA ${m} - ASSENTO ${a}`, eliminou: 'Eliminou', mystery: 'MYSTERY', hora: 'Data e Hora', rodape: 'Apresente este bilhete no caixa.' },
+  es: { titulo: 'BOLETO DE KO', tituloMystery: 'BOLETO MYSTERY', mesa: (m, a) => `MESA ${m} - ASIENTO ${a}`, eliminou: 'Eliminó a', mystery: 'MYSTERY', hora: 'Fecha y Hora', rodape: 'Presente este boleto en la caja.' },
+  en: { titulo: 'KO TICKET', tituloMystery: 'MYSTERY TICKET', mesa: (m, a) => `TABLE ${m} - SEAT ${a}`, eliminou: 'Eliminated', mystery: 'MYSTERY', hora: 'Date & Time', rodape: 'Present this ticket at the cashier.' },
 };
 
 const escapar = (texto) => String(texto ?? '')
@@ -29,12 +29,13 @@ export const htmlDoBilheteKo = ({
 }) => {
   const L = LANGS[idiomaDe(idioma)];
   const rotulo = formato === 'mystery' ? L.mystery : 'KO';
+  const titulo = formato === 'mystery' ? L.tituloMystery : L.titulo;
   const data = new Date(quando || Date.now()).toLocaleString(
     idiomaDe(idioma) === 'en' ? 'en-US' : idiomaDe(idioma) === 'es' ? 'es-ES' : 'pt-BR'
   );
   const blocoMesa = mesa != null && assento != null
     ? `<div class="kt-mesa">${escapar(L.mesa(mesa, assento))}</div>` : '';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${L.titulo}</title>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${titulo}</title>
 <style>
 @media print { @page { size: 80mm auto; margin: 0; } body { margin: 0; } }
 body { font-family: 'Courier New', monospace; width: 80mm; margin: 0 auto; padding: 8mm; }
@@ -47,7 +48,7 @@ body { font-family: 'Courier New', monospace; width: 80mm; margin: 0 auto; paddi
 .kt-vitima, .kt-hora { font-size: 11px; color: #555; margin-top: 6px; }
 .kt-rodape { font-size: 10px; color: #666; border-top: 2px solid #333; margin-top: 12px; padding-top: 8px; }
 </style></head><body><div class="kt">
-<div class="kt-titulo">${L.titulo}</div>
+<div class="kt-titulo">${titulo}</div>
 ${torneio ? `<div class="kt-torneio">${escapar(torneio)}</div>` : ''}
 <div class="kt-nome">${escapar(jogador)}</div>
 ${blocoMesa}

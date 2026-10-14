@@ -28,6 +28,7 @@ const BROADCAST_LABELS = {
     of:             'de',             // "45 de 120"
     prizepool:      'PRIZEPOOL',
     koPool:         'POOL KO',
+    mysteryPool:    'POOL MYSTERY',
     envelopesLeft:  'ENVELOPES',
     awards:         'PREMIAÇÕES',
     placeLabel:     (n) => `${n}º Lugar`,
@@ -57,6 +58,7 @@ const BROADCAST_LABELS = {
     of:             'of',
     prizepool:      'PRIZEPOOL',
     koPool:         'KO POOL',
+    mysteryPool:    'MYSTERY POOL',
     envelopesLeft:  'ENVELOPES',
     awards:         'AWARDS',
     placeLabel:     (n) => `${ordinalEn(n)} Place`,
@@ -86,6 +88,7 @@ const BROADCAST_LABELS = {
     of:             'de',
     prizepool:      'PRIZEPOOL',
     koPool:         'POZO KO',
+    mysteryPool:    'POZO MYSTERY',
     envelopesLeft:  'SOBRES',
     awards:         'PREMIOS',
     placeLabel:     (n) => `${n}º Puesto`,

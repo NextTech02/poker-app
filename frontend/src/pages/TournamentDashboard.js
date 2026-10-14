@@ -352,7 +352,11 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
           {divisaoKo && (
             <>
               <div className="financial-row">
-                <span className="label">{t('tournamentDashboard.koPool', { percent: divisaoKo.percentual })}</span>
+                <span className="label">
+                  {tournament?.ko_format === 'mystery'
+                    ? t('tournamentDashboard.mysteryPool', { percent: divisaoKo.percentual })
+                    : t('tournamentDashboard.koPool', { percent: divisaoKo.percentual })}
+                </span>
                 <span className="value neutral">{formatCurrency(divisaoKo.ko)}</span>
               </div>
               <div className="financial-row">
