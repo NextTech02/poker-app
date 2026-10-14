@@ -53,9 +53,16 @@ ALTER TABLE public.tournaments
   ADD COLUMN IF NOT EXISTS ko_cash_share numeric(5,2) NOT NULL DEFAULT 50,
   ADD COLUMN IF NOT EXISTS ko_closed_at timestamptz,
   ADD COLUMN IF NOT EXISTS mystery_started_at timestamptz,
-  ADD COLUMN IF NOT EXISTS mystery_day_id uuid REFERENCES public.tournament_days(id) ON DELETE SET NULL,
+  -- SEM chave estrangeira, de propósito: uma 2ª FK entre tournaments e
+  -- tournament_days deixa AMBÍGUO todo embed tournament_days -> tournaments no
+  -- PostgREST (PGRST201 "more than one relationship"). Foi isso que derrubou o
+  -- sistema no evento de 13/10 (661 consultas recusadas entre 22h e 23h UTC).
+  ADD COLUMN IF NOT EXISTS mystery_day_id uuid,
   ADD COLUMN IF NOT EXISTS mystery_pool numeric(12,2),
   ADD COLUMN IF NOT EXISTS mystery_players_at_start integer;
+
+-- Se uma versão anterior desta migração criou a FK, ela sai (ver acima).
+ALTER TABLE public.tournaments DROP CONSTRAINT IF EXISTS tournaments_mystery_day_id_fkey;
 
 DO $$
 BEGIN
