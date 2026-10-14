@@ -343,6 +343,34 @@ describe('totais', () => {
     expect(indicadores()).toEqual(['R$ 0.00', 'R$ 0.00', 'R$ 0.00', 'R$ 250.00']);
   });
 
+  it('prêmio pago não entra em nenhum total: é saída, não venda', async () => {
+    // Ao vivo (2026-10-14): S/ 3.280 de prêmio inflavam o "Total General".
+    await montar({
+      transacoes: [
+        { id: 'v1', type: 'buy_in', amount: 1000, created_at: '2026-06-08T20:00:00Z',
+          tournament_id: 't1', player_id: 'p1', player_name: 'Ana', tournament_name: 'Main Event' },
+        { id: 'pr1', type: 'prize', amount: 3280, created_at: '2026-06-08T21:00:00Z',
+          tournament_id: 't1', player_id: 'p2', player_name: 'Jordy', tournament_name: 'Main Event' },
+      ],
+    });
+    expect(indicadores()).toEqual(['R$ 1000.00', 'R$ 0.00', 'R$ 0.00', 'R$ 1000.00']);
+  });
+
+  it('prêmio aparece como Prêmio, sem trocar pagamento nem reimprimir', async () => {
+    await montar({
+      transacoes: [
+        { id: 'pr1', type: 'prize', amount: 3280, created_at: '2026-06-08T21:00:00Z',
+          tournament_id: 't1', player_id: 'p2', player_name: 'Jordy', tournament_name: 'Main Event' },
+      ],
+    });
+    const linha = screen.getByText('Jordy').closest('tr');
+    expect(linha).toHaveTextContent('Prêmio');
+    expect(linha).not.toHaveTextContent('Buy-in');
+    expect(linha.querySelector('.badge-danger')).not.toBeNull();
+    expect(linha).not.toHaveTextContent('Trocar pagamento');
+    expect(linha).not.toHaveTextContent('cashRegister.reprint');
+  });
+
   it('valor inválido não contamina a soma', async () => {
     await montar({
       transacoes: [

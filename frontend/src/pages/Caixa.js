@@ -64,8 +64,14 @@ const Caixa = () => {
   const { selectedStage } = useStage();
   const { isAdmin, hasPermission } = usePermissions();
 
-  const buyCategoryLabel = (c) =>
-    c === 'rebuy' ? t('cashRegister.rebuy', 'Rebuy') : c === 'addon' ? t('cashRegister.addon', 'Add-on') : t('cashRegister.buyIn', 'Buy-in');
+  // Prêmio pago também aparece no extrato: sem rótulo próprio, ele caía em
+  // "Buy-in" e o operador lia uma VENDA onde houve uma saída de dinheiro.
+  const buyCategoryLabel = (c) => {
+    if (c === 'rebuy') return t('cashRegister.rebuy', 'Rebuy');
+    if (c === 'addon') return t('cashRegister.addon', 'Add-on');
+    if (c === 'prize') return t('cashRegister.prize', 'Prêmio');
+    return t('cashRegister.buyIn', 'Buy-in');
+  };
 
   // Título do bilhete: reimpressão, etapa sem mesa cadastrada, alternado de
   // verdade ou alocado. Um caso por linha — encadeados em ternário, o operador
@@ -934,7 +940,7 @@ const Caixa = () => {
   // vendas de todos os torneios — procurar nela deixaria a maioria sem nome.
   // Sem nenhum dos dois, cai no rótulo da categoria (vendas antigas).
   const getTransactionTypeBadge = (transaction) => {
-    const classes = { buy_in: 'badge-success', rebuy: 'badge-warning', addon: 'badge-info' };
+    const classes = { buy_in: 'badge-success', rebuy: 'badge-warning', addon: 'badge-info', prize: 'badge-danger' };
     const bt = activeBuyTypes.find((b) => b.id === transaction.buy_type_id);
     const label = transaction.buy_type_name || (bt ? bt.name : buyCategoryLabel(transaction.type));
     return <span className={`badge ${classes[transaction.type] || 'badge-success'}`}>{label}</span>;
@@ -958,6 +964,9 @@ const Caixa = () => {
     const acc = { buy_in: 0, rebuy: 0, addon: 0, total: 0 };
     transactions.forEach(t => {
       if ((t.status || 'active') !== 'active') return;
+      // Prêmio é SAÍDA (sai do caixa geral): somá-lo inflava o total geral
+      // com o valor pago ao jogador, como se fosse uma venda.
+      if (t.type === 'prize') return;
       const v = parseFloat(t.amount) || 0;
       if (acc[t.type] !== undefined) acc[t.type] += v;
       acc.total += v;
@@ -1290,13 +1299,16 @@ const Caixa = () => {
                                 <span>{reprintingId === transaction.id ? '…' : t('cashRegister.reprint')}</span>
                               </button>
                             )}
-                            <button
-                              type="button"
-                              className="reprint-btn"
-                              onClick={() => abrirTrocaDeMetodo(transaction)}
-                            >
-                              {t('cashRegister.changePaymentMethod', 'Trocar pagamento')}
-                            </button>
+                            {/* Prêmio não é venda: não há forma de pagamento a trocar. */}
+                            {transaction.type !== 'prize' && (
+                              <button
+                                type="button"
+                                className="reprint-btn"
+                                onClick={() => abrirTrocaDeMetodo(transaction)}
+                              >
+                                {t('cashRegister.changePaymentMethod', 'Trocar pagamento')}
+                              </button>
+                            )}
                             {podeCancelar && transaction.type !== 'prize' && (
                               <button
                                 type="button"
