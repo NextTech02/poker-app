@@ -23,7 +23,7 @@ from app.dependencies import get_stage_id_optional
 # Recusas com CODIGO: o operador colombiano nao pode ler a frase em portugues
 # no meio da operacao — quem escolhe o idioma e a tela, pelo `code`
 # (ver app/utils/erros.py).
-from app.utils.erros import conflito, da_excecao, nao_encontrado, sem_permissao
+from app.utils.erros import ErroDeNegocio, conflito, da_excecao, nao_encontrado, sem_permissao
 
 
 class SalesBlockToggle(BaseModel):
@@ -99,6 +99,15 @@ def create_tournament_day(
             "torneio_fora_da_etapa",
             "Tournament does not belong to the selected stage",
         )
+
+    # KO v1: o bounty não atravessa para o Dia Final ainda.
+    formato_ko = getattr(getattr(tournament, "ko_format", None), "value", None) or "none"
+    tipo_do_dia = getattr(day_data.day_type, "value", day_data.day_type)
+    if formato_ko != "none" and tipo_do_dia in ("qualifying", "final"):
+        raise ErroDeNegocio(
+            "ko_sem_classificatorio",
+            "Por enquanto, a premiação por eliminação funciona só em torneio sem dias classificatórios.",
+        ).como_http()
 
     return TournamentDayService.create_tournament_day(day_data)
 

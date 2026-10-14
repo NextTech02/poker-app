@@ -39,6 +39,24 @@ class EliminationMode(str, Enum):
     bulk = "bulk"
 
 
+class KoFormat(str, Enum):
+    """Premiação por eliminação. Uma parte do pozo (`ko_percentage` do valor
+    líquido de cada venda) sai das posições e vira prêmio por KO:
+
+    - `ko`: KO fixo — quem elimina leva o bounty inteiro da vítima;
+    - `pko`: progressivo — `ko_cash_share`% em dinheiro, o resto soma no
+      bounty de quem eliminou;
+    - `mystery`: envelopes sorteados a cada eliminação, depois que o floor
+      inicia a fase.
+
+    Exige eliminação por MESA: o modo em massa não sabe quem saiu.
+    """
+    none = "none"
+    ko = "ko"
+    pko = "pko"
+    mystery = "mystery"
+
+
 class BroadcastSettings(BaseModel):
     """Broadcast display settings for tournament"""
     bg_color: Optional[str] = Field(default="#0a0e13", description="Background color (hex)")
@@ -68,6 +86,9 @@ class TournamentBase(BaseModel):
         default=EliminationMode.bulk,
         description="Como eliminar jogadores: 'table' (no assento) ou 'bulk' (contador em massa)",
     )
+    ko_format: KoFormat = Field(default=KoFormat.none, description="Premiação por eliminação")
+    ko_percentage: float = Field(default=0, ge=0, le=100, description="% do pozo líquido de cada venda que vai para KO")
+    ko_cash_share: float = Field(default=50, ge=0, le=100, description="PKO: % do bounty pago em dinheiro")
 
 
 class TournamentCreate(TournamentBase):
@@ -82,6 +103,9 @@ class TournamentUpdate(BaseModel):
     has_qualifying: Optional[bool] = None
     is_satellite: Optional[bool] = None
     elimination_mode: Optional[EliminationMode] = None
+    ko_format: Optional[KoFormat] = None
+    ko_percentage: Optional[float] = Field(None, ge=0, le=100)
+    ko_cash_share: Optional[float] = Field(None, ge=0, le=100)
     # Broadcast settings
     broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
     broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
@@ -109,6 +133,12 @@ class Tournament(TournamentBase):
     guaranteed_prize: float = 0.0
     sponsor_id: Optional[str] = None
     sponsor_name: Optional[str] = None  # joined from sponsors table
+    # Estado do KO (só leitura: mexido pelos endpoints de KO)
+    ko_closed_at: Optional[datetime] = None
+    mystery_started_at: Optional[datetime] = None
+    mystery_day_id: Optional[str] = None
+    mystery_pool: Optional[float] = None
+    mystery_players_at_start: Optional[int] = None
     # Broadcast settings
     broadcast_bg_color: Optional[str] = "#0a0e13"
     broadcast_bg_image_url: Optional[str] = None

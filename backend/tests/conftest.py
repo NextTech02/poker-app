@@ -385,6 +385,21 @@ class _EnviosGravados:
 
 
 @pytest.fixture(autouse=True)
+def knockout_isolado(monkeypatch):
+    """O serviço de KO tem o PRÓPRIO `supabase` (importado do app.database).
+
+    Os testes trocam o cliente módulo a módulo; sem isto, um teste da
+    eliminação (que consulta a configuração KO do torneio) falaria com o
+    banco REAL pelo knockout_service. Por padrão ele vê um banco vazio —
+    torneio comum, sem KO. Os testes de KO ligam o mesmo fake do cenário.
+    """
+    from app.services import knockout_service
+    fake = FakeSupabase({})
+    monkeypatch.setattr(knockout_service, "supabase", fake)
+    return fake
+
+
+@pytest.fixture(autouse=True)
 def envios_de_consentimento(monkeypatch):
     from app.services import player_consent_service as mod
     gravados = _EnviosGravados()

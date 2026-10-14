@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 from typing import List, Optional
 from app.models.tournament_player import (
     TournamentPlayerCreate,
@@ -7,6 +7,7 @@ from app.models.tournament_player import (
     TournamentPlayerDetail
 )
 from app.services.tournament_player_service import TournamentPlayerService
+from app.models.knockout import EliminateRequest
 from app.auth.jwt import get_current_user
 from app.utils.erros import da_excecao
 
@@ -114,17 +115,31 @@ def update_tournament_player(
     return result
 
 
-@router.post("/{tournament_player_id}/eliminate", response_model=TournamentPlayer)
+class EliminationResult(TournamentPlayer):
+    """A inscrição eliminada + o KO gerado (torneio com premiação por
+    eliminação) — a tela abre o pagamento com ele."""
+    knockout: Optional[dict] = None
+
+
+@router.post("/{tournament_player_id}/eliminate", response_model=EliminationResult)
 def eliminate_player(
     tournament_player_id: str,
+    body: Optional[EliminateRequest] = Body(None),
     current_user: dict = Depends(get_current_user)
 ):
-    """Eliminate a player from the tournament (mark as eliminated)"""
+    """Elimina o jogador. Em torneio KO, `eliminated_by` diz quem eliminou
+    (mais de um = pote dividido) ou `no_eliminator` para abandono."""
     user_id = current_user.get("sub")
+    body = body or EliminateRequest()
     try:
-        return TournamentPlayerService.eliminate_player(tournament_player_id, user_id)
+        tp, knockout = TournamentPlayerService.eliminar(
+            tournament_player_id, user_id,
+            eliminated_by=body.eliminated_by, no_eliminator=body.no_eliminator,
+            client_mutation_id=body.client_mutation_id,
+        )
     except ValueError as e:
         raise da_excecao(e, status=404)
+    return EliminationResult(**tp.model_dump(), knockout=knockout)
 
 
 @router.post(

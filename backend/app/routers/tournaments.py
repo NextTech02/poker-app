@@ -75,7 +75,11 @@ def create_tournament(
             stage_id=effective_stage_id,
         )
 
-    return TournamentService.create_tournament(tournament, user_id)
+    try:
+        return TournamentService.create_tournament(tournament, user_id)
+    except ValueError as e:
+        # Configuração de KO recusada (modo em massa, classificatórios...).
+        raise da_excecao(e)
 
 
 @router.get("", response_model=List[TournamentSummary])

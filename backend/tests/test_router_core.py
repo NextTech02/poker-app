@@ -269,13 +269,16 @@ class TestInscricoes:
         assert client.patch(f"/tournament-players/{TP}", json={}).status_code == 404
 
     def test_elimina(self, client, stub):
-        stub(TPS, eliminate_player=lambda tpid, uid: _inscricao(status="eliminated"))
-        assert client.post(f"/tournament-players/{TP}/eliminate").json()["status"] == "eliminated"
+        # A rota usa `eliminar`: devolve a inscrição E o KO gerado (torneio KO).
+        stub(TPS, eliminar=lambda tpid, uid, **kw: (_inscricao(status="eliminated"), None))
+        r = client.post(f"/tournament-players/{TP}/eliminate").json()
+        assert r["status"] == "eliminated"
+        assert r["knockout"] is None
 
     def test_eliminar_inexistente_da_404(self, client, stub):
-        def _estoura(tpid, uid):
+        def _estoura(tpid, uid, **kw):
             raise ValueError("Inscrição não encontrada")
-        stub(TPS, eliminate_player=_estoura)
+        stub(TPS, eliminar=_estoura)
         assert client.post(f"/tournament-players/{TP}/eliminate").status_code == 404
 
 

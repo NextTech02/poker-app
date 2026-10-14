@@ -181,7 +181,9 @@ class PublicTvService:
         continuam vindo (são buscados à parte)."""
         try:
             summary = PrizeAllocationService.get_prize_summary(tournament_id)
-            return float(summary.available_prize_pool)
+            # Posições + KO: o pozo que o salão viu entrar.
+            total = getattr(summary, "total_prize_pool", None)
+            return float(total or summary.available_prize_pool)
         except Exception as exc:
             logger.warning("Resumo de premiação do torneio %s indisponível para o telão: %s",
                            tournament_id, exc)

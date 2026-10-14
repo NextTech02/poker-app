@@ -14,6 +14,8 @@ from app.services.eliminacao import (
     registrar_eliminacao,
 )
 from app.utils.erros import ErroDeNegocio
+from app.services import ko_regras
+from app.services.knockout_service import KnockoutService
 from app.models.tournament_player import (
     TournamentPlayerCreate,
     TournamentPlayerUpdate,
@@ -40,7 +42,7 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
     trava do dia — a mesma escolha de `seguir_sem_a_trava`. Filtrar pelo texto
     do erro só criaria um jeito novo de a recompra parar no balcão.
     """
-    def _buscar(colunas: str, com_trava: bool, com_modo: bool = False):
+    def _buscar(colunas: str, com_trava: bool, com_modo: bool = False, com_ko: bool = False):
         # A ETAPA vem embutida junto de propósito: sem isso, toda venda fazia uma
         # segunda ida ao banco só para saber se a etapa está bloqueada. Nesta
         # instalação o banco fica em outra região e cada ida custa ~270ms — é a
@@ -48,8 +50,12 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
         # ELIMINAÇÃO do torneio vem no mesmo embed, pelo mesmo motivo: a
         # reentrada precisa dele para saber a quem devolver a vaga.
         modo = "elimination_mode, " if com_modo else ""
+        # A configuração do KO vem no mesmo embed: cada venda congela a sua
+        # parte KO, e ler o torneio à parte custaria mais uma ida ao banco.
+        ko = ("ko_format, ko_percentage, ko_cash_share, ko_closed_at, mystery_started_at, "
+              if com_ko else "")
         etapa = (
-            f", tournaments(stage_id, {modo}stages(sales_blocked, sales_blocked_reason))"
+            f", tournaments(stage_id, {modo}{ko}stages(sales_blocked, sales_blocked_reason))"
             if com_trava else ""
         )
         return (
@@ -59,6 +65,12 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
             .execute()
         )
 
+    try:
+        return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}", com_trava=True, com_modo=True, com_ko=True)
+    except Exception:
+        # Banco sem as colunas do KO (migração pendente): a venda segue sem
+        # parte KO — melhor que parar o balcão.
+        pass
     try:
         return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}", com_trava=True, com_modo=True)
     except Exception:
@@ -83,6 +95,27 @@ def _modo_do_inscrito(tp: dict) -> str:
     if isinstance(torneio, dict) and "elimination_mode" in torneio:
         return normalizar_modo(torneio.get("elimination_mode"))
     return modo_do_torneio(tp.get("tournament_id"), supabase)
+
+
+def _torneio_ko(tp: dict) -> dict:
+    """Configuração KO do torneio do inscrito: do embed, ou lida à parte."""
+    torneio = tp.get("tournaments")
+    if isinstance(torneio, dict) and "ko_format" in torneio:
+        return torneio
+    return KnockoutService.config(tp.get("tournament_id"))
+
+
+def _recusar_venda_na_fase_mystery(torneio: dict, replay: bool) -> None:
+    """Fase Mystery iniciada: o pozo KO congelou em envelopes. Venda nova
+    agora não teria envelope; o replay offline (venda que já aconteceu no
+    balcão) entra com parte KO zero — o dinheiro vai para as posições."""
+    if replay or not ko_regras.fase_mystery_iniciada(torneio):
+        return
+    raise ErroDeNegocio(
+        "vendas_encerradas_fase_mystery",
+        "A fase Mystery já começou: as inscrições e recompras deste torneio estão encerradas.",
+        status=409,
+    )
 
 
 def _recalcular_ranking(tournament_id: Optional[str]) -> None:
@@ -374,12 +407,21 @@ class TournamentPlayerService:
         # Block when the operator has no open cashbox (super-admins bypass)
         CashboxService.require_open_cashbox_for_tournament(user_id, registration_data.tournament_id)
 
-        # Get tournament details (only name, as other fields are in tournament_days)
-        tournament = supabase.table("tournaments").select("name").eq("id", registration_data.tournament_id).execute()
+        # Get tournament details (name + KO config; the rest lives on the day).
+        # Sem as colunas do KO (migração pendente), lê só o nome.
+        try:
+            tournament = (
+                supabase.table("tournaments")
+                .select("name, ko_format, ko_percentage, ko_cash_share, ko_closed_at, mystery_started_at")
+                .eq("id", registration_data.tournament_id).execute()
+            )
+        except Exception:
+            tournament = supabase.table("tournaments").select("name").eq("id", registration_data.tournament_id).execute()
         if not tournament.data:
             raise ValueError("Tournament not found")
 
         tournament_info = tournament.data[0]
+        _recusar_venda_na_fase_mystery(tournament_info, replay=skip_sales_block)
 
         day_info = TournamentPlayerService._carregar_dia_da_inscricao(registration_data, skip_sales_block)
 
@@ -437,6 +479,7 @@ class TournamentPlayerService:
             TournamentPlayerService._aplicar_forma_de_pagamento(registration_data, buy_in_amount, user_id)
 
         # Create transaction record
+        rake_amount = round(buy_in_amount * rake_pct / 100, 2)
         transaction_data = {
             "tournament_id": registration_data.tournament_id,
             "player_id": registration_data.player_id,
@@ -448,7 +491,9 @@ class TournamentPlayerService:
             "buy_type_id": registration_data.buy_type_id,
             "buy_type_name": (buy_type or {}).get("name"),
             "rake_percentage": rake_pct,
-            "rake_amount": round(buy_in_amount * rake_pct / 100, 2),
+            "rake_amount": rake_amount,
+            # Parte KO congelada na venda (0 em torneio sem KO).
+            "bounty_amount": float(ko_regras.parte_ko_da_venda(tournament_info, buy_in_amount, rake_amount)),
             # Retrato do momento, como já é feito com o rake: editar o tipo
             # depois (10.000 -> 15.000 fichas) não pode fazer o ESTORNO desta
             # venda devolver fichas que ela nunca entregou.
@@ -563,6 +608,9 @@ class TournamentPlayerService:
         # calculado pelo relógio do dia quando o caixa não informa).
         TournamentPlayerService._recusar_rebuy_fora_do_nivel(day_info, current_blind_level, skip_level_gate)
 
+        torneio_ko = _torneio_ko(tp)
+        _recusar_venda_na_fase_mystery(torneio_ko, replay=skip_sales_block)
+
         if tp.get("status") == "cancelled":
             # Inscrição estornada: o dinheiro da entrada voltou, ele não está
             # no torneio para reentrar.
@@ -641,6 +689,10 @@ class TournamentPlayerService:
                 "buy_type_name": (buy_type or {}).get("name"),
                 "rake_percentage": rake_pct,
                 "rake_amount": round(rebuy_amount * rake_pct / 100, 2),
+                # Parte KO de UMA recompra (a reentrada ganha bounty novo).
+                "bounty_amount": float(ko_regras.parte_ko_da_venda(
+                    torneio_ko, rebuy_amount, round(rebuy_amount * rake_pct / 100, 2)
+                )),
                 # Fichas de UMA recompra por linha (o lote grava N linhas): é
                 # exatamente o que o estorno de UMA delas precisa devolver.
                 "chips": rebuy_chips,
@@ -782,6 +834,8 @@ class TournamentPlayerService:
         addon_chips = TournamentPlayerService._fichas_do_tipo(
             buy_type, day_info.get("addon_chips") or 10000
         )
+        torneio_ko = _torneio_ko(tp)
+        _recusar_venda_na_fase_mystery(torneio_ko, replay=skip_sales_block)
 
         # Update tournament player
         updated_data = {
@@ -813,6 +867,10 @@ class TournamentPlayerService:
             "buy_type_name": (buy_type or {}).get("name"),
             "rake_percentage": rake_pct,
             "rake_amount": round(addon_amount * rake_pct / 100, 2),
+            # A parte KO do add-on soma no bounty de quem comprou (decisão do clube).
+            "bounty_amount": float(ko_regras.parte_ko_da_venda(
+                torneio_ko, addon_amount, round(addon_amount * rake_pct / 100, 2)
+            )),
             # Mesmo motivo do buy-in: o estorno devolve ESTE número, não o que o
             # tipo disser no dia em que alguém cancelar.
             "chips": addon_chips,
@@ -920,8 +978,23 @@ class TournamentPlayerService:
         return None
 
     @staticmethod
-    def eliminate_player(tournament_player_id: str, user_id: Optional[str] = None, idempotent: bool = False) -> TournamentPlayer:
+    def eliminate_player(tournament_player_id: str, user_id: Optional[str] = None, idempotent: bool = False,
+                         eliminated_by: Optional[List[str]] = None, no_eliminator: bool = False,
+                         client_mutation_id: Optional[str] = None) -> TournamentPlayer:
+        """Elimina UM jogador (ver `eliminar`) e devolve só a inscrição."""
+        tp, _ = TournamentPlayerService.eliminar(
+            tournament_player_id, user_id, idempotent=idempotent, eliminated_by=eliminated_by,
+            no_eliminator=no_eliminator, client_mutation_id=client_mutation_id,
+        )
+        return tp
+
+    @staticmethod
+    def eliminar(tournament_player_id: str, user_id: Optional[str] = None, idempotent: bool = False,
+                 eliminated_by: Optional[List[str]] = None, no_eliminator: bool = False,
+                 client_mutation_id: Optional[str] = None):
         """Elimina UM jogador: status 'eliminated', cadeira liberada, contador.
+        Em torneio KO, registra também QUEM eliminou e o prêmio (ver
+        KnockoutService.registrar). Devolve (inscrição, KO ou None).
 
         É o caminho do modo MESA (o ✕ no assento), mas vale nos dois modos —
         no em massa ele soma 1 ao contador, como o botão "Eliminar 1". Antes
@@ -936,11 +1009,23 @@ class TournamentPlayerService:
 
         tp = tp_response.data[0]
 
+        torneio = KnockoutService.config(tp.get("tournament_id"))
+        eliminadores = sorted({str(e) for e in (eliminated_by or []) if e})
+
         # Check if already eliminated. No replay offline (idempotent=True) devolve o
         # tp sem erro; online (clique duplo) mantém o aviso ao operador.
         if tp.get("status") == "eliminated":
             if idempotent:
-                return TournamentPlayer(**tp)
+                # Reparo: o status gravou mas o KO não (queda entre os dois
+                # passos). Mesmo cmid = mesma eliminação: registra o que faltou.
+                if (client_mutation_id and tp.get("eliminated_cmid") == client_mutation_id
+                        and ko_regras.e_ko(torneio)):
+                    ko = KnockoutService.registrar(
+                        tp, torneio, eliminadores, no_eliminator or not eliminadores,
+                        client_mutation_id, user_id, replay=True,
+                    )
+                    return TournamentPlayer(**tp), ko
+                return TournamentPlayer(**tp), None
             raise ErroDeNegocio(
                 "jogador_ja_eliminado", "Este jogador já está eliminado.", status=409
             )
@@ -951,18 +1036,54 @@ class TournamentPlayerService:
                 status=409,
             )
 
+        # KO: quem eliminou é obrigatório (salvo abandono/desclassificação).
+        # No replay offline sem essa informação (tela antiga), vale como sem
+        # autor — a eliminação aconteceu, e o bounty fica para o campeão.
+        sem_autor = no_eliminator
+        validados = None
+        if KnockoutService.exige_eliminador(torneio):
+            if not eliminadores and not no_eliminator:
+                if not idempotent:
+                    raise ErroDeNegocio(
+                        "eliminador_obrigatorio",
+                        "Neste torneio cada eliminação paga KO: informe quem eliminou o jogador.",
+                    )
+                sem_autor = True
+            if not sem_autor:
+                validados = KnockoutService.validar_eliminadores(tp, eliminadores, replay=idempotent)
+
         # Update tournament player status to eliminated with timestamp. A
         # condição no próprio UPDATE faz o clique duplo contar UMA vez.
+        # Retrato de antes, para desfazer se o KO falhar (não ler do `tp`
+        # depois: ele pode ser o mesmo objeto que acabou de ser gravado).
+        status_anterior, eliminado_em_anterior = tp.get("status"), tp.get("eliminated_at")
+        marca = {"status": "eliminated", "eliminated_at": datetime.now().isoformat()}
+        if client_mutation_id and ko_regras.e_ko(torneio):
+            marca["eliminated_cmid"] = client_mutation_id
         response = (
             supabase.table("tournament_players")
-            .update({"status": "eliminated", "eliminated_at": datetime.now().isoformat()})
+            .update(marca)
             .eq("id", tournament_player_id)
             .neq("status", "eliminated")
             .execute()
         )
         if not response.data:
             atual = supabase.table("tournament_players").select("*").eq("id", tournament_player_id).execute()
-            return TournamentPlayer(**(atual.data or [tp])[0])
+            return TournamentPlayer(**(atual.data or [tp])[0]), None
+
+        try:
+            knockout = KnockoutService.registrar(
+                tp, torneio, eliminadores, sem_autor, client_mutation_id, user_id,
+                replay=idempotent, validados=validados,
+            )
+        except Exception:
+            # Sem o KO a eliminação não fica: o jogador volta como estava, e
+            # o operador tenta de novo com a mensagem do motivo.
+            supabase.table("tournament_players").update({
+                "status": status_anterior, "eliminated_at": eliminado_em_anterior,
+                **({"eliminated_cmid": None} if "eliminated_cmid" in marca else {}),
+            }).eq("id", tournament_player_id).eq("status", "eliminated").execute()
+            raise
 
         day_id = tp.get("tournament_day_id")
         # Quem sai da mesa devolve a cadeira — e a vaga da mesa, senão ela
@@ -980,7 +1101,7 @@ class TournamentPlayerService:
         # Recalculate rankings for this tournament
         _recalcular_ranking(tp["tournament_id"])
 
-        return TournamentPlayer(**response.data[0])
+        return TournamentPlayer(**response.data[0]), knockout
 
     @staticmethod
     def uneliminate_player(tournament_player_id: str, idempotent: bool = False) -> TournamentPlayer:
@@ -1002,6 +1123,11 @@ class TournamentPlayerService:
                 "jogador_nao_eliminado", "Este jogador não está eliminado.", status=409
             )
 
+        # KO: o prêmio desta eliminação é desfeito ANTES (recusa se já foi
+        # pago ou se o valor já passou adiante); se a volta do jogador não
+        # gravar, o KO é reativado.
+        desfeito = KnockoutService.desfazer(tp)
+
         response = (
             supabase.table("tournament_players")
             .update({"status": "active", "eliminated_at": None, "final_position": None})
@@ -1010,6 +1136,7 @@ class TournamentPlayerService:
             .execute()
         )
         if not response.data:
+            KnockoutService.reativar(desfeito)
             atual = supabase.table("tournament_players").select("*").eq("id", tournament_player_id).execute()
             return TournamentPlayer(**(atual.data or [tp])[0])
 

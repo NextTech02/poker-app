@@ -5,6 +5,7 @@ from collections import defaultdict
 from app.database import supabase
 from app.models.tournament import (
     EliminationMode,
+    KoFormat,
     TournamentCreate,
     TournamentUpdate,
     Tournament,
@@ -91,8 +92,13 @@ class TournamentService:
         # 'bulk' é o padrão do BANCO: não mandá-lo deixa a criação funcionando
         # num banco que ainda não recebeu a coluna (o deploy não é atômico com
         # a migração). Só quem escolhe "por mesa" precisa dela.
+        TournamentService._validar_ko(None, data)
         if data.get("elimination_mode") == EliminationMode.bulk.value:
             data.pop("elimination_mode")
+        # Mesmo motivo: torneio sem KO não precisa das colunas novas.
+        if data.get("ko_format") in (None, KoFormat.none.value):
+            for campo in ("ko_format", "ko_percentage", "ko_cash_share"):
+                data.pop(campo, None)
 
         response = supabase.table("tournaments").insert(data).execute()
         return Tournament(**response.data[0])
@@ -294,6 +300,10 @@ class TournamentService:
             data.pop("elimination_mode", None)
         elif data["elimination_mode"] == EliminationMode.table.value:
             TournamentService._recusar_mesa_com_eliminacoes(tournament_id)
+        for campo in ("ko_format", "ko_percentage", "ko_cash_share"):
+            if campo in data and data[campo] is None:
+                data.pop(campo)
+        TournamentService._validar_ko(tournament_id, data)
 
         response = (
             supabase.table("tournaments")
@@ -305,6 +315,72 @@ class TournamentService:
         if response.data:
             return Tournament(**response.data[0])
         return None
+
+    @staticmethod
+    def _validar_ko(tournament_id: Optional[str], data: dict) -> None:
+        """Regras da premiação por eliminação (criação e edição).
+
+        - KO exige eliminação POR MESA: o modo em massa não sabe quem saiu,
+          muito menos quem eliminou. Isso também trava a volta para em massa.
+        - v1: só torneio SEM dias classificatórios (o bounty não atravessa
+          para o Dia Final ainda).
+        - Formato e percentuais não mudam depois da primeira venda: cada
+          venda congelou a sua parte KO, e mudar a regra no meio deixaria o
+          pozo metade de um jeito, metade de outro.
+        - KO fixo paga sempre 100% em dinheiro.
+        """
+        mexe_em_ko = any(c in data for c in ("ko_format", "ko_percentage", "ko_cash_share"))
+        atual = {}
+        if tournament_id:
+            linhas = (
+                supabase.table("tournaments").select("*")
+                .eq("id", tournament_id).execute().data or []
+            )
+            atual = linhas[0] if linhas else {}
+        final = {**atual, **data}
+        formato = final.get("ko_format") or KoFormat.none.value
+        if formato == KoFormat.ko.value and (mexe_em_ko or "ko_cash_share" in final):
+            data["ko_cash_share"] = 100
+            final["ko_cash_share"] = 100
+
+        if formato != KoFormat.none.value:
+            if (final.get("elimination_mode") or EliminationMode.bulk.value) != EliminationMode.table.value:
+                raise ErroDeNegocio(
+                    "ko_exige_modo_mesa",
+                    "Premiação por eliminação exige eliminar pelas mesas: o modo em massa não registra quem eliminou.",
+                )
+            if final.get("has_qualifying"):
+                raise ErroDeNegocio(
+                    "ko_sem_classificatorio",
+                    "Por enquanto, a premiação por eliminação funciona só em torneio sem dias classificatórios.",
+                )
+            if float(final.get("ko_percentage") or 0) <= 0:
+                raise ErroDeNegocio(
+                    "ko_percentual_obrigatorio",
+                    "Informe a porcentagem do pozo que vai para os prêmios por eliminação.",
+                )
+
+        if not tournament_id or not mexe_em_ko:
+            return
+        mudou = (
+            (atual.get("ko_format") or KoFormat.none.value) != formato
+            or float(atual.get("ko_percentage") or 0) != float(final.get("ko_percentage") or 0)
+            or (formato == KoFormat.pko.value
+                and float(atual.get("ko_cash_share") or 0) != float(final.get("ko_cash_share") or 0))
+        )
+        if not mudou:
+            return
+        vendas = (
+            supabase.table("transactions").select("id, status, type")
+            .eq("tournament_id", tournament_id)
+            .in_("type", ["buy_in", "rebuy", "addon"]).execute().data or []
+        )
+        if any((v.get("status") or "active") == "active" for v in vendas):
+            raise ErroDeNegocio(
+                "ko_config_bloqueada_com_vendas",
+                "O torneio já tem vendas: o formato e as porcentagens do KO não podem mais mudar.",
+                status=409,
+            )
 
     @staticmethod
     def _recusar_mesa_com_eliminacoes(tournament_id: str) -> None:

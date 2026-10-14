@@ -132,7 +132,14 @@ class SyncService:
                 )
                 out.update(status="applied")
             elif kind == "eliminate":
-                TournamentPlayerService.eliminate_player(p["tournament_player_id"], user_id, idempotent=True)
+                # Quem eliminou (torneio KO) vem no corpo da fila; o KO é
+                # registrado aqui, no sync — e no Mystery, o envelope sorteado.
+                TournamentPlayerService.eliminate_player(
+                    p["tournament_player_id"], user_id, idempotent=True,
+                    eliminated_by=p.get("eliminated_by") or [],
+                    no_eliminator=bool(p.get("no_eliminator")),
+                    client_mutation_id=p.get("client_mutation_id") or cmid,
+                )
                 out.update(status="applied")
             elif kind == "restore":
                 # Desfazer eliminação: o contador do dia volta junto.

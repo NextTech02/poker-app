@@ -86,16 +86,28 @@ class PrizeAllocationService:
             d.get("day_type") in ("qualifying", "final")
             for d in (days_response.data or [])
         )
+        total, effective_rake, _total_bounty = PrizeAllocationService._somar_entradas(tournament_id)
+        return total, effective_rake, has_qualifying
+
+    @staticmethod
+    def _somar_entradas(tournament_id: UUID) -> tuple:
+        """(entradas brutas, rake efetivo %, parte KO) das vendas ATIVAS.
+
+        A RPC antiga devolvia só duas colunas; `total_bounty` é lido por nome
+        e vira 0 quando falta — o deploy não é atômico com a migração.
+        """
 
         # Soma bruta das entradas + rake real, agregados no banco (1 round-trip).
         # Fallback: busca as linhas e soma em Python se a RPC não existir.
         total = Decimal("0")
         total_rake = Decimal("0")
+        total_bounty = Decimal("0")
         try:
             r = supabase.rpc("get_tournament_entry_totals", {"p_tournament_id": str(tournament_id)}).execute()
             if r.data:
                 total = Decimal(str(r.data[0].get("total") or 0))
                 total_rake = Decimal(str(r.data[0].get("total_rake") or 0))
+                total_bounty = Decimal(str(r.data[0].get("total_bounty") or 0))
         except Exception:
             # Entrada cancelada sai da bolsa de prêmios: premiar com ela seria
             # pagar prêmio com dinheiro que voltou para o jogador.
@@ -106,27 +118,72 @@ class PrizeAllocationService:
                     .eq("tournament_id", str(tournament_id))
                     .in_("type", ["buy_in", "rebuy", "addon"])
                 ),
-                "amount, rake_amount",
+                "amount, rake_amount, bounty_amount",
             )
             for t in linhas:
                 total += Decimal(str(t.get("amount") or 0))
                 total_rake += Decimal(str(t.get("rake_amount") or 0))
+                total_bounty += Decimal(str(t.get("bounty_amount") or 0))
 
         effective_rake = (total_rake / total * Decimal("100")) if total > 0 else Decimal("0")
 
-        return total, effective_rake, has_qualifying
+        return total, effective_rake, total_bounty
+
+    @staticmethod
+    def _pools(tournament_info: dict, tournament_id: UUID) -> dict:
+        """A divisão do pozo num lugar só (resumo, pagamento e recálculo).
+
+        net = entradas − rake (o pozo acumulado); KO = Σ parte KO das vendas
+        (ou o pozo Mystery congelado); posições = net − KO. Garantido e
+        reservado valem SÓ para as posições — o KO sai do dinheiro que entrou.
+        """
+        from app.services import ko_regras
+        guaranteed_prize = Decimal(str(tournament_info.get("guaranteed_prize") or 0))
+        total_entries, rake_percentage, total_bounty = \
+            PrizeAllocationService._somar_entradas(tournament_id)
+        net_pool = total_entries * (Decimal("100") - rake_percentage) / Decimal("100")
+        ko_format = ko_regras.formato(tournament_info)
+        if ko_format == ko_regras.NENHUM:
+            ko_pool = Decimal("0")
+        elif ko_regras.fase_mystery_iniciada(tournament_info) and tournament_info.get("mystery_pool") is not None:
+            ko_pool = Decimal(str(tournament_info.get("mystery_pool")))
+        else:
+            ko_pool = total_bounty
+        player_pool = net_pool - ko_pool
+        available_prize_pool = guaranteed_prize + player_pool
+        reserved_pct = Decimal(str(tournament_info.get("reserved_prize_percentage") or 0))
+        reserved_amount = total_entries * reserved_pct / Decimal("100")
+        return {
+            "guaranteed_prize": guaranteed_prize,
+            "total_entries": total_entries,
+            "rake_percentage": rake_percentage,
+            "net_pool": net_pool,
+            "ko_format": ko_format,
+            "ko_percentage": Decimal(str(tournament_info.get("ko_percentage") or 0)),
+            "ko_pool": ko_pool,
+            "player_pool": player_pool,
+            "available_prize_pool": available_prize_pool,
+            "reserved_pct": reserved_pct,
+            "reserved_amount": reserved_amount,
+            "payable_pool": available_prize_pool - reserved_amount,
+        }
 
     @staticmethod
     def get_prize_summary(tournament_id: UUID) -> PrizeSummary:
         """Get complete prize summary for a tournament (summing all days)"""
         tournament_info = PrizeAllocationService.get_tournament_info(tournament_id)
-        guaranteed_prize = Decimal(str(tournament_info.get("guaranteed_prize") or 0))
+        pools = PrizeAllocationService._pools(tournament_info, tournament_id)
+        guaranteed_prize = pools["guaranteed_prize"]
+        total_entries = pools["total_entries"]
+        rake_percentage = pools["rake_percentage"]
+        days_response = supabase.table("tournament_days").select("day_type")\
+            .eq("tournament_id", str(tournament_id)).execute()
+        has_qualifying = any(
+            d.get("day_type") in ("qualifying", "final") for d in (days_response.data or [])
+        )
 
-        total_entries, rake_percentage, has_qualifying = \
-            PrizeAllocationService.calculate_total_entries(tournament_id)
-
-        player_pool = total_entries * (Decimal("100") - rake_percentage) / Decimal("100")
-        available_prize_pool = guaranteed_prize + player_pool
+        player_pool = pools["player_pool"]
+        available_prize_pool = pools["available_prize_pool"]
 
         allocations = PrizeAllocationService.get_allocations(tournament_id)
         total_allocated = sum(Decimal(str(a.prize_amount)) for a in allocations)
@@ -154,7 +211,12 @@ class PrizeAllocationService:
             total_allocated=total_allocated,
             remaining_balance=remaining_balance,
             allocations=allocations,
-            has_qualifying_days=has_qualifying
+            has_qualifying_days=has_qualifying,
+            net_pool=pools["net_pool"],
+            ko_format=pools["ko_format"],
+            ko_percentage=pools["ko_percentage"],
+            ko_pool=pools["ko_pool"],
+            total_prize_pool=available_prize_pool + pools["ko_pool"],
         )
 
     @staticmethod
@@ -167,7 +229,9 @@ class PrizeAllocationService:
         """
         resumo = PrizeAllocationService.get_prize_summary(tournament_id)
         return BroadcastPrizes(
-            prize_pool=resumo.available_prize_pool,
+            # Posições + KO: num torneio KO o telão não pode mostrar um pozo
+            # menor do que o que o salão viu entrar.
+            prize_pool=resumo.total_prize_pool,
             prizes=[
                 BroadcastPrize(position=a.position, prize_amount=a.prize_amount)
                 for a in resumo.allocations
@@ -523,13 +587,14 @@ class PrizeAllocationService:
         Returns dict with total_entries, rake_amount, guaranteed, prize_pool, total_paid, available.
         """
         tournament_info = PrizeAllocationService.get_tournament_info(tournament_id)
-        guaranteed_prize = Decimal(str(tournament_info.get("guaranteed_prize") or 0))
-
-        total_entries, rake_percentage, _ = \
-            PrizeAllocationService.calculate_total_entries(tournament_id)
+        pools = PrizeAllocationService._pools(tournament_info, tournament_id)
+        guaranteed_prize = pools["guaranteed_prize"]
+        total_entries = pools["total_entries"]
+        rake_percentage = pools["rake_percentage"]
 
         rake_amount = total_entries * rake_percentage / Decimal("100")
-        player_pool = total_entries - rake_amount
+        # Posições: o pozo líquido menos a parte KO (que tem o próprio caixa).
+        player_pool = pools["player_pool"]
         prize_pool = guaranteed_prize + player_pool
 
         # Sum already paid prizes
@@ -559,6 +624,7 @@ class PrizeAllocationService:
             "payable_pool": float(payable_pool),
             "total_paid": float(total_paid),
             "available": float(available),
+            "ko_pool": float(pools["ko_pool"]),
         }
 
     @staticmethod
@@ -694,6 +760,7 @@ class PrizeAllocationService:
             "tournament_id": str(tournament_id),
             "player_id": str(payout.player_id),
             "type": "prize",
+            "prize_kind": "position",
             "amount": float(prize_amount),
             "payment_source": "cash",
             "created_by": user_id,
@@ -819,13 +886,7 @@ class PrizeAllocationService:
             Decimal(str(a.prize_amount or 0)) for a in allocations
         )
         if total_solicitado > 0:
-            guaranteed_prize = Decimal(str(tournament_info.get("guaranteed_prize") or 0))
-            total_entries, rake_percentage, _ = \
-                PrizeAllocationService.calculate_total_entries(tournament_id)
-            player_pool = total_entries * (Decimal("100") - rake_percentage) / Decimal("100")
-            reserved_pct = Decimal(str(tournament_info.get("reserved_prize_percentage") or 0))
-            reserved_amount = total_entries * reserved_pct / Decimal("100")
-            payable_pool = guaranteed_prize + player_pool - reserved_amount
+            payable_pool = PrizeAllocationService._pools(tournament_info, tournament_id)["payable_pool"]
 
             # Tolerância de 1 centavo: diferença de arredondamento não pode
             # derrubar a requisição.

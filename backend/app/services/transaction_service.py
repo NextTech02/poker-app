@@ -159,6 +159,11 @@ class TransactionService:
             )
 
         TransactionService._exigir_recompras_canceladas(tx)
+        if estado != "cancelling":
+            # Torneio KO: a parte KO desta venda pode já ter sido entregue
+            # numa eliminação (ou estar nos envelopes do Mystery).
+            from app.services.knockout_service import KnockoutService
+            KnockoutService.exigir_venda_sem_ko(tx)
 
         if estado == "cancelling":
             # RETOMADA: um estorno anterior parou no meio (timeout, RLS, rede).

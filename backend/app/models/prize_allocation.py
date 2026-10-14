@@ -119,6 +119,13 @@ class PrizeSummary(BaseModel):
     payable_pool: Decimal = Decimal("0")  # available_prize_pool - reserved_amount (what players can receive)
     total_allocated: Decimal = Decimal("0")  # Sum of all prize allocations
     remaining_balance: Decimal = Decimal("0")  # payable_pool - allocated
+    # Premiação por eliminação: o pozo líquido (entradas − rake) se divide
+    # entre o pozo KO e o das posições (player_pool, acima).
+    net_pool: Decimal = Decimal("0")  # entradas − rake (o pozo acumulado inteiro)
+    ko_format: str = "none"
+    ko_percentage: Decimal = Decimal("0")
+    ko_pool: Decimal = Decimal("0")  # Σ parte KO das vendas (ou o pozo Mystery congelado)
+    total_prize_pool: Decimal = Decimal("0")  # posições disponíveis + KO (o que o telão mostra)
     allocations: list[PrizeAllocationResponse] = []
     has_qualifying_days: bool = False  # True if tournament has qualifying structure
 
