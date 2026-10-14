@@ -286,6 +286,7 @@
     "koFormat_pko": "PKO (progresivo)",
     "koFormat_mystery": "Mystery Bounty",
     "koPercentage": "% del pozo para KO",
+    "koPercentageMystery": "% del pozo para Mystery",
     "koCashShare": "PKO: % pagado en efectivo",
     "koNoQualifying": "La premiación por eliminación funciona solo en torneos sin días clasificatorios.",
     "koHint_none": "Sin premio por eliminación: todo el pozo va a las posiciones.",

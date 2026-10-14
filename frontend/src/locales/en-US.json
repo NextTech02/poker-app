@@ -286,6 +286,7 @@
     "koFormat_pko": "PKO (progressive)",
     "koFormat_mystery": "Mystery Bounty",
     "koPercentage": "% of the pool for KO",
+    "koPercentageMystery": "% of the pool for Mystery",
     "koCashShare": "PKO: % paid in cash",
     "koNoQualifying": "Knockout prizes only work in tournaments without qualifying days.",
     "koHint_none": "No knockout prizes: the whole pool goes to the positions.",

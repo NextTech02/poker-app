@@ -787,7 +787,11 @@ const TournamentModal = ({
           </div>
           {comKo && (
             <div className="tr-field">
-              <label htmlFor="tr-ko-pct">{t('tournaments.koPercentage', '% do pool para KO')}</label>
+              <label htmlFor="tr-ko-pct">
+                {formData.ko_format === 'mystery'
+                  ? t('tournaments.koPercentageMystery', '% do pool para Mystery')
+                  : t('tournaments.koPercentage', '% do pool para KO')}
+              </label>
               <input
                 id="tr-ko-pct"
                 name="ko_percentage"

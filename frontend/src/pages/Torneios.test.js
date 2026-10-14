@@ -889,6 +889,15 @@ describe('premiação por eliminação (KO)', () => {
     );
   });
 
+  it('no Mystery o campo se chama "% do pool para Mystery"', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.selectOptions(formatoKo(), 'ko');
+    expect(screen.getByLabelText('% do pool para KO')).toBe(pctKo());
+    await userEvent.selectOptions(formatoKo(), 'mystery');
+    expect(screen.getByLabelText('% do pool para Mystery')).toBe(pctKo());
+  });
+
   it('sem KO o campo de porcentagem nem aparece', async () => {
     await montar();
     await abrirNovo();
