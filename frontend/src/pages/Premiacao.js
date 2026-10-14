@@ -851,7 +851,7 @@ const Premiacao = () => {
                 <div className="summary-card ko-pool-card">
                   <div className="card-header">
                     <h3>{t('ko.pool', 'Pool KO')}</h3>
-                    <span className="card-subtitle">{t('ko.poolShare', { percent: parseFloat(prizeSummary?.ko_percentage || 0), defaultValue: `${parseFloat(prizeSummary?.ko_percentage || 0)}% do pool líquido` })}</span>
+                    <span className="card-subtitle">{t('ko.poolShare', { percent: parseFloat(prizeSummary?.ko_percentage || 0), defaultValue: `${parseFloat(prizeSummary?.ko_percentage || 0)}% de cada entrada` })}</span>
                   </div>
                   <div className="card-value">{formatCurrency(koPool)}</div>
                 </div>

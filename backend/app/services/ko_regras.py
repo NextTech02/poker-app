@@ -57,22 +57,28 @@ def parte_dinheiro(torneio: Optional[dict]) -> Decimal:
 
 
 def parte_ko_da_venda(torneio: Optional[dict], amount, rake_amount) -> Decimal:
-    """Parte KO de UMA venda: (valor − rake) × ko% — congelada na venda.
+    """Parte KO de UMA venda: valor da venda × ko% — congelada na venda.
+
+    A porcentagem vale sobre o VALOR DA ENTRADA, que é como o clube pensa
+    ("40% do buy-in vai para o Mystery": buy-in de 600 → 240), e nunca passa
+    do líquido (valor − rake): o KO sai do que entrou no pozo, não do rake.
 
     Zero quando o torneio não é KO, quando a fase Mystery já começou (o pozo
     congelou: a venda vai para as posições) ou quando os bounties foram
     encerrados. Entrada por ticket (valor 0) e BONUS DEALER (rake 100%) dão
-    líquido zero, e portanto bounty zero — o KO sai do que entrou no pozo.
+    líquido zero, e portanto bounty zero.
     """
     if not e_ko(torneio) or fase_mystery_iniciada(torneio):
         return Decimal("0.00")
     if (torneio or {}).get("ko_closed_at"):
         return Decimal("0.00")
     percentual = Decimal(str((torneio or {}).get("ko_percentage") or 0))
-    liquido = dinheiro(amount) - dinheiro(rake_amount)
+    valor = dinheiro(amount)
+    liquido = valor - dinheiro(rake_amount)
     if percentual <= 0 or liquido <= 0:
         return Decimal("0.00")
-    return (liquido * percentual / Decimal("100")).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+    parte = (valor * percentual / Decimal("100")).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+    return min(parte, liquido)
 
 
 def _repartir(total: Decimal, partes: int) -> List[Decimal]:

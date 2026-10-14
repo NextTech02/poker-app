@@ -133,20 +133,20 @@ class TestVendasCongelamParteKo:
         fake = cenario(inscritos=[], vendas=[])
         TPS.register_player(TournamentPlayerCreate(tournament_id=TOUR, tournament_day_id=DIA, player_id="p1"), "u1")
         [venda] = fake.store["transactions"]
-        # 200 − 18% de rake = 164 de pozo; 40% → 65,60 de bounty.
+        # 40% do valor da entrada (200) = 80 de bounty; o rake (36) sai do resto.
         assert venda["rake_amount"] == 36
-        assert venda["bounty_amount"] == pytest.approx(65.60)
+        assert venda["bounty_amount"] == pytest.approx(80.00)
 
     def test_reentrada_traz_bounty_novo(self, cenario):
         fake = cenario(inscritos=[_tp("tp1", status="eliminated")], vendas=[])
         TPS.add_rebuy("tp1", "u1", skip_level_gate=True)
         [venda] = fake.store["transactions"]
-        assert venda["type"] == "rebuy" and venda["bounty_amount"] == pytest.approx(65.60)
+        assert venda["type"] == "rebuy" and venda["bounty_amount"] == pytest.approx(80.00)
 
     def test_add_on_soma_no_bounty_de_quem_comprou(self, cenario):
         fake = cenario(inscritos=[_tp("tp1")], vendas=[])
         TPS.add_addon("tp1", "u1")
-        assert fake.store["transactions"][0]["bounty_amount"] == pytest.approx(65.60)
+        assert fake.store["transactions"][0]["bounty_amount"] == pytest.approx(80.00)
 
     def test_torneio_comum_nao_separa_nada(self, cenario):
         comum = _torneio(formato="none", pct=0)

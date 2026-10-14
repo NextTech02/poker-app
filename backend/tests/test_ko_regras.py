@@ -20,9 +20,17 @@ def _torneio(formato="pko", pct=40, share=50, **extra):
 
 class TestParteKoDaVenda:
     def test_exemplo_do_clube(self):
-        # Pozo 10.000 com KO 40% → 4.000 para KO. Uma entrada de 200 com 18% de
-        # rake deixa 164 no pozo; 40% disso (65,60) é a parte KO.
-        assert R.parte_ko_da_venda(_torneio(), 200, 36) == D("65.60")
+        # A porcentagem vale sobre o VALOR da entrada: 40% de 200 = 80 (os 36
+        # de rake saem do resto; ficam 84 para as posições).
+        assert R.parte_ko_da_venda(_torneio(), 200, 36) == D("80.00")
+
+    def test_mystery_do_nsop_40_por_cento_do_buy_in(self):
+        # Buy-in de S/ 600 com rake de 18% (108): 40% do buy-in = S/ 240.
+        assert R.parte_ko_da_venda(_torneio("mystery"), 600, 108) == D("240.00")
+
+    def test_nunca_passa_do_liquido(self):
+        # 90% de 200 = 180, mas só 164 entraram no pozo (200 − 36 de rake).
+        assert R.parte_ko_da_venda(_torneio(pct=90), 200, 36) == D("164.00")
 
     def test_torneio_sem_ko_nao_separa_nada(self):
         assert R.parte_ko_da_venda({"ko_format": "none", "ko_percentage": 40}, 200, 36) == D("0")

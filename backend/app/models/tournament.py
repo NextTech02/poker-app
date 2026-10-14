@@ -87,7 +87,7 @@ class TournamentBase(BaseModel):
         description="Como eliminar jogadores: 'table' (no assento) ou 'bulk' (contador em massa)",
     )
     ko_format: KoFormat = Field(default=KoFormat.none, description="Premiação por eliminação")
-    ko_percentage: float = Field(default=0, ge=0, le=100, description="% do pozo líquido de cada venda que vai para KO")
+    ko_percentage: float = Field(default=0, ge=0, le=100, description="% do valor de cada venda que vai para KO (limitado ao líquido, valor − rake)")
     ko_cash_share: float = Field(default=50, ge=0, le=100, description="PKO: % do bounty pago em dinheiro")
 
 
