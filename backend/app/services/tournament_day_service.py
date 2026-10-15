@@ -1610,9 +1610,15 @@ class TournamentDayService:
                     .execute()
                 players_data = agg_resp.data or []
                 if not players_data:
+                    # Reserva SÓ para inscrições antigas, gravadas sem dia
+                    # (tournament_day_id nulo). Antes ela lia o torneio INTEIRO:
+                    # um dia ainda vazio (o Día 1E do Main do NSOP, uma hora
+                    # antes de começar) mostrava no telão jogadores, entradas,
+                    # recompras e chipcount somados dos outros dias.
                     agg_resp2 = supabase.table("tournament_players")\
                         .select(f"total_chips, {COLUNAS_DE_ENTRADA}")\
                         .eq("tournament_id", day.tournament_id)\
+                        .is_("tournament_day_id", "null")\
                         .execute()
                     players_data = agg_resp2.data or []
                 chipcount = sum(int(p.get("total_chips") or 0) for p in players_data)

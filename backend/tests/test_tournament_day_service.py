@@ -1466,3 +1466,29 @@ class TestFichasEmJogoVemDasVendas:
         monkeypatch.setattr(fake, "table", _sem_a_coluna)
         fichas, _, _ = S._entradas_do_dia(self._dia_obj())
         assert fichas == 20000
+
+
+class TestDiaVazioNaoSomaOsOutrosDias:
+    """Main do NSOP (15/10): o Día 1E, ainda sem ninguém inscrito, mostrava no
+    telão 52 jogadores, 12 recompras e o chipcount dos dias 1A–1C. A reserva
+    "por torneio" do relógio existe só para inscrições antigas SEM dia."""
+
+    def _inscrito(self, tp_id, dia, fichas=20000, rebuy=0):
+        return {"id": tp_id, "tournament_id": TOUR, "tournament_day_id": dia, "status": "active",
+                "buy_in_count": 1, "rebuy_count": rebuy, "addon_count": 0, "total_chips": fichas}
+
+    def test_dia_sem_inscritos_fica_zerado(self, monkeypatch):
+        mod._chipcount_cache.clear()
+        _monta(monkeypatch, tournament_players=[
+            self._inscrito("a", D2, rebuy=2), self._inscrito("b", D2),
+        ])
+        r = S.get_enriched_timer_status(D1)
+        assert (r["total_entries"], r["active_players"], r["chipcount"], r["total_reentries"]) == (0, 0, 0, 0)
+
+    def test_inscricoes_antigas_sem_dia_continuam_contando(self, monkeypatch):
+        mod._chipcount_cache.clear()
+        _monta(monkeypatch, tournament_players=[
+            self._inscrito("a", None), self._inscrito("b", D2, fichas=99999),
+        ])
+        r = S.get_enriched_timer_status(D1)
+        assert (r["total_entries"], r["chipcount"]) == (1, 20000)
