@@ -194,6 +194,7 @@ describe('Mystery', () => {
     expect(confirmar).toHaveBeenCalled();
     expect(api.post).toHaveBeenCalledWith('/tournaments/t1/mystery/start', {
       envelopes: [{ value: 150, quantity: 2 }],
+      draw_mode: 'physical',
     });
   });
 
@@ -228,6 +229,7 @@ describe('Mystery', () => {
     await userEvent.click(screen.getByRole('button', { name: 'ko.startMystery' }));
     expect(api.post).toHaveBeenCalledWith('/tournaments/t1/mystery/start', {
       envelopes: [{ value: 200, quantity: 1 }, { value: 100, quantity: 1 }],
+      draw_mode: 'physical',
     });
   });
 
@@ -319,5 +321,76 @@ describe('prêmio Mystery registrado à mão', () => {
     render(<KoTab tournamentId="t1" torneio={{ id: 't1' }} inscritos={INSCRITOS} />);
     await screen.findByText('ko.mysteryPhase');
     expect(screen.queryByText('ko.manualTitle')).toBeNull();
+  });
+});
+
+describe('guia do NSOP: sorteio físico, garantido e nível', () => {
+  const BASE = {
+    tournament_id: 't1', ko_format: 'mystery', closed_at: null, ko_pool: '300.00', entries_pool: '300.00',
+    mystery_guarantee: '0.00', mystery_start_level: null,
+    paid: '0.00', pending: '0.00', unclaimed: '0.00', manual_total: '0.00', bounties: [], knockouts: [],
+    mystery: { started_at: null, envelopes_total: 0, envelopes_remaining: 0, remaining: [], draw_mode: 'system', pending_draws: 0 },
+  };
+  const COMPROVANTE = {
+    id: 'k9', kind: 'elimination', format: 'mystery', status: 'active', envelope_pending: true,
+    eliminated_tp_id: 'tp-z', eliminated_name: 'Zeca', bounty_value: '0.00',
+    payouts: [{ id: 'po9', eliminator_tp_id: 'tp-a', eliminator_name: 'Ana', cash_amount: '0.00', added_to_bounty: '0', paid: false }],
+  };
+  const FASE_FISICA = {
+    ...BASE,
+    knockouts: [COMPROVANTE],
+    mystery: {
+      started_at: '2026-10-14T22:00:00Z', envelopes_total: 3, envelopes_remaining: 3, draw_mode: 'physical', pending_draws: 1,
+      remaining: [{ value: '200.00', count: 1 }, { value: '50.00', count: 2 }],
+    },
+  };
+  const montarGuia = async (resumo) => {
+    responder({ resumo });
+    render(<KoTab tournamentId="t1" torneio={{ id: 't1' }} inscritos={INSCRITOS} />);
+    await screen.findByText('ko.mysteryPhase');
+  };
+
+  it('ao iniciar, dá para escolher o sorteio pelo sistema', async () => {
+    await montarGuia(BASE);
+    expect(screen.getByRole('radio', { name: 'ko.drawModePhysical' })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'ko.drawModeSystem' }));
+    const [valor] = screen.getAllByRole('spinbutton', { name: 'ko.envelopeValueLabel' });
+    const [qtd] = screen.getAllByRole('spinbutton', { name: 'ko.envelopeQtyLabel' });
+    await userEvent.type(valor, '300');
+    await userEvent.type(qtd, '1');
+    await userEvent.click(screen.getByRole('button', { name: 'ko.startMystery' }));
+    expect(api.post).toHaveBeenCalledWith('/tournaments/t1/mystery/start', {
+      envelopes: [{ value: 300, quantity: 1 }], draw_mode: 'system',
+    });
+  });
+
+  it('comprovante: escolhe o valor do envelope que saiu e registra', async () => {
+    await montarGuia(FASE_FISICA);
+    const secao = screen.getByRole('region', { name: 'ko.vouchersTitle' });
+    // O comprovante não aparece em "Pagamentos pendentes" (ainda não tem valor).
+    expect(screen.getByText('ko.nothingPending')).toBeInTheDocument();
+    const escolha = within(secao).getByRole('combobox', { name: 'ko.envelopeDrawnLabel' });
+    expect(within(escolha).getAllByRole('option')).toHaveLength(3);
+    await userEvent.selectOptions(escolha, '200.00');
+    await userEvent.click(within(secao).getByRole('button', { name: 'ko.registerEnvelope' }));
+    expect(api.post).toHaveBeenCalledWith('/tournaments/t1/knockouts/k9/envelope', { value: 200 });
+  });
+
+  it('com comprovante pendente, o encerramento avisa', async () => {
+    await montarGuia(FASE_FISICA);
+    expect(screen.getByText(/ko\.closeBlockedVouchers/)).toBeInTheDocument();
+    expect(screen.getByText('ko.statusVoucher')).toBeInTheDocument();
+  });
+
+  it('garantido acima das entradas aparece no card do fundo', async () => {
+    await montarGuia({ ...BASE, ko_pool: '1000.00', mystery_guarantee: '1000.00' });
+    const card = document.querySelector('.ko-card');
+    expect(card).toHaveTextContent('S/ 1000.00');
+    expect(within(card).getByText(/ko\.guaranteeApplied/)).toBeInTheDocument();
+  });
+
+  it('nível configurado aparece antes da fase', async () => {
+    await montarGuia({ ...BASE, mystery_start_level: 13 });
+    expect(screen.getByText(/ko\.startLevelInfo:13/)).toBeInTheDocument();
   });
 });

@@ -48,6 +48,9 @@ const FORM_INICIAL = {
   ko_format: 'none',
   ko_percentage: '',
   ko_cash_share: '50',
+  // Mystery: garantido do fundo e nível em que a fase começa.
+  mystery_guarantee: '',
+  mystery_start_level: '',
   qualifying_days: 2,
   qualifying_max_players: 100,
   qualifying_rebuy_level_limit: '',
@@ -64,6 +67,9 @@ const koDoTorneio = (torneio) => ({
   ko_percentage: torneio?.ko_percentage != null && Number(torneio.ko_percentage) > 0
     ? String(Number(torneio.ko_percentage)) : '',
   ko_cash_share: String(torneio?.ko_cash_share != null ? Number(torneio.ko_cash_share) : 50),
+  mystery_guarantee: torneio?.mystery_guarantee != null && Number(torneio.mystery_guarantee) > 0
+    ? String(Number(torneio.mystery_guarantee)) : '',
+  mystery_start_level: torneio?.mystery_start_level != null ? String(torneio.mystery_start_level) : '',
 });
 
 const Torneios = () => {
@@ -832,6 +838,36 @@ const TournamentModal = ({
                 required
               />
             </div>
+          )}
+          {formData.ko_format === 'mystery' && (
+            <>
+              <div className="tr-field">
+                <label htmlFor="tr-ko-guarantee">{t('tournaments.mysteryGuarantee', 'Garantido Mystery (opcional)')}</label>
+                <input
+                  id="tr-ko-guarantee"
+                  name="mystery_guarantee"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.mystery_guarantee}
+                  onChange={onChange}
+                  disabled={submitting || koBloqueado}
+                />
+              </div>
+              <div className="tr-field">
+                <label htmlFor="tr-ko-level">{t('tournaments.mysteryStartLevel', 'Fase Mystery a partir do nível (opcional)')}</label>
+                <input
+                  id="tr-ko-level"
+                  name="mystery_start_level"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={formData.mystery_start_level}
+                  onChange={onChange}
+                  disabled={submitting || koBloqueado}
+                />
+              </div>
+            </>
           )}
           {formData.ko_format === 'pko' && (
             <div className="tr-field">

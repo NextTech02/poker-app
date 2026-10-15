@@ -261,6 +261,38 @@
   font-size: 0.78rem;
 }
 
+/* Modo de sorteio do Mystery (físico ou pelo sistema) */
+.ko-modo-sorteio {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.86rem;
+}
+
+.ko-modo-sorteio legend {
+  padding: 0 4px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.ko-modo-sorteio label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.ko-linha-acoes select {
+  padding: 6px 8px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
 /* Aviso na aba Pagos: os prêmios Mystery/KO são pagos na aba própria */
 .ko-aviso-pagos {
   display: flex;

@@ -294,7 +294,9 @@
     "koHint_pko": "Quien elimina se lleva parte del bounty en efectivo; el resto se suma a su bounty. El campeón se lleva su propio bounty al final. Exige eliminación por mesas.",
     "koHint_mystery": "El pozo KO se convierte en sobres cuando el floor inicia la fase Mystery; cada eliminación sortea un sobre. Exige eliminación por mesas.",
     "finalDayName": "Día Final",
-    "qualifyingDayName": "Día {{label}}"
+    "qualifyingDayName": "Día {{label}}",
+    "mysteryGuarantee": "Garantizado Mystery (opcional)",
+    "mysteryStartLevel": "Fase Mystery desde el nivel (opcional)"
   },
   "tournamentDays": {
     "restarted": "Día reiniciado.",
@@ -1064,7 +1066,9 @@
     "offlineQueued": "Sin conexión: comando en cola; la pantalla se actualiza cuando vuelva el internet",
     "reentries": "Reentradas",
     "eliminationByTableHint": "Este torneo elimina en las mesas: cada jugador se elimina en su propio asiento, en la pantalla de mesas.",
-    "eliminateAtTables": "Eliminar en las mesas →"
+    "eliminateAtTables": "Eliminar en las mesas →",
+    "mysteryLevelReached": "Nivel {{level}}: hora de iniciar la fase Mystery.",
+    "openMystery": "Abrir pestaña Mystery"
   },
   "comingSoon": {
     "title": "Próximamente",
@@ -1402,7 +1406,13 @@
     "premio_valor_invalido": "Indique un valor mayor que cero.",
     "premio_jogador_invalido": "Elija un jugador inscrito en este torneo.",
     "premio_acima_do_pool": "Quedan {{disponivel}} en el pozo Mystery y el premio es {{solicitado}}.",
-    "premio_manual_ja_pago": "Este premio ya fue pagado en caja; no se puede deshacer."
+    "premio_manual_ja_pago": "Este premio ya fue pagado en caja; no se puede deshacer.",
+    "mystery_envelope_nao_trocado": "Canjee el comprobante por un sobre antes de pagar.",
+    "mystery_envelope_ja_trocado": "Este comprobante ya fue canjeado por un sobre.",
+    "mystery_envelope_inexistente": "No queda sobre de {{valor}}: revise el valor del sobre.",
+    "mystery_comprovantes_pendentes": "Hay {{quantidade}} comprobante(s) Mystery sin canjear: canjee antes de cerrar.",
+    "mystery_modo_invalido": "Elija el sorteo por el sistema o con sobres físicos.",
+    "mystery_config_bloqueada": "La fase Mystery ya comenzó: el garantizado y el nivel de inicio ya no cambian."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",
@@ -3508,6 +3518,24 @@
     "manualUndone": "Premio deshecho.",
     "confirmManualUndo": "¿Deshacer este premio registrado a mano?",
     "paymentsTabHint": "Esta pestaña paga las posiciones. Los premios {{tab}} se registran y pagan en la pestaña {{tab}}.",
-    "goToTab": "Abrir pestaña {{tab}}"
+    "goToTab": "Abrir pestaña {{tab}}",
+    "drawModeLabel": "Sorteo",
+    "drawModePhysical": "Sobres físicos: el jugador canjea el comprobante por un sobre y el staff registra el valor",
+    "drawModeSystem": "Por el sistema: el sistema sortea el sobre en la eliminación",
+    "drawModePhysicalOn": "Sorteo con sobres físicos: cada eliminación genera un comprobante para canjear.",
+    "drawModeSystemOn": "Sorteo por el sistema: cada eliminación sortea un sobre.",
+    "vouchersTitle": "Comprobantes por canjear",
+    "vouchersHint": "El jugador saca un sobre en el punto de canje; elija el valor que salió.",
+    "envelopeDrawnLabel": "Sobre que salió",
+    "chooseEnvelope": "Elija el valor",
+    "registerEnvelope": "Registrar sobre",
+    "voucherExchanged": "Sobre registrado: el premio está en \"Pagos pendientes\".",
+    "statusVoucher": "Comprobante sin canjear",
+    "closeBlockedVouchers": "Canjee los {{count}} comprobante(s) antes de cerrar.",
+    "guaranteeApplied": "Garantizado {{guarantee}} (entradas: {{entries}})",
+    "startLevelInfo": "La fase comienza en el nivel {{level}}: el Control avisa al floor cuando el reloj llegue a él.",
+    "voucherTitle": "Comprobante Mystery",
+    "voucherHint": "Entregue el comprobante: el jugador lo canjea por un sobre en el punto de canje, y el staff registra el valor en la pestaña Mystery.",
+    "printVoucher": "Imprimir comprobante"
   }
 }

@@ -24,6 +24,8 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
   if (!knockout) return null;
   const payouts = knockout.payouts || [];
   const mystery = knockout.format === 'mystery';
+  // Sorteio físico: ainda não há valor — só o comprovante para trocar.
+  const comprovante = !!knockout.envelope_pending;
 
   const pagar = async (p) => {
     setPagando(p.id);
@@ -42,6 +44,7 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
   const imprimir = (p) => imprimirBilheteKo({
     jogador: p.eliminator_name,
     ...(assentoDoJogador(p.eliminator_player_id) || {}),
+    comprovante,
     valor: Number(p.cash_amount),
     vitima: knockout.eliminated_name,
     formato: knockout.format,
@@ -54,18 +57,37 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
     <div className="ko-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !pagando) onFechar(); }}>
       <div className="ko-modal" role="dialog" aria-modal="true" aria-labelledby="ko-res-titulo">
         <div className="ko-modal-header">
-          <h3 id="ko-res-titulo">{mystery ? t('ko.envelopeDrawnTitle', 'Envelope sorteado') : t('ko.registeredTitle', 'KO registrado')}</h3>
+          <h3 id="ko-res-titulo">
+            {comprovante ? t('ko.voucherTitle', 'Comprovante Mystery')
+              : mystery ? t('ko.envelopeDrawnTitle', 'Envelope sorteado') : t('ko.registeredTitle', 'KO registrado')}
+          </h3>
           <button type="button" className="ko-close" onClick={onFechar} disabled={!!pagando} aria-label={t('common.close', 'Fechar')}>✕</button>
         </div>
         <p className="ko-hint">
           {t('ko.victimLine', { name: knockout.eliminated_name || '—', defaultValue: `Eliminado: ${knockout.eliminated_name || '—'}` })}
-          {' · '}
-          {mystery
+          {!comprovante && ' · '}
+          {comprovante ? null : mystery
             ? t('ko.envelopeValue', { value: formatCurrency(Number(knockout.bounty_value)), defaultValue: `Envelope: ${formatCurrency(Number(knockout.bounty_value))}` })
             : t('ko.bountyValue', { value: formatCurrency(Number(knockout.bounty_value)), defaultValue: `Bounty: ${formatCurrency(Number(knockout.bounty_value))}` })}
         </p>
 
-        {payouts.length === 0 ? (
+        {comprovante ? (
+          <>
+            <p className="ko-hint">{t('ko.voucherHint', 'Entregue o comprovante: o jogador troca por um envelope no ponto de troca, e o staff registra o valor na aba Mystery.')}</p>
+            <ul className="ko-payouts">
+              {payouts.map((p) => (
+                <li key={p.id} className="ko-payout">
+                  <div className="ko-payout-info"><strong>{p.eliminator_name || '—'}</strong></div>
+                  <div className="ko-payout-acoes">
+                    <button type="button" className="ko-btn-secondary" onClick={() => imprimir(p)}>
+                      {t('ko.printVoucher', 'Imprimir comprovante')}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : payouts.length === 0 ? (
           <p className="ko-sem-pagamento">{t('ko.keptForChampion', 'Sem eliminador: o valor fica guardado para o campeão.')}</p>
         ) : (
           <ul className="ko-payouts">

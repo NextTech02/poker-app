@@ -995,3 +995,29 @@ describe('rótulo dos classificatórios', () => {
     expect(rotuloDoClassificatorio(27)).toBe('27');
   });
 });
+
+describe('Mystery: garantido e nível no cadastro', () => {
+  it('com Mystery aparecem os campos e vão para a API', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Mystery Night');
+    await userEvent.selectOptions(document.getElementById('tr-ko-format'), 'mystery');
+    await userEvent.type(document.getElementById('tr-ko-pct'), '30');
+    await userEvent.type(document.getElementById('tr-ko-guarantee'), '10000');
+    await userEvent.type(document.getElementById('tr-ko-level'), '13');
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/tournaments', expect.objectContaining({
+        ko_format: 'mystery', ko_percentage: 30, mystery_guarantee: 10000, mystery_start_level: 13,
+      }))
+    );
+  });
+
+  it('em PKO os campos do Mystery não aparecem', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.selectOptions(document.getElementById('tr-ko-format'), 'pko');
+    expect(document.getElementById('tr-ko-guarantee')).toBeNull();
+    expect(document.getElementById('tr-ko-level')).toBeNull();
+  });
+});

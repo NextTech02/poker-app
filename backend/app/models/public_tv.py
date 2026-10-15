@@ -51,6 +51,10 @@ class PublicTvExtras(BaseModel):
     ko_format: str = "none"
     ko_pool: Optional[float] = None
     mystery_envelopes_left: Optional[int] = None
+    # "Listado de premios disponibles" (guia do NSOP): os envelopes que restam,
+    # por valor; e, antes da fase, o nível em que ela começa.
+    mystery_envelopes: list[dict] = []
+    mystery_start_level: Optional[int] = None
     # Meios de entrada ATIVOS do torneio, na ordem do Caixa (o telão mostra
     # "BUY-IN: 50 · REBUY: 20 …" quando o diretor liga).
     buy_types: list[PublicTvBuyType] = []

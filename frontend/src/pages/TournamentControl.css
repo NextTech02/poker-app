@@ -1,3 +1,23 @@
+/* Aviso: o relógio chegou no nível da fase Mystery */
+.tc-aviso-mystery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  background: rgba(234, 179, 8, 0.1);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tc-aviso-mystery a {
+  color: var(--accent-color);
+}
+
 .tournament-control {
   max-width: 1400px;
   margin: 0 auto;

@@ -31,10 +31,14 @@ from app.utils.erros import ErroDeNegocio
 # prever o próximo.
 _sorteio = random.SystemRandom()
 
-_COLUNAS_DO_TORNEIO = (
+_COLUNAS_DO_TORNEIO_ANTES_DO_GUIA = (
     "id, name, organization_id, has_qualifying, elimination_mode, ko_format, "
     "ko_percentage, ko_cash_share, ko_closed_at, mystery_started_at, mystery_day_id, "
     "mystery_pool, mystery_players_at_start"
+)
+# Guia Mystery do NSOP: sorteio físico, garantido do fundo e nível de início.
+_COLUNAS_DO_TORNEIO = (
+    _COLUNAS_DO_TORNEIO_ANTES_DO_GUIA + ", mystery_draw_mode, mystery_guarantee, mystery_start_level"
 )
 _VIVOS = ("registered", "active", "winner")
 _TIPOS_DE_ENTRADA = ["buy_in", "rebuy", "addon"]
@@ -71,12 +75,19 @@ class KnockoutService:
         o torneio, é um torneio comum: `ko_format = none`."""
         if not tournament_id:
             return {"ko_format": ko_regras.NENHUM}
-        try:
-            linhas = (
-                supabase.table("tournaments").select(_COLUNAS_DO_TORNEIO)
-                .eq("id", str(tournament_id)).execute().data or []
-            )
-        except Exception:
+        linhas = None
+        # Banco sem as colunas do guia (migração pendente): lê as de antes —
+        # sem isso o KO inteiro sumiria até a migração rodar.
+        for colunas in (_COLUNAS_DO_TORNEIO, _COLUNAS_DO_TORNEIO_ANTES_DO_GUIA):
+            try:
+                linhas = (
+                    supabase.table("tournaments").select(colunas)
+                    .eq("id", str(tournament_id)).execute().data or []
+                )
+                break
+            except Exception:
+                continue
+        if linhas is None:
             return {"id": tournament_id, "ko_format": ko_regras.NENHUM}
         return linhas[0] if linhas else {"id": tournament_id, "ko_format": ko_regras.NENHUM}
 
@@ -197,9 +208,15 @@ class KnockoutService:
             validados = KnockoutService.validar_eliminadores(tp, lista, replay=replay)
 
         envelope = None
+        pendente = False
         if fmt == "mystery":
             share = Decimal("100")
-            if lista:
+            if lista and ko_regras.sorteio_fisico(torneio) and KnockoutService._sobra_envelope_para_comprovante(torneio):
+                # Envelopes FÍSICOS: aqui nasce só o comprovante; o valor é o do
+                # envelope que o jogador tirar no ponto de troca.
+                valor = Decimal("0.00")
+                pendente = True
+            elif lista and not ko_regras.sorteio_fisico(torneio):
                 envelope = KnockoutService._reservar_envelope(torneio)
                 valor = ko_regras.dinheiro(envelope["value"]) if envelope else Decimal("0.00")
             else:
@@ -223,6 +240,8 @@ class KnockoutService:
             "status": "active",
             "created_at": _agora(),
         }
+        if pendente:
+            linha["envelope_pending"] = True
         if client_mutation_id:
             linha["client_mutation_id"] = client_mutation_id
         if user_id:
@@ -293,6 +312,93 @@ class KnockoutService:
         raise ErroDeNegocio(
             "envelope_em_disputa", "Outra eliminação sorteou ao mesmo tempo. Tente de novo.", status=409,
         )
+
+    @staticmethod
+    def _sobra_envelope_para_comprovante(torneio: dict) -> bool:
+        """Ainda há envelope fechado que não esteja "prometido" a um comprovante?
+        Sem isso, uma eliminação a mais geraria comprovante sem envelope."""
+        livres = (
+            supabase.table("tournament_mystery_envelopes").select("id")
+            .eq("tournament_id", str(torneio["id"])).is_("drawn_at", "null").execute().data or []
+        )
+        kos = (
+            supabase.table("tournament_knockouts").select("id, status, envelope_pending")
+            .eq("tournament_id", str(torneio["id"])).execute().data or []
+        )
+        prometidos = sum(
+            1 for k in kos if k.get("envelope_pending") and (k.get("status") or "active") == "active"
+        )
+        return len(livres) > prometidos
+
+    @staticmethod
+    def trocar_envelope(tournament_id: str, knockout_id: str, valor, user_id: Optional[str] = None) -> dict:
+        """Sorteio físico: o jogador tirou um envelope no ponto de troca e o
+        staff registra o valor que saiu. O envelope sai do estoque e o prêmio
+        fica pronto para pagar (pote dividido reparte, como no sorteio)."""
+        kos = (
+            supabase.table("tournament_knockouts").select("*")
+            .eq("id", str(knockout_id)).eq("tournament_id", str(tournament_id)).execute().data or []
+        )
+        if not kos:
+            raise ErroDeNegocio("ko_nao_encontrado", "KO não encontrado.", status=404)
+        knockout = kos[0]
+        if (knockout.get("status") or "active") != "active":
+            raise ErroDeNegocio("ko_desfeito", "Este KO foi desfeito e não pode ser pago.", status=409)
+        if not knockout.get("envelope_pending"):
+            raise ErroDeNegocio(
+                "mystery_envelope_ja_trocado", "Este comprovante já foi trocado por um envelope.", status=409,
+            )
+        valor = ko_regras.dinheiro(valor)
+        livres = (
+            supabase.table("tournament_mystery_envelopes").select("*")
+            .eq("tournament_id", str(tournament_id)).is_("drawn_at", "null").execute().data or []
+        )
+        candidatos = [e for e in livres if ko_regras.dinheiro(e.get("value")) == valor]
+        if not candidatos:
+            raise ErroDeNegocio(
+                "mystery_envelope_inexistente",
+                f"Não sobra envelope de {valor}: confira o valor do envelope.",
+                valor=float(valor), status=409,
+            )
+        reservado = None
+        for env in candidatos:
+            r = (
+                supabase.table("tournament_mystery_envelopes")
+                .update({"drawn_at": _agora(), "drawn_knockout_id": knockout["id"]})
+                .eq("id", env["id"]).is_("drawn_at", "null").execute().data or []
+            )
+            if r:
+                reservado = r[0]
+                break
+        if not reservado:
+            raise ErroDeNegocio(
+                "envelope_em_disputa", "Outra eliminação sorteou ao mesmo tempo. Tente de novo.", status=409,
+            )
+        try:
+            payouts = (
+                supabase.table("tournament_knockout_payouts").select("*")
+                .eq("knockout_id", knockout["id"]).execute().data or []
+            )
+            partes = {
+                p["eliminator_tp_id"]: p
+                for p in ko_regras.dividir_bounty(valor, Decimal("100"), [x.get("eliminator_tp_id") for x in payouts])
+            }
+            for p in payouts:
+                parte = partes.get(str(p.get("eliminator_tp_id")))
+                if parte is None:
+                    continue
+                supabase.table("tournament_knockout_payouts").update(
+                    {"cash_amount": float(parte["cash_amount"])}
+                ).eq("id", p["id"]).execute()
+            atualizado = (
+                supabase.table("tournament_knockouts")
+                .update({"bounty_value": float(valor), "envelope_pending": False})
+                .eq("id", knockout["id"]).execute().data or [knockout]
+            )
+        except Exception:
+            KnockoutService._devolver_envelope(reservado["id"])
+            raise
+        return KnockoutService._detalhar_knockout(atualizado[0])
 
     @staticmethod
     def _devolver_envelope(envelope_id: str) -> None:
@@ -449,6 +555,11 @@ class KnockoutService:
         if not kos or (kos[0].get("status") or "active") != "active":
             raise ErroDeNegocio("ko_desfeito", "Este KO foi desfeito e não pode ser pago.", status=409)
         knockout = kos[0]
+        if knockout.get("envelope_pending"):
+            raise ErroDeNegocio(
+                "mystery_envelope_nao_trocado",
+                "Troque o comprovante por um envelope antes de pagar.", status=409,
+            )
 
         if user_id:
             CashboxService.require_open_cashbox_for_tournament(user_id, str(tournament_id))
@@ -587,6 +698,19 @@ class KnockoutService:
                     "mystery_fase_nao_iniciada", "Inicie a fase Mystery antes de encerrar os bounties.",
                     status=409,
                 )
+            _, kos_do_torneio, _ = KnockoutService._livro(tournament_id)
+            pendentes = [
+                k for k in kos_do_torneio
+                if k.get("envelope_pending") and (k.get("status") or "active") == "active"
+            ]
+            if pendentes:
+                # O envelope desses comprovantes ainda está no estoque: sem esta
+                # trava, ele iria para o campeão.
+                raise ErroDeNegocio(
+                    "mystery_comprovantes_pendentes",
+                    f"Há {len(pendentes)} comprovante(s) Mystery sem troca: troque antes de encerrar.",
+                    quantidade=len(pendentes), status=409,
+                )
             restantes = (
                 supabase.table("tournament_mystery_envelopes").select("*")
                 .eq("tournament_id", str(tournament_id)).is_("drawn_at", "null").execute().data or []
@@ -646,7 +770,8 @@ class KnockoutService:
 
     # ── Mystery: fase ───────────────────────────────────────────────────────
     @staticmethod
-    def iniciar_mystery(tournament_id: str, envelopes: Iterable[dict], day_id: Optional[str] = None) -> dict:
+    def iniciar_mystery(tournament_id: str, envelopes: Iterable[dict], day_id: Optional[str] = None,
+                        draw_mode: str = "system") -> dict:
         """Congela o pozo KO e cria os envelopes: até um por jogador vivo,
         somando exatamente o pozo. Depois disto, eliminar sorteia envelope."""
         torneio = KnockoutService.config(tournament_id)
@@ -671,17 +796,23 @@ class KnockoutService:
              if (v.get("status") or "active") == "active"),
             Decimal("0.00"),
         )
-        # Prêmios registrados à mão já saíram do pool: os envelopes somam o resto.
+        if draw_mode not in ("system", "physical"):
+            raise ErroDeNegocio("mystery_modo_invalido", "Escolha o sorteio pelo sistema ou com envelopes físicos.")
+        # O fundo é o maior entre as entradas e o garantido; prêmios registrados
+        # à mão já saíram dele: os envelopes somam o resto.
+        fundo = ko_regras.fundo_mystery(pozo, torneio.get("mystery_guarantee"))
         valores = ko_regras.validar_envelopes(
-            list(envelopes), len(vivos), pozo - KnockoutService._premios_manuais(knockouts, payouts),
+            list(envelopes), len(vivos), fundo - KnockoutService._premios_manuais(knockouts, payouts),
         )
 
         marcado = (
             supabase.table("tournaments").update({
                 "mystery_started_at": _agora(),
                 "mystery_day_id": day_id or vivos[0].get("tournament_day_id"),
+                # O pool das ENTRADAS (o que sai das posições); o garantido é da casa.
                 "mystery_pool": float(pozo),
                 "mystery_players_at_start": len(vivos),
+                "mystery_draw_mode": draw_mode,
             }).eq("id", str(tournament_id)).is_("mystery_started_at", "null").execute().data or []
         )
         if not marcado:
@@ -768,7 +899,7 @@ class KnockoutService:
             (ko_regras.dinheiro(p.get("cash_amount")) for p in payouts if str(p.get("knockout_id")) in ativos),
             Decimal("0.00"),
         )
-        disponivel = pozo - comprometido
+        disponivel = ko_regras.fundo_mystery(pozo, torneio.get("mystery_guarantee")) - comprometido
         if valor > disponivel:
             raise ErroDeNegocio(
                 "premio_acima_do_pool",
@@ -906,6 +1037,8 @@ class KnockoutService:
             "eliminated_name": nomes.get(str(knockout.get("eliminated_player_id"))),
             "bounty_value": ko_regras.dinheiro(knockout.get("bounty_value")),
             "cash_share": Decimal(str(knockout.get("cash_share") or 100)),
+            # Sorteio físico: comprovante ainda não trocado por envelope.
+            "envelope_pending": bool(knockout.get("envelope_pending")),
             "payouts": [
                 {
                     "id": str(p["id"]),
@@ -950,6 +1083,9 @@ class KnockoutService:
         )
         if ko_regras.fase_mystery_iniciada(torneio) and torneio.get("mystery_pool") is not None:
             pozo = ko_regras.dinheiro(torneio.get("mystery_pool"))
+        pozo_das_entradas = pozo
+        if fmt == "mystery":
+            pozo = ko_regras.fundo_mystery(pozo, torneio.get("mystery_guarantee"))
         pago = sum((ko_regras.dinheiro(p.get("cash_amount")) for p in payouts
                     if p.get("paid") and str(p["knockout_id"]) in ativos), Decimal("0.00"))
         pendente = sum((ko_regras.dinheiro(p.get("cash_amount")) for p in payouts
@@ -981,6 +1117,9 @@ class KnockoutService:
             "pending": pendente,
             "unclaimed": ko_regras.sem_autor(knockouts, payouts),
             "manual_total": KnockoutService._premios_manuais(knockouts, payouts),
+            "entries_pool": pozo_das_entradas,
+            "mystery_guarantee": ko_regras.dinheiro(torneio.get("mystery_guarantee")),
+            "mystery_start_level": torneio.get("mystery_start_level"),
             "bounties": bounties,
             "knockouts": [
                 KnockoutService._detalhar_knockout(k, por_ko.get(str(k["id"]), []), nomes) for k in lista
@@ -1004,6 +1143,11 @@ class KnockoutService:
                 "players_at_start": torneio.get("mystery_players_at_start"),
                 "envelopes_total": len(envelopes),
                 "envelopes_remaining": sum(restantes.values()),
+                "draw_mode": torneio.get("mystery_draw_mode") or "system",
+                "pending_draws": sum(
+                    1 for k in knockouts
+                    if k.get("envelope_pending") and (k.get("status") or "active") == "active"
+                ),
                 "remaining": [
                     {"value": v, "count": c} for v, c in sorted(restantes.items(), key=lambda i: -i[0])
                 ],

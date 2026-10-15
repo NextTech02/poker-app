@@ -288,7 +288,11 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
         // envelopes que ainda faltam sair).
         <span className="tv-pool-ko">
           {model.koFormat === 'mystery' ? L.mysteryPool : L.koPool}: {formatCurrency(model.koPool, currency)}
-          {model.envelopesLeft != null && ` · ${L.envelopesLeft}: ${model.envelopesLeft}`}
+          {(model.envelopes || []).length > 0
+            ? ` · ${L.envelopesLeft}: ${model.envelopes.map((g) => `${g.count}×${formatCurrency(g.value, currency)}`).join(' · ')}`
+            : model.envelopesLeft != null && ` · ${L.envelopesLeft}: ${model.envelopesLeft}`}
+          {model.mysteryStartLevel != null && model.envelopesLeft == null
+            && ` · ${L.mysteryStartsAt} ${model.mysteryStartLevel}`}
         </span>
       )}
     </div>

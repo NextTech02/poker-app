@@ -204,22 +204,39 @@ class PublicTvService:
         if resumo is None or formato == "none":
             return {"ko_format": "none", "ko_pool": None, "mystery_envelopes_left": None}
         restantes = None
+        lista = []
+        nivel = None
         if formato == "mystery":
             try:
                 envelopes = (
-                    supabase_admin.table("tournament_mystery_envelopes").select("drawn_at")
+                    supabase_admin.table("tournament_mystery_envelopes").select("value, drawn_at")
                     .eq("tournament_id", tournament_id).execute().data or []
                 )
                 # Sem envelopes = fase ainda não iniciada: nada a contar.
                 if envelopes:
-                    restantes = sum(1 for e in envelopes if not e.get("drawn_at"))
+                    fechados = [e for e in envelopes if not e.get("drawn_at")]
+                    restantes = len(fechados)
+                    por_valor: dict = {}
+                    for e in fechados:
+                        v = float(e.get("value") or 0)
+                        por_valor[v] = por_valor.get(v, 0) + 1
+                    lista = [{"value": v, "count": c} for v, c in sorted(por_valor.items(), reverse=True)]
+                else:
+                    t = (
+                        supabase_admin.table("tournaments").select("mystery_start_level")
+                        .eq("id", tournament_id).limit(1).execute().data or []
+                    )
+                    nivel = (t[0] if t else {}).get("mystery_start_level")
             except Exception as exc:
                 logger.warning("Envelopes Mystery do torneio %s não lidos para o telão: %s",
                                tournament_id, exc)
+        fundo = getattr(resumo, "ko_fund", None)
         return {
             "ko_format": formato,
-            "ko_pool": float(getattr(resumo, "ko_pool", 0) or 0),
+            "ko_pool": float(fundo if fundo is not None else (getattr(resumo, "ko_pool", 0) or 0)),
             "mystery_envelopes_left": restantes,
+            "mystery_envelopes": lista,
+            "mystery_start_level": nivel,
         }
 
     @staticmethod

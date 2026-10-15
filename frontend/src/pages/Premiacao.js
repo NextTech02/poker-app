@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
 import Breadcrumb from '../components/Breadcrumb';
@@ -86,7 +86,9 @@ const Premiacao = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('config'); // 'config' | 'pagamentos'
+  // ?aba=ko abre direto na aba KO/Mystery (o aviso de nível do Controle usa).
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('aba') === 'ko' ? 'ko' : 'config'); // 'config' | 'pagamentos'
 
   const [tournament, setTournament] = useState(null);
   const [prizeSummary, setPrizeSummary] = useState(null);

@@ -90,3 +90,13 @@ it('fechar sem pagar', async () => {
   await waitFor(() => expect(onFechar).toHaveBeenCalled());
   expect(api.post).not.toHaveBeenCalled();
 });
+
+it('sorteio físico: mostra o comprovante, sem valor e sem pagar', async () => {
+  abrir({ knockout: { ...KO, format: 'mystery', envelope_pending: true, bounty_value: '0.00',
+    payouts: [{ ...KO.payouts[0], cash_amount: '0.00', added_to_bounty: '0' }] } });
+  expect(screen.getByText('ko.voucherTitle')).toBeInTheDocument();
+  expect(screen.getByText('ko.voucherHint')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'ko.payNow' })).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'ko.printVoucher' }));
+  expect(imprimirBilheteKo).toHaveBeenCalledWith(expect.objectContaining({ jogador: 'Ana', comprovante: true }));
+});

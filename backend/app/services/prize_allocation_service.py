@@ -150,6 +150,11 @@ class PrizeAllocationService:
         else:
             ko_pool = total_bounty
         player_pool = net_pool - ko_pool
+        # Fundo Mystery com garantido: a diferença é da casa — o pool das
+        # posições continua descontando só o que veio das entradas.
+        ko_fund = ko_pool
+        if ko_format == "mystery":
+            ko_fund = ko_regras.fundo_mystery(ko_pool, tournament_info.get("mystery_guarantee"))
         available_prize_pool = guaranteed_prize + player_pool
         reserved_pct = Decimal(str(tournament_info.get("reserved_prize_percentage") or 0))
         reserved_amount = total_entries * reserved_pct / Decimal("100")
@@ -161,6 +166,7 @@ class PrizeAllocationService:
             "ko_format": ko_format,
             "ko_percentage": Decimal(str(tournament_info.get("ko_percentage") or 0)),
             "ko_pool": ko_pool,
+            "ko_fund": ko_fund,
             "player_pool": player_pool,
             "available_prize_pool": available_prize_pool,
             "reserved_pct": reserved_pct,
@@ -216,7 +222,8 @@ class PrizeAllocationService:
             ko_format=pools["ko_format"],
             ko_percentage=pools["ko_percentage"],
             ko_pool=pools["ko_pool"],
-            total_prize_pool=available_prize_pool + pools["ko_pool"],
+            ko_fund=pools["ko_fund"],
+            total_prize_pool=available_prize_pool + pools["ko_fund"],
         )
 
     @staticmethod

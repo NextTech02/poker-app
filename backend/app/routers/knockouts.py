@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from app.auth import get_current_user
 from app.models.knockout import (
     EliminatorsUpdate,
+    EnvelopeExchangeRequest,
     KnockoutBatchPayRequest,
     KnockoutCloseRequest,
     KnockoutManualRequest,
@@ -95,6 +96,20 @@ def desfazer_encerramento(tournament_id: str, current_user: dict = Depends(get_c
         raise da_excecao(e, "encerramento_de_ko_recusado")
 
 
+@router.post("/{tournament_id}/knockouts/{knockout_id}/envelope", response_model=KnockoutOut)
+def trocar_envelope(
+    tournament_id: str,
+    knockout_id: str,
+    body: EnvelopeExchangeRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Sorteio físico: registra o envelope que o jogador tirou com o comprovante."""
+    try:
+        return KnockoutService.trocar_envelope(tournament_id, knockout_id, body.value, current_user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e, "troca_de_envelope_recusada")
+
+
 @router.post("/{tournament_id}/knockouts/manual", response_model=KnockoutOut)
 def registrar_manual(
     tournament_id: str,
@@ -132,6 +147,7 @@ def iniciar_mystery(
             tournament_id,
             [{"value": e.value, "quantity": e.quantity} for e in body.envelopes],
             body.day_id,
+            body.draw_mode,
         )
     except ValueError as e:
         raise da_excecao(e, "fase_mystery_recusada")

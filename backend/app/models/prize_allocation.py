@@ -125,6 +125,8 @@ class PrizeSummary(BaseModel):
     ko_format: str = "none"
     ko_percentage: Decimal = Decimal("0")
     ko_pool: Decimal = Decimal("0")  # Σ parte KO das vendas (ou o pozo Mystery congelado)
+    # Fundo KO de fato: no Mystery, o maior entre ko_pool e o garantido.
+    ko_fund: Decimal = Decimal("0")
     total_prize_pool: Decimal = Decimal("0")  # posições disponíveis + KO (o que o telão mostra)
     allocations: list[PrizeAllocationResponse] = []
     has_qualifying_days: bool = False  # True if tournament has qualifying structure

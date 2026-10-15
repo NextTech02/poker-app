@@ -43,11 +43,19 @@ export const koParaApi = (form) => {
   if (formato === SEM_KO) return { ko_format: SEM_KO };
   const pct = Number(form?.ko_percentage);
   const parte = Number(form?.ko_cash_share);
-  return {
+  const corpo = {
     ko_format: formato,
     ko_percentage: Number.isFinite(pct) ? pct : 0,
     ko_cash_share: formato === 'pko' && Number.isFinite(parte) ? parte : 100,
   };
+  if (formato === 'mystery') {
+    // Garantido do fundo Mystery e nível em que a fase começa (vazio = nenhum).
+    const garantia = Number(form?.mystery_guarantee);
+    const nivel = parseInt(form?.mystery_start_level, 10);
+    corpo.mystery_guarantee = Number.isFinite(garantia) && garantia > 0 ? garantia : 0;
+    corpo.mystery_start_level = Number.isFinite(nivel) && nivel >= 1 ? nivel : null;
+  }
+  return corpo;
 };
 
 /**

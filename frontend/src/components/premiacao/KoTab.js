@@ -30,6 +30,11 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
   const [corrigindo, setCorrigindo] = useState(null);
   // Prêmio Mystery registrado à mão (envelope aberto na mesa, fora do sistema).
   const [manual, setManual] = useState({ recebe: '', valor: '', eliminado: '' });
+  // Guia do NSOP: envelopes FÍSICOS (o jogador troca um comprovante por um
+  // envelope de verdade) ou sorteio pelo sistema. Escolhido ao iniciar a fase.
+  const [modoSorteio, setModoSorteio] = useState('physical');
+  // Valor escolhido para cada comprovante na troca: { [knockoutId]: valor }.
+  const [trocas, setTrocas] = useState({});
 
   const carregar = useCallback(async () => {
     try {
@@ -77,9 +82,11 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
   // Mystery tem vocabulário próprio: envelopes, não bounties.
   const ehMystery = formato === 'mystery';
   const encerrado = !!resumo.closed_at;
+  // Comprovante sem troca ainda não tem valor: fica na seção própria, não aqui.
   const pendentes = resumo.knockouts
-    .filter((k) => k.status === 'active')
+    .filter((k) => k.status === 'active' && !k.envelope_pending)
     .flatMap((k) => k.payouts.filter((p) => !p.paid).map((p) => ({ ...p, knockout: k })));
+  const comprovantes = resumo.knockouts.filter((k) => k.status === 'active' && k.envelope_pending);
   const totalPendente = num(resumo.pending);
   const semSaldo = saldoGeral != null && saldoGeral < totalPendente;
 
@@ -146,10 +153,18 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
     executar(
       () => api.post(`/tournaments/${tournamentId}/mystery/start`, {
         envelopes: linhasValidas.map((e) => ({ value: num(e.value), quantity: parseInt(e.quantity, 10) })),
+        draw_mode: modoSorteio,
       }),
       t('ko.mysteryStarted', 'Fase Mystery iniciada.'),
     );
   };
+
+  const trocarEnvelope = (k) => executar(async () => {
+    await api.post(`/tournaments/${tournamentId}/knockouts/${k.id}/envelope`, { value: num(trocas[k.id]) });
+    setTrocas((atual) => { const novo = { ...atual }; delete novo[k.id]; return novo; });
+  }, t('ko.voucherExchanged', 'Envelope registrado: o prêmio está em "Pagamentos pendentes".'));
+  const garantia = num(resumo.mystery_guarantee);
+  const garantidoValendo = ehMystery && garantia > num(resumo.entries_pool);
 
   const encerrar = async () => {
     if (!campeao) return;
@@ -175,6 +190,14 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
             {ehMystery ? t('ko.poolMystery', 'Pool Mystery') : `${t('ko.pool', 'Pool KO')} · ${formatoLabel}`}
           </span>
           <span className="ko-card-valor">{formatCurrency(pozo)}</span>
+          {garantidoValendo && (
+            <span className="ko-hint">
+              {t('ko.guaranteeApplied', {
+                guarantee: formatCurrency(garantia), entries: formatCurrency(num(resumo.entries_pool)),
+                defaultValue: `Garantido ${formatCurrency(garantia)} (entradas: ${formatCurrency(num(resumo.entries_pool))})`,
+              })}
+            </span>
+          )}
         </div>
         <div className="ko-card">
           <span className="ko-card-label">{t('ko.paidTotal', 'Pago')}</span>
@@ -207,6 +230,11 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
           {mystery?.started_at ? (
             <>
               <p className="ko-hint">
+                {mystery.draw_mode === 'physical'
+                  ? t('ko.drawModePhysicalOn', 'Sorteio com envelopes físicos: cada eliminação gera um comprovante para trocar.')
+                  : t('ko.drawModeSystemOn', 'Sorteio pelo sistema: cada eliminação sorteia um envelope.')}
+              </p>
+              <p className="ko-hint">
                 {t('ko.mysteryRunning', {
                   remaining: mystery.envelopes_remaining, total: mystery.envelopes_total,
                   defaultValue: `Restam ${mystery.envelopes_remaining} de ${mystery.envelopes_total} envelopes.`,
@@ -229,6 +257,11 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
             </>
           ) : (
             <div className="ko-envelopes-editor">
+              {resumo.mystery_start_level != null && (
+                <p className="ko-hint">
+                  {t('ko.startLevelInfo', { level: resumo.mystery_start_level, defaultValue: `A fase começa no nível ${resumo.mystery_start_level}: o Controle avisa o floor quando o relógio chegar nele.` })}
+                </p>
+              )}
               <p className="ko-hint">{t('ko.mysteryEditorHint', 'Cadastre os envelopes (no máximo um por jogador vivo), somando exatamente o pool Mystery. Ao iniciar, as vendas do torneio são encerradas.')}</p>
               {envelopes.map((linha, i) => (
                 // eslint-disable-next-line react/no-array-index-key -- linhas sem id até serem gravadas
@@ -262,6 +295,19 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
                   {t('ko.envelopeSum', { have: formatCurrency(somaEnvelopes), need: formatCurrency(alvoEnvelopes), defaultValue: `Soma: ${formatCurrency(somaEnvelopes)} de ${formatCurrency(alvoEnvelopes)}` })}
                 </div>
               </div>
+              <fieldset className="ko-modo-sorteio">
+                <legend>{t('ko.drawModeLabel', 'Sorteio')}</legend>
+                <label>
+                  <input type="radio" name="ko-modo-sorteio" value="physical" checked={modoSorteio === 'physical'}
+                    onChange={() => setModoSorteio('physical')} />
+                  <span>{t('ko.drawModePhysical', 'Envelopes físicos: o jogador troca o comprovante por um envelope e o staff registra o valor')}</span>
+                </label>
+                <label>
+                  <input type="radio" name="ko-modo-sorteio" value="system" checked={modoSorteio === 'system'}
+                    onChange={() => setModoSorteio('system')} />
+                  <span>{t('ko.drawModeSystem', 'Pelo sistema: o sistema sorteia o envelope na eliminação')}</span>
+                </label>
+              </fieldset>
               <div className="ko-actions">
                 <button type="button" className="ko-btn-primary" disabled={ocupado || !fechaQtd || !fechaSoma || vivos.length === 0}
                   onClick={iniciarMystery}>
@@ -281,6 +327,43 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
             <tbody>
               {resumo.bounties.map((b) => (
                 <tr key={b.tournament_player_id}><td>{b.player_name}</td><td className="num">{formatCurrency(num(b.bounty))}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {comprovantes.length > 0 && (
+        <section className="ko-secao" aria-labelledby="ko-comprov-titulo">
+          <h4 id="ko-comprov-titulo">{t('ko.vouchersTitle', 'Comprovantes a trocar')}</h4>
+          <p className="ko-hint">{t('ko.vouchersHint', 'O jogador tira um envelope no ponto de troca; escolha o valor que saiu.')}</p>
+          <table className="ko-tabela">
+            <thead>
+              <tr>
+                <th>{t('ko.winner', 'Recebe')}</th>
+                <th>{t('ko.victim', 'Eliminado')}</th>
+                <th>{t('ko.envelopeDrawnLabel', 'Envelope que saiu')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comprovantes.map((k) => (
+                <tr key={k.id}>
+                  <td>{k.payouts.map((p) => p.eliminator_name).join(', ')}</td>
+                  <td>{rotuloDoKo(k)}</td>
+                  <td>
+                    <div className="ko-linha-acoes">
+                      <select value={trocas[k.id] || ''} aria-label={t('ko.envelopeDrawnLabel', 'Envelope que saiu')}
+                        onChange={(e) => setTrocas((atual) => ({ ...atual, [k.id]: e.target.value }))}>
+                        <option value="">{t('ko.chooseEnvelope', 'Escolha o valor')}</option>
+                        {(mystery?.remaining || []).map((g) => (
+                          <option key={g.value} value={g.value}>{formatCurrency(num(g.value))} ({g.count})</option>
+                        ))}
+                      </select>
+                      <button type="button" className="ko-btn-primary" disabled={ocupado || !trocas[k.id]}
+                        onClick={() => trocarEnvelope(k)}>{t('ko.registerEnvelope', 'Registrar envelope')}</button>
+                    </div>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -390,6 +473,7 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
                 const pagos = k.payouts.filter((p) => p.paid).length;
                 let situacao = t('ko.statusPending', 'Pendente');
                 if (k.status === 'undone') situacao = t('ko.statusUndone', 'Desfeito');
+                else if (k.envelope_pending) situacao = t('ko.statusVoucher', 'Comprovante sem troca');
                 else if (k.payouts.length === 0) situacao = t('ko.statusNoEliminator', 'Sem eliminador');
                 else if (pagos === k.payouts.length) situacao = t('ko.paid', 'Pago');
                 return (
@@ -430,6 +514,9 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
                 ? t('ko.closeHintMystery', 'No fim do torneio: o campeão leva os envelopes que sobraram e os que ficaram sem eliminador.')
                 : t('ko.closeHint', 'No fim do torneio: cada jogador vivo recebe o próprio bounty, e o que ficou sem dono vai para o campeão.')}
             </p>
+            {comprovantes.length > 0 && (
+              <p className="ko-hint ko-manual-excede">{t('ko.closeBlockedVouchers', { count: comprovantes.length, defaultValue: `Troque os ${comprovantes.length} comprovante(s) antes de encerrar.` })}</p>
+            )}
             <div className="ko-encerrar">
               <select value={campeao} onChange={(e) => setCampeao(e.target.value)} aria-label={t('ko.champion', 'Campeão')}>
                 <option value="">{t('ko.chooseChampion', 'Escolha o campeão')}</option>

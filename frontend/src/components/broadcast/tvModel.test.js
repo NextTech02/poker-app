@@ -369,3 +369,15 @@ describe('buildTvModel — premiação por eliminação', () => {
     expect(buildTvModel(base).koFormat).toBeNull();
   });
 });
+
+describe('buildTvModel — lista de envelopes Mystery', () => {
+  const base = { isDayBased: true, timerState: relogio(), tournament: TORNEIO, tournamentDay: DIA };
+
+  it('envelopes restantes por valor e, antes da fase, o nível de início', () => {
+    const m = buildTvModel({ ...base, extras: { ko_format: 'mystery', ko_pool: 5000, mystery_envelopes_left: 3,
+      mystery_envelopes: [{ value: 2000, count: 1 }, { value: 1000, count: 2 }] } });
+    expect(m.envelopes).toEqual([{ value: 2000, count: 1 }, { value: 1000, count: 2 }]);
+    const antes = buildTvModel({ ...base, extras: { ko_format: 'mystery', ko_pool: 5000, mystery_start_level: 13 } });
+    expect(antes.mysteryStartLevel).toBe(13);
+  });
+});

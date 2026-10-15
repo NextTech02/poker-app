@@ -312,6 +312,16 @@ export const buildTvModel = ({
   const envelopesLeft = koFormat === 'mystery' && extras?.mystery_envelopes_left != null
     ? Math.max(0, Math.floor(Number(extras.mystery_envelopes_left) || 0))
     : null;
+  // "Listado de premios disponibles": os envelopes que restam, por valor.
+  const envelopes = koFormat === 'mystery' && Array.isArray(extras?.mystery_envelopes)
+    ? extras.mystery_envelopes
+      .map((g) => ({ value: Number(g.value) || 0, count: Math.max(0, Math.floor(Number(g.count) || 0)) }))
+      .filter((g) => g.value > 0 && g.count > 0)
+    : [];
+  // Antes da fase: em que nível ela começa.
+  const mysteryStartLevel = koFormat === 'mystery' && extras?.mystery_start_level != null
+    ? Number(extras.mystery_start_level) || null
+    : null;
   // Meios de entrada ativos do torneio, na ordem do Caixa, com QUANTAS vendas
   // houve por meio neste dia (o telão mostra a contagem, não o valor).
   const buyTypes = (extras?.buy_types || [])
@@ -347,6 +357,8 @@ export const buildTvModel = ({
     koFormat,
     koPool,
     envelopesLeft,
+    envelopes,
+    mysteryStartLevel,
     buyTypes,
     totalPlayers: players.length,
   };

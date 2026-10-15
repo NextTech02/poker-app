@@ -579,3 +579,17 @@ describe('premiação por eliminação', () => {
     expect(document.querySelector('.tv-pool-ko')).toBeNull();
   });
 });
+
+describe('lista de envelopes Mystery no telão', () => {
+  it('mostra os envelopes que restam por valor', () => {
+    montar({ currency: 'PEN', model: { koFormat: 'mystery', koPool: 5000, envelopesLeft: 3,
+      envelopes: [{ value: 2000, count: 1 }, { value: 1000, count: 2 }] } });
+    expect(document.querySelector('.tv-pool-ko'))
+      .toHaveTextContent('POOL MYSTERY: S/ 5,000.00 · ENVELOPES: 1×S/ 2,000.00 · 2×S/ 1,000.00');
+  });
+
+  it('antes da fase, mostra em que nível ela começa', () => {
+    montar({ currency: 'PEN', model: { koFormat: 'mystery', koPool: 5000, envelopesLeft: null, envelopes: [], mysteryStartLevel: 13 } });
+    expect(document.querySelector('.tv-pool-ko')).toHaveTextContent('MYSTERY NO NÍVEL 13');
+  });
+});

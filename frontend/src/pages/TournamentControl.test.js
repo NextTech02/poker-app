@@ -15,7 +15,7 @@
  * Todos os comandos passam pela camada offline: sem internet eles entram na
  * fila e o relógio continua rodando ancorado localmente.
  */
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import TournamentControl from './TournamentControl';
@@ -550,5 +550,33 @@ describe('modo de eliminação', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Este torneio elimina jogadores pelas mesas.')
     );
+  });
+});
+
+describe('aviso da fase Mystery por nível', () => {
+  // Guia do NSOP: "a fase Mystery começa no nível X". Quando o relógio chega
+  // nele e a fase não começou, o floor vê o aviso com o atalho.
+  const comTorneio = (torneio) => api.get.mockImplementation((url) => (
+    url === '/tournaments/torneio-9' ? Promise.resolve({ data: torneio }) : Promise.resolve({ data: DIA })
+  ));
+
+  it('no nível configurado, avisa e leva à aba Mystery', async () => {
+    comTorneio({ id: 'torneio-9', ko_format: 'mystery', mystery_start_level: 3, mystery_started_at: null });
+    await montar({ display_level: 3 });
+    const aviso = await screen.findByRole('alert');
+    expect(aviso).toHaveTextContent('control.mysteryLevelReached');
+    expect(within(aviso).getByRole('link', { name: 'control.openMystery' })).toHaveAttribute('href', '/premiacao/torneio-9?aba=ko');
+  });
+
+  it('antes do nível não avisa', async () => {
+    comTorneio({ id: 'torneio-9', ko_format: 'mystery', mystery_start_level: 5, mystery_started_at: null });
+    await montar({ display_level: 3 });
+    expect(screen.queryByText('control.mysteryLevelReached')).toBeNull();
+  });
+
+  it('com a fase já iniciada não avisa', async () => {
+    comTorneio({ id: 'torneio-9', ko_format: 'mystery', mystery_start_level: 3, mystery_started_at: '2026-10-14T22:00:00Z' });
+    await montar({ display_level: 4 });
+    expect(screen.queryByText('control.mysteryLevelReached')).toBeNull();
   });
 });

@@ -603,3 +603,23 @@ class TestSync:
         assert SyncService.apply_op(op, "u1", ORG)["status"] == "applied"
         assert recebido == {"tpid": "tp1", "idempotent": True, "eliminated_by": ["tp2"],
                             "no_eliminator": False, "client_mutation_id": "cm-1"}
+
+
+class TestGarantidoENivelDoMystery:
+    def _servico(self, monkeypatch, **torneio):
+        from app.services import tournament_service
+        fake = FakeSupabase({"tournaments": [_torneio(formato="mystery", **torneio)],
+                             "transactions": [], "tournament_days": []})
+        monkeypatch.setattr(tournament_service, "supabase", fake)
+        return tournament_service.TournamentService
+
+    def test_livres_antes_da_fase(self, monkeypatch):
+        S = self._servico(monkeypatch)
+        S._validar_ko(TOUR, {"mystery_guarantee": 1000, "mystery_start_level": 13})
+
+    def test_travados_depois_da_fase(self, monkeypatch):
+        S = self._servico(monkeypatch, mystery_started_at="2026-10-14T22:00:00Z", mystery_guarantee=1000)
+        S._validar_ko(TOUR, {"mystery_guarantee": 1000})   # mesmo valor passa
+        with pytest.raises(ErroDeNegocio) as e:
+            S._validar_ko(TOUR, {"mystery_guarantee": 2000})
+        assert e.value.code == "mystery_config_bloqueada"

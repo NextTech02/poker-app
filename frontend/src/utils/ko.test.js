@@ -45,7 +45,7 @@ describe('formulário → API', () => {
     expect(koParaApi({ ko_format: 'ko', ko_percentage: '30', ko_cash_share: '50' }))
       .toEqual({ ko_format: 'ko', ko_percentage: 30, ko_cash_share: 100 });
     expect(koParaApi({ ko_format: 'mystery', ko_percentage: '25' }))
-      .toEqual({ ko_format: 'mystery', ko_percentage: 25, ko_cash_share: 100 });
+      .toEqual({ ko_format: 'mystery', ko_percentage: 25, ko_cash_share: 100, mystery_guarantee: 0, mystery_start_level: null });
   });
 });
 
@@ -91,4 +91,11 @@ it('lê o código da recusa do servidor', () => {
   expect(codigoDaRecusa({ response: { data: { detail: 'texto' } } })).toBeNull();
   expect(codigoDaRecusa({ response: { data: { detail: [{ msg: 'x' }] } } })).toBeNull();
   expect(codigoDaRecusa(new Error('rede'))).toBeNull();
+});
+
+it('Mystery leva o garantido do fundo e o nível de início', () => {
+  expect(koParaApi({ ko_format: 'mystery', ko_percentage: '40', mystery_guarantee: '10000', mystery_start_level: '13' }))
+    .toMatchObject({ mystery_guarantee: 10000, mystery_start_level: 13 });
+  // Outros formatos não mandam os campos do Mystery.
+  expect(koParaApi({ ko_format: 'pko', ko_percentage: '40', mystery_guarantee: '10000' })).not.toHaveProperty('mystery_guarantee');
 });

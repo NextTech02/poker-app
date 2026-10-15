@@ -99,6 +99,12 @@ class TournamentService:
         if data.get("ko_format") in (None, KoFormat.none.value):
             for campo in ("ko_format", "ko_percentage", "ko_cash_share"):
                 data.pop(campo, None)
+        # Garantido e nível só existem no Mystery (e só mandados quando há o
+        # que gravar: banco sem a migração continua criando torneio).
+        if data.get("ko_format") != KoFormat.mystery.value or not data.get("mystery_guarantee"):
+            data.pop("mystery_guarantee", None)
+        if data.get("ko_format") != KoFormat.mystery.value or not data.get("mystery_start_level"):
+            data.pop("mystery_start_level", None)
 
         response = supabase.table("tournaments").insert(data).execute()
         return Tournament(**response.data[0])
@@ -300,7 +306,7 @@ class TournamentService:
             data.pop("elimination_mode", None)
         elif data["elimination_mode"] == EliminationMode.table.value:
             TournamentService._recusar_mesa_com_eliminacoes(tournament_id)
-        for campo in ("ko_format", "ko_percentage", "ko_cash_share"):
+        for campo in ("ko_format", "ko_percentage", "ko_cash_share", "mystery_guarantee"):
             if campo in data and data[campo] is None:
                 data.pop(campo)
         TournamentService._validar_ko(tournament_id, data)
@@ -338,6 +344,16 @@ class TournamentService:
             )
             atual = linhas[0] if linhas else {}
         final = {**atual, **data}
+        # Garantido e nível do Mystery: livres até a fase começar; depois, os
+        # envelopes já foram montados sobre eles.
+        if atual.get("mystery_started_at"):
+            for campo in ("mystery_guarantee", "mystery_start_level"):
+                if campo in data and (data[campo] or 0) != (atual.get(campo) or 0):
+                    raise ErroDeNegocio(
+                        "mystery_config_bloqueada",
+                        "A fase Mystery já começou: o garantido e o nível de início não mudam mais.",
+                        status=409,
+                    )
         formato = final.get("ko_format") or KoFormat.none.value
         if formato == KoFormat.ko.value and (mexe_em_ko or "ko_cash_share" in final):
             data["ko_cash_share"] = 100

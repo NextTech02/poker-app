@@ -374,3 +374,31 @@ class TestPremiacaoPorEliminacao:
         stub(PAS, get_prize_summary=explode)
         r = PublicTvService.get_day_extras(DIA)
         assert r.prize_pool is None and r.ko_format == "none"
+
+
+class TestListaDeEnvelopesNoTelao:
+    def _resumo(self, **extra):
+        base = dict(available_prize_pool=Decimal("6000"), total_prize_pool=Decimal("10000"),
+                    ko_format="mystery", ko_pool=Decimal("4000"), ko_fund=Decimal("5000"))
+        base.update(extra)
+        return SimpleNamespace(**base)
+
+    def test_envelopes_restantes_por_valor_e_o_fundo_com_garantido(self, banco, stub):
+        stub(PAS, get_prize_summary=lambda tid: self._resumo())
+        banco.store["tournament_mystery_envelopes"] = [
+            {"id": "e1", "tournament_id": TOUR, "value": 1000, "drawn_at": None},
+            {"id": "e2", "tournament_id": TOUR, "value": 2000, "drawn_at": None},
+            {"id": "e3", "tournament_id": TOUR, "value": 1000, "drawn_at": None},
+            {"id": "e4", "tournament_id": TOUR, "value": 1000, "drawn_at": "2026-10-14T22:00:00Z"},
+        ]
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.ko_pool == 5000.0
+        assert r.mystery_envelopes == [{"value": 2000.0, "count": 1}, {"value": 1000.0, "count": 2}]
+        assert r.mystery_envelopes_left == 3
+
+    def test_antes_da_fase_mostra_o_nivel_de_inicio(self, banco, stub):
+        stub(PAS, get_prize_summary=lambda tid: self._resumo())
+        banco.store["tournament_mystery_envelopes"] = []
+        banco.store["tournaments"] = [{"id": TOUR, "mystery_start_level": 13}]
+        r = PublicTvService.get_day_extras(DIA)
+        assert r.mystery_start_level == 13 and r.mystery_envelopes == []

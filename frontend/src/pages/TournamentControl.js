@@ -13,6 +13,7 @@ import { offlineWrite } from '../offline/apiOffline';
 import { uuid } from '../offline/db';
 import { nivelExibido } from '../utils/nivelExibido';
 import { MODO_MESA, useModoDeEliminacao } from '../hooks/useModoDeEliminacao';
+import { useTorneioKo } from '../hooks/useTorneioKo';
 import './TournamentControl.css';
 
 const TournamentControl = () => {
@@ -69,6 +70,18 @@ const TournamentControl = () => {
     isOffline,
     isLoading: timerLoading,
   } = useTimerSync(dayId, blinds);
+
+  // Mystery "a partir do nível X" (guia do NSOP): quando o relógio chega nele
+  // e a fase não começou, o floor recebe o aviso com o atalho para a aba.
+  const { torneio: torneioKo, recarregar: recarregarKo } = useTorneioKo(day?.tournament_id);
+  const nivelAtual = timerState ? nivelExibido(timerState, blinds, timerState.current_level) : null;
+  const nivelMystery = Number(torneioKo?.mystery_start_level) || null;
+  const avisoMystery = torneioKo?.ko_format === 'mystery' && !torneioKo?.mystery_started_at
+    && nivelMystery != null && typeof nivelAtual === 'number' && nivelAtual >= nivelMystery;
+  useEffect(() => {
+    // A cada nível novo relê o torneio: o aviso some quando a fase começa.
+    if (nivelMystery != null && typeof nivelAtual === 'number' && nivelAtual >= nivelMystery) recarregarKo();
+  }, [nivelAtual, nivelMystery, recarregarKo]);
 
   // Load day info
   const loadData = useCallback(async () => {
@@ -299,6 +312,12 @@ const TournamentControl = () => {
           { label: t('control.breadcrumbControl', 'Controle') },
         ]} />
         <div className="tournament-control">
+          {avisoMystery && (
+            <div className="tc-aviso-mystery" role="alert">
+              <span>{t('control.mysteryLevelReached', { level: nivelMystery, defaultValue: `Nível ${nivelMystery}: hora de iniciar a fase Mystery.` })}</span>
+              <Link to={`/premiacao/${day.tournament_id}?aba=ko`}>{t('control.openMystery', 'Abrir aba Mystery')}</Link>
+            </div>
+          )}
           <div className="control-header">
             <h1>{day?.day_name}</h1>
             <div className="day-status">

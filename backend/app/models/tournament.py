@@ -89,6 +89,10 @@ class TournamentBase(BaseModel):
     ko_format: KoFormat = Field(default=KoFormat.none, description="Premiação por eliminação")
     ko_percentage: float = Field(default=0, ge=0, le=100, description="% do valor de cada venda que vai para KO (limitado ao líquido, valor − rake)")
     ko_cash_share: float = Field(default=50, ge=0, le=100, description="PKO: % do bounty pago em dinheiro")
+    # Mystery: garantido do fundo (a casa completa até ele) e o nível em que a
+    # fase deve começar (o sistema avisa o floor).
+    mystery_guarantee: float = Field(default=0, ge=0, description="Garantido do fundo Mystery")
+    mystery_start_level: Optional[int] = Field(default=None, ge=1, description="Nível em que a fase Mystery começa")
 
 
 class TournamentCreate(TournamentBase):
@@ -106,6 +110,8 @@ class TournamentUpdate(BaseModel):
     ko_format: Optional[KoFormat] = None
     ko_percentage: Optional[float] = Field(None, ge=0, le=100)
     ko_cash_share: Optional[float] = Field(None, ge=0, le=100)
+    mystery_guarantee: Optional[float] = Field(None, ge=0)
+    mystery_start_level: Optional[int] = Field(None, ge=1)
     # Broadcast settings
     broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
     broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
@@ -139,6 +145,7 @@ class Tournament(TournamentBase):
     mystery_day_id: Optional[str] = None
     mystery_pool: Optional[float] = None
     mystery_players_at_start: Optional[int] = None
+    mystery_draw_mode: Optional[str] = "system"
     # Broadcast settings
     broadcast_bg_color: Optional[str] = "#0a0e13"
     broadcast_bg_image_url: Optional[str] = None

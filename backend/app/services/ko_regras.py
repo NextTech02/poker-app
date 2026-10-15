@@ -49,6 +49,18 @@ def fase_mystery_iniciada(torneio: Optional[dict]) -> bool:
     return formato(torneio) == "mystery" and bool((torneio or {}).get("mystery_started_at"))
 
 
+def sorteio_fisico(torneio: Optional[dict]) -> bool:
+    """Mystery com envelopes de VERDADE: a eliminação gera um comprovante e o
+    valor é o do envelope que o jogador tirar no ponto de troca."""
+    return formato(torneio) == "mystery" and (torneio or {}).get("mystery_draw_mode") == "physical"
+
+
+def fundo_mystery(pozo_das_entradas, garantia) -> Decimal:
+    """Fundo Mystery: o MAIOR entre o que as entradas juntaram e o garantido.
+    A diferença é da casa — o pool das posições não muda."""
+    return max(dinheiro(pozo_das_entradas), dinheiro(garantia))
+
+
 def parte_dinheiro(torneio: Optional[dict]) -> Decimal:
     """% do bounty pago em dinheiro a quem elimina. KO fixo é sempre 100."""
     if formato(torneio) == "pko":

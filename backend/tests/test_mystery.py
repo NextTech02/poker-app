@@ -280,3 +280,135 @@ class TestPremioManual:
         r = client.delete(f"/tournaments/{TOUR}/knockouts/manual/{kid}")
         assert r.status_code == 200, r.text
         assert float(r.json()["manual_total"]) == 0
+
+
+def _iniciar_fisico(fake, envelopes=ENVELOPES):
+    resumo = K.iniciar_mystery(TOUR, envelopes, None, "physical")
+    for tp in fake.store["tournament_players"]:
+        tp["tournaments"].update({k: fake.store["tournaments"][0][k]
+                                  for k in ("mystery_started_at", "mystery_pool")})
+    return resumo
+
+
+class TestSorteioFisico:
+    """Guia do NSOP: o jogador troca um comprovante por um envelope de
+    verdade no ponto de troca; o staff registra o valor que saiu."""
+
+    def test_a_fase_guarda_o_modo(self, mystery):
+        r = _iniciar_fisico(mystery)
+        assert mystery.store["tournaments"][0]["mystery_draw_mode"] == "physical"
+        assert r["mystery"]["draw_mode"] == "physical"
+
+    def test_eliminacao_gera_comprovante_sem_valor_e_sem_sortear(self, mystery):
+        _iniciar_fisico(mystery)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        assert ko["envelope_pending"] is True and ko["bounty_value"] == D("0.00")
+        assert [p["cash_amount"] for p in ko["payouts"]] == [D("0.00")]
+        assert not [e for e in mystery.store["tournament_mystery_envelopes"] if e.get("drawn_at")]
+        assert K.resumo(TOUR)["mystery"]["pending_draws"] == 1
+
+    def test_comprovante_nao_se_paga_antes_da_troca(self, mystery):
+        _iniciar_fisico(mystery)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        with pytest.raises(ErroDeNegocio) as e:
+            K.pagar(TOUR, ko["payouts"][0]["id"], "u1")
+        assert e.value.code == "mystery_envelope_nao_trocado"
+
+    def test_troca_registra_o_envelope_que_saiu_e_libera_o_pagamento(self, mystery):
+        _iniciar_fisico(mystery)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        trocado = K.trocar_envelope(TOUR, ko["id"], 100, "u1")
+        assert trocado["envelope_pending"] is False and trocado["bounty_value"] == D("100.00")
+        assert trocado["payouts"][0]["cash_amount"] == D("100.00")
+        sorteados = [e for e in mystery.store["tournament_mystery_envelopes"] if e.get("drawn_at")]
+        assert len(sorteados) == 1 and sorteados[0]["drawn_knockout_id"] == ko["id"]
+        K.pagar(TOUR, ko["payouts"][0]["id"], "u1")
+        assert len(_pagos(mystery)) == 1
+        assert K.resumo(TOUR)["mystery"]["envelopes_remaining"] == 3
+
+    def test_valor_que_nao_esta_no_estoque_e_recusado(self, mystery):
+        _iniciar_fisico(mystery)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        with pytest.raises(ErroDeNegocio) as e:
+            K.trocar_envelope(TOUR, ko["id"], 55)
+        assert e.value.code == "mystery_envelope_inexistente"
+
+    def test_nao_troca_duas_vezes(self, mystery):
+        _iniciar_fisico(mystery)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        K.trocar_envelope(TOUR, ko["id"], 30)
+        with pytest.raises(ErroDeNegocio) as e:
+            K.trocar_envelope(TOUR, ko["id"], 10)
+        assert e.value.code == "mystery_envelope_ja_trocado"
+
+    def test_pote_dividido_reparte_o_envelope_na_troca(self, mystery):
+        _iniciar_fisico(mystery, [{"value": 60, "quantity": 4}])
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp2", "tp3"])
+        trocado = K.trocar_envelope(TOUR, ko["id"], 60)
+        assert [p["cash_amount"] for p in trocado["payouts"]] == [D("30.00"), D("30.00")]
+
+    def test_nao_promete_mais_comprovantes_que_envelopes(self, mystery):
+        _iniciar_fisico(mystery, [{"value": 120, "quantity": 2}])
+        _, k1 = TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        _, k2 = TPS.eliminar("tp2", "u1", eliminated_by=["tp4"])
+        _, k3 = TPS.eliminar("tp3", "u1", eliminated_by=["tp4"])
+        assert (k1["envelope_pending"], k2["envelope_pending"], k3["envelope_pending"]) == (True, True, False)
+
+    def test_encerrar_com_comprovante_pendente_e_recusado(self, mystery):
+        _iniciar_fisico(mystery)
+        TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        with pytest.raises(ErroDeNegocio) as e:
+            K.encerrar(TOUR, "tp4", "u1")
+        assert e.value.code == "mystery_comprovantes_pendentes"
+
+    def test_desfazer_eliminacao_cancela_o_comprovante(self, mystery):
+        _iniciar_fisico(mystery)
+        TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        TPS.uneliminate_player("tp1")
+        assert K.resumo(TOUR)["mystery"]["pending_draws"] == 0
+
+    def test_pela_rota(self, client, mystery):
+        _iniciar_fisico(mystery)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp4"])
+        r = client.post(f"/tournaments/{TOUR}/knockouts/{ko['id']}/envelope", json={"value": 100})
+        assert r.status_code == 200, r.text
+        assert r.json()["envelope_pending"] is False
+        r = client.post(f"/tournaments/{TOUR}/knockouts/{ko['id']}/envelope", json={"value": 100})
+        assert r.status_code == 409 and r.json()["detail"]["code"] == "mystery_envelope_ja_trocado"
+
+
+class TestGarantidoMystery:
+    """O fundo é o MAIOR entre as entradas e o garantido; a diferença é da
+    casa, e o pool das posições continua descontando só as entradas."""
+
+    def test_fundo_usa_o_garantido_quando_e_maior(self, mystery):
+        mystery.store["tournaments"][0]["mystery_guarantee"] = 500
+        r = K.resumo(TOUR)
+        assert r["ko_pool"] == D("500.00") and r["entries_pool"] == D("240.00")
+        assert r["mystery_guarantee"] == D("500.00")
+
+    def test_entradas_acima_do_garantido_valem_as_entradas(self, mystery):
+        mystery.store["tournaments"][0]["mystery_guarantee"] = 100
+        assert K.resumo(TOUR)["ko_pool"] == D("240.00")
+
+    def test_envelopes_somam_o_garantido(self, mystery):
+        mystery.store["tournaments"][0]["mystery_guarantee"] = 500
+        with pytest.raises(ErroDeNegocio) as e:
+            K.iniciar_mystery(TOUR, ENVELOPES)                 # somam 240
+        assert e.value.code == "envelopes_soma_errada"
+        r = K.iniciar_mystery(TOUR, [{"value": 250, "quantity": 2}])
+        # O congelado é o das ENTRADAS (o que sai das posições).
+        assert mystery.store["tournaments"][0]["mystery_pool"] == 240
+        assert r["ko_pool"] == D("500.00")
+
+    def test_premio_manual_cabe_no_garantido(self, mystery):
+        mystery.store["tournaments"][0]["mystery_guarantee"] = 500
+        K.registrar_manual(TOUR, "tp2", 450)
+
+    def test_prize_summary_desconta_das_posicoes_so_as_entradas(self, mystery):
+        from app.services.prize_allocation_service import PrizeAllocationService as P
+        mystery.store["tournaments"][0]["mystery_guarantee"] = 5000
+        s = P.get_prize_summary(TOUR)
+        assert s.ko_fund == D("5000")
+        assert s.player_pool == s.net_pool - s.ko_pool
+        assert s.total_prize_pool == s.available_prize_pool + s.ko_fund

@@ -294,7 +294,9 @@
     "koHint_pko": "The eliminator gets part of the bounty in cash; the rest is added to their bounty. The champion takes their own bounty at the end. Requires eliminating at the tables.",
     "koHint_mystery": "The KO pool becomes envelopes when the floor starts the Mystery phase; each elimination draws an envelope. Requires eliminating at the tables.",
     "finalDayName": "Final Day",
-    "qualifyingDayName": "Day {{label}}"
+    "qualifyingDayName": "Day {{label}}",
+    "mysteryGuarantee": "Mystery guarantee (optional)",
+    "mysteryStartLevel": "Mystery phase from level (optional)"
   },
   "tournamentDays": {
     "restarted": "Day restarted.",
@@ -1064,7 +1066,9 @@
     "offlineQueued": "No connection: command queued; the screen updates when the internet is back",
     "reentries": "Re-entries",
     "eliminationByTableHint": "This tournament eliminates at the tables: each player is eliminated at their own seat, on the tables screen.",
-    "eliminateAtTables": "Eliminate at the tables →"
+    "eliminateAtTables": "Eliminate at the tables →",
+    "mysteryLevelReached": "Level {{level}}: time to start the Mystery phase.",
+    "openMystery": "Open Mystery tab"
   },
   "comingSoon": {
     "title": "Coming Soon",
@@ -1402,7 +1406,13 @@
     "premio_valor_invalido": "Enter an amount above zero.",
     "premio_jogador_invalido": "Choose a player registered in this tournament.",
     "premio_acima_do_pool": "{{disponivel}} left in the Mystery pool and the prize is {{solicitado}}.",
-    "premio_manual_ja_pago": "This prize was already paid at the cashier; it cannot be undone."
+    "premio_manual_ja_pago": "This prize was already paid at the cashier; it cannot be undone.",
+    "mystery_envelope_nao_trocado": "Exchange the voucher for an envelope before paying.",
+    "mystery_envelope_ja_trocado": "This voucher was already exchanged for an envelope.",
+    "mystery_envelope_inexistente": "No envelope of {{valor}} left: check the envelope amount.",
+    "mystery_comprovantes_pendentes": "There are {{quantidade}} Mystery voucher(s) not exchanged: exchange them before closing.",
+    "mystery_modo_invalido": "Choose the system draw or physical envelopes.",
+    "mystery_config_bloqueada": "The Mystery phase has started: the guarantee and start level can no longer change."
   },
   "premiacao": {
     "loadError": "Error loading prize data",
@@ -3508,6 +3518,24 @@
     "manualUndone": "Prize undone.",
     "confirmManualUndo": "Undo this manually recorded prize?",
     "paymentsTabHint": "This tab pays the positions. {{tab}} prizes are recorded and paid in the {{tab}} tab.",
-    "goToTab": "Open {{tab}} tab"
+    "goToTab": "Open {{tab}} tab",
+    "drawModeLabel": "Draw",
+    "drawModePhysical": "Physical envelopes: the player exchanges the voucher for an envelope and staff records the amount",
+    "drawModeSystem": "By the system: the system draws the envelope at the elimination",
+    "drawModePhysicalOn": "Physical envelopes: each elimination issues a voucher to exchange.",
+    "drawModeSystemOn": "System draw: each elimination draws an envelope.",
+    "vouchersTitle": "Vouchers to exchange",
+    "vouchersHint": "The player draws an envelope at the exchange point; choose the amount that came out.",
+    "envelopeDrawnLabel": "Envelope drawn",
+    "chooseEnvelope": "Choose the amount",
+    "registerEnvelope": "Record envelope",
+    "voucherExchanged": "Envelope recorded: the prize is under \"Pending payments\".",
+    "statusVoucher": "Voucher not exchanged",
+    "closeBlockedVouchers": "Exchange the {{count}} voucher(s) before closing.",
+    "guaranteeApplied": "Guaranteed {{guarantee}} (entries: {{entries}})",
+    "startLevelInfo": "The phase starts at level {{level}}: the Control screen alerts the floor when the clock gets there.",
+    "voucherTitle": "Mystery voucher",
+    "voucherHint": "Hand over the voucher: the player exchanges it for an envelope at the exchange point, and staff records the amount in the Mystery tab.",
+    "printVoucher": "Print voucher"
   }
 }

@@ -52,6 +52,14 @@ class MysteryEnvelopeInput(BaseModel):
 class MysteryStartRequest(BaseModel):
     day_id: Optional[str] = None
     envelopes: List[MysteryEnvelopeInput] = Field(..., min_length=1)
+    # 'system': o sistema sorteia; 'physical': envelopes de verdade, o staff
+    # registra o que saiu no ponto de troca.
+    draw_mode: str = Field("system", pattern="^(system|physical)$")
+
+
+class EnvelopeExchangeRequest(BaseModel):
+    """Sorteio físico: o valor do envelope que o jogador tirou."""
+    value: Decimal = Field(..., gt=0)
 
 
 class KnockoutPayoutOut(BaseModel):
@@ -78,6 +86,7 @@ class KnockoutOut(BaseModel):
     eliminated_name: Optional[str] = None
     bounty_value: Decimal = Decimal("0")
     cash_share: Decimal = Decimal("100")
+    envelope_pending: bool = False
     payouts: List[KnockoutPayoutOut] = []
 
 
@@ -102,6 +111,8 @@ class MysteryInfo(BaseModel):
     envelopes_total: int = 0
     envelopes_remaining: int = 0
     remaining: List[EnvelopeGroup] = []
+    draw_mode: str = "system"
+    pending_draws: int = 0
 
 
 class KnockoutSummary(BaseModel):
@@ -116,6 +127,11 @@ class KnockoutSummary(BaseModel):
     unclaimed: Decimal = Decimal("0")
     # Prêmios Mystery registrados à mão (envelopes abertos fora do sistema).
     manual_total: Decimal = Decimal("0")
+    # Mystery: o pool das ENTRADAS, o garantido (o fundo é o maior dos dois)
+    # e o nível em que a fase deve começar.
+    entries_pool: Decimal = Decimal("0")
+    mystery_guarantee: Decimal = Decimal("0")
+    mystery_start_level: Optional[int] = None
     bounties: List[PlayerBounty] = []
     knockouts: List[KnockoutOut] = []
     mystery: Optional[MysteryInfo] = None

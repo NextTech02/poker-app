@@ -294,7 +294,9 @@
     "koHint_pko": "Quem elimina leva parte do bounty em dinheiro; o resto soma no bounty dele. O campeão leva o próprio bounty no fim. Exige eliminação pelas mesas.",
     "koHint_mystery": "O pool KO vira envelopes quando o floor inicia a fase Mystery; cada eliminação sorteia um envelope. Exige eliminação pelas mesas.",
     "finalDayName": "Dia Final",
-    "qualifyingDayName": "Dia {{label}}"
+    "qualifyingDayName": "Dia {{label}}",
+    "mysteryGuarantee": "Garantido Mystery (opcional)",
+    "mysteryStartLevel": "Fase Mystery a partir do nível (opcional)"
   },
   "tournamentDays": {
     "restarted": "Dia reiniciado.",
@@ -1064,7 +1066,9 @@
     "offlineQueued": "Sem conexão: comando na fila; a tela atualiza quando a internet voltar",
     "reentries": "Reentradas",
     "eliminationByTableHint": "Este torneio elimina pelas mesas: o jogador é eliminado no próprio assento, na tela de mesas.",
-    "eliminateAtTables": "Eliminar pelas mesas →"
+    "eliminateAtTables": "Eliminar pelas mesas →",
+    "mysteryLevelReached": "Nível {{level}}: hora de iniciar a fase Mystery.",
+    "openMystery": "Abrir aba Mystery"
   },
   "comingSoon": {
     "title": "Em Construção",
@@ -1402,7 +1406,13 @@
     "premio_valor_invalido": "Informe um valor maior que zero.",
     "premio_jogador_invalido": "Escolha um jogador inscrito neste torneio.",
     "premio_acima_do_pool": "Sobram {{disponivel}} no pool Mystery e o prêmio é {{solicitado}}.",
-    "premio_manual_ja_pago": "Este prêmio já foi pago no caixa; não dá para desfazer."
+    "premio_manual_ja_pago": "Este prêmio já foi pago no caixa; não dá para desfazer.",
+    "mystery_envelope_nao_trocado": "Troque o comprovante por um envelope antes de pagar.",
+    "mystery_envelope_ja_trocado": "Este comprovante já foi trocado por um envelope.",
+    "mystery_envelope_inexistente": "Não sobra envelope de {{valor}}: confira o valor do envelope.",
+    "mystery_comprovantes_pendentes": "Há {{quantidade}} comprovante(s) Mystery sem troca: troque antes de encerrar.",
+    "mystery_modo_invalido": "Escolha o sorteio pelo sistema ou com envelopes físicos.",
+    "mystery_config_bloqueada": "A fase Mystery já começou: o garantido e o nível de início não mudam mais."
   },
   "premiacao": {
     "loadError": "Erro ao carregar dados da premiação",
@@ -3508,6 +3518,24 @@
     "manualUndone": "Prêmio desfeito.",
     "confirmManualUndo": "Desfazer este prêmio registrado à mão?",
     "paymentsTabHint": "Esta aba paga as posições. Os prêmios {{tab}} são registrados e pagos na aba {{tab}}.",
-    "goToTab": "Abrir aba {{tab}}"
+    "goToTab": "Abrir aba {{tab}}",
+    "drawModeLabel": "Sorteio",
+    "drawModePhysical": "Envelopes físicos: o jogador troca o comprovante por um envelope e o staff registra o valor",
+    "drawModeSystem": "Pelo sistema: o sistema sorteia o envelope na eliminação",
+    "drawModePhysicalOn": "Sorteio com envelopes físicos: cada eliminação gera um comprovante para trocar.",
+    "drawModeSystemOn": "Sorteio pelo sistema: cada eliminação sorteia um envelope.",
+    "vouchersTitle": "Comprovantes a trocar",
+    "vouchersHint": "O jogador tira um envelope no ponto de troca; escolha o valor que saiu.",
+    "envelopeDrawnLabel": "Envelope que saiu",
+    "chooseEnvelope": "Escolha o valor",
+    "registerEnvelope": "Registrar envelope",
+    "voucherExchanged": "Envelope registrado: o prêmio está em \"Pagamentos pendentes\".",
+    "statusVoucher": "Comprovante sem troca",
+    "closeBlockedVouchers": "Troque os {{count}} comprovante(s) antes de encerrar.",
+    "guaranteeApplied": "Garantido {{guarantee}} (entradas: {{entries}})",
+    "startLevelInfo": "A fase começa no nível {{level}}: o Controle avisa o floor quando o relógio chegar nele.",
+    "voucherTitle": "Comprovante Mystery",
+    "voucherHint": "Entregue o comprovante: o jogador troca por um envelope no ponto de troca, e o staff registra o valor na aba Mystery.",
+    "printVoucher": "Imprimir comprovante"
   }
 }

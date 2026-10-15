@@ -49,3 +49,11 @@ it('imprime numa janela nova; sem janela (bloqueador) devolve false', () => {
   expect(imprimirBilheteKo({ jogador: 'Ana', valor: 5 })).toBe(false);
   abrir.mockRestore();
 });
+
+it('comprovante do sorteio físico: sem valor, "1 sobre"', () => {
+  const html = htmlDoBilheteKo({ jogador: 'Ana', comprovante: true, formato: 'mystery', idioma: 'es-ES', formatarValor: formatar });
+  expect(html).toContain('COMPROBANTE MYSTERY');
+  expect(html).toContain('MYSTERY: 1 SOBRE');
+  expect(html).toContain('punto de canje');
+  expect(html).not.toContain('S/');
+});
