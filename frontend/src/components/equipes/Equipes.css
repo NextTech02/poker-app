@@ -1,0 +1,136 @@
+/* ── Torneio por equipes: modais e peças comuns (página, Caixa, Controle) ── */
+
+.eq-hint {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  margin: 6px 0 10px;
+}
+
+.eq-ok {
+  font-weight: 700;
+  color: var(--success-color, var(--brand-green));
+  margin: 4px 0 10px;
+}
+
+.eq-erro {
+  background: var(--danger-light);
+  color: var(--text-danger, var(--danger-color));
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 0.88rem;
+}
+
+.eq-avisos {
+  background: var(--warning-light);
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 12px 8px 28px;
+  margin: 0 0 16px;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+}
+
+.eq-link,
+.eq-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-gold);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.eq-link-btn.perigo { color: var(--text-danger, var(--danger-color)); }
+.eq-link-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Modais */
+.eq-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-dark, rgba(0, 0, 0, 0.65));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1100;
+}
+
+.eq-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-xl);
+  padding: 18px 20px;
+  color: var(--text-primary);
+}
+
+.eq-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.eq-modal-header h3 { margin: 0; font-size: 1.05rem; }
+
+.eq-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.eq-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.eq-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.eq-field label { font-size: 0.82rem; color: var(--text-secondary); }
+
+.eq-field input,
+.eq-field select {
+  padding: 8px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
+.eq-field-linha { flex-direction: row; align-items: center; justify-content: space-between; }
+.eq-field-linha input { width: 90px; }
+
+.eq-member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.eq-member-order {
+  width: 22px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.eq-member-select { flex: 1; min-width: 0; }
+
+.eq-captain {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+

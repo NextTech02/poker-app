@@ -1,0 +1,213 @@
+/* ── Torneio por equipes ─────────────────────────────────────────────── */
+
+.eq-abas {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.25rem;
+  border-bottom: 2px solid var(--surface);
+  overflow-x: auto;
+}
+
+.eq-aba {
+  padding: 0.7rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.eq-aba:hover { color: var(--text-primary); }
+
+.eq-aba.active {
+  color: var(--text-gold);
+  border-bottom-color: var(--brand-gold);
+}
+
+.eq-bloco {
+  background: var(--card-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg, 12px);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.eq-bloco h3 { margin: 0 0 8px; font-size: 1.02rem; }
+
+.eq-bloco-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.eq-acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Cartões das equipes */
+.eq-cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.eq-cartao {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  padding: 12px;
+  background: var(--secondary-bg);
+}
+
+.eq-cartao-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.eq-selo {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--warning-light);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.eq-selo.ok { background: var(--success-light); }
+
+.eq-integrantes {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 0.88rem;
+}
+
+.eq-integrantes li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.eq-situacao { font-size: 0.75rem; color: var(--text-secondary); }
+.eq-situacao-eliminated { color: var(--text-danger, var(--danger-color)); }
+
+.eq-aviso-curto { font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 8px; }
+
+.eq-cartao-acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Fase 1 */
+.eq-mesas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.eq-mesa {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  padding: 10px 12px;
+  background: var(--card-bg);
+}
+
+.eq-mesa.terminada { border-color: var(--brand-gold); }
+
+.eq-mesa-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.eq-mesa-status { font-size: 0.78rem; color: var(--text-secondary); }
+
+.eq-mesa-acoes { margin-top: 6px; text-align: right; }
+
+.eq-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.eq-tabela th,
+.eq-tabela td {
+  text-align: left;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border-primary);
+  vertical-align: middle;
+}
+
+.eq-tabela th { color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; }
+.eq-tabela tr.vivo td { color: var(--text-secondary); }
+.eq-ranking tr.na-final td:first-child { box-shadow: inset 3px 0 0 var(--brand-gold); }
+
+.eq-membros span { display: block; font-size: 0.8rem; color: var(--text-secondary); }
+
+.eq-correcoes { white-space: nowrap; }
+
+.eq-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  margin-right: 6px;
+  cursor: pointer;
+}
+
+.eq-mini {
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 1px 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.eq-mini:disabled { opacity: 0.4; cursor: default; }
+
+.eq-setas { display: inline-flex; gap: 2px; margin-left: 6px; }
+
+/* Final */
+.eq-equipes-final {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.eq-equipe-final {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  padding: 10px 12px;
+}
+
+.eq-equipe-final.caiu { opacity: 0.55; }
+
+.eq-equipe-final ol { margin: 6px 0 0; padding-left: 20px; font-size: 0.88rem; }
+.eq-equipe-final li { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; }
+
+.eq-linha-campos { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+
+@media (max-width: 600px) {
+  .eq-mesas,
+  .eq-cartoes { grid-template-columns: 1fr; }
+  .eq-aba { padding: 0.6rem 1rem; }
+}

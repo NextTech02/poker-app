@@ -381,3 +381,26 @@ describe('buildTvModel — lista de envelopes Mystery', () => {
     expect(antes.mysteryStartLevel).toBe(13);
   });
 });
+
+describe('buildTvModel — revezamento da final por equipes', () => {
+  const extras = {
+    relay: {
+      start_level: 1,
+      teams: [
+        { name: 'Los Ases', eliminated: false, members: ['Ana', 'Beto', 'Caio', 'Davi'] },
+        { name: 'Los Reyes', eliminated: true, members: ['Eva', 'Fabio'] },
+      ],
+    },
+  };
+
+  it('quem joga no nível do relógio e quem entra no próximo', () => {
+    const m = buildTvModel({ isDayBased: true, timerState: relogio(), tournament: TORNEIO, tournamentDay: DIA, extras });
+    // Nível 4 → o 4º da ordem; depois a roda volta ao primeiro.
+    expect(m.relay[0]).toEqual({ name: 'Los Ases', eliminated: false, current: 'Davi', next: 'Ana' });
+    expect(m.relay[1].eliminated).toBe(true);
+  });
+
+  it('sem revezamento nos extras, lista vazia', () => {
+    expect(buildTvModel({ isDayBased: true, timerState: relogio(), tournament: TORNEIO, tournamentDay: DIA }).relay).toEqual([]);
+  });
+});

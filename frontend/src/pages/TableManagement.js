@@ -105,6 +105,23 @@ const TableManagement = () => {
   // A mesma leitura do torneio diz se ele tem premiação por eliminação (KO):
   // aí o ✕ pergunta QUEM eliminou, e o prêmio sai na hora.
   const ko = useTorneioKo(day?.tournament_id);
+  // Torneio por equipes: o sorteio separa os integrantes de cada equipe e o
+  // assento mostra a equipe do jogador.
+  const porEquipes = !!ko.torneio?.team_mode;
+  const [equipeDoJogador, setEquipeDoJogador] = useState(() => new Map());
+  useEffect(() => {
+    if (!porEquipes || !day?.tournament_id) return undefined;
+    let vivo = true;
+    api.get(`/tournaments/${day.tournament_id}/teams`, { _silentError: true })
+      .then((res) => {
+        if (!vivo) return;
+        const mapa = new Map();
+        (res?.data?.teams || []).forEach((e) => (e.members || []).forEach((m) => mapa.set(m.player_id, e.name)));
+        setEquipeDoJogador(mapa);
+      })
+      .catch(() => { /* sem a lista, os assentos ficam sem a etiqueta */ });
+    return () => { vivo = false; };
+  }, [porEquipes, day?.tournament_id]);
   const porMesa = !!ko.torneio && modoDoTorneio(ko.torneio) === MODO_MESA;
   const [eliminando, setEliminando] = useState(null); // { inscrito, nome, mesa }
   const [enviandoElim, setEnviandoElim] = useState(false);
@@ -330,8 +347,9 @@ const TableManagement = () => {
   const handleBulkAllocate = async () => {
     setBulkLoading(true);
     try {
-      // Persist the selected mode so individual buy-ins also use it
-      await api.patch(`/tournament-days/${dayId}`, { allocation_mode: bulkMode });
+      // Persist the selected mode so individual buy-ins also use it. Por
+      // equipes o servidor usa o sorteio por equipes, qualquer que seja o modo.
+      if (!porEquipes) await api.patch(`/tournament-days/${dayId}`, { allocation_mode: bulkMode });
 
       const res = await api.post(`/allocations/day/${dayId}/bulk`, {
         mode: bulkMode,
@@ -341,7 +359,7 @@ const TableManagement = () => {
       setShowBulkModal(false);
       toast.success(t('tableManagement.bulkAllocateSuccess', { count: res.data.length }));
     } catch (err) {
-      toast.error(t('tableManagement.errorBulkAllocate', { detail: err.response?.data?.detail || err.message }));
+      toast.error(t('tableManagement.errorBulkAllocate', { detail: motivoDoErro(err) }));
     } finally {
       setBulkLoading(false);
     }
@@ -548,6 +566,9 @@ const TableManagement = () => {
             </svg>
             {bounty != null && (
               <span className="ko-selo-bounty" title={t('ko.bounty', 'Bounty')}>{formatCurrency(bounty)}</span>
+            )}
+            {porEquipes && equipeDoJogador.get(allocation.player_id) && (
+              <span className="tm-seat-team" title={t('teams.team', 'Equipe')}>{equipeDoJogador.get(allocation.player_id)}</span>
             )}
             {porMesa && (
               <button
@@ -868,6 +889,11 @@ const TableManagement = () => {
                 <p className="tm-hint-text">
                   {t('tableManagement.bulkModalHint', { count: unallocated.length })}
                 </p>
+                {porEquipes ? (
+                  <p className="tm-hint-text">
+                    {t('teams.bulkHint', 'Torneio por equipes: o sorteio coloca os integrantes de cada equipe em mesas diferentes, no máximo 8 por mesa, e reparte as mesas maiores entre as equipes.')}
+                  </p>
+                ) : (
                 <div className="tm-mode-select">
                   <label className="tm-mode-label">{t('tableManagement.distributionMode')}</label>
                   <div className="tm-mode-options">
@@ -894,9 +920,11 @@ const TableManagement = () => {
                     ))}
                   </div>
                 </div>
+                )}
               </div>
               <div className="tm-modal-actions">
                 <button type="button" className="tm-btn-secondary" onClick={() => setShowBulkModal(false)}>{t('common.cancel')}</button>
+                {!porEquipes && (
                 <button
                   type="button"
                   className="tm-btn-outline"
@@ -906,6 +934,7 @@ const TableManagement = () => {
                 >
                   {t('tableManagement.setMode')}
                 </button>
+                )}
                 <button
                   type="button"
                   className="tm-btn-primary"

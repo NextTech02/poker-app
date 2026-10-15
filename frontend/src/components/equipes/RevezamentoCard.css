@@ -1,0 +1,38 @@
+/* Cartão do revezamento no Controle */
+.rv-card {
+  border: 1px solid var(--brand-gold);
+  border-radius: var(--radius-lg, 12px);
+  padding: 12px 14px;
+  margin: 12px 0;
+  background: var(--card-bg);
+}
+
+.rv-card h3 { margin: 0 0 4px; font-size: 1rem; }
+
+.rv-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.rv-equipe {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  padding: 6px 10px;
+  font-size: 0.86rem;
+}
+
+.rv-equipe.caiu { opacity: 0.5; }
+.rv-agora { font-weight: 700; color: var(--text-gold); }
+.rv-proximo { font-size: 0.78rem; color: var(--text-secondary); }
+
+.rv-card.rv-trocou { box-shadow: 0 0 0 2px var(--brand-gold); }
+
+.rv-aviso {
+  background: var(--warning-light);
+  border-radius: var(--radius-md, 8px);
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  margin: 6px 0;
+}

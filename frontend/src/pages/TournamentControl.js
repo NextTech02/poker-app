@@ -14,6 +14,7 @@ import { uuid } from '../offline/db';
 import { nivelExibido } from '../utils/nivelExibido';
 import { MODO_MESA, useModoDeEliminacao } from '../hooks/useModoDeEliminacao';
 import { useTorneioKo } from '../hooks/useTorneioKo';
+import RevezamentoCard from '../components/equipes/RevezamentoCard';
 import './TournamentControl.css';
 
 const TournamentControl = () => {
@@ -317,6 +318,10 @@ const TournamentControl = () => {
               <span>{t('control.mysteryLevelReached', { level: nivelMystery, defaultValue: `Nível ${nivelMystery}: hora de iniciar a fase Mystery.` })}</span>
               <Link to={`/premiacao/${day.tournament_id}?aba=ko`}>{t('control.openMystery', 'Abrir aba Mystery')}</Link>
             </div>
+          )}
+          {/* Torneio por equipes, dia final: quem joga em cada nível. */}
+          {torneioKo?.team_mode && day?.day_type === 'final' && (
+            <RevezamentoCard tournamentId={day.tournament_id} dayId={dayId} nivel={nivelAtual} emIntervalo={isBreak} />
           )}
           <div className="control-header">
             <h1>{day?.day_name}</h1>

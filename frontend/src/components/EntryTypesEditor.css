@@ -83,3 +83,14 @@
     width: auto;
   }
 }
+
+/* Torneio por equipes: "por equipe" abaixo da categoria */
+.entry-method-team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}

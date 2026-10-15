@@ -36,6 +36,7 @@ import './components/SkeletonLoader.css';
 const Seguranca = lazy(() => import('./pages/Seguranca'));
 const TournamentBroadcast = lazy(() => import('./pages/TournamentBroadcast'));
 const TournamentDetail = lazy(() => import('./pages/TournamentDetail'));
+const TorneioEquipes = lazy(() => import('./pages/TorneioEquipes'));
 const ManualAllocation = lazy(() => import('./pages/ManualAllocation'));
 const TableManagement = lazy(() => import('./pages/TableManagement'));
 const TournamentRankings = lazy(() => import('./pages/TournamentRankings'));
@@ -389,6 +390,14 @@ function AppRoutes() {
         element={
           <PrivateRoute module="tournament" permission="tournaments">
             <TournamentDetail />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/torneios/:id/equipes"
+        element={
+          <PrivateRoute module="tournament" permission="tournaments">
+            <TorneioEquipes />
           </PrivateRoute>
         }
       />

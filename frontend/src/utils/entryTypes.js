@@ -32,6 +32,8 @@ export const novaLinha = (dados = {}) => ({
   // está gravado — inclusive zero, que é decisão e não ausência.
   rake_percentage: semValor(dados.rake_percentage) ? String(RAKE_PADRAO) : String(dados.rake_percentage),
   chips: semValor(dados.chips) ? String(FICHAS_PADRAO) : String(dados.chips),
+  // Torneio por equipes: valor da EQUIPE inteira, dividido no "Cobrar equipe".
+  per_team: !!dados.per_team,
 });
 
 export const numero = (texto) => {
@@ -107,6 +109,7 @@ export const meiosParaApi = (linhas, inativos = []) => [
     amount: numero(l.amount),
     rake_percentage: numero(l.rake_percentage),
     chips: inteiro(l.chips),
+    per_team: !!l.per_team && l.category === 'buy_in',
     active: true,
     // A ordem da tela é a ordem que o Caixa mostra: o operador organiza aqui.
     sort_order: indice,
@@ -119,6 +122,7 @@ export const meiosParaApi = (linhas, inativos = []) => [
     amount: m.amount,
     rake_percentage: m.rake_percentage,
     chips: m.chips,
+    per_team: !!m.per_team,
     active: false,
     sort_order: linhas.length + indice,
   })),
@@ -137,7 +141,8 @@ export const primeiroDa = (linhas, categoria) =>
  * rebuy é de graça; nulo diz que ele não existe.
  */
 export const colunasDoDia = (linhas) => {
-  const entrada = primeiroDa(linhas, 'buy_in');
+  // O meio "por equipe" tem o preço da EQUIPE: não é o buy-in de um jogador.
+  const entrada = linhas.find((l) => l.category === 'buy_in' && !l.per_team) || primeiroDa(linhas, 'buy_in');
   const recompra = primeiroDa(linhas, 'rebuy');
   const addon = primeiroDa(linhas, 'addon');
   return {

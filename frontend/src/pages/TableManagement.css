@@ -869,3 +869,15 @@
   color: #e8f0fe;
   border-color: var(--card-bg-active);
 }
+
+/* Torneio por equipes: a equipe do jogador no assento */
+.tm-seat-team {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.62rem;
+  color: var(--text-gold);
+  font-weight: 600;
+}

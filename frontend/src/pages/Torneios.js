@@ -14,6 +14,7 @@ import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { colunasDoDia, linhasDaApi, meiosPadrao, meiosParaApi, validarMeios } from '../utils/entryTypes';
 import { FORMATOS_KO, formatoKo, koParaApi } from '../utils/ko';
+import { MAX_FINALISTAS, equipesDoTorneio, equipesParaApi } from '../utils/equipes';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Torneios.css';
@@ -51,6 +52,12 @@ const FORM_INICIAL = {
   // Mystery: garantido do fundo e nível em que a fase começa.
   mystery_guarantee: '',
   mystery_start_level: '',
+  // Torneio por equipes (bases do NSOP): Fase 1 = um dia classificatório com
+  // pontos por mesa; Fase 2 = o dia final por revezamento.
+  team_mode: false,
+  team_finalists: '',
+  team_tiebreak: 'best_individual',
+  team_allow_reentry: false,
   qualifying_days: 2,
   qualifying_max_players: 100,
   qualifying_rebuy_level_limit: '',
@@ -103,6 +110,8 @@ const Torneios = () => {
   // chegar, o formato fica travado e o salvar não mexe no KO — senão a tela
   // mandaria "Nenhuma" por cima de um torneio Mystery.
   const [koCarregado, setKoCarregado] = useState(false);
+  // O torneio editado ERA por equipes? Desligar o modo precisa ir explícito.
+  const [eraPorEquipes, setEraPorEquipes] = useState(false);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
@@ -185,6 +194,7 @@ const Torneios = () => {
         has_qualifying: formData.has_qualifying,
         elimination_mode: formData.elimination_mode || 'bulk',
         ...koParaApi(formData),
+        ...equipesParaApi(formData),
       });
       const newTournamentId = res?.data?.id;
 
@@ -206,7 +216,9 @@ const Torneios = () => {
       // plus N qualifying days, each already linked to the final via
       // qualifies_to_day_id — so the operator doesn't create them day by day.
       if (formData.has_qualifying && newTournamentId) {
-        const qCount = Math.max(1, parseInt(formData.qualifying_days, 10) || 1);
+        // Por equipes: UM dia de Fase 1 (pontos por mesa) + a final por revezamento.
+        const porEquipes = !!formData.team_mode;
+        const qCount = porEquipes ? 1 : Math.max(1, parseInt(formData.qualifying_days, 10) || 1);
         // As colunas antigas do dia (buy_in, fichas...) seguem o primeiro meio
         // de cada categoria: telas e relatórios que ainda as leem não podem
         // contar uma história diferente da que o Caixa cobra.
@@ -215,7 +227,9 @@ const Torneios = () => {
           const finalRes = await api.post('/tournament-days', {
             tournament_id: newTournamentId,
             // No idioma da tela: "Día Final" / "Dia Final" / "Final Day".
-            day_name: t('tournaments.finalDayName', 'Dia Final'),
+            day_name: porEquipes
+              ? t('teams.finalDayName', 'Final por revezamento')
+              : t('tournaments.finalDayName', 'Dia Final'),
             day_number: qCount + 1,
             day_type: 'final',
             buy_in: 0,
@@ -229,7 +243,12 @@ const Torneios = () => {
             const dayRes = await api.post('/tournament-days', {
               tournament_id: newTournamentId,
               // "Día 1A", "Día 1B"… — como o clube chama os classificatórios.
-              day_name: t('tournaments.qualifyingDayName', 'Dia {{label}}', { label: rotuloDoClassificatorio(i) }),
+              day_name: porEquipes
+                ? t('teams.stage1DayName', 'Fase 1 — Pontos por mesa')
+                : t('tournaments.qualifyingDayName', 'Dia {{label}}', { label: rotuloDoClassificatorio(i) }),
+              // Por equipes, o Caixa não senta ninguém: as mesas saem do
+              // sorteio por equipes (integrantes em mesas diferentes).
+              ...(porEquipes ? { allocation_type: 'manual' } : {}),
               day_number: i,
               day_type: 'qualifying',
               qualifies_to_day_id: finalDayId,
@@ -310,7 +329,7 @@ const Torneios = () => {
         // Trocar para "por mesa" com eliminações em massa já lançadas é
         // recusado pelo servidor (409) — a mensagem vem traduzida no erro.
         elimination_mode: formData.elimination_mode || 'bulk',
-        ...(koCarregado ? koParaApi(formData) : {}),
+        ...(koCarregado ? { ...koParaApi(formData), ...equipesParaApi(formData, eraPorEquipes) } : {}),
       });
       if (!entryLoadFailed) {
         try {
@@ -348,12 +367,32 @@ const Torneios = () => {
     });
   };
 
+  const handleCheck = (e) => {
+    const { name, checked } = e.target;
+    setFormData((atual) => ({ ...atual, [name]: checked }));
+  };
+
+  // Por equipes: Fase 1 (um classificatório) + final, eliminação pelas mesas
+  // (os pontos saem da posição em cada mesa) e sem KO.
+  const toggleTeams = () => setFormData((atual) => (atual.team_mode
+    ? { ...atual, team_mode: false }
+    : {
+      ...atual,
+      team_mode: true,
+      has_qualifying: true,
+      qualifying_days: 1,
+      elimination_mode: 'table',
+      ko_format: 'none',
+    }));
+
   // KO é só para torneio sem classificatórios (v1): ligar os classificatórios
   // desliga o KO, e o aviso no modal diz por quê.
   const toggleQualifying = () => setFormData((atual) => ({
     ...atual,
     has_qualifying: !atual.has_qualifying,
     ko_format: !atual.has_qualifying ? 'none' : atual.ko_format,
+    // Sem classificatório não há Fase 1: o modo por equipes sai junto.
+    team_mode: atual.has_qualifying ? false : atual.team_mode,
   }));
 
   const openEditModal = async (tournament) => {
@@ -371,11 +410,13 @@ const Torneios = () => {
     setEntryRows([]);
     setInactiveRows([]);
     setKoCarregado(false);
+    setEraPorEquipes(false);
     setShowEditModal(true);
     api.get(`/tournaments/${tournament.id}`, { _silentError: true })
       .then((res) => {
         if (!res?.data) return;
-        setFormData((atual) => ({ ...atual, ...koDoTorneio(res.data) }));
+        setFormData((atual) => ({ ...atual, ...koDoTorneio(res.data), ...equipesDoTorneio(res.data) }));
+        setEraPorEquipes(!!res.data.team_mode);
         setKoCarregado(true);
       })
       .catch(() => { /* sem o torneio, o KO fica travado e não é enviado */ });
@@ -669,7 +710,9 @@ const Torneios = () => {
             title={t('tournaments.newTournament')}
             formData={formData}
             onChange={handleChange}
+            onCheck={handleCheck}
             onToggleQualifying={toggleQualifying}
+            onToggleTeams={toggleTeams}
             onSubmit={handleSubmit}
             onClose={() => { setShowModal(false); setFormError(''); }}
             submitLabel={t('tournaments.createFirst')}
@@ -691,7 +734,9 @@ const Torneios = () => {
             title={t('tournaments.editTitle')}
             formData={formData}
             onChange={handleChange}
+            onCheck={handleCheck}
             onToggleQualifying={toggleQualifying}
+            onToggleTeams={toggleTeams}
             onSubmit={handleEditSubmit}
             onClose={() => { setShowEditModal(false); setFormError(''); }}
             submitLabel={t('tournaments.saveChanges')}
@@ -716,7 +761,7 @@ const Torneios = () => {
 
 /* ── Shared Modal — A7: inline error + loading state ── */
 const TournamentModal = ({
-  title, formData, onChange, onToggleQualifying, onSubmit, onClose, submitLabel, submitting,
+  title, formData, onChange, onCheck, onToggleQualifying, onToggleTeams, onSubmit, onClose, submitLabel, submitting,
   formError, blindTemplates = [], currency, t, isEditing,
   entryRows = [], onEntryRowsChange, entryError = '', onEntryError, entryLoadFailed = false,
   koBloqueado = false,
@@ -724,6 +769,7 @@ const TournamentModal = ({
   // O backdrop fecha no clique (mouse); no teclado o equivalente é o Esc.
   useEscapeKey(!submitting, onClose);
   const comKo = (formData.ko_format || 'none') !== 'none';
+  const porEquipes = !!formData.team_mode;
 
   return (
   <div
@@ -774,8 +820,9 @@ const TournamentModal = ({
         <div className="tr-elim-options" role="radiogroup" aria-labelledby="tr-elim-label">
           {MODOS_DE_ELIMINACAO.map((modo) => {
             const ativo = (formData.elimination_mode || 'bulk') === modo;
-            // Em massa não registra quem eliminou: indisponível com KO.
-            const bloqueado = modo === 'bulk' && comKo;
+            // Em massa não registra quem eliminou (KO) nem em qual mesa o
+            // jogador caiu (equipes): indisponível nos dois.
+            const bloqueado = modo === 'bulk' && (comKo || porEquipes);
             return (
               <label key={modo} className={`tr-elim-option ${ativo ? 'active' : ''}`}>
                 <input
@@ -904,13 +951,83 @@ const TournamentModal = ({
           currency={currency}
           disabled={submitting || entryLoadFailed}
           idPrefix="tr-entry"
+          porEquipe={porEquipes}
         />
+
+        {/* Torneio por equipes: Fase 1 (pontos por mesa) + final por
+            revezamento. Liga o classificatório e a eliminação por mesa. */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={porEquipes}
+          disabled={submitting || koBloqueado}
+          className={`tr-toggle-card ${porEquipes ? 'active' : ''}`}
+          onClick={onToggleTeams}
+        >
+          <div className="tr-toggle-text">
+            <span className="tr-toggle-title">{t('teams.toggle', 'Torneio por equipes')}</span>
+            <span className="tr-toggle-hint">
+              {t('teams.toggleHint', 'Equipes de 4: Fase 1 com pontos pela posição em cada mesa e final por revezamento a cada nível.')}
+            </span>
+          </div>
+          <div className={`tr-toggle-switch ${porEquipes ? 'on' : ''}`}>
+            <div className="tr-toggle-knob" />
+          </div>
+        </button>
+
+        {porEquipes && (
+          <div className="tr-qual-grid">
+            <div className="tr-field">
+              <label htmlFor="tr-team-finalists">{t('teams.finalists', 'Equipes na final')}</label>
+              <input
+                id="tr-team-finalists"
+                name="team_finalists"
+                type="number"
+                min="1"
+                max={MAX_FINALISTAS}
+                step="1"
+                value={formData.team_finalists}
+                onChange={onChange}
+                disabled={submitting}
+                placeholder={t('teams.finalistsPlaceholder', 'Definir depois')}
+              />
+            </div>
+            <div className="tr-field">
+              <label htmlFor="tr-team-tiebreak">{t('teams.tiebreak', '2º critério de desempate')}</label>
+              <select
+                id="tr-team-tiebreak"
+                name="team_tiebreak"
+                value={formData.team_tiebreak || 'best_individual'}
+                onChange={onChange}
+                disabled={submitting}
+              >
+                <option value="best_individual">{t('teams.tiebreak_best_individual', 'Melhores pontos individuais')}</option>
+                <option value="manual">{t('teams.tiebreak_manual', 'Decisão da direção')}</option>
+              </select>
+            </div>
+            <label className="tr-check">
+              <input
+                type="checkbox"
+                name="team_allow_reentry"
+                checked={!!formData.team_allow_reentry}
+                onChange={onCheck}
+                disabled={submitting}
+              />
+              {t('teams.allowReentry', 'Permitir reentrada na Fase 1 (vale a última eliminação)')}
+            </label>
+          </div>
+        )}
+        {porEquipes && (
+          <small className="tr-elim-rule">
+            {t('teams.formHint', 'O 1º critério de desempate é o capitão. A Fase 1 vira um dia classificatório e a final um dia final, já vinculados.')}
+          </small>
+        )}
 
         <button
           type="button"
           role="switch"
           aria-checked={!!formData.has_qualifying}
-          disabled={submitting}
+          disabled={submitting || porEquipes}
           className={`tr-toggle-card ${formData.has_qualifying ? 'active' : ''}`}
           onClick={onToggleQualifying}
         >
@@ -934,9 +1051,9 @@ const TournamentModal = ({
                 min="1"
                 max="20"
                 step="1"
-                value={formData.qualifying_days}
+                value={porEquipes ? 1 : formData.qualifying_days}
                 onChange={onChange}
-                disabled={submitting}
+                disabled={submitting || porEquipes}
               />
               <small>{t('tournaments.qualifyingDaysHint', 'Criaremos esses dias classificatórios + 1 dia final, já vinculados. Todos vendem os meios de entrada cadastrados acima.')}</small>
             </div>

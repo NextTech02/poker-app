@@ -426,7 +426,7 @@ describe('criar torneio simples', () => {
 
 describe('criar torneio com classificatórios', () => {
   const ligarQualificatorias = async () =>
-    userEvent.click(screen.getByRole('switch'));
+    userEvent.click(screen.getByRole('switch', { name: /qualifyingToggle/ }));
 
   const criarComQuali = async (ajustes = async () => {}) => {
     await abrirNovo();
@@ -920,7 +920,7 @@ describe('premiação por eliminação (KO)', () => {
     await montar();
     await abrirNovo();
     await userEvent.selectOptions(formatoKo(), 'ko');
-    await userEvent.click(screen.getByRole('switch'));
+    await userEvent.click(screen.getByRole('switch', { name: /qualifyingToggle/ }));
     expect(formatoKo()).toHaveValue('none');
     expect(formatoKo()).toBeDisabled();
     expect(screen.getByText(/só em torneio sem dias classificatórios/)).toBeInTheDocument();
@@ -1019,5 +1019,44 @@ describe('Mystery: garantido e nível no cadastro', () => {
     await userEvent.selectOptions(document.getElementById('tr-ko-format'), 'pko');
     expect(document.getElementById('tr-ko-guarantee')).toBeNull();
     expect(document.getElementById('tr-ko-level')).toBeNull();
+  });
+});
+
+describe('torneio por equipes', () => {
+  const ligarEquipes = () => userEvent.click(screen.getByRole('switch', { name: /Torneio por equipes/ }));
+
+  it('liga o classificatório e a eliminação por mesa, e cria Fase 1 + final', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Equipos');
+    await ligarEquipes();
+    expect(screen.getByRole('switch', { name: /qualifyingToggle/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /eliminationModeBulk/ })).toBeDisabled();
+    await userEvent.type(campo('Equipes na final'), '4');
+    await userEvent.selectOptions(campo('2º critério de desempate'), 'manual');
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/tournaments', expect.objectContaining({
+      has_qualifying: true, elimination_mode: 'table', team_mode: true, team_finalists: 4,
+      team_tiebreak: 'manual', team_allow_reentry: false,
+    })));
+    await waitFor(() => expect(api.post.mock.calls.filter((c) => c[0] === '/tournament-days')).toHaveLength(2));
+    const dias = api.post.mock.calls.filter((c) => c[0] === '/tournament-days').map((c) => c[1]);
+    expect(dias[0]).toMatchObject({ day_type: 'final', day_name: 'Final por revezamento' });
+    expect(dias[1]).toMatchObject({
+      day_type: 'qualifying', day_name: 'Fase 1 — Pontos por mesa', allocation_type: 'manual',
+    });
+  });
+
+  it('a Entrada pode ser cobrada por equipe', async () => {
+    await montar();
+    await abrirNovo();
+    expect(screen.queryByLabelText(/Por equipe/)).toBeNull();
+    await ligarEquipes();
+    await userEvent.click(screen.getByLabelText(/Por equipe/));
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Equipos');
+    await escreverNa(0, 'valor', '400');
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() => expect(enviosDeMeios()).toHaveLength(1));
+    expect(enviosDeMeios()[0][1].items[0]).toMatchObject({ category: 'buy_in', per_team: true, amount: 400 });
   });
 });

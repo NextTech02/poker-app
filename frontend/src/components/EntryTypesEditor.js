@@ -33,6 +33,9 @@ const EntryTypesEditor = ({
   currency,
   disabled = false,
   idPrefix = 'entry',
+  // Torneio por equipes: a Entrada pode ser cobrada POR EQUIPE (o valor é o
+  // da equipe inteira, dividido entre os integrantes no "Cobrar equipe").
+  porEquipe = false,
 }) => {
   const { t } = useTranslation();
   const [erroLocal, setErroLocal] = useState('');
@@ -152,6 +155,17 @@ const EntryTypesEditor = ({
                 <option value="addon">{t('tournamentDayForm.categoryAddon', 'Add-on')}</option>
                 <option value="fee">{t('tournamentDayForm.categoryFee', 'Taxa')}</option>
               </select>
+              {porEquipe && meio.category === 'buy_in' && (
+                <label className="entry-method-team">
+                  <input
+                    type="checkbox"
+                    checked={!!meio.per_team}
+                    onChange={(e) => alterar(meio.key, 'per_team', e.target.checked)}
+                    disabled={disabled}
+                  />
+                  {t('teams.perTeam', 'Por equipe (valor da equipe inteira)')}
+                </label>
+              )}
               {indice === 0 && (
                 <small className="form-hint" id={hintId}>
                   {t(

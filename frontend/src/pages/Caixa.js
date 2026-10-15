@@ -28,6 +28,7 @@ import { MODO_MESA, modoDoTorneio } from '../hooks/useModoDeEliminacao';
 import {
   alternarItem, eEntrada, fichasDoDia, fichasDoTipo, linhasDaMesmaVenda, montarItens, totaisDosItens,
 } from '../utils/vendaComposta';
+import CobrarEquipeModal from '../components/equipes/CobrarEquipeModal';
 import './Caixa.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -60,7 +61,12 @@ const Caixa = () => {
   const { formatCurrency } = useCurrency();
   const formatarFichas = (n) => Number(n || 0).toLocaleString(i18n?.language || 'pt-BR');
   const { activeMethods } = usePaymentMethods();
-  const { activeBuyTypes, tournamentId: torneioDosMeios, tiposCarregados, selectTournament } = useBuyTypes();
+  const { activeBuyTypes: todosOsMeios, tournamentId: torneioDosMeios, tiposCarregados, selectTournament } = useBuyTypes();
+  // Torneio por equipes: o meio "por equipe" tem o preço da EQUIPE inteira e
+  // nunca é vendido a um jogador só — sai da venda e vira o "Cobrar equipe".
+  const activeBuyTypes = useMemo(() => (todosOsMeios || []).filter((b) => !b.per_team), [todosOsMeios]);
+  const temMeioPorEquipe = useMemo(() => (todosOsMeios || []).some((b) => b.per_team), [todosOsMeios]);
+  const [cobrarEquipeDe, setCobrarEquipeDe] = useState(null);
   const { selectedStage } = useStage();
   const { isAdmin, hasPermission } = usePermissions();
 
@@ -1458,6 +1464,19 @@ const Caixa = () => {
                   </select>
                 </div>
 
+                {/* Torneio por equipes: a equipe inteira num lançamento só. */}
+                {temMeioPorEquipe && formData.tournament_id && torneioDosMeios === formData.tournament_id && (
+                  <div className="form-group">
+                    <button
+                      type="button"
+                      className="eq-link-btn"
+                      onClick={() => { setCobrarEquipeDe(formData.tournament_id); setShowModal(false); }}
+                    >
+                      {t('teams.chargeFromCashier', 'Inscrição por equipe? Cobrar equipe')}
+                    </button>
+                  </div>
+                )}
+
                 {/* Só o torneio com MAIS de um dia pergunta qual; no de dia
                     único o dia entra sozinho (loadTournamentDays) e aqui fica
                     só a linha com lotação e valor, para o operador conferir. */}
@@ -1918,6 +1937,17 @@ const Caixa = () => {
               </div>
             </div>
           </div>
+        )}
+        {cobrarEquipeDe && (
+          <CobrarEquipeModal
+            tournamentId={cobrarEquipeDe}
+            onFechar={() => setCobrarEquipeDe(null)}
+            onCobrado={(res) => {
+              setCobrarEquipeDe(null);
+              toast.success(t('teams.charged', 'Equipe cobrada: {{n}} inscrição(ões).', { n: res?.charged ?? 0 }));
+              loadData();
+            }}
+          />
         )}
       </main>
     </div>

@@ -2202,3 +2202,26 @@ describe('filtro do extrato por torneio e dia', () => {
     expect(screen.queryByRole('combobox', { name: /filterDay|^Dia$/ })).toBeNull();
   });
 });
+
+describe('torneio por equipes', () => {
+  const POR_EQUIPE = { id: 'bE', name: 'Equipo', category: 'buy_in', amount: 4000, rake_percentage: 10, chips: 30000, active: true, per_team: true };
+
+  it('o meio "por equipe" não aparece na venda individual; vira o "Cobrar equipe"', async () => {
+    useBuyTypes.mockReturnValue({
+      activeBuyTypes: [...TIPOS, POR_EQUIPE], tournamentId: 't1', tiposCarregados: true, selectTournament,
+    });
+    await montar();
+    await abrirModal();
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+    expect(caixaDoMeio('b1')).not.toBeNull();
+    expect(caixaDoMeio('bE')).toBeNull();
+    expect(screen.getByRole('button', { name: /Cobrar equipe/ })).toBeInTheDocument();
+  });
+
+  it('torneio comum não oferece a cobrança por equipe', async () => {
+    await montar();
+    await abrirModal();
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+    expect(screen.queryByRole('button', { name: /Cobrar equipe/ })).toBeNull();
+  });
+});

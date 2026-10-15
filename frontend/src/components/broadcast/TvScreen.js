@@ -363,6 +363,29 @@ const TvBuyTypes = ({ model }) => (
   </div>
 );
 
+/**
+ * Final por revezamento (torneio por equipes): uma linha com cada equipe, quem
+ * joga agora e quem entra no próximo nível.
+ */
+const TvRelay = ({ model, L }) => (
+  <div className="tv-relay" role="list" aria-label={L.relay}>
+    <span className="tv-relay-label">{L.relay}</span>
+    {model.relay.map((eq, i) => (
+      <span key={`${eq.name}-${i}`} className={`tv-relay-team ${eq.eliminated ? 'tv-relay-team--out' : ''}`} role="listitem">
+        <span className="tv-relay-name">{eq.name}</span>
+        {eq.eliminated ? (
+          <span className="tv-relay-out">{L.relayOut}</span>
+        ) : (
+          <>
+            <span className="tv-relay-now">{eq.current}</span>
+            <span className="tv-relay-next">{L.relayNext}: {eq.next}</span>
+          </>
+        )}
+      </span>
+    ))}
+  </div>
+);
+
 // ── Divulgação (coluna da direita) ──────────────────────────────────────────
 
 /**
@@ -567,13 +590,15 @@ const TvScreen = ({
   const hasPromo = mode !== 'break' && s.showPromo && !!promoKind(s.promoUrl);
   // Meios de entrada: só ao vivo, ligado pelo diretor e com lista no torneio.
   const hasBuyTypes = mode === 'live' && s.showBuyTypes && (model.buyTypes || []).length > 0;
+  // Revezamento da final por equipes: ao vivo e no intervalo.
+  const hasRelay = mode !== 'completed' && (model.relay || []).length > 0;
 
   const classes = [
     'tv-screen',
     `tv-screen--${mode}`,
     sidebarPrizes ? 'tv-screen--with-sidebar' : '',
     hasPromo ? 'tv-screen--with-side' : '',
-    hasBuyTypes ? 'tv-screen--with-buytypes' : '',
+    hasBuyTypes || hasRelay ? 'tv-screen--with-buytypes' : '',
     bottomPrizes ? 'tv-screen--with-bar' : '',
     className,
   ].filter(Boolean).join(' ');
@@ -599,7 +624,12 @@ const TvScreen = ({
           </aside>
         ) : prizesSidebar}
       </div>
-      {hasBuyTypes && <TvBuyTypes model={model} />}
+      {hasRelay ? (
+        <div className="tv-strips">
+          <TvRelay model={model} L={L} />
+          {hasBuyTypes && <TvBuyTypes model={model} />}
+        </div>
+      ) : hasBuyTypes && <TvBuyTypes model={model} />}
       {bottomPrizes && (
         <TvPrizes model={model} settings={s} L={L} currency={currency} forceScroll={forceScroll} />
       )}

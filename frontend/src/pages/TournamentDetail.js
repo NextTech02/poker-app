@@ -397,6 +397,9 @@ const TournamentDetail = () => {
   // ============================================
   // Extracted renderDayCard to avoid duplication
   // ============================================
+  // Torneio por equipes: a final sai dos pontos da Fase 1 (tela de Equipes).
+  const porEquipes = !!tournament?.team_mode;
+
   const renderDayCard = (day) => (
     <Card key={day.id} className="day-card">
       <div className="day-card-header">
@@ -451,7 +454,19 @@ const TournamentDetail = () => {
               logo depois de encerrado — por isso o botão existe nos dois
               estados. Vem ANTES de "Avançar Classificados" porque o avanço
               agora exige as fichas registradas. */}
-          {day.day_type === 'qualifying' && day.qualifies_to_day_id &&
+          {/* Por equipes, quem vai à final são EQUIPES (pontos da Fase 1):
+              fichas dos classificados e avançar não se aplicam — a final é
+              montada na tela de Equipes. */}
+          {porEquipes && day.day_type === 'qualifying' && (
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => navigate(`/torneios/${id}/equipes?aba=fase1`)}
+            >
+              {t('teams.stage1Button', 'Pontos da Fase 1')}
+            </Button>
+          )}
+          {!porEquipes && day.day_type === 'qualifying' && day.qualifies_to_day_id &&
             (day.status === 'active' || day.status === 'completed') && (
             <Button
               size="small"
@@ -470,7 +485,7 @@ const TournamentDetail = () => {
               >
                 {t('tournamentDays.reopenDay')}
               </Button>
-              {day.day_type === 'qualifying' && day.qualifies_to_day_id && (
+              {!porEquipes && day.day_type === 'qualifying' && day.qualifies_to_day_id && (
                 <Button
                   size="small"
                   variant="secondary"
@@ -757,6 +772,11 @@ const TournamentDetail = () => {
             <p className="subtitle">{t('tournaments.subtitle')}</p>
           </div>
           <div className="header-actions">
+            {porEquipes && (
+              <Button onClick={() => navigate(`/torneios/${id}/equipes`)}>
+                {t('teams.title', 'Equipes')}
+              </Button>
+            )}
             {!isQualifyingTournament && (
               <Button onClick={() => navigate(`/premiacao/${id}`)}>
                 {t('rankings.prize')}
@@ -849,6 +869,7 @@ const TournamentDetail = () => {
                     currency={currency}
                     disabled={salvandoMeios}
                     idPrefix="td-entry"
+                    porEquipe={!!tournament?.team_mode}
                   />
                 </div>
                 <div className="modal-actions">

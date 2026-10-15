@@ -593,3 +593,24 @@ describe('lista de envelopes Mystery no telão', () => {
     expect(document.querySelector('.tv-pool-ko')).toHaveTextContent('MYSTERY NO NÍVEL 13');
   });
 });
+
+describe('revezamento da final por equipes', () => {
+  const relay = [
+    { name: 'Los Ases', eliminated: false, current: 'Davi', next: 'Ana' },
+    { name: 'Los Reyes', eliminated: true, current: 'Eva', next: 'Fabio' },
+  ];
+
+  it('mostra cada equipe, quem joga e quem entra', () => {
+    montar({ model: { relay }, labels: BROADCAST_LABELS.es });
+    const linha = screen.getByRole('list', { name: 'RELEVOS' });
+    expect(linha).toHaveTextContent('Los Ases');
+    expect(linha).toHaveTextContent('Davi');
+    expect(linha).toHaveTextContent('SIGUIENTE: Ana');
+    expect(linha).toHaveTextContent('ELIMINADO');
+  });
+
+  it('torneio comum não tem a linha', () => {
+    montar();
+    expect(screen.queryByRole('list', { name: /REVEZAMENTO|RELEVOS|RELAY/ })).toBeNull();
+  });
+});

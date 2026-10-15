@@ -597,6 +597,59 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Revezamento (final por equipes): linha acima dos meios de entrada ───── */
+.tv-strips {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.tv-relay {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px 40px;
+  padding: 6px 32px 8px;
+  font-family: var(--font-display, 'Sora', sans-serif);
+}
+
+.tv-relay-label {
+  font-size: calc(24px * var(--tv-font, 1));
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--tv-c-tile-label, #f3f4f6);
+  opacity: 0.8;
+}
+
+.tv-relay-team {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.tv-relay-team--out { opacity: 0.45; text-decoration: line-through; }
+
+.tv-relay-name {
+  font-size: calc(28px * var(--tv-font, 1));
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--tv-c-tile-label, #f3f4f6);
+}
+
+.tv-relay-now {
+  font-size: calc(30px * var(--tv-font, 1));
+  font-weight: 800;
+  color: var(--tv-c-tile-value, var(--tv-accent));
+}
+
+.tv-relay-next,
+.tv-relay-out {
+  font-size: calc(20px * var(--tv-font, 1));
+  color: rgba(255, 255, 255, 0.65);
+}
+
 /* ── Prêmios: barra inferior ────────────────────────────────────────────── */
 .tv-prizes-bar {
   display: flex;

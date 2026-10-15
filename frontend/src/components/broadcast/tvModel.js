@@ -8,6 +8,7 @@
  */
 import { TV_DEFAULT_SETTINGS, TV_COLOR_KEYS } from './tvDefaults';
 import { nivelExibido } from '../../utils/nivelExibido';
+import { revezamentoDaEquipe } from '../../utils/equipes';
 
 export const extractYouTubeId = (url) => {
   if (!url) return null;
@@ -324,6 +325,20 @@ export const buildTvModel = ({
     : null;
   // Meios de entrada ativos do torneio, na ordem do Caixa, com QUANTAS vendas
   // houve por meio neste dia (o telão mostra a contagem, não o valor).
+  // Final por revezamento (torneio por equipes): quem joga agora e quem entra
+  // no próximo nível, por equipe. A rota pública manda só apelidos.
+  const relay = Array.isArray(extras?.relay?.teams)
+    ? extras.relay.teams.map((eq) => {
+      const membros = Array.isArray(eq.members) ? eq.members : [];
+      const { atual, proximo } = revezamentoDaEquipe(membros, level, Number(extras.relay.start_level) || 1);
+      return {
+        name: String(eq.name || ''),
+        eliminated: !!eq.eliminated,
+        current: atual || '',
+        next: proximo || '',
+      };
+    })
+    : [];
   const buyTypes = (extras?.buy_types || [])
     .filter((b) => b && String(b.name || '').trim())
     .map((b) => ({
@@ -360,6 +375,7 @@ export const buildTvModel = ({
     envelopes,
     mysteryStartLevel,
     buyTypes,
+    relay,
     totalPlayers: players.length,
   };
 };
