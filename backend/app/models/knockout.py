@@ -37,6 +37,13 @@ class KnockoutCloseRequest(BaseModel):
     champion_tp_id: str = Field(..., description="Inscrição do campeão: leva o próprio bounty e os sem autor")
 
 
+class KnockoutManualRequest(BaseModel):
+    """Prêmio Mystery entregue na mesa, registrado para o caixa pagar."""
+    recipient_tp_id: str = Field(..., description="Inscrição de quem recebe o prêmio")
+    value: Decimal = Field(..., gt=0)
+    eliminated_tp_id: Optional[str] = Field(None, description="Quem foi eliminado (opcional, para o registro)")
+
+
 class MysteryEnvelopeInput(BaseModel):
     value: Decimal = Field(..., gt=0)
     quantity: int = Field(..., ge=1)
@@ -107,6 +114,8 @@ class KnockoutSummary(BaseModel):
     paid: Decimal = Decimal("0")
     pending: Decimal = Decimal("0")
     unclaimed: Decimal = Decimal("0")
+    # Prêmios Mystery registrados à mão (envelopes abertos fora do sistema).
+    manual_total: Decimal = Decimal("0")
     bounties: List[PlayerBounty] = []
     knockouts: List[KnockoutOut] = []
     mystery: Optional[MysteryInfo] = None

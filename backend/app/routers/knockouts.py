@@ -12,6 +12,7 @@ from app.models.knockout import (
     EliminatorsUpdate,
     KnockoutBatchPayRequest,
     KnockoutCloseRequest,
+    KnockoutManualRequest,
     KnockoutOut,
     KnockoutPayRequest,
     KnockoutSummary,
@@ -92,6 +93,31 @@ def desfazer_encerramento(tournament_id: str, current_user: dict = Depends(get_c
         return KnockoutService.desfazer_encerramento(tournament_id, current_user.get("sub"))
     except ValueError as e:
         raise da_excecao(e, "encerramento_de_ko_recusado")
+
+
+@router.post("/{tournament_id}/knockouts/manual", response_model=KnockoutOut)
+def registrar_manual(
+    tournament_id: str,
+    body: KnockoutManualRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Registra um prêmio Mystery entregue na mesa (envelope aberto fora do
+    sistema). Fica pendente para o caixa pagar."""
+    try:
+        return KnockoutService.registrar_manual(
+            tournament_id, body.recipient_tp_id, body.value, body.eliminated_tp_id, current_user.get("sub"),
+        )
+    except ValueError as e:
+        raise da_excecao(e, "premio_manual_recusado")
+
+
+@router.delete("/{tournament_id}/knockouts/manual/{knockout_id}", response_model=KnockoutSummary)
+def desfazer_manual(tournament_id: str, knockout_id: str, current_user: dict = Depends(get_current_user)):
+    """Desfaz um prêmio registrado à mão, se ainda não foi pago."""
+    try:
+        return KnockoutService.desfazer_manual(tournament_id, knockout_id, current_user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e, "premio_manual_recusado")
 
 
 @router.post("/{tournament_id}/mystery/start", response_model=KnockoutSummary)

@@ -1047,6 +1047,15 @@ const Premiacao = () => {
         {/* ── TAB: PAGAMENTOS ───────────────────────────────────────────── */}
         {activeTab === 'pagamentos' && (
           <div className="prize-pool-section">
+            {comKo && (
+              // Esta aba paga as POSIÇÕES; os prêmios Mystery/KO têm aba própria.
+              <div className="ko-aviso-pagos">
+                <span>{t('ko.paymentsTabHint', { tab: NOME_DA_ABA[formatoDoKo] || 'KO', defaultValue: `Os prêmios ${NOME_DA_ABA[formatoDoKo] || 'KO'} são registrados e pagos na aba ${NOME_DA_ABA[formatoDoKo] || 'KO'}.` })}</span>
+                <button type="button" className="ko-btn-secondary" onClick={() => setActiveTab('ko')}>
+                  {t('ko.goToTab', { tab: NOME_DA_ABA[formatoDoKo] || 'KO', defaultValue: `Abrir aba ${NOME_DA_ABA[formatoDoKo] || 'KO'}` })}
+                </button>
+              </div>
+            )}
             {allocations.length === 0 ? (
               <div className="prem-empty">
                 <div className="prem-empty-icon">

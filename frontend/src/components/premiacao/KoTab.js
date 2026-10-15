@@ -28,6 +28,8 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
   const [envelopes, setEnvelopes] = useState([{ value: '', quantity: '' }]);
   const [campeao, setCampeao] = useState('');
   const [corrigindo, setCorrigindo] = useState(null);
+  // Prêmio Mystery registrado à mão (envelope aberto na mesa, fora do sistema).
+  const [manual, setManual] = useState({ recebe: '', valor: '', eliminado: '' });
 
   const carregar = useCallback(async () => {
     try {
@@ -47,6 +49,10 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
 
   const vivos = useMemo(() => inscritos.filter((i) => VIVOS.has(i.status || 'active')), [inscritos]);
   const nomePorInscrito = useMemo(() => new Map(inscritos.map((i) => [i.id, i.player_name])), [inscritos]);
+  const inscritosPorNome = useMemo(
+    () => inscritos.slice().sort((a, b) => String(a.player_name || '').localeCompare(String(b.player_name || ''))),
+    [inscritos],
+  );
 
   const executar = async (acao, sucesso) => {
     setOcupado(true);
@@ -100,9 +106,37 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
   const qtdEnvelopes = linhasValidas.reduce((s, e) => s + parseInt(e.quantity, 10), 0);
   const somaEnvelopes = Math.round(linhasValidas.reduce((s, e) => s + num(e.value) * parseInt(e.quantity, 10), 0) * 100) / 100;
   const pozo = num(resumo.ko_pool);
+  // Prêmios registrados à mão já saíram do pool: os envelopes somam o resto.
+  const alvoEnvelopes = Math.round((pozo - num(resumo.manual_total)) * 100) / 100;
   // Até um envelope por jogador vivo: menos também vale ("um por prêmio").
   const fechaQtd = qtdEnvelopes >= 1 && qtdEnvelopes <= vivos.length;
-  const fechaSoma = Math.abs(somaEnvelopes - pozo) < 0.005;
+  const fechaSoma = Math.abs(somaEnvelopes - alvoEnvelopes) < 0.005;
+
+  // ── Prêmio manual: só no Mystery, antes da fase NO SISTEMA ──────────────
+  const podeRegistrarManual = formato === 'mystery' && !mystery?.started_at && !encerrado;
+  const disponivelManual = Math.round((pozo - num(resumo.paid) - num(resumo.pending)) * 100) / 100;
+  const valorManual = num(manual.valor);
+  const manualValido = !!manual.recebe && valorManual > 0 && valorManual <= disponivelManual + 0.005;
+  const registrarManual = () => executar(async () => {
+    await api.post(`/tournaments/${tournamentId}/knockouts/manual`, {
+      recipient_tp_id: manual.recebe,
+      value: valorManual,
+      ...(manual.eliminado ? { eliminated_tp_id: manual.eliminado } : {}),
+    });
+    setManual({ recebe: '', valor: '', eliminado: '' });
+  }, t('ko.manualRegistered', 'Prêmio registrado: pague em "Pagamentos pendentes".'));
+  const desfazerManual = async (k) => {
+    const ok = await confirm(t('ko.confirmManualUndo', 'Desfazer este prêmio registrado à mão?'), { variant: 'danger' });
+    if (!ok) return;
+    executar(() => api.delete(`/tournaments/${tournamentId}/knockouts/manual/${k.id}`), t('ko.manualUndone', 'Prêmio desfeito.'));
+  };
+  // Linha do KO nas tabelas: quem caiu; o encerramento e o prêmio manual sem
+  // eliminado têm rótulo próprio.
+  const rotuloDoKo = (k) => {
+    if (k.kind === 'elimination') return k.eliminated_name;
+    if (k.kind === 'manual') return k.eliminated_name || t('ko.manualRow', 'Prêmio Mystery (manual)');
+    return t('ko.closingRow', 'Encerramento');
+  };
 
   const iniciarMystery = async () => {
     const ok = await confirm(t('ko.confirmStartMystery', {
@@ -225,7 +259,7 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
                   {t('ko.envelopeCount', { have: qtdEnvelopes, need: vivos.length, defaultValue: `Envelopes: ${qtdEnvelopes} (no máximo ${vivos.length}, um por jogador vivo)` })}
                 </div>
                 <div className={fechaSoma ? 'ok' : 'falta'}>
-                  {t('ko.envelopeSum', { have: formatCurrency(somaEnvelopes), need: formatCurrency(pozo), defaultValue: `Soma: ${formatCurrency(somaEnvelopes)} de ${formatCurrency(pozo)}` })}
+                  {t('ko.envelopeSum', { have: formatCurrency(somaEnvelopes), need: formatCurrency(alvoEnvelopes), defaultValue: `Soma: ${formatCurrency(somaEnvelopes)} de ${formatCurrency(alvoEnvelopes)}` })}
                 </div>
               </div>
               <div className="ko-actions">
@@ -253,6 +287,42 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
         </section>
       )}
 
+      {podeRegistrarManual && (
+        <section className="ko-secao" aria-labelledby="ko-manual-titulo">
+          <h4 id="ko-manual-titulo">{t('ko.manualTitle', 'Registrar prêmio Mystery')}</h4>
+          <p className="ko-hint">{t('ko.manualHint', 'Para envelope aberto na mesa sem a fase iniciada no sistema: diga quem recebeu e quanto. O prêmio fica em "Pagamentos pendentes" para o caixa pagar.')}</p>
+          <div className="ko-manual">
+            <label className="ko-config-campo">
+              <span>{t('ko.manualRecipient', 'Quem recebe')}</span>
+              <select value={manual.recebe} onChange={(e) => setManual((m) => ({ ...m, recebe: e.target.value, eliminado: m.eliminado === e.target.value ? '' : m.eliminado }))}>
+                <option value="">{t('ko.manualChoose', 'Escolha o jogador')}</option>
+                {inscritosPorNome.map((i) => <option key={i.id} value={i.id}>{i.player_name}</option>)}
+              </select>
+            </label>
+            <label className="ko-config-campo">
+              <span>{t('ko.manualValue', 'Valor do prêmio')}</span>
+              <input type="number" min="0" step="0.01" value={manual.valor}
+                onChange={(e) => setManual((m) => ({ ...m, valor: e.target.value }))} />
+            </label>
+            <label className="ko-config-campo">
+              <span>{t('ko.manualVictim', 'Quem foi eliminado (opcional)')}</span>
+              <select value={manual.eliminado} onChange={(e) => setManual((m) => ({ ...m, eliminado: e.target.value }))}>
+                <option value="">{t('ko.manualVictimNone', '—')}</option>
+                {inscritosPorNome.filter((i) => i.id !== manual.recebe).map((i) => <option key={i.id} value={i.id}>{i.player_name}</option>)}
+              </select>
+            </label>
+          </div>
+          <p className={`ko-hint ${valorManual > disponivelManual + 0.005 ? 'ko-manual-excede' : ''}`}>
+            {t('ko.manualAvailable', { value: formatCurrency(disponivelManual), defaultValue: `Disponível no pool Mystery: ${formatCurrency(disponivelManual)}` })}
+          </p>
+          <div className="ko-actions">
+            <button type="button" className="ko-btn-primary" disabled={ocupado || !manualValido} onClick={registrarManual}>
+              {t('ko.manualRegister', 'Registrar prêmio')}
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="ko-secao" aria-labelledby="ko-pend-titulo">
         <h4 id="ko-pend-titulo">{t('ko.pendingPayments', 'Pagamentos pendentes')}</h4>
         {pendentes.length === 0 ? (
@@ -272,7 +342,7 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
                 {pendentes.map((p) => (
                   <tr key={p.id}>
                     <td>{p.eliminator_name}</td>
-                    <td>{p.knockout.kind === 'elimination' ? p.knockout.eliminated_name : t('ko.closingRow', 'Encerramento')}</td>
+                    <td>{rotuloDoKo(p.knockout)}</td>
                     <td className="num">{formatCurrency(num(p.cash_amount))}</td>
                     <td>
                       <div className="ko-linha-acoes">
@@ -324,10 +394,16 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
                 else if (pagos === k.payouts.length) situacao = t('ko.paid', 'Pago');
                 return (
                   <tr key={k.id} className={k.status === 'undone' ? 'desfeito' : ''}>
-                    <td>{k.kind === 'elimination' ? k.eliminated_name : t('ko.closingRow', 'Encerramento')}</td>
+                    <td>{rotuloDoKo(k)}</td>
                     <td>{k.payouts.map((p) => p.eliminator_name).join(', ') || '—'}</td>
                     <td className="num">{formatCurrency(num(k.bounty_value))}</td>
-                    <td>{situacao}</td>
+                    <td>
+                      {situacao}
+                      {k.kind === 'manual' && k.status === 'active' && pagos === 0 && (
+                        <button type="button" className="ko-btn-secondary ko-btn-inline" disabled={ocupado}
+                          onClick={() => desfazerManual(k)}>{t('ko.manualUndo', 'Desfazer')}</button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

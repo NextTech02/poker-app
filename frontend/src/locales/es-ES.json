@@ -1396,7 +1396,13 @@
     "ko_exige_modo_mesa": "La premiación por eliminación exige eliminar por mesas: el modo masivo no registra quién eliminó.",
     "ko_sem_classificatorio": "Por ahora, la premiación por eliminación funciona solo en torneos sin días clasificatorios.",
     "ko_percentual_obrigatorio": "Indique el porcentaje del pozo que va a los premios por eliminación.",
-    "ko_config_bloqueada_com_vendas": "El torneo ya tiene ventas: el formato y los porcentajes del KO ya no pueden cambiar."
+    "ko_config_bloqueada_com_vendas": "El torneo ya tiene ventas: el formato y los porcentajes del KO ya no pueden cambiar.",
+    "premio_manual_so_mystery": "El premio manual es solo para torneos Mystery.",
+    "premio_manual_fase_iniciada": "La fase Mystery se inició en el sistema: los premios salen de los sobres sorteados.",
+    "premio_valor_invalido": "Indique un valor mayor que cero.",
+    "premio_jogador_invalido": "Elija un jugador inscrito en este torneo.",
+    "premio_acima_do_pool": "Quedan {{disponivel}} en el pozo Mystery y el premio es {{solicitado}}.",
+    "premio_manual_ja_pago": "Este premio ya fue pagado en caja; no se puede deshacer."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",
@@ -3486,6 +3492,22 @@
     "envelopeDrawnTitle": "Sobre sorteado",
     "pendingNoteMystery": "Lo que no se pague ahora queda pendiente en la pestaña Mystery de Premiación.",
     "noEliminatorMystery": "Sin eliminador (abandono o descalificación) — el sobre queda para el campeón",
-    "offlinePendingMystery": "Sin conexión: el sobre se sorteará al sincronizar y el pago queda pendiente en la pestaña Mystery de Premiación."
+    "offlinePendingMystery": "Sin conexión: el sobre se sorteará al sincronizar y el pago queda pendiente en la pestaña Mystery de Premiación.",
+    "manualTitle": "Registrar premio Mystery",
+    "manualHint": "Para sobre abierto en la mesa sin la fase iniciada en el sistema: indique quién lo recibió y cuánto. El premio queda en \"Pagos pendientes\" para que caja lo pague.",
+    "manualRecipient": "Quién recibe",
+    "manualChoose": "Elija al jugador",
+    "manualValue": "Valor del premio",
+    "manualVictim": "Quién fue eliminado (opcional)",
+    "manualVictimNone": "—",
+    "manualAvailable": "Disponible en el pozo Mystery: {{value}}",
+    "manualRegister": "Registrar premio",
+    "manualRegistered": "Premio registrado: páguelo en \"Pagos pendientes\".",
+    "manualRow": "Premio Mystery (manual)",
+    "manualUndo": "Deshacer",
+    "manualUndone": "Premio deshecho.",
+    "confirmManualUndo": "¿Deshacer este premio registrado a mano?",
+    "paymentsTabHint": "Esta pestaña paga las posiciones. Los premios {{tab}} se registran y pagan en la pestaña {{tab}}.",
+    "goToTab": "Abrir pestaña {{tab}}"
   }
 }

@@ -665,13 +665,16 @@ class KnockoutService:
         if not vivos:
             raise ErroDeNegocio("mystery_sem_jogadores", "Não há jogadores vivos para iniciar a fase.")
 
-        vendas, _, _ = KnockoutService._livro(tournament_id)
+        vendas, knockouts, payouts = KnockoutService._livro(tournament_id)
         pozo = sum(
             (ko_regras.dinheiro(v.get("bounty_amount")) for v in vendas
              if (v.get("status") or "active") == "active"),
             Decimal("0.00"),
         )
-        valores = ko_regras.validar_envelopes(list(envelopes), len(vivos), pozo)
+        # Prêmios registrados à mão já saíram do pool: os envelopes somam o resto.
+        valores = ko_regras.validar_envelopes(
+            list(envelopes), len(vivos), pozo - KnockoutService._premios_manuais(knockouts, payouts),
+        )
 
         marcado = (
             supabase.table("tournaments").update({
@@ -693,6 +696,134 @@ class KnockoutService:
                 "mystery_pool": None, "mystery_players_at_start": None,
             }).eq("id", str(tournament_id)).execute()
             raise
+        return KnockoutService.resumo(tournament_id)
+
+    # ── Prêmio manual (Mystery com os envelopes abertos fora do sistema) ────
+    @staticmethod
+    def _premios_manuais(knockouts: List[dict], payouts: List[dict]) -> Decimal:
+        """Σ dos prêmios registrados à mão (KOs `manual` ativos)."""
+        manuais = {
+            str(k["id"]) for k in knockouts
+            if k.get("kind") == "manual" and (k.get("status") or "active") == "active"
+        }
+        return sum(
+            (ko_regras.dinheiro(p.get("cash_amount")) for p in payouts if str(p.get("knockout_id")) in manuais),
+            Decimal("0.00"),
+        )
+
+    @staticmethod
+    def registrar_manual(tournament_id: str, recebe_tp_id: str, valor, eliminado_tp_id: Optional[str] = None,
+                         user_id: Optional[str] = None) -> dict:
+        """Registra um prêmio Mystery que o clube já entregou na mesa (envelope
+        aberto fora do sistema). Fica PENDENTE e é pago pelo caminho de sempre
+        (caixa geral, transação de prêmio KO).
+
+        Só no Mystery e só enquanto a fase não foi iniciada NO SISTEMA: depois
+        dela, os prêmios saem dos envelopes sorteados — os dois juntos pagariam
+        o pool duas vezes. O total registrado não passa do pool Mystery.
+        """
+        torneio = KnockoutService.config(tournament_id)
+        if ko_regras.formato(torneio) != "mystery":
+            raise ErroDeNegocio("premio_manual_so_mystery", "O prêmio manual é só para torneio Mystery.")
+        if torneio.get("ko_closed_at"):
+            raise ErroDeNegocio(
+                "ko_encerrado",
+                "Os bounties deste torneio já foram encerrados. Desfaça o encerramento para registrar eliminações.",
+                status=409,
+            )
+        if ko_regras.fase_mystery_iniciada(torneio):
+            raise ErroDeNegocio(
+                "premio_manual_fase_iniciada",
+                "A fase Mystery foi iniciada no sistema: os prêmios saem dos envelopes sorteados.",
+                status=409,
+            )
+        valor = ko_regras.dinheiro(valor)
+        if valor <= 0:
+            raise ErroDeNegocio("premio_valor_invalido", "Informe um valor maior que zero.")
+
+        inscritos = (
+            supabase.table("tournament_players").select("id, player_id, tournament_day_id")
+            .eq("tournament_id", str(tournament_id)).execute().data or []
+        )
+        por_id = {str(i["id"]): i for i in inscritos}
+        recebe = por_id.get(str(recebe_tp_id))
+        if not recebe:
+            raise ErroDeNegocio("premio_jogador_invalido", "Escolha um jogador inscrito neste torneio.")
+        eliminado = None
+        if eliminado_tp_id:
+            eliminado = por_id.get(str(eliminado_tp_id))
+            if not eliminado:
+                raise ErroDeNegocio("premio_jogador_invalido", "Escolha um jogador inscrito neste torneio.")
+            if str(eliminado["id"]) == str(recebe["id"]):
+                raise ErroDeNegocio("eliminador_e_a_vitima", "Quem foi eliminado não pode ser o próprio eliminador.")
+
+        vendas, knockouts, payouts = KnockoutService._livro(tournament_id)
+        pozo = sum(
+            (ko_regras.dinheiro(v.get("bounty_amount")) for v in vendas
+             if (v.get("status") or "active") == "active"),
+            Decimal("0.00"),
+        )
+        ativos = {str(k["id"]) for k in knockouts if (k.get("status") or "active") == "active"}
+        comprometido = sum(
+            (ko_regras.dinheiro(p.get("cash_amount")) for p in payouts if str(p.get("knockout_id")) in ativos),
+            Decimal("0.00"),
+        )
+        disponivel = pozo - comprometido
+        if valor > disponivel:
+            raise ErroDeNegocio(
+                "premio_acima_do_pool",
+                f"Sobram {disponivel} no pool Mystery e o prêmio é {valor}.",
+                disponivel=float(disponivel), solicitado=float(valor),
+            )
+
+        linha = {
+            **_org(torneio),
+            "tournament_id": str(tournament_id),
+            "tournament_day_id": (eliminado or recebe).get("tournament_day_id"),
+            "eliminated_tp_id": eliminado["id"] if eliminado else None,
+            "eliminated_player_id": eliminado.get("player_id") if eliminado else None,
+            "kind": "manual",
+            "format": "mystery",
+            "bounty_value": float(valor),
+            "cash_share": 100.0,
+            "status": "active",
+            "created_at": _agora(),
+        }
+        if user_id:
+            linha["created_by"] = user_id
+        knockout = supabase.table("tournament_knockouts").insert(linha).execute().data[0]
+        try:
+            KnockoutService._gravar_payouts(
+                knockout, torneio, valor, Decimal("100"), [str(recebe["id"])], {str(recebe["id"]): recebe},
+            )
+        except Exception:
+            supabase.table("tournament_knockouts").delete().eq("id", knockout["id"]).execute()
+            raise
+        return KnockoutService._detalhar_knockout(knockout)
+
+    @staticmethod
+    def desfazer_manual(tournament_id: str, knockout_id: str, user_id: Optional[str] = None) -> dict:
+        """Desfaz um prêmio registrado à mão, enquanto ninguém pagou."""
+        kos = (
+            supabase.table("tournament_knockouts").select("*")
+            .eq("id", str(knockout_id)).eq("tournament_id", str(tournament_id)).execute().data or []
+        )
+        if not kos or kos[0].get("kind") != "manual":
+            raise ErroDeNegocio("ko_nao_encontrado", "KO não encontrado.", status=404)
+        if (kos[0].get("status") or "active") != "active":
+            raise ErroDeNegocio("ko_desfeito", "Este KO foi desfeito e não pode ser pago.", status=409)
+        pagos = (
+            supabase.table("tournament_knockout_payouts").select("id, paid")
+            .eq("knockout_id", str(knockout_id)).execute().data or []
+        )
+        if any(p.get("paid") for p in pagos):
+            raise ErroDeNegocio(
+                "premio_manual_ja_pago", "Este prêmio já foi pago no caixa; não dá para desfazer.", status=409,
+            )
+        mudanca = {"status": "undone", "undone_at": _agora()}
+        if user_id:
+            mudanca["undone_by"] = user_id
+        supabase.table("tournament_knockouts").update(mudanca).eq("id", str(knockout_id)).execute()
         return KnockoutService.resumo(tournament_id)
 
     @staticmethod
@@ -849,6 +980,7 @@ class KnockoutService:
             "paid": pago,
             "pending": pendente,
             "unclaimed": ko_regras.sem_autor(knockouts, payouts),
+            "manual_total": KnockoutService._premios_manuais(knockouts, payouts),
             "bounties": bounties,
             "knockouts": [
                 KnockoutService._detalhar_knockout(k, por_ko.get(str(k["id"]), []), nomes) for k in lista

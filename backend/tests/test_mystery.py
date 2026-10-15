@@ -194,3 +194,89 @@ class TestRotasMystery:
         r = client.post(f"/tournaments/{TOUR}/mystery/start", json={"envelopes": [{"value": 10, "quantity": 1}]})
         assert r.status_code == 400
         assert r.json()["detail"]["code"] == "envelopes_soma_errada"
+
+
+class TestPremioManual:
+    """Envelope aberto na mesa sem passar pelo sistema (o que aconteceu no
+    MISTERY do NSOP em 2026-10-14): o clube registra quem recebeu e quanto,
+    e o caixa paga pelo caminho de sempre."""
+
+    def test_registra_pendente_para_quem_recebeu(self, mystery):
+        ko = K.registrar_manual(TOUR, "tp2", 100, eliminado_tp_id="tp1", user_id="u1")
+        assert ko["kind"] == "manual" and ko["format"] == "mystery"
+        assert ko["eliminated_tp_id"] == "tp1"
+        [p] = ko["payouts"]
+        assert p["eliminator_tp_id"] == "tp2"
+        assert p["cash_amount"] == D("100.00") and p["paid"] is False
+        r = K.resumo(TOUR)
+        assert r["pending"] == D("100.00") and r["manual_total"] == D("100.00")
+
+    def test_paga_pelo_caixa_geral_como_qualquer_ko(self, mystery):
+        ko = K.registrar_manual(TOUR, "tp2", 100)
+        K.pagar(TOUR, ko["payouts"][0]["id"], "u1")
+        assert len(_pagos(mystery)) == 1
+        [premio] = [t for t in mystery.store["transactions"] if t.get("type") == "prize"]
+        assert premio["prize_kind"] == "knockout" and float(premio["amount"]) == 100
+
+    def test_nao_passa_do_pool(self, mystery):
+        K.registrar_manual(TOUR, "tp2", 200)
+        with pytest.raises(ErroDeNegocio) as e:
+            K.registrar_manual(TOUR, "tp3", 50)   # sobram 40 de 240
+        assert e.value.code == "premio_acima_do_pool"
+        assert e.value.dados == {"disponivel": 40.0, "solicitado": 50.0}
+
+    def test_valor_e_jogador_validos(self, mystery):
+        with pytest.raises(ErroDeNegocio) as e:
+            K.registrar_manual(TOUR, "tp2", 0)
+        assert e.value.code == "premio_valor_invalido"
+        with pytest.raises(ErroDeNegocio) as e:
+            K.registrar_manual(TOUR, "fora", 10)
+        assert e.value.code == "premio_jogador_invalido"
+        with pytest.raises(ErroDeNegocio) as e:
+            K.registrar_manual(TOUR, "tp2", 10, eliminado_tp_id="tp2")
+        assert e.value.code == "eliminador_e_a_vitima"
+
+    def test_so_antes_da_fase_no_sistema(self, mystery):
+        _iniciar(mystery)
+        with pytest.raises(ErroDeNegocio) as e:
+            K.registrar_manual(TOUR, "tp2", 10)
+        assert e.value.code == "premio_manual_fase_iniciada"
+
+    def test_so_no_mystery(self, cenario):
+        cenario()   # torneio PKO
+        with pytest.raises(ErroDeNegocio) as e:
+            K.registrar_manual(TOUR, "tp2", 10)
+        assert e.value.code == "premio_manual_so_mystery"
+
+    def test_desfazer_enquanto_ninguem_pagou(self, mystery):
+        ko = K.registrar_manual(TOUR, "tp2", 100)
+        r = K.desfazer_manual(TOUR, ko["id"], "u1")
+        assert r["pending"] == D("0.00") and r["manual_total"] == D("0.00")
+        # Desfeito, o valor volta a caber no pool.
+        K.registrar_manual(TOUR, "tp3", 240)
+
+    def test_pago_nao_desfaz(self, mystery):
+        ko = K.registrar_manual(TOUR, "tp2", 100)
+        K.pagar(TOUR, ko["payouts"][0]["id"], "u1")
+        with pytest.raises(ErroDeNegocio) as e:
+            K.desfazer_manual(TOUR, ko["id"])
+        assert e.value.code == "premio_manual_ja_pago"
+
+    def test_iniciar_a_fase_depois_desconta_o_que_saiu_a_mao(self, mystery):
+        K.registrar_manual(TOUR, "tp2", 40)
+        with pytest.raises(ErroDeNegocio) as e:
+            K.iniciar_mystery(TOUR, ENVELOPES)          # somam 240; sobram 200
+        assert e.value.code == "envelopes_soma_errada"
+        r = K.iniciar_mystery(TOUR, [{"value": 100, "quantity": 2}])
+        assert r["mystery"]["envelopes_total"] == 2
+
+    def test_pelas_rotas(self, client, mystery):
+        r = client.post(f"/tournaments/{TOUR}/knockouts/manual",
+                        json={"recipient_tp_id": "tp2", "value": 100, "eliminated_tp_id": "tp1"})
+        assert r.status_code == 200, r.text
+        kid = r.json()["id"]
+        r = client.post(f"/tournaments/{TOUR}/knockouts/manual", json={"recipient_tp_id": "tp3", "value": 500})
+        assert r.status_code == 400 and r.json()["detail"]["code"] == "premio_acima_do_pool"
+        r = client.delete(f"/tournaments/{TOUR}/knockouts/manual/{kid}")
+        assert r.status_code == 200, r.text
+        assert float(r.json()["manual_total"]) == 0

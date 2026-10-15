@@ -255,3 +255,69 @@ describe('Mystery', () => {
     expect(api.delete).toHaveBeenCalledWith('/tournaments/t1/mystery/start');
   });
 });
+
+describe('prêmio Mystery registrado à mão', () => {
+  // MISTERY do NSOP: envelopes abertos na mesa sem a fase iniciada no
+  // sistema. O clube registra quem recebeu e quanto; o caixa paga depois.
+  const BASE = {
+    tournament_id: 't1', ko_format: 'mystery', closed_at: null, ko_pool: '3520.00',
+    paid: '0.00', pending: '0.00', unclaimed: '0.00', manual_total: '0.00', bounties: [], knockouts: [],
+    mystery: { started_at: null, envelopes_total: 0, envelopes_remaining: 0, remaining: [] },
+  };
+  const montarManual = async (resumo = BASE) => {
+    responder({ resumo });
+    render(<KoTab tournamentId="t1" torneio={{ id: 't1' }} inscritos={INSCRITOS} />);
+    await screen.findByText('ko.manualTitle');
+  };
+  const campo = (nome) => screen.getByLabelText(nome);
+
+  it('registra quem recebeu, o valor e (opcional) quem caiu', async () => {
+    await montarManual();
+    const botao = screen.getByRole('button', { name: 'ko.manualRegister' });
+    expect(botao).toBeDisabled();
+    await userEvent.selectOptions(campo('ko.manualRecipient'), 'tp-a');
+    await userEvent.type(campo('ko.manualValue'), '2000');
+    await userEvent.selectOptions(campo('ko.manualVictim'), 'tp-z');
+    // Quem recebe não aparece como eliminado.
+    expect(within(campo('ko.manualVictim')).queryByRole('option', { name: 'Ana' })).toBeNull();
+    await userEvent.click(botao);
+    expect(api.post).toHaveBeenCalledWith('/tournaments/t1/knockouts/manual', {
+      recipient_tp_id: 'tp-a', value: 2000, eliminated_tp_id: 'tp-z',
+    });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('ko.manualRegistered'));
+  });
+
+  it('não deixa passar do que sobra no pool', async () => {
+    await montarManual({ ...BASE, pending: '3000.00', manual_total: '3000.00' });
+    expect(screen.getByText(/ko.manualAvailable:S\/ 520.00/)).toBeInTheDocument();
+    await userEvent.selectOptions(campo('ko.manualRecipient'), 'tp-b');
+    await userEvent.type(campo('ko.manualValue'), '600');
+    expect(screen.getByRole('button', { name: 'ko.manualRegister' })).toBeDisabled();
+  });
+
+  it('com o registro à mão, os envelopes miram o que sobrou do pool', async () => {
+    await montarManual({ ...BASE, pending: '3000.00', manual_total: '3000.00' });
+    expect(screen.getByTestId('ko-conferencia')).toHaveTextContent('S/ 520.00');
+  });
+
+  it('o prêmio manual pendente pode ser desfeito; o pago não', async () => {
+    const manual = (id, paid) => ({
+      id, kind: 'manual', format: 'mystery', status: 'active', eliminated_tp_id: null, eliminated_name: null,
+      bounty_value: '1000.00',
+      payouts: [{ id: `po-${id}`, eliminator_tp_id: 'tp-b', eliminator_name: 'Bruno', cash_amount: '1000.00', added_to_bounty: '0', paid }],
+    });
+    await montarManual({ ...BASE, pending: '1000.00', paid: '1000.00', manual_total: '2000.00', knockouts: [manual('m1', false), manual('m2', true)] });
+    expect(screen.getAllByText('ko.manualRow').length).toBeGreaterThan(0);
+    const desfazer = screen.getAllByRole('button', { name: 'ko.manualUndo' });
+    expect(desfazer).toHaveLength(1);
+    await userEvent.click(desfazer[0]);
+    expect(api.delete).toHaveBeenCalledWith('/tournaments/t1/knockouts/manual/m1');
+  });
+
+  it('com a fase iniciada no sistema, o registro manual some', async () => {
+    responder({ resumo: { ...BASE, mystery: { started_at: '2026-10-14T22:00:00Z', envelopes_total: 3, envelopes_remaining: 3, remaining: [] } } });
+    render(<KoTab tournamentId="t1" torneio={{ id: 't1' }} inscritos={INSCRITOS} />);
+    await screen.findByText('ko.mysteryPhase');
+    expect(screen.queryByText('ko.manualTitle')).toBeNull();
+  });
+});

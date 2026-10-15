@@ -1511,3 +1511,22 @@ describe('torneio Mystery: aba e rótulos com o nome do formato', () => {
     expect(within(document.querySelector('.ko-pool-card')).getByText('ko.poolMystery')).toBeInTheDocument();
   });
 });
+
+it('na aba Pagos, um torneio Mystery aponta para a aba Mystery', async () => {
+  responder({
+    torneio: { id: 't1', name: 'MISTERY', ko_format: 'mystery', ko_percentage: 40 },
+    resumo: { ...RESUMO, ko_format: 'mystery', ko_pool: '3520', net_pool: '6000', player_pool: '2480' },
+  });
+  const base = api.get.getMockImplementation();
+  api.get.mockImplementation((url, ...resto) => (
+    url === '/tournaments/t1/knockouts/summary'
+      ? Promise.resolve({ data: { tournament_id: 't1', ko_format: 'mystery', ko_pool: '3520', paid: '0', pending: '0', unclaimed: '0', manual_total: '0', bounties: [], knockouts: [], mystery: { started_at: null, envelopes_total: 0, envelopes_remaining: 0, remaining: [] } } })
+      : base(url, ...resto)
+  ));
+  render(<MemoryRouter><Premiacao /></MemoryRouter>);
+  await waitFor(() => expect(screen.queryByText('common.loading')).toBeNull());
+  await irPara('premiacao.tabPayments');
+  expect(screen.getByText(/^ko\.paymentsTabHint/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /^ko\.goToTab/ }));
+  expect(await screen.findByText('ko.manualTitle')).toBeInTheDocument();
+});

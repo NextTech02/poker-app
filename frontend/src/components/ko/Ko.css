@@ -227,6 +227,55 @@
   white-space: nowrap;
 }
 
+/* Prêmio Mystery registrado à mão */
+.ko-manual {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.ko-config-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.ko-config-campo select,
+.ko-config-campo input {
+  padding: 7px 10px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border-primary);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
+.ko-manual-excede {
+  color: var(--text-danger);
+}
+
+.ko-btn-inline {
+  margin-left: 8px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+}
+
+/* Aviso na aba Pagos: os prêmios Mystery/KO são pagos na aba própria */
+.ko-aviso-pagos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
 /* ── Aba KO da Premiação ───────────────────────────────────────────────── */
 .ko-tab {
   display: flex;

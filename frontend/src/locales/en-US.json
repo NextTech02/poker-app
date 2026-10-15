@@ -1396,7 +1396,13 @@
     "ko_exige_modo_mesa": "Knockout prizes require eliminating at the tables: bulk mode does not record who eliminated whom.",
     "ko_sem_classificatorio": "For now, knockout prizes only work in tournaments without qualifying days.",
     "ko_percentual_obrigatorio": "Enter the percentage of the pool that goes to knockout prizes.",
-    "ko_config_bloqueada_com_vendas": "The tournament already has sales: the KO format and percentages can no longer change."
+    "ko_config_bloqueada_com_vendas": "The tournament already has sales: the KO format and percentages can no longer change.",
+    "premio_manual_so_mystery": "Manual prizes are only for Mystery tournaments.",
+    "premio_manual_fase_iniciada": "The Mystery phase was started in the system: prizes come from the drawn envelopes.",
+    "premio_valor_invalido": "Enter an amount above zero.",
+    "premio_jogador_invalido": "Choose a player registered in this tournament.",
+    "premio_acima_do_pool": "{{disponivel}} left in the Mystery pool and the prize is {{solicitado}}.",
+    "premio_manual_ja_pago": "This prize was already paid at the cashier; it cannot be undone."
   },
   "premiacao": {
     "loadError": "Error loading prize data",
@@ -3486,6 +3492,22 @@
     "envelopeDrawnTitle": "Envelope drawn",
     "pendingNoteMystery": "Anything not paid now stays pending in the Mystery tab of Prizes.",
     "noEliminatorMystery": "No eliminator (walk-out or disqualification) — the envelope stays for the champion",
-    "offlinePendingMystery": "Offline: the envelope will be drawn when syncing, and the payment stays pending in the Mystery tab of Prizes."
+    "offlinePendingMystery": "Offline: the envelope will be drawn when syncing, and the payment stays pending in the Mystery tab of Prizes.",
+    "manualTitle": "Record Mystery prize",
+    "manualHint": "For an envelope opened at the table without the phase started in the system: say who got it and how much. The prize goes to \"Pending payments\" for the cashier to pay.",
+    "manualRecipient": "Recipient",
+    "manualChoose": "Choose the player",
+    "manualValue": "Prize amount",
+    "manualVictim": "Who was eliminated (optional)",
+    "manualVictimNone": "—",
+    "manualAvailable": "Available in the Mystery pool: {{value}}",
+    "manualRegister": "Record prize",
+    "manualRegistered": "Prize recorded: pay it under \"Pending payments\".",
+    "manualRow": "Mystery prize (manual)",
+    "manualUndo": "Undo",
+    "manualUndone": "Prize undone.",
+    "confirmManualUndo": "Undo this manually recorded prize?",
+    "paymentsTabHint": "This tab pays the positions. {{tab}} prizes are recorded and paid in the {{tab}} tab.",
+    "goToTab": "Open {{tab}} tab"
   }
 }
