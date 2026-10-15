@@ -100,7 +100,8 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
   const qtdEnvelopes = linhasValidas.reduce((s, e) => s + parseInt(e.quantity, 10), 0);
   const somaEnvelopes = Math.round(linhasValidas.reduce((s, e) => s + num(e.value) * parseInt(e.quantity, 10), 0) * 100) / 100;
   const pozo = num(resumo.ko_pool);
-  const fechaQtd = qtdEnvelopes === vivos.length;
+  // Até um envelope por jogador vivo: menos também vale ("um por prêmio").
+  const fechaQtd = qtdEnvelopes >= 1 && qtdEnvelopes <= vivos.length;
   const fechaSoma = Math.abs(somaEnvelopes - pozo) < 0.005;
 
   const iniciarMystery = async () => {
@@ -194,7 +195,7 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
             </>
           ) : (
             <div className="ko-envelopes-editor">
-              <p className="ko-hint">{t('ko.mysteryEditorHint', 'Cadastre os envelopes: um por jogador vivo, somando exatamente o pool KO. Ao iniciar, as vendas do torneio são encerradas.')}</p>
+              <p className="ko-hint">{t('ko.mysteryEditorHint', 'Cadastre os envelopes (no máximo um por jogador vivo), somando exatamente o pool Mystery. Ao iniciar, as vendas do torneio são encerradas.')}</p>
               {envelopes.map((linha, i) => (
                 // eslint-disable-next-line react/no-array-index-key -- linhas sem id até serem gravadas
                 <div key={i} className="ko-envelope-linha">
@@ -221,7 +222,7 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
               </div>
               <div className="ko-conferencia" data-testid="ko-conferencia">
                 <div className={fechaQtd ? 'ok' : 'falta'}>
-                  {t('ko.envelopeCount', { have: qtdEnvelopes, need: vivos.length, defaultValue: `Envelopes: ${qtdEnvelopes} de ${vivos.length} jogadores vivos` })}
+                  {t('ko.envelopeCount', { have: qtdEnvelopes, need: vivos.length, defaultValue: `Envelopes: ${qtdEnvelopes} (no máximo ${vivos.length}, um por jogador vivo)` })}
                 </div>
                 <div className={fechaSoma ? 'ok' : 'falta'}>
                   {t('ko.envelopeSum', { have: formatCurrency(somaEnvelopes), need: formatCurrency(pozo), defaultValue: `Soma: ${formatCurrency(somaEnvelopes)} de ${formatCurrency(pozo)}` })}

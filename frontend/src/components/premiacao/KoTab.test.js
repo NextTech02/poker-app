@@ -177,7 +177,7 @@ describe('Mystery', () => {
     await screen.findByText('ko.mysteryPhase');
   };
 
-  it('só inicia quando há um envelope por jogador vivo e a soma fecha o pool', async () => {
+  it('só inicia quando a soma fecha o pool e não passa de um envelope por jogador vivo', async () => {
     await montarMystery();
     const iniciar = screen.getByRole('button', { name: 'ko.startMystery' });
     expect(iniciar).toBeDisabled();
@@ -195,6 +195,25 @@ describe('Mystery', () => {
     expect(api.post).toHaveBeenCalledWith('/tournaments/t1/mystery/start', {
       envelopes: [{ value: 150, quantity: 2 }],
     });
+  });
+
+  it('menos envelopes que jogadores vivos vale (um envelope por prêmio)', async () => {
+    await montarMystery();
+    const [valor] = screen.getAllByRole('spinbutton', { name: 'ko.envelopeValueLabel' });
+    const [qtd] = screen.getAllByRole('spinbutton', { name: 'ko.envelopeQtyLabel' });
+    // 2 vivos, 1 envelope com o pool inteiro.
+    await userEvent.type(valor, '300');
+    await userEvent.type(qtd, '1');
+    expect(screen.getByRole('button', { name: 'ko.startMystery' })).toBeEnabled();
+  });
+
+  it('mais envelopes que jogadores vivos não inicia', async () => {
+    await montarMystery();
+    const [valor] = screen.getAllByRole('spinbutton', { name: 'ko.envelopeValueLabel' });
+    const [qtd] = screen.getAllByRole('spinbutton', { name: 'ko.envelopeQtyLabel' });
+    await userEvent.type(valor, '100');
+    await userEvent.type(qtd, '3');
+    expect(screen.getByRole('button', { name: 'ko.startMystery' })).toBeDisabled();
   });
 
   it('com valores diferentes, cada linha vira um grupo de envelopes', async () => {

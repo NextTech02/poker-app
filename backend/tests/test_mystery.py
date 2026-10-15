@@ -63,8 +63,19 @@ class TestInicioDaFase:
     def test_envelopes_que_nao_fecham_sao_recusados(self, mystery):
         with pytest.raises(ErroDeNegocio) as e:
             K.iniciar_mystery(TOUR, [{"value": 60, "quantity": 3}])
-        assert e.value.code == "envelopes_quantidade_errada"
+        assert e.value.code == "envelopes_soma_errada"
         assert mystery.store["tournaments"][0].get("mystery_started_at") is None
+
+    def test_mais_envelopes_que_vivos_e_recusado(self, mystery):
+        with pytest.raises(ErroDeNegocio) as e:
+            K.iniciar_mystery(TOUR, [{"value": 48, "quantity": 5}])
+        assert e.value.code == "envelopes_quantidade_errada"
+
+    def test_menos_envelopes_que_vivos_inicia(self, mystery):
+        """4 vivos, 3 envelopes somando o pozo (240): vale."""
+        r = K.iniciar_mystery(TOUR, [{"value": 120, "quantity": 1}, {"value": 80, "quantity": 1}, {"value": 40, "quantity": 1}])
+        assert r["mystery"]["envelopes_total"] == 3
+        assert mystery.store["tournaments"][0]["mystery_players_at_start"] == 4
 
     def test_nao_inicia_duas_vezes(self, mystery):
         _iniciar(mystery)
@@ -182,4 +193,4 @@ class TestRotasMystery:
     def test_envelopes_errados_viram_400_com_codigo(self, client, mystery):
         r = client.post(f"/tournaments/{TOUR}/mystery/start", json={"envelopes": [{"value": 10, "quantity": 1}]})
         assert r.status_code == 400
-        assert r.json()["detail"]["code"] == "envelopes_quantidade_errada"
+        assert r.json()["detail"]["code"] == "envelopes_soma_errada"

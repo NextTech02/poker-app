@@ -166,8 +166,11 @@ def sem_autor(knockouts: Iterable[dict], payouts: Iterable[dict]) -> Decimal:
 def validar_envelopes(envelopes: Iterable[dict], jogadores: int, pozo) -> List[Decimal]:
     """Lista de envelopes (valor × quantidade) que o clube cadastrou.
 
-    Exige um envelope por jogador vivo e a soma EXATA do pozo KO congelado:
-    sobra viraria dinheiro sem dono; falta, prêmio sem dinheiro.
+    Exige a soma EXATA do pozo KO congelado (sobra viraria dinheiro sem dono;
+    falta, prêmio sem dinheiro) e NO MÁXIMO um envelope por jogador vivo. Menos
+    envelopes que vivos é válido — o NSOP faz "um envelope por prêmio": com 4
+    vivos e 3 envelopes, as 3 eliminações até o campeão sorteiam os 3. Quando
+    acabam, a eliminação segue sem envelope; sobrou algum, vai ao campeão.
     """
     valores: List[Decimal] = []
     for linha in envelopes:
@@ -179,10 +182,10 @@ def validar_envelopes(envelopes: Iterable[dict], jogadores: int, pozo) -> List[D
                 "Cada envelope precisa de valor maior que zero e quantidade de pelo menos 1.",
             )
         valores.extend([valor] * quantidade)
-    if len(valores) != jogadores:
+    if len(valores) > jogadores:
         raise ErroDeNegocio(
             "envelopes_quantidade_errada",
-            f"São {jogadores} jogadores vivos: cadastre {jogadores} envelopes (há {len(valores)}).",
+            f"São {jogadores} jogadores vivos: cadastre no máximo {jogadores} envelopes (há {len(valores)}).",
             esperado=jogadores,
             informado=len(valores),
         )

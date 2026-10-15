@@ -129,11 +129,19 @@ class TestEnvelopes:
         )
         assert sorted(valores) == [D("100.00")] * 3 + [D("500.00")] * 2
 
-    def test_quantidade_diferente_dos_vivos_e_recusada(self):
+    def test_menos_envelopes_que_vivos_vale(self):
+        # NSOP: um envelope por prêmio — 4 vivos, 3 envelopes.
+        valores = R.validar_envelopes(
+            [{"value": 2000, "quantity": 1}, {"value": 1000, "quantity": 1}, {"value": 520, "quantity": 1}],
+            jogadores=4, pozo=3520,
+        )
+        assert sorted(valores) == [D("520.00"), D("1000.00"), D("2000.00")]
+
+    def test_mais_envelopes_que_vivos_e_recusado(self):
         with pytest.raises(ErroDeNegocio) as e:
-            R.validar_envelopes([{"value": 100, "quantity": 3}], jogadores=5, pozo=300)
+            R.validar_envelopes([{"value": 100, "quantity": 6}], jogadores=5, pozo=600)
         assert e.value.code == "envelopes_quantidade_errada"
-        assert e.value.dados == {"esperado": 5, "informado": 3}
+        assert e.value.dados == {"esperado": 5, "informado": 6}
 
     def test_soma_diferente_do_pozo_e_recusada(self):
         with pytest.raises(ErroDeNegocio) as e:

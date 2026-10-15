@@ -647,8 +647,8 @@ class KnockoutService:
     # ── Mystery: fase ───────────────────────────────────────────────────────
     @staticmethod
     def iniciar_mystery(tournament_id: str, envelopes: Iterable[dict], day_id: Optional[str] = None) -> dict:
-        """Congela o pozo KO e cria os envelopes: um por jogador vivo, somando
-        exatamente o pozo. Depois disto, eliminar sorteia envelope."""
+        """Congela o pozo KO e cria os envelopes: até um por jogador vivo,
+        somando exatamente o pozo. Depois disto, eliminar sorteia envelope."""
         torneio = KnockoutService.config(tournament_id)
         if ko_regras.formato(torneio) != "mystery":
             raise ErroDeNegocio("torneio_nao_e_mystery", "Este torneio não é Mystery Bounty.")
