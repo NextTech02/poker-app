@@ -39,7 +39,7 @@ class PublicTvService:
     def get_day_extras(day_id: str) -> PublicTvExtras:
         resp = (
             supabase_admin.table("tournament_days")
-            .select("id, tournament_id, organization_id")
+            .select("id, tournament_id, organization_id, day_type")
             .eq("id", day_id)
             .limit(1)
             .execute()
@@ -63,8 +63,69 @@ class PublicTvService:
             prize_pool=PublicTvService._prize_pool(resumo),
             prizes=PublicTvService._prizes(tournament_id),
             buy_types=PublicTvService._buy_types(tournament_id, str(day["id"])),
+            # Só o dia FINAL pode ter revezamento: nos outros, nenhuma consulta a mais.
+            relay=PublicTvService._revezamento(tournament_id) if day.get("day_type") == "final" else None,
             **PublicTvService._ko(tournament_id, resumo),
         )
+
+    @staticmethod
+    def _revezamento(tournament_id: str) -> Optional[dict]:
+        """Final por revezamento (torneio por equipes): as equipes da final com
+        os integrantes na ordem. Torneio comum ou erro → None (o telão esconde
+        o painel)."""
+        try:
+            torneio = (
+                supabase_admin.table("tournaments").select("*")
+                .eq("id", tournament_id).limit(1).execute().data or []
+            )
+            if not torneio or not torneio[0].get("team_mode"):
+                return None
+            equipes = [
+                e for e in (
+                    supabase_admin.table("tournament_teams").select("id, name, final_tp_id, stage1_rank")
+                    .eq("tournament_id", tournament_id).execute().data or []
+                ) if e.get("final_tp_id")
+            ]
+            if not equipes:
+                return None
+            membros = (
+                supabase_admin.table("tournament_team_members").select("team_id, player_id, relay_order")
+                .eq("tournament_id", tournament_id).execute().data or []
+            )
+            ids = sorted({str(m["player_id"]) for m in membros})
+            jogadores = {
+                str(j["id"]): j for j in (
+                    supabase_admin.table("players").select("id, name, nickname").in_("id", ids).execute().data or []
+                )
+            } if ids else {}
+            situacao = {
+                str(l["id"]): l.get("status") for l in (
+                    supabase_admin.table("tournament_players").select("id, status")
+                    .in_("id", [str(e["final_tp_id"]) for e in equipes]).execute().data or []
+                )
+            }
+        except Exception as exc:  # decorativo: nunca derruba o telão
+            logger.warning("Revezamento do torneio %s não lido para o telão: %s", tournament_id, exc)
+            return None
+
+        def apelido(player_id: str) -> str:
+            j = jogadores.get(str(player_id)) or {}
+            if (j.get("nickname") or "").strip():
+                return j["nickname"].strip()
+            return ((j.get("name") or "").split() or ["—"])[0]
+
+        times = []
+        for e in sorted(equipes, key=lambda e: (e.get("stage1_rank") or 0, str(e["id"]))):
+            delas = sorted(
+                (m for m in membros if str(m["team_id"]) == str(e["id"])),
+                key=lambda m: m.get("relay_order") or 0,
+            )
+            times.append({
+                "name": e.get("name"),
+                "eliminated": situacao.get(str(e["final_tp_id"])) == "eliminated",
+                "members": [apelido(m["player_id"]) for m in delas],
+            })
+        return {"start_level": 1, "teams": times}
 
     @staticmethod
     def _buy_types(tournament_id: str, day_id: str) -> list[PublicTvBuyType]:

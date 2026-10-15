@@ -673,6 +673,19 @@ class TournamentDayService:
                 "dia_sem_final_vinculada", "Este dia não tem um dia final vinculado"
             )
 
+        # Torneio por equipes: quem vai à final são EQUIPES (pelos pontos da
+        # Fase 1), não os sobreviventes — a final é montada na tela de Equipes.
+        torneio = (
+            supabase.table("tournaments").select("*")
+            .eq("id", qualifying_day.tournament_id).execute().data or []
+        )
+        if torneio and torneio[0].get("team_mode"):
+            raise ErroDeNegocio(
+                "avancar_equipes_pela_tela_de_equipes",
+                "Torneio por equipes: a final é montada na tela de Equipes, pelos pontos da Fase 1.",
+                status=409,
+            )
+
         # Get the final day
         final_day = TournamentDayService.get_tournament_day(qualifying_day.qualifies_to_day_id)
         if not final_day:

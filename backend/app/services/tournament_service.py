@@ -105,6 +105,11 @@ class TournamentService:
             data.pop("mystery_guarantee", None)
         if data.get("ko_format") != KoFormat.mystery.value or not data.get("mystery_start_level"):
             data.pop("mystery_start_level", None)
+        TournamentService._validar_equipes(None, data)
+        # Torneio comum não manda as colunas de equipes (banco sem a migração).
+        if not data.get("team_mode"):
+            for campo in ("team_mode", "team_finalists", "team_tiebreak", "team_allow_reentry"):
+                data.pop(campo, None)
 
         response = supabase.table("tournaments").insert(data).execute()
         return Tournament(**response.data[0])
@@ -306,10 +311,13 @@ class TournamentService:
             data.pop("elimination_mode", None)
         elif data["elimination_mode"] == EliminationMode.table.value:
             TournamentService._recusar_mesa_com_eliminacoes(tournament_id)
-        for campo in ("ko_format", "ko_percentage", "ko_cash_share", "mystery_guarantee"):
+        for campo in ("ko_format", "ko_percentage", "ko_cash_share", "mystery_guarantee",
+                      "team_mode", "team_tiebreak", "team_allow_reentry"):
             if campo in data and data[campo] is None:
                 data.pop(campo)
         TournamentService._validar_ko(tournament_id, data)
+        if any(c.startswith("team_") for c in data) or "has_qualifying" in data or "elimination_mode" in data:
+            TournamentService._validar_equipes(tournament_id, data)
 
         response = (
             supabase.table("tournaments")
@@ -395,6 +403,57 @@ class TournamentService:
             raise ErroDeNegocio(
                 "ko_config_bloqueada_com_vendas",
                 "O torneio já tem vendas: o formato e as porcentagens do KO não podem mais mudar.",
+                status=409,
+            )
+
+    @staticmethod
+    def _validar_equipes(tournament_id: Optional[str], data: dict) -> None:
+        """Torneio por equipes (criação e edição).
+
+        - Fase 1 = dia classificatório e Fase 2 = dia final: exige
+          classificatório e eliminação POR MESA (os pontos saem da posição na
+          mesa — o modo em massa não sabe quem caiu em qual mesa).
+        - Não combina com KO (o KO não atravessa para o dia final).
+        - Ligar/desligar só enquanto ninguém se inscreveu: as equipes, o
+          sorteio e os pontos dependem disso desde a primeira venda.
+        """
+        atual = {}
+        if tournament_id:
+            linhas = supabase.table("tournaments").select("*").eq("id", tournament_id).execute().data or []
+            atual = linhas[0] if linhas else {}
+        if atual and "team_mode" not in atual and not data.get("team_mode"):
+            # Banco sem a migração de equipes: um torneio comum não manda as
+            # colunas novas (a edição continua funcionando).
+            for campo in ("team_mode", "team_finalists", "team_tiebreak", "team_allow_reentry"):
+                data.pop(campo, None)
+        final = {**atual, **data}
+        if final.get("team_mode"):
+            if not final.get("has_qualifying"):
+                raise ErroDeNegocio(
+                    "equipes_exige_classificatorio",
+                    "Torneio por equipes precisa do dia da Fase 1 (classificatório) e do dia final.",
+                )
+            if (final.get("elimination_mode") or EliminationMode.bulk.value) != EliminationMode.table.value:
+                raise ErroDeNegocio(
+                    "equipes_exige_modo_mesa",
+                    "Torneio por equipes exige eliminar pelas mesas: os pontos saem da posição em cada mesa.",
+                )
+            if (final.get("ko_format") or KoFormat.none.value) != KoFormat.none.value:
+                raise ErroDeNegocio(
+                    "equipes_sem_ko", "Torneio por equipes não combina com premiação por eliminação (KO).",
+                )
+        if not tournament_id or "team_mode" not in data:
+            return
+        if bool(data.get("team_mode")) == bool(atual.get("team_mode")):
+            return
+        inscritos = (
+            supabase.table("tournament_players").select("id, status")
+            .eq("tournament_id", tournament_id).execute().data or []
+        )
+        if any((i.get("status") or "") != "cancelled" for i in inscritos):
+            raise ErroDeNegocio(
+                "modo_equipes_bloqueado_com_inscritos",
+                "O torneio já tem inscritos: o modo por equipes não pode mais ser ligado ou desligado.",
                 status=409,
             )
 

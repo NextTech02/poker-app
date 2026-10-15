@@ -55,6 +55,10 @@ class PublicTvExtras(BaseModel):
     # por valor; e, antes da fase, o nível em que ela começa.
     mystery_envelopes: list[dict] = []
     mystery_start_level: Optional[int] = None
+    # Torneio por equipes, dia FINAL: o revezamento — nome da equipe, apelido
+    # (ou primeiro nome) dos integrantes NA ORDEM e se a equipe já caiu. O
+    # telão calcula quem joga em cada nível. Nada de documento ou nome completo.
+    relay: Optional[dict] = None
     # Meios de entrada ATIVOS do torneio, na ordem do Caixa (o telão mostra
     # "BUY-IN: 50 · REBUY: 20 …" quando o diretor liga).
     buy_types: list[PublicTvBuyType] = []

@@ -40,6 +40,9 @@ _COLUNAS_DO_TORNEIO_ANTES_DO_GUIA = (
 _COLUNAS_DO_TORNEIO = (
     _COLUNAS_DO_TORNEIO_ANTES_DO_GUIA + ", mystery_draw_mode, mystery_guarantee, mystery_start_level"
 )
+# Torneio por equipes: o `eliminar` já lê esta configuração; com as colunas de
+# equipe aqui, o gancho da Fase 1 não custa uma ida ao banco a mais.
+_COLUNAS_COM_EQUIPES = _COLUNAS_DO_TORNEIO + ", team_mode, team_allow_reentry"
 _VIVOS = ("registered", "active", "winner")
 _TIPOS_DE_ENTRADA = ["buy_in", "rebuy", "addon"]
 
@@ -78,7 +81,7 @@ class KnockoutService:
         linhas = None
         # Banco sem as colunas do guia (migração pendente): lê as de antes —
         # sem isso o KO inteiro sumiria até a migração rodar.
-        for colunas in (_COLUNAS_DO_TORNEIO, _COLUNAS_DO_TORNEIO_ANTES_DO_GUIA):
+        for colunas in (_COLUNAS_COM_EQUIPES, _COLUNAS_DO_TORNEIO, _COLUNAS_DO_TORNEIO_ANTES_DO_GUIA):
             try:
                 linhas = (
                     supabase.table("tournaments").select(colunas)

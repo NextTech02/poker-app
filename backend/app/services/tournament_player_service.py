@@ -16,6 +16,7 @@ from app.services.eliminacao import (
 from app.utils.erros import ErroDeNegocio
 from app.services import ko_regras
 from app.services.knockout_service import KnockoutService
+from app.services.team_service import TeamService
 from app.models.tournament_player import (
     TournamentPlayerCreate,
     TournamentPlayerUpdate,
@@ -42,7 +43,8 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
     trava do dia — a mesma escolha de `seguir_sem_a_trava`. Filtrar pelo texto
     do erro só criaria um jeito novo de a recompra parar no balcão.
     """
-    def _buscar(colunas: str, com_trava: bool, com_modo: bool = False, com_ko: bool = False):
+    def _buscar(colunas: str, com_trava: bool, com_modo: bool = False, com_ko: bool = False,
+                com_equipes: bool = False):
         # A ETAPA vem embutida junto de propósito: sem isso, toda venda fazia uma
         # segunda ida ao banco só para saber se a etapa está bloqueada. Nesta
         # instalação o banco fica em outra região e cada ida custa ~270ms — é a
@@ -54,6 +56,9 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
         # parte KO, e ler o torneio à parte custaria mais uma ida ao banco.
         ko = ("ko_format, ko_percentage, ko_cash_share, ko_closed_at, mystery_started_at, "
               if com_ko else "")
+        # Torneio por equipes: a reentrada na Fase 1 pode estar proibida.
+        if com_equipes:
+            ko += "team_mode, team_allow_reentry, "
         etapa = (
             f", tournaments(stage_id, {modo}{ko}stages(sales_blocked, sales_blocked_reason))"
             if com_trava else ""
@@ -65,6 +70,12 @@ def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
             .execute()
         )
 
+    try:
+        return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}", com_trava=True, com_modo=True, com_ko=True,
+                       com_equipes=True)
+    except Exception:
+        # Banco sem as colunas de equipes (migração pendente).
+        pass
     try:
         return _buscar(f"{colunas_do_dia}, {_COLUNAS_DA_TRAVA}", com_trava=True, com_modo=True, com_ko=True)
     except Exception:
@@ -118,6 +129,21 @@ def _recusar_venda_na_fase_mystery(torneio: dict, replay: bool) -> None:
     )
 
 
+def _recusar_reentrada_em_equipes(torneio: dict, dia: Optional[dict], replay: bool) -> None:
+    """Torneio por equipes: na Fase 1 (dia classificatório) quem cai não volta,
+    salvo se o torneio permitir reentrada — aí vale a ÚLTIMA eliminação dele.
+    O replay offline passa: a venda já aconteceu no balcão."""
+    if replay or not (torneio or {}).get("team_mode") or (torneio or {}).get("team_allow_reentry"):
+        return
+    if (dia or {}).get("day_type") != "qualifying":
+        return
+    raise ErroDeNegocio(
+        "reentrada_nao_permitida_em_equipes",
+        "Neste torneio por equipes, quem é eliminado na Fase 1 não pode reentrar.",
+        status=409,
+    )
+
+
 def _recalcular_ranking(tournament_id: Optional[str]) -> None:
     """Posições dos eliminados. Falhar aqui não desfaz a operação já gravada."""
     if not tournament_id:
@@ -156,7 +182,9 @@ class TournamentPlayerService:
             return None
         bt = (
             supabase.table("buy_types")
-            .select("tournament_id, name, category, amount, rake_percentage, chips, active")
+            # "*": `per_team` (torneio por equipes) só existe depois da
+            # migração, e citar a coluna derrubaria a venda antes dela.
+            .select("*")
             .eq("id", buy_type_id)
             .execute()
         )
@@ -439,6 +467,13 @@ class TournamentPlayerService:
             registration_data.tournament_id,
             permitir_inativo=permitir_meio_inativo,
         )
+        if (buy_type or {}).get("per_team") and not skip_sales_block:
+            # O preço é o da EQUIPE inteira: vendido a um jogador só, cobraria
+            # quatro inscrições de uma pessoa.
+            raise ErroDeNegocio(
+                "meio_de_entrada_por_equipe",
+                "Este meio de entrada é cobrado por equipe: use \"Cobrar equipe\".",
+            )
         buy_in, rake_pct = TournamentPlayerService._valor_e_rake(
             buy_type, day_info["buy_in"], day_info.get("rake_percentage")
         )
@@ -564,7 +599,7 @@ class TournamentPlayerService:
         tp_response = _ler_inscrito_com_o_dia(
             tournament_player_id,
             "rebuy_amount, rebuy_chips, rebuy_level_limit, rake_percentage, "
-            "blind_duration, start_time, updated_at, created_at",
+            "blind_duration, start_time, updated_at, created_at, day_type",
         )
         if not tp_response.data:
             raise ValueError("Tournament player not found")
@@ -610,6 +645,7 @@ class TournamentPlayerService:
 
         torneio_ko = _torneio_ko(tp)
         _recusar_venda_na_fase_mystery(torneio_ko, replay=skip_sales_block)
+        _recusar_reentrada_em_equipes(torneio_ko, day_info, replay=skip_sales_block or skip_elimination_gate)
 
         if tp.get("status") == "cancelled":
             # Inscrição estornada: o dinheiro da entrada voltou, ele não está
@@ -1040,6 +1076,15 @@ class TournamentPlayerService:
                         client_mutation_id, user_id, replay=True,
                     )
                     return TournamentPlayer(**tp), ko
+                # Equipes: o status gravou mas a mesa da Fase 1 não (queda
+                # entre os dois passos) — grava o que faltou.
+                if torneio.get("team_mode"):
+                    try:
+                        TeamService.registrar_eliminacao_fase1(
+                            tp, torneio, tp.get("eliminated_at"), user_id, so_se_faltar=True,
+                        )
+                    except Exception as e:
+                        print(f"Error repairing team stage-1 result: {str(e)}")
                 return TournamentPlayer(**tp), None
             raise ErroDeNegocio(
                 "jogador_ja_eliminado", "Este jogador já está eliminado.", status=409
@@ -1101,6 +1146,15 @@ class TournamentPlayerService:
             raise
 
         day_id = tp.get("tournament_day_id")
+        # Torneio por equipes: a MESA em que ele caiu decide os pontos da Fase
+        # 1 — gravada antes de a cadeira ser liberada (depois não há como
+        # saber). Falhar aqui não desfaz a eliminação: a tela de equipes avisa
+        # "eliminado sem mesa" e a direção corrige.
+        if torneio.get("team_mode"):
+            try:
+                TeamService.registrar_eliminacao_fase1(tp, torneio, marca["eliminated_at"], user_id)
+            except Exception as e:
+                print(f"Error recording team stage-1 result: {str(e)}")
         # Quem sai da mesa devolve a cadeira — e a vaga da mesa, senão ela
         # parece cheia para a próxima alocação.
         try:

@@ -11,7 +11,7 @@ from app.auth.modules import require_module
 from app.database.supabase_client import set_request_jwt, reset_request_jwt, start_query_counter
 
 logger = logging.getLogger("uvicorn.error")
-from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, public_consent, organizations, loyalty, expenses, leads, activity_logs, knockouts
+from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, public_consent, organizations, loyalty, expenses, leads, activity_logs, knockouts, teams
 from app.routers import cash_game, mfa, bar, auth_public
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
@@ -182,6 +182,7 @@ app.include_router(dashboard.router, dependencies=_no_sangi)
 app.include_router(cash_register.router, dependencies=_no_sangi)
 app.include_router(prize_allocations.router, dependencies=_no_sangi)
 app.include_router(knockouts.router, dependencies=_no_sangi)
+app.include_router(teams.router, dependencies=_no_sangi)
 app.include_router(sponsors.router, dependencies=_no_sangi)
 app.include_router(player_credits.router, dependencies=_no_sangi)
 app.include_router(satellite_tickets.router, dependencies=_no_sangi)

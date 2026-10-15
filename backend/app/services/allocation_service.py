@@ -2,6 +2,7 @@ from typing import List, Optional, Dict
 from app.database import supabase
 from app.models.seat_allocation import SeatAllocation, SeatAllocationCreate, SeatAllocationUpdate, SeatAllocationWithDetails
 from app.utils.erros import ErroDeNegocio
+from app.services.team_service import TeamService
 import random
 
 # Sorteio de lugar usa a entropia do sistema operacional (os.urandom), não o
@@ -210,7 +211,7 @@ class AllocationService:
         tables = tables_response.data
 
         # Build counts and occupied seat sets
-        allocs = supabase.table("seat_allocations").select("table_id, seat_number").eq("tournament_day_id", day_id).execute().data
+        allocs = supabase.table("seat_allocations").select("table_id, seat_number, player_id").eq("tournament_day_id", day_id).execute().data
         table_counts = {t["id"]: 0 for t in tables}
         occupied_seats_map = {t["id"]: set() for t in tables}
         for a in allocs:
@@ -225,6 +226,16 @@ class AllocationService:
         ]
         if not tables_with_space:
             raise ValueError("All tables are full")
+        # Torneio por equipes: nunca na mesa de um colega de equipe.
+        com_colega = TeamService.mesas_com_colega(tournament_id, player_id, allocs)
+        if com_colega:
+            tables_with_space = [t for t in tables_with_space if str(t["id"]) not in com_colega]
+            if not tables_with_space:
+                raise ErroDeNegocio(
+                    "sem_mesa_sem_companheiro",
+                    "Não há mesa com lugar livre sem um colega de equipe deste jogador.",
+                    status=409,
+                )
 
         if mode == "sequential":
             # Pick the table with the lowest table_number that still has space
@@ -261,6 +272,7 @@ class AllocationService:
     @staticmethod
     def manual_allocate_player(tournament_id: str, player_id: str, table_id: str, seat_number: int) -> SeatAllocationWithDetails:
         """Manually allocate a player to a specific table and seat"""
+        TeamService.recusar_mesa_com_colega(tournament_id, player_id, table_id)
         # Check if seat is available
         existing = supabase.table("seat_allocations").select("*").eq("tournament_id", tournament_id).eq("table_id", table_id).eq("seat_number", seat_number).execute()
 
@@ -307,6 +319,7 @@ class AllocationService:
     @staticmethod
     def manual_allocate_player_for_day(tournament_id: str, day_id: str, player_id: str, table_id: str, seat_number: int) -> SeatAllocationWithDetails:
         """Manually allocate a player to a specific table and seat for a specific day"""
+        TeamService.recusar_mesa_com_colega(tournament_id, player_id, table_id)
         # Check if seat is available
         existing = supabase.table("seat_allocations").select("*")\
             .eq("table_id", table_id).eq("seat_number", seat_number).execute()
@@ -363,6 +376,13 @@ class AllocationService:
 
         if not players_to_allocate:
             return []
+
+        # Torneio por equipes: o sorteio separa os integrantes de cada equipe
+        # (qualquer modo escolhido na tela vira o sorteio por equipes).
+        if TeamService.membros_por_jogador(tournament_id):
+            return TeamService.sortear_mesas(
+                tournament_id, day_id, somente=player_ids or None,
+            )["allocations"]
 
         # Get active tables for this day
         tables_response = supabase.table("tournament_tables").select("*")\
@@ -596,6 +616,10 @@ class AllocationService:
                 .eq("id", new_table_id).execute().data or []
             if alvo and new_seat_number in (alvo[0].get("blocked_seats") or []):
                 raise _recusa_assento_desativado(new_seat_number)
+            if new_table_id != old_table_id and current_data.get("tournament_id"):
+                TeamService.recusar_mesa_com_colega(
+                    current_data["tournament_id"], current_data["player_id"], new_table_id,
+                )
 
         # Update allocation
         update_dict = update_data.model_dump(exclude_unset=True)

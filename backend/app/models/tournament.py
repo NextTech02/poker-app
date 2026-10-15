@@ -57,6 +57,12 @@ class KoFormat(str, Enum):
     mystery = "mystery"
 
 
+class TeamTiebreak(str, Enum):
+    """Torneio por equipes: 2º critério de desempate (o 1º é o capitão)."""
+    best_individual = "best_individual"
+    manual = "manual"
+
+
 class BroadcastSettings(BaseModel):
     """Broadcast display settings for tournament"""
     bg_color: Optional[str] = Field(default="#0a0e13", description="Background color (hex)")
@@ -93,6 +99,12 @@ class TournamentBase(BaseModel):
     # fase deve começar (o sistema avisa o floor).
     mystery_guarantee: float = Field(default=0, ge=0, description="Garantido do fundo Mystery")
     mystery_start_level: Optional[int] = Field(default=None, ge=1, description="Nível em que a fase Mystery começa")
+    # Torneio por equipes: Fase 1 = dia classificatório (pontos por mesa),
+    # Fase 2 = dia final por revezamento.
+    team_mode: bool = Field(default=False, description="Torneio por equipes")
+    team_finalists: Optional[int] = Field(default=None, ge=1, le=8, description="Equipes que vão à final")
+    team_tiebreak: TeamTiebreak = Field(default=TeamTiebreak.best_individual, description="2º critério de desempate")
+    team_allow_reentry: bool = Field(default=False, description="Fase 1 permite recompra/reentrada")
 
 
 class TournamentCreate(TournamentBase):
@@ -112,6 +124,10 @@ class TournamentUpdate(BaseModel):
     ko_cash_share: Optional[float] = Field(None, ge=0, le=100)
     mystery_guarantee: Optional[float] = Field(None, ge=0)
     mystery_start_level: Optional[int] = Field(None, ge=1)
+    team_mode: Optional[bool] = None
+    team_finalists: Optional[int] = Field(None, ge=1, le=8)
+    team_tiebreak: Optional[TeamTiebreak] = None
+    team_allow_reentry: Optional[bool] = None
     # Broadcast settings
     broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
     broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")
@@ -146,6 +162,7 @@ class Tournament(TournamentBase):
     mystery_pool: Optional[float] = None
     mystery_players_at_start: Optional[int] = None
     mystery_draw_mode: Optional[str] = "system"
+    team_results_official_at: Optional[datetime] = None
     # Broadcast settings
     broadcast_bg_color: Optional[str] = "#0a0e13"
     broadcast_bg_image_url: Optional[str] = None

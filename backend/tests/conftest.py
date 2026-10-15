@@ -400,6 +400,20 @@ def knockout_isolado(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def equipes_isolado(monkeypatch):
+    """O serviço de equipes também tem o PRÓPRIO `supabase`, e a alocação e a
+    eliminação o consultam ("quem é colega de quem?"). Por padrão ele vê um
+    banco vazio — torneio comum. Os testes de equipes ligam o fake do cenário.
+    O cache de integrantes é limpo a cada teste."""
+    from app.services import team_service
+    fake = FakeSupabase({})
+    monkeypatch.setattr(team_service, "supabase", fake)
+    team_service.limpar_cache()
+    yield fake
+    team_service.limpar_cache()
+
+
+@pytest.fixture(autouse=True)
 def envios_de_consentimento(monkeypatch):
     from app.services import player_consent_service as mod
     gravados = _EnviosGravados()

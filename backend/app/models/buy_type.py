@@ -27,6 +27,9 @@ class BuyTypeItem(BaseModel):
     chips: int = Field(0, ge=0)
     active: bool = True
     sort_order: int = 0
+    # Torneio por equipes: o valor é o da EQUIPE inteira, dividido entre os
+    # integrantes na "Cobrar equipe" (nunca vendido a um jogador só).
+    per_team: bool = False
 
 
 class BuyTypesReplace(BaseModel):

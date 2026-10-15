@@ -16,6 +16,8 @@ logger = logging.getLogger("uvicorn.error")
 # Colunas gravadas/lidas. Explícitas para que uma coluna nova no banco não entre
 # no payload sem alguém decidir o que ela significa na venda.
 _COLUNAS = "id, tournament_id, name, category, amount, rake_percentage, chips, active, sort_order"
+# `per_team` (torneio por equipes) só existe depois da migração de equipes.
+_COLUNAS_COM_EQUIPE = _COLUNAS + ", per_team"
 
 # Colunas antigas do DIA que seguem o primeiro meio ativo de cada categoria.
 # Elas continuam sendo lidas como RESERVA (venda sem tipo, bilhete de satélite,
@@ -32,14 +34,20 @@ class BuyTypeService:
     @staticmethod
     def listar(tournament_id: str) -> List[dict]:
         """Meios de entrada do torneio, na ordem em que o Caixa deve mostrá-los."""
-        resposta = (
-            supabase.table("buy_types")
-            .select(_COLUNAS)
-            .eq("tournament_id", tournament_id)
-            .order("sort_order")
-            .execute()
-        )
-        return resposta.data or []
+        for colunas in (_COLUNAS_COM_EQUIPE, _COLUNAS):
+            try:
+                resposta = (
+                    supabase.table("buy_types")
+                    .select(colunas)
+                    .eq("tournament_id", tournament_id)
+                    .order("sort_order")
+                    .execute()
+                )
+                return resposta.data or []
+            except Exception:
+                if colunas == _COLUNAS:
+                    raise
+        return []
 
     @staticmethod
     def _com_venda(ids: List[str]) -> set:
@@ -100,8 +108,9 @@ class BuyTypeService:
         o rebuy é de graça; nulo diz que ele não existe — e é o que o CHECK
         (`> 0`) da coluna aceita. O buy-in fica numérico (o CHECK dele é `>= 0`).
         """
+        # O meio "por equipe" tem o preço da EQUIPE: não é o buy-in de um jogador.
         ativos = sorted(
-            (i for i in itens if i.get("active", True)),
+            (i for i in itens if i.get("active", True) and not i.get("per_team")),
             key=lambda i: i.get("sort_order", 0),
         )
         colunas = {}
@@ -167,9 +176,16 @@ class BuyTypeService:
             )
 
         org_id = BuyTypeService._organizacao_do_torneio(tournament_id)
+        # Banco sem a migração de equipes: não manda a coluna nova (a não ser
+        # que alguém tenha marcado "por equipe" — aí o erro é o certo).
+        com_coluna_de_equipe = any("per_team" in l for l in atuais.values())
 
         def _payload(item: dict) -> dict:
+            extra = {}
+            if item.get("per_team") or com_coluna_de_equipe:
+                extra["per_team"] = bool(item.get("per_team"))
             return {
+                **extra,
                 "tournament_id": tournament_id,
                 "name": item["name"].strip(),
                 "category": item["category"],
