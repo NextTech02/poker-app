@@ -30,6 +30,12 @@
 -- valor EXPLICITAMENTE (o replay offline roda com a service_role).
 -- ============================================================================
 
+-- ESTADO EM PRODUÇÃO: aplicada em 2026-10-15 (sem jogo rolando) em três
+-- partes pelo conector do Supabase (torneio_equipes_parte1_colunas,
+-- _parte2_tabelas, _parte3_rls). O conector recusa comando "destrutivo"
+-- (DROP POLICY) com "Invalid or expired requestState": na parte 3 as
+-- políticas foram criadas só se não existiam, sem o DROP.
+
 SET lock_timeout = '5s';
 
 DO $$
