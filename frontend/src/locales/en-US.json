@@ -663,7 +663,13 @@
     "reentryNoEliminatedTable": "No one has been eliminated at this day's tables. A re-entry is only for players eliminated at their seat.",
     "reentryOnlyEliminated": "Table-mode tournament: only players eliminated on this day are listed.",
     "fee": "Fee",
-    "totalFees": "Total Fees"
+    "totalFees": "Total Fees",
+    "filterLabel": "Filter sales",
+    "filterTournament": "Tournament",
+    "filterAllTournaments": "All tournaments",
+    "filterDay": "Day",
+    "filterAllDays": "All days",
+    "noTransactionsInFilter": "No sales in this filter."
   },
   "cashbox": {
     "myCashbox": "My Cashbox",

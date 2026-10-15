@@ -663,7 +663,13 @@
     "reentryNoEliminatedTable": "Ninguém foi eliminado nas mesas deste dia. A reentrada é só para quem foi eliminado no assento.",
     "reentryOnlyEliminated": "Torneio por mesa: só aparecem os jogadores eliminados neste dia.",
     "fee": "Taxa",
-    "totalFees": "Total Taxas"
+    "totalFees": "Total Taxas",
+    "filterLabel": "Filtrar vendas",
+    "filterTournament": "Torneio",
+    "filterAllTournaments": "Todos os torneios",
+    "filterDay": "Dia",
+    "filterAllDays": "Todos os dias",
+    "noTransactionsInFilter": "Nenhuma venda neste filtro."
   },
   "cashbox": {
     "myCashbox": "Meu Caixa",

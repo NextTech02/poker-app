@@ -90,6 +90,11 @@ const Caixa = () => {
     return t('cashRegister.registeredAndAllocated');
   };
   const [transactions, setTransactions] = useState([]);
+  // Filtro do extrato (torneio e dia). '' = todos.
+  const [filtroTorneio, setFiltroTorneio] = useState('');
+  const [filtroDia, setFiltroDia] = useState('');
+  const [diasDoFiltro, setDiasDoFiltro] = useState([]);
+  const [diaDaInscricao, setDiaDaInscricao] = useState(() => new Map());
   const [tournaments, setTournaments] = useState([]);
   const [tournamentDays, setTournamentDays] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -959,12 +964,68 @@ const Caixa = () => {
   // Precisa de AÇÃO: clicar em cancelar de novo retoma o que faltou.
   const estornoIncompleto = (transaction) => transaction.status === 'cancelling';
 
+  // ── Filtro do extrato: torneio e, no torneio de vários dias, o dia ──────
+  // As vendas da etapa já chegam todas; o filtro é na tela. O dia de uma
+  // venda é o da INSCRIÇÃO (tournament_player), lida do torneio escolhido.
+  const torneiosDoExtrato = useMemo(() => {
+    const vistos = new Map();
+    for (const tx of transactions) {
+      if (tx.tournament_id && !vistos.has(tx.tournament_id)) {
+        vistos.set(tx.tournament_id, tx.tournament_name || tx.tournament_id);
+      }
+    }
+    // A lista vem da venda mais recente para a mais antiga: o torneio da noite
+    // aparece primeiro.
+    return [...vistos.entries()].map(([id, nome]) => ({ id, nome }));
+  }, [transactions]);
+
+  useEffect(() => {
+    setFiltroDia('');
+    setDiasDoFiltro([]);
+    if (!filtroTorneio) return undefined;
+    let vivo = true;
+    api.get(`/tournament-days/tournament/${filtroTorneio}`, { _silentError: true })
+      .then((res) => {
+        if (!vivo) return;
+        const dias = (Array.isArray(res?.data) ? res.data : []).slice().sort((a, b) => (
+          ((a.day_type === 'final') - (b.day_type === 'final')) || ((a.day_number || 0) - (b.day_number || 0))
+        ));
+        setDiasDoFiltro(dias);
+      })
+      .catch(() => { /* sem os dias, filtra só pelo torneio */ });
+    return () => { vivo = false; };
+  }, [filtroTorneio]);
+
+  // Inscrições do torneio (para saber o dia de cada venda): só quando ele tem
+  // mais de um dia, e relidas quando entra venda nova (inscrição nova).
+  const variosDias = diasDoFiltro.length > 1;
+  const quantidadeDeVendas = transactions.length;
+  useEffect(() => {
+    if (!filtroTorneio || !variosDias) { setDiaDaInscricao(new Map()); return undefined; }
+    let vivo = true;
+    api.get(`/tournament-players/tournament/${filtroTorneio}`, { _silentError: true })
+      .then((res) => {
+        if (!vivo) return;
+        setDiaDaInscricao(new Map((Array.isArray(res?.data) ? res.data : []).map((i) => [i.id, i.tournament_day_id])));
+      })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [filtroTorneio, variosDias, quantidadeDeVendas]);
+
+  const transacoesFiltradas = useMemo(() => transactions.filter((tx) => {
+    if (filtroTorneio && tx.tournament_id !== filtroTorneio) return false;
+    // Prêmio não tem inscrição: com um dia escolhido, fica de fora.
+    if (filtroDia && diaDaInscricao.get(tx.tournament_player_id) !== filtroDia) return false;
+    return true;
+  }), [transactions, filtroTorneio, filtroDia, diaDaInscricao]);
+
   // Memoizado: só recalcula quando a lista de transações muda (não a cada render).
   // Venda cancelada fica FORA dos totais: o dinheiro voltou para o jogador, e
   // contá-la faria o operador procurar na gaveta um valor que não está lá.
+  // Os totais seguem o filtro de torneio/dia.
   const totals = useMemo(() => {
     const acc = { buy_in: 0, rebuy: 0, addon: 0, fee: 0, total: 0 };
-    transactions.forEach(t => {
+    transacoesFiltradas.forEach(t => {
       if ((t.status || 'active') !== 'active') return;
       // Prêmio é SAÍDA (sai do caixa geral): somá-lo inflava o total geral
       // com o valor pago ao jogador, como se fosse uma venda.
@@ -976,7 +1037,7 @@ const Caixa = () => {
       acc.total += v;
     });
     return acc;
-  }, [transactions]);
+  }, [transacoesFiltradas]);
 
   const handleNewTransaction = () => {
     if (cashboxBlocked) {
@@ -1136,6 +1197,29 @@ const Caixa = () => {
           </div>
         )}
 
+        {/* Filtro do extrato: os totais e a lista seguem o torneio (e o dia,
+            quando o torneio tem vários). */}
+        {!loading && torneiosDoExtrato.length > 0 && (
+          <div className="cx-filtros" role="group" aria-label={t('cashRegister.filterLabel', 'Filtrar vendas')}>
+            <label className="cx-filtro">
+              <span>{t('cashRegister.filterTournament', 'Torneio')}</span>
+              <select value={filtroTorneio} onChange={(e) => setFiltroTorneio(e.target.value)}>
+                <option value="">{t('cashRegister.filterAllTournaments', 'Todos os torneios')}</option>
+                {torneiosDoExtrato.map((tr) => <option key={tr.id} value={tr.id}>{tr.nome}</option>)}
+              </select>
+            </label>
+            {variosDias && (
+              <label className="cx-filtro">
+                <span>{t('cashRegister.filterDay', 'Dia')}</span>
+                <select value={filtroDia} onChange={(e) => setFiltroDia(e.target.value)}>
+                  <option value="">{t('cashRegister.filterAllDays', 'Todos os dias')}</option>
+                  {diasDoFiltro.map((d) => <option key={d.id} value={d.id}>{d.day_name}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
+
         {/* B1: Skeleton nos KPI cards enquanto carrega */}
         <div className="stats-grid">
           {loading ? (
@@ -1221,6 +1305,8 @@ const Caixa = () => {
               title={t('cashRegister.noTransactions')}
               subtitle={t('cashRegister.noTransactionsHint')}
             />
+          ) : transacoesFiltradas.length === 0 ? (
+            <EmptyState icon={null} title={t('cashRegister.noTransactionsInFilter', 'Nenhuma venda neste filtro.')} />
           ) : (
             <div className="table-container">
               <table className="transactions-table">
@@ -1235,7 +1321,7 @@ const Caixa = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((transaction) => (
+                  {transacoesFiltradas.map((transaction) => (
                     <tr
                       key={transaction.id}
                       className={[

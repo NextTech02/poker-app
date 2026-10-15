@@ -218,6 +218,37 @@
    Faixa de aviso no topo. O operador precisa entender NA HORA por que o botão
    de lançar está desabilitado — senão vira chamado de suporte no meio do
    evento. */
+/* Filtro do extrato (torneio / dia) */
+.cx-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.cx-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.cx-filtro select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+}
+
+@media (max-width: 600px) {
+  .cx-filtro {
+    flex: 1 1 100%;
+  }
+}
+
 .cx-warning {
   display: flex;
   flex-wrap: wrap;

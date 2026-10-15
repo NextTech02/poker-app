@@ -2142,3 +2142,63 @@ describe('venda com vários meios de entrada', () => {
     expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30000');
   });
 });
+
+describe('filtro do extrato por torneio e dia', () => {
+  // Pedido do NSOP: ver as vendas (e os totais) de UM torneio e, no torneio
+  // de vários dias, de cada dia separado.
+  const venda = (id, extra) => ({
+    id, type: 'buy_in', amount: 100, created_at: '2026-06-08T20:00:00Z', player_name: `J-${id}`, ...extra,
+  });
+  const VENDAS = [
+    venda('a1', { tournament_id: 't1', tournament_name: 'Main Event', tournament_player_id: 'tp-1a', amount: 500 }),
+    venda('a2', { tournament_id: 't1', tournament_name: 'Main Event', tournament_player_id: 'tp-1b', amount: 300 }),
+    venda('a3', { tournament_id: 't1', tournament_name: 'Main Event', tournament_player_id: 'tp-1b', type: 'rebuy', amount: 200 }),
+    venda('b1', { tournament_id: 't2', tournament_name: 'Turbo', tournament_player_id: 'tp-t', amount: 50 }),
+  ];
+  const DOIS_DIAS = [
+    { id: 'd1b', day_name: 'Día 1B', day_number: 2, day_type: 'qualifying' },
+    { id: 'd1a', day_name: 'Día 1A', day_number: 1, day_type: 'qualifying' },
+    { id: 'df', day_name: 'Día Final', day_number: 3, day_type: 'final' },
+  ];
+
+  const montarComFiltro = async (dias = DOIS_DIAS) => {
+    responder({ transacoes: VENDAS, dias });
+    const base = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/tournament-players/tournament/t1'
+        ? Promise.resolve({ data: [{ id: 'tp-1a', tournament_day_id: 'd1a' }, { id: 'tp-1b', tournament_day_id: 'd1b' }] })
+        : base(url, ...resto)
+    ));
+    render(<Caixa />);
+    await esperarCarga();
+  };
+  const filtro = (nome) => within(screen.getByRole('group', { name: /filterLabel|Filtrar vendas/ }))
+    .getByRole('combobox', { name: nome });
+
+  it('sem filtro mostra tudo; escolher o torneio filtra a lista e os totais', async () => {
+    await montarComFiltro();
+    expect(indicadores()[3]).toBe('R$ 1050.00');
+    await userEvent.selectOptions(filtro(/filterTournament|Torneio/), 't2');
+    expect(indicadores()).toEqual(['R$ 50.00', 'R$ 0.00', 'R$ 0.00', 'R$ 50.00']);
+    expect(screen.getByText('J-b1')).toBeInTheDocument();
+    expect(screen.queryByText('J-a1')).toBeNull();
+  });
+
+  it('torneio de vários dias: escolhe o dia, na ordem dos dias e o final por último', async () => {
+    await montarComFiltro();
+    await userEvent.selectOptions(filtro(/filterTournament|Torneio/), 't1');
+    const dia = await waitFor(() => filtro(/filterDay|^Dia$/));
+    expect(Array.from(dia.querySelectorAll('option')).map((o) => o.textContent))
+      .toEqual([expect.anything(), 'Día 1A', 'Día 1B', 'Día Final']);
+    await userEvent.selectOptions(dia, 'd1b');
+    // Só as vendas da inscrição do 1B: buy-in 300 + rebuy 200.
+    await waitFor(() => expect(indicadores()).toEqual(['R$ 300.00', 'R$ 200.00', 'R$ 0.00', 'R$ 500.00']));
+    expect(screen.queryByText('J-a1')).toBeNull();
+  });
+
+  it('torneio de um dia só não mostra o filtro de dia', async () => {
+    await montarComFiltro([{ id: 'd1', day_name: 'Dia 1', day_number: 1 }]);
+    await userEvent.selectOptions(filtro(/filterTournament|Torneio/), 't2');
+    expect(screen.queryByRole('combobox', { name: /filterDay|^Dia$/ })).toBeNull();
+  });
+});
