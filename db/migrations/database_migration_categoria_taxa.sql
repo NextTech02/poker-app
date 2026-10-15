@@ -22,6 +22,10 @@
 -- Sem FK nova (ver a queda de 13/10: FK ambígua derruba o PostgREST).
 -- ============================================================================
 
+-- Aplicada com jogo rolando (2026-10-15): se alguma transação segurar as
+-- tabelas, desiste em 5s em vez de enfileirar e travar o caixa.
+SET LOCAL lock_timeout = '5s';
+
 -- 1. Categoria nova -----------------------------------------------------------
 ALTER TABLE public.buy_types DROP CONSTRAINT IF EXISTS buy_types_category_check;
 ALTER TABLE public.buy_types
