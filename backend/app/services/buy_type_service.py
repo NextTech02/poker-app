@@ -177,12 +177,17 @@ class BuyTypeService:
 
         org_id = BuyTypeService._organizacao_do_torneio(tournament_id)
         # Banco sem a migração de equipes: não manda a coluna nova (a não ser
-        # que alguém tenha marcado "por equipe" — aí o erro é o certo).
-        com_coluna_de_equipe = any("per_team" in l for l in atuais.values())
+        # que alguém tenha marcado "por equipe" — aí o erro é o certo). Vai em
+        # TODAS as linhas ou em nenhuma: no insert em lote o PostgREST usa a
+        # união das chaves e grava NULL onde a linha não trouxe a coluna.
+        com_coluna_de_equipe = (
+            any("per_team" in l for l in atuais.values())
+            or any(i.get("per_team") for i in itens)
+        )
 
         def _payload(item: dict) -> dict:
             extra = {}
-            if item.get("per_team") or com_coluna_de_equipe:
+            if com_coluna_de_equipe:
                 extra["per_team"] = bool(item.get("per_team"))
             return {
                 **extra,

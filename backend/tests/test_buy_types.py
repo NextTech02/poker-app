@@ -253,3 +253,27 @@ class TestEspelhoNosDias:
         final = S.substituir(TORNEIO, [_item(name="Buy-in", amount=250)])
         assert [t["name"] for t in final] == ["Buy-in"]
         assert float(fake.store["buy_types"][0]["amount"]) == 250.0
+
+
+class TestPorEquipe:
+    """Torneio por equipes: o meio "por equipe" (valor da equipe inteira)."""
+
+    def test_lista_nova_com_um_por_equipe_manda_a_coluna_em_todas_as_linhas(self, monkeypatch):
+        # No insert em lote o PostgREST usa a UNIÃO das chaves e grava NULL na
+        # linha que não trouxe a coluna — per_team é NOT NULL e a criação do
+        # torneio caía (achado no roteiro ponta a ponta).
+        fake = _monta(monkeypatch)
+        S.substituir(TORNEIO, [_item(name="Individual"), {**_item(name="Equipo", amount=400), "per_team": True}])
+        assert [l["per_team"] for l in fake.store["buy_types"]] == [False, True]
+
+    def test_banco_sem_a_coluna_e_sem_por_equipe_nao_manda_a_coluna(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        S.substituir(TORNEIO, [_item(name="Individual"), {**_item(name="Turbo"), "per_team": False}])
+        assert all("per_team" not in l for l in fake.store["buy_types"])
+
+    def test_o_por_equipe_nao_vira_o_buy_in_do_dia(self):
+        colunas = S.colunas_do_dia([
+            {**_item(name="Equipo", amount=400, chips=20000), "per_team": True},
+            _item(name="Individual", amount=100, chips=20000, sort_order=1),
+        ])
+        assert colunas["buy_in"] == 100

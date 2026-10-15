@@ -17,6 +17,13 @@ from app.services.team_service import TeamService, _org
 from app.utils.erros import ErroDeNegocio
 
 _CENTAVO = Decimal("0.01")
+# `transactions.client_id` é UUID: o id de cada venda da cobrança sai, sempre
+# igual, do id do clique + a posição do integrante (reenvio não cobra de novo).
+_NS_COBRANCA = uuid.UUID("0b6f3a52-7c1e-4d8e-9a43-2f5c8e1d7a90")
+
+
+def id_da_venda(client_mutation_id: str, indice: int) -> str:
+    return str(uuid.uuid5(_NS_COBRANCA, f"{client_mutation_id}:{indice}"))
 
 
 def repartir(total: Decimal, partes: int) -> List[Decimal]:
@@ -56,7 +63,7 @@ class TeamChargeService:
 
         # Reenvio do mesmo clique (a rede caiu na resposta): não cobra duas vezes.
         if client_mutation_id:
-            chaves = [f"{client_mutation_id}:{i}" for i in range(len(membros))]
+            chaves = [id_da_venda(client_mutation_id, i) for i in range(len(membros))]
             if supabase.table("transactions").select("id").in_("client_id", chaves).execute().data:
                 return {**TeamService.listar(tournament_id), "charged": 0, "amount": 0}
 
@@ -132,7 +139,7 @@ class TeamChargeService:
                 "created_by": user_id,
             }
             if client_mutation_id:
-                venda["client_id"] = f"{client_mutation_id}:{i}"
+                venda["client_id"] = id_da_venda(client_mutation_id, i)
             vendas.append(venda)
         try:
             supabase.table("transactions").insert(vendas).execute()

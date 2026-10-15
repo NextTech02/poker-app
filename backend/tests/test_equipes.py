@@ -20,7 +20,7 @@ from app.services import (
 from app.services.allocation_service import AllocationService
 from app.services.cashbox_service import CashboxService
 from app.services.public_tv_service import PublicTvService
-from app.services.team_charge_service import TeamChargeService, repartir
+from app.services.team_charge_service import TeamChargeService, id_da_venda, repartir
 from app.services.team_service import TeamService as T, id_do_resultado
 from app.services.tournament_day_service import TournamentDayService
 from app.services.tournament_player_service import TournamentPlayerService as TPS
@@ -453,7 +453,7 @@ class TestCobranca:
         assert sorted(v["amount"] for v in vendas) == [250.0, 250.01, 250.01, 250.01]
         capitao = next(v for v in vendas if v["player_id"] == "a1")
         assert capitao["amount"] == 250.01 and capitao["rake_amount"] == 25.0
-        assert {v["client_id"] for v in vendas} == {"cm1:0", "cm1:1", "cm1:2", "cm1:3"}
+        assert {v["client_id"] for v in vendas} == {id_da_venda("cm1", i) for i in range(4)}
         assert len(fake.store["tournament_players"]) == 4
         # O mesmo clique de novo não cobra duas vezes.
         assert TeamChargeService.cobrar(TOUR, "team-A", "bt-eq", "cash", "cm1", USER)["charged"] == 0
