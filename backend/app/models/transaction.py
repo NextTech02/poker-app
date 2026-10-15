@@ -53,6 +53,8 @@ class Transaction(TransactionBase):
     # o jogador comprou — que é o que o floor confere antes de entregar a pilha.
     buy_type_name: Optional[str] = None
     chips: Optional[int] = None
+    # Venda de TAXA (type continua 'addon'): o Caixa e os relatórios separam.
+    is_fee: bool = False
     rake_percentage: Optional[float] = None
     rake_amount: Optional[float] = None
     payment_source: Optional[str] = None

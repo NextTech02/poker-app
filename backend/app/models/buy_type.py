@@ -17,7 +17,9 @@ class BuyTypeItem(BaseModel):
     """
     id: Optional[str] = None
     name: str = Field(..., min_length=1, max_length=80)
-    category: Literal['buy_in', 'rebuy', 'addon']
+    # 'fee' = TAXA (ex.: Bono Dealer): vende como extra, com fichas e rake
+    # próprios, mas não conta como add-on nem gera fidelidade ou parte KO.
+    category: Literal['buy_in', 'rebuy', 'addon', 'fee']
     amount: float = Field(..., ge=0)
     rake_percentage: float = Field(0, ge=0, le=100)
     # Fichas zeradas são válidas: o dia final costuma ter entrada sem pilha nova

@@ -661,7 +661,9 @@
     "reentryNoEliminatedTitle": "Ningún jugador eliminado",
     "reentryNoEliminatedBulk": "El contador del día no tiene eliminaciones. La reentrada solo se acepta después de registrar la eliminación en el Control.",
     "reentryNoEliminatedTable": "Nadie fue eliminado en las mesas de este día. La reentrada es solo para quien fue eliminado en su asiento.",
-    "reentryOnlyEliminated": "Torneo por mesa: solo aparecen los jugadores eliminados en este día."
+    "reentryOnlyEliminated": "Torneo por mesa: solo aparecen los jugadores eliminados en este día.",
+    "fee": "Tasa",
+    "totalFees": "Total Tasas"
   },
   "cashbox": {
     "myCashbox": "Mi Caja",
@@ -874,7 +876,9 @@
     "noPlayerData": "Sin datos de jugadores disponibles",
     "noPlayerDataHint": "Intenta seleccionar un período diferente.",
     "noDataAvailable": "Sin datos disponibles",
-    "loadingError": "Error al cargar informes. Verifica la conexión e inténtalo de nuevo."
+    "loadingError": "Error al cargar informes. Verifica la conexión e inténtalo de nuevo.",
+    "fees": "Tasas",
+    "totalFees": "Total Tasas"
   },
   "language": {
     "select": "Idioma",
@@ -988,7 +992,7 @@
     "entryMethodRake": "Rake (%)",
     "entryMethodChips": "Fichas",
     "entryMethodCategory": "Categoría",
-    "entryMethodCategoryHint": "La categoría decide el efecto de la venta: Entrada suma un jugador nuevo, Recompra devuelve a alguien a la mesa, Add-on solo entrega fichas a quien ya juega.",
+    "entryMethodCategoryHint": "La categoría decide el efecto de la venta: Entrada suma un jugador nuevo, Recompra devuelve a alguien a la mesa, Add-on solo entrega fichas a quien ya juega, Tasa cobra aparte (ej.: Bono Dealer) y no cuenta como add-on.",
     "categoryBuyIn": "Entrada",
     "categoryRebuy": "Recompra",
     "categoryAddon": "Add-on",
@@ -1005,7 +1009,8 @@
     "entryMethodsFromTournamentHint": "La lista es del torneo y vale para todos sus días. Para cambiarla, edita el torneo.",
     "editOnTournament": "Editar en el torneo",
     "entryMethodsNone": "Este torneo aún no tiene medios de entrada configurados.",
-    "playersSection": "Jugadores"
+    "playersSection": "Jugadores",
+    "categoryFee": "Tasa"
   },
   "rankings": {
     "title": "Rankings",
@@ -1807,7 +1812,8 @@
     "dreBarCogsLine": "(−) Costo de las mercancías vendidas (CMV, cortesía incluida)",
     "dreBarMargin": "= MARGEN BRUTO DEL BAR",
     "dreBarOperation": "{{tabs}} comanda(s) cerrada(s) · {{shifts}} turno(s)",
-    "drePrizeKo": "de los cuales premios por eliminación (KO / Mystery)"
+    "drePrizeKo": "de los cuales premios por eliminación (KO / Mystery)",
+    "dreFees": "Tasas"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneo",
@@ -1995,7 +2001,8 @@
     "addon": "Add-on",
     "koPool": "Pozo KO ({{percent}}%)",
     "positionsPool": "Pozo de las posiciones",
-    "mysteryPool": "Pozo Mystery ({{percent}}%)"
+    "mysteryPool": "Pozo Mystery ({{percent}}%)",
+    "feeCategory": "Tasa"
   },
   "dayStats": {
     "loadError": "Error al cargar las estadísticas",
@@ -2239,7 +2246,8 @@
     "koPending": "KO pendiente",
     "mysteryPool": "Pozo Mystery",
     "mysteryPaid": "Mystery pagado",
-    "mysteryPending": "Mystery pendiente"
+    "mysteryPending": "Mystery pendiente",
+    "fees": "Tasas"
   },
   "tournamentDetail": {
     "manageTablesTitle": "Gestionar mesas y asignación de jugadores",

@@ -371,6 +371,24 @@ describe('totais', () => {
     expect(linha).not.toHaveTextContent('cashRegister.reprint');
   });
 
+  it('taxa (Bono Dealer) tem total próprio e não entra nos add-ons', async () => {
+    await montar({
+      transacoes: [
+        { id: 'v1', type: 'buy_in', amount: 1000, created_at: '2026-06-08T20:00:00Z',
+          tournament_id: 't1', player_id: 'p1', player_name: 'Ana', tournament_name: 'Main Event' },
+        { id: 'v2', type: 'addon', amount: 200, created_at: '2026-06-08T20:10:00Z',
+          tournament_id: 't1', player_id: 'p1', player_name: 'Ana', tournament_name: 'Main Event' },
+        { id: 'v3', type: 'addon', is_fee: true, amount: 50, created_at: '2026-06-08T20:20:00Z',
+          tournament_id: 't1', player_id: 'p2', player_name: 'Beto', tournament_name: 'Main Event' },
+      ],
+    });
+    // buy-in, rebuy, add-on, Total Taxas, total geral
+    expect(indicadores()).toEqual(['R$ 1000.00', 'R$ 0.00', 'R$ 200.00', 'R$ 50.00', 'R$ 1250.00']);
+    expect(screen.getByText('Total Taxas')).toBeInTheDocument();
+    // Sem nome de meio gravado, a linha do extrato diz "Taxa".
+    expect(screen.getByText('Beto').closest('tr')).toHaveTextContent('Taxa');
+  });
+
   it('valor inválido não contamina a soma', async () => {
     await montar({
       transacoes: [

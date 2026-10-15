@@ -35,6 +35,8 @@ class ReportSummary(BaseModel):
     totalBuyIns: int
     totalRebuys: int
     totalAddons: int
+    # Taxas (meio da categoria 'fee'): vendidas como extra, contadas à parte.
+    totalFees: int = 0
     playerReports: List[PlayerReport]
     # Vendas do período por MEIO de entrada (o cadastrado pelo diretor).
     byBuyType: List[BuyTypeReportRow] = []
@@ -78,6 +80,7 @@ class TournamentReport(BaseModel):
     total_buy_ins: int = 0
     total_rebuys: int = 0
     total_addons: int = 0
+    total_fees: int = 0             # taxas (Bono Dealer etc.), à parte dos add-ons
 
     # Financials
     total_revenue: float = 0.0      # buy_in + rebuy + addon amounts

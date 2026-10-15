@@ -6,6 +6,8 @@ class RevenueBreakdown(BaseModel):
     buy_ins: float = 0
     rebuys: float = 0
     addons: float = 0
+    # Taxas (Bono Dealer etc.): vendidas como extra, à parte dos add-ons.
+    fees: float = 0
     total: float = 0
 
 
@@ -16,6 +18,7 @@ class TournamentFinancial(BaseModel):
     buy_ins_count: int = 0
     rebuys_count: int = 0
     addons_count: int = 0
+    fees_count: int = 0
     revenue: float = 0
     prizes: float = 0
     net: float = 0

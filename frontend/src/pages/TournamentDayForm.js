@@ -137,6 +137,7 @@ const TournamentDayForm = () => {
     buy_in: t('tournamentDayForm.categoryBuyIn', 'Entrada'),
     rebuy: t('tournamentDayForm.categoryRebuy', 'Recompra'),
     addon: t('tournamentDayForm.categoryAddon', 'Add-on'),
+    fee: t('tournamentDayForm.categoryFee', 'Taxa'),
   }[categoria] || categoria);
 
   const handleSubmit = async (e) => {

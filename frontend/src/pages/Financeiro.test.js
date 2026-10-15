@@ -490,3 +490,18 @@ describe('premiação por eliminação no DRE', () => {
     expect(screen.queryByText('financial.drePrizeKo')).toBeNull();
   });
 });
+
+describe('taxas no DRE', () => {
+  it('linha própria de Taxas na receita', async () => {
+    await montar({ relatorio: { ...RELATORIO, revenue: { ...RELATORIO.revenue, fees: 350 } } });
+    await gerar();
+    expect(await screen.findByText('Taxas')).toBeInTheDocument();
+  });
+
+  it('sem taxas a linha não aparece', async () => {
+    await montar();
+    await gerar();
+    await screen.findByText('financial.dreAddons');
+    expect(screen.queryByText('Taxas')).toBeNull();
+  });
+});

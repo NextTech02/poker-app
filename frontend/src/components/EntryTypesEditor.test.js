@@ -173,3 +173,17 @@ describe('aviso e acessibilidade', () => {
     expect(screen.getByRole('button', { name: 'Adicionar entrada' })).toBeDisabled();
   });
 });
+
+describe('categoria Taxa', () => {
+  it('a Taxa é uma das categorias, com fichas e rake editáveis como as outras', async () => {
+    const aoMudar = jest.fn();
+    render(<Harness inicial={meiosPadrao(t)} aoMudar={aoMudar} />);
+    const opcoes = Array.from(linha(2).categoria.querySelectorAll('option')).map((o) => o.value);
+    expect(opcoes).toEqual(['buy_in', 'rebuy', 'addon', 'fee']);
+    await userEvent.selectOptions(linha(2).categoria, 'fee');
+    expect(linha(2).categoria).toHaveValue('fee');
+    expect(linha(2).rake).toBeEnabled();
+    expect(linha(2).fichas).toBeEnabled();
+    expect(aoMudar).toHaveBeenLastCalledWith(expect.arrayContaining([expect.objectContaining({ category: 'fee' })]));
+  });
+});

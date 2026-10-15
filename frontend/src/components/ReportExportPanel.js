@@ -34,6 +34,7 @@ const typeLabelMap = (t) => ({
   buy_in: t('reports.buyIns', 'Buy-ins'),
   rebuy: t('reports.rebuys', 'Rebuys'),
   addon: t('reports.addons', 'Add-ons'),
+  fee: t('reports.fees', 'Taxas'),
   prize: t('financial.typePrize', 'Prêmio'),
 });
 

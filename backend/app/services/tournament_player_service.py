@@ -836,13 +836,24 @@ class TournamentPlayerService:
         )
         torneio_ko = _torneio_ko(tp)
         _recusar_venda_na_fase_mystery(torneio_ko, replay=skip_sales_block)
+        # TAXA (categoria 'fee', ex.: Bono Dealer): vende pelo mesmo caminho do
+        # add-on — o dinheiro segue igual —, mas conta à parte: não é add-on
+        # no jogador, nos relatórios, na fidelidade nem no KO.
+        taxa = (buy_type or {}).get("category") == "fee"
 
         # Update tournament player
-        updated_data = {
-            "addon_count": tp["addon_count"] + 1,
-            "total_addon_amount": float(tp["total_addon_amount"]) + addon_amount,
-            "total_chips": tp["total_chips"] + addon_chips,
-        }
+        if taxa:
+            updated_data = {
+                "fee_count": int(tp.get("fee_count") or 0) + 1,
+                "total_fee_amount": float(tp.get("total_fee_amount") or 0) + addon_amount,
+                "total_chips": tp["total_chips"] + addon_chips,
+            }
+        else:
+            updated_data = {
+                "addon_count": tp["addon_count"] + 1,
+                "total_addon_amount": float(tp["total_addon_amount"]) + addon_amount,
+                "total_chips": tp["total_chips"] + addon_chips,
+            }
 
         response = supabase.table("tournament_players").update(updated_data).eq("id", tournament_player_id).execute()
 
@@ -867,8 +878,9 @@ class TournamentPlayerService:
             "buy_type_name": (buy_type or {}).get("name"),
             "rake_percentage": rake_pct,
             "rake_amount": round(addon_amount * rake_pct / 100, 2),
-            # A parte KO do add-on soma no bounty de quem comprou (decisão do clube).
-            "bounty_amount": float(ko_regras.parte_ko_da_venda(
+            # A parte KO do add-on soma no bounty de quem comprou (decisão do
+            # clube). Taxa não tem parte KO.
+            "bounty_amount": 0.0 if taxa else float(ko_regras.parte_ko_da_venda(
                 torneio_ko, addon_amount, round(addon_amount * rake_pct / 100, 2)
             )),
             # Mesmo motivo do buy-in: o estorno devolve ESTE número, não o que o
@@ -876,6 +888,9 @@ class TournamentPlayerService:
             "chips": addon_chips,
             "created_by": user_id,
         }
+        if taxa:
+            # Só na taxa: venda comum não depende da coluna nova.
+            transaction_data["is_fee"] = True
         if client_mutation_id:
             transaction_data["client_id"] = client_mutation_id
         supabase.table("transactions").insert(transaction_data).execute()

@@ -11,7 +11,7 @@ import { ehTorneioKo } from '../utils/ko';
 import './TournamentDashboard.css';
 
 // Ordem das categorias na tabela de itens: entrada, recompra, add-on.
-const ORDEM_DA_CATEGORIA = { buy_in: 0, rebuy: 1, addon: 2 };
+const ORDEM_DA_CATEGORIA = { buy_in: 0, rebuy: 1, addon: 2, fee: 3 };
 
 const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   const { t } = useTranslation();
@@ -128,8 +128,12 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
     const totalBuyInsRevenue = players.reduce((sum, p) => sum + (p.total_buy_in_amount || 0), 0);
     const totalRebuysRevenue = players.reduce((sum, p) => sum + (p.total_rebuy_amount || 0), 0);
     const totalAddonsRevenue = players.reduce((sum, p) => sum + (p.total_addon_amount || 0), 0);
+    // Taxas (Bono Dealer etc.): contadas à parte dos add-ons, mas são dinheiro
+    // que entrou — somam na receita como antes, quando eram add-on.
+    const totalFeesCount = players.reduce((sum, p) => sum + (p.fee_count || 0), 0);
+    const totalFeesRevenue = players.reduce((sum, p) => sum + (Number(p.total_fee_amount) || 0), 0);
 
-    const totalRevenue = totalBuyInsRevenue + totalRebuysRevenue + totalAddonsRevenue;
+    const totalRevenue = totalBuyInsRevenue + totalRebuysRevenue + totalAddonsRevenue + totalFeesRevenue;
 
     // Agrupa jogadores por dia uma única vez (O(n)).
     const byDay = new Map();
@@ -144,7 +148,8 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       if (day.day_type === 'final') continue;
       const dayPlayers = byDay.get(day.id) || [];
       const dayRevenue = dayPlayers.reduce(
-        (sum, p) => sum + (p.total_buy_in_amount || 0) + (p.total_rebuy_amount || 0) + (p.total_addon_amount || 0),
+        (sum, p) => sum + (p.total_buy_in_amount || 0) + (p.total_rebuy_amount || 0) + (p.total_addon_amount || 0)
+          + (Number(p.total_fee_amount) || 0),
         0
       );
       weightedRakeSum += dayRevenue * (day.rake_percentage || 0);
@@ -165,6 +170,8 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       totalBuyInsRevenue,
       totalRebuysRevenue,
       totalAddonsRevenue,
+      totalFeesCount,
+      totalFeesRevenue,
       averageRakePercentage,
     };
   }, [allPlayers, days]);
@@ -180,19 +187,22 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       buy_in: t('tournamentDashboard.tournamentBuyIn'),
       rebuy: t('tournamentDashboard.rebuy'),
       addon: t('tournamentDashboard.addon'),
+      fee: t('tournamentDashboard.feeCategory', 'Taxa'),
     };
     const finalDayIds = new Set(days.filter(d => d.day_type === 'final').map(d => d.id));
     const diaDoInscrito = new Map(allPlayers.map(p => [p.id, p.tournament_day_id]));
     const grupos = new Map();
     for (const venda of transacoes) {
       if ((venda.status || 'active') !== 'active') continue;
-      if (!(venda.type in ORDEM_DA_CATEGORIA)) continue; // prêmio não é item vendido
+      // Taxa é vendida como addon, com a marca is_fee.
+      const categoria = venda.type === 'addon' && venda.is_fee ? 'fee' : venda.type;
+      if (!(categoria in ORDEM_DA_CATEGORIA)) continue; // prêmio não é item vendido
       if (finalDayIds.has(diaDoInscrito.get(venda.tournament_player_id))) continue;
-      const chave = venda.buy_type_id || `categoria:${venda.type}`;
+      const chave = venda.buy_type_id || `categoria:${categoria}`;
       const grupo = grupos.get(chave) || {
         key: chave,
-        name: (venda.buy_type_name || '').trim() || rotuloDaCategoria[venda.type],
-        category: venda.type,
+        name: (venda.buy_type_name || '').trim() || rotuloDaCategoria[categoria],
+        category: categoria,
         count: 0,
         amount: 0,
       };
@@ -215,6 +225,9 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
       : []),
     ...(financials.totalAddonsCount > 0
       ? [{ key: 'addon', name: t('tournamentDashboard.addon'), count: financials.totalAddonsCount, amount: financials.totalAddonsRevenue }]
+      : []),
+    ...(financials.totalFeesCount > 0
+      ? [{ key: 'fee', name: t('tournamentDashboard.feeCategory', 'Taxa'), count: financials.totalFeesCount, amount: financials.totalFeesRevenue }]
       : []),
   ];
 

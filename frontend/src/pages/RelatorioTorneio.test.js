@@ -263,3 +263,8 @@ it('torneio Mystery usa os rótulos do Mystery', async () => {
   expect(screen.getByText('tournamentReport.mysteryPaid')).toBeInTheDocument();
   expect(screen.queryByText('tournamentReport.koPool')).toBeNull();
 });
+
+it('mostra o total de taxas quando houver', async () => {
+  await montar({ relatorio: { ...RELATORIO, total_fees: 7 } });
+  expect(screen.getByText('tournamentReport.fees')).toBeInTheDocument();
+});

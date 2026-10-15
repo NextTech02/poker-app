@@ -15,7 +15,8 @@ import './EntryTypesEditor.css';
  * é UMA por torneio e vale para todos os dias dele.
  *
  * A categoria NÃO é rótulo: é ela que decide o efeito da venda no Caixa (entrada
- * soma jogador novo, recompra devolve alguém à mesa, add-on só entrega fichas).
+ * soma jogador novo, recompra devolve alguém à mesa, add-on só entrega fichas,
+ * taxa cobra à parte — ex.: Bono Dealer — sem contar como add-on).
  * O NOME é livre justamente para o clube poder ter "Buy-in duplo" e "Rebuy
  * triplo" sem precisar de categoria nova.
  *
@@ -149,12 +150,13 @@ const EntryTypesEditor = ({
                 <option value="buy_in">{t('tournamentDayForm.categoryBuyIn', 'Entrada')}</option>
                 <option value="rebuy">{t('tournamentDayForm.categoryRebuy', 'Recompra')}</option>
                 <option value="addon">{t('tournamentDayForm.categoryAddon', 'Add-on')}</option>
+                <option value="fee">{t('tournamentDayForm.categoryFee', 'Taxa')}</option>
               </select>
               {indice === 0 && (
                 <small className="form-hint" id={hintId}>
                   {t(
                     'tournamentDayForm.entryMethodCategoryHint',
-                    'A categoria decide o efeito da venda: Entrada soma um jogador novo, Recompra devolve alguém à mesa, Add-on só entrega fichas a quem já joga.'
+                    'A categoria decide o efeito da venda: Entrada soma um jogador novo, Recompra devolve alguém à mesa, Add-on só entrega fichas a quem já joga, Taxa cobra à parte (ex.: Bono Dealer) e não conta como add-on.'
                   )}
                 </small>
               )}

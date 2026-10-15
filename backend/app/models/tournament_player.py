@@ -25,6 +25,9 @@ class TournamentPlayerBase(BaseModel):
     total_buy_in_amount: float = Field(default=0, ge=0)
     total_rebuy_amount: float = Field(default=0, ge=0)
     total_addon_amount: float = Field(default=0, ge=0)
+    # Taxas (meio da categoria 'fee'): contadas à parte dos add-ons.
+    fee_count: int = Field(default=0, ge=0)
+    total_fee_amount: float = Field(default=0, ge=0)
     total_chips: int = Field(default=0, ge=0)
     notes: Optional[str] = None
 

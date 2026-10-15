@@ -101,6 +101,7 @@ class FinancialService:
         buy_in_total = 0.0
         rebuy_total = 0.0
         addon_total = 0.0
+        fee_total = 0.0
         prize_total = 0.0
         knockout_total = 0.0
 
@@ -122,6 +123,9 @@ class FinancialService:
                 buy_in_total += amount
             elif tx_type == "rebuy":
                 rebuy_total += amount
+            elif tx_type == "addon" and tx.get("is_fee"):
+                # Taxa: mesmo caminho do add-on, linha própria no DRE.
+                fee_total += amount
             elif tx_type == "addon":
                 addon_total += amount
             elif tx_type == "prize":
@@ -140,6 +144,7 @@ class FinancialService:
                     "buy_ins_count": 0,
                     "rebuys_count": 0,
                     "addons_count": 0,
+                    "fees_count": 0,
                     "revenue": 0.0,
                     "prizes": 0.0,
                 }
@@ -153,6 +158,9 @@ class FinancialService:
                     tm["revenue"] += amount
                 elif tx_type == "rebuy":
                     tm["rebuys_count"] += 1
+                    tm["revenue"] += amount
+                elif tx_type == "addon" and tx.get("is_fee"):
+                    tm["fees_count"] += 1
                     tm["revenue"] += amount
                 elif tx_type == "addon":
                     tm["addons_count"] += 1
@@ -172,7 +180,7 @@ class FinancialService:
                 amount=amount,
             ))
 
-        revenue_total = buy_in_total + rebuy_total + addon_total
+        revenue_total = buy_in_total + rebuy_total + addon_total + fee_total
 
         # ── 3. Tickets redeemed value ──
         tickets_query = supabase.table("satellite_tickets").select("ticket_value") \
@@ -235,6 +243,7 @@ class FinancialService:
                 buy_ins_count=tm["buy_ins_count"],
                 rebuys_count=tm["rebuys_count"],
                 addons_count=tm["addons_count"],
+                fees_count=tm["fees_count"],
                 revenue=tm["revenue"],
                 prizes=tm["prizes"],
                 net=tm["revenue"] - tm["prizes"],
@@ -275,6 +284,7 @@ class FinancialService:
                 buy_ins=buy_in_total,
                 rebuys=rebuy_total,
                 addons=addon_total,
+                fees=fee_total,
                 total=revenue_total,
             ),
             tickets_redeemed_value=tickets_redeemed_value,

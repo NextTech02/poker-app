@@ -581,6 +581,12 @@ const Financeiro = () => {
                   <span>{t('financial.dreAddons')}</span>
                   <span>{fmt(data.revenue?.addons)}</span>
                 </div>
+                {(data.revenue?.fees || 0) > 0 && (
+                  <div className="fn-dre-row">
+                    <span>{t('financial.dreFees', 'Taxas')}</span>
+                    <span>{fmt(data.revenue?.fees)}</span>
+                  </div>
+                )}
                 {data.tickets_redeemed_value > 0 && (
                   <div className="fn-dre-row fn-dre-row--muted">
                     <span>{t('financial.dreTicketsRedeemed')}</span>

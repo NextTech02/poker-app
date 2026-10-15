@@ -969,6 +969,7 @@ class TournamentDayService:
         total_qualifying_buy_in_amount = 0.0
         total_qualifying_rebuy_amount = 0.0
         total_qualifying_addon_amount = 0.0
+        total_qualifying_fee_amount = 0.0
         total_qualifying_prize_pool = 0.0
 
         # Busca os jogadores de TODOS os dias classificatórios numa só query e
@@ -993,6 +994,8 @@ class TournamentDayService:
             day_buy_in_amount = sum(float(p.get("total_buy_in_amount", 0) or 0) for p in players)
             day_rebuy_amount = sum(float(p.get("total_rebuy_amount", 0) or 0) for p in players)
             day_addon_amount = sum(float(p.get("total_addon_amount", 0) or 0) for p in players)
+            # Taxas (Bono Dealer etc.) entram no arrecadado, não nos add-ons.
+            day_fee_amount = sum(float(p.get("total_fee_amount", 0) or 0) for p in players)
 
             eliminated = len([p for p in players if p.get("status") == "eliminated"])
             qualified = len([p for p in players if p.get("status") not in STATUS_FORA_DO_DIA])
@@ -1013,7 +1016,7 @@ class TournamentDayService:
                 buy_in_amount=day_buy_in_amount,
                 rebuy_amount=day_rebuy_amount,
                 addon_amount=day_addon_amount,
-                total_collected=day_buy_in_amount + day_rebuy_amount + day_addon_amount,
+                total_collected=day_buy_in_amount + day_rebuy_amount + day_addon_amount + day_fee_amount,
                 prize_pool=float(q_day.get("prize_pool", 0) or 0)
             )
             qualifying_days_stats.append(day_stats)
@@ -1025,6 +1028,7 @@ class TournamentDayService:
             total_qualifying_buy_in_amount += day_buy_in_amount
             total_qualifying_rebuy_amount += day_rebuy_amount
             total_qualifying_addon_amount += day_addon_amount
+            total_qualifying_fee_amount += day_fee_amount
             total_qualifying_prize_pool += float(q_day.get("prize_pool", 0) or 0)
 
         # Get final day players and calculate stats
@@ -1049,10 +1053,12 @@ class TournamentDayService:
         final_day_collected = (
             sum(float(p.get("total_buy_in_amount", 0) or 0) for p in direct_players) +
             sum(float(p.get("total_rebuy_amount", 0) or 0) for p in final_players) +
-            sum(float(p.get("total_addon_amount", 0) or 0) for p in final_players)
+            sum(float(p.get("total_addon_amount", 0) or 0) for p in final_players) +
+            sum(float(p.get("total_fee_amount", 0) or 0) for p in final_players)
         )
 
-        total_qualifying_collected = total_qualifying_buy_in_amount + total_qualifying_rebuy_amount + total_qualifying_addon_amount
+        total_qualifying_collected = (total_qualifying_buy_in_amount + total_qualifying_rebuy_amount
+                                      + total_qualifying_addon_amount + total_qualifying_fee_amount)
 
         return FinalDayAggregatedStats(
             final_day_id=final_day_id,
@@ -1100,6 +1106,7 @@ class TournamentDayService:
         buy_in_amount = sum(float(p.get("total_buy_in_amount", 0) or 0) for p in players)
         rebuy_amount = sum(float(p.get("total_rebuy_amount", 0) or 0) for p in players)
         addon_amount = sum(float(p.get("total_addon_amount", 0) or 0) for p in players)
+        fee_amount = sum(float(p.get("total_fee_amount", 0) or 0) for p in players)
 
         eliminated = len([p for p in players if p.get("status") == "eliminated"])
         qualified = len([p for p in players if p.get("status") not in STATUS_FORA_DO_DIA])
@@ -1120,7 +1127,7 @@ class TournamentDayService:
             buy_in_amount=buy_in_amount,
             rebuy_amount=rebuy_amount,
             addon_amount=addon_amount,
-            total_collected=buy_in_amount + rebuy_amount + addon_amount,
+            total_collected=buy_in_amount + rebuy_amount + addon_amount + fee_amount,
             prize_pool=float(day.prize_pool or 0)
         )
 

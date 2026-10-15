@@ -16,8 +16,25 @@ from app.services.transaction_filters import ler_transacoes_ativas
 logger = logging.getLogger(__name__)
 
 # Venda antiga sem meio cadastrado aparece pelo rótulo da categoria.
-ROTULO_DA_CATEGORIA = {"buy_in": "Buy-in", "rebuy": "Rebuy", "addon": "Add-on"}
-ORDEM_DA_CATEGORIA = {"buy_in": 0, "rebuy": 1, "addon": 2}
+ROTULO_DA_CATEGORIA = {"buy_in": "Buy-in", "rebuy": "Rebuy", "addon": "Add-on", "fee": "Taxa"}
+ORDEM_DA_CATEGORIA = {"buy_in": 0, "rebuy": 1, "addon": 2, "fee": 3}
+
+
+def categoria_da_venda(linha: dict) -> str:
+    """Categoria de uma venda para os relatórios: a TAXA é gravada como
+    `type='addon'` (o caminho do dinheiro é o mesmo) com a marca `is_fee`."""
+    if linha.get("is_fee"):
+        return "fee"
+    return linha.get("type") or "buy_in"
+
+
+def ler_vendas_com_taxa(monta_query, colunas: str) -> list:
+    """Lê as vendas ativas trazendo a marca de taxa. Banco sem a coluna
+    (migração pendente): ninguém é taxa ainda, então vale a leitura de antes."""
+    try:
+        return ler_transacoes_ativas(monta_query, f"{colunas}, is_fee")
+    except Exception:
+        return ler_transacoes_ativas(monta_query, colunas)
 
 
 def agrupar_vendas_por_meio(linhas, ordem_por_id=None) -> list:
@@ -30,7 +47,7 @@ def agrupar_vendas_por_meio(linhas, ordem_por_id=None) -> list:
     grupos: dict = {}
     ordem = ordem_por_id or {}
     for linha in linhas or []:
-        tipo = linha.get("type") or "buy_in"
+        tipo = categoria_da_venda(linha)
         bid = linha.get("buy_type_id")
         chave = str(bid) if bid else f"cat:{tipo}"
         grupo = grupos.get(chave)
@@ -84,10 +101,19 @@ class ReportService:
         tps_by_day: dict = {}
         dia_do_tp: dict = {}   # inscrição → dia, para rachar as vendas por dia
         if day_ids:
-            all_tp_resp = supabase.table("tournament_players")\
-                .select("id, tournament_day_id, player_id, status, buy_in_count, rebuy_count, addon_count, total_buy_in_amount, total_rebuy_amount, total_addon_amount")\
-                .in_("tournament_day_id", day_ids)\
-                .execute()
+            colunas_tp = ("id, tournament_day_id, player_id, status, buy_in_count, rebuy_count, "
+                          "addon_count, total_buy_in_amount, total_rebuy_amount, total_addon_amount")
+            try:
+                all_tp_resp = supabase.table("tournament_players")\
+                    .select(f"{colunas_tp}, fee_count, total_fee_amount")\
+                    .in_("tournament_day_id", day_ids)\
+                    .execute()
+            except Exception:
+                # Banco sem os contadores de taxa (migração pendente).
+                all_tp_resp = supabase.table("tournament_players")\
+                    .select(colunas_tp)\
+                    .in_("tournament_day_id", day_ids)\
+                    .execute()
             for p in (all_tp_resp.data or []):
                 if p.get("id"):
                     dia_do_tp[str(p["id"])] = p.get("tournament_day_id")
@@ -104,7 +130,7 @@ class ReportService:
         # ── Vendas por MEIO de entrada (o cadastrado pelo diretor) ──
         # Lidas antes do laço dos dias para rachar por dia pela inscrição.
         # Entrada cancelada não é receita do torneio.
-        linhas_tx = ler_transacoes_ativas(
+        linhas_tx = ler_vendas_com_taxa(
             lambda cols: (
                 supabase.table("transactions")
                 .select(cols)
@@ -117,7 +143,7 @@ class ReportService:
 
         day_reports = []
         distinct_players = set()
-        tot_buy_ins = tot_rebuys = tot_addons = 0
+        tot_buy_ins = tot_rebuys = tot_addons = tot_fees = 0
         for d in days:
             tps = tps_by_day.get(d["id"], [])
             d_buy_ins = sum(int(p.get("buy_in_count") or 0) for p in tps)
@@ -127,6 +153,7 @@ class ReportService:
                 float(p.get("total_buy_in_amount") or 0)
                 + float(p.get("total_rebuy_amount") or 0)
                 + float(p.get("total_addon_amount") or 0)
+                + float(p.get("total_fee_amount") or 0)
                 for p in tps
             )
             for p in tps:
@@ -135,6 +162,7 @@ class ReportService:
             tot_buy_ins += d_buy_ins
             tot_rebuys += d_rebuys
             tot_addons += d_addons
+            tot_fees += sum(int(p.get("fee_count") or 0) for p in tps)
             day_reports.append(TournamentDayReport(
                 day_id=d["id"],
                 day_name=d.get("day_name") or "",
@@ -209,6 +237,7 @@ class ReportService:
             total_buy_ins=tot_buy_ins,
             total_rebuys=tot_rebuys,
             total_addons=tot_addons,
+            total_fees=tot_fees,
             total_revenue=total_revenue,
             rake_percentage=float(summary.rake_percentage),
             # Rake real (Fase 1): rake = entradas brutas − pool líquido
@@ -303,11 +332,12 @@ class ReportService:
                     q = q.lte("created_at", end_param)
                 return q
 
-            transactions = ler_transacoes_ativas(_monta, "type, amount")
+            transactions = ler_vendas_com_taxa(_monta, "type, amount")
             total_revenue = sum(float(t["amount"]) for t in transactions if t["type"] in ["buy_in", "rebuy", "addon"])
             total_buy_ins = sum(1 for t in transactions if t["type"] == "buy_in")
             total_rebuys = sum(1 for t in transactions if t["type"] == "rebuy")
-            total_addons = sum(1 for t in transactions if t["type"] == "addon")
+            # Taxa sai do sistema como addon, mas não é add-on.
+            total_addons = sum(1 for t in transactions if categoria_da_venda(t) == "addon")
             buy_in_amounts = [float(t["amount"]) for t in transactions if t["type"] == "buy_in"]
             avg_buy_in = sum(buy_in_amounts) / len(buy_in_amounts) if buy_in_amounts else 0
 
@@ -327,7 +357,7 @@ class ReportService:
             return q
 
         try:
-            vendas = ler_transacoes_ativas(_monta_meios, "type, amount, buy_type_id, buy_type_name, player_id")
+            vendas = ler_vendas_com_taxa(_monta_meios, "type, amount, buy_type_id, buy_type_name, player_id")
         except Exception:
             vendas = []
         by_buy_type = agrupar_vendas_por_meio(vendas)
@@ -336,7 +366,7 @@ class ReportService:
             pid = str(v.get("player_id") or "")
             if not pid:
                 continue
-            nome = (v.get("buy_type_name") or "").strip() or ROTULO_DA_CATEGORIA.get(v.get("type") or "buy_in", v.get("type") or "buy_in")
+            nome = (v.get("buy_type_name") or "").strip() or ROTULO_DA_CATEGORIA.get(categoria_da_venda(v), categoria_da_venda(v))
             por_meio = meios_por_jogador.setdefault(pid, {})
             por_meio[nome] = por_meio.get(nome, 0) + 1
 
@@ -409,6 +439,7 @@ class ReportService:
             totalBuyIns=total_buy_ins,
             totalRebuys=total_rebuys,
             totalAddons=total_addons,
+            totalFees=sum(1 for v in vendas if categoria_da_venda(v) == "fee"),
             playerReports=player_reports,
             byBuyType=by_buy_type,
         )

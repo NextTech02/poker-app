@@ -217,8 +217,16 @@ export const applyAddon = async (body) => {
   const chips = doTipoOuDoDia(buyType, 'chips', (day && day.addon_chips) || 10000);
   const rakePct = rakePctFor(day, buyType);
 
-  tp.addon_count = Number(tp.addon_count || 0) + 1;
-  tp.total_addon_amount = round2(Number(tp.total_addon_amount || 0) + amount);
+  // Taxa (categoria 'fee', ex.: Bono Dealer): mesmo caminho do add-on, mas
+  // conta à parte — espelha add_addon do backend.
+  const taxa = !!buyType && buyType.category === 'fee';
+  if (taxa) {
+    tp.fee_count = Number(tp.fee_count || 0) + 1;
+    tp.total_fee_amount = round2(Number(tp.total_fee_amount || 0) + amount);
+  } else {
+    tp.addon_count = Number(tp.addon_count || 0) + 1;
+    tp.total_addon_amount = round2(Number(tp.total_addon_amount || 0) + amount);
+  }
   tp.total_chips = Number(tp.total_chips || 0) + chips;
   tp.total_spent = round2(Number(tp.total_spent || 0) + amount);
   await putEntity('tournament_players', tp);
@@ -236,6 +244,7 @@ export const applyAddon = async (body) => {
     buy_type_id: body.buy_type_id || null,
     buy_type_name: (buyType && buyType.name) || null,
     chips,
+    is_fee: taxa,
     rake_percentage: rakePct,
     rake_amount: round2(amount * rakePct / 100),
     created_at: nowISO(),

@@ -69,6 +69,7 @@ const Relatorios = () => {
     buy_in: t('reports.buyIns', 'Buy-ins'),
     rebuy: t('reports.rebuys', 'Rebuys'),
     addon: t('reports.addons', 'Add-ons'),
+    fee: t('reports.fees', 'Taxas'),
   }[c] || c);
 
   // Top 5 por gastos — memoizado (não re-ordena a lista a cada render).
@@ -219,6 +220,18 @@ const Relatorios = () => {
                   <p>{t('cashRegister.totalAddons', 'Total Add-ons')}</p>
                 </div>
               </Card>
+
+              {reports.totalFees > 0 && (
+                <Card className="stat-card">
+                  <div className="rl-kpi-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 17H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V7h12v2zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20z"/></svg>
+                  </div>
+                  <div className="stat-info">
+                    <h3>{reports.totalFees}</h3>
+                    <p>{t('reports.totalFees', 'Total Taxas')}</p>
+                  </div>
+                </Card>
+              )}
 
               <Card className="stat-card">
                 <div className="rl-kpi-icon">

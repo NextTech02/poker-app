@@ -69,6 +69,7 @@ const Caixa = () => {
   const buyCategoryLabel = (c) => {
     if (c === 'rebuy') return t('cashRegister.rebuy', 'Rebuy');
     if (c === 'addon') return t('cashRegister.addon', 'Add-on');
+    if (c === 'fee') return t('cashRegister.fee', 'Taxa');
     if (c === 'prize') return t('cashRegister.prize', 'Prêmio');
     return t('cashRegister.buyIn', 'Buy-in');
   };
@@ -942,7 +943,8 @@ const Caixa = () => {
   const getTransactionTypeBadge = (transaction) => {
     const classes = { buy_in: 'badge-success', rebuy: 'badge-warning', addon: 'badge-info', prize: 'badge-danger' };
     const bt = activeBuyTypes.find((b) => b.id === transaction.buy_type_id);
-    const label = transaction.buy_type_name || (bt ? bt.name : buyCategoryLabel(transaction.type));
+    const label = transaction.buy_type_name
+      || (bt ? bt.name : buyCategoryLabel(transaction.is_fee ? 'fee' : transaction.type));
     return <span className={`badge ${classes[transaction.type] || 'badge-success'}`}>{label}</span>;
   };
 
@@ -961,14 +963,16 @@ const Caixa = () => {
   // Venda cancelada fica FORA dos totais: o dinheiro voltou para o jogador, e
   // contá-la faria o operador procurar na gaveta um valor que não está lá.
   const totals = useMemo(() => {
-    const acc = { buy_in: 0, rebuy: 0, addon: 0, total: 0 };
+    const acc = { buy_in: 0, rebuy: 0, addon: 0, fee: 0, total: 0 };
     transactions.forEach(t => {
       if ((t.status || 'active') !== 'active') return;
       // Prêmio é SAÍDA (sai do caixa geral): somá-lo inflava o total geral
       // com o valor pago ao jogador, como se fosse uma venda.
       if (t.type === 'prize') return;
       const v = parseFloat(t.amount) || 0;
-      if (acc[t.type] !== undefined) acc[t.type] += v;
+      // Taxa (Bono Dealer etc.) é vendida como addon, mas não é add-on.
+      const categoria = t.type === 'addon' && t.is_fee ? 'fee' : t.type;
+      if (acc[categoria] !== undefined) acc[categoria] += v;
       acc.total += v;
     });
     return acc;
@@ -1170,6 +1174,17 @@ const Caixa = () => {
                   <p>{t('cashRegister.totalAddons')}</p>
                 </div>
               </Card>
+              {totals.fee > 0 && (
+                <Card className="stat-card">
+                  <div className="cx-stat-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 17H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V7h12v2zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20z"/></svg>
+                  </div>
+                  <div className="stat-info">
+                    <h3>{formatCurrency(totals.fee)}</h3>
+                    <p>{t('cashRegister.totalFees', 'Total Taxas')}</p>
+                  </div>
+                </Card>
+              )}
               <Card className="stat-card">
                 <div className="cx-stat-icon cx-stat-icon--total">
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>

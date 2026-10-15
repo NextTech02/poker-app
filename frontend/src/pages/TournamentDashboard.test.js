@@ -259,3 +259,28 @@ describe('premiação por eliminação (KO)', () => {
     expect(linhaFinanceira('tournamentDashboard.koPool')).toBeUndefined();
   });
 });
+
+describe('taxa nos itens vendidos', () => {
+  it('a venda de taxa aparece pelo nome, depois dos add-ons', async () => {
+    const inscritos = [{ id: 'tp1', player_id: 'p1', tournament_day_id: 'd1', buy_in_count: 1, total_buy_in_amount: 200 }];
+    const base = { tournament_id: 't1', player_id: 'p1', tournament_player_id: 'tp1', status: 'active', created_at: '2026-06-08T20:00:00Z' };
+    const transacoes = [
+      { ...base, id: 'v1', type: 'buy_in', amount: 200, buy_type_id: 'b1', buy_type_name: 'Entrada' },
+      { ...base, id: 'v2', type: 'addon', amount: 50, buy_type_id: 'b9', buy_type_name: 'Bono Dealer', is_fee: true },
+      { ...base, id: 'v3', type: 'addon', amount: 100, buy_type_id: 'b3', buy_type_name: 'Zeta add-on' },
+      // Taxa antiga sem meio cadastrado: cai no rótulo da categoria Taxa.
+      { ...base, id: 'v4', type: 'addon', amount: 50, buy_type_id: null, buy_type_name: null, is_fee: true },
+    ];
+    await montar({ inscritos, transacoes });
+    const nomes = screen.getAllByTestId('linha-item').map((tr) => tr.querySelector('td').textContent);
+    expect(nomes).toEqual(['Entrada', 'Zeta add-on', 'Bono Dealer', 'tournamentDashboard.feeCategory']);
+  });
+
+  it('sem vendas carregadas, a taxa vem dos contadores do jogador', async () => {
+    const inscritos = [{ id: 'tp1', player_id: 'p1', tournament_day_id: 'd1', buy_in_count: 1, total_buy_in_amount: 200, fee_count: 2, total_fee_amount: 100 }];
+    await montar({ inscritos });
+    const linhaTaxa = screen.getByText('tournamentDashboard.feeCategory').closest('tr');
+    expect(Array.from(linhaTaxa.querySelectorAll('td')).map((td) => td.textContent).slice(0, 3))
+      .toEqual(['tournamentDashboard.feeCategory', '2', 'R$ 100.00']);
+  });
+});

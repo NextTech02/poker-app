@@ -636,3 +636,22 @@ describe('eliminação no assento (offline)', () => {
     expect(await applyUneliminate({ tournament_player_id: 'tp-local-1' })).toBeNull();
   });
 });
+
+describe('taxa (categoria fee) offline', () => {
+  beforeEach(async () => {
+    await applyRegister(corpoRegistro());
+    await putEntity('buy_types', {
+      id: 'bt-bono', tournament_id: TOUR, name: 'Bono Dealer', category: 'fee', amount: 50, rake_percentage: 100, chips: 10000,
+    });
+    jest.clearAllMocks();
+  });
+
+  it('conta como taxa, não como add-on, e marca a venda', async () => {
+    const { tp } = await applyAddon({ tournament_player_id: 'tp-local-1', client_mutation_id: 'mut-taxa', buy_type_id: 'bt-bono' });
+    expect(tp.fee_count).toBe(1);
+    expect(tp.total_fee_amount).toBe(50);
+    expect(tp.addon_count || 0).toBe(0);
+    expect(tp.total_chips).toBe(40000); // 30000 + 10000 do Bono
+    expect(ler('transactions', 'mut-taxa')).toMatchObject({ type: 'addon', is_fee: true, amount: 50, rake_amount: 50 });
+  });
+});

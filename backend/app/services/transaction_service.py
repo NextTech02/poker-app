@@ -484,6 +484,11 @@ class TransactionService:
             if tx["type"] == "rebuy":
                 campo_conta, campo_total = "rebuy_count", "total_rebuy_amount"
                 fichas_do_dia = int(dia.get("rebuy_chips") or 0)
+            elif tx.get("is_fee"):
+                # Taxa: volta pelos contadores de taxa; o dia não tem "fichas
+                # de taxa", então vale só o que a venda gravou.
+                campo_conta, campo_total = "fee_count", "total_fee_amount"
+                fichas_do_dia = 0
             else:
                 campo_conta, campo_total = "addon_count", "total_addon_amount"
                 fichas_do_dia = int(dia.get("addon_chips") or 0)
@@ -530,7 +535,8 @@ class TransactionService:
         dados["total_spent"] = round(
             float(atual.get("total_buy_in_amount") or 0)
             + float(atual.get("total_rebuy_amount") or 0)
-            + float(atual.get("total_addon_amount") or 0), 2
+            + float(atual.get("total_addon_amount") or 0)
+            + float(atual.get("total_fee_amount") or 0), 2
         )
         supabase.table("tournament_players").update(dados).eq("id", tp["id"]).execute()
 

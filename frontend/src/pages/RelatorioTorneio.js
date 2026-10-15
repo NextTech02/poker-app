@@ -24,6 +24,7 @@ const RelatorioTorneio = () => {
     buy_in: t('tournamentReport.buyIns'),
     rebuy: t('tournamentReport.rebuys'),
     addon: t('tournamentReport.addons'),
+    fee: t('tournamentReport.fees', 'Taxas'),
   }[c] || c);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,6 +75,7 @@ const RelatorioTorneio = () => {
               <Stat label={t('tournamentReport.buyIns')} value={report.total_buy_ins} />
               <Stat label={t('tournamentReport.rebuys')} value={report.total_rebuys} />
               <Stat label={t('tournamentReport.addons')} value={report.total_addons} />
+              {report.total_fees > 0 && <Stat label={t('tournamentReport.fees', 'Taxas')} value={report.total_fees} />}
             </div>
 
             {/* Por MEIO de entrada — o cadastrado pelo diretor ("Doble", "Tasa"…),

@@ -661,7 +661,9 @@
     "reentryNoEliminatedTitle": "No eliminated player",
     "reentryNoEliminatedBulk": "The day's counter has no eliminations. A re-entry is only accepted after the elimination is recorded in the Control screen.",
     "reentryNoEliminatedTable": "No one has been eliminated at this day's tables. A re-entry is only for players eliminated at their seat.",
-    "reentryOnlyEliminated": "Table-mode tournament: only players eliminated on this day are listed."
+    "reentryOnlyEliminated": "Table-mode tournament: only players eliminated on this day are listed.",
+    "fee": "Fee",
+    "totalFees": "Total Fees"
   },
   "cashbox": {
     "myCashbox": "My Cashbox",
@@ -874,7 +876,9 @@
     "noPlayerData": "No player data available",
     "noPlayerDataHint": "Try selecting a different period.",
     "noDataAvailable": "No data available",
-    "loadingError": "Failed to load reports. Check your connection and try again."
+    "loadingError": "Failed to load reports. Check your connection and try again.",
+    "fees": "Fees",
+    "totalFees": "Total Fees"
   },
   "language": {
     "select": "Language",
@@ -988,7 +992,7 @@
     "entryMethodRake": "Rake (%)",
     "entryMethodChips": "Chips",
     "entryMethodCategory": "Category",
-    "entryMethodCategoryHint": "The category decides what the sale does: Entry adds a new player, Rebuy brings someone back to the table, Add-on only gives chips to who is already playing.",
+    "entryMethodCategoryHint": "The category decides what the sale does: Entry adds a new player, Rebuy brings someone back to the table, Add-on only gives chips to someone already playing, Fee is charged separately (e.g. Dealer Bonus) and does not count as an add-on.",
     "categoryBuyIn": "Entry",
     "categoryRebuy": "Rebuy",
     "categoryAddon": "Add-on",
@@ -1005,7 +1009,8 @@
     "entryMethodsFromTournamentHint": "The list belongs to the tournament and applies to all its days. To change it, edit the tournament.",
     "editOnTournament": "Edit on the tournament",
     "entryMethodsNone": "This tournament has no entry methods yet.",
-    "playersSection": "Players"
+    "playersSection": "Players",
+    "categoryFee": "Fee"
   },
   "rankings": {
     "title": "Rankings",
@@ -1807,7 +1812,8 @@
     "dreBarCogsLine": "(−) Cost of goods sold (COGS, courtesy included)",
     "dreBarMargin": "= BAR GROSS MARGIN",
     "dreBarOperation": "{{tabs}} closed tab(s) · {{shifts}} shift(s)",
-    "drePrizeKo": "of which knockout prizes (KO / Mystery)"
+    "drePrizeKo": "of which knockout prizes (KO / Mystery)",
+    "dreFees": "Fees"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -1995,7 +2001,8 @@
     "addon": "Add-on",
     "koPool": "KO pool ({{percent}}%)",
     "positionsPool": "Positions pool",
-    "mysteryPool": "Mystery pool ({{percent}}%)"
+    "mysteryPool": "Mystery pool ({{percent}}%)",
+    "feeCategory": "Fee"
   },
   "dayStats": {
     "loadError": "Error loading statistics",
@@ -2239,7 +2246,8 @@
     "koPending": "KO pending",
     "mysteryPool": "Mystery pool",
     "mysteryPaid": "Mystery paid",
-    "mysteryPending": "Mystery pending"
+    "mysteryPending": "Mystery pending",
+    "fees": "Fees"
   },
   "tournamentDetail": {
     "manageTablesTitle": "Manage tables and player allocation",
