@@ -292,7 +292,9 @@
     "koHint_none": "No knockout prizes: the whole pool goes to the positions.",
     "koHint_ko": "The eliminator takes the player's whole bounty, paid on the spot from the main cash register. Requires eliminating at the tables.",
     "koHint_pko": "The eliminator gets part of the bounty in cash; the rest is added to their bounty. The champion takes their own bounty at the end. Requires eliminating at the tables.",
-    "koHint_mystery": "The KO pool becomes envelopes when the floor starts the Mystery phase; each elimination draws an envelope. Requires eliminating at the tables."
+    "koHint_mystery": "The KO pool becomes envelopes when the floor starts the Mystery phase; each elimination draws an envelope. Requires eliminating at the tables.",
+    "finalDayName": "Final Day",
+    "qualifyingDayName": "Day {{label}}"
   },
   "tournamentDays": {
     "restarted": "Day restarted.",

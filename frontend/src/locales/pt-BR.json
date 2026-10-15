@@ -292,7 +292,9 @@
     "koHint_none": "Sem prêmio por eliminação: todo o pool vai para as posições.",
     "koHint_ko": "Quem elimina leva o bounty inteiro do jogador, pago na hora pelo caixa geral. Exige eliminação pelas mesas.",
     "koHint_pko": "Quem elimina leva parte do bounty em dinheiro; o resto soma no bounty dele. O campeão leva o próprio bounty no fim. Exige eliminação pelas mesas.",
-    "koHint_mystery": "O pool KO vira envelopes quando o floor inicia a fase Mystery; cada eliminação sorteia um envelope. Exige eliminação pelas mesas."
+    "koHint_mystery": "O pool KO vira envelopes quando o floor inicia a fase Mystery; cada eliminação sorteia um envelope. Exige eliminação pelas mesas.",
+    "finalDayName": "Dia Final",
+    "qualifyingDayName": "Dia {{label}}"
   },
   "tournamentDays": {
     "restarted": "Dia reiniciado.",

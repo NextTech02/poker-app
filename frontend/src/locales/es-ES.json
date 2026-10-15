@@ -292,7 +292,9 @@
     "koHint_none": "Sin premio por eliminación: todo el pozo va a las posiciones.",
     "koHint_ko": "Quien elimina se lleva el bounty completo del jugador, pagado al momento por la caja general. Exige eliminación por mesas.",
     "koHint_pko": "Quien elimina se lleva parte del bounty en efectivo; el resto se suma a su bounty. El campeón se lleva su propio bounty al final. Exige eliminación por mesas.",
-    "koHint_mystery": "El pozo KO se convierte en sobres cuando el floor inicia la fase Mystery; cada eliminación sortea un sobre. Exige eliminación por mesas."
+    "koHint_mystery": "El pozo KO se convierte en sobres cuando el floor inicia la fase Mystery; cada eliminación sortea un sobre. Exige eliminación por mesas.",
+    "finalDayName": "Día Final",
+    "qualifyingDayName": "Día {{label}}"
   },
   "tournamentDays": {
     "restarted": "Día reiniciado.",

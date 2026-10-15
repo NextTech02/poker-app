@@ -25,7 +25,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import Torneios from './Torneios';
+import Torneios, { rotuloDoClassificatorio } from './Torneios';
 import api from '../config/api';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { getSelectedStage } from '../utils/stageUtils';
@@ -452,6 +452,16 @@ describe('criar torneio com classificatórios', () => {
     await waitFor(() => expect(api.post.mock.calls.length).toBeGreaterThan(2));
     const dias = api.post.mock.calls.filter((c) => c[0] === '/tournament-days');
     expect(dias[0][1]).toMatchObject({ day_type: 'final', day_name: 'Dia Final' });
+  });
+
+  it('os classificatórios se chamam Dia 1A, Dia 1B… (como o clube chama)', async () => {
+    await montar();
+    await criarComQuali();
+    await waitFor(() => expect(api.post.mock.calls.length).toBeGreaterThan(2));
+    const nomes = api.post.mock.calls
+      .filter((c) => c[0] === '/tournament-days' && c[1].day_type === 'qualifying')
+      .map((c) => c[1].day_name);
+    expect(nomes).toEqual(['Dia 1A', 'Dia 1B']);
   });
 
   it('cada classificatório já nasce vinculado ao dia final', async () => {
@@ -973,5 +983,15 @@ describe('premiação por eliminação (KO)', () => {
     await userEvent.type(pctKo(), '30');
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.saveChanges' }));
     expect(await screen.findByText(/já tem vendas/)).toBeInTheDocument();
+  });
+});
+
+describe('rótulo dos classificatórios', () => {
+  it('1A, 1B… até 1Z; depois o número puro', () => {
+    expect(rotuloDoClassificatorio(1)).toBe('1A');
+    expect(rotuloDoClassificatorio(4)).toBe('1D');
+    expect(rotuloDoClassificatorio(7)).toBe('1G');
+    expect(rotuloDoClassificatorio(26)).toBe('1Z');
+    expect(rotuloDoClassificatorio(27)).toBe('27');
   });
 });

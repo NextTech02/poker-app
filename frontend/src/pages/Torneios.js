@@ -54,6 +54,10 @@ const FORM_INICIAL = {
   blind_template_id: '',
 };
 
+// Rótulo do N-ésimo dia classificatório como o salão chama: 1A, 1B, 1C…
+// (o formulário limita a 20 dias; além do Z volta ao número puro).
+export const rotuloDoClassificatorio = (n) => (n >= 1 && n <= 26 ? `1${String.fromCharCode(64 + n)}` : String(n));
+
 // Campos do KO do formulário a partir do torneio gravado.
 const koDoTorneio = (torneio) => ({
   ko_format: formatoKo(torneio),
@@ -204,7 +208,8 @@ const Torneios = () => {
         try {
           const finalRes = await api.post('/tournament-days', {
             tournament_id: newTournamentId,
-            day_name: 'Dia Final',
+            // No idioma da tela: "Día Final" / "Dia Final" / "Final Day".
+            day_name: t('tournaments.finalDayName', 'Dia Final'),
             day_number: qCount + 1,
             day_type: 'final',
             buy_in: 0,
@@ -217,7 +222,8 @@ const Torneios = () => {
           for (let i = 1; i <= qCount; i++) {
             const dayRes = await api.post('/tournament-days', {
               tournament_id: newTournamentId,
-              day_name: `Dia ${i}`,
+              // "Día 1A", "Día 1B"… — como o clube chama os classificatórios.
+              day_name: t('tournaments.qualifyingDayName', 'Dia {{label}}', { label: rotuloDoClassificatorio(i) }),
               day_number: i,
               day_type: 'qualifying',
               qualifies_to_day_id: finalDayId,
