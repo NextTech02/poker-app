@@ -118,9 +118,19 @@ const Financeiro = () => {
     loadData();
   };
 
-  const getTypeLabel = (type) => {
+  const getTypeLabel = (type, tx = {}) => {
+    // Taxa (ex.: Bono Dealer) é gravada como add-on com is_fee.
+    if (type === 'addon' && tx.is_fee) return t('financial.typeFee', 'Taxa');
     const map = { buy_in: t('financial.typeBuyIn'), rebuy: t('financial.typeRebuy'), addon: t('financial.typeAddon'), prize: t('financial.typePrize') };
     return map[type] || type;
+  };
+
+  // O meio de entrada vendido ("Bono Dealer", "Doble"), como o clube chama.
+  // Venda antiga sem meio e prêmio por posição ficam com "--".
+  const getDescription = (tx) => {
+    if (tx.buy_type_name) return tx.buy_type_name;
+    if (tx.type === 'prize' && tx.prize_kind === 'knockout') return t('financial.descKnockout', 'Prêmio por eliminação (KO)');
+    return '--';
   };
 
   const getPaymentLabel = (value) => {
@@ -157,14 +167,19 @@ const Financeiro = () => {
     return resolveLabel(tx.payment_source);
   };
 
-  const getTypeBadgeClass = (type) => {
+  const getTypeBadgeClass = (type, tx = {}) => {
+    if (type === 'addon' && tx.is_fee) return 'fn-badge--fee';
     const map = { buy_in: 'fn-badge--buyin', rebuy: 'fn-badge--rebuy', addon: 'fn-badge--addon', prize: 'fn-badge--prize' };
     return map[type] || '';
   };
 
   // Filter transactions
   const filteredTransactions = (data?.transactions || []).filter(tx => {
-    if (txFilter.type && tx.type !== txFilter.type) return false;
+    if (txFilter.type === 'fee') {
+      if (!(tx.type === 'addon' && tx.is_fee)) return false;
+    } else if (txFilter.type === 'addon') {
+      if (tx.type !== 'addon' || tx.is_fee) return false;
+    } else if (txFilter.type && tx.type !== txFilter.type) return false;
     if (txFilter.payment_source && tx.payment_source !== txFilter.payment_source) return false;
     return true;
   });
@@ -749,6 +764,7 @@ const Financeiro = () => {
                   <option value="buy_in">{t('financial.optBuyIn')}</option>
                   <option value="rebuy">{t('financial.optRebuy')}</option>
                   <option value="addon">{t('financial.optAddon')}</option>
+                  <option value="fee">{t('financial.optFee', 'Taxa')}</option>
                   <option value="prize">{t('financial.optPrize')}</option>
                 </select>
               </div>
@@ -775,6 +791,7 @@ const Financeiro = () => {
                       <th>{t('financial.colTournament')}</th>
                       <th>{t('financial.colPlayer')}</th>
                       <th>{t('financial.colType')}</th>
+                      <th>{t('financial.colDescription', 'Descrição')}</th>
                       <th>{t('financial.colPaymentMethod')}</th>
                       <th>{t('financial.colAmount')}</th>
                     </tr>
@@ -786,10 +803,11 @@ const Financeiro = () => {
                         <td>{tx.tournament_name || '--'}</td>
                         <td>{tx.player_name || '--'}</td>
                         <td>
-                          <span className={`fn-badge ${getTypeBadgeClass(tx.type)}`}>
-                            {getTypeLabel(tx.type)}
+                          <span className={`fn-badge ${getTypeBadgeClass(tx.type, tx)}`}>
+                            {getTypeLabel(tx.type, tx)}
                           </span>
                         </td>
+                        <td>{getDescription(tx)}</td>
                         <td>{getPaymentDisplay(tx)}</td>
                         <td className={tx.type === 'prize' ? 'fn-negative' : ''}>{fmt(tx.amount)}</td>
                       </tr>

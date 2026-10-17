@@ -178,6 +178,9 @@ class FinancialService:
                 payment_source=tx.get("payment_source"),
                 payment_method=tx.get("payment_method"),
                 amount=amount,
+                buy_type_name=tx.get("buy_type_name"),
+                is_fee=bool(tx.get("is_fee")),
+                prize_kind=tx.get("prize_kind"),
             ))
 
         revenue_total = buy_in_total + rebuy_total + addon_total + fee_total

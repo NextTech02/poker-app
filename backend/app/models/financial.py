@@ -33,6 +33,11 @@ class TransactionEntry(BaseModel):
     payment_source: Optional[str] = None
     payment_method: Optional[str] = None
     amount: float
+    # O que foi vendido, como o clube chama ("Bono Dealer", "Doble"): a
+    # categoria sozinha (Add-on, Rebuy) não diz qual meio de entrada foi.
+    buy_type_name: Optional[str] = None
+    is_fee: bool = False
+    prize_kind: Optional[str] = None
 
 
 class ExpenseCategoryTotal(BaseModel):

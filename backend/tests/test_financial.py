@@ -176,3 +176,18 @@ class TestResultadoDaEtapa:
         assert t.revenue == 1000
         assert t.prizes == 300
         assert t.net == 700
+
+
+class TestDescricaoNoExtrato:
+    def test_extrato_traz_o_meio_de_entrada_e_se_e_taxa(self, monkeypatch):
+        """Pedido do NSOP: no Financeiro não aparecia "Bono Dealer" nem "Doble"
+        — só a categoria (Add-on, Rebuy)."""
+        doble = {**_entrada("rebuy", 1200), "buy_type_name": "Doble Recompra"}
+        bono = {**_entrada("addon", 50), "buy_type_name": "Bono Dealer", "is_fee": True}
+        antiga = _entrada("buy_in", 600)
+        _monta(monkeypatch, transacoes=[doble, bono, antiga])
+        s = FinancialService.get_financial_summary(stage_id=STAGE, organization_id=ORG)
+        por_id = {t.id: t for t in s.transactions}
+        assert por_id[doble["id"]].buy_type_name == "Doble Recompra"
+        assert (por_id[bono["id"]].buy_type_name, por_id[bono["id"]].is_fee) == ("Bono Dealer", True)
+        assert por_id[antiga["id"]].buy_type_name is None and por_id[antiga["id"]].is_fee is False

@@ -136,6 +136,12 @@
   color: var(--badge-text-accent, #c79cfa);
 }
 
+/* Taxa (ex.: Bono Dealer): vendida como add-on, mas é outra coisa no DRE */
+.fn-badge--fee {
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--badge-text-info);
+}
+
 .fn-badge--prize {
   background: rgba(245, 158, 11, 0.15);
   color: var(--warning);

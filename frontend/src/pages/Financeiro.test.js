@@ -505,3 +505,35 @@ describe('taxas no DRE', () => {
     expect(screen.queryByText('Taxas')).toBeNull();
   });
 });
+
+describe('descrição da venda nas transações', () => {
+  const VENDAS = [
+    { id: 'v1', type: 'rebuy', amount: 1200, buy_type_name: 'Doble Recompra', payment_source: 'cash' },
+    { id: 'v2', type: 'addon', amount: 50, buy_type_name: 'Bono Dealer', is_fee: true, payment_source: 'cash' },
+    { id: 'v3', type: 'addon', amount: 200, buy_type_name: 'Add-on', payment_source: 'cash' },
+    { id: 'v4', type: 'buy_in', amount: 600, payment_source: 'cash' },
+  ];
+
+  it('mostra o meio de entrada vendido (Bono Dealer, Doble) e a taxa como Taxa', async () => {
+    await montar({ relatorio: { ...RELATORIO, transactions: VENDAS } });
+    await gerar();
+    await waitFor(() => expect(linhaDaTransacao('Doble Recompra')).toBeDefined());
+    expect(linhaDaTransacao('Doble Recompra')).toHaveTextContent('financial.typeRebuy');
+    expect(linhaDaTransacao('Bono Dealer')).toHaveTextContent('Taxa');
+    // Venda antiga, sem meio cadastrado: travessão na descrição.
+    expect(linhaDaTransacao('financial.typeBuyIn')).toHaveTextContent('--');
+  });
+
+  it('o filtro separa Taxa de Add-on', async () => {
+    await montar({ relatorio: { ...RELATORIO, transactions: VENDAS } });
+    await gerar();
+    await waitFor(() => expect(linhaDaTransacao('Bono Dealer')).toBeDefined());
+    const filtro = screen.getByDisplayValue('financial.filterAllTypes');
+    await userEvent.selectOptions(filtro, 'fee');
+    expect(linhaDaTransacao('Bono Dealer')).toBeDefined();
+    expect(linhaDaTransacao('Doble Recompra')).toBeUndefined();
+    await userEvent.selectOptions(filtro, 'addon');
+    expect(linhaDaTransacao('Bono Dealer')).toBeUndefined();
+    expect(linhaDaTransacao('financial.typeAddon')).toBeDefined();
+  });
+});

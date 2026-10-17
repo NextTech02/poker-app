@@ -1890,7 +1890,11 @@
     "dreBarMargin": "= BAR GROSS MARGIN",
     "dreBarOperation": "{{tabs}} closed tab(s) · {{shifts}} shift(s)",
     "drePrizeKo": "of which knockout prizes (KO / Mystery)",
-    "dreFees": "Fees"
+    "dreFees": "Fees",
+    "colDescription": "Description",
+    "typeFee": "Fee",
+    "optFee": "Fee",
+    "descKnockout": "Knockout prize (KO)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",

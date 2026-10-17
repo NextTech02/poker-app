@@ -1890,7 +1890,11 @@
     "dreBarMargin": "= MARGEM BRUTA DO BAR",
     "dreBarOperation": "{{tabs}} comanda(s) fechada(s) · {{shifts}} turno(s)",
     "drePrizeKo": "dos quais prêmios por eliminação (KO / Mystery)",
-    "dreFees": "Taxas"
+    "dreFees": "Taxas",
+    "colDescription": "Descrição",
+    "typeFee": "Taxa",
+    "optFee": "Taxa",
+    "descKnockout": "Prêmio por eliminação (KO)"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneio",
