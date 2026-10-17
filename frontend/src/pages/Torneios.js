@@ -15,6 +15,9 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { colunasDoDia, linhasDaApi, meiosPadrao, meiosParaApi, validarMeios } from '../utils/entryTypes';
 import { FORMATOS_KO, formatoKo, koParaApi } from '../utils/ko';
 import { MAX_FINALISTAS, equipesDoTorneio, equipesParaApi } from '../utils/equipes';
+import { bilheteDoTorneio, bilheteParaApi } from '../utils/bilhete';
+import BilheteConfigModal from '../components/bilhete/BilheteConfigModal';
+import ImagemDoBilheteCampo from '../components/bilhete/ImagemDoBilheteCampo';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './Torneios.css';
@@ -58,6 +61,10 @@ const FORM_INICIAL = {
   team_finalists: '',
   team_tiebreak: 'best_individual',
   team_allow_reentry: false,
+  // Bilhete deste torneio (em branco = o padrão do clube).
+  ticket_logo_path: '',
+  ticket_city: '',
+  ticket_venue: '',
   qualifying_days: 2,
   qualifying_max_players: 100,
   qualifying_rebuy_level_limit: '',
@@ -113,6 +120,8 @@ const Torneios = () => {
   // O torneio editado ERA por equipes? Desligar o modo precisa ir explícito.
   const [eraPorEquipes, setEraPorEquipes] = useState(false);
   const [formError, setFormError] = useState('');
+  // Bilhete de inscrição do CLUBE (imagem, cidade, sede, enfeites).
+  const [showBilhete, setShowBilhete] = useState(false);
 
   useEffect(() => {
     loadTournaments();
@@ -195,6 +204,7 @@ const Torneios = () => {
         elimination_mode: formData.elimination_mode || 'bulk',
         ...koParaApi(formData),
         ...equipesParaApi(formData),
+        ...bilheteParaApi(formData),
       });
       const newTournamentId = res?.data?.id;
 
@@ -329,7 +339,9 @@ const Torneios = () => {
         // Trocar para "por mesa" com eliminações em massa já lançadas é
         // recusado pelo servidor (409) — a mensagem vem traduzida no erro.
         elimination_mode: formData.elimination_mode || 'bulk',
-        ...(koCarregado ? { ...koParaApi(formData), ...equipesParaApi(formData, eraPorEquipes) } : {}),
+        ...(koCarregado
+          ? { ...koParaApi(formData), ...equipesParaApi(formData, eraPorEquipes), ...bilheteParaApi(formData, true) }
+          : {}),
       });
       if (!entryLoadFailed) {
         try {
@@ -415,7 +427,9 @@ const Torneios = () => {
     api.get(`/tournaments/${tournament.id}`, { _silentError: true })
       .then((res) => {
         if (!res?.data) return;
-        setFormData((atual) => ({ ...atual, ...koDoTorneio(res.data), ...equipesDoTorneio(res.data) }));
+        setFormData((atual) => ({
+          ...atual, ...koDoTorneio(res.data), ...equipesDoTorneio(res.data), ...bilheteDoTorneio(res.data),
+        }));
         setEraPorEquipes(!!res.data.team_mode);
         setKoCarregado(true);
       })
@@ -553,6 +567,15 @@ const Torneios = () => {
               <p className="tr-subtitle">{t('tournaments.subtitle')}</p>
             </div>
           </div>
+          <div className="tr-header-acoes">
+          <button
+            type="button"
+            className="tr-btn-edit tr-btn-bilhete"
+            onClick={() => setShowBilhete(true)}
+            title={t('ticket.title', 'Bilhete de inscrição')}
+          >
+            {t('ticket.button', 'Bilhete')}
+          </button>
           <button
             type="button"
             className="tr-btn-new"
@@ -565,7 +588,10 @@ const Torneios = () => {
             </svg>
             {t('tournaments.newTournament')}
           </button>
+          </div>
         </div>
+
+        {showBilhete && <BilheteConfigModal onFechar={() => setShowBilhete(false)} />}
 
         {/* ── Body ── */}
         {loading ? (
@@ -1017,6 +1043,31 @@ const TournamentModal = ({
             </label>
           </div>
         )}
+        {/* Bilhete de inscrição deste torneio: em branco, sai o do clube
+            (botão "Bilhete" no topo da lista de torneios). */}
+        <div className="tr-section-label">{t('ticket.tournamentSection', 'Bilhete deste torneio (opcional)')}</div>
+        <ImagemDoBilheteCampo
+          id="tr-ticket-logo"
+          valor={formData.ticket_logo_path}
+          onChange={(v) => onChange({ target: { name: 'ticket_logo_path', value: v } })}
+          disabled={submitting || (isEditing && koBloqueado)}
+          vazio={t('ticket.clubLogo', 'Imagem do clube')}
+        />
+        <div className="tr-qual-grid">
+          <div className="tr-field">
+            <label htmlFor="tr-ticket-city">{t('ticket.city', 'Cidade (abaixo da imagem)')}</label>
+            <input id="tr-ticket-city" name="ticket_city" maxLength={80} value={formData.ticket_city || ''}
+              onChange={onChange} disabled={submitting || (isEditing && koBloqueado)}
+              placeholder={t('ticket.useClub', 'Padrão do clube')} />
+          </div>
+          <div className="tr-field">
+            <label htmlFor="tr-ticket-venue">{t('ticket.venue', 'Sede / local')}</label>
+            <input id="tr-ticket-venue" name="ticket_venue" maxLength={120} value={formData.ticket_venue || ''}
+              onChange={onChange} disabled={submitting || (isEditing && koBloqueado)}
+              placeholder={t('ticket.useClub', 'Padrão do clube')} />
+          </div>
+        </div>
+
         {porEquipes && (
           <small className="tr-elim-rule">
             {t('teams.formHint', 'O 1º critério de desempate é o capitão. A Fase 1 vira um dia classificatório e a final um dia final, já vinculados.')}

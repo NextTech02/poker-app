@@ -91,3 +91,5 @@ class MyPermissions(BaseModel):
     # Nome do clube, para o cabeçalho do menu. Opcional: um backend que não
     # mande o campo deixa o cabeçalho sem a linha, e nada mais muda.
     organization_name: Optional[str] = None
+    # Nome do funcionário logado: sai no bilhete ("Cajero").
+    staff_name: Optional[str] = None

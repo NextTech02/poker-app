@@ -1467,7 +1467,8 @@
     "equipes_exige_modo_mesa": "El torneo por equipos exige eliminar por mesas: los puntos salen de la posición en cada mesa.",
     "equipes_sem_ko": "El torneo por equipos no se combina con premios por eliminación (KO).",
     "modo_equipes_bloqueado_com_inscritos": "El torneo ya tiene inscritos: el modo por equipos ya no puede activarse ni desactivarse.",
-    "avancar_equipes_pela_tela_de_equipes": "Torneo por equipos: la final se arma en la pantalla de Equipos, por los puntos de la Fase 1."
+    "avancar_equipes_pela_tela_de_equipes": "Torneo por equipos: la final se arma en la pantalla de Equipos, por los puntos de la Fase 1.",
+    "bilhete_indisponivel": "El boleto personalizado aún no está disponible en este servidor."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",
@@ -3728,5 +3729,30 @@
     "standing_eliminated": "Eliminado en la final",
     "standing_stage1": "Por la Fase 1",
     "bulkHint": "Torneo por equipos: el sorteo ubica a los integrantes de cada equipo en mesas distintas, máximo 8 por mesa, y reparte las mesas más grandes entre los equipos."
+  },
+  "ticket": {
+    "title": "Boleto de inscripción",
+    "button": "Boleto",
+    "clubHint": "Estándar del club para el boleto impreso en la Caja. Cada torneo puede cambiar la imagen, la ciudad y la sede en su propio registro.",
+    "logo": "Imagen superior",
+    "city": "Ciudad (debajo de la imagen)",
+    "venue": "Sede",
+    "ornaments": "Adornos geométricos en las esquinas",
+    "preview": "Vista previa del boleto",
+    "saveError": "No se pudo guardar el boleto. Intente de nuevo.",
+    "samplePlayer": "Jugador de Ejemplo",
+    "sampleDay": "Día 1A",
+    "sampleEntry": "Reentrada",
+    "tournamentSection": "Boleto de este torneo (opcional)",
+    "clubLogo": "Imagen del club",
+    "useClub": "Estándar del club",
+    "logoAlt": "Imagen del boleto",
+    "noLogo": "Sin imagen",
+    "uploading": "Subiendo…",
+    "uploadLogo": "Subir imagen",
+    "removeLogo": "Quitar",
+    "logoInvalidType": "Use una imagen JPG, PNG o WebP.",
+    "logoTooLarge": "La imagen supera 2 MB.",
+    "logoUploadError": "No se pudo subir la imagen."
   }
 }

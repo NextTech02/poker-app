@@ -1060,3 +1060,15 @@ describe('torneio por equipes', () => {
     expect(enviosDeMeios()[0][1].items[0]).toMatchObject({ category: 'buy_in', per_team: true, amount: 400 });
   });
 });
+
+describe('bilhete do torneio', () => {
+  it('cidade e sede preenchidas vão na criação; em branco ficam com o padrão do clube', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.type(campo(/tournaments.tournamentName/), 'Main');
+    await userEvent.type(campo('Cidade (abaixo da imagem)'), 'Chiclayo');
+    await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/tournaments', expect.objectContaining({ ticket_city: 'Chiclayo' })));
+    expect(api.post.mock.calls[0][1]).not.toHaveProperty('ticket_venue');
+  });
+});

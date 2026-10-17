@@ -105,6 +105,11 @@ class TournamentBase(BaseModel):
     team_finalists: Optional[int] = Field(default=None, ge=1, le=8, description="Equipes que vão à final")
     team_tiebreak: TeamTiebreak = Field(default=TeamTiebreak.best_individual, description="2º critério de desempate")
     team_allow_reentry: bool = Field(default=False, description="Fase 1 permite recompra/reentrada")
+    # Bilhete de inscrição deste torneio: imagem do topo, cidade e sede.
+    # Nulo = o padrão do clube (app_settings).
+    ticket_logo_path: Optional[str] = Field(default=None, max_length=500)
+    ticket_city: Optional[str] = Field(default=None, max_length=80)
+    ticket_venue: Optional[str] = Field(default=None, max_length=120)
 
 
 class TournamentCreate(TournamentBase):
@@ -128,6 +133,10 @@ class TournamentUpdate(BaseModel):
     team_finalists: Optional[int] = Field(None, ge=1, le=8)
     team_tiebreak: Optional[TeamTiebreak] = None
     team_allow_reentry: Optional[bool] = None
+    # Bilhete: mandar null volta ao padrão do clube.
+    ticket_logo_path: Optional[str] = Field(None, max_length=500)
+    ticket_city: Optional[str] = Field(None, max_length=80)
+    ticket_venue: Optional[str] = Field(None, max_length=120)
     # Broadcast settings
     broadcast_bg_color: Optional[str] = Field(default=None, description="Background color (hex)")
     broadcast_bg_image_url: Optional[str] = Field(default=None, description="Background image URL")

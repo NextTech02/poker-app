@@ -1030,4 +1030,5 @@ class StaffService:
             is_admin=False,
             permissions=permissions,
             group_name=group_name,
+            staff_name=staff.get("name"),
         )

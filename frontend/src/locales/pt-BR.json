@@ -1467,7 +1467,8 @@
     "equipes_exige_modo_mesa": "Torneio por equipes exige eliminar pelas mesas: os pontos saem da posição em cada mesa.",
     "equipes_sem_ko": "Torneio por equipes não combina com premiação por eliminação (KO).",
     "modo_equipes_bloqueado_com_inscritos": "O torneio já tem inscritos: o modo por equipes não pode mais ser ligado ou desligado.",
-    "avancar_equipes_pela_tela_de_equipes": "Torneio por equipes: a final é montada na tela de Equipes, pelos pontos da Fase 1."
+    "avancar_equipes_pela_tela_de_equipes": "Torneio por equipes: a final é montada na tela de Equipes, pelos pontos da Fase 1.",
+    "bilhete_indisponivel": "O bilhete personalizado ainda não está disponível neste servidor."
   },
   "premiacao": {
     "loadError": "Erro ao carregar dados da premiação",
@@ -3728,5 +3729,30 @@
     "standing_eliminated": "Eliminada na final",
     "standing_stage1": "Pela Fase 1",
     "bulkHint": "Torneio por equipes: o sorteio coloca os integrantes de cada equipe em mesas diferentes, no máximo 8 por mesa, e reparte as mesas maiores entre as equipes."
+  },
+  "ticket": {
+    "title": "Bilhete de inscrição",
+    "button": "Bilhete",
+    "clubHint": "Padrão do clube para o bilhete impresso no Caixa. Cada torneio pode trocar a imagem, a cidade e a sede no próprio cadastro.",
+    "logo": "Imagem do topo",
+    "city": "Cidade (abaixo da imagem)",
+    "venue": "Sede / local",
+    "ornaments": "Enfeites geométricos nos cantos",
+    "preview": "Prévia do bilhete",
+    "saveError": "Não foi possível salvar o bilhete. Tente de novo.",
+    "samplePlayer": "Jogador de Exemplo",
+    "sampleDay": "Dia 1A",
+    "sampleEntry": "Reentrada",
+    "tournamentSection": "Bilhete deste torneio (opcional)",
+    "clubLogo": "Imagem do clube",
+    "useClub": "Padrão do clube",
+    "logoAlt": "Imagem do bilhete",
+    "noLogo": "Sem imagem",
+    "uploading": "Enviando…",
+    "uploadLogo": "Enviar imagem",
+    "removeLogo": "Remover",
+    "logoInvalidType": "Use uma imagem JPG, PNG ou WebP.",
+    "logoTooLarge": "A imagem passou de 2 MB.",
+    "logoUploadError": "Não foi possível enviar a imagem."
   }
 }

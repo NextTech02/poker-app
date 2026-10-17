@@ -81,6 +81,10 @@ def contar_pagantes(inscricoes: List[dict]) -> int:
     )
 
 
+# Bilhete de inscrição do torneio (troca do padrão do clube).
+_CAMPOS_DO_BILHETE = ("ticket_logo_path", "ticket_city", "ticket_venue")
+
+
 class TournamentService:
     @staticmethod
     def create_tournament(tournament_data: TournamentCreate, user_id: str) -> Tournament:
@@ -109,6 +113,10 @@ class TournamentService:
         # Torneio comum não manda as colunas de equipes (banco sem a migração).
         if not data.get("team_mode"):
             for campo in ("team_mode", "team_finalists", "team_tiebreak", "team_allow_reentry"):
+                data.pop(campo, None)
+        # Bilhete em branco = padrão do clube: não manda as colunas.
+        for campo in _CAMPOS_DO_BILHETE:
+            if not data.get(campo):
                 data.pop(campo, None)
 
         response = supabase.table("tournaments").insert(data).execute()
@@ -316,6 +324,7 @@ class TournamentService:
             if campo in data and data[campo] is None:
                 data.pop(campo)
         TournamentService._validar_ko(tournament_id, data)
+        TournamentService._preparar_bilhete(tournament_id, data)
         if any(c.startswith("team_") for c in data) or "has_qualifying" in data or "elimination_mode" in data:
             TournamentService._validar_equipes(tournament_id, data)
 
@@ -405,6 +414,28 @@ class TournamentService:
                 "O torneio já tem vendas: o formato e as porcentagens do KO não podem mais mudar.",
                 status=409,
             )
+
+    @staticmethod
+    def _preparar_bilhete(tournament_id: str, data: dict) -> None:
+        """Bilhete do torneio (imagem, cidade, sede). Texto em branco vira nulo
+        (= padrão do clube). Banco sem a migração do bilhete: sem nada a
+        gravar, os campos saem do update e a edição continua funcionando."""
+        campos = [c for c in _CAMPOS_DO_BILHETE if c in data]
+        if not campos:
+            return
+        for campo in campos:
+            valor = data[campo]
+            data[campo] = valor.strip() if isinstance(valor, str) and valor.strip() else None
+        linhas = supabase.table("tournaments").select("*").eq("id", tournament_id).execute().data or []
+        if linhas and "ticket_city" not in linhas[0]:
+            if any(data[c] for c in campos):
+                raise ErroDeNegocio(
+                    "bilhete_indisponivel",
+                    "O bilhete personalizado ainda não está disponível neste servidor.",
+                    status=409,
+                )
+            for campo in campos:
+                data.pop(campo)
 
     @staticmethod
     def _validar_equipes(tournament_id: Optional[str], data: dict) -> None:

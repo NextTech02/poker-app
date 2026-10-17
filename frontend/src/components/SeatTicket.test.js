@@ -20,6 +20,12 @@ let mockIdioma = 'pt-BR';
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ i18n: { get language() { return mockIdioma; } } }),
 }));
+// Imagem/cidade/sede do clube vêm do banco; aqui, nenhuma (o layout é o
+// testado em utils/bilhete.test.js).
+jest.mock('../hooks/useBrandingDoBilhete', () => ({ useBrandingDoBilhete: () => null }));
+
+/** O texto do bilhete impresso, sem as tags. */
+const textoImpresso = (html) => html.replace(/<style[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
 const ALOCACAO = {
   id: 'a1',
@@ -148,7 +154,7 @@ describe('impressão', () => {
     render(<SeatTicket allocation={ALOCACAO} />);
     await userEvent.click(screen.getByRole('button'));
     expect(impresso.html).toContain('Ana Souza');
-    expect(impresso.html).toContain('MESA 3 - ASSENTO 7');
+    expect(textoImpresso(impresso.html)).toMatch(/MESA 3 ASSENTO 7/);
     expect(impresso.html).toContain('Main Event');
   });
 
@@ -217,8 +223,9 @@ describe('impressão', () => {
     const impresso = espiaoDeImpressao();
     render(<SeatTicket allocation={ALOCACAO} />);
     await userEvent.click(screen.getByRole('button'));
-    expect(impresso.html).toContain('MESA 3 - ASIENTO 7');
-    expect(impresso.html).toContain('¡Buena suerte!');
+    expect(textoImpresso(impresso.html)).toMatch(/MESA 3 POSICIÓN 7/);
+    expect(impresso.html).toContain('REGISTRO DE TORNEO');
+    expect(impresso.html).toContain('FIRMA DEL JUGADOR');
   });
 });
 
@@ -263,10 +270,10 @@ describe('compra e total de fichas', () => {
     expect(impresso.html).toContain('Bono Dealer');
     expect(impresso.html).toContain('S/ 20.00');
     expect(impresso.html).toContain('S/ 220.00');
-    expect(impresso.html).toContain('Fichas a entregar');
+    expect(impresso.html).toContain('TOTAL DE FICHAS');
     expect(impresso.html).toContain('30.000');
     // A mesa continua no papel junto com a compra.
-    expect(impresso.html).toContain('MESA 3 - ASSENTO 7');
+    expect(textoImpresso(impresso.html)).toMatch(/MESA 3 ASSENTO 7/);
   });
 
   it('venda sem assento (alocação manual) não imprime "MESA undefined"', async () => {
@@ -289,7 +296,6 @@ describe('compra e total de fichas', () => {
     expect(screen.getByText('Bilhete de Fichas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button'));
     expect(impresso.html).toContain('BILHETE DE FICHAS');
-    expect(impresso.html).toContain('Entregue este bilhete ao floor');
   });
 
   it('em espanhol o total sai como "Fichas a entregar" e o número no formato de lá', async () => {
@@ -297,7 +303,7 @@ describe('compra e total de fichas', () => {
     const impresso = espiaoDeImpressao();
     render(<SeatTicket allocation={{ ...ALOCACAO, ...COMPRA, total_chips: 130000 }} />);
     await userEvent.click(screen.getByRole('button'));
-    expect(impresso.html).toContain('Fichas a entregar');
+    expect(impresso.html).toContain('TOTAL DE FICHAS');
     expect(impresso.html).toContain('130.000');
   });
 
@@ -319,7 +325,6 @@ describe('compra e total de fichas', () => {
  */
 describe('bilhete de add-on', () => {
   const ADDON = { itens: [{ name: 'Addon', amount: 200, chips: 50000 }], total_amount: 200, total_chips: 50000 };
-  const semTags = (html) => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
 
   it('traz nome, mesa e assento, e o item como NOME: valor / fichas', async () => {
     const impresso = espiaoDeImpressao();
@@ -328,11 +333,13 @@ describe('bilhete de add-on', () => {
     expect(screen.getByText('Mesa 3 - Assento 7')).toBeInTheDocument();
     expect(screen.getByText('Addon').closest('li')).toHaveTextContent('Addon: 200.00 / 50.000 fichas');
     await userEvent.click(screen.getByRole('button'));
-    const texto = semTags(impresso.html);
+    const texto = textoImpresso(impresso.html);
     expect(texto).toContain('BILHETE DE FICHAS');
     expect(texto).toContain('Ana Souza');
-    expect(texto).toContain('MESA 3 - ASSENTO 7');
-    expect(texto).toContain('Addon: 200.00 / 50.000 fichas');
+    expect(texto).toMatch(/MESA 3 ASSENTO 7/);
+    // Um item só: MODALIDADE e FICHAS, e o valor embaixo.
+    expect(texto).toMatch(/MODALIDADE: Addon FICHAS: 50\.000/);
+    expect(texto).toMatch(/VALOR: 200\.00/);
   });
 
   it('com um item só não há linha TOTAL; com dois, há', () => {
@@ -350,9 +357,9 @@ describe('bilhete de add-on', () => {
     const impresso = espiaoDeImpressao();
     render(<SeatTicket allocation={{ ...ALOCACAO, so_fichas: true, ...ADDON }} />);
     await userEvent.click(screen.getByRole('button'));
-    const texto = semTags(impresso.html);
+    const texto = textoImpresso(impresso.html);
     expect(texto).toContain('BOLETO DE FICHAS');
-    expect(texto).toContain('MESA 3 - ASIENTO 7');
-    expect(texto).toContain('Addon: 200.00 / 50.000 fichas');
+    expect(texto).toMatch(/MESA 3 POSICIÓN 7/);
+    expect(texto).toMatch(/MODALIDAD: Addon FICHAS: 50\.000/);
   });
 });

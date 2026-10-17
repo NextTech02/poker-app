@@ -1,5 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePermissions } from '../contexts/PermissionContext';
+import { useBrandingDoBilhete } from '../hooks/useBrandingDoBilhete';
+import { htmlDoBilhete } from '../utils/bilhete';
 import './SeatTicket.css';
 
 const LANGS = {
@@ -101,14 +104,6 @@ const LANGS = {
   },
 };
 
-// O que vai para o HTML da impressão é texto configurado pelo clube (nome do
-// meio de entrada, do jogador). Escapado, um "<" num nome não quebra o bilhete.
-const escapar = (texto) => String(texto ?? '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;');
-
 const valorPadrao = (v) => Number(v || 0).toFixed(2);
 
 /**
@@ -130,6 +125,9 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
   const itens = Array.isArray(allocation.itens) ? allocation.itens : [];
   const temItens = itens.length > 0;
   const { i18n } = useTranslation();
+  // Layout do clube (imagem, cidade, sede, enfeites) e quem está vendendo.
+  const branding = useBrandingDoBilhete(allocation.tournament_id);
+  const { staffName } = usePermissions() || {};
   // Map i18next locale ('pt-BR', 'en-US', 'es-ES') to LANGS key
   const langCode = i18n.language?.startsWith('en') ? 'en' : i18n.language?.startsWith('es') ? 'es' : 'pt';
   const t = LANGS[langCode] || LANGS.pt;
@@ -140,18 +138,9 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
   const totalValor = allocation.total_amount
     ?? itens.reduce((soma, item) => soma + (Number(item.amount) || 0), 0);
 
-  let cabecalho = t.header_entry;
   let cabecalhoPrevia = t.preview_header_entry;
-  if (isAlternate) {
-    cabecalho = t.header_alternate;
-    cabecalhoPrevia = t.preview_header_alternate;
-  } else if (soFichas) {
-    cabecalho = t.header_chips;
-    cabecalhoPrevia = t.preview_header_chips;
-  }
-  let rodape = t.footer_entry;
-  if (isAlternate) rodape = t.footer_alternate;
-  else if (soFichas) rodape = t.footer_chips;
+  if (isAlternate) cabecalhoPrevia = t.preview_header_alternate;
+  else if (soFichas) cabecalhoPrevia = t.preview_header_chips;
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -166,220 +155,27 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
-
-    // "NOME: valor / fichas" — o nome em caixa alta sai do CSS, para o texto
-    // gravado continuar sendo o do meio de entrada.
-    const linhaDoItem = (nome, valor, fichas, classe = '') => (
-      `<div class="ticket-item ${classe}">`
-      + `<span class="item-name">${escapar(nome)}</span>: `
-      + `<span class="item-amount">${escapar(formatarValor(valor))}</span> / `
-      + `<span class="item-chips">${formatarFichas(fichas)} ${t.chips_unit}</span>`
-      + '</div>'
-    );
-    const purchaseBlock = temItens
-      ? `<div class="ticket-section">
-           <div class="ticket-label">${t.label_purchase}</div>
-           <div class="ticket-items">
-             ${itens.map((item) => linhaDoItem(item.name, item.amount, item.chips)).join('')}
-             ${itens.length > 1 ? linhaDoItem(t.label_total, totalValor, totalFichas, 'item-total') : ''}
-           </div>
-         </div>
-         <div class="ticket-highlight chips-highlight">
-           <div class="ticket-label">${t.label_chips_to_deliver}</div>
-           <div class="ticket-chips-total">${formatarFichas(totalFichas)}</div>
-           <div class="ticket-label">${t.chips_unit}</div>
-         </div>`
-      : '';
-
-    let seatBlock = isAlternate
-      ? `<div class="ticket-highlight alternate-highlight">
-           <div class="ticket-label">${t.label_status}</div>
-           <div class="ticket-table-seat alternate-text">${t.alternate_text}</div>
-           <div class="alternate-sub">${t.alternate_sub}</div>
-         </div>`
-      : `<div class="ticket-highlight">
-           <div class="ticket-label">${t.label_seat}</div>
-           <div class="ticket-table-seat">
-             ${t.seat_display(allocation.table_number, allocation.seat_number)}
-           </div>
-         </div>`;
-    if (semAssento) seatBlock = '';
-
-    const tournamentRow = allocation.tournament_name
-      ? `<div class="ticket-section">
-           <div class="ticket-label">${t.label_tournament}</div>
-           <div class="ticket-value">${escapar(allocation.tournament_name)}</div>
-         </div>`
-      : '';
-
-    const dayRow = allocation.day_name
-      ? `<div class="ticket-section">
-           <div class="ticket-label">${t.label_day}</div>
-           <div class="ticket-value">${escapar(allocation.day_name)}</div>
-         </div>`
-      : '';
-
-    const ticketHTML = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${cabecalho} - ${escapar(allocation.player_name)}</title>
-          <style>
-            @media print {
-              @page {
-                size: 80mm auto;
-                margin: 0;
-              }
-              body {
-                margin: 0;
-                padding: 0;
-              }
-            }
-            body {
-              font-family: 'Courier New', monospace;
-              width: 80mm;
-              margin: 0 auto;
-              padding: 10mm;
-              background: white;
-            }
-            .ticket {
-              border: 2px dashed #333;
-              padding: 8mm;
-              text-align: center;
-            }
-            .ticket-header {
-              font-size: 18px;
-              font-weight: bold;
-              margin-bottom: 15px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 10px;
-            }
-            .ticket-section {
-              margin: 15px 0;
-              text-align: left;
-            }
-            .ticket-label {
-              font-size: 11px;
-              color: #666;
-              text-transform: uppercase;
-            }
-            .ticket-value {
-              font-size: 16px;
-              font-weight: bold;
-              margin-top: 3px;
-            }
-            .ticket-highlight {
-              background: #f0f0f0;
-              padding: 10px;
-              margin: 15px 0;
-              border-radius: 5px;
-            }
-            .alternate-highlight {
-              background: #fff3e0;
-              border: 2px dashed #ff9800;
-            }
-            .ticket-table-seat {
-              font-size: 24px;
-              font-weight: bold;
-              margin: 15px 0;
-            }
-            .alternate-text {
-              color: #e65100;
-            }
-            .alternate-sub {
-              font-size: 12px;
-              color: #bf360c;
-              margin-top: 4px;
-            }
-            .ticket-items {
-              margin-top: 4px;
-              font-size: 13px;
-            }
-            .ticket-item {
-              padding: 4px 0;
-              border-bottom: 1px dotted #999;
-              text-align: left;
-            }
-            .ticket-item .item-name {
-              font-weight: bold;
-              text-transform: uppercase;
-            }
-            .ticket-item .item-amount,
-            .ticket-item .item-chips {
-              white-space: nowrap;
-            }
-            .ticket-item.item-total {
-              border-top: 2px solid #333;
-              border-bottom: none;
-              font-weight: bold;
-              font-size: 14px;
-            }
-            .chips-highlight {
-              border: 2px solid #333;
-            }
-            .ticket-chips-total {
-              font-size: 30px;
-              font-weight: bold;
-              margin: 6px 0;
-            }
-            .ticket-footer {
-              margin-top: 20px;
-              padding-top: 10px;
-              border-top: 2px solid #333;
-              font-size: 10px;
-              color: #666;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="ticket">
-            <div class="ticket-header">
-              ${cabecalho}
-            </div>
-
-            ${tournamentRow}
-            ${dayRow}
-
-            <div class="ticket-section">
-              <div class="ticket-label">${t.label_player}</div>
-              <div class="ticket-value">${escapar(allocation.player_name)}</div>
-            </div>
-
-            ${seatBlock}
-
-            ${purchaseBlock}
-
-            <div class="ticket-section">
-              <div class="ticket-label">${t.label_datetime}</div>
-              <div class="ticket-value">${formatDate(allocation.created_at)}</div>
-            </div>
-
-            <div class="ticket-section">
-              <div class="ticket-label">${t.label_id}</div>
-              <div class="ticket-value" style="font-size: 10px;">${allocation.id || ''}</div>
-            </div>
-
-            <div class="ticket-footer">
-              ${rodape}
-            </div>
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 100);
-            }
-          </script>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(ticketHTML);
+    if (!printWindow) return;
+    // Bilhete no layout do clube (utils/bilhete.js): imagem, cidade, sede e
+    // enfeites configurados pelo diretor; o torneio pode trocar a imagem.
+    printWindow.document.write(htmlDoBilhete({
+      allocation,
+      branding: branding || {},
+      idioma: langCode,
+      formatarValor,
+      caixa: allocation.cashier_name || staffName || '',
+    }));
     printWindow.document.close();
   };
 
   return (
     <div className="seat-ticket">
       <div className={`ticket-preview ${isAlternate ? 'alternate-preview' : ''}`}>
+        {branding?.logoUrl && (
+          <div className="ticket-preview-logo">
+            <img src={branding.logoUrl} alt="" />
+          </div>
+        )}
         <div className="ticket-preview-header">
           <h4>{cabecalhoPrevia}</h4>
         </div>

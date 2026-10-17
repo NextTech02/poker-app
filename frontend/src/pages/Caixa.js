@@ -703,7 +703,7 @@ const Caixa = () => {
             ? 'cashRegister.rebuyAllocationManualWarning'
             : 'cashRegister.allocationManualWarning',
         });
-        setAllocationData({ ...assento, ...compra });
+        setAllocationData({ ...assento, ...compra, tournament_id: formData.tournament_id });
       } else {
         // Só add-ons: o jogador já está sentado. O bilhete é de FICHAS — é
         // por ele que o floor entrega a pilha extra — e leva a mesa e o
@@ -720,6 +720,7 @@ const Caixa = () => {
           ...(assento || {}),
           sem_assento: !assento,
           so_fichas: true,
+          tournament_id: formData.tournament_id,
           ...compra,
         });
       }
@@ -796,6 +797,7 @@ const Caixa = () => {
           created_at: alloc.created_at || transaction.created_at,
           is_alternate: false,
           is_reprint: true,
+          tournament_id: transaction.tournament_id,
           ...compra,
         });
       } else {
@@ -808,6 +810,7 @@ const Caixa = () => {
           is_alternate: true,
           created_at: transaction.created_at,
           is_reprint: true,
+          tournament_id: transaction.tournament_id,
           ...compra,
         });
       }
@@ -1908,6 +1911,8 @@ const Caixa = () => {
                 <SeatTicket
                   allocation={{
                     id: allocationData.id,
+                    // O bilhete usa a imagem/sede do torneio (ou a do clube).
+                    tournament_id: allocationData.tournament_id,
                     player_name: allocationData.player_name,
                     tournament_name: allocationData.tournament_name,
                     day_name: allocationData.day_name,

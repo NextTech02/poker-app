@@ -30,6 +30,8 @@ export const PermissionProvider = ({ children }) => {
   const [groupName, setGroupName] = useState(null);
   // Nome do clube, para o cabeçalho do menu (backend antigo não manda: fica vazio).
   const [organizationName, setOrganizationName] = useState(null);
+  // Nome de quem está logado: sai no bilhete ("Caixa"/"Cajero").
+  const [staffName, setStaffName] = useState(null);
   // Módulos contratados pelo clube (tournament/cash). Entitlement comercial,
   // não permissão: decide QUAIS telas existem, não quem pode usá-las.
   const [modules, setModules] = useState(MODULOS_PADRAO);
@@ -66,6 +68,7 @@ export const PermissionProvider = ({ children }) => {
         setIsPlatformAdmin(res.data.is_platform_admin === true);
         setGroupName(res.data.group_name);
         setOrganizationName(res.data.organization_name || null);
+        setStaffName(res.data.staff_name || null);
         // Backend antigo (deploy não é atômico) não manda o campo: cair no
         // padrão mantém o app exatamente como era.
         setModules(res.data.modules?.length ? res.data.modules : MODULOS_PADRAO);
@@ -106,8 +109,8 @@ export const PermissionProvider = ({ children }) => {
   // O value era um objeto literal montado direto no JSX: identidade nova a cada
   // render, e com ela um re-render de TODA tela que le permissao.
   const value = useMemo(
-    () => ({ permissions, isAdmin, isPlatformAdmin, modules, groupName, organizationName, loading, hasPermission }),
-    [permissions, isAdmin, isPlatformAdmin, modules, groupName, organizationName, loading, hasPermission],
+    () => ({ permissions, isAdmin, isPlatformAdmin, modules, groupName, organizationName, staffName, loading, hasPermission }),
+    [permissions, isAdmin, isPlatformAdmin, modules, groupName, organizationName, staffName, loading, hasPermission],
   );
 
   return (

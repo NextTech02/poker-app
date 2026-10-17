@@ -212,3 +212,15 @@
   letter-spacing: 0.5px;
   margin-bottom: 0.25rem;
 }
+
+/* Imagem do clube (ou do torneio) no topo da prévia, como no bilhete impresso */
+.ticket-preview-logo {
+  text-align: center;
+  padding: 8px 8px 0;
+}
+
+.ticket-preview-logo img {
+  max-width: 100%;
+  max-height: 64px;
+  object-fit: contain;
+}

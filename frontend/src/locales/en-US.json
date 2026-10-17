@@ -1467,7 +1467,8 @@
     "equipes_exige_modo_mesa": "A team tournament requires table eliminations: points come from each table’s finishing position.",
     "equipes_sem_ko": "A team tournament cannot use knockout (KO) prizes.",
     "modo_equipes_bloqueado_com_inscritos": "The tournament already has registrations: team mode can no longer be turned on or off.",
-    "avancar_equipes_pela_tela_de_equipes": "Team tournament: the final is set up on the Teams screen, from the Stage 1 points."
+    "avancar_equipes_pela_tela_de_equipes": "Team tournament: the final is set up on the Teams screen, from the Stage 1 points.",
+    "bilhete_indisponivel": "The custom ticket is not available on this server yet."
   },
   "premiacao": {
     "loadError": "Error loading prize data",
@@ -3728,5 +3729,30 @@
     "standing_eliminated": "Out in the final",
     "standing_stage1": "By Stage 1",
     "bulkHint": "Team tournament: the draw seats each team’s members at different tables, at most 8 per table, and spreads the bigger tables fairly across teams."
+  },
+  "ticket": {
+    "title": "Registration ticket",
+    "button": "Ticket",
+    "clubHint": "Club default for the ticket printed at the Cashier. Each tournament can override the image, city and venue in its own settings.",
+    "logo": "Top image",
+    "city": "City (below the image)",
+    "venue": "Venue",
+    "ornaments": "Geometric corner ornaments",
+    "preview": "Ticket preview",
+    "saveError": "Could not save the ticket. Try again.",
+    "samplePlayer": "Sample Player",
+    "sampleDay": "Day 1A",
+    "sampleEntry": "Re-entry",
+    "tournamentSection": "This tournament’s ticket (optional)",
+    "clubLogo": "Club image",
+    "useClub": "Club default",
+    "logoAlt": "Ticket image",
+    "noLogo": "No image",
+    "uploading": "Uploading…",
+    "uploadLogo": "Upload image",
+    "removeLogo": "Remove",
+    "logoInvalidType": "Use a JPG, PNG or WebP image.",
+    "logoTooLarge": "The image is larger than 2 MB.",
+    "logoUploadError": "Could not upload the image."
   }
 }
