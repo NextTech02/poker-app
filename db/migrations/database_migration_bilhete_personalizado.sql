@@ -14,6 +14,9 @@
 -- Compatível com o backend anterior: só colunas novas, com padrão.
 -- ============================================================================
 
+-- ESTADO EM PRODUÇÃO: aplicada em 2026-10-17 ~21:14 UTC (autorizada pelo
+-- usuário com jogo rolando; só ADD COLUMN, instantânea, com lock_timeout).
+
 SET lock_timeout = '5s';
 
 ALTER TABLE public.app_settings
