@@ -997,6 +997,11 @@ class TournamentDayService:
             for p in (all_q_players.data or []):
                 players_by_day.setdefault(p.get("tournament_day_id"), []).append(p)
 
+        # Vendas por meio de entrada de todos os classificatórios, numa consulta.
+        por_meio = TournamentDayService._vendas_por_meio(
+            final_day.tournament_id, [p for lista in players_by_day.values() for p in lista],
+        )
+
         for q_day in (qualifying_days_response.data or []):
             players = players_by_day.get(q_day["id"], [])
 
@@ -1029,8 +1034,11 @@ class TournamentDayService:
                 buy_in_amount=day_buy_in_amount,
                 rebuy_amount=day_rebuy_amount,
                 addon_amount=day_addon_amount,
+                total_fees=sum(int(p.get("fee_count", 0) or 0) for p in players),
+                fee_amount=day_fee_amount,
                 total_collected=day_buy_in_amount + day_rebuy_amount + day_addon_amount + day_fee_amount,
-                prize_pool=float(q_day.get("prize_pool", 0) or 0)
+                prize_pool=float(q_day.get("prize_pool", 0) or 0),
+                by_buy_type=por_meio["dias"].get(q_day["id"], []),
             )
             qualifying_days_stats.append(day_stats)
 
@@ -1087,7 +1095,9 @@ class TournamentDayService:
             total_qualifying_buy_in_amount=total_qualifying_buy_in_amount,
             total_qualifying_rebuy_amount=total_qualifying_rebuy_amount,
             total_qualifying_addon_amount=total_qualifying_addon_amount,
+            total_qualifying_fee_amount=total_qualifying_fee_amount,
             total_qualifying_collected=total_qualifying_collected,
+            qualifying_by_buy_type=por_meio["todos"],
             total_qualifying_prize_pool=total_qualifying_prize_pool,
             final_day_buy_ins=final_day_buy_ins,
             final_day_rebuys=final_day_rebuys,
@@ -1123,7 +1133,7 @@ class TournamentDayService:
 
         eliminated = len([p for p in players if p.get("status") == "eliminated"])
         qualified = len([p for p in players if p.get("status") not in STATUS_FORA_DO_DIA])
-        por_meio = TournamentDayService._vendas_do_dia_por_meio(day.tournament_id, players)
+        por_meio = TournamentDayService._vendas_por_meio(day.tournament_id, players)["todos"]
 
         return QualifyingDayStats(
             day_id=day_id,
@@ -1149,30 +1159,45 @@ class TournamentDayService:
         )
 
     @staticmethod
-    def _vendas_do_dia_por_meio(tournament_id: str, inscritos: List[dict]) -> list:
-        """Vendas ATIVAS do dia agrupadas por meio de entrada, no mesmo
-        formato (e ordem) do relatório do torneio. Falhou? Lista vazia — a
-        tela continua com os totais por categoria."""
-        ids = [str(p["id"]) for p in inscritos if p.get("id")]
-        if not ids:
-            return []
+    def _vendas_por_meio(tournament_id: str, inscritos: List[dict]) -> dict:
+        """Vendas ATIVAS agrupadas por meio de entrada ("Buy-in", "Doble",
+        "Bono Dealer"…), no formato e na ordem do relatório do torneio.
+
+        UMA consulta para todos os inscritos (de um dia ou de todos os
+        classificatórios). Devolve {"dias": {day_id: [linhas]}, "todos":
+        [linhas]}. Falhou? Tudo vazio — a tela segue com as categorias.
+        """
+        vazio = {"dias": {}, "todos": []}
+        dia_do_inscrito = {str(p["id"]): p.get("tournament_day_id") for p in inscritos if p.get("id")}
+        if not dia_do_inscrito:
+            return vazio
         from app.services.report_service import agrupar_vendas_por_meio, ler_vendas_com_taxa
         try:
-            # Ordem do Caixa (sort_order) — lida aqui, pelo mesmo cliente do dia.
-            meios = supabase.table("buy_types").select("id, sort_order")                 .eq("tournament_id", tournament_id).execute().data or []
+            # Ordem do Caixa (sort_order), lida pelo mesmo cliente do dia.
+            meios = (
+                supabase.table("buy_types").select("id, sort_order")
+                .eq("tournament_id", tournament_id).execute().data or []
+            )
             ordem = {str(m["id"]): int(m.get("sort_order") or 0) for m in meios if m.get("id")}
             linhas = ler_vendas_com_taxa(
                 lambda cols: (
                     supabase.table("transactions").select(cols)
-                    .in_("tournament_player_id", ids)
+                    .in_("tournament_player_id", list(dia_do_inscrito))
                     .in_("type", ["buy_in", "rebuy", "addon"])
                 ),
                 "amount, type, buy_type_id, buy_type_name, tournament_player_id",
             )
-            return agrupar_vendas_por_meio(linhas, ordem)
         except Exception as exc:
-            logger.warning("Vendas por meio do dia não lidas: %s", exc)
-            return []
+            logger.warning("Vendas por meio de entrada não lidas: %s", exc)
+            return vazio
+        por_dia: dict = {}
+        for linha in linhas:
+            dia = dia_do_inscrito.get(str(linha.get("tournament_player_id") or ""))
+            por_dia.setdefault(dia, []).append(linha)
+        return {
+            "dias": {dia: agrupar_vendas_por_meio(lista, ordem) for dia, lista in por_dia.items()},
+            "todos": agrupar_vendas_por_meio(linhas, ordem),
+        }
 
     # ================================================
     # Timer Control Methods

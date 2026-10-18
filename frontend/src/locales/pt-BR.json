@@ -2137,7 +2137,8 @@
     "category_buy_in": "Buy-in",
     "category_rebuy": "Rebuy",
     "category_addon": "Add-on",
-    "category_fee": "Taxa"
+    "category_fee": "Taxa",
+    "byBuyTypeAllDays": "Por meio de entrada — todos os classificatórios"
   },
   "staff": {
     "title": "Funcionários",

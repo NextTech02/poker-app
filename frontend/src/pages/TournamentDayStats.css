@@ -235,3 +235,12 @@
   border-bottom: none;
   border-top: 2px solid var(--border-primary);
 }
+
+.qualifying-day-card .stats-table-wrap,
+.stats-card .stats-grid + .stats-table-wrap { margin-top: 12px; }
+
+.stats-table-title {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}

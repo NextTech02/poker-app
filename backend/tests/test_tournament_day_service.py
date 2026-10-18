@@ -1519,3 +1519,37 @@ class TestEstatisticasPorMeio:
             ("Buy-in", "buy_in", 1, 400.0), ("Doble", "rebuy", 1, 600.0), ("Bono Dealer", "fee", 1, 20.0),
         ]
         assert (r.total_fees, r.fee_amount) == (1, 20.0)
+
+
+class TestAgregadoPorMeio:
+    """Estatísticas agregadas do Día Final: cada classificatório e o total de
+    todos, por meio de entrada, com a taxa — numa consulta só de vendas."""
+
+    def test_classificatorios_por_meio_e_taxa(self, monkeypatch):
+        a = _jogador(D1, buy=1, rebuy=1)
+        a["fee_count"], a["total_fee_amount"] = 1, 50
+        b = _jogador(D2, buy=1)
+        fake = _monta(
+            monkeypatch,
+            tournament_days=[
+                _dia(FINAL, day_type="final", day_number=9),
+                _dia(D1, qualifies_to_day_id=FINAL),
+                _dia(D2, qualifies_to_day_id=FINAL, day_number=2),
+            ],
+            tournament_players=[a, b],
+            buy_types=[{"id": "bt-in", "sort_order": 0}, {"id": "bt-doble", "sort_order": 1}, {"id": "bt-bono", "sort_order": 2}],
+            transactions=[
+                {"id": "v1", "tournament_player_id": a["id"], "type": "buy_in", "amount": 500, "buy_type_id": "bt-in", "buy_type_name": "Buy-in", "status": "active"},
+                {"id": "v2", "tournament_player_id": a["id"], "type": "rebuy", "amount": 1000, "buy_type_id": "bt-doble", "buy_type_name": "Doble", "status": "active"},
+                {"id": "v3", "tournament_player_id": a["id"], "type": "addon", "amount": 50, "buy_type_id": "bt-bono", "buy_type_name": "Bono Dealer", "is_fee": True, "status": "active"},
+                {"id": "v4", "tournament_player_id": b["id"], "type": "buy_in", "amount": 500, "buy_type_id": "bt-in", "buy_type_name": "Buy-in", "status": "active"},
+            ],
+        )
+        r = S.get_final_day_aggregated_stats(FINAL)
+        d1, d2 = r.qualifying_days
+        assert [(m.name, m.count, m.amount) for m in d1.by_buy_type] == [("Buy-in", 1, 500.0), ("Doble", 1, 1000.0), ("Bono Dealer", 1, 50.0)]
+        assert d1.fee_amount == 50.0 and d1.total_fees == 1
+        assert [(m.name, m.count) for m in d2.by_buy_type] == [("Buy-in", 1)]
+        assert [(m.name, m.count, m.amount) for m in r.qualifying_by_buy_type] == [
+            ("Buy-in", 2, 1000.0), ("Doble", 1, 1000.0), ("Bono Dealer", 1, 50.0)]
+        assert r.total_qualifying_fee_amount == 50.0

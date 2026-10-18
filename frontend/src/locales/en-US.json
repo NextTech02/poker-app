@@ -2137,7 +2137,8 @@
     "category_buy_in": "Buy-in",
     "category_rebuy": "Rebuy",
     "category_addon": "Add-on",
-    "category_fee": "Fee"
+    "category_fee": "Fee",
+    "byBuyTypeAllDays": "By entry type — all qualifying days"
   },
   "staff": {
     "title": "Employees",

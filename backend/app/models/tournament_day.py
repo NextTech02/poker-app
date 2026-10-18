@@ -422,7 +422,10 @@ class FinalDayAggregatedStats(BaseModel):
     total_qualifying_buy_in_amount: float = 0.0
     total_qualifying_rebuy_amount: float = 0.0
     total_qualifying_addon_amount: float = 0.0
+    total_qualifying_fee_amount: float = 0.0
     total_qualifying_collected: float = 0.0
+    # Todos os classificatórios somados, por meio de entrada.
+    qualifying_by_buy_type: List[BuyTypeReportRow] = []
     total_qualifying_prize_pool: float = 0.0
 
     # Final day specific stats (direct buy-ins in final)

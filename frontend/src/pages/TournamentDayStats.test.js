@@ -201,3 +201,29 @@ describe('vendas por meio de entrada', () => {
     expect(document.querySelector('.stats-table')).toBeNull();
   });
 });
+
+describe('agregado do dia final por meio de entrada', () => {
+  const MEIOS = [
+    { name: 'Buy-in', category: 'buy_in', count: 8, amount: 4000 },
+    { name: 'Doble', category: 'rebuy', count: 2, amount: 1500 },
+    { name: 'Bono Dealer', category: 'fee', count: 11, amount: 550 },
+  ];
+  const COM_MEIOS = {
+    ...AGREGADAS,
+    total_qualifying_fee_amount: 550,
+    qualifying_by_buy_type: MEIOS,
+    qualifying_days: [
+      { ...AGREGADAS.qualifying_days[0], fee_amount: 550, by_buy_type: MEIOS },
+      { day_id: 'q2', day_name: 'Classificatório 2', by_buy_type: [{ name: 'Buy-in', category: 'buy_in', count: 1, amount: 500 }] },
+    ],
+  };
+
+  it('cada classificatório mostra a taxa e a tabela dos meios; a soma traz todos', async () => {
+    await montar({ dia: { ...DIA, day_type: 'final' }, stats: COM_MEIOS });
+    const cartao = screen.getByText('Classificatório 1').closest('.qualifying-day-card');
+    expect(cartao).toHaveTextContent('Bono Dealer');
+    expect(cartao).toHaveTextContent('R$ 550.00');
+    expect(screen.getByText('dayStats.byBuyTypeAllDays')).toBeInTheDocument();
+    expect(document.querySelectorAll('.stats-table')).toHaveLength(3);
+  });
+});

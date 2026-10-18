@@ -8,6 +8,48 @@ import api from '../config/api';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './TournamentDayStats.css';
 
+/**
+ * Vendas por MEIO de entrada ("Buy-in", "Doble", "Bono Dealer"…): nome,
+ * categoria, quantidade e valor, com a linha de total. Sem linhas, nada.
+ */
+const TabelaPorMeio = ({ linhas, t, formatCurrency, titulo }) => {
+  if (!Array.isArray(linhas) || linhas.length === 0) return null;
+  const qtd = linhas.reduce((soma, m) => soma + (Number(m.count) || 0), 0);
+  const valor = linhas.reduce((soma, m) => soma + (Number(m.amount) || 0), 0);
+  return (
+    <div className="stats-table-wrap">
+      {titulo && <h4 className="stats-table-title">{titulo}</h4>}
+      <table className="stats-table">
+        <thead>
+          <tr>
+            <th>{t('dayStats.buyTypeName', 'Meio de entrada')}</th>
+            <th>{t('dayStats.buyTypeCategory', 'Categoria')}</th>
+            <th className="num">{t('dayStats.buyTypeCount', 'Quantidade')}</th>
+            <th className="num">{t('dayStats.buyTypeAmount', 'Valor')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map((m, i) => (
+            <tr key={`${m.name}-${m.category}-${i}`}>
+              <td>{m.name}</td>
+              <td>{t(`dayStats.category_${m.category}`, m.category)}</td>
+              <td className="num">{m.count}</td>
+              <td className="num">{formatCurrency(m.amount || 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={2}>{t('dayStats.buyTypeTotal', 'Total')}</td>
+            <td className="num">{qtd}</td>
+            <td className="num">{formatCurrency(valor)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+};
+
 const TournamentDayStats = () => {
   const { t } = useTranslation();
   const { dayId } = useParams();
@@ -205,6 +247,12 @@ const TournamentDayStats = () => {
                           <span className="stat-box-label">{t('dayStats.addonAmount')}</span>
                           <span className="stat-box-value">{formatCurrency(qDay.addon_amount || 0)}</span>
                         </div>
+                        {Number(qDay.fee_amount) > 0 && (
+                          <div className="stat-box small">
+                            <span className="stat-box-label">{t('dayStats.feeAmount', 'Importe taxas')}</span>
+                            <span className="stat-box-value">{formatCurrency(qDay.fee_amount || 0)}</span>
+                          </div>
+                        )}
                         <div className="stat-box small highlight-blue">
                           <span className="stat-box-label">{t('dayStats.totalCollected')}</span>
                           <span className="stat-box-value">{formatCurrency(qDay.total_collected || 0)}</span>
@@ -214,6 +262,7 @@ const TournamentDayStats = () => {
                           <span className="stat-box-value">{formatCurrency(qDay.prize_pool || 0)}</span>
                         </div>
                       </div>
+                      <TabelaPorMeio linhas={qDay.by_buy_type} t={t} formatCurrency={formatCurrency} />
                     </div>
                   ))}
                 </div>
@@ -249,7 +298,19 @@ const TournamentDayStats = () => {
                     <span className="stat-box-label">{t('dayStats.qualifyingPrizePool')}</span>
                     <span className="stat-box-value">{formatCurrency(stats.total_qualifying_prize_pool || 0)}</span>
                   </div>
+                  {Number(stats.total_qualifying_fee_amount) > 0 && (
+                    <div className="stat-box">
+                      <span className="stat-box-label">{t('dayStats.feeAmount', 'Importe taxas')}</span>
+                      <span className="stat-box-value">{formatCurrency(stats.total_qualifying_fee_amount || 0)}</span>
+                    </div>
+                  )}
                 </div>
+                <TabelaPorMeio
+                  linhas={stats.qualifying_by_buy_type}
+                  t={t}
+                  formatCurrency={formatCurrency}
+                  titulo={t('dayStats.byBuyTypeAllDays', 'Por meio de entrada — todos os classificatórios')}
+                />
               </Card>
             )}
 
@@ -367,35 +428,7 @@ const TournamentDayStats = () => {
             {(stats.by_buy_type || []).length > 0 && (
               <Card className="stats-card">
                 <h2 className="stats-card-title">{t('dayStats.byBuyType', 'Por meio de entrada')}</h2>
-                <div className="stats-table-wrap">
-                  <table className="stats-table">
-                    <thead>
-                      <tr>
-                        <th>{t('dayStats.buyTypeName', 'Meio de entrada')}</th>
-                        <th>{t('dayStats.buyTypeCategory', 'Categoria')}</th>
-                        <th className="num">{t('dayStats.buyTypeCount', 'Quantidade')}</th>
-                        <th className="num">{t('dayStats.buyTypeAmount', 'Valor')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stats.by_buy_type.map((m, i) => (
-                        <tr key={`${m.name}-${m.category}-${i}`}>
-                          <td>{m.name}</td>
-                          <td>{t(`dayStats.category_${m.category}`, m.category)}</td>
-                          <td className="num">{m.count}</td>
-                          <td className="num">{formatCurrency(m.amount || 0)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={2}>{t('dayStats.buyTypeTotal', 'Total')}</td>
-                        <td className="num">{stats.by_buy_type.reduce((s, m) => s + (Number(m.count) || 0), 0)}</td>
-                        <td className="num">{formatCurrency(stats.by_buy_type.reduce((s, m) => s + (Number(m.amount) || 0), 0))}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                <TabelaPorMeio linhas={stats.by_buy_type} t={t} formatCurrency={formatCurrency} />
               </Card>
             )}
           </>
