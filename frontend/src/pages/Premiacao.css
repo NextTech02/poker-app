@@ -1201,16 +1201,21 @@
 
 /* ── Auto Calculate Modal ── */
 .auto-calc-modal {
-  max-width: 560px;
-  width: 90vw;
-  max-height: 85vh;
+  max-width: 640px;
+  width: 92vw;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
 }
 
+/* Só a tabela da prévia encolhe (e rola). Sem isto o flex espremia o quadro
+   das opções, os avisos e os botões, cortando o conteúdo deles. */
+.auto-calc-modal > * { flex-shrink: 0; }
+
 .auto-calc-summary {
   display: flex;
-  gap: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
   padding: 1rem 1.5rem;
   background: rgba(91, 91, 232, 0.06);
   border-bottom: 1px solid rgba(91, 91, 232, 0.15);
@@ -1247,15 +1252,65 @@
   flex-shrink: 0;
 }
 
-.auto-calc-table-wrap {
-  overflow-y: auto;
-  flex: 1;
+.auto-calc-modal > .auto-calc-table-wrap {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 160px;
   margin: 0.75rem 0 0;
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
 .auto-calc-table-wrap .allocations-table {
   margin: 0;
+}
+
+/* O cabeçalho da tabela gruda no topo ao rolar (regra global de thead); com
+   o fundo translúcido da tabela de faixas as linhas apareciam por baixo dele. */
+.auto-calc-table-wrap .allocations-table thead,
+.auto-calc-table-wrap .allocations-table th {
+  background: var(--bg);
+}
+
+.auto-calc-table-wrap .allocations-table th {
+  padding: 0.6rem 1rem;
+  box-shadow: inset 0 -1px 0 var(--surface);
+}
+
+.auto-calc-table-wrap .allocations-table td {
+  padding: 0.45rem 1rem;
+}
+
+.auto-calc-modal .modal-actions {
+  flex-wrap: wrap;
+  padding: 0.85rem 1.5rem 1.25rem;
+}
+
+@media (max-width: 768px) {
+  /* No celular os botões empilhavam um por linha (regra global) e empurravam
+     a tabela para fora; 2×2 cabe. */
+  .auto-calc-modal .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 1rem;
+  }
+  .auto-calc-base { margin: 0.75rem 1rem 0.5rem; }
+  .auto-calc-summary { padding: 0.75rem 1rem; }
+  .auto-calc-hint { margin: 0.5rem 1rem 0; }
+  .auto-calc-totals { padding: 0.6rem 1rem 0; }
+  .auto-calc-table-wrap .allocations-table th,
+  .auto-calc-table-wrap .allocations-table td { padding-left: 0.5rem; padding-right: 0.5rem; }
+  .auto-calc-table-wrap .allocations-table td { white-space: nowrap; }
+  .auto-calc-table-wrap .preview-input { width: 72px; }
+}
+
+@media (max-width: 640px) {
+  /* A regra global transforma <table> em bloco rolável no celular; aqui quem
+     rola é o contêiner, e a tabela-bloco soltava o cabeçalho fixo. */
+  .auto-calc-table-wrap .allocations-table {
+    display: table;
+    overflow: visible;
+  }
 }
 
 /* Prévia editável do cálculo automático */
@@ -1315,8 +1370,9 @@
 .auto-calc-base {
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md, 8px);
-  padding: 10px 14px;
-  margin: 0 0 14px;
+  padding: 0.4rem 1rem 0.75rem;
+  margin: 1rem 1.5rem 0.75rem;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
