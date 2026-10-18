@@ -61,6 +61,9 @@ const TournamentDayForm = () => {
     !!tournament?.has_qualifying ||
     days.some((d) => d.day_type === 'qualifying' || d.day_type === 'final') ||
     formData.day_type !== 'regular';
+  // O dia final do torneio: é para onde um classificatório novo leva os
+  // sobreviventes.
+  const diaFinal = days.find((d) => d.day_type === 'final') || null;
 
   // loadData e recriada a cada render; incluir na lista de dependencias causaria
   // refetch infinito. So os ids da rota devem disparar o recarregamento.
@@ -114,13 +117,17 @@ const TournamentDayForm = () => {
           currency: day.currency || 'BRL',
         });
       } else {
-        // Novos dias adicionados manualmente são sempre 'regular' — os dias
-        // classificatórios e o final são gerados automaticamente na criação do
-        // torneio classificatório.
+        // Dia novo em torneio com classificatórios (ex.: o "Día 1A ONLINE"
+        // acrescentado ao Main do NSOP com o evento em andamento) nasce
+        // CLASSIFICATÓRIO e já ligado ao dia final: antes nascia "regular",
+        // ficava fora da estrutura e sem o botão de fichas dos classificados.
+        const final = (daysRes.data || []).find((d) => d.day_type === 'final');
+        const classificatorio = !!tournamentRes.data?.has_qualifying && !!final;
         setFormData(prev => ({
           ...prev,
           day_number: daysRes.data.length + 1,
-          day_type: 'regular',
+          day_type: classificatorio ? 'qualifying' : 'regular',
+          qualifies_to_day_id: classificatorio ? final.id : '',
           // A moeda segue o setting GLOBAL (Financeiro) — não há mais seleção por dia.
           currency,
         }));
@@ -311,13 +318,19 @@ const TournamentDayForm = () => {
                     <select
                       id="day_type"
                       value={formData.day_type}
-                      onChange={(e) => setFormData({ ...formData, day_type: e.target.value, qualifies_to_day_id: '' })}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        day_type: e.target.value,
+                        // Classificatório já aponta para o dia final do torneio.
+                        qualifies_to_day_id: e.target.value === 'qualifying' && diaFinal && diaFinal.id !== dayId
+                          ? diaFinal.id : '',
+                      })}
                     >
                       <option value="regular">{t('tournamentDays.regular')}</option>
-                      {/* Classificatório e Final só aparecem ao EDITAR um dia que já
-                          é desse tipo — na criação manual só existe "Regular", pois
-                          classificatórios/final são gerados na criação do torneio. */}
-                      {isEditing && <option value="qualifying">{t('tournamentDays.qualifying')}</option>}
+                      {/* Classificatório: na edição, ou na criação quando o torneio
+                          já tem dia final (dia extra no meio do evento). O Final só
+                          na edição — ele é gerado na criação do torneio. */}
+                      {(isEditing || diaFinal) && <option value="qualifying">{t('tournamentDays.qualifying')}</option>}
                       {isEditing && <option value="final">{t('tournamentDays.final')}</option>}
                     </select>
                     <small className="form-hint">

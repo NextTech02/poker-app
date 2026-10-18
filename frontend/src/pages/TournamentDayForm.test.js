@@ -498,3 +498,30 @@ describe('erros ao salvar', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
+
+describe('dia extra num torneio com classificatórios', () => {
+  // NSOP (18/10): o "Día 1A ONLINE", acrescentado ao Main em andamento, nascia
+  // "regular" — fora da estrutura e sem o botão de fichas dos classificados.
+  it('nasce classificatório e já ligado ao dia final', async () => {
+    await montar({ torneio: { ...TORNEIO, has_qualifying: true } });
+    expect(campo('day_type')).toHaveValue('qualifying');
+    expect(campo('qualifies_to_day_id')).toHaveValue('f1');
+    await userEvent.type(campo('day_name'), 'Día 1A ONLINE');
+    await salvar();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1]).toMatchObject({ day_type: 'qualifying', qualifies_to_day_id: 'f1' });
+  });
+
+  it('dá para escolher "regular" de novo, e voltar a classificatório religa a final', async () => {
+    await montar({ torneio: { ...TORNEIO, has_qualifying: true } });
+    await userEvent.selectOptions(campo('day_type'), 'regular');
+    expect(campo('qualifies_to_day_id')).toBeNull();
+    await userEvent.selectOptions(campo('day_type'), 'qualifying');
+    expect(campo('qualifies_to_day_id')).toHaveValue('f1');
+  });
+
+  it('torneio sem dia final continua criando dia regular', async () => {
+    await montar({ torneio: { ...TORNEIO, has_qualifying: true }, dias: [{ id: 'd1', day_name: 'Único', day_type: 'regular' }] });
+    expect(campo('day_type')).toHaveValue('regular');
+  });
+});
