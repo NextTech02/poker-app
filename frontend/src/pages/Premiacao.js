@@ -9,7 +9,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { currencySymbol } from '../utils/currencyUtils';
-import { calculatePayoutAllocations } from '../utils/payoutStructure';
+import { BASES_DO_CAMPO, calculatePayoutAllocations, tamanhoDoCampo } from '../utils/payoutStructure';
 import {
   amountFromPercentage,
   percentageFromAmount,
@@ -22,6 +22,17 @@ import { useEscapeKey } from '../hooks/useEscapeKey';
 import KoTab from '../components/premiacao/KoTab';
 import { ehTorneioKo, formatoKo } from '../utils/ko';
 import './Premiacao.css';
+
+// Base do cálculo automático lembrada neste navegador (o clube escolhe uma vez).
+const CHAVE_BASE_DO_CAMPO = 'premiacao.baseDoCampo';
+const lerBaseDoCampo = () => {
+  try {
+    const salva = window.localStorage.getItem(CHAVE_BASE_DO_CAMPO);
+    return BASES_DO_CAMPO.includes(salva) ? salva : 'buy_in_rebuy';
+  } catch (_) {
+    return 'buy_in_rebuy';
+  }
+};
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
 // `onClick={stopPropagation}` que ficava no conteúdo do modal — aquele era um
@@ -162,6 +173,9 @@ const Premiacao = () => {
   useEscapeKey(showVoucherModal, fecharComprovante);
   const [autoPreview, setAutoPreview] = useState([]);
   const [autoEntryCount, setAutoEntryCount] = useState(0);
+  // Quantos lugares premiar: pelo total de entradas com as recompras, ou só
+  // pelos buy-ins (pedido do NSOP). O pozo é o mesmo nos dois.
+  const [baseDoCampo, setBaseDoCampo] = useState(lerBaseDoCampo);
 
   const loadData = useCallback(async () => {
     try {
@@ -355,9 +369,8 @@ const Premiacao = () => {
     // recompra ocupou uma cadeira a mais e pagou por ela, entao ele entra na
     // conta: um torneio de 2 inscritos com 5 recompras paga como um de 7, nao
     // como um de 2. Mudar isto mudaria o dinheiro que cada jogador leva.
-    const entryCount = tournamentPlayers.reduce(
-      (sum, p) => sum + (p.buy_in_count || 1) + (p.rebuy_count || 0), 0
-    ) || tournamentPlayers.length;
+    // O clube pode escolher contar só os buy-ins (ver tamanhoDoCampo).
+    const entryCount = tamanhoDoCampo(tournamentPlayers, baseDoCampo);
 
     if (entryCount === 0) {
       toast.error(t('premiacao.noEntries'));
@@ -418,6 +431,15 @@ const Premiacao = () => {
 
   const handleRestoreSuggestion = () =>
     setAutoPreview(calculatePayoutAllocations(autoEntryCount, payablePool));
+
+  // Trocar a base refaz a sugestão (as edições da prévia são descartadas).
+  const handleBaseDoCampo = (novaBase) => {
+    setBaseDoCampo(novaBase);
+    try { window.localStorage.setItem(CHAVE_BASE_DO_CAMPO, novaBase); } catch (_) { /* só conveniência */ }
+    const n = tamanhoDoCampo(tournamentPlayers, novaBase);
+    setAutoEntryCount(n);
+    setAutoPreview(calculatePayoutAllocations(n, payablePool));
+  };
 
   const handleConfirmAutoCalculate = async () => {
     try {
@@ -1393,6 +1415,31 @@ const Premiacao = () => {
                 <h2>{t('premiacao.autoCalcModalTitle')}</h2>
                 <button type="button" className="close-btn" onClick={() => setShowAutoModal(false)}>✕</button>
               </div>
+
+              <fieldset className="auto-calc-base">
+                <legend>{t('premiacao.fieldBase', 'Quantos premiados, segundo')}</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="base-do-campo"
+                    value="buy_in_rebuy"
+                    checked={baseDoCampo === 'buy_in_rebuy'}
+                    onChange={() => handleBaseDoCampo('buy_in_rebuy')}
+                  />
+                  {t('premiacao.fieldBaseBuyInRebuy', 'Premiação segundo buy-in e rebuy')}
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="base-do-campo"
+                    value="buy_in"
+                    checked={baseDoCampo === 'buy_in'}
+                    onChange={() => handleBaseDoCampo('buy_in')}
+                  />
+                  {t('premiacao.fieldBaseBuyIn', 'Premiação segundo buy-in')}
+                </label>
+                <small>{t('premiacao.fieldBaseHint', 'Muda só o número de premiados; o prize pool continua com todas as entradas e recompras.')}</small>
+              </fieldset>
 
               <div className="auto-calc-summary">
                 <div className="auto-calc-stat">

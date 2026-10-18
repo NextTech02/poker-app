@@ -106,3 +106,24 @@ export function getPaidPositions(entries) {
     || PAYOUT_STRUCTURE[PAYOUT_STRUCTURE.length - 1];
   return col ? col[2] : 0;
 }
+
+/**
+ * Tamanho do campo que dimensiona a tabela de pagamento (quantos lugares
+ * recebem prêmio). O POZO não muda — é sempre tudo o que entrou.
+ *
+ * - 'buy_in_rebuy' (padrão): cada recompra conta como mais uma entrada — um
+ *   torneio de 2 inscritos com 5 recompras paga como um de 7.
+ * - 'buy_in': só as entradas (buy-ins) — como o NSOP calcula: 50 buy-ins e
+ *   100 recompras pagam como um torneio de 50, não de 150.
+ */
+export const BASES_DO_CAMPO = ['buy_in_rebuy', 'buy_in'];
+
+export function tamanhoDoCampo(inscritos, base = 'buy_in_rebuy') {
+  const lista = Array.isArray(inscritos) ? inscritos : [];
+  const comRecompra = base !== 'buy_in';
+  const total = lista.reduce(
+    (soma, p) => soma + (p.buy_in_count || 1) + (comRecompra ? (p.rebuy_count || 0) : 0), 0,
+  );
+  return total || lista.length;
+}
+

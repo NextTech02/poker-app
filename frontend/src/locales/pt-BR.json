@@ -1612,7 +1612,11 @@
     "docNoPlayerBlock": "Nenhum jogador deste torneio tem esse documento — confira o número antes de entregar o prêmio.",
     "docRegisteredInvalid": "Documento do cadastro fora do padrão — o recibo sai assim mesmo, mas confira o cadastro do jogador:",
     "docRequired": "Informe o número do documento de quem está recebendo o prêmio.",
-    "payoutNotReleasedWarn": "Este prêmio ainda não foi liberado: o pagamento será recusado. Libere na aba Liberação antes de entregar o dinheiro."
+    "payoutNotReleasedWarn": "Este prêmio ainda não foi liberado: o pagamento será recusado. Libere na aba Liberação antes de entregar o dinheiro.",
+    "fieldBase": "Quantos premiados, segundo",
+    "fieldBaseBuyInRebuy": "Premiação segundo buy-in e rebuy",
+    "fieldBaseBuyIn": "Premiação segundo buy-in",
+    "fieldBaseHint": "Muda só o número de premiados; o prize pool continua com todas as entradas e recompras."
   },
   "generalCash": {
     "sessionExpired": "Sessão expirada. Por favor, faça login novamente.",

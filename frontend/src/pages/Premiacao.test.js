@@ -17,7 +17,7 @@
  * O comprovante é emitido no ato e pode ser revisto depois — é o papel que
  * prova que aquele dinheiro saiu para aquela pessoa.
  */
-import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, act, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Premiacao from './Premiacao';
@@ -748,6 +748,53 @@ describe('cálculo automático da estrutura', () => {
     await montar();
     await abrir();
     expect(await screen.findByText('5')).toBeInTheDocument();
+  });
+
+  describe('base do número de premiados (pedido do NSOP)', () => {
+    // 2 inscritos com 5 recompras cada: 12 entradas pagam 3 posições, mas
+    // pelos buy-ins são só 2 entradas, que pagam 2. O pool é o mesmo.
+    const RECOMPRADORES = [
+      { player_id: 'p1', player_name: 'Ana', buy_in_count: 1, rebuy_count: 5 },
+      { player_id: 'p2', player_name: 'Beto', buy_in_count: 1, rebuy_count: 5 },
+    ];
+    const linhasDaPrevia = () =>
+      document.querySelectorAll('.auto-calc-table-wrap tbody tr').length;
+
+    beforeEach(() => window.localStorage.clear());
+    afterEach(() => window.localStorage.clear());
+
+    it('por padrão conta buy-ins e rebuys, como antes', async () => {
+      await montar({ inscritos: RECOMPRADORES, resumo: SEM_PAGAS });
+      await abrir();
+      expect(screen.getByRole('radio', { name: 'premiacao.fieldBaseBuyInRebuy' })).toBeChecked();
+      expect(await screen.findByText('12')).toBeInTheDocument();
+      expect(linhasDaPrevia()).toBe(3);
+    });
+
+    it('"segundo buy-in" paga menos lugares sobre o MESMO pool', async () => {
+      await montar({ inscritos: RECOMPRADORES, resumo: SEM_PAGAS });
+      await abrir();
+      await userEvent.click(screen.getByRole('radio', { name: 'premiacao.fieldBaseBuyIn' }));
+      expect(linhasDaPrevia()).toBe(2);
+      // 65% / 35% de todo o pool pagável (38500), recompras incluídas.
+      expect(within(document.querySelector('.auto-calc-table-wrap')).getAllByRole('spinbutton')
+        .map((c) => c.value)).toEqual(['65', '25025', '35', '13475']);
+      await userEvent.click(screen.getByRole('button', { name: 'premiacao.confirmAndApply' }));
+      await waitFor(() => expect(api.post).toHaveBeenCalled());
+      expect(api.post.mock.calls[0][1].allocations).toHaveLength(2);
+    });
+
+    it('a escolha fica lembrada para o próximo cálculo', async () => {
+      await montar({ inscritos: RECOMPRADORES, resumo: SEM_PAGAS });
+      await abrir();
+      await userEvent.click(screen.getByRole('radio', { name: 'premiacao.fieldBaseBuyIn' }));
+      expect(window.localStorage.getItem('premiacao.baseDoCampo')).toBe('buy_in');
+      cleanup();
+      await montar({ inscritos: RECOMPRADORES, resumo: SEM_PAGAS });
+      await abrir();
+      expect(screen.getByRole('radio', { name: 'premiacao.fieldBaseBuyIn' })).toBeChecked();
+      expect(linhasDaPrevia()).toBe(2);
+    });
   });
 
   it('sem ninguém inscrito não há o que calcular', async () => {

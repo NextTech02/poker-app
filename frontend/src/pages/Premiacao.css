@@ -1310,3 +1310,32 @@
 .reserved-tab {
   max-width: 460px;
 }
+
+/* Base do cálculo automático: buy-in + rebuy ou só buy-in */
+.auto-calc-base {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 8px);
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auto-calc-base legend {
+  padding: 0 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.auto-calc-base label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.auto-calc-base small {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}

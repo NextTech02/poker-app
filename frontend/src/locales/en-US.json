@@ -1612,7 +1612,11 @@
     "docNoPlayerBlock": "No player in this tournament has that document — check the number before handing over the prize.",
     "docRegisteredInvalid": "Document on file is off-standard — the receipt still prints, but check the player's record:",
     "docRequired": "Enter the document number of the person receiving the prize.",
-    "payoutNotReleasedWarn": "This prize has not been released yet: the payment will be refused. Release it on the Release tab before handing over the money."
+    "payoutNotReleasedWarn": "This prize has not been released yet: the payment will be refused. Release it on the Release tab before handing over the money.",
+    "fieldBase": "Number of paid places, based on",
+    "fieldBaseBuyInRebuy": "Payouts by buy-ins and rebuys",
+    "fieldBaseBuyIn": "Payouts by buy-ins only",
+    "fieldBaseHint": "Changes only how many places are paid; the prize pool still includes every buy-in and rebuy."
   },
   "generalCash": {
     "sessionExpired": "Session expired. Please log in again.",

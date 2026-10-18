@@ -1,4 +1,4 @@
-import { calculatePayoutAllocations, getPaidPositions } from './payoutStructure';
+import { calculatePayoutAllocations, getPaidPositions, tamanhoDoCampo } from './payoutStructure';
 
 /**
  * Estrutura de premiação: quanto cada colocação recebe conforme o número de
@@ -105,5 +105,31 @@ describe('getPaidPositions', () => {
   it('acima da última faixa usa a maior estrutura', () => {
     // Nao pode devolver 0: um torneio gigante ficaria sem premiacao.
     expect(getPaidPositions(99999)).toBeGreaterThan(0);
+  });
+});
+
+describe('tamanhoDoCampo', () => {
+  // Exemplo do NSOP: 50 buy-ins + 100 recompras = 150 "acciones".
+  const NSOP = Array.from({ length: 50 }, (_, i) => ({
+    player_id: `p${i}`, buy_in_count: 1, rebuy_count: 2,
+  }));
+
+  it('padrão: buy-ins + rebuys', () => {
+    expect(tamanhoDoCampo(NSOP)).toBe(150);
+    expect(tamanhoDoCampo(NSOP, 'buy_in_rebuy')).toBe(150);
+  });
+
+  it('"segundo buy-in": só as entradas', () => {
+    expect(tamanhoDoCampo(NSOP, 'buy_in')).toBe(50);
+  });
+
+  it('linha sem contador conta como 1 buy-in', () => {
+    expect(tamanhoDoCampo([{ rebuy_count: 3 }, {}], 'buy_in')).toBe(2);
+    expect(tamanhoDoCampo([{ rebuy_count: 3 }, {}])).toBe(5);
+  });
+
+  it('lista vazia ou ausente dá 0', () => {
+    expect(tamanhoDoCampo([])).toBe(0);
+    expect(tamanhoDoCampo(null, 'buy_in')).toBe(0);
   });
 });
