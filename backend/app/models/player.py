@@ -91,9 +91,12 @@ class PlayerBase(BaseModel):
     # Validação estrita é trabalho da porta de entrada. Na saída, o dado que já
     # está no banco tem de conseguir sair — inclusive para o operador poder
     # abrir o cadastro e corrigi-lo.
-    email: str = Field(..., min_length=3, max_length=255, description="Email address (required, unique)")
-    phone: str = Field(..., min_length=1, max_length=50, description="Phone number with country code (required)")
-    nationality: str = Field(..., min_length=1, max_length=100, description="Nationality/Country (required)")
+    # Obrigatórios do cadastro: só NOME e DOCUMENTO (pedido do NSOP, 18/10).
+    # E-mail, telefone e nacionalidade são opcionais — sem e-mail o jogador
+    # só não recebe o pedido de autorização de contatos (LGPD).
+    email: Optional[str] = Field(None, max_length=255, description="Email address (optional, unique per club)")
+    phone: Optional[str] = Field(None, max_length=50, description="Phone number with country code (optional)")
+    nationality: Optional[str] = Field(None, max_length=100, description="Nationality/Country (optional)")
     # `str` e não Literal de propósito: os tipos aceitos vivem em
     # app/utils/documentos.py (cpf/dni/cedula/passport/driver_license + o legado
     # national_id) e quem valida é o service, que devolve 400 com a frase pronta
@@ -113,15 +116,17 @@ class PlayerBase(BaseModel):
         # e quem mandou só `name` ganha as partes divididas.
         return sincronizar_nome(valores) if isinstance(valores, dict) else valores
 
-    @field_validator("birth_date", mode="before")
+    @field_validator("birth_date", "email", "phone", "nationality", mode="before")
     @classmethod
     def _bd_base(cls, v):
+        # Campo opcional em branco é AUSENTE (nulo): "" no e-mail colidiria no
+        # índice único (e-mail, clube) com o próximo jogador sem e-mail.
         return _blank_to_none(v)
 
 
 class PlayerCreate(PlayerBase):
     # A porta de entrada é estrita: aqui o e-mail passa pelo email-validator.
-    email: EmailStr = Field(..., description="Email address (required, unique)")
+    email: Optional[EmailStr] = Field(None, description="Email address (optional, unique per club)")
     # Offline: id gerado no cliente (vira o PK; idempotência no replay).
     client_id: Optional[str] = Field(default=None, description="Client-generated player id (offline)")
 
@@ -142,9 +147,10 @@ class PlayerUpdate(BaseModel):
     birth_date: Optional[str] = None
     notes: Optional[str] = None
 
-    @field_validator("birth_date", mode="before")
+    @field_validator("birth_date", "email", "phone", "nationality", mode="before")
     @classmethod
     def _bd_upd(cls, v):
+        # Apagar o e-mail/telefone na edição grava nulo (não "").
         return _blank_to_none(v)
 
 

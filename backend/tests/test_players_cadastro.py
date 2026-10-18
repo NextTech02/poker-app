@@ -613,3 +613,30 @@ class TestCadastroRepetido:
         with pytest.raises(HTTPException) as e:
             S.update_player(JOGADOR, PlayerUpdate(email="ja@existe.com"))
         assert e.value.detail["code"] == "email_duplicado"
+
+
+class TestSoNomeEDocumentoSaoObrigatorios:
+    """Pedido do NSOP (18/10): no cadastro, obrigatórios só NOME e DOCUMENTO."""
+
+    def test_sem_email_telefone_e_nacionalidade_o_jogador_entra_com_nulos(self, banco, monkeypatch):
+        pedidos = []
+        monkeypatch.setattr(mod.PlayerConsentService, "solicitar_em_segundo_plano",
+                            staticmethod(lambda j: pedidos.append(j) or False))
+        S.create_player(_novo(email="", phone="", nationality=""))
+        gravado = banco.store["players"][0]
+        # Nulo, não "": o índice único (e-mail, clube) aceita vários nulos.
+        assert (gravado["email"], gravado["phone"], gravado["nationality"]) == (None, None, None)
+        assert gravado["document_number"] == "52998224725"
+
+    def test_email_preenchido_continua_tendo_de_ser_valido(self):
+        with pytest.raises(ValidationError):
+            _novo(email="fulano-arroba")
+
+    def test_nome_e_documento_continuam_obrigatorios(self):
+        with pytest.raises(ValidationError):
+            _novo(first_name="", last_name="", name="")
+        with pytest.raises(ValidationError):
+            _novo(document_number="")
+
+    def test_apagar_o_email_na_edicao_grava_nulo(self):
+        assert PlayerUpdate(email="", phone="").model_dump(exclude_unset=True) == {"email": None, "phone": None}

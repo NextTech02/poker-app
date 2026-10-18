@@ -532,35 +532,37 @@ const Players = () => {
                 {/* Email + Telefone */}
                 <div className="pl-field-row">
                   <div className="pl-field">
-                    <label htmlFor="email">{t('players.email')} <span className="pl-required">*</span></label>
+                    {/* Obrigatórios só nome e documento (pedido do NSOP):
+                        e-mail, telefone e nacionalidade são opcionais. */}
+                    <label htmlFor="email">{t('players.email')}</label>
                     <input
                       id="email" name="email" type="email"
                       value={formData.email} onChange={handleChange}
-                      required placeholder={t('players.emailPlaceholder')}
+                      placeholder={t('players.emailPlaceholder')}
                     />
-                    {!editingPlayer && (
+                    {/* Sem e-mail não há para onde mandar o pedido de autorização. */}
+                    {!editingPlayer && String(formData.email || '').trim() && (
                       <p className="pl-field-hint">
                         {t('consent.formHint', 'O jogador recebe neste e-mail um pedido de autorização para contatos do clube (LGPD).')}
                       </p>
                     )}
                   </div>
                   <div className="pl-field">
-                    <label htmlFor="phone">{t('players.phone')} <span className="pl-required">*</span></label>
+                    <label htmlFor="phone">{t('players.phone')}</label>
                     <input
                       id="phone" name="phone" type="tel"
                       value={formData.phone} onChange={handleChange}
-                      required placeholder={t('players.phonePlaceholder')}
+                      placeholder={t('players.phonePlaceholder')}
                     />
                   </div>
                 </div>
 
                 {/* Nacionalidade */}
                 <div className="pl-field pl-field-full">
-                  <label htmlFor="nationality">{t('players.nationality')} <span className="pl-required">*</span></label>
+                  <label htmlFor="nationality">{t('players.nationality')}</label>
                   <select
                     id="nationality" name="nationality"
                     value={formData.nationality} onChange={handleChange}
-                    required
                   >
                     <option value="">{t('players.selectCountry')}</option>
                     {countries.map((country) => (

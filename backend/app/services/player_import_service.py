@@ -161,17 +161,14 @@ class PlayerImportService:
             doc_num = _util(linha.get("document_number"))
             doc_tipo = _doc_tipo(linha.get("document_type") or "")
 
+            # Obrigatórios: só nome e documento (como no cadastro manual).
+            # E-mail, telefone e país em branco entram vazios; e-mail
+            # preenchido continua tendo de ser válido.
             faltando = []
             if not nome:
                 faltando.append("nome")
-            if not email:
-                faltando.append("e-mail")
-            elif not _email_valido(email):
+            if email and not _email_valido(email):
                 faltando.append("e-mail inválido")
-            if not fone:
-                faltando.append("telefone")
-            if not nacionalidade:
-                faltando.append("país")
             if not doc_num:
                 faltando.append("documento")
             elif not doc_tipo:
@@ -200,7 +197,7 @@ class PlayerImportService:
 
             # Duplicidade DENTRO do próprio arquivo: vale o primeiro.
             ch_doc = _chave_doc(doc_tipo, doc_num)
-            if email in vistos_email:
+            if email and email in vistos_email:
                 rejeitados.append({"source_id": origem, "name": nome,
                                    "reason": f"e-mail repetido no arquivo ({email})"})
                 continue
@@ -208,15 +205,16 @@ class PlayerImportService:
                 rejeitados.append({"source_id": origem, "name": nome,
                                    "reason": f"documento repetido no arquivo ({doc_num})"})
                 continue
-            vistos_email[email] = 1
+            if email:
+                vistos_email[email] = 1
             vistos_doc[ch_doc] = 1
 
             prontos.append({
                 "source_id": origem,
                 "name": nome,
-                "email": email,
-                "phone": fone,
-                "nationality": nacionalidade,
+                "email": email or None,
+                "phone": fone or None,
+                "nationality": nacionalidade or None,
                 "document_type": doc_tipo,
                 "document_number": doc_num,
                 "nickname": _util(linha.get("nickname")) or None,
@@ -254,7 +252,7 @@ class PlayerImportService:
 
         novos, duplicados = [], []
         for p in prontos:
-            if p["email"] in emails:
+            if p["email"] and p["email"] in emails:
                 duplicados.append({"source_id": p["source_id"], "name": p["name"],
                                    "reason": "já cadastrado (mesmo e-mail)"})
             elif p["_doc_key"] in docs:
@@ -317,7 +315,7 @@ class PlayerImportService:
 
         novos, duplicados = [], []
         for p in prontos:
-            if p["email"] in emails:
+            if p["email"] and p["email"] in emails:
                 duplicados.append({"source_id": p["source_id"], "name": p["name"],
                                    "reason": "já cadastrado (mesmo e-mail)"})
             elif p["_doc_key"] in docs:

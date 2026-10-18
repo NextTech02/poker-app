@@ -87,22 +87,25 @@ class TestNormalizacao:
 
 class TestValoresDeLixo:
     """O clube digita "1", "-" e "0" quando nao tem o dado. Aceitar isso
-    criaria telefone e documento falsos no cadastro."""
+    criaria telefone e e-mail falsos no cadastro: vira AUSENTE (nulo) — e,
+    desde 18/10, telefone e e-mail sao opcionais (so nome e documento sao
+    obrigatorios), entao o jogador entra sem eles."""
 
     @pytest.mark.parametrize("lixo", ["1", "-", "--", "0", "N/A", "nao", "x", ""])
     def test_telefone_lixo_e_tratado_como_ausente(self, lixo):
-        _, rejeitados = S._preparar([_linha(phone=lixo, mobile=lixo)])
-        assert "telefone" in rejeitados[0]["reason"]
+        prontos, rejeitados = S._preparar([_linha(phone=lixo, mobile=lixo)])
+        assert not rejeitados
+        assert prontos[0]["phone"] is None
 
     def test_email_lixo_e_tratado_como_ausente(self):
-        _, rejeitados = S._preparar([_linha(email="1")])
-        assert "e-mail" in rejeitados[0]["reason"]
+        prontos, rejeitados = S._preparar([_linha(email="1")])
+        assert not rejeitados
+        assert prontos[0]["email"] is None
 
 
 class TestCamposObrigatorios:
     @pytest.mark.parametrize("campo,texto", [
         ("name", "nome"),
-        ("email", "e-mail"),
         ("document_number", "documento"),
     ])
     def test_campo_ausente_e_reportado_com_o_motivo(self, campo, texto):
@@ -135,11 +138,17 @@ class TestCamposObrigatorios:
     def test_varios_campos_faltando_aparecem_juntos(self):
         """O clube precisa saber TUDO que falta de uma vez, senao corrige um
         campo e o registro cai de novo na proxima importacao."""
-        _, rejeitados = S._preparar([_linha(email="", phone="", mobile="", document_number="")])
+        _, rejeitados = S._preparar([_linha(name="", email="fulano-arroba", document_number="")])
         motivo = rejeitados[0]["reason"]
-        assert "e-mail" in motivo
-        assert "telefone" in motivo
+        assert "nome" in motivo
+        assert "e-mail inválido" in motivo
         assert "documento" in motivo
+
+    def test_so_nome_e_documento_sao_obrigatorios(self):
+        """Pedido do NSOP (18/10): sem e-mail, telefone e país o jogador entra."""
+        prontos, rejeitados = S._preparar([_linha(email="", phone="", mobile="", doc_country="", nationality="")])
+        assert not rejeitados
+        assert (prontos[0]["email"], prontos[0]["phone"], prontos[0]["nationality"]) == (None, None, None)
 
     def test_registro_sem_nome_ainda_e_identificavel(self):
         _, rejeitados = S._preparar([_linha(name="", source_id="286")])

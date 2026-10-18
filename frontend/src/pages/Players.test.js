@@ -614,3 +614,27 @@ describe('mensagem de erro do cadastro', () => {
     expect(mensagemDoErro(e, t)).toBe('Salvo no aparelho, sincroniza depois.');
   });
 });
+
+describe('obrigatórios: só nome e documento', () => {
+  // Pedido do NSOP (18/10): e-mail, telefone e nacionalidade passam a ser opcionais.
+  it('cadastra sem e-mail, telefone e nacionalidade', async () => {
+    await montar();
+    await abrirNovo();
+    expect(screen.getByLabelText(/players.email/)).not.toBeRequired();
+    expect(screen.getByLabelText(/players.phone/)).not.toBeRequired();
+    expect(screen.getByLabelText(/players.nationality/)).not.toBeRequired();
+    expect(screen.getByLabelText(/players.documentNumber/)).toBeRequired();
+    await preencher({ email: '', telefone: '', nacionalidade: '' });
+    await salvar();
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalled());
+    expect(offlineWrite.mock.calls[0][0].body).toMatchObject({ name: 'Carlos Dias', email: '', phone: '' });
+  });
+
+  it('o aviso do pedido de autorização só aparece com e-mail', async () => {
+    await montar();
+    await abrirNovo();
+    expect(screen.queryByText(/pedido de autorização/)).toBeNull();
+    await ue.type(screen.getByLabelText(/players.email/), 'a@b.com');
+    expect(screen.getByText(/pedido de autorização/)).toBeInTheDocument();
+  });
+});
