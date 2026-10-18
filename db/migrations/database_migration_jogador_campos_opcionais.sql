@@ -9,6 +9,9 @@
 -- Compatível com o backend anterior (ele sempre manda os três preenchidos).
 -- ============================================================================
 
+-- ESTADO EM PRODUÇÃO: aplicada em 2026-10-18 ~21:41 UTC (autorizada pelo
+-- usuário com jogo rolando; só DROP NOT NULL, instantânea).
+
 SET lock_timeout = '5s';
 
 ALTER TABLE public.players
