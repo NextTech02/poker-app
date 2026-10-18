@@ -167,3 +167,37 @@ describe('erro e navegação', () => {
     expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 });
+
+describe('vendas por meio de entrada', () => {
+  // NSOP (18/10): "tem que adicionar todos os meios de entrada nessa tela para
+  // saber os valores individuais" — e a taxa, que deixava os importes sem fechar.
+  const COM_MEIOS = {
+    ...ESTATISTICAS,
+    buy_in_amount: 1500, rebuy_amount: 1500, addon_amount: 0, fee_amount: 200, total_collected: 3200,
+    by_buy_type: [
+      { name: 'Buy-in', category: 'buy_in', count: 3, amount: 1500 },
+      { name: 'Doble', category: 'rebuy', count: 2, amount: 1500 },
+      { name: 'Bono Dealer', category: 'fee', count: 4, amount: 200 },
+    ],
+  };
+  const linha = (texto) => Array.from(document.querySelectorAll('.stats-table tr')).find((tr) => tr.textContent.includes(texto));
+
+  it('lista cada meio com quantidade e valor, e o total', async () => {
+    await montar({ stats: COM_MEIOS });
+    expect(linha('Doble')).toHaveTextContent('2');
+    expect(linha('Doble')).toHaveTextContent('R$ 1500.00');
+    expect(linha('Bono Dealer')).toHaveTextContent('dayStats.category_fee');
+    expect(document.querySelector('.stats-table tfoot')).toHaveTextContent('9');
+    expect(document.querySelector('.stats-table tfoot')).toHaveTextContent('R$ 3200.00');
+  });
+
+  it('a taxa aparece nos importes', async () => {
+    await montar({ stats: COM_MEIOS });
+    expect(screen.getByText('dayStats.feeAmount').closest('.stat-box')).toHaveTextContent('R$ 200.00');
+  });
+
+  it('sem meios (backend antigo), a tela continua só com as categorias', async () => {
+    await montar();
+    expect(document.querySelector('.stats-table')).toBeNull();
+  });
+});

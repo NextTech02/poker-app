@@ -350,8 +350,54 @@ const TournamentDayStats = () => {
                   <span className="stat-box-label">{t('dayStats.addonAmount')}</span>
                   <span className="stat-box-value">{formatCurrency(stats.addon_amount || 0)}</span>
                 </div>
+                {/* Taxa (ex.: Bono Dealer): sem este quadro os importes não
+                    fechavam com o total recaudado. */}
+                {Number(stats.fee_amount) > 0 && (
+                  <div className="stat-box">
+                    <span className="stat-box-label">{t('dayStats.feeAmount', 'Importe taxas')}</span>
+                    <span className="stat-box-value">{formatCurrency(stats.fee_amount || 0)}</span>
+                  </div>
+                )}
               </div>
             </Card>
+
+            {/* Cada meio de entrada cadastrado ("Buy-in", "Doble", "Bono
+                Dealer"…), com quantidade e valor — a categoria sozinha não diz
+                qual foi vendido. */}
+            {(stats.by_buy_type || []).length > 0 && (
+              <Card className="stats-card">
+                <h2 className="stats-card-title">{t('dayStats.byBuyType', 'Por meio de entrada')}</h2>
+                <div className="stats-table-wrap">
+                  <table className="stats-table">
+                    <thead>
+                      <tr>
+                        <th>{t('dayStats.buyTypeName', 'Meio de entrada')}</th>
+                        <th>{t('dayStats.buyTypeCategory', 'Categoria')}</th>
+                        <th className="num">{t('dayStats.buyTypeCount', 'Quantidade')}</th>
+                        <th className="num">{t('dayStats.buyTypeAmount', 'Valor')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.by_buy_type.map((m, i) => (
+                        <tr key={`${m.name}-${m.category}-${i}`}>
+                          <td>{m.name}</td>
+                          <td>{t(`dayStats.category_${m.category}`, m.category)}</td>
+                          <td className="num">{m.count}</td>
+                          <td className="num">{formatCurrency(m.amount || 0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colSpan={2}>{t('dayStats.buyTypeTotal', 'Total')}</td>
+                        <td className="num">{stats.by_buy_type.reduce((s, m) => s + (Number(m.count) || 0), 0)}</td>
+                        <td className="num">{formatCurrency(stats.by_buy_type.reduce((s, m) => s + (Number(m.amount) || 0), 0))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </Card>
+            )}
           </>
         )}
       </main>

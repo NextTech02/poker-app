@@ -2126,7 +2126,18 @@
     "totalPlayers": "Total Players",
     "qualifiedActive": "Qualified / Active",
     "entries": "Entries",
-    "amounts": "Amounts"
+    "amounts": "Amounts",
+    "feeAmount": "Fee amount",
+    "byBuyType": "By entry type",
+    "buyTypeName": "Entry type",
+    "buyTypeCategory": "Category",
+    "buyTypeCount": "Count",
+    "buyTypeAmount": "Amount",
+    "buyTypeTotal": "Total",
+    "category_buy_in": "Buy-in",
+    "category_rebuy": "Rebuy",
+    "category_addon": "Add-on",
+    "category_fee": "Fee"
   },
   "staff": {
     "title": "Employees",

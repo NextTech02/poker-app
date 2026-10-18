@@ -2126,7 +2126,18 @@
     "totalPlayers": "Total de Jogadores",
     "qualifiedActive": "Classificados / Ativos",
     "entries": "Entradas",
-    "amounts": "Valores"
+    "amounts": "Valores",
+    "feeAmount": "Importe taxas",
+    "byBuyType": "Por meio de entrada",
+    "buyTypeName": "Meio de entrada",
+    "buyTypeCategory": "Categoria",
+    "buyTypeCount": "Quantidade",
+    "buyTypeAmount": "Valor",
+    "buyTypeTotal": "Total",
+    "category_buy_in": "Buy-in",
+    "category_rebuy": "Rebuy",
+    "category_addon": "Add-on",
+    "category_fee": "Taxa"
   },
   "staff": {
     "title": "Funcionários",

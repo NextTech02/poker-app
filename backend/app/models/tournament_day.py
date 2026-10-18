@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from enum import Enum
+from app.models.report import BuyTypeReportRow
 
 
 class TournamentDayStatus(str, Enum):
@@ -388,8 +389,14 @@ class QualifyingDayStats(BaseModel):
     buy_in_amount: float = 0.0
     rebuy_amount: float = 0.0
     addon_amount: float = 0.0
+    # Taxa (ex.: Bono Dealer): entra no total recebido, mas não é add-on.
+    total_fees: int = 0
+    fee_amount: float = 0.0
     total_collected: float = 0.0
     prize_pool: float = 0.0
+    # Vendas por MEIO de entrada ("Buy-in", "Doble", "Bono Dealer"…), com
+    # quantidade e valor de cada um — a categoria sozinha não diz qual foi.
+    by_buy_type: List[BuyTypeReportRow] = []
 
 
 class FinalDayAggregatedStats(BaseModel):

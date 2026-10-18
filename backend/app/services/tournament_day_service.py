@@ -1123,6 +1123,7 @@ class TournamentDayService:
 
         eliminated = len([p for p in players if p.get("status") == "eliminated"])
         qualified = len([p for p in players if p.get("status") not in STATUS_FORA_DO_DIA])
+        por_meio = TournamentDayService._vendas_do_dia_por_meio(day.tournament_id, players)
 
         return QualifyingDayStats(
             day_id=day_id,
@@ -1140,9 +1141,38 @@ class TournamentDayService:
             buy_in_amount=buy_in_amount,
             rebuy_amount=rebuy_amount,
             addon_amount=addon_amount,
+            total_fees=sum(int(p.get("fee_count", 0) or 0) for p in players),
+            fee_amount=fee_amount,
             total_collected=buy_in_amount + rebuy_amount + addon_amount + fee_amount,
-            prize_pool=float(day.prize_pool or 0)
+            prize_pool=float(day.prize_pool or 0),
+            by_buy_type=por_meio,
         )
+
+    @staticmethod
+    def _vendas_do_dia_por_meio(tournament_id: str, inscritos: List[dict]) -> list:
+        """Vendas ATIVAS do dia agrupadas por meio de entrada, no mesmo
+        formato (e ordem) do relatório do torneio. Falhou? Lista vazia — a
+        tela continua com os totais por categoria."""
+        ids = [str(p["id"]) for p in inscritos if p.get("id")]
+        if not ids:
+            return []
+        from app.services.report_service import agrupar_vendas_por_meio, ler_vendas_com_taxa
+        try:
+            # Ordem do Caixa (sort_order) — lida aqui, pelo mesmo cliente do dia.
+            meios = supabase.table("buy_types").select("id, sort_order")                 .eq("tournament_id", tournament_id).execute().data or []
+            ordem = {str(m["id"]): int(m.get("sort_order") or 0) for m in meios if m.get("id")}
+            linhas = ler_vendas_com_taxa(
+                lambda cols: (
+                    supabase.table("transactions").select(cols)
+                    .in_("tournament_player_id", ids)
+                    .in_("type", ["buy_in", "rebuy", "addon"])
+                ),
+                "amount, type, buy_type_id, buy_type_name, tournament_player_id",
+            )
+            return agrupar_vendas_por_meio(linhas, ordem)
+        except Exception as exc:
+            logger.warning("Vendas por meio do dia não lidas: %s", exc)
+            return []
 
     # ================================================
     # Timer Control Methods

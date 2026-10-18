@@ -1492,3 +1492,30 @@ class TestDiaVazioNaoSomaOsOutrosDias:
         ])
         r = S.get_enriched_timer_status(D1)
         assert (r["total_entries"], r["chipcount"]) == (1, 20000)
+
+
+class TestEstatisticasPorMeio:
+    """NSOP (18/10): os Detalhes do dia mostravam só buy-in/rebuy/add-on — sem
+    "Doble", "Bono Dealer"… nem a taxa (o total não fechava com os importes)."""
+
+    def test_vendas_por_meio_de_entrada_e_taxa(self, monkeypatch):
+        jogador = _jogador(D1, buy=1, rebuy=1)
+        jogador["fee_count"] = 1
+        jogador["total_fee_amount"] = 20
+        tp = jogador["id"]
+        _monta(
+            monkeypatch,
+            tournament_players=[jogador],
+            buy_types=[{"id": "bt-in", "sort_order": 0}, {"id": "bt-doble", "sort_order": 1}, {"id": "bt-bono", "sort_order": 2}],
+            transactions=[
+                {"id": "v1", "tournament_player_id": tp, "type": "buy_in", "amount": 400, "buy_type_id": "bt-in", "buy_type_name": "Buy-in", "status": "active"},
+                {"id": "v2", "tournament_player_id": tp, "type": "rebuy", "amount": 600, "buy_type_id": "bt-doble", "buy_type_name": "Doble", "status": "active"},
+                {"id": "v3", "tournament_player_id": tp, "type": "addon", "amount": 20, "buy_type_id": "bt-bono", "buy_type_name": "Bono Dealer", "is_fee": True, "status": "active"},
+                {"id": "v4", "tournament_player_id": tp, "type": "rebuy", "amount": 600, "buy_type_id": "bt-doble", "buy_type_name": "Doble", "status": "cancelled"},
+            ],
+        )
+        r = S.get_qualifying_day_stats(D1)
+        assert [(m.name, m.category, m.count, m.amount) for m in r.by_buy_type] == [
+            ("Buy-in", "buy_in", 1, 400.0), ("Doble", "rebuy", 1, 600.0), ("Bono Dealer", "fee", 1, 20.0),
+        ]
+        assert (r.total_fees, r.fee_amount) == (1, 20.0)

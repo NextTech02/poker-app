@@ -204,3 +204,34 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Vendas por meio de entrada */
+.stats-table-wrap { overflow-x: auto; }
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.stats-table th,
+.stats-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.stats-table th {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.stats-table tfoot td {
+  font-weight: 700;
+  border-bottom: none;
+  border-top: 2px solid var(--border-primary);
+}
