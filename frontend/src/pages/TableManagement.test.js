@@ -386,6 +386,36 @@ describe('mesas', () => {
   });
 });
 
+describe('jogador no assento', () => {
+  /* Pedido do NSOP: o nome aparece no assento sem passar o cursor (o floor
+     acha o jogador mais rápido) e, para quem veio do classificatório, as
+     fichas com que se classificou. */
+  const seatDaAna = () => assentos(mesaDoNumero(1))[0];
+
+  it('mostra o nome no assento, sem depender do title', async () => {
+    await montar();
+    expect(within(seatDaAna()).getByText('Ana')).toHaveClass('tm-seat-name');
+  });
+
+  it('classificado mostra as fichas com que se classificou', async () => {
+    await montar({ inscritos: [
+      { id: 'tp-a', player_id: 'p1', player_name: 'Ana', status: 'active',
+        is_qualified_entry: true, total_chips: 763800 },
+    ] });
+    const fichas = await within(seatDaAna()).findByText((763800).toLocaleString('pt-BR'));
+    expect(fichas).toHaveAttribute('title', 'tableManagement.qualifiedChips');
+  });
+
+  it('entrada comum (buy-in) não mostra fichas', async () => {
+    await montar({ inscritos: [
+      { id: 'tp-a', player_id: 'p1', player_name: 'Ana', status: 'active',
+        is_qualified_entry: false, total_chips: 20000 },
+    ] });
+    await waitFor(() => expect(within(seatDaAna()).getByText('Ana')).toBeInTheDocument());
+    expect(seatDaAna().querySelector('.tm-seat-chips')).toBeNull();
+  });
+});
+
 describe('alocar arrastando', () => {
   it('soltar num assento vazio aloca e emite o bilhete', async () => {
     // O bilhete é o papel que o jogador leva para achar a cadeira.

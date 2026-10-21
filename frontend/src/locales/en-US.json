@@ -2661,7 +2661,8 @@
     "noEliminated": "No one eliminated on this day.",
     "undoElimination": "Undo",
     "uneliminatedSuccess": "{{name}} is back in the tournament. Seat the player at a table.",
-    "errorUneliminate": "Error undoing the elimination: {{detail}}"
+    "errorUneliminate": "Error undoing the elimination: {{detail}}",
+    "qualifiedChips": "Chips carried from the qualifying day"
   },
   "expenses": {
     "new": "New expense",

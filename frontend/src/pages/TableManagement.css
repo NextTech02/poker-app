@@ -520,21 +520,51 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   width: 100%;
-  margin-top: 4px;
+  margin-top: 12px; /* abaixo do número do assento, que fica no canto */
   cursor: grab;
+}
+
+/* Nome sempre à vista no assento: até 3 linhas (nome e sobrenomes), o resto
+   vai para o title. Quebra entre palavras; no meio só se a palavra não couber. */
+.tm-seat-name {
+  max-width: 100%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary, #e8f0fe);
+  text-align: center;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Fichas com que o jogador se classificou (só entradas vindas de classificatório). */
+.tm-seat-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-gold, #d4af37);
+  white-space: nowrap;
+}
+
+.tm-seat-chips::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 2px dotted currentColor;
+  flex-shrink: 0;
 }
 
 .tm-seat-player:active { cursor: grabbing; }
 
-.tm-player-icon-svg {
-  width: 28px;
-  height: 28px;
-  color: var(--brand-green);
-  opacity: 0.9;
-  flex-shrink: 0;
-}
 
 .tm-btn-elim {
   background: rgba(244, 67, 54, 0.15);

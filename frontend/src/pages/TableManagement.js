@@ -36,7 +36,7 @@ const motivoDoErro = (err) => {
 };
 
 const TableManagement = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { dayId } = useParams();
   const navigate = useNavigate();
   const { toast, confirm } = useToast();
@@ -545,6 +545,11 @@ const TableManagement = () => {
     const inscritoDoAssento = occupied ? inscritoPorJogador.get(allocation.player_id) : null;
     const bounty = ko.comBounty && inscritoDoAssento && bounties.has(inscritoDoAssento.id)
       ? bounties.get(inscritoDoAssento.id) : null;
+    // Nome à vista (o floor acha o jogador sem passar o cursor) e, para quem
+    // veio de um classificatório, as fichas com que se classificou.
+    const nomeNoAssento = allocation?.players?.name || inscritoDoAssento?.player_name || '';
+    const fichasClassificadas = inscritoDoAssento?.is_qualified_entry
+      ? Number(inscritoDoAssento.total_chips) || 0 : 0;
 
     return (
       <div
@@ -561,9 +566,15 @@ const TableManagement = () => {
             onDragStart={(e) => handleDragStart(e, { player_id: allocation.player_id, player_name: allocation.players?.name }, true, allocation.id)}
             title={allocation.players?.name}
           >
-            <svg className="tm-player-icon-svg" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-            </svg>
+            <span className="tm-seat-name">{nomeNoAssento || t('tableManagement.defaultPlayer')}</span>
+            {fichasClassificadas > 0 && (
+              <span
+                className="tm-seat-chips"
+                title={t('tableManagement.qualifiedChips', 'Fichas com que se classificou')}
+              >
+                {fichasClassificadas.toLocaleString(i18n?.language || 'pt-BR')}
+              </span>
+            )}
             {bounty != null && (
               <span className="ko-selo-bounty" title={t('ko.bounty', 'Bounty')}>{formatCurrency(bounty)}</span>
             )}

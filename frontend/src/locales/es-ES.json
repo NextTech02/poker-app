@@ -2661,7 +2661,8 @@
     "noEliminated": "Nadie eliminado en este día.",
     "undoElimination": "Deshacer",
     "uneliminatedSuccess": "{{name}} volvió al torneo. Siente al jugador en una mesa.",
-    "errorUneliminate": "Error al deshacer la eliminación: {{detail}}"
+    "errorUneliminate": "Error al deshacer la eliminación: {{detail}}",
+    "qualifiedChips": "Fichas con las que clasificó"
   },
   "expenses": {
     "new": "Nuevo gasto",
