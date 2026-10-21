@@ -147,12 +147,15 @@ class FinancialService:
                     "fees_count": 0,
                     "revenue": 0.0,
                     "prizes": 0.0,
+                    "vendas": [],
                 }
 
             if t_id:
                 tm = tournament_map[t_id]
                 if tx.get("player_id"):
                     tm["players"].add(tx["player_id"])
+                if tx_type in ("buy_in", "rebuy", "addon"):
+                    tm["vendas"].append(tx)
                 if tx_type == "buy_in":
                     tm["buy_ins_count"] += 1
                     tm["revenue"] += amount
@@ -237,6 +240,20 @@ class FinancialService:
             pass
 
         # ── 7. Build tournament list ──
+        # Vendas por meio de entrada de cada torneio, na ordem do Caixa
+        # (uma consulta para todos os torneios do período).
+        from app.services.report_service import agrupar_vendas_por_meio
+        ordem_dos_meios: dict = {}
+        if tournament_map:
+            try:
+                meios = (
+                    supabase.table("buy_types").select("id, sort_order")
+                    .in_("tournament_id", list(tournament_map)).execute().data or []
+                )
+                ordem_dos_meios = {str(m["id"]): int(m.get("sort_order") or 0) for m in meios if m.get("id")}
+            except Exception:
+                ordem_dos_meios = {}   # só a ordem; os grupos saem do mesmo jeito
+
         by_tournament = []
         for tm in tournament_map.values():
             by_tournament.append(TournamentFinancial(
@@ -250,6 +267,7 @@ class FinancialService:
                 revenue=tm["revenue"],
                 prizes=tm["prizes"],
                 net=tm["revenue"] - tm["prizes"],
+                by_buy_type=agrupar_vendas_por_meio(tm["vendas"], ordem_dos_meios),
             ))
 
         by_tournament.sort(key=lambda t: t.revenue, reverse=True)

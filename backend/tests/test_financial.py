@@ -191,3 +191,53 @@ class TestDescricaoNoExtrato:
         assert por_id[doble["id"]].buy_type_name == "Doble Recompra"
         assert (por_id[bono["id"]].buy_type_name, por_id[bono["id"]].is_fee) == ("Bono Dealer", True)
         assert por_id[antiga["id"]].buy_type_name is None and por_id[antiga["id"]].is_fee is False
+
+
+class TestMeiosDeEntradaPorTorneio:
+    """Pedido do NSOP: a exportação dos relatórios só trazia Buy-ins, Rebuys e
+    Add-ons por torneio — sem a "Tasa", o "Doble" e os demais itens cobrados.
+    Cada torneio passa a trazer as vendas por MEIO de entrada."""
+
+    def _venda(self, n, tipo, valor, meio, nome, torneio=TOUR, taxa=False):
+        return {**_entrada(tipo, valor, torneio=torneio), "id": f"tx-{n}",
+                "buy_type_id": meio, "buy_type_name": nome, "is_fee": taxa}
+
+    def test_cada_torneio_traz_as_vendas_por_meio_na_ordem_do_caixa(self, monkeypatch):
+        outro = "44444444-4444-4444-4444-444444444444"
+        fake = _monta(monkeypatch, transacoes=[
+            self._venda(1, "buy_in", 200, "bt-buy", "Buy-in"),
+            self._venda(2, "buy_in", 200, "bt-buy", "Buy-in"),
+            self._venda(3, "rebuy", 300, "bt-doble", "Doble"),
+            self._venda(4, "addon", 50, "bt-tasa", "Tasa", taxa=True),
+            self._venda(5, "buy_in", 100, "bt-buy2", "Buy-in", torneio=outro),
+            _entrada("prize", 400),   # prêmio não é venda
+        ], torneios=[
+            {"id": TOUR, "stage_id": STAGE, "name": "Main"},
+            {"id": outro, "stage_id": STAGE, "name": "Turbo"},
+        ])
+        fake.store["buy_types"] = [
+            {"id": "bt-doble", "tournament_id": TOUR, "sort_order": 2},
+            {"id": "bt-buy", "tournament_id": TOUR, "sort_order": 1},
+            {"id": "bt-tasa", "tournament_id": TOUR, "sort_order": 3},
+        ]
+        s = FinancialService.get_financial_summary(stage_id=STAGE, organization_id=ORG)
+        por_torneio = {t.tournament_id: t for t in s.by_tournament}
+        assert [(m.name, m.category, m.count, m.amount) for m in por_torneio[TOUR].by_buy_type] == [
+            ("Buy-in", "buy_in", 2, 400.0),
+            ("Doble", "rebuy", 1, 300.0),
+            ("Tasa", "fee", 1, 50.0),
+        ]
+        assert [(m.name, m.count) for m in por_torneio[outro].by_buy_type] == [("Buy-in", 1)]
+
+    def test_sem_a_tabela_de_meios_os_grupos_saem_mesmo_assim(self, monkeypatch):
+        fake = _monta(monkeypatch, transacoes=[self._venda(1, "rebuy", 300, "bt-doble", "Doble")])
+        original = fake.table
+
+        def table(nome):
+            if nome == "buy_types":
+                raise RuntimeError("timeout")
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", table)
+        [t] = FinancialService.get_financial_summary(stage_id=STAGE, organization_id=ORG).by_tournament
+        assert [(m.name, m.count) for m in t.by_buy_type] == [("Doble", 1)]

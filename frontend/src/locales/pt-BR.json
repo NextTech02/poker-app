@@ -847,7 +847,8 @@
       "sec_transactions": "Transações",
       "sec_prizes": "Premiação",
       "sec_expenses": "Despesas",
-      "sec_revenues": "Outras receitas"
+      "sec_revenues": "Outras receitas",
+      "sec_tournamentsByBuyType": "Torneios por meio de entrada"
     },
     "buyIns": "Buy-ins",
     "rebuys": "Rebuys",

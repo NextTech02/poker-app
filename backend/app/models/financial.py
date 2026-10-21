@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from app.models.report import BuyTypeReportRow
 
 
 class RevenueBreakdown(BaseModel):
@@ -22,6 +23,9 @@ class TournamentFinancial(BaseModel):
     revenue: float = 0
     prizes: float = 0
     net: float = 0
+    # Vendas do torneio por MEIO de entrada ("Buy-in", "Doble", "Tasa",
+    # "Bono Dealer"…): o que a exportação detalha por torneio.
+    by_buy_type: List[BuyTypeReportRow] = []
 
 
 class TransactionEntry(BaseModel):

@@ -84,6 +84,9 @@ const ReportExportPanel = ({ summary, dateRange }) => {
   const buildSections = useCallback((financial, prizesByTournament, expenses, revenues) => {
     const sections = [];
     const s = summary || {};
+    const categorias = typeLabelMap(t);
+    // Meios de entrada cadastrados pelo diretor ("Buy-in", "Doble", "Tasa"…).
+    const meios = (s.byBuyType || []).map((b) => b.name).filter(Boolean);
 
     if (selected.summary) {
       const totalBuyIns = s.totalBuyIns || 0;
@@ -104,8 +107,25 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { label: t('cashRegister.totalBuyIns', 'Total Buy-ins'), value: s.totalBuyIns, type: 'int' },
           { label: t('cashRegister.totalRebuys', 'Total Rebuys'), value: s.totalRebuys, type: 'int' },
           { label: t('cashRegister.totalAddons', 'Total Add-ons'), value: s.totalAddons, type: 'int' },
+          { label: t('reports.totalFees', 'Total Taxas'), value: s.totalFees || 0, type: 'int' },
           { label: t('reports.rebuyRate', 'Taxa de Rebuy/Add-on'), value: rebuyRate, type: 'percent' },
         ],
+      });
+    }
+
+    // Vendas do período por MEIO de entrada — a Tasa, o Doble e cada item
+    // cobrado, com quantidade e valor. Antes só saía junto de "Jogadores".
+    if ((selected.summary || selected.players) && meios.length > 0) {
+      sections.push({
+        kind: 'table',
+        title: t('reports.byBuyType', 'Por meio de entrada'),
+        columns: [
+          { key: 'name', label: t('reports.buyType', 'Meio'), type: 'text' },
+          { key: 'category', label: t('reports.buyTypeCategory', 'Categoria'), type: 'text' },
+          { key: 'count', label: t('reports.buyTypeCount', 'Quantidade'), type: 'int' },
+          { key: 'amount', label: t('reports.buyTypeAmount', 'Valor'), type: 'currency' },
+        ],
+        rows: (s.byBuyType || []).map((b) => ({ ...b, category: categorias[b.category] || b.category })),
       });
     }
 
@@ -120,6 +140,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { label: t('financial.revenueBuyIns', 'Receita Buy-ins'), value: rev.buy_ins, type: 'currency' },
           { label: t('financial.revenueRebuys', 'Receita Rebuys'), value: rev.rebuys, type: 'currency' },
           { label: t('financial.revenueAddons', 'Receita Add-ons'), value: rev.addons, type: 'currency' },
+          { label: t('financial.dreFees', 'Taxas'), value: rev.fees || 0, type: 'currency' },
           { label: t('financial.grossRevenue', 'Receita Bruta'), value: financial.gross_revenue, type: 'currency' },
           { label: t('financial.ticketsRedeemed', 'Tickets Resgatados'), value: financial.tickets_redeemed_value, type: 'currency' },
           { label: t('financial.prizes', 'Prêmios'), value: financial.prizes, type: 'currency' },
@@ -135,7 +156,6 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     if (selected.players) {
       // Com meios cadastrados pelo diretor, uma coluna por MEIO (o que ele
       // vê na tela); sem (backend antigo), as três categorias fixas.
-      const meios = (s.byBuyType || []).map((b) => b.name).filter(Boolean);
       const colunasPorMeio = meios.length > 0
         ? meios.map((nome) => ({ key: `meio:${nome}`, label: nome, type: 'int' }))
         : [
@@ -157,19 +177,6 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           ...Object.fromEntries(meios.map((nome) => [`meio:${nome}`, p.by_buy_type?.[nome] ?? 0])),
         })),
       });
-      if (meios.length > 0) {
-        sections.push({
-          kind: 'table',
-          title: t('reports.byBuyType', 'Por meio de entrada'),
-          columns: [
-            { key: 'name', label: t('reports.buyType', 'Meio'), type: 'text' },
-            { key: 'category', label: t('reports.buyTypeCategory', 'Categoria'), type: 'text' },
-            { key: 'count', label: t('reports.buyTypeCount', 'Quantidade'), type: 'int' },
-            { key: 'amount', label: t('reports.buyTypeAmount', 'Valor'), type: 'currency' },
-          ],
-          rows: (s.byBuyType || []).map((b) => ({ ...b, category: typeLabelMap(t)[b.category] || b.category })),
-        });
-      }
     }
 
     if (selected.tournaments && financial) {
@@ -182,16 +189,39 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { key: 'buy_ins_count', label: t('reports.buyIns', 'Buy-ins'), type: 'int' },
           { key: 'rebuys_count', label: t('reports.rebuys', 'Rebuys'), type: 'int' },
           { key: 'addons_count', label: t('reports.addons', 'Add-ons'), type: 'int' },
+          { key: 'fees_count', label: t('reports.fees', 'Taxas'), type: 'int' },
           { key: 'revenue', label: t('tournamentReport.revenue', 'Receita'), type: 'currency' },
           { key: 'prizes', label: t('financial.prizes', 'Prêmios'), type: 'currency' },
           { key: 'net', label: t('financial.net', 'Líquido'), type: 'currency' },
         ],
         rows: financial.by_tournament || [],
       });
+
+      // Cada torneio aberto por meio de entrada: uma linha por (torneio, meio).
+      const porMeio = (financial.by_tournament || []).flatMap((bt) => (bt.by_buy_type || []).map((m) => ({
+        tournament_name: bt.tournament_name,
+        name: m.name,
+        category: categorias[m.category] || m.category,
+        count: m.count,
+        amount: m.amount,
+      })));
+      if (porMeio.length > 0) {
+        sections.push({
+          kind: 'table',
+          title: t('reports.export.sec_tournamentsByBuyType', 'Torneios por meio de entrada'),
+          columns: [
+            { key: 'tournament_name', label: t('financial.tournament', 'Torneio'), type: 'text' },
+            { key: 'name', label: t('reports.buyType', 'Meio'), type: 'text' },
+            { key: 'category', label: t('reports.buyTypeCategory', 'Categoria'), type: 'text' },
+            { key: 'count', label: t('reports.buyTypeCount', 'Quantidade'), type: 'int' },
+            { key: 'amount', label: t('reports.buyTypeAmount', 'Valor'), type: 'currency' },
+          ],
+          rows: porMeio,
+        });
+      }
     }
 
     if (selected.transactions && financial) {
-      const tl = typeLabelMap(t);
       sections.push({
         kind: 'table',
         title: secTitle('transactions'),
@@ -200,12 +230,18 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { key: 'tournament_name', label: t('financial.tournament', 'Torneio'), type: 'text' },
           { key: 'player_name', label: t('players.columnPlayer', 'Jogador'), type: 'text' },
           { key: 'type', label: t('financial.type', 'Tipo'), type: 'text' },
+          { key: 'description', label: t('financial.colDescription', 'Descrição'), type: 'text' },
           { key: 'payment_method', label: t('financial.paymentMethod', 'Forma de Pgto'), type: 'text' },
           { key: 'amount', label: t('financial.amount', 'Valor'), type: 'currency' },
         ],
         rows: (financial.transactions || []).map((tx) => ({
           ...tx,
-          type: tl[tx.type] || tx.type,
+          // Taxa (Bono Dealer, Tasa) é gravada como add-on com a marca is_fee.
+          type: tx.type === 'addon' && tx.is_fee ? categorias.fee : (categorias[tx.type] || tx.type),
+          // O que foi vendido, como o clube chama ("Doble", "Bono Dealer").
+          description: tx.buy_type_name
+            || (tx.type === 'prize' && tx.prize_kind === 'knockout'
+              ? t('financial.descKnockout', 'Prêmio por eliminação (KO)') : '—'),
           payment_method: tx.payment_method || tx.payment_source || '—',
         })),
       });

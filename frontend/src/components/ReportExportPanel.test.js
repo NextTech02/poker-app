@@ -325,3 +325,76 @@ describe('falhas', () => {
     expect(toast.success).toHaveBeenCalled();
   });
 });
+
+describe('detalhe por meio de entrada (pedido do NSOP)', () => {
+  /* A exportação só trazia Buy-ins, Rebuys e Add-ons: a Tasa, o Doble e os
+     outros itens cobrados não apareciam em lugar nenhum da planilha. */
+  const MEIOS = [
+    { name: 'Buy-in', category: 'buy_in', count: 50, amount: 10000 },
+    { name: 'Doble', category: 'rebuy', count: 20, amount: 8000 },
+    { name: 'Tasa', category: 'fee', count: 40, amount: 2000 },
+  ];
+  const COM_MEIOS = { ...RESUMO, totalFees: 40, byBuyType: MEIOS };
+  const FIN = {
+    revenue: { buy_ins: 10000, rebuys: 8000, addons: 0, fees: 2000 },
+    by_tournament: [{
+      tournament_id: 't1', tournament_name: 'Main Event', fees_count: 40,
+      by_buy_type: MEIOS,
+    }],
+    transactions: [
+      { created_at: '2026-06-02T20:00:00Z', tournament_name: 'Main Event', player_name: 'Ana',
+        type: 'addon', is_fee: true, buy_type_name: 'Bono Dealer', amount: 50, payment_method: 'cash' },
+      { created_at: '2026-06-02T20:05:00Z', tournament_name: 'Main Event', player_name: 'Beto',
+        type: 'rebuy', buy_type_name: 'Doble', amount: 400, payment_method: 'cash' },
+      { created_at: '2026-06-02T23:00:00Z', tournament_name: 'Main Event', player_name: 'Ana',
+        type: 'prize', amount: 900 },
+    ],
+  };
+  const secoes = () => exportSections.mock.calls[0][0];
+  const secao = (titulo) => secoes().find((s) => s.title === titulo);
+
+  const exportarTudo = async () => {
+    responder({ financeiro: FIN });
+    await abrir({ summary: COM_MEIOS });
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+  };
+
+  it('resumo e DRE trazem as taxas', async () => {
+    await exportarTudo();
+    expect(secao('Resumo geral').rows.find((r) => r.label === 'Total Taxas').value).toBe(40);
+    expect(secao('Financeiro (DRE)').rows.find((r) => r.label === 'Taxas').value).toBe(2000);
+  });
+
+  it('vendas do período por meio, com categoria traduzida', async () => {
+    await exportarTudo();
+    expect(secao('Por meio de entrada').rows.map((r) => [r.name, r.category, r.count, r.amount])).toEqual([
+      ['Buy-in', 'Buy-ins', 50, 10000],
+      ['Doble', 'Rebuys', 20, 8000],
+      ['Tasa', 'Taxas', 40, 2000],
+    ]);
+  });
+
+  it('"Por meio de entrada" sai mesmo sem a seção de jogadores', async () => {
+    responder({ financeiro: FIN });
+    await abrir({ summary: COM_MEIOS });
+    await desmarcar('Jogadores');
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    expect(secao('Por meio de entrada')).toBeDefined();
+  });
+
+  it('torneios ganham a coluna de taxas e a abertura por meio', async () => {
+    await exportarTudo();
+    expect(secao('Torneios').columns.map((c) => c.key)).toContain('fees_count');
+    expect(secao('Torneios por meio de entrada').rows.map((r) => [r.tournament_name, r.name, r.count])).toEqual([
+      ['Main Event', 'Buy-in', 50], ['Main Event', 'Doble', 20], ['Main Event', 'Tasa', 40],
+    ]);
+  });
+
+  it('transações dizem o que foi vendido e marcam a taxa', async () => {
+    await exportarTudo();
+    const linhas = secao('Transações').rows.map((r) => [r.type, r.description]);
+    expect(linhas).toEqual([['Taxas', 'Bono Dealer'], ['Rebuys', 'Doble'], ['Prêmio', '—']]);
+  });
+});
