@@ -1214,7 +1214,9 @@
     "promoVideoHint": "Video and YouTube play on loop, muted.",
     "promoFit": "Image/video fit",
     "promoFitContain": "Show it whole (no cropping)",
-    "promoFitCover": "Fill the column (edges may be cropped)"
+    "promoFitCover": "Fill the column (edges may be cropped)",
+    "visEliminations": "Animated \"player eliminated\" banner (bottom)",
+    "previewElimination": "Test elimination banner"
   },
   "errors": {
     "meio_de_entrada_de_outro_torneio": "The chosen entry method does not belong to this tournament.",

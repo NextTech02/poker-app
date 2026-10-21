@@ -51,6 +51,7 @@ const BROADCAST_LABELS = {
     seatingPage:    'Página',
     seatingEmpty:   'Os assentos ainda não foram sorteados',
     seatingOffline: 'Sem conexão — mostrando a última lista',
+    eliminatedPlayer: 'JOGADOR ELIMINADO',
   },
   'en': {
     numberLocale:   'en-US',          // 1,000 — vírgula em todo idioma
@@ -93,6 +94,7 @@ const BROADCAST_LABELS = {
     seatingPage:    'Page',
     seatingEmpty:   'Seats have not been drawn yet',
     seatingOffline: 'Offline — showing the last list',
+    eliminatedPlayer: 'PLAYER ELIMINATED',
   },
   'es': {
     numberLocale:   'en-US',          // 1,000 — vírgula em todo idioma
@@ -135,6 +137,7 @@ const BROADCAST_LABELS = {
     seatingPage:    'Página',
     seatingEmpty:   'Los asientos aún no fueron sorteados',
     seatingOffline: 'Sin conexión — mostrando la última lista',
+    eliminatedPlayer: 'JUGADOR ELIMINADO',
   },
 };
 

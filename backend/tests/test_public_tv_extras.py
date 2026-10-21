@@ -295,6 +295,17 @@ class TestModeloDoDia:
         assert "broadcast_show_buy_types" not in dados
         assert "broadcast_show_entries" not in dados
 
+    def test_aviso_de_eliminado_nasce_desligado_e_so_vai_no_update(self):
+        """Elemento novo do telão: desligado até o diretor ligar; a criação do
+        dia não depende da coluna existir (só resposta e update)."""
+        from app.models.tournament_day import TournamentDayCreate
+        assert TournamentDay(**self._linha()).broadcast_show_eliminations is False
+        dados = TournamentDayCreate(tournament_id=TOUR, day_name="Dia 1",
+                                    buy_in=100, max_players=200).model_dump()
+        assert "broadcast_show_eliminations" not in dados
+        patch = TournamentDayUpdate(broadcast_show_eliminations=True).model_dump(exclude_unset=True)
+        assert patch == {"broadcast_show_eliminations": True}
+
     def test_tamanho_do_titulo_nasce_100_e_fica_entre_50_e_300(self):
         from pydantic import ValidationError
         from app.models.tournament_day import TournamentDayCreate, TournamentDayUpdate

@@ -135,6 +135,8 @@ export const buildTvSettings = (source, { fontSizeOverride = null } = {}) => {
     promoFit: s.broadcast_promo_fit === 'cover' ? 'cover' : 'contain',
     // Meios de entrada (valores) abaixo dos blinds: elemento novo, só ligado.
     showBuyTypes: s.broadcast_show_buy_types === true,
+    // Faixa animada de jogador eliminado: elemento novo, só ligado.
+    showEliminations: s.broadcast_show_eliminations === true,
     showEntries: on(s, 'broadcast_show_entries'),
     showTitle: on(s, 'broadcast_show_title'),
     showPrizepool: on(s, 'broadcast_show_prizepool'),

@@ -255,6 +255,8 @@ class TournamentDayUpdate(BaseModel):
     # Meios de entrada (valores) abaixo dos blinds; tile "Entradas" com interruptor próprio.
     broadcast_show_buy_types: Optional[bool] = None
     broadcast_show_entries: Optional[bool] = None
+    # Faixa animada "Jogador eliminado" na parte de baixo do telão.
+    broadcast_show_eliminations: Optional[bool] = None
     # Tamanho do título em %, separado da fonte geral.
     broadcast_title_size: Optional[int] = Field(None, ge=50, le=300)
 
@@ -307,6 +309,8 @@ class TournamentDay(TournamentDayBase):
     # o tile "Entradas" (nasce ligado, como sempre foi).
     broadcast_show_buy_types: bool = False
     broadcast_show_entries: bool = True
+    # Faixa animada de jogador eliminado (pedido do NSOP): nasce desligada.
+    broadcast_show_eliminations: bool = False
     # Tamanho do título em % (50–300), multiplicado pela fonte geral.
     broadcast_title_size: int = 100
 

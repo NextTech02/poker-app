@@ -56,6 +56,8 @@ export const TV_DEFAULT_SETTINGS = {
   broadcast_promo_fit: 'contain',
   // Meios de entrada (valores) abaixo dos blinds: elemento novo, nasce desligado.
   broadcast_show_buy_types: false,
+  // Faixa animada "Jogador eliminado" na parte de baixo: nasce desligada.
+  broadcast_show_eliminations: false,
   // Tile "Entradas" (contagem) — interruptor próprio, ligado como sempre foi.
   broadcast_show_entries: true,
   broadcast_show_title: true,

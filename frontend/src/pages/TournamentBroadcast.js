@@ -12,6 +12,8 @@ import {
 } from '../utils/broadcastFontLocal';
 import TvStage from '../components/broadcast/TvStage';
 import TvScreen from '../components/broadcast/TvScreen';
+import TvAvisoEliminacao from '../components/broadcast/TvAvisoEliminacao';
+import { useAvisoDeEliminacao } from '../hooks/useAvisoDeEliminacao';
 import { buildTvModel, buildTvSettings, blindValuesAt, formatClock } from '../components/broadcast/tvModel';
 import { resolveBackground } from '../components/broadcast/tvBackgrounds';
 import './TournamentBroadcast.css';
@@ -391,6 +393,16 @@ const TournamentBroadcast = () => {
     }
   }, [currentTimeForAlert, currentLevelForAlert, currentBlindIsBreakForAlert, blindAlertsEnabled, playBeep]);
 
+  // Aviso animado de jogador eliminado (pedido do NSOP): ligado nas
+  // Configurações do telão do dia; a lista de inscritos já é relida a cada
+  // 10 s e o hook compara uma leitura com a anterior.
+  const avisoDeEliminacaoLigado = isDayBased
+    && tournamentDay?.broadcast_show_eliminations === true
+    && tournamentDay?.status !== 'completed';
+  // `null` enquanto carrega: a lista vazia inicial não pode virar a "leitura
+  // anterior", senão quem já tinha caído antes de a TV abrir apareceria.
+  const avisoDeEliminacao = useAvisoDeEliminacao(loading ? null : players, avisoDeEliminacaoLigado);
+
   const getTimeUntilBreak = () => {
     if (!tournament) return 0;
     const breakInterval = (tournament.break_interval || 60) * 60;
@@ -496,6 +508,14 @@ const TournamentBroadcast = () => {
             currency={currency}
             fontScale={settings.fontSize / 100}
           />
+          {avisoDeEliminacao && (
+            <TvAvisoEliminacao
+              key={avisoDeEliminacao.id}
+              aviso={avisoDeEliminacao}
+              rotulo={L.eliminatedPlayer}
+              destaque={settings.colors?.sidebarValue}
+            />
+          )}
         </TvStage>
       </div>
 

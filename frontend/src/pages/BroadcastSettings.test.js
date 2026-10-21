@@ -600,6 +600,29 @@ describe('meios de entrada abaixo dos blinds', () => {
 });
 
 
+describe('aviso animado de jogador eliminado', () => {
+  it('nasce desligado; ligar vai no payload', async () => {
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_eliminations).toBe(false);
+    api.patch.mockClear();
+    await alternar('Aviso animado de jogador eliminado');
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_eliminations).toBe(true);
+  });
+
+  it('"Testar aviso" passa a faixa na prévia com um nome de exemplo', async () => {
+    await montar();
+    expect(document.querySelector('.bs-preview-stage .tv-elim')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Testar aviso de eliminado' }));
+    const faixa = document.querySelector('.bs-preview-stage .tv-elim');
+    expect(faixa).toHaveTextContent('Carlos Montea');
+    expect(faixa).toHaveTextContent('JOGADOR ELIMINADO');
+  });
+});
+
 describe('tamanho do título', () => {
   it('nasce em 100% e vai no payload separado da fonte geral', async () => {
     await montar();

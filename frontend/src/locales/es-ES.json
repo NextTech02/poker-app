@@ -1214,7 +1214,9 @@
     "promoVideoHint": "El video y YouTube se reproducen en bucle y sin sonido.",
     "promoFit": "Ajuste de la imagen/video",
     "promoFitContain": "Mostrar entera (sin recortar)",
-    "promoFitCover": "Rellenar la columna (puede recortar los bordes)"
+    "promoFitCover": "Rellenar la columna (puede recortar los bordes)",
+    "visEliminations": "Aviso animado de jugador eliminado (parte inferior)",
+    "previewElimination": "Probar aviso de eliminado"
   },
   "errors": {
     "meio_de_entrada_de_outro_torneio": "El medio de entrada elegido no pertenece a este torneo.",

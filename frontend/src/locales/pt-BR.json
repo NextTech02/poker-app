@@ -1214,7 +1214,9 @@
     "promoVideoHint": "Vídeo e YouTube tocam em loop e sem som.",
     "promoFit": "Ajuste da imagem/vídeo",
     "promoFitContain": "Mostrar inteira (sem cortar)",
-    "promoFitCover": "Preencher a coluna (pode cortar as bordas)"
+    "promoFitCover": "Preencher a coluna (pode cortar as bordas)",
+    "visEliminations": "Aviso animado de jogador eliminado (parte de baixo)",
+    "previewElimination": "Testar aviso de eliminado"
   },
   "errors": {
     "meio_de_entrada_de_outro_torneio": "O meio de entrada escolhido não pertence a este torneio.",

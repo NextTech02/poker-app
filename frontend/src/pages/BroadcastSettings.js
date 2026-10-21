@@ -8,6 +8,8 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { labelsForLanguage } from '../utils/broadcastLabels';
 import TvStage from '../components/broadcast/TvStage';
 import TvScreen from '../components/broadcast/TvScreen';
+import TvAvisoEliminacao from '../components/broadcast/TvAvisoEliminacao';
+import { DURACAO_DO_AVISO_MS } from '../hooks/useAvisoDeEliminacao';
 import { TV_DEFAULT_SETTINGS } from '../components/broadcast/tvDefaults';
 import { buildTvSettings } from '../components/broadcast/tvModel';
 import { resolveBackground } from '../components/broadcast/tvBackgrounds';
@@ -83,7 +85,7 @@ const SliderField = ({ label, settingsKey, min, max, settings, onChange, step = 
 // Antes era uma cópia do layout com estilos inline, que ficava para trás a
 // cada mudança no telão de verdade.
 // ─────────────────────────────────────────────────────────────────
-const BroadcastPreview = ({ settings, tournamentName, dayName, notice, previewBreak }) => {
+const BroadcastPreview = ({ settings, tournamentName, dayName, notice, previewBreak, avisoDeTeste }) => {
   const { i18n } = useTranslation();
   const { currency } = useCurrency();
   const tvSettings = buildTvSettings(settings);
@@ -103,6 +105,14 @@ const BroadcastPreview = ({ settings, tournamentName, dayName, notice, previewBr
           currency={currency || 'BRL'}
           fontScale={tvSettings.fontSize / 100}
         />
+        {avisoDeTeste && (
+          <TvAvisoEliminacao
+            key={avisoDeTeste.id}
+            aviso={avisoDeTeste}
+            rotulo={labels.eliminatedPlayer}
+            destaque={tvSettings.colors?.sidebarValue}
+          />
+        )}
       </TvStage>
       <p className="bpv-notice">{notice}</p>
     </div>
@@ -137,6 +147,14 @@ const BroadcastSettings = () => {
   const [loading, setLoading]           = useState(true);
   const [submitting, setSubmitting]     = useState(false);
   const [previewBreak, setPreviewBreak] = useState(false);
+  // "Testar aviso de eliminado": a faixa passa uma vez na prévia, com um nome
+  // de exemplo, para o diretor ver como fica antes de ligar no telão.
+  const [avisoDeTeste, setAvisoDeTeste] = useState(null);
+  useEffect(() => {
+    if (!avisoDeTeste) return undefined;
+    const id = setTimeout(() => setAvisoDeTeste(null), DURACAO_DO_AVISO_MS);
+    return () => clearTimeout(id);
+  }, [avisoDeTeste]);
   const [tvCode, setTvCode]             = useState('');
   const [tvCopied, setTvCopied]         = useState(false);
   // Biblioteca de fundos do clube — uma lista só para os dois seletores
@@ -189,6 +207,7 @@ const BroadcastSettings = () => {
           broadcast_show_reentries:  d.broadcast_show_reentries  !== false,
           broadcast_show_entries:    d.broadcast_show_entries    !== false,
           broadcast_show_buy_types:  d.broadcast_show_buy_types  === true,
+          broadcast_show_eliminations: d.broadcast_show_eliminations === true,
           broadcast_show_interval:   d.broadcast_show_interval   !== false,
           broadcast_show_timer:      d.broadcast_show_timer      !== false,
           broadcast_show_blinds:     d.broadcast_show_blinds     !== false,
@@ -353,6 +372,13 @@ const BroadcastSettings = () => {
             >
               {previewBreak ? t('broadcastSettings.previewBlinds') : t('broadcastSettings.previewInterval')}
             </button>
+            <button
+              type="button"
+              className="bs-preview-mode-btn"
+              onClick={() => setAvisoDeTeste({ id: Date.now(), nome: 'Carlos Montea' })}
+            >
+              {t('broadcastSettings.previewElimination', 'Testar aviso de eliminado')}
+            </button>
           </div>
           <BroadcastPreview
             settings={settings}
@@ -360,6 +386,7 @@ const BroadcastSettings = () => {
             dayName={dayName}
             notice={t('broadcastSettings.previewNotice')}
             previewBreak={previewBreak}
+            avisoDeTeste={avisoDeTeste}
           />
         </div>
 
@@ -650,6 +677,7 @@ const BroadcastSettings = () => {
                   { key: 'broadcast_show_entries',    labelKey: 'visEntries', padrao: 'Entradas (contagem)' },
                   { key: 'broadcast_show_reentries',  labelKey: 'visReentries', padrao: 'Reentradas (recompras)' },
                   { key: 'broadcast_show_buy_types',  labelKey: 'visBuyTypes', padrao: 'Meios de entrada: quantidade por meio (abaixo dos blinds)' },
+                  { key: 'broadcast_show_eliminations', labelKey: 'visEliminations', padrao: 'Aviso animado de jogador eliminado (parte de baixo)' },
                   { key: 'broadcast_show_interval',   labelKey: 'visInterval' },
                   { key: 'broadcast_show_timer',      labelKey: 'visTimer' },
                   { key: 'broadcast_show_blinds',     labelKey: 'visBlinds' },

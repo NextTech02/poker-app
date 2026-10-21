@@ -1,0 +1,90 @@
+/* Faixa de JOGADOR ELIMINADO — px do PALCO do telão (TvStage escala).
+   Uma animação só cobre a vida inteira da faixa (entra, fica, sai), com a
+   duração vinda do componente: nada de timer de CSS fora de sincronia com a
+   fila. Sem backdrop-filter: TV box fraca + transform scale = engasgo. */
+.tv-elim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 44px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.tv-elim-card {
+  --tv-elim-accent-fb: var(--tv-elim-accent, #d4af37);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 880px;
+  max-width: 1640px;
+  padding: 22px 72px 28px;
+  background: linear-gradient(180deg, rgba(12, 10, 26, 0.96) 0%, rgba(24, 12, 44, 0.96) 100%);
+  border: 3px solid var(--tv-elim-accent-fb);
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+  animation: tv-elim-vida var(--tv-elim-ms, 6500ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tv-elim-label {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: #f87171;
+  text-transform: uppercase;
+}
+
+.tv-elim-name {
+  position: relative;
+  max-width: 1480px;
+  font-family: var(--font-display, 'Sora', 'Segoe UI', system-ui, sans-serif);
+  font-size: 78px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-bottom: 8px;
+}
+
+/* Filete na cor de destaque que corre sob o nome depois que a faixa sobe. */
+.tv-elim-name::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: 5px;
+  width: 100%;
+  border-radius: 3px;
+  background: var(--tv-elim-accent-fb);
+  transform: translateX(-50%) scaleX(0);
+  animation: tv-elim-filete var(--tv-elim-ms, 6500ms) ease-out both;
+}
+
+@keyframes tv-elim-vida {
+  0%   { transform: translateY(160%); opacity: 0; }
+  9%   { transform: translateY(-5%);  opacity: 1; }
+  13%  { transform: translateY(0); }
+  88%  { transform: translateY(0);    opacity: 1; }
+  100% { transform: translateY(160%); opacity: 0; }
+}
+
+@keyframes tv-elim-filete {
+  0%, 12% { transform: translateX(-50%) scaleX(0); }
+  30%     { transform: translateX(-50%) scaleX(1); }
+  100%    { transform: translateX(-50%) scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-elim-card { animation-name: tv-elim-fade; }
+  .tv-elim-name::after { animation: none; transform: translateX(-50%) scaleX(1); }
+}
+
+@keyframes tv-elim-fade {
+  0%, 100% { opacity: 0; }
+  8%, 90%  { opacity: 1; }
+}

@@ -25,6 +25,7 @@ import { render, screen, waitFor, act, within, fireEvent } from '@testing-librar
 import TournamentBroadcast from './TournamentBroadcast';
 import api from '../config/api';
 import { useTimerSync } from '../hooks/useTimerSync';
+import { usePolling } from '../hooks/usePolling';
 
 jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn(), patch: jest.fn() } }));
 jest.mock('../hooks/usePolling', () => ({ usePolling: jest.fn() }));
@@ -985,3 +986,49 @@ describe('duplo clique pausa/retoma o relógio', () => {
     expect(screen.getByTestId('broadcast-stage-area')).toBeInTheDocument();
   });
 });
+
+describe('aviso animado de jogador eliminado', () => {
+  /* Pedido do NSOP: o floor elimina e o telão mostra embaixo "JOGADOR
+     ELIMINADO · <nome>". O telão já relê os inscritos a cada 10 s; o aviso
+     sai da comparação entre duas leituras. */
+  const VIVOS = [
+    { id: 'tp1', player_id: 'p1', player_name: 'Carlos Montea', status: 'active', buy_in_count: 1, rebuy_count: 0 },
+    { id: 'tp2', player_id: 'p2', player_name: 'Ana', status: 'active', buy_in_count: 1, rebuy_count: 0 },
+  ];
+  const CAIU = [{ ...VIVOS[0], status: 'eliminated', eliminated_at: '2026-10-21T22:00:00Z' }, VIVOS[1]];
+  const COM_AVISO = { ...DIA, broadcast_show_eliminations: true };
+
+  // O último callback de 10 s registrado é o que relê os inscritos.
+  const lerInscritos = async () => {
+    const chamadas = usePolling.mock.calls.filter(([, ms]) => ms === 10000);
+    await act(async () => { await chamadas[chamadas.length - 1][0](); });
+  };
+
+  it('ligado: quem cai aparece na faixa de baixo com o nome', async () => {
+    await montar({ dia: COM_AVISO, inscritos: VIVOS });
+    expect(document.querySelector('.tv-elim')).toBeNull();
+    responder({ dia: COM_AVISO, inscritos: CAIU });
+    await lerInscritos();
+    const faixa = await waitFor(() => {
+      const el = document.querySelector('.tv-elim');
+      expect(el).not.toBeNull();
+      return el;
+    });
+    expect(within(faixa).getByText('Carlos Montea')).toBeInTheDocument();
+    expect(within(faixa).getByText('JOGADOR ELIMINADO')).toBeInTheDocument();
+  });
+
+  it('quem já estava eliminado ao abrir a TV não ganha aviso', async () => {
+    await montar({ dia: COM_AVISO, inscritos: CAIU });
+    await lerInscritos();
+    expect(document.querySelector('.tv-elim')).toBeNull();
+  });
+
+  it('desligado (padrão): eliminação não mostra nada', async () => {
+    await montar({ inscritos: VIVOS });
+    responder({ inscritos: CAIU });
+    await lerInscritos();
+    expect(document.querySelector('.tv-elim')).toBeNull();
+  });
+});
+
