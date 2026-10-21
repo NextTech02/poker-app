@@ -50,6 +50,7 @@ const TournamentDayStats = lazy(() => import('./pages/TournamentDayStats'));
 const FichasClassificados = lazy(() => import('./pages/FichasClassificados'));
 const TournamentControl = lazy(() => import('./pages/TournamentControl'));
 const TVCode = lazy(() => import('./pages/TVCode'));
+const TvMesas = lazy(() => import('./pages/TvMesas'));
 const ContactConsent = lazy(() => import('./pages/ContactConsent'));
 const SyncConflicts = lazy(() => import('./pages/SyncConflicts'));
 const Organizacoes = lazy(() => import('./pages/Organizacoes'));
@@ -559,6 +560,8 @@ function AppRoutes() {
       />
       <Route path="/tv" element={<TVCode />} />
       <Route path="/tv/:code" element={<TVCode />} />
+      {/* Quadro de mesas e assentos pelo mesmo código da TV: público. */}
+      <Route path="/tv/:code/mesas" element={<TvMesas />} />
       {/* Resposta do jogador ao pedido de contatos (link do e-mail): pública. */}
       <Route path="/consentimento/:token" element={<ContactConsent />} />
       <Route

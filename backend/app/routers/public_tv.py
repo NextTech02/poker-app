@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.models.prize_allocation import BroadcastPrizes
-from app.models.public_tv import PublicTvExtras
+from app.models.public_tv import PublicSeating, PublicTvExtras
 from app.services.prize_allocation_service import PrizeAllocationService
 from app.services.public_tv_service import PublicTvService
 from app.services.tournament_day_service import TournamentDayService
@@ -37,6 +37,17 @@ def resolve_tv_code(code: str):
     (a exibição de blinds já é pública). O código é único por dia do torneio."""
     try:
         return TournamentDayService.resolve_broadcast_code(code)
+    except ValueError as e:
+        raise da_excecao(e, "codigo_de_tv_invalido", status=404)
+
+
+@router.get("/tv/{code}/seating", response_model=PublicSeating)
+def get_tv_seating(code: str):
+    """Quadro de MESAS E ASSENTOS do dia do código (quem senta onde, em
+    ordem alfabética) para uma TV do salão. Sem login; o código é a
+    credencial, como no relógio."""
+    try:
+        return PublicTvService.get_seating(code)
     except ValueError as e:
         raise da_excecao(e, "codigo_de_tv_invalido", status=404)
 

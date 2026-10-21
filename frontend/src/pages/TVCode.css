@@ -74,3 +74,29 @@
   color: #f87171;
   font-weight: 600;
 }
+
+/* Qual telão esta TV mostra: relógio de blinds ou quadro de mesas */
+.tv-code__screens {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.tv-code__screen {
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1.5px solid rgba(91, 91, 232, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.tv-code__screen.is-on {
+  color: var(--text-primary, #e0eaf4);
+  background: rgba(114, 51, 248, 0.22);
+  border-color: var(--accent-color);
+}
+

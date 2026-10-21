@@ -1,0 +1,224 @@
+/* ============================================================================
+   Telão de MESAS E ASSENTOS (/tv/<código>/mesas)
+   Todos os px são do PALCO de 1920×1080 (TvStage escala para a TV real).
+   15 linhas de 48 px por coluna cabem na altura; até 3 colunas na largura.
+   ========================================================================== */
+
+.tvm {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 32px 56px 28px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 22px;
+  color: #ffffff;
+}
+
+.tvm *,
+.tvm *::before,
+.tvm *::after {
+  box-sizing: border-box;
+}
+
+/* ── Cabeçalho ─────────────────────────────────────────────────────────── */
+.tvm-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid var(--tvm-accent);
+}
+
+.tvm-head-text { min-width: 0; }
+
+.tvm-org {
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.tvm-title {
+  margin: 4px 0 6px;
+  font-family: var(--font-display, 'Sora', 'Segoe UI', system-ui, sans-serif);
+  font-size: 58px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--tvm-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tvm-sub {
+  display: flex;
+  gap: 24px;
+  align-items: baseline;
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.tvm-sub-label {
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tvm-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 28px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tvm-count strong {
+  font-family: var(--font-display, 'Sora', 'Segoe UI', system-ui, sans-serif);
+  font-size: 44px;
+  color: #ffffff;
+}
+
+.tvm-page {
+  font-size: 24px;
+  color: var(--tvm-accent);
+}
+
+/* ── Lista ─────────────────────────────────────────────────────────────── */
+.tvm-grid {
+  display: grid;
+  gap: 0 48px;
+  align-content: start;
+  min-height: 0;
+}
+
+.tvm-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tvm-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 120px;
+  align-items: center;
+  gap: 16px;
+  height: 48px;
+  padding: 0 16px;
+  font-size: 29px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tvm--fichas .tvm-row {
+  grid-template-columns: minmax(0, 1fr) 100px 110px 170px;
+}
+
+.tvm-row:nth-child(even):not(.tvm-row--head) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tvm-row--head {
+  height: 42px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--tvm-accent);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.tvm-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tvm-num,
+.tvm-chips {
+  text-align: center;
+  font-family: var(--font-display, 'Sora', 'Segoe UI', system-ui, sans-serif);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.tvm-row--head .tvm-num,
+.tvm-row--head .tvm-chips,
+.tvm-row--head .tvm-name {
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.tvm-chips { text-align: right; }
+
+.tvm-mesa { color: var(--tvm-accent); }
+
+.tvm-row:not(.tvm-row--head) .tvm-chips {
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Uma coluna só (até 15 jogadores): mais larga não ajuda a ler, centraliza. */
+.tvm--1col .tvm-grid {
+  width: 1200px;
+  max-width: 100%;
+  justify-self: center;
+}
+
+/* Três colunas: menos espaço por nome — números estreitos, nome primeiro. */
+.tvm--3col .tvm-grid { gap: 0 32px; }
+
+.tvm--3col .tvm-row {
+  font-size: 24px;
+  grid-template-columns: minmax(0, 1fr) 58px 72px;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.tvm--3col.tvm--fichas .tvm-row {
+  grid-template-columns: minmax(0, 1fr) 54px 66px 118px;
+}
+
+.tvm--3col .tvm-row--head {
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.tvm--3col .tvm-row:not(.tvm-row--head) .tvm-chips {
+  font-size: 22px;
+}
+
+.tvm-vazio {
+  align-self: center;
+  justify-self: center;
+  font-size: 44px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.tvm-offline {
+  position: absolute;
+  right: 56px;
+  bottom: 10px;
+  font-size: 20px;
+  color: #fbbf24;
+}
+
+/* ── Antes do primeiro carregamento (fora do palco) ───────────────────── */
+.tvm-aviso {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #0b1020;
+  color: #ffffff;
+  font-size: 1.4rem;
+  text-align: center;
+  padding: 24px;
+}
+
+.tvm-aviso a { color: #a78bfa; }

@@ -911,3 +911,29 @@
   color: var(--text-gold);
   font-weight: 600;
 }
+
+/* Código da TV para o quadro de mesas e assentos */
+.tm-tv-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 14px;
+  padding: 10px 16px;
+  border: 1px solid rgba(114, 51, 248, 0.4);
+  border-radius: 10px;
+  background: rgba(114, 51, 248, 0.08);
+  color: var(--text-secondary);
+}
+
+.tm-tv-code-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.5rem;
+  letter-spacing: 4px;
+  color: var(--accent-color, #7233f8);
+}
+
+.tm-tv-code-hint { flex: 1 1 260px; }
+
+.tm-tv-code a.tm-btn-secondary { text-decoration: none; }
+

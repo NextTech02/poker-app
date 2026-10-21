@@ -2045,7 +2045,14 @@
     "codeLabel": "Código de la TV",
     "instruction": "En la TV, entra en",
     "andType": "e ingresa el código",
-    "openHere": "Abrir aquí"
+    "openHere": "Abrir aquí",
+    "seatingTitle": "Mesas y asientos",
+    "screenLabel": "Qué mostrar en esta TV",
+    "screenBlinds": "Ciegas",
+    "screenSeating": "Mesas y asientos",
+    "backToCode": "Ingresar otro código",
+    "openSeating": "Abrir mesas y asientos",
+    "seatingInstruction": "Para el cuadro de mesas y asientos, elige “Mesas y asientos” en la TV antes de ingresar el código."
   },
   "notFound": {
     "title": "Página no encontrada",
@@ -2662,7 +2669,10 @@
     "undoElimination": "Deshacer",
     "uneliminatedSuccess": "{{name}} volvió al torneo. Siente al jugador en una mesa.",
     "errorUneliminate": "Error al deshacer la eliminación: {{detail}}",
-    "qualifiedChips": "Fichas con las que clasificó"
+    "qualifiedChips": "Fichas con las que clasificó",
+    "seatingTv": "Mesas en la TV",
+    "seatingTvTitle": "Código para mostrar las mesas y asientos en una TV del salón",
+    "seatingTvHint": "En la TV, entra en {{url}}, elige “Mesas y asientos” e ingresa el código."
   },
   "expenses": {
     "new": "Nuevo gasto",

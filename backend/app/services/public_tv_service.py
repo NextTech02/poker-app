@@ -15,7 +15,13 @@ import logging
 from typing import Optional
 
 from app.database.supabase_client import supabase_admin
-from app.models.public_tv import PublicTvBuyType, PublicTvExtras, PublicTvPrize
+from app.models.public_tv import (
+    PublicSeat,
+    PublicSeating,
+    PublicTvBuyType,
+    PublicTvExtras,
+    PublicTvPrize,
+)
 from app.services.module_service import ModuleService
 from app.services.prize_allocation_service import PrizeAllocationService
 from app.services.transaction_filters import ler_transacoes_ativas
@@ -67,6 +73,97 @@ class PublicTvService:
             relay=PublicTvService._revezamento(tournament_id) if day.get("day_type") == "final" else None,
             **PublicTvService._ko(tournament_id, resumo),
         )
+
+    @staticmethod
+    def get_seating(code: str) -> PublicSeating:
+        """Quadro de MESAS E ASSENTOS do dia do código: quem senta em que mesa
+        e assento, em ordem alfabética, para o jogador achar a sua cadeira na
+        TV do salão (pedido do NSOP para o dia final; vale para qualquer dia).
+
+        Só pelo CÓDIGO (a credencial da TV), nunca pelo id do dia. Quem foi
+        eliminado já não tem assento (a eliminação libera a cadeira), então a
+        lista é sempre a de quem está jogando.
+        """
+        code = (code or "").strip().upper()
+        dias = []
+        if code:
+            dias = (
+                supabase_admin.table("tournament_days")
+                .select("id, day_name, tournament_id, organization_id")
+                .eq("broadcast_code", code)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+        if not dias:
+            raise ErroDeNegocio("codigo_de_tv_invalido", "Código inválido", status=404)
+        dia = dias[0]
+        day_id = str(dia["id"])
+        org_id = dia.get("organization_id")
+
+        torneio = (
+            supabase_admin.table("tournaments").select("name")
+            .eq("id", dia.get("tournament_id")).limit(1).execute().data
+            or [{}]
+        )[0]
+        alocacoes = (
+            supabase_admin.table("seat_allocations")
+            .select("seat_number, player_id, tournament_tables(table_number), players(name)")
+            .eq("tournament_day_id", day_id)
+            .execute()
+            .data
+            or []
+        )
+        fichas = PublicTvService._fichas_classificadas(day_id)
+
+        assentos = []
+        for a in alocacoes:
+            mesa = (a.get("tournament_tables") or {}).get("table_number")
+            nome = ((a.get("players") or {}).get("name") or "").strip()
+            # Alternado (sem mesa) e assento sem número não entram no quadro.
+            if mesa is None or a.get("seat_number") is None or not nome:
+                continue
+            assentos.append(PublicSeat(
+                name=nome,
+                table_number=int(mesa),
+                seat_number=int(a["seat_number"]),
+                chips=fichas.get(str(a.get("player_id"))),
+            ))
+        assentos.sort(key=lambda s: (s.name.casefold(), s.table_number, s.seat_number))
+
+        return PublicSeating(
+            day_id=day_id,
+            tournament_name=torneio.get("name"),
+            day_name=dia.get("day_name"),
+            organization_name=ModuleService.org_name(org_id),
+            language=PublicTvService._org_settings(org_id)["language"],
+            seats=assentos,
+        )
+
+    @staticmethod
+    def _fichas_classificadas(day_id: str) -> dict:
+        """player_id -> fichas com que se classificou (entradas vindas de um
+        classificatório ainda em jogo). Decorativo: falhou, o quadro sai sem
+        fichas."""
+        try:
+            linhas = (
+                supabase_admin.table("tournament_players")
+                .select("player_id, total_chips, is_qualified_entry, status")
+                .eq("tournament_day_id", day_id)
+                .execute()
+                .data
+                or []
+            )
+        except Exception as exc:
+            logger.warning("Fichas classificadas do dia %s não lidas para o telão: %s", day_id, exc)
+            return {}
+        return {
+            str(l["player_id"]): int(l["total_chips"])
+            for l in linhas
+            if l.get("is_qualified_entry") and l.get("status") != "eliminated"
+            and int(l.get("total_chips") or 0) > 0
+        }
 
     @staticmethod
     def _revezamento(tournament_id: str) -> Optional[dict]:

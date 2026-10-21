@@ -2045,7 +2045,14 @@
     "codeLabel": "TV Code",
     "instruction": "On the TV, go to",
     "andType": "and enter the code",
-    "openHere": "Open here"
+    "openHere": "Open here",
+    "seatingTitle": "Tables & seats",
+    "screenLabel": "What to show on this TV",
+    "screenBlinds": "Blinds",
+    "screenSeating": "Tables & seats",
+    "backToCode": "Enter another code",
+    "openSeating": "Open tables & seats",
+    "seatingInstruction": "For the tables & seats board, choose “Tables & seats” on the TV before typing the code."
   },
   "notFound": {
     "title": "Page not found",
@@ -2662,7 +2669,10 @@
     "undoElimination": "Undo",
     "uneliminatedSuccess": "{{name}} is back in the tournament. Seat the player at a table.",
     "errorUneliminate": "Error undoing the elimination: {{detail}}",
-    "qualifiedChips": "Chips carried from the qualifying day"
+    "qualifiedChips": "Chips carried from the qualifying day",
+    "seatingTv": "Tables on TV",
+    "seatingTvTitle": "Code to show tables & seats on a TV in the room",
+    "seatingTvHint": "On the TV, go to {{url}}, choose “Tables & seats” and type the code."
   },
   "expenses": {
     "new": "New expense",

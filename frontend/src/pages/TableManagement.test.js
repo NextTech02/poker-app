@@ -416,6 +416,36 @@ describe('jogador no assento', () => {
   });
 });
 
+describe('mesas na TV', () => {
+  /* O floor liga o quadro de mesas e assentos numa TV do salão pelo código
+     do dia (o mesmo do relógio): a tela mostra o código e o link direto. */
+  it('mostra o código do dia e o link do quadro de mesas', async () => {
+    await montar();
+    const base = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/tournament-days/d1/broadcast-code'
+        ? Promise.resolve({ data: { code: 'ABC234' } })
+        : base(url, ...resto)
+    ));
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.seatingTv' }));
+    expect(await screen.findByText('ABC234')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'tv.openSeating' })).toHaveAttribute('href', '/tv/ABC234/mesas');
+    // Clicar de novo esconde.
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.seatingTv' }));
+    expect(screen.queryByText('ABC234')).toBeNull();
+  });
+
+  it('falha ao gerar o código vira aviso', async () => {
+    await montar();
+    const base = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/tournament-days/d1/broadcast-code' ? Promise.reject(new Error('x')) : base(url, ...resto)
+    ));
+    await userEvent.click(screen.getByRole('button', { name: 'tableManagement.seatingTv' }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('tv.codeError'));
+  });
+});
+
 describe('alocar arrastando', () => {
   it('soltar num assento vazio aloca e emite o bilhete', async () => {
     // O bilhete é o papel que o jogador leva para achar a cadeira.

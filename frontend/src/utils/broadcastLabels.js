@@ -42,6 +42,15 @@ const BROADCAST_LABELS = {
     completed:      'ENCERRADO',
     totalPlayers:   'TOTAL DE JOGADORES',
     seat:           'VAGA',           // prêmio do tipo vaga (sem valor em dinheiro)
+    // Quadro de mesas e assentos (/tv/<código>/mesas)
+    seatingTitle:   'MESAS E ASSENTOS',
+    seatingPlayer:  'JOGADOR',
+    seatingTable:   'MESA',
+    seatingSeat:    'ASSENTO',
+    seatingChips:   'FICHAS',
+    seatingPage:    'Página',
+    seatingEmpty:   'Os assentos ainda não foram sorteados',
+    seatingOffline: 'Sem conexão — mostrando a última lista',
   },
   'en': {
     numberLocale:   'en-US',          // 1,000 — vírgula em todo idioma
@@ -76,6 +85,14 @@ const BROADCAST_LABELS = {
     completed:      'COMPLETED',
     totalPlayers:   'TOTAL PLAYERS',
     seat:           'SEAT',
+    seatingTitle:   'TABLES & SEATS',
+    seatingPlayer:  'PLAYER',
+    seatingTable:   'TABLE',
+    seatingSeat:    'SEAT',
+    seatingChips:   'CHIPS',
+    seatingPage:    'Page',
+    seatingEmpty:   'Seats have not been drawn yet',
+    seatingOffline: 'Offline — showing the last list',
   },
   'es': {
     numberLocale:   'en-US',          // 1,000 — vírgula em todo idioma
@@ -110,6 +127,14 @@ const BROADCAST_LABELS = {
     completed:      'FINALIZADO',
     totalPlayers:   'TOTAL DE JUGADORES',
     seat:           'ENTRADA',
+    seatingTitle:   'MESAS Y ASIENTOS',
+    seatingPlayer:  'JUGADOR',
+    seatingTable:   'MESA',
+    seatingSeat:    'ASIENTO',
+    seatingChips:   'FICHAS',
+    seatingPage:    'Página',
+    seatingEmpty:   'Los asientos aún no fueron sorteados',
+    seatingOffline: 'Sin conexión — mostrando la última lista',
   },
 };
 

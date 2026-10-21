@@ -60,6 +60,8 @@ const TableManagement = () => {
   const [showTicket, setShowTicket] = useState(null);
   const [showAddTableModal, setShowAddTableModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  // Código da TV do dia, para abrir o quadro de mesas e assentos numa tela do salão.
+  const [codigoTv, setCodigoTv] = useState(null);
 
   // Esc fecha o modal aberto — o clique no fundo é gesto de mouse, e quem opera
   // a mesa só pelo teclado precisa de uma saída equivalente.
@@ -526,6 +528,18 @@ const TableManagement = () => {
     });
   };
 
+  // Mostra/esconde o código da TV (o mesmo do relógio do dia) para o quadro
+  // de mesas e assentos: o floor liga numa TV e cada jogador acha a cadeira.
+  const alternarCodigoTv = async () => {
+    if (codigoTv) { setCodigoTv(null); return; }
+    try {
+      const r = await api.get(`/tournament-days/${dayId}/broadcast-code`);
+      setCodigoTv(r?.data?.code || null);
+    } catch (_) {
+      toast.error(t('tv.codeError', 'Não foi possível gerar o código de TV.'));
+    }
+  };
+
   // ── Render Helpers ────────────────────────────────────────────────────────
   const getAllocationForSeat = (tableId, seatNum) =>
     allocations.find(a => a.table_id === tableId && a.seat_number === seatNum);
@@ -721,11 +735,33 @@ const TableManagement = () => {
             <button type="button" className="tm-btn-secondary" onClick={abrirAddTable}>
               {t('tableManagement.addTable')}
             </button>
+            <button
+              type="button"
+              className="tm-btn-secondary"
+              aria-expanded={!!codigoTv}
+              onClick={alternarCodigoTv}
+              title={t('tableManagement.seatingTvTitle', 'Código para mostrar as mesas e assentos numa TV do salão')}
+            >
+              {t('tableManagement.seatingTv', 'Mesas na TV')}
+            </button>
             <button type="button" className="tm-btn-back" onClick={() => navigate(-1)}>
               {t('tableManagement.back')}
             </button>
           </div>
         </div>
+
+        {codigoTv && (
+          <div className="tm-tv-code" role="status">
+            <span>{t('tv.codeLabel', 'Código da TV')}:</span>
+            <strong className="tm-tv-code-value">{codigoTv}</strong>
+            <span className="tm-tv-code-hint">
+              {t('tableManagement.seatingTvHint', 'Na TV, acesse {{url}}, escolha “Mesas e assentos” e digite o código.', { url: `${window.location.origin}/tv` })}
+            </span>
+            <a className="tm-btn-secondary" href={`/tv/${codigoTv}/mesas`} target="_blank" rel="noopener noreferrer">
+              {t('tv.openSeating', 'Abrir mesas e assentos')}
+            </a>
+          </div>
+        )}
 
         {/* ── Layout ── */}
         <div className="tm-layout">

@@ -2,7 +2,8 @@
 
 Lista branca de campos de propósito: a rota é aberta à internet, então nada de
 nome de jogador, documento ou dado de pagamento — só o que a TV do salão
-mostra para quem já está no salão.
+mostra para quem já está no salão. A exceção é o quadro de mesas
+(`PublicSeating`), que existe para mostrar quem senta onde.
 """
 from typing import Optional
 
@@ -62,3 +63,29 @@ class PublicTvExtras(BaseModel):
     # Meios de entrada ATIVOS do torneio, na ordem do Caixa (o telão mostra
     # "BUY-IN: 50 · REBUY: 20 …" quando o diretor liga).
     buy_types: list[PublicTvBuyType] = []
+
+
+class PublicSeat(BaseModel):
+    """Um jogador sentado, como o quadro de mesas do salão mostra."""
+    name: str
+    table_number: int
+    seat_number: int
+    # Fichas com que se classificou (só entrada vinda de classificatório).
+    chips: Optional[int] = None
+
+
+class PublicSeating(BaseModel):
+    """Telão de MESAS E ASSENTOS, aberto pelo código de TV do dia.
+
+    A EXCEÇÃO deste arquivo: leva o nome do jogador, porque é o quadro de
+    sorteio que o clube afixa no salão para cada um achar a sua cadeira (e o
+    relógio público já lê /tournament-players/day sem login). Só nome, mesa,
+    assento e fichas de classificação — nada de documento, contato ou id.
+    """
+    day_id: str
+    tournament_name: Optional[str] = None
+    day_name: Optional[str] = None
+    organization_name: Optional[str] = None
+    language: str = "pt-BR"
+    seats: list[PublicSeat] = []
+

@@ -578,6 +578,13 @@ const TournamentDetail = () => {
           <Button size="small" variant="secondary" onClick={() => navigate(`/tv/${dayTvCodes[day.id]}`)}>
             {t('tv.openHere', 'Abrir aqui')}
           </Button>
+          {/* O mesmo código abre o quadro de mesas e assentos noutra TV. */}
+          <Button size="small" variant="secondary" onClick={() => navigate(`/tv/${dayTvCodes[day.id]}/mesas`)}>
+            {t('tv.openSeating', 'Abrir mesas e assentos')}
+          </Button>
+          <span style={{ color: '#9ca3af', flexBasis: '100%' }}>
+            {t('tv.seatingInstruction', 'Para o quadro de mesas e assentos, escolha “Mesas e assentos” na TV antes de digitar o código.')}
+          </span>
         </div>
       )}
 

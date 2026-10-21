@@ -5,9 +5,10 @@ import api from '../config/api';
 import './TVCode.css';
 
 /**
- * Página PÚBLICA de acesso à tela de blinds por CÓDIGO (para TVs). A pessoa entra
- * em /tv, digita o código do torneio e é levada ao broadcast do dia ativo.
- * Também aceita /tv/:code (resolve automaticamente).
+ * Página PÚBLICA de acesso ao telão por CÓDIGO (para TVs). A pessoa entra em
+ * /tv, escolhe o que a TV vai mostrar — o relógio de blinds ou o quadro de
+ * mesas e assentos — e digita o código do dia. Também aceita /tv/:code, que
+ * vai direto para os blinds (e /tv/:code/mesas, direto para as mesas).
  */
 const TVCode = () => {
   const { t } = useTranslation();
@@ -16,8 +17,10 @@ const TVCode = () => {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // O que esta TV mostra: 'blinds' (relógio) ou 'mesas' (quem senta onde).
+  const [tela, setTela] = useState('blinds');
 
-  const resolve = useCallback(async (value) => {
+  const resolve = useCallback(async (value, destino = 'blinds') => {
     const c = (value || '').trim().toUpperCase();
     if (!c) return;
     setLoading(true);
@@ -27,7 +30,9 @@ const TVCode = () => {
       const res = await api.get(`/public/tv/${encodeURIComponent(c)}`, { _public: true });
       const dayId = res.data?.day_id;
       const tId = res.data?.tournament_id;
-      if (dayId) {
+      if (dayId && destino === 'mesas') {
+        navigate(`/tv/${encodeURIComponent(c)}/mesas`, { replace: true });
+      } else if (dayId) {
         navigate(`/broadcast/${dayId}`, { replace: true });
       } else if (tId) {
         navigate(`/broadcast/${tId}`, { replace: true });
@@ -52,14 +57,31 @@ const TVCode = () => {
 
   const onSubmit = (e) => {
     e.preventDefault();
-    resolve(code);
+    resolve(code, tela);
   };
 
   return (
     <div className="tv-code">
       <div className="tv-code__card">
-        <h1 className="tv-code__title">{t('tv.title', 'Tela de Blinds')}</h1>
+        <h1 className="tv-code__title">
+          {tela === 'mesas' ? t('tv.seatingTitle', 'Mesas e assentos') : t('tv.title', 'Tela de Blinds')}
+        </h1>
         <p className="tv-code__subtitle">{t('tv.subtitle', 'Digite o código do torneio informado pelo sistema')}</p>
+        <div className="tv-code__screens" role="radiogroup" aria-label={t('tv.screenLabel', 'O que mostrar nesta TV')}>
+          {[
+            ['blinds', t('tv.screenBlinds', 'Blinds')],
+            ['mesas', t('tv.screenSeating', 'Mesas e assentos')],
+          ].map(([valor, rotulo]) => (
+            <button
+              key={valor}
+              type="button"
+              role="radio"
+              aria-checked={tela === valor}
+              className={`tv-code__screen ${tela === valor ? 'is-on' : ''}`}
+              onClick={() => setTela(valor)}
+            >{rotulo}</button>
+          ))}
+        </div>
         <form onSubmit={onSubmit} className="tv-code__form">
           <input
             className="tv-code__input"
