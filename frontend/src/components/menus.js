@@ -108,6 +108,9 @@ export const MENUS_POR_MODULO = {
 export const MENU_COMUM = [
   { path: '/financeiro', labelKey: 'sidebar.financial', icon: 'wallet', permission: 'financial' },
   { path: '/jogadores', labelKey: 'sidebar.registerPlayer', icon: 'users', permission: 'players' },
+  // Fiado da casa: a conta do jogador é do clube (nasce no cash, é recebida
+  // também no bar e descontada do prêmio de torneio).
+  { path: '/fiado', labelKey: 'sidebar.fiado', icon: 'document', permission: 'fiado.manage' },
   { path: '/funcionarios', labelKey: 'sidebar.staff', icon: 'id-badge', permission: 'employees' },
   // Da CONTA, não do clube: aparece nos dois módulos e para todo mundo, sem
   // permissão. Quem só tem a tela da sangeur também precisa poder ativar a

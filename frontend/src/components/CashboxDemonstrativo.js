@@ -183,6 +183,10 @@ const CashboxDemonstrativo = ({ anchor = null }) => {
   const sessions = data?.sessions || [];
   const grandEntradas = perfil.grandEntradas(data || {});
   const grandSaidas = perfil.grandSaidas(data || {});
+  // Fiado recebido entra na gaveta mas NÃO é venda: coluna própria (só quando
+  // houve), para "Vendas do bar" / "Giro" continuarem dizendo o que dizem e a
+  // soma das colunas continuar batendo com o esperado.
+  const temFiado = Number(data?.grand_debt_payments || 0) > 0;
 
   const diffClass = (d) => {
     if (d === null || d === undefined) return '';
@@ -304,6 +308,7 @@ const CashboxDemonstrativo = ({ anchor = null }) => {
                   <th className="amount">{t('cashbox.sangria')}</th>
                   <th className="amount">{t(perfil.rotulos.entradas)}</th>
                   <th className="amount">{t(perfil.rotulos.saidas)}</th>
+                  {temFiado && <th className="amount">{t('cashbox.debtPayments', 'Fiado recebido')}</th>}
                   <th className="amount">{t('cashbox.expectedShort')}</th>
                   <th className="amount">{t('cashbox.countedShort')}</th>
                   <th className="amount">{t('cashbox.difference')}</th>
@@ -326,6 +331,7 @@ const CashboxDemonstrativo = ({ anchor = null }) => {
                     <td className="amount">{formatCurrency(s.total_sangria)}</td>
                     <td className="amount">{formatCurrency(perfil.entradas(s))}</td>
                     <td className="amount">{formatCurrency(perfil.saidas(s))}</td>
+                    {temFiado && <td className="amount">{formatCurrency(s.total_debt_payments || 0)}</td>}
                     <td className="amount">{formatCurrency(s.expected_balance)}</td>
                     <td className="amount">
                       {s.actual_balance === null || s.actual_balance === undefined
@@ -346,6 +352,7 @@ const CashboxDemonstrativo = ({ anchor = null }) => {
                   <td className="amount">{formatCurrency(data.grand_sangria)}</td>
                   <td className="amount">{formatCurrency(grandEntradas)}</td>
                   <td className="amount">{formatCurrency(grandSaidas)}</td>
+                  {temFiado && <td className="amount">{formatCurrency(data.grand_debt_payments || 0)}</td>}
                   <td className="amount">{formatCurrency(data.grand_expected)}</td>
                   <td className="amount">{formatCurrency(data.grand_actual)}</td>
                   <td className={`amount ${diffClass(data.grand_difference)}`}>{formatCurrency(data.grand_difference)}</td>

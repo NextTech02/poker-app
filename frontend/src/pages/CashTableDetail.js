@@ -15,6 +15,11 @@ import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { methodLabel } from '../utils/paymentMethodLabels';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
+import { usePermissions } from '../contexts/PermissionContext';
+import ReceberFiadoModal from '../components/fiado/ReceberFiadoModal';
+import {
+  FIADO, buscarContaFiado, detalheDoErro, imprimirCupomDeFiado, novoIdDeOperacao,
+} from '../utils/fiado';
 import './CashFloor.css';
 import './CashTableDetail.css';
 
@@ -38,6 +43,7 @@ const CashTableDetail = () => {
   const { formatCurrency } = useCurrency();
   const { activeMethods } = usePaymentMethods();
   const { cashDayId } = useCashDay();
+  const { staffName, organizationName } = usePermissions();
 
   const [table, setTable] = useState(null);
   const [seats, setSeats] = useState([]);
@@ -48,6 +54,13 @@ const CashTableDetail = () => {
   const [modal, setModal] = useState(null); // {kind, seat?, session?}
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({});
+  // FIADO: a conta do jogador do modal aberto, as dívidas de quem está sentado
+  // (selo na cadeira), o vale a imprimir depois de uma venda fiada e o
+  // recebimento em andamento.
+  const [fiado, setFiado] = useState(null);
+  const [dividas, setDividas] = useState({});
+  const [vale, setVale] = useState(null);
+  const [recebendo, setRecebendo] = useState(null);
 
   const bloqueado = myCashbox !== undefined && myCashbox !== null && myCashbox.status !== 'open';
   const fechada = table?.status === 'closed';
@@ -57,8 +70,21 @@ const CashTableDetail = () => {
   const saldoDaGaveta = myCashbox && myCashbox.status === 'open'
     ? Number(myCashbox.current_balance ?? 0)
     : null;
+
+  // Cash-out de quem deve: a dívida é abatida das fichas PRIMEIRO e a gaveta
+  // paga só o líquido. O padrão é abater tudo o que der; abater menos é
+  // decisão do operador, com motivo.
+  const fichas = parseFloat(form.cash_out_amount || 0) || 0;
+  const divida = modal?.kind === 'stand' ? Number(fiado?.balance || 0) : 0;
+  const proposto = Math.min(divida, fichas);
+  const abatido = divida > 0
+    ? (form.offsetEdited ? (parseFloat(form.debt_offset_amount || 0) || 0) : proposto)
+    : 0;
+  const liquido = Math.max(fichas - abatido, 0);
+  const abatimentoInvalido = abatido > proposto + 0.004;
+  const faltaMotivo = divida > 0 && abatido + 0.004 < proposto && !(form.debt_offset_reason || '').trim();
   const cashOutAcimaDoSaldo = modal?.kind === 'stand' && saldoDaGaveta !== null
-    && parseFloat(form.cash_out_amount || 0) > saldoDaGaveta;
+    && liquido > saldoDaGaveta;
 
   useEscapeKey(!!modal, () => { if (!submitting) setModal(null); });
 
@@ -72,6 +98,16 @@ const CashTableDetail = () => {
     setSeats(cadeiras.data || []);
     setRakeEntries(apuracoes.data || []);
     setLoading(false);
+
+    // Quem está sentado e deve fiado: uma consulta para a mesa inteira.
+    const sentados = (cadeiras.data || []).map((s) => s.player_id).filter(Boolean);
+    if (sentados.length) {
+      api.get('/house-credit/balances', { params: { player_ids: sentados.join(',') }, _silentError: true })
+        .then(({ data }) => setDividas(Object.fromEntries((data || []).map((b) => [b.player_id, b]))))
+        .catch(() => setDividas({}));
+    } else {
+      setDividas({});
+    }
 
     // As outras mesas abertas do dia: é para onde o jogador pode ir.
     const dia = mesa?.data?.cash_day_id;
@@ -113,8 +149,61 @@ const CashTableDetail = () => {
       notes: '',
       to_table_id: outrasMesas[0]?.id || '',
       to_seat: '',
+      debt_offset_amount: '',
+      debt_offset_reason: '',
+      offsetEdited: false,
+      // Um id por ABERTURA do modal (não por clique): o retry depois de uma
+      // resposta perdida devolve a mesma operação em vez de repeti-la.
+      cmid: novoIdDeOperacao(),
     });
+    setFiado(null);
     setModal({ kind, seat });
+    if (seat?.player_id && (kind === 'rebuy' || kind === 'stand')) {
+      buscarContaFiado(seat.player_id).then(setFiado);
+    }
+  };
+
+  const escolherJogador = (playerId) => {
+    setForm((f) => ({
+      ...f,
+      player_id: playerId,
+      // Trocar de jogador não pode carregar o "fiado" do anterior.
+      payment_method: f.payment_method === FIADO ? (activeMethods[0]?.code || 'cash') : f.payment_method,
+    }));
+    setFiado(null);
+    buscarContaFiado(playerId).then(setFiado);
+  };
+
+  // Venda: fiado não é meio de pagamento — vai como ORIGEM, sem meio e sem
+  // gaveta (o servidor e o banco garantem as duas coisas).
+  const pagamento = () => (form.payment_method === FIADO
+    ? { payment_source: FIADO, payment_method: null }
+    : { payment_method: form.payment_method });
+
+  const aposVenda = async (mensagem, jogador, valor) => {
+    const foiFiado = form.payment_method === FIADO;
+    await depois(mensagem);
+    if (foiFiado) {
+      const conta = await buscarContaFiado(jogador.id);
+      setVale({ jogador, valor, saldo: conta?.balance ?? null });
+    }
+  };
+
+  const imprimirVale = () => {
+    if (!vale) return;
+    imprimirCupomDeFiado({
+      titulo: t('fiado.voucherTitle', 'VALE — FICHAS NO FIADO'),
+      clube: organizationName,
+      jogador: vale.jogador.name,
+      valor: formatCurrency(vale.valor),
+      linhas: [
+        { rotulo: t('cash.tableN', 'Mesa {{n}}', { n: table?.table_number }), valor: table?.game_type_name || '' },
+        { rotulo: t('fiado.balanceAfter', 'Saldo devedor após'), valor: vale.saldo !== null ? formatCurrency(vale.saldo) : '' },
+      ],
+      assinatura: t('fiado.voucherSignature', 'Assinatura do jogador — reconheço o valor acima'),
+      atendente: staffName ? { rotulo: t('fiado.attendant', 'Atendente'), valor: staffName } : null,
+      quando: { rotulo: t('fiado.when', 'Data'), valor: new Date().toLocaleString() },
+    });
   };
 
   const depois = async (mensagem) => {
@@ -128,12 +217,6 @@ const CashTableDetail = () => {
 
   const erro = (err, padrao) => toast.error(err.userMessage || padrao);
 
-  // Um id por submissão: protege contra duplo clique e retry, que acontecem
-  // com rede boa — e cobrar duas vezes pelo mesmo buy-in é o erro mais caro do
-  // caixa. É também o que deixa ligar o modo offline depois sem migração nova.
-  const novoId = () =>
-    (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
-
   const sentar = async (e) => {
     e.preventDefault();
     if (!form.player_id) {
@@ -142,13 +225,18 @@ const CashTableDetail = () => {
     }
     setSubmitting(true);
     try {
-      await api.post(`/cash-game/tables/${tableId}/seats/${modal.seat.seat_number}/sit`, {
+      const valor = parseFloat(form.amount);
+      const { data } = await api.post(`/cash-game/tables/${tableId}/seats/${modal.seat.seat_number}/sit`, {
         player_id: form.player_id,
-        buy_in_amount: parseFloat(form.amount),
-        payment_method: form.payment_method,
-        client_mutation_id: novoId(),
+        buy_in_amount: valor,
+        ...pagamento(),
+        client_mutation_id: form.cmid,
       });
-      await depois(t('cash.playerSeated', 'Jogador sentado'));
+      await aposVenda(
+        t('cash.playerSeated', 'Jogador sentado'),
+        { id: form.player_id, name: data?.player_session?.player_name || fiado?.player_name || '' },
+        valor,
+      );
     } catch (err) {
       erro(err, t('cash.sitError', 'Não foi possível sentar o jogador'));
     } finally {
@@ -160,12 +248,17 @@ const CashTableDetail = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const valor = parseFloat(form.amount);
       await api.post(`/cash-game/player-sessions/${modal.seat.player_session_id}/rebuy`, {
-        amount: parseFloat(form.amount),
-        payment_method: form.payment_method,
-        client_mutation_id: novoId(),
+        amount: valor,
+        ...pagamento(),
+        client_mutation_id: form.cmid,
       });
-      await depois(t('cash.rebuyDone', 'Recompra registrada'));
+      await aposVenda(
+        t('cash.rebuyDone', 'Recompra registrada'),
+        { id: modal.seat.player_id, name: modal.seat.player_name },
+        valor,
+      );
     } catch (err) {
       erro(err, t('cash.rebuyError', 'Não foi possível registrar a recompra'));
     } finally {
@@ -179,13 +272,27 @@ const CashTableDetail = () => {
     try {
       await api.post(`/cash-game/player-sessions/${modal.seat.player_session_id}/stand`, {
         // Zero é válido: quem perdeu tudo levanta do mesmo jeito.
-        cash_out_amount: parseFloat(form.cash_out_amount || 0),
+        cash_out_amount: fichas,
         payment_method: form.payment_method,
-        client_mutation_id: novoId(),
+        client_mutation_id: form.cmid,
+        // Quem deve: o abatimento vai SEMPRE explícito (inclusive 0) — o
+        // servidor recusa o cash-out de devedor sem ele.
+        ...(divida > 0 ? {
+          debt_offset_amount: Math.round(abatido * 100) / 100,
+          debt_offset_reason: (form.debt_offset_reason || '').trim() || null,
+        } : {}),
       });
       await depois(t('cash.playerStood', 'Jogador levantou'));
     } catch (err) {
-      erro(err, t('cash.standError', 'Não foi possível levantar o jogador'));
+      const d = detalheDoErro(err);
+      if (d.code === 'jogador_com_fiado') {
+        // A tela não sabia da dívida (conta não carregou, ou surgiu agora):
+        // mostra o quadro do abatimento para o operador confirmar.
+        setFiado((f) => ({ ...(f || {}), balance: d.divida }));
+        toast.warning(err.userMessage);
+      } else {
+        erro(err, t('cash.standError', 'Não foi possível levantar o jogador'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -330,6 +437,19 @@ const CashTableDetail = () => {
                           value: formatCurrency(s.total_buy_in || 0),
                         })}
                       </span>
+                      {Number(dividas[s.player_id]?.balance || 0) > 0 && (
+                        <button
+                          type="button"
+                          className={`ctd-seat-debt${dividas[s.player_id].overdue ? ' overdue' : ''}`}
+                          onClick={() => setRecebendo(s)}
+                          disabled={bloqueado || !cashDayId}
+                          title={t('fiado.receive', 'Receber')}
+                        >
+                          {t('fiado.owesShort', 'Deve {{value}}', {
+                            value: formatCurrency(dividas[s.player_id].balance),
+                          })}
+                        </button>
+                      )}
                       <div className="ctd-seat-actions">
                         <button
                           type="button"
@@ -421,9 +541,10 @@ const CashTableDetail = () => {
                       <label htmlFor="ctd-player">{t('cash.player', 'Jogador')}</label>
                       <PlayerSelect
                         value={form.player_id}
-                        onChange={(e) => setForm({ ...form, player_id: e.target.value })}
+                        onChange={(e) => escolherJogador(e.target.value)}
                         required
                       />
+                      {SituacaoDoFiado({ t, fiado, formatCurrency })}
                     </div>
                     <div className="form-group">
                       <label htmlFor="ctd-amount">{t('cash.buyIn', 'Buy-in')}</label>
@@ -441,8 +562,11 @@ const CashTableDetail = () => {
                         })}
                       </small>
                     </div>
-                    {MetodoDePagamento({ t, form, setForm, activeMethods })}
-                    {Acoes({ t, submitting, setModal, rotulo: t('cash.sit', 'Sentar') })}
+                    {MetodoDePagamento({ t, form, setForm, activeMethods, fiado, formatCurrency })}
+                    {Acoes({
+                      t, submitting, setModal, rotulo: t('cash.sit', 'Sentar'),
+                      bloqueado: FiadoAcimaDoDisponivel(form, fiado),
+                    })}
                   </form>
                 </>
               )}
@@ -464,9 +588,13 @@ const CashTableDetail = () => {
                       <small className="form-hint">
                         {t('cash.rebuyHint', 'A recompra repõe fichas perdidas e não é limitada pelo teto da mesa.')}
                       </small>
+                      {SituacaoDoFiado({ t, fiado, formatCurrency })}
                     </div>
-                    {MetodoDePagamento({ t, form, setForm, activeMethods })}
-                    {Acoes({ t, submitting, setModal, rotulo: t('cash.rebuy', 'Recompra') })}
+                    {MetodoDePagamento({ t, form, setForm, activeMethods, fiado, formatCurrency })}
+                    {Acoes({
+                      t, submitting, setModal, rotulo: t('cash.rebuy', 'Recompra'),
+                      bloqueado: FiadoAcimaDoDisponivel(form, fiado),
+                    })}
                   </form>
                 </>
               )}
@@ -501,10 +629,49 @@ const CashTableDetail = () => {
                         </small>
                       )}
                     </div>
+                    {divida > 0 && (
+                      <div className="ctd-fiado-box" role="group" aria-label={t('fiado.title', 'Fiado')}>
+                        <div className="ctd-fiado-line">
+                          <span>{t('fiado.chips', 'Fichas')}</span>
+                          <strong>{formatCurrency(fichas)}</strong>
+                        </div>
+                        <div className="ctd-fiado-line">
+                          <span>{t('fiado.openDebt', 'Fiado em aberto')}</span>
+                          <strong>{formatCurrency(divida)}</strong>
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="ctd-offset">{t('fiado.offset', 'Abater do cash-out')}</label>
+                          <input
+                            id="ctd-offset" type="number" step="0.01" min="0" max={proposto}
+                            value={form.offsetEdited ? form.debt_offset_amount : String(proposto)}
+                            onChange={(e) => setForm({ ...form, debt_offset_amount: e.target.value, offsetEdited: true })}
+                          />
+                          {abatimentoInvalido && (
+                            <small className="form-hint form-hint--danger" role="alert">
+                              {t('fiado.offsetTooHigh', 'O abatimento passa da dívida ou das fichas.')}
+                            </small>
+                          )}
+                        </div>
+                        {abatido + 0.004 < proposto && (
+                          <div className="form-group">
+                            <label htmlFor="ctd-offset-reason">{t('fiado.offsetReason', 'Motivo para abater menos')}</label>
+                            <input
+                              id="ctd-offset-reason" type="text" required
+                              value={form.debt_offset_reason}
+                              onChange={(e) => setForm({ ...form, debt_offset_reason: e.target.value })}
+                            />
+                          </div>
+                        )}
+                        <div className="ctd-fiado-line ctd-fiado-total">
+                          <span>{t('fiado.payPlayer', 'Pagar ao jogador')}</span>
+                          <strong>{formatCurrency(liquido)}</strong>
+                        </div>
+                      </div>
+                    )}
                     {MetodoDePagamento({ t, form, setForm, activeMethods })}
                     {Acoes({
                       t, submitting, setModal, rotulo: t('cash.stand', 'Levantar'),
-                      bloqueado: cashOutAcimaDoSaldo,
+                      bloqueado: cashOutAcimaDoSaldo || abatimentoInvalido || faltaMotivo,
                     })}
                   </form>
                 </>
@@ -586,15 +753,78 @@ const CashTableDetail = () => {
             </div>
           </div>
         )}
+
+        {vale && (
+          <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setVale(null); }}>
+            <div className="modal" role="dialog" aria-modal="true" aria-labelledby="ctd-vale-titulo">
+              <h2 id="ctd-vale-titulo">{t('fiado.voucherReady', 'Venda no fiado registrada')}</h2>
+              <p>
+                {t('fiado.voucherSummary', '{{name}} levou {{value}} em fichas no fiado. Deve agora {{balance}}.', {
+                  name: vale.jogador.name,
+                  value: formatCurrency(vale.valor),
+                  balance: vale.saldo !== null ? formatCurrency(vale.saldo) : '—',
+                })}
+              </p>
+              <p className="form-hint">
+                {t('fiado.voucherHint', 'Imprima o vale e peça a assinatura do jogador.')}
+              </p>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={imprimirVale}>
+                  {t('fiado.printVoucher', 'Imprimir vale')}
+                </button>
+                <button type="button" className="btn btn-primary" onClick={() => setVale(null)}>
+                  {t('common.close', 'Fechar')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {recebendo && (
+          <ReceberFiadoModal
+            player={{ id: recebendo.player_id, name: recebendo.player_name }}
+            conta={dividas[recebendo.player_id]}
+            ancora={cashDayId ? { cash_day_id: cashDayId } : null}
+            onClose={() => setRecebendo(null)}
+            onDone={() => load()}
+          />
+        )}
       </main>
     </div>
   );
 };
 
+/* Fiado escolhido acima do que o jogador ainda pode levar: o servidor recusa
+   do mesmo jeito, mas o operador vê antes de tentar. */
+function FiadoAcimaDoDisponivel(form, fiado) {
+  return form.payment_method === FIADO
+    && (parseFloat(form.amount || 0) || 0) > Number(fiado?.available || 0) + 0.004;
+}
+
+function SituacaoDoFiado({ t, fiado, formatCurrency }) {
+  if (!fiado || (!fiado.exists && !Number(fiado.balance || 0))) return null;
+  const deve = Number(fiado.balance || 0);
+  return (
+    <small className={`form-hint${fiado.blocked ? ' form-hint--danger' : ''}`}>
+      {deve > 0 && t('fiado.owes', 'Deve {{value}}', { value: formatCurrency(deve) })}
+      {deve > 0 && fiado.enabled && ' · '}
+      {fiado.enabled && !fiado.blocked && t('fiado.available', 'Fiado disponível: {{value}}', {
+        value: formatCurrency(fiado.available || 0),
+      })}
+      {fiado.blocked && ` · ${t('fiado.overdueBlocked', 'Fiado vencido há {{days}} dias — receba antes de vender de novo.', {
+        days: fiado.days_open,
+      })}`}
+    </small>
+  );
+}
+
 /* Trechos repetidos entre os cinco formulários. Funções e não componentes de
    verdade: componentes novos remontariam a árvore a cada digitação e o campo
    perderia o foco no meio do valor. */
-function MetodoDePagamento({ t, form, setForm, activeMethods }) {
+function MetodoDePagamento({ t, form, setForm, activeMethods, fiado = null, formatCurrency }) {
+  // "Fiado" só aparece na COMPRA de fichas e só para quem tem conta liberada,
+  // não vencida e com saldo — é o gerente quem libera, não o caixa.
+  const podeFiado = !!fiado?.enabled && !fiado.blocked && Number(fiado.available || 0) > 0;
   return (
     <div className="form-group">
       <label htmlFor="ctd-method">{t('cash.paymentMethod', 'Meio de pagamento')}</label>
@@ -606,7 +836,17 @@ function MetodoDePagamento({ t, form, setForm, activeMethods }) {
         {activeMethods.map((m) => (
           <option key={m.code} value={m.code}>{methodLabel(t, m)}</option>
         ))}
+        {podeFiado && (
+          <option value={FIADO}>
+            {t('fiado.optionLabel', 'Fiado (disponível {{value}})', { value: formatCurrency(fiado.available) })}
+          </option>
+        )}
       </select>
+      {form.payment_method === FIADO && (
+        <small className="form-hint">
+          {t('fiado.notInDrawer', 'No fiado, nada entra no seu caixa: o jogador fica devendo ao clube.')}
+        </small>
+      )}
     </div>
   );
 }

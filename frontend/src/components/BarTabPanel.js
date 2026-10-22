@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import BarPaymentModal from './BarPaymentModal';
+import ReceberFiadoModal from './fiado/ReceberFiadoModal';
 import { saldoDaComanda } from '../utils/barTotais';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
+import { buscarContaFiado } from '../utils/fiado';
 import './BarTabPanel.css';
 
 /**
@@ -34,11 +36,25 @@ const BarTabPanel = ({ detail, canAdmin = false, cashboxBlocked = false, onChang
   const [modal, setModal] = useState(null); // {kind:'discount'|'cancelItem'|'courtesy'|'cancelTab'|'refund', ...}
   const [reason, setReason] = useState('');
   const [amount, setAmount] = useState('');
+  // FIADO do jogador (conta única do clube): o bar não VENDE no fiado — a
+  // comanda fecha no turno —, mas recebe o que o jogador deve. Separado da
+  // comanda de propósito: pagamento de dívida não é venda do bar.
+  const [fiado, setFiado] = useState(null);
+  const [quitando, setQuitando] = useState(false);
+  const jogador = detail?.tab?.player_id;
 
   useEscapeKey(!!modal, () => { if (!busy) setModal(null); });
 
+  useEffect(() => {
+    let vivo = true;
+    setFiado(null);
+    if (jogador) buscarContaFiado(jogador).then((c) => { if (vivo) setFiado(c); });
+    return () => { vivo = false; };
+  }, [jogador]);
+
   const tab = detail?.tab;
   if (!tab) return null;
+  const deveFiado = Number(fiado?.balance || 0);
   const items = detail.items || [];
   const payments = detail.payments || [];
   const isOpen = tab.status === 'open';
@@ -245,7 +261,25 @@ const BarTabPanel = ({ detail, canAdmin = false, cashboxBlocked = false, onChang
             {t('bar.reopen', 'Reabrir')}
           </button>
         )}
+        {deveFiado > 0 && (
+          <button
+            type="button" className="btn btn-secondary" disabled={busy || cashboxBlocked}
+            onClick={() => setQuitando(true)}
+          >
+            {t('bar.payHouseCredit', 'Quitar fiado (deve {{value}})', { value: formatCurrency(deveFiado) })}
+          </button>
+        )}
       </div>
+
+      {quitando && (
+        <ReceberFiadoModal
+          player={{ id: tab.player_id, name: tab.player_name }}
+          conta={fiado}
+          ancora={{ bar_shift_id: tab.bar_shift_id }}
+          onClose={() => setQuitando(false)}
+          onDone={(mov) => setFiado(mov?.account || null)}
+        />
+      )}
 
       {paying && (
         <BarPaymentModal

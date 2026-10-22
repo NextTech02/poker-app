@@ -73,6 +73,8 @@ const CashWaitlist = lazy(() => import('./pages/CashWaitlist'));
 const CashRelatorios = lazy(() => import('./pages/CashRelatorios'));
 const CashJackpot = lazy(() => import('./pages/CashJackpot'));
 const CashConfig = lazy(() => import('./pages/CashConfig'));
+// Fiado da casa: do CLUBE (a conta do jogador é uma só), não de um módulo.
+const Fiado = lazy(() => import('./pages/Fiado'));
 // Bar (comandas). A POS é a home do módulo, mesma lógica do CashFloor.
 const BarPOS = lazy(() => import('./pages/BarPOS'));
 const BarProducts = lazy(() => import('./pages/BarProducts'));
@@ -455,6 +457,15 @@ function AppRoutes() {
         element={
           <PrivateRoute permission="players">
             <PlayerDetail />
+          </PrivateRoute>
+        }
+      />
+      {/* Fiado: sem `module` — a conta do jogador vale no clube inteiro. */}
+      <Route
+        path="/fiado"
+        element={
+          <PrivateRoute permission="fiado.manage">
+            <Fiado />
           </PrivateRoute>
         }
       />

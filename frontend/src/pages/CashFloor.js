@@ -232,6 +232,22 @@ const CashFloor = () => {
                       })}
                     </span>
                   </div>
+                  {/* Fiado do dia: fichas que NÃO entraram na gaveta. Sem este
+                      número, o caixa parece faltar exatamente o fiado
+                      concedido — e é ele que esvazia a gaveta para pagar o
+                      cash-out de quem ganhou. */}
+                  {(summary?.total_credit_issued || summary?.total_debt_offset || summary?.total_debt_payments) ? (
+                    <div className="stat-card">
+                      <span className="stat-label">{t('fiado.today', 'Fiado hoje')}</span>
+                      <span className="stat-value">{formatCurrency(summary?.total_credit_issued || 0)}</span>
+                      <span className="stat-hint">
+                        {t('fiado.todayHint', 'Abatido {{offset}} · recebido {{received}}. Fora da gaveta — pode faltar troco para os cash-outs.', {
+                          offset: formatCurrency(summary?.total_debt_offset || 0),
+                          received: formatCurrency(summary?.total_debt_payments || 0),
+                        })}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="stat-card">
                     <span className="stat-label">{t('cash.playersSeated', 'Jogadores sentados')}</span>
                     <span className="stat-value">{summary?.players_seated ?? 0}</span>

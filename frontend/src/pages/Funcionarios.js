@@ -55,6 +55,10 @@ const ALL_PERMISSIONS = [
   // Log de acessos e atividade: quem entrou e quem fez o quê. Separado de
   // `employees` para o clube poder dar a um auditor sem deixá-lo mexer na equipe.
   { key: 'access_log', label: 'staff.perm.accessLog', fallback: 'Log de acessos', modulo: 'club' },
+  // Fiado da casa: liberar jogador, limite, baixa, estorno de recebimento e
+  // devedores. Do CLUBE porque a conta do jogador é uma só entre os módulos.
+  // Vender até o limite é `cash.operate`; receber, a operação do caixa.
+  { key: 'fiado.manage', label: 'staff.perm.fiadoManage', fallback: 'Fiado: liberar, limite e baixa', modulo: 'club' },
   // Cash game (mesmas chaves de backend/app/services/staff_service.py). A
   // sangeur é do cash: ela circula pelas mesas vendendo fichas em consignação.
   { key: 'cash.operate', label: 'staff.perm.cashOperate', fallback: 'Salão: sentar, rebuy, cash-out e fila', modulo: 'cash' },

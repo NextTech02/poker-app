@@ -6,6 +6,7 @@ import Breadcrumb from '../components/Breadcrumb';
 import { SkeletonPlayersTable } from '../components/SkeletonLoader';
 import PlayerStatsCharts from '../components/PlayerStatsCharts';
 import PlayerLoyaltyCard from '../components/PlayerLoyaltyCard';
+import FiadoCard from '../components/fiado/FiadoCard';
 import PlayerSelect from '../components/PlayerSelect';
 import ContactConsentStatus from '../components/ContactConsentStatus';
 import api from '../config/api';
@@ -272,6 +273,9 @@ const PlayerDetail = () => {
                 </span>
               </div>
             </div>
+
+            {/* ── Fiado da casa (o que o jogador deve ao clube) ── */}
+            <FiadoCard playerId={id} playerName={player?.name} />
 
             {/* ── Tickets do jogador (todas as etapas) ── */}
             <div className="pd-history-card pd-tickets-card">
