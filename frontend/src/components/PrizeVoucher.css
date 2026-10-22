@@ -146,6 +146,14 @@
   margin: 10px 0;
 }
 
+/* Ganhador que devia fiado: abatido e pago em dinheiro, abaixo do bruto. */
+.pv-fiado div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
 .pv-prize-label {
   font-size: 10px;
   letter-spacing: 3px;

@@ -268,6 +268,51 @@ class HouseCreditService:
         return round(float(linhas[0].get("balance") or 0), 2) if linhas else 0.0
 
     @staticmethod
+    def calcular_abatimento(
+        player_id: Optional[str],
+        valor: float,
+        informado: Optional[float],
+        motivo: Optional[str],
+        organization_id: Optional[str] = None,
+    ):
+        """(abatido, proposto, motivo) quando o jogador RECEBE dinheiro do clube
+        (cash-out, prêmio, KO) e deve fiado.
+
+        `proposto` é None quando ele não deve nada — aí nada muda. Quando deve,
+        quem chama TEM de dizer quanto abater (inclusive 0): uma tela antiga,
+        que não sabe do fiado, mandaria pagar o bruto enquanto o dinheiro só
+        sairia pelo líquido, e a diferença cairia na conta do operador. O
+        padrão é abater tudo o que der (`min(dívida, valor)`); abater menos é
+        decisão de alguém, com motivo — o vetor do conluio clássico (pagar o
+        amigo e deixar a dívida de pé).
+        """
+        divida = HouseCreditService.saldo_devedor(player_id, organization_id)
+        if divida <= 0 or valor <= 0:
+            return 0.0, None, None
+        proposto = round(min(divida, valor), 2)
+        if informado is None:
+            raise ErroDeNegocio(
+                "jogador_com_fiado",
+                "Este jogador deve fiado: confirme quanto abater.",
+                status=409, divida=divida, abatimento_sugerido=proposto,
+            )
+        abatido = round(float(informado), 2)
+        if abatido > proposto + 0.004:
+            raise ErroDeNegocio(
+                "abatimento_maior_que_o_possivel",
+                "O abatimento passa da dívida ou do valor a pagar.",
+                maximo=proposto, solicitado=abatido,
+            )
+        motivo = (motivo or "").strip() or None
+        if abatido + 0.004 < proposto and not motivo:
+            raise ErroDeNegocio(
+                "motivo_do_abatimento_obrigatorio",
+                "Informe o motivo para abater menos do que a dívida.",
+                proposto=proposto, solicitado=abatido,
+            )
+        return abatido, proposto, motivo
+
+    @staticmethod
     def exigir_disponivel(player_id: str, valor: float, organization_id: Optional[str] = None) -> None:
         """Pré-checagem da venda no fiado, para a recusa sair com nome e
         números. A trava que resiste a duas vendas simultâneas é a do banco

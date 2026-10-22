@@ -1493,8 +1493,8 @@
     "lancamento_imutavel": "Lançamento com fiado não pode ser alterado; estorne e lance de novo.",
     "cash_out_com_abatimento_nao_cancelavel": "Cash-out com abatimento de fiado não pode ser estornado.",
     "estorno_nao_se_desfaz": "Um estorno de fiado não pode ser desfeito.",
-    "jogador_com_fiado": "Este jogador deve {{divida}} de fiado: confirme quanto abater do cash-out (sugerido {{abatimento_sugerido}}).",
-    "abatimento_maior_que_o_possivel": "O abatimento passa da dívida ou das fichas (máximo {{maximo}}).",
+    "jogador_com_fiado": "Este jogador deve {{divida}} de fiado: confirme quanto abater (sugerido {{abatimento_sugerido}}).",
+    "abatimento_maior_que_o_possivel": "O abatimento passa da dívida ou do valor a pagar (máximo {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Informe o motivo para abater menos do que {{proposto}}.",
     "fiado_indisponivel": "O fiado ainda não está disponível neste clube."
   },
@@ -3906,6 +3906,9 @@
     "writeOff": "Dar baixa",
     "writeOffHint": "A baixa perdoa a dívida e entra no DRE como perda. Não volta atrás.",
     "writeOffTitle": "Dar baixa no fiado de {{name}}",
-    "writtenOff": "Baixa registrada"
+    "writtenOff": "Baixa registrada",
+    "koOffset": "Fiado: abate {{offset}} · paga {{net}}",
+    "prizeGross": "Prêmio (bruto)",
+    "offsetPrize": "Abater do prêmio"
   }
 }

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../../config/api';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { abatimentosDePremios, buscarDividas } from '../../utils/fiado';
 import { imprimirBilheteKo } from './bilheteKo';
 import './Ko.css';
 
@@ -19,20 +20,37 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
   const [pagos, setPagos] = useState(() => new Set((knockout?.payouts || []).filter((p) => p.paid).map((p) => p.id)));
   const [pagando, setPagando] = useState(null);
   const [erro, setErro] = useState('');
+  // FIADO do eliminador: quem deve recebe o líquido (conta única do jogador).
+  const [dividas, setDividas] = useState({});
   useEscapeKey(!pagando, onFechar);
+
+  const eliminadores = (knockout?.payouts || []).map((p) => p.eliminator_player_id).join(',');
+  useEffect(() => {
+    let vivo = true;
+    buscarDividas(eliminadores.split(',')).then((d) => { if (vivo) setDividas(d); });
+    return () => { vivo = false; };
+  }, [eliminadores]);
 
   if (!knockout) return null;
   const payouts = knockout.payouts || [];
   const mystery = knockout.format === 'mystery';
   // Sorteio físico: ainda não há valor — só o comprovante para trocar.
   const comprovante = !!knockout.envelope_pending;
+  const abatimentos = abatimentosDePremios(payouts.filter((p) => !pagos.has(p.id)), dividas);
 
   const pagar = async (p) => {
     setPagando(p.id);
     setErro('');
     try {
-      await api.post(`/tournaments/${tournamentId}/knockouts/payouts/${p.id}/pay`, {});
+      const abate = abatimentos[p.id];
+      await api.post(
+        `/tournaments/${tournamentId}/knockouts/payouts/${p.id}/pay`,
+        abate !== undefined ? { debt_offset_amount: abate } : {},
+      );
       setPagos((atual) => new Set(atual).add(p.id));
+      if (abate) {
+        setDividas((d) => ({ ...d, [p.eliminator_player_id]: Math.max(Number(d[p.eliminator_player_id] || 0) - abate, 0) }));
+      }
       if (onPago) onPago(p);
     } catch (err) {
       setErro(err.userMessage || t('ko.payError', 'Não foi possível pagar o prêmio.'));
@@ -101,6 +119,14 @@ const KoResultadoModal = ({ tournamentId, knockout, torneioNome, assentoDoJogado
                     {Number(p.added_to_bounty) > 0 && (
                       <span className="ko-payout-soma">
                         {t('ko.addedToBounty', { value: formatCurrency(Number(p.added_to_bounty)), defaultValue: `+ ${formatCurrency(Number(p.added_to_bounty))} no bounty` })}
+                      </span>
+                    )}
+                    {!pago && abatimentos[p.id] > 0 && (
+                      <span className="ko-payout-soma">
+                        {t('fiado.koOffset', 'Fiado: abate {{offset}} · paga {{net}}', {
+                          offset: formatCurrency(abatimentos[p.id]),
+                          net: formatCurrency(Math.max(Number(p.cash_amount) - abatimentos[p.id], 0)),
+                        })}
                       </span>
                     )}
                   </div>

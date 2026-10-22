@@ -65,6 +65,12 @@ class PrizePayoutRequest(BaseModel):
                                         description=f"Um de: {', '.join(TIPOS_ACEITOS)}")
     document_number: str = Field(..., min_length=1, max_length=100)
     paid_by: Optional[str] = Field(None, max_length=255, description="Name of staff processing payment")
+    # FIADO: quanto do prêmio abate a dívida do jogador. OBRIGATÓRIO quando ele
+    # deve (inclusive 0) — a tela antiga da Premiação não pode pagar o bruto
+    # enquanto o caixa geral só sairia pelo líquido. Abaixo do proposto exige
+    # motivo.
+    debt_offset_amount: Optional[float] = Field(None, ge=0)
+    debt_offset_reason: Optional[str] = Field(None, max_length=300)
 
     @field_validator("document_type")
     @classmethod
@@ -93,6 +99,9 @@ class PrizeAllocationResponse(BaseModel):
     vaga_target_tournament_id: Optional[UUID] = None
     vaga_target_day_id: Optional[UUID] = None
     generated_ticket_id: Optional[UUID] = None
+    # Pagamento com fiado: o prêmio continua bruto em `prize_amount`.
+    debt_offset: Optional[Decimal] = None
+    net_paid: Optional[Decimal] = None
     created_at: datetime
     updated_at: datetime
 

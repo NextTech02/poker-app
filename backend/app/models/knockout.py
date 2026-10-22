@@ -1,6 +1,6 @@
 """Premiação por eliminação (KO fixo, PKO, Mystery) — corpos e respostas da API."""
 from decimal import Decimal
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,11 +26,17 @@ class EliminatorsUpdate(BaseModel):
 
 class KnockoutPayRequest(BaseModel):
     paid_by: Optional[str] = Field(None, max_length=255, description="Quem entregou o dinheiro (atendente)")
+    # FIADO do eliminador: obrigatório quando ele deve (inclusive 0).
+    debt_offset_amount: Optional[float] = Field(None, ge=0)
+    debt_offset_reason: Optional[str] = Field(None, max_length=300)
 
 
 class KnockoutBatchPayRequest(BaseModel):
     payout_ids: List[str] = Field(..., min_length=1)
     paid_by: Optional[str] = Field(None, max_length=255)
+    # Abatimento por pagamento ({payout_id: valor}). Quem deve e não está aqui
+    # para o lote no 409 jogador_com_fiado — os anteriores ficam pagos.
+    debt_offsets: Optional[Dict[str, float]] = None
 
 
 class KnockoutCloseRequest(BaseModel):
@@ -73,6 +79,9 @@ class KnockoutPayoutOut(BaseModel):
     paid: bool = False
     paid_at: Optional[str] = None
     paid_by: Optional[str] = None
+    # Pago com fiado: `cash_amount` continua bruto (o pozo KO fecha nele).
+    debt_offset: Optional[Decimal] = None
+    net_paid: Optional[Decimal] = None
 
 
 class KnockoutOut(BaseModel):

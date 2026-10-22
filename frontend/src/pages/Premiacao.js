@@ -21,6 +21,7 @@ import { validarDocumento, TIPOS_DOCUMENTO, TIPOS_LEGADO } from '../utils/docume
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import KoTab from '../components/premiacao/KoTab';
 import { ehTorneioKo, formatoKo } from '../utils/ko';
+import { buscarContaFiado, detalheDoErro } from '../utils/fiado';
 import './Premiacao.css';
 
 // Base do cálculo automático lembrada neste navegador (o clube escolhe uma vez).
@@ -153,6 +154,11 @@ const Premiacao = () => {
   // Prize pool & cash info for payout validation
   const [prizePoolInfo, setPrizePoolInfo] = useState(null);
   const [generalCashBalance, setGeneralCashBalance] = useState(null);
+
+  // FIADO do ganhador (conta única do jogador): quem deve recebe o LÍQUIDO.
+  // O padrão é abater tudo o que der; abater menos exige motivo.
+  const [payoutFiado, setPayoutFiado] = useState(null);
+  const [payoutAbatimento, setPayoutAbatimento] = useState({ editado: false, valor: '', motivo: '' });
 
   // Voucher after payout
   const [showVoucherModal, setShowVoucherModal] = useState(false);
@@ -487,6 +493,8 @@ const Premiacao = () => {
     // decide entregar o dinheiro olhando um saldo velho.
     setPrizePoolInfo(null);
     setGeneralCashBalance(null);
+    setPayoutFiado(null);
+    setPayoutAbatimento({ editado: false, valor: '', motivo: '' });
     setShowPayoutModal(true);
 
     // Load prize pool, general cash, and the docs for every eligible player so
@@ -568,6 +576,7 @@ const Premiacao = () => {
       return;
     }
     setPayoutDocError('');
+    if (fiadoDoPremio.faltaMotivo || fiadoDoPremio.invalido) return;
 
     try {
       pagamentoEmCursoRef.current = true;
@@ -579,6 +588,11 @@ const Premiacao = () => {
           document_type: payoutDocType,
           document_number: payoutDocNumber,
           paid_by: payoutPaidBy || null,
+          // Quem deve: o abatimento vai SEMPRE explícito (inclusive 0).
+          ...(fiadoDoPremio.divida > 0 ? {
+            debt_offset_amount: fiadoDoPremio.abatido,
+            debt_offset_reason: payoutAbatimento.motivo.trim() || null,
+          } : {}),
         }
       );
 
@@ -597,6 +611,8 @@ const Premiacao = () => {
         document_number: payoutDocNumber,
         paid_at: response.data.paid_at || new Date().toISOString(),
         paid_by: payoutPaidBy || null,
+        debt_offset: response.data.debt_offset ?? (fiadoDoPremio.abatido || null),
+        net_paid: response.data.net_paid ?? null,
       });
       setShowVoucherModal(true);
 
@@ -604,12 +620,33 @@ const Premiacao = () => {
     } catch (err) {
       // Dentro do modal, que continua aberto: é aqui que o servidor diz por que
       // recusou. Sem rede, `detail` não existe — mesmo assim a tela responde.
+      const d = detalheDoErro(err);
+      if (d.code === 'jogador_com_fiado') {
+        // A tela não sabia da dívida: mostra o quadro para o operador confirmar.
+        setPayoutFiado((f) => ({ ...(f || {}), balance: d.divida }));
+      }
       setPayoutError(motivoDaRecusa(err, t('premiacao.paymentError')));
     } finally {
       pagamentoEmCursoRef.current = false;
       setPayoutSaving(false);
     }
   };
+
+  // Fiado de quem recebe o prêmio: bruto − abatido = o que sai do caixa geral.
+  const fiadoDoPremio = (() => {
+    const bruto = parseFloat(payoutAllocation?.prize_amount || 0) || 0;
+    const divida = Number(payoutFiado?.balance || 0);
+    const proposto = Math.min(divida, bruto);
+    const abatido = divida > 0
+      ? Math.round((payoutAbatimento.editado ? (parseFloat(payoutAbatimento.valor || 0) || 0) : proposto) * 100) / 100
+      : 0;
+    return {
+      bruto, divida, proposto, abatido,
+      liquido: Math.max(bruto - abatido, 0),
+      invalido: abatido > proposto + 0.004,
+      faltaMotivo: divida > 0 && abatido + 0.004 < proposto && !payoutAbatimento.motivo.trim(),
+    };
+  })();
 
   // ── Derived state ────────────────────────────────────────────────────────
 
@@ -1118,6 +1155,8 @@ const Premiacao = () => {
                           document_number: a.document_number,
                           paid_at: a.paid_at,
                           paid_by: a.paid_by,
+                          debt_offset: a.debt_offset,
+                          net_paid: a.net_paid,
                         });
                         setShowVoucherModal(true);
                       }}
@@ -1273,7 +1312,8 @@ const Premiacao = () => {
                   {generalCashBalance !== null && (
                     <div className="payout-balance-row">
                       <span>{t('premiacao.generalCashBalance')}</span>
-                      <span className={generalCashBalance >= parseFloat(payoutAllocation.prize_amount) ? 'payout-ok' : 'payout-warn'}>
+                      {/* O caixa geral paga o LÍQUIDO: com fiado abatido, sai menos que o prêmio. */}
+                      <span className={generalCashBalance >= fiadoDoPremio.liquido ? 'payout-ok' : 'payout-warn'}>
                         {formatCurrency(generalCashBalance)}
                       </span>
                     </div>
@@ -1321,10 +1361,18 @@ const Premiacao = () => {
                         setPayoutPlayerId(match.player_id);
                         setPayoutDocType(match.document_type || 'national_id');
                         setPayoutDocWarning(avisoDoDocumentoCadastrado(match));
+                        // A dívida é de quem RECEBE: só dá para saber depois
+                        // de identificar o jogador.
+                        if (match.player_id !== payoutPlayerId) {
+                          setPayoutFiado(null);
+                          setPayoutAbatimento({ editado: false, valor: '', motivo: '' });
+                          buscarContaFiado(match.player_id).then(setPayoutFiado);
+                        }
                       } else {
                         setPayoutResolvedPlayer(null);
                         setPayoutPlayerId('');
                         setPayoutDocWarning('');
+                        setPayoutFiado(null);
                       }
                     }}
                     required
@@ -1376,6 +1424,46 @@ const Premiacao = () => {
                   <output className="payout-warning-msg">{payoutDocWarning}</output>
                 )}
 
+                {payoutResolvedPlayer && fiadoDoPremio.divida > 0 && (
+                  <div className="payout-balance-info payout-fiado" role="group" aria-label={t('fiado.title', 'Fiado')}>
+                    <div className="payout-balance-row">
+                      <span>{t('fiado.prizeGross', 'Prêmio (bruto)')}</span>
+                      <span>{formatCurrency(fiadoDoPremio.bruto)}</span>
+                    </div>
+                    <div className="payout-balance-row">
+                      <span>{t('fiado.openDebt', 'Fiado em aberto')}</span>
+                      <span className="payout-warn">{formatCurrency(fiadoDoPremio.divida)}</span>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="payout-abatimento">{t('fiado.offsetPrize', 'Abater do prêmio')}</label>
+                      <input
+                        id="payout-abatimento" type="number" step="0.01" min="0" max={fiadoDoPremio.proposto}
+                        value={payoutAbatimento.editado ? payoutAbatimento.valor : String(fiadoDoPremio.proposto)}
+                        onChange={(e) => setPayoutAbatimento({ ...payoutAbatimento, editado: true, valor: e.target.value })}
+                      />
+                      {fiadoDoPremio.invalido && (
+                        <div className="doc-error-msg" role="alert">
+                          {t('fiado.offsetTooHigh', 'O abatimento passa da dívida ou das fichas.')}
+                        </div>
+                      )}
+                    </div>
+                    {fiadoDoPremio.abatido + 0.004 < fiadoDoPremio.proposto && (
+                      <div className="form-group">
+                        <label htmlFor="payout-abatimento-motivo">{t('fiado.offsetReason', 'Motivo para abater menos')}</label>
+                        <input
+                          id="payout-abatimento-motivo" type="text"
+                          value={payoutAbatimento.motivo}
+                          onChange={(e) => setPayoutAbatimento({ ...payoutAbatimento, motivo: e.target.value })}
+                        />
+                      </div>
+                    )}
+                    <div className="payout-balance-row payout-balance-row--highlight">
+                      <span>{t('fiado.payPlayer', 'Pagar ao jogador')}</span>
+                      <span>{formatCurrency(fiadoDoPremio.liquido)}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>{t('premiacao.attendantOptional')}</label>
                   <input
@@ -1398,7 +1486,7 @@ const Premiacao = () => {
                   <Button type="button" variant="secondary" onClick={() => setShowPayoutModal(false)}>
                     {t('common.cancel')}
                   </Button>
-                  <Button type="submit" disabled={payoutSaving}>
+                  <Button type="submit" disabled={payoutSaving || fiadoDoPremio.invalido || fiadoDoPremio.faltaMotivo}>
                     {payoutSaving ? t('premiacao.processing') : t('premiacao.confirmPayment')}
                   </Button>
                 </div>

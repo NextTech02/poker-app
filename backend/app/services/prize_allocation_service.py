@@ -426,6 +426,15 @@ class PrizeAllocationService:
             update_data["player_id"] = str(update.player_id)
 
         if update.paid is not None:
+            # Desmarcar um prêmio pago PELO CAIXA reabriria o pagamento: o
+            # dinheiro sairia de novo do caixa geral (e o fiado seria abatido
+            # outra vez). Prêmio pago com dinheiro só se corrige com estorno.
+            pago_pelo_caixa = existing.data[0].get("paid") and existing.data[0].get("document_number")
+            if pago_pelo_caixa and not update.paid:
+                raise recusado(
+                    "premio_pago_pelo_caixa_nao_se_desmarca",
+                    "Este prêmio foi pago pelo caixa e não pode ser desmarcado.",
+                )
             update_data["paid"] = update.paid
             if update.paid:
                 from datetime import datetime, timezone
@@ -711,18 +720,29 @@ class PrizeAllocationService:
                 solicitado=float(prize_amount),
             )
 
-        # ── Validate general cash balance ──
+        # ── Fiado do ganhador (conta única do jogador) ──
+        # Quem deve fiado recebe o LÍQUIDO; o abatimento vem explícito (a tela
+        # antiga não pode pagar o bruto enquanto o caixa só sairia pelo
+        # líquido). O prêmio continua BRUTO no registro.
+        from app.services.house_credit_service import HouseCreditService, recusa_do_banco
+        abatido, proposto, motivo = HouseCreditService.calcular_abatimento(
+            str(payout.player_id), float(prize_amount),
+            payout.debt_offset_amount, payout.debt_offset_reason,
+        )
+        liquido = prize_amount - Decimal(str(abatido))
+
+        # ── Validate general cash balance (sai só o líquido) ──
         from app.services.cash_register_service import CashRegisterService
         general_cash = CashRegisterService.get_general_cash()
 
-        if general_cash.current_balance < prize_amount:
+        if liquido > 0 and general_cash.current_balance < liquido:
             raise recusado(
                 "saldo_insuficiente_no_caixa_geral",
                 f"Saldo insuficiente no caixa geral. "
                 f"Disponivel: R$ {float(general_cash.current_balance):.2f}, "
-                f"Solicitado: R$ {float(prize_amount):.2f}",
+                f"Solicitado: R$ {float(liquido):.2f}",
                 disponivel=float(general_cash.current_balance),
-                solicitado=float(prize_amount),
+                solicitado=float(liquido),
             )
 
         # Verify player exists
@@ -755,40 +775,93 @@ class PrizeAllocationService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", str(payout.player_id)).execute()
 
-        # ── Deduct from general cash register ──
-        new_balance = general_cash.current_balance - prize_amount
-        supabase.table("general_cash_register").update({
-            "current_balance": str(new_balance),
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }).eq("id", general_cash.id).execute()
+        agora = datetime.now(timezone.utc).isoformat()
 
-        # ── Create transaction record ──
-        transaction_data = {
-            "tournament_id": str(tournament_id),
-            "player_id": str(payout.player_id),
-            "type": "prize",
-            "prize_kind": "position",
-            "amount": float(prize_amount),
-            "payment_source": "cash",
-            "created_by": user_id,
-        }
-        supabase.table("transactions").insert(transaction_data).execute()
-
-        # ── Mark allocation as paid ──
-        update_data = {
-            "player_id": str(payout.player_id),
-            "paid": True,
-            "paid_at": datetime.now(timezone.utc).isoformat(),
-            "document_type": payout.document_type,
-            "document_number": payout.document_number,
-            "paid_by": payout.paid_by,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-
-        supabase.table("prize_allocations")\
-            .update(update_data)\
+        # ── 1. RESERVA: só um pagamento passa ──
+        # Update condicional (como o KO): o clique duplo e duas telas abertas
+        # pagavam o mesmo prêmio duas vezes, porque o "já pago?" era lido no
+        # início e marcado só no fim.
+        reservado = supabase.table("prize_allocations")\
+            .update({"paid": True, "paid_at": agora, "updated_at": agora})\
             .eq("id", str(allocation_id))\
-            .execute()
+            .or_("paid.is.null,paid.eq.false")\
+            .execute().data or []
+        if not reservado:
+            raise recusado("premio_ja_pago", "This prize has already been paid")
+
+        debitou = False
+        try:
+            # ── 2. Caixa geral: débito ATÔMICO do líquido (só com saldo) ──
+            # Antes era ler-e-gravar: dois pagamentos simultâneos liam o mesmo
+            # saldo e um deles sumia do caixa.
+            if liquido > 0:
+                saldo = supabase.rpc(
+                    "debit_general_cash_register",
+                    {"p_register_id": str(general_cash.id), "p_amount": float(liquido)},
+                ).execute().data
+                if saldo is None or saldo == []:
+                    raise recusado(
+                        "saldo_insuficiente_no_caixa_geral",
+                        "Saldo insuficiente no caixa geral.",
+                        disponivel=float(general_cash.current_balance),
+                        solicitado=float(liquido),
+                    )
+                debitou = True
+
+            # ── 3. Transação do prêmio: BRUTO, com o abatido ao lado ──
+            # A baixa do fiado nasce no MESMO insert (trigger no banco): se a
+            # dívida não cobre o abatimento, o prêmio não fica registrado.
+            transaction_data = {
+                "tournament_id": str(tournament_id),
+                "player_id": str(payout.player_id),
+                "type": "prize",
+                "prize_kind": "position",
+                "amount": float(prize_amount),
+                "payment_source": "cash",
+                "created_by": user_id,
+            }
+            # Colunas do fiado só quando há fiado: antes da migração elas não
+            # existem e derrubariam todo pagamento de prêmio.
+            if proposto is not None:
+                transaction_data.update({
+                    "house_debt_offset": abatido,
+                    "house_debt_offset_expected": proposto,
+                    "house_debt_offset_reason": motivo,
+                })
+            try:
+                supabase.table("transactions").insert(transaction_data).execute()
+            except Exception as exc:
+                erro = recusa_do_banco(exc)
+                if erro:
+                    raise erro from exc
+                raise
+
+            # ── 4. Dados do pagamento na alocação ──
+            update_data = {
+                "player_id": str(payout.player_id),
+                "paid": True,
+                "paid_at": agora,
+                "document_type": payout.document_type,
+                "document_number": payout.document_number,
+                "paid_by": payout.paid_by,
+                "updated_at": agora,
+            }
+            if proposto is not None:
+                update_data.update({"debt_offset": abatido, "net_paid": float(liquido)})
+            supabase.table("prize_allocations")\
+                .update(update_data)\
+                .eq("id", str(allocation_id))\
+                .execute()
+        except Exception:
+            if debitou:
+                supabase.rpc(
+                    "credit_general_cash_register",
+                    {"p_register_id": str(general_cash.id), "p_amount": float(liquido)},
+                ).execute()
+            supabase.table("prize_allocations").update({
+                "paid": False, "paid_at": None, "updated_at": agora,
+            }).eq("id", str(allocation_id)).execute()
+            raise
 
         # Return updated allocation with player name
         result = supabase.table("prize_allocations")\

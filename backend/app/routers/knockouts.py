@@ -40,7 +40,10 @@ def pagar(
 ):
     """Paga um prêmio de KO do caixa geral."""
     try:
-        return KnockoutService.pagar(tournament_id, payout_id, current_user.get("sub"), body.paid_by)
+        return KnockoutService.pagar(
+            tournament_id, payout_id, current_user.get("sub"), body.paid_by,
+            body.debt_offset_amount, body.debt_offset_reason,
+        )
     except ValueError as e:
         raise da_excecao(e, "pagamento_de_ko_recusado")
 
@@ -53,7 +56,9 @@ def pagar_lote(
 ):
     """Paga vários prêmios de KO de uma vez; para no primeiro recusado."""
     try:
-        return KnockoutService.pagar_lote(tournament_id, body.payout_ids, current_user.get("sub"), body.paid_by)
+        return KnockoutService.pagar_lote(
+            tournament_id, body.payout_ids, current_user.get("sub"), body.paid_by, body.debt_offsets,
+        )
     except ValueError as e:
         raise da_excecao(e, "pagamento_de_ko_recusado")
 

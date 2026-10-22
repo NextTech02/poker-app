@@ -18,6 +18,8 @@ const LANGS = {
     label_time: 'Hora',
     label_paid_by: 'Atendente',
     label_signature: 'Assinatura do Ganhador',
+    label_debt_offset: 'Fiado abatido',
+    label_net: 'Pago em dinheiro',
     footer: 'Parabéns! Guarde este comprovante.',
     btn_print: 'Imprimir Comprovante',
     position: (p) => `${p}° Lugar`,
@@ -35,6 +37,8 @@ const LANGS = {
     label_time: 'Hora',
     label_paid_by: 'Atendido por',
     label_signature: 'Firma del Ganador',
+    label_debt_offset: 'Fiado descontado',
+    label_net: 'Pagado en efectivo',
     footer: '¡Felicitaciones! Conserve este comprobante.',
     btn_print: 'Imprimir Comprobante',
     position: (p) => `${p}° Lugar`,
@@ -52,6 +56,8 @@ const LANGS = {
     label_time: 'Time',
     label_paid_by: 'Processed by',
     label_signature: 'Winner Signature',
+    label_debt_offset: 'House credit deducted',
+    label_net: 'Paid in cash',
     footer: 'Congratulations! Keep this receipt.',
     btn_print: 'Print Receipt',
     position: (p) => `${p}${p === 1 ? 'st' : p === 2 ? 'nd' : p === 3 ? 'rd' : 'th'} Place`,
@@ -113,6 +119,18 @@ const PrizeVoucher = ({ payout }) => {
     : maskDocument(payout.document_number);
 
   const prizeFormatted = formatCurrency(payout.prize_amount);
+  // Ganhador que devia fiado: o prêmio continua o bruto; o comprovante mostra
+  // quanto abateu a dívida e quanto saiu em dinheiro.
+  const abatido = Number(payout.debt_offset || 0);
+  const liquido = payout.net_paid !== null && payout.net_paid !== undefined
+    ? Number(payout.net_paid)
+    : Number(payout.prize_amount || 0) - abatido;
+  const fiadoRows = abatido > 0
+    ? `<table>
+         <tr><td class="lbl">${t.label_debt_offset}</td><td class="val">− ${formatCurrency(abatido)}</td></tr>
+         <tr><td class="lbl">${t.label_net}</td><td class="val">${formatCurrency(liquido)}</td></tr>
+       </table>`
+    : '';
 
   // ── Print ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {
@@ -219,6 +237,7 @@ const PrizeVoucher = ({ payout }) => {
           <div class="prize-box">
             <div class="prize-amount">${prizeFormatted}</div>
           </div>
+          ${fiadoRows}
 
           <hr class="divider-heavy">
 
@@ -309,6 +328,12 @@ const PrizeVoucher = ({ payout }) => {
         <div className="pv-prize-box">
           <div className="pv-prize-amount">{prizeFormatted}</div>
         </div>
+        {abatido > 0 && (
+          <div className="pv-fiado">
+            <div><span>{t.label_debt_offset}</span><strong>− {formatCurrency(abatido)}</strong></div>
+            <div><span>{t.label_net}</span><strong>{formatCurrency(liquido)}</strong></div>
+          </div>
+        )}
 
         <div className="pv-divider-heavy" />
 

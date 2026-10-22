@@ -5,6 +5,8 @@ premio ja pago (pagar duas vezes), nao liberado (pagar antes de conferir),
 tipo 'vaga' (nao e dinheiro), saldo insuficiente e documento divergente
 (pagar para a pessoa errada).
 """
+from decimal import Decimal
+
 import pytest
 from fastapi import HTTPException
 
@@ -60,6 +62,23 @@ def _monta(monkeypatch, alocacao=None, saldo=10000, documento="123456", tabelas=
     }
     base.update(tabelas or {})
     fake = FakeSupabase(base)
+    # O débito do caixa geral é a RPC atômica (só com saldo; NULL quando não
+    # há): o fake guarda o saldo para os testes conferirem quanto saiu.
+    fake.caixa_geral = Decimal(str(saldo))
+
+    def debitar(params):
+        valor = Decimal(str(params["p_amount"]))
+        if fake.caixa_geral < valor:
+            return None
+        fake.caixa_geral -= valor
+        return float(fake.caixa_geral)
+
+    def creditar(params):
+        fake.caixa_geral += Decimal(str(params["p_amount"]))
+        return float(fake.caixa_geral)
+
+    fake.rpcs["debit_general_cash_register"] = debitar
+    fake.rpcs["credit_general_cash_register"] = creditar
     monkeypatch.setattr(prize_allocation_service, "supabase", fake)
     monkeypatch.setattr(CashRegisterService, "get_general_cash",
                         staticmethod(lambda: _Caixa(saldo)))

@@ -1493,8 +1493,8 @@
     "lancamento_imutavel": "An entry with house credit cannot be changed; reverse it and enter it again.",
     "cash_out_com_abatimento_nao_cancelavel": "A cash-out with a house-credit deduction cannot be reversed.",
     "estorno_nao_se_desfaz": "A house-credit reversal cannot be undone.",
-    "jogador_com_fiado": "This player owes {{divida}} in house credit: confirm how much to deduct from the cash-out (suggested {{abatimento_sugerido}}).",
-    "abatimento_maior_que_o_possivel": "The deduction exceeds the debt or the chips (max {{maximo}}).",
+    "jogador_com_fiado": "This player owes {{divida}} in house credit: confirm how much to deduct (suggested {{abatimento_sugerido}}).",
+    "abatimento_maior_que_o_possivel": "The deduction exceeds the debt or the amount to pay (max {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Give a reason for deducting less than {{proposto}}.",
     "fiado_indisponivel": "House credit is not available in this club yet."
   },
@@ -3906,6 +3906,9 @@
     "writeOff": "Write off",
     "writeOffHint": "A write-off forgives the debt and goes into the P&L as a loss. It cannot be undone.",
     "writeOffTitle": "Write off {{name}}'s house credit",
-    "writtenOff": "Write-off recorded"
+    "writtenOff": "Write-off recorded",
+    "koOffset": "House credit: deducts {{offset}} · pays {{net}}",
+    "prizeGross": "Prize (gross)",
+    "offsetPrize": "Deduct from prize"
   }
 }

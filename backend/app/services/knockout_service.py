@@ -530,7 +530,8 @@ class KnockoutService:
 
     # ── Pagar ───────────────────────────────────────────────────────────────
     @staticmethod
-    def pagar(tournament_id: str, payout_id: str, user_id: Optional[str], paid_by: Optional[str] = None) -> dict:
+    def pagar(tournament_id: str, payout_id: str, user_id: Optional[str], paid_by: Optional[str] = None,
+              debt_offset_amount: Optional[float] = None, debt_offset_reason: Optional[str] = None) -> dict:
         """Paga UM prêmio de KO do caixa geral.
 
         Ordem pensada para nunca pagar duas vezes nem perder dinheiro:
@@ -538,9 +539,14 @@ class KnockoutService:
         2. desconta o caixa geral de forma ATÔMICA (só com saldo);
         3. grava a transação de prêmio (type 'prize', prize_kind 'knockout').
         Se 2 ou 3 falhar, desfaz o que já foi feito.
+
+        FIADO: se o eliminador deve, o abatimento vem explícito; o caixa geral
+        sai só pelo LÍQUIDO e a transação continua com o valor BRUTO (o pozo
+        KO fecha nele) — a baixa da dívida nasce no mesmo INSERT, no banco.
         """
         from app.services.cash_register_service import CashRegisterService
         from app.services.cashbox_service import CashboxService
+        from app.services.house_credit_service import HouseCreditService
 
         linhas = (
             supabase.table("tournament_knockout_payouts").select("*")
@@ -568,16 +574,20 @@ class KnockoutService:
             CashboxService.require_open_cashbox_for_tournament(user_id, str(tournament_id))
 
         valor = ko_regras.dinheiro(payout.get("cash_amount"))
+        abatido, proposto, motivo = HouseCreditService.calcular_abatimento(
+            payout.get("eliminator_player_id"), float(valor), debt_offset_amount, debt_offset_reason,
+        )
+        liquido = valor - Decimal(str(abatido))
         geral = None
-        if valor > 0:
+        if liquido > 0:
             geral = CashRegisterService.get_general_cash()
-            if Decimal(str(geral.current_balance)) < valor:
+            if Decimal(str(geral.current_balance)) < liquido:
                 raise ErroDeNegocio(
                     "saldo_insuficiente_no_caixa_geral",
                     f"Saldo insuficiente no caixa geral. Disponível: {float(geral.current_balance):.2f}, "
-                    f"Solicitado: {float(valor):.2f}",
+                    f"Solicitado: {float(liquido):.2f}",
                     disponivel=float(geral.current_balance),
-                    solicitado=float(valor),
+                    solicitado=float(liquido),
                 )
 
         reservado = (
@@ -592,41 +602,61 @@ class KnockoutService:
         try:
             transacao_id = None
             if valor > 0:
-                saldo = supabase.rpc(
-                    "debit_general_cash_register",
-                    {"p_register_id": str(geral.id), "p_amount": float(valor)},
-                ).execute().data
-                if saldo is None or saldo == []:
-                    raise ErroDeNegocio(
-                        "saldo_insuficiente_no_caixa_geral",
-                        "Saldo insuficiente no caixa geral.",
-                        disponivel=float(geral.current_balance),
-                        solicitado=float(valor),
-                    )
-                debitou = True
+                if liquido > 0:
+                    saldo = supabase.rpc(
+                        "debit_general_cash_register",
+                        {"p_register_id": str(geral.id), "p_amount": float(liquido)},
+                    ).execute().data
+                    if saldo is None or saldo == []:
+                        raise ErroDeNegocio(
+                            "saldo_insuficiente_no_caixa_geral",
+                            "Saldo insuficiente no caixa geral.",
+                            disponivel=float(geral.current_balance),
+                            solicitado=float(liquido),
+                        )
+                    debitou = True
                 nomes = KnockoutService._nomes([payout.get("eliminator_player_id"), knockout.get("eliminated_player_id")])
                 vitima = nomes.get(str(knockout.get("eliminated_player_id")), "")
-                tx = supabase.table("transactions").insert({
+                registro = {
                     "tournament_id": str(tournament_id),
                     "player_id": payout.get("eliminator_player_id"),
                     "type": "prize",
                     "prize_kind": "knockout",
+                    # BRUTO, mesmo com fiado abatido (líquido zero inclusive):
+                    # o pozo KO e o DRE fecham no bruto.
                     "amount": float(valor),
                     "payment_source": "cash",
                     "payment_method": "cash",
                     "created_by": user_id,
                     "notes": f"KO ({knockout.get('format')}): {vitima}".strip(),
-                }).execute().data or []
+                }
+                # Colunas do fiado só quando há fiado (antes da migração elas
+                # não existem e derrubariam todo pagamento de KO).
+                if proposto is not None:
+                    registro.update({
+                        "house_debt_offset": abatido,
+                        "house_debt_offset_expected": proposto,
+                        "house_debt_offset_reason": motivo,
+                    })
+                try:
+                    tx = supabase.table("transactions").insert(registro).execute().data or []
+                except Exception as exc:
+                    from app.services.house_credit_service import recusa_do_banco
+                    erro = recusa_do_banco(exc)
+                    if erro:
+                        raise erro from exc
+                    raise
                 transacao_id = tx[0]["id"] if tx else None
-            if transacao_id:
-                supabase.table("tournament_knockout_payouts").update(
-                    {"transaction_id": transacao_id}
-                ).eq("id", payout_id).execute()
+            atualizar = {"transaction_id": transacao_id} if transacao_id else {}
+            if proposto is not None:
+                atualizar.update({"debt_offset": abatido, "net_paid": float(liquido)})
+            if atualizar:
+                supabase.table("tournament_knockout_payouts").update(atualizar).eq("id", payout_id).execute()
         except Exception:
             if debitou:
                 supabase.rpc(
                     "credit_general_cash_register",
-                    {"p_register_id": str(geral.id), "p_amount": float(valor)},
+                    {"p_register_id": str(geral.id), "p_amount": float(liquido)},
                 ).execute()
             supabase.table("tournament_knockout_payouts").update({
                 "paid": False, "paid_at": None, "paid_by": None, "paid_by_user": None,
@@ -636,10 +666,16 @@ class KnockoutService:
 
     @staticmethod
     def pagar_lote(tournament_id: str, payout_ids: Iterable[str], user_id: Optional[str],
-                   paid_by: Optional[str] = None) -> List[dict]:
+                   paid_by: Optional[str] = None,
+                   debt_offsets: Optional[Dict[str, float]] = None) -> List[dict]:
         """Paga vários de uma vez (fim de nível, fila no caixa). Para no
-        primeiro recusado: os anteriores ficam pagos e a tela recarrega."""
-        return [KnockoutService.pagar(tournament_id, pid, user_id, paid_by) for pid in payout_ids]
+        primeiro recusado: os anteriores ficam pagos e a tela recarrega.
+        Quem deve fiado e não está em `debt_offsets` para o lote no 409."""
+        abatimentos = debt_offsets or {}
+        return [
+            KnockoutService.pagar(tournament_id, pid, user_id, paid_by, abatimentos.get(pid))
+            for pid in payout_ids
+        ]
 
     # ── Encerrar ────────────────────────────────────────────────────────────
     @staticmethod
@@ -1054,6 +1090,8 @@ class KnockoutService:
                     "paid": bool(p.get("paid")),
                     "paid_at": str(p.get("paid_at")) if p.get("paid_at") else None,
                     "paid_by": p.get("paid_by"),
+                    "debt_offset": p.get("debt_offset"),
+                    "net_paid": p.get("net_paid"),
                 }
                 for p in payouts
             ],

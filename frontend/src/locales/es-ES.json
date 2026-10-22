@@ -1493,8 +1493,8 @@
     "lancamento_imutavel": "Un movimiento con fiado no se puede modificar; revertilo y cargalo de nuevo.",
     "cash_out_com_abatimento_nao_cancelavel": "Un cash-out con descuento de fiado no se puede revertir.",
     "estorno_nao_se_desfaz": "Una reversión de fiado no se puede deshacer.",
-    "jogador_com_fiado": "Este jugador debe {{divida}} de fiado: confirmá cuánto descontar del cash-out (sugerido {{abatimento_sugerido}}).",
-    "abatimento_maior_que_o_possivel": "El descuento supera la deuda o las fichas (máximo {{maximo}}).",
+    "jogador_com_fiado": "Este jugador debe {{divida}} de fiado: confirmá cuánto descontar (sugerido {{abatimento_sugerido}}).",
+    "abatimento_maior_que_o_possivel": "El descuento supera la deuda o el monto a pagar (máximo {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Indicá el motivo para descontar menos que {{proposto}}.",
     "fiado_indisponivel": "El fiado todavía no está disponible en este club."
   },
@@ -3906,6 +3906,9 @@
     "writeOff": "Dar de baja",
     "writeOffHint": "La baja perdona la deuda y entra en el estado de resultados como pérdida. No se puede deshacer.",
     "writeOffTitle": "Dar de baja el fiado de {{name}}",
-    "writtenOff": "Baja registrada"
+    "writtenOff": "Baja registrada",
+    "koOffset": "Fiado: descuenta {{offset}} · paga {{net}}",
+    "prizeGross": "Premio (bruto)",
+    "offsetPrize": "Descontar del premio"
   }
 }

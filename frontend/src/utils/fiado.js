@@ -27,6 +27,39 @@ export const detalheDoErro = (err) => {
   return d && typeof d === 'object' ? d : {};
 };
 
+/** Dívidas de vários jogadores numa consulta só: `{player_id: saldo}`. */
+export const buscarDividas = async (playerIds) => {
+  const ids = [...new Set((playerIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  try {
+    const { data } = await api.get('/house-credit/balances', {
+      params: { player_ids: ids.join(',') }, _silentError: true,
+    });
+    return Object.fromEntries((data || []).map((b) => [b.player_id, Number(b.balance || 0)]));
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * Abatimento de cada pagamento de prêmio (`{payout_id: valor}`), na ORDEM em
+ * que serão pagos: o mesmo jogador com dois KOs abate a dívida uma vez só —
+ * o segundo vê o que sobrou dela. Só entra quem deve.
+ */
+export const abatimentosDePremios = (pagamentos, dividas) => {
+  const resta = { ...(dividas || {}) };
+  const saida = {};
+  (pagamentos || []).forEach((p) => {
+    const jogador = p.eliminator_player_id;
+    const deve = Number(resta[jogador] || 0);
+    if (deve <= 0) return;
+    const abate = Math.round(Math.min(deve, Number(p.cash_amount || 0)) * 100) / 100;
+    saida[p.id] = abate;
+    resta[jogador] = deve - abate;
+  });
+  return saida;
+};
+
 export const novoIdDeOperacao = () =>
   (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 

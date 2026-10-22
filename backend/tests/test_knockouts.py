@@ -623,3 +623,44 @@ class TestGarantidoENivelDoMystery:
         with pytest.raises(ErroDeNegocio) as e:
             S._validar_ko(TOUR, {"mystery_guarantee": 2000})
         assert e.value.code == "mystery_config_bloqueada"
+
+
+# Fiado do eliminador (conta única do jogador)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _eliminador_deve(monkeypatch, jogador, saldo):
+    from app.services import house_credit_service as fiado_mod
+    fake = FakeSupabase({
+        "house_credit_accounts": [{"id": "c1", "player_id": jogador, "enabled": True,
+                                   "credit_limit": 1000, "balance": saldo}],
+        "house_credit_entries": [], "house_credit_settings": [],
+    })
+    monkeypatch.setattr(fiado_mod, "supabase", fake)
+    monkeypatch.setattr(fiado_mod.HouseCreditService, "_tabelas_ok", None)
+
+
+class TestPagamentoComFiado:
+    def test_eliminador_devedor_exige_abatimento_e_recebe_o_liquido(self, cenario, monkeypatch):
+        fake = cenario(saldo=1000)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp2"])
+        _eliminador_deve(monkeypatch, "p2", 10)
+        pid = ko["payouts"][0]["id"]
+        with pytest.raises(ErroDeNegocio) as e:
+            K.pagar(TOUR, pid, "u1")
+        assert e.value.code == "jogador_com_fiado" and _pagos(fake) == []
+        K.pagar(TOUR, pid, "u1", debt_offset_amount=10)
+        [tx] = [t for t in fake.store["transactions"] if t["type"] == "prize"]
+        assert tx["amount"] == 25.0 and tx["house_debt_offset"] == 10   # bruto + abatido
+        assert fake.caixa["saldo"] == D("985")                         # saiu o líquido (15)
+        [pago] = _pagos(fake)
+        assert pago["debt_offset"] == 10 and pago["net_paid"] == 15.0
+
+    def test_lote_leva_o_abatimento_por_pagamento(self, cenario, monkeypatch):
+        fake = cenario(saldo=1000)
+        _, ko = TPS.eliminar("tp1", "u1", eliminated_by=["tp2"])
+        _eliminador_deve(monkeypatch, "p2", 100)
+        pid = ko["payouts"][0]["id"]
+        K.pagar_lote(TOUR, [pid], "u1", debt_offsets={pid: 25})
+        assert fake.caixa["saldo"] == D("1000")                        # tudo abatido
+        [tx] = [t for t in fake.store["transactions"] if t["type"] == "prize"]
+        assert tx["amount"] == 25.0 and tx["house_debt_offset"] == 25

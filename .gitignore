@@ -32,6 +32,8 @@ yarn-error.log*
 !db/migrations/*.sql
 !db/schema/*.sql
 !db/test_data/*.sql
+# Testes de trigger num Postgres descartável (ex.: db/tests/fiado).
+!db/tests/**/*.sql
 
 # ── Planilhas e arquivos locais ────────────────────────────────────────────────
 *.xlsx

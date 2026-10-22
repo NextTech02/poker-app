@@ -5,6 +5,7 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { useToast } from '../../contexts/ToastContext';
 import EliminadorModal from '../ko/EliminadorModal';
 import { imprimirBilheteKo } from '../ko/bilheteKo';
+import { abatimentosDePremios, buscarDividas } from '../../utils/fiado';
 import '../ko/Ko.css';
 
 const VIVOS = new Set(['registered', 'active', 'winner']);
@@ -52,6 +53,20 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  // FIADO dos eliminadores com prêmio a receber: uma consulta para a lista.
+  const [dividas, setDividas] = useState({});
+  const devedoresKo = useMemo(
+    () => (resumo?.knockouts || [])
+      .flatMap((k) => (k.payouts || []).filter((p) => !p.paid).map((p) => p.eliminator_player_id))
+      .filter(Boolean).join(','),
+    [resumo],
+  );
+  useEffect(() => {
+    let vivo = true;
+    buscarDividas(devedoresKo.split(',')).then((d) => { if (vivo) setDividas(d); });
+    return () => { vivo = false; };
+  }, [devedoresKo]);
+
   const vivos = useMemo(() => inscritos.filter((i) => VIVOS.has(i.status || 'active')), [inscritos]);
   const nomePorInscrito = useMemo(() => new Map(inscritos.map((i) => [i.id, i.player_name])), [inscritos]);
   const inscritosPorNome = useMemo(
@@ -87,15 +102,26 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
     .filter((k) => k.status === 'active' && !k.envelope_pending)
     .flatMap((k) => k.payouts.filter((p) => !p.paid).map((p) => ({ ...p, knockout: k })));
   const comprovantes = resumo.knockouts.filter((k) => k.status === 'active' && k.envelope_pending);
+  const abatimentosPendentes = abatimentosDePremios(pendentes, dividas);
   const totalPendente = num(resumo.pending);
   const semSaldo = saldoGeral != null && saldoGeral < totalPendente;
 
-  const pagar = (ids) => executar(
-    () => (ids.length === 1
-      ? api.post(`/tournaments/${tournamentId}/knockouts/payouts/${ids[0]}/pay`, {})
-      : api.post(`/tournaments/${tournamentId}/knockouts/payouts/pay-batch`, { payout_ids: ids })),
-    t('ko.paidSuccess', { count: ids.length, defaultValue: 'Pagamento registrado.' }),
-  );
+  // FIADO: quem deve recebe o líquido. O abatimento vai explícito por
+  // pagamento, na ordem do lote (o mesmo jogador não abate duas vezes).
+  const pagar = (ids) => {
+    const ordem = ids.map((id) => pendentes.find((p) => p.id === id)).filter(Boolean);
+    const abat = abatimentosDePremios(ordem, dividas);
+    return executar(
+      () => (ids.length === 1
+        ? api.post(`/tournaments/${tournamentId}/knockouts/payouts/${ids[0]}/pay`,
+          abat[ids[0]] !== undefined ? { debt_offset_amount: abat[ids[0]] } : {})
+        : api.post(`/tournaments/${tournamentId}/knockouts/payouts/pay-batch`, {
+          payout_ids: ids,
+          ...(Object.keys(abat).length ? { debt_offsets: abat } : {}),
+        })),
+      t('ko.paidSuccess', { count: ids.length, defaultValue: 'Pagamento registrado.' }),
+    );
+  };
 
   const imprimir = (p) => imprimirBilheteKo({
     jogador: p.eliminator_name,
@@ -426,7 +452,17 @@ const KoTab = ({ tournamentId, torneio, inscritos = [], onMudou }) => {
                   <tr key={p.id}>
                     <td>{p.eliminator_name}</td>
                     <td>{rotuloDoKo(p.knockout)}</td>
-                    <td className="num">{formatCurrency(num(p.cash_amount))}</td>
+                    <td className="num">
+                      {formatCurrency(num(p.cash_amount))}
+                      {abatimentosPendentes[p.id] > 0 && (
+                        <span className="ko-payout-soma">
+                          {' '}{t('fiado.koOffset', 'Fiado: abate {{offset}} · paga {{net}}', {
+                            offset: formatCurrency(abatimentosPendentes[p.id]),
+                            net: formatCurrency(Math.max(num(p.cash_amount) - abatimentosPendentes[p.id], 0)),
+                          })}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <div className="ko-linha-acoes">
                         <button type="button" className="ko-btn-secondary" onClick={() => imprimir(p)}>{t('ko.printTicket', 'Imprimir bilhete')}</button>

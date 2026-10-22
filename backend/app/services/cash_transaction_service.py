@@ -395,41 +395,11 @@ class CashTransactionService:
 
     @staticmethod
     def _abatimento_do_fiado(player_id: str, data: StandPlayer, org: Optional[str]):
-        """(abatido, proposto, motivo) do cash-out.
-
-        `proposto` é None quando o jogador não deve nada — aí nada muda no
-        cash-out. Quando deve, a tela TEM de dizer quanto abater (inclusive 0):
-        uma tela antiga, que não sabe do fiado, mandaria "pagar X" enquanto a
-        gaveta só moveria X − dívida, e a diferença cairia na conta do
-        operador. O padrão é abater tudo o que der (`min(dívida, fichas)`);
-        abater menos é decisão de alguém, com motivo — é o vetor do conluio
-        clássico (pagar o amigo e deixar a dívida de pé).
-        """
-        divida = HouseCreditService.saldo_devedor(player_id, org)
-        if divida <= 0:
-            return 0.0, None, None
-        proposto = round(min(divida, data.cash_out_amount), 2)
-        if data.debt_offset_amount is None:
-            raise ErroDeNegocio(
-                "jogador_com_fiado",
-                "Este jogador deve fiado: confirme quanto abater do cash-out.",
-                status=409, divida=divida, abatimento_sugerido=proposto,
-            )
-        abatido = round(float(data.debt_offset_amount), 2)
-        if abatido > proposto + 0.004:
-            raise ErroDeNegocio(
-                "abatimento_maior_que_o_possivel",
-                "O abatimento passa da dívida ou das fichas do jogador.",
-                maximo=proposto, solicitado=abatido,
-            )
-        motivo = (data.debt_offset_reason or "").strip() or None
-        if abatido + 0.004 < proposto and not motivo:
-            raise ErroDeNegocio(
-                "motivo_do_abatimento_obrigatorio",
-                "Informe o motivo para abater menos do que a dívida.",
-                proposto=proposto, solicitado=abatido,
-            )
-        return abatido, proposto, motivo
+        """(abatido, proposto, motivo) do cash-out — a regra é a mesma do
+        prêmio de torneio (HouseCreditService.calcular_abatimento)."""
+        return HouseCreditService.calcular_abatimento(
+            player_id, data.cash_out_amount, data.debt_offset_amount, data.debt_offset_reason, org,
+        )
 
     @staticmethod
     def _encerrar_sessao(player_session_id: str) -> None:
