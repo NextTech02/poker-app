@@ -36,6 +36,11 @@ from app.models.cash_game import (
 from app.services.cash_day_service import CashDayService
 from app.services.cash_table_service import CashTableService
 from app.services.cashbox_service import CashboxService
+from app.services.house_credit_service import (
+    PAYMENT_SOURCE as FIADO,
+    HouseCreditService,
+    recusa_do_banco,
+)
 from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
@@ -54,8 +59,11 @@ def _saldo_insuficiente(disponivel: float, solicitado: float) -> ErroDeNegocio:
 
 def _traduzir_erro_do_banco(exc: Exception) -> None:
     """O trigger da gaveta recusa com `REGRA_CAIXA:<code> disponivel=X
-    solicitado=Y`; vira a mesma recusa que o serviço daria. Qualquer outro
-    erro sobe como veio."""
+    solicitado=Y`, e os do fiado com `REGRA_FIADO:<code> ...`; viram a mesma
+    recusa que o serviço daria. Qualquer outro erro sobe como veio."""
+    fiado = recusa_do_banco(exc)
+    if fiado:
+        raise fiado from exc
     texto = str(exc)
     if "REGRA_CAIXA:saldo_insuficiente_no_caixa" in texto:
         disp = re.search(r"disponivel=(-?[\d.]+)", texto)
@@ -119,6 +127,12 @@ class CashTransactionService:
 
         CashTransactionService._validar_buy_in(mesa, data.buy_in_amount)
 
+        org = organization_id or mesa.get("organization_id")
+        fiado = data.payment_source == FIADO
+        if fiado:
+            # Antes de tomar a cadeira: recusar aqui não deixa nada para desfazer.
+            HouseCreditService.exigir_disponivel(data.player_id, data.buy_in_amount, org)
+
         assento = CashTransactionService._assento(table_id, seat_number)
         if assento.get("status") == "occupied":
             raise ErroDeNegocio(
@@ -160,8 +174,6 @@ class CashTransactionService:
                 player_session_id=ja_sentado.data[0]["id"],
             )
 
-        org = organization_id or mesa.get("organization_id")
-
         # 1) TOMAR A CADEIRA primeiro, em compare-and-set. É o único ponto onde
         #    duas requisições simultâneas podem colidir, e quem perde não pode
         #    ter deixado sessão nem venda para trás.
@@ -188,10 +200,13 @@ class CashTransactionService:
             venda = CashTransactionService._inserir(
                 mesa=mesa, tipo="buy_in", amount=data.buy_in_amount,
                 player_session_id=sessao["id"], player_id=data.player_id,
-                payment_method=data.payment_method, payment_source=data.payment_source,
+                # Fiado não é meio de pagamento nem dinheiro na gaveta: sem
+                # método e sem gaveta (o banco também garante as duas coisas).
+                payment_method=None if fiado else data.payment_method,
+                payment_source=data.payment_source,
                 client_mutation_id=data.client_mutation_id, notes=data.notes,
                 auth_user_id=auth_user_id, organization_id=org,
-                cashbox_id=(caixa or {}).get("id"),
+                cashbox_id=None if fiado else (caixa or {}).get("id"),
             )
         except Exception:
             # Sessão sem venda é um jogador sentado sem ter pago: some com ela
@@ -290,17 +305,23 @@ class CashTransactionService:
             auth_user_id, mesa["cash_day_id"]
         )
 
+        org = organization_id or mesa.get("organization_id")
+        fiado = data.payment_source == FIADO
+        if fiado:
+            HouseCreditService.exigir_disponivel(sessao["player_id"], data.amount, org)
+
         # O teto de buy-in NÃO se aplica à recompra: no cash ele limita quanto o
         # jogador põe NA MESA ao sentar, e a recompra é reposição de quem já
         # perdeu fichas. Validar aqui impediria o jogador de voltar ao teto.
         venda = CashTransactionService._inserir(
             mesa=mesa, tipo="rebuy", amount=data.amount,
             player_session_id=player_session_id, player_id=sessao["player_id"],
-            payment_method=data.payment_method, payment_source=data.payment_source,
+            payment_method=None if fiado else data.payment_method,
+            payment_source=data.payment_source,
             client_mutation_id=data.client_mutation_id, notes=data.notes,
             auth_user_id=auth_user_id,
-            organization_id=organization_id or mesa.get("organization_id"),
-            cashbox_id=(caixa or {}).get("id"),
+            organization_id=org,
+            cashbox_id=None if fiado else (caixa or {}).get("id"),
         )
         return CashTransactionService._enriquecer([venda])[0]
 
@@ -317,6 +338,10 @@ class CashTransactionService:
     ) -> CashPlayerSessionResponse:
         repetida = CashTransactionService._por_mutation_id(data.client_mutation_id)
         if repetida:
+            # O cash-out já foi gravado, mas a resposta pode ter se perdido
+            # ANTES de a sessão fechar: o retry termina o serviço em vez de
+            # deixar o jogador "sentado" com as fichas já pagas.
+            CashTransactionService._encerrar_sessao(player_session_id)
             return CashTransactionService.get_player_session(player_session_id)
 
         sessao = CashTransactionService._sessao_ativa(player_session_id)
@@ -332,14 +357,29 @@ class CashTransactionService:
         # precisa fechar do mesmo jeito. Só não vale gerar um lançamento de
         # valor zero — o banco recusa (amount > 0) e ele não significaria nada.
         if data.cash_out_amount > 0:
+            abatido, proposto, motivo = CashTransactionService._abatimento_do_fiado(
+                sessao["player_id"], data, org
+            )
+            liquido = round(data.cash_out_amount - abatido, 2)
             # A gaveta paga o cash-out em dinheiro vivo: não sai mais do que
             # entrou. Esta checagem dá a recusa com nome e os números; a trava
             # que resiste a dois levantes simultâneos é a do banco
             # (mirror_cash_transaction_to_cashbox, com FOR UPDATE na gaveta).
-            if caixa is not None:
+            # Com fiado, a gaveta só paga o LÍQUIDO: a parte abatida fica no
+            # clube como quitação da dívida.
+            if caixa is not None and liquido > 0:
                 disponivel = float(caixa.get("current_balance") or 0)
-                if data.cash_out_amount > disponivel:
-                    raise _saldo_insuficiente(disponivel, data.cash_out_amount)
+                if liquido > disponivel:
+                    raise _saldo_insuficiente(disponivel, liquido)
+            # Colunas do fiado só quando há fiado: sem a migração aplicada elas
+            # não existem, e mandá-las derrubaria todo cash-out.
+            extras = None
+            if proposto is not None:
+                extras = {
+                    "debt_settled_amount": abatido,
+                    "debt_offset_expected": proposto,
+                    "debt_offset_reason": motivo,
+                }
             CashTransactionService._inserir(
                 mesa=mesa, tipo="cash_out", amount=data.cash_out_amount,
                 player_session_id=player_session_id, player_id=sessao["player_id"],
@@ -347,15 +387,57 @@ class CashTransactionService:
                 client_mutation_id=data.client_mutation_id, notes=data.notes,
                 auth_user_id=auth_user_id, organization_id=org,
                 cashbox_id=(caixa or {}).get("id"),
+                extras=extras,
             )
 
+        CashTransactionService._encerrar_sessao(player_session_id)
+        return CashTransactionService.get_player_session(player_session_id)
+
+    @staticmethod
+    def _abatimento_do_fiado(player_id: str, data: StandPlayer, org: Optional[str]):
+        """(abatido, proposto, motivo) do cash-out.
+
+        `proposto` é None quando o jogador não deve nada — aí nada muda no
+        cash-out. Quando deve, a tela TEM de dizer quanto abater (inclusive 0):
+        uma tela antiga, que não sabe do fiado, mandaria "pagar X" enquanto a
+        gaveta só moveria X − dívida, e a diferença cairia na conta do
+        operador. O padrão é abater tudo o que der (`min(dívida, fichas)`);
+        abater menos é decisão de alguém, com motivo — é o vetor do conluio
+        clássico (pagar o amigo e deixar a dívida de pé).
+        """
+        divida = HouseCreditService.saldo_devedor(player_id, org)
+        if divida <= 0:
+            return 0.0, None, None
+        proposto = round(min(divida, data.cash_out_amount), 2)
+        if data.debt_offset_amount is None:
+            raise ErroDeNegocio(
+                "jogador_com_fiado",
+                "Este jogador deve fiado: confirme quanto abater do cash-out.",
+                status=409, divida=divida, abatimento_sugerido=proposto,
+            )
+        abatido = round(float(data.debt_offset_amount), 2)
+        if abatido > proposto + 0.004:
+            raise ErroDeNegocio(
+                "abatimento_maior_que_o_possivel",
+                "O abatimento passa da dívida ou das fichas do jogador.",
+                maximo=proposto, solicitado=abatido,
+            )
+        motivo = (data.debt_offset_reason or "").strip() or None
+        if abatido + 0.004 < proposto and not motivo:
+            raise ErroDeNegocio(
+                "motivo_do_abatimento_obrigatorio",
+                "Informe o motivo para abater menos do que a dívida.",
+                proposto=proposto, solicitado=abatido,
+            )
+        return abatido, proposto, motivo
+
+    @staticmethod
+    def _encerrar_sessao(player_session_id: str) -> None:
         supabase.table("cash_player_sessions").update({
             "status": "left",
             "ended_at": _agora(),
-        }).eq("id", player_session_id).execute()
-
+        }).eq("id", player_session_id).eq("status", "active").execute()
         CashTransactionService._liberar_assento_da_sessao(player_session_id)
-        return CashTransactionService.get_player_session(player_session_id)
 
     @staticmethod
     def _liberar_assento_da_sessao(player_session_id: str) -> None:
@@ -507,6 +589,7 @@ class CashTransactionService:
         client_mutation_id: Optional[str], notes: Optional[str],
         auth_user_id: Optional[str], organization_id: Optional[str],
         cashbox_id: Optional[str] = None,
+        extras: Optional[dict] = None,
     ) -> dict:
         payload = {
             "cash_day_id": mesa["cash_day_id"],
@@ -531,6 +614,8 @@ class CashTransactionService:
             payload["cashbox_id"] = cashbox_id
         if organization_id:
             payload["organization_id"] = organization_id
+        if extras:
+            payload.update(extras)
 
         try:
             resp = supabase.table("cash_transactions").insert(payload).execute()
@@ -576,11 +661,19 @@ class CashTransactionService:
 
         passos = list(venda.get("cancel_steps") or [])
         if venda.get("status") != "cancelling":
-            supabase.table("cash_transactions").update({
-                "status": "cancelling",
-                "cancel_reason": reason,
-                "cancelled_by": auth_user_id,
-            }).eq("id", transaction_id).execute()
+            # Venda no FIADO: o reverso da dívida é lançado pelo banco NESTE
+            # update (trg_cash_tx_fiado_estorno). Se a dívida já foi paga e não
+            # cobre o estorno, o banco recusa e a venda continua ativa — nada
+            # fica preso em 'cancelling'. Não há passo de gaveta: a venda fiada
+            # nasce sem `cashbox_id`.
+            try:
+                supabase.table("cash_transactions").update({
+                    "status": "cancelling",
+                    "cancel_reason": reason,
+                    "cancelled_by": auth_user_id,
+                }).eq("id", transaction_id).execute()
+            except Exception as exc:
+                _traduzir_erro_do_banco(exc)
 
         # PASSO 1 — devolver o dinheiro na gaveta do operador.
         # A guarda é o EFEITO (o recibo existe no banco?), não o marcador: um

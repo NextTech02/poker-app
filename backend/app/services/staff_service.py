@@ -38,6 +38,9 @@ ALL_PERMISSIONS = [
     # Módulo de bar (comandas). Mesma regra do cash: a chave só vale com o
     # módulo contratado (org_modules) — ver app/auth/modules.py.
     'bar.operate', 'bar.shift', 'bar.admin', 'bar.reports',
+    # Fiado da casa: habilitar jogador, limite, baixa, estorno de recebimento,
+    # devedores e configuração. Vender até o limite é `cash.operate`.
+    'fiado.manage',
 ]
 
 # Permissions that imply the staff member can have their own cashbox

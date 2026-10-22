@@ -414,6 +414,20 @@ def equipes_isolado(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def fiado_isolado(monkeypatch):
+    """O serviço do fiado também tem o PRÓPRIO `supabase` (e o `supabase_admin`),
+    e o cash-out, o resumo do dia e o DRE perguntam a ele "este jogador deve?".
+    Por padrão ele vê um banco vazio — ninguém deve nada. Os testes do fiado
+    ligam o fake do cenário."""
+    from app.services import house_credit_service as mod
+    fake = FakeSupabase({})
+    monkeypatch.setattr(mod, "supabase", fake)
+    monkeypatch.setattr(mod, "supabase_admin", fake)
+    monkeypatch.setattr(mod.HouseCreditService, "_tabelas_ok", None)
+    return fake
+
+
+@pytest.fixture(autouse=True)
 def envios_de_consentimento(monkeypatch):
     from app.services import player_consent_service as mod
     gravados = _EnviosGravados()

@@ -89,6 +89,16 @@ class FinancialSummary(BaseModel):
     cash_days_count: int = 0
     cash_tables_count: int = 0
     cash_players_count: int = 0
+    # ── Fiado da casa ──────────────────────────────────────────────────
+    # Baixa de fiado é DESPESA (perda) do período: as fichas fiadas viraram
+    # dinheiro na mão de quem ganhou delas, pago pela gaveta; se a dívida não
+    # volta, o clube perdeu esse dinheiro. Sai de `net_result` e do
+    # `cash_net_result` (o fiado nasce no cash).
+    house_credit_write_offs: float = 0
+    # Retrato de AGORA (não do período): quanto os jogadores devem ao clube.
+    # Recebível, não receita — informativo.
+    house_credit_open: float = 0
+    house_credit_overdue: float = 0
     # ── Bar ────────────────────────────────────────────────────────────
     # `bar_revenue` = Σ total das comandas fechadas do período (depois do
     # desconto). Entra em `gross_revenue`. `bar_cogs` (custo das mercadorias)

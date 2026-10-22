@@ -24,6 +24,7 @@ from app.models.cash_game import (
     CashDayResponse,
     CashDaySummary,
 )
+from app.services.house_credit_service import PAYMENT_SOURCE as FIADO, HouseCreditService
 from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,9 @@ class CashDayService:
                 players_seated=0,
                 players_total=int(dia.get("players_count") or 0),
                 cash_in_play=0.0,
+                total_credit_issued=float(dia.get("total_credit_issued") or 0),
+                total_debt_offset=float(dia.get("total_debt_offset") or 0),
+                total_debt_payments=float(dia.get("total_debt_payments") or 0),
             )
 
         return CashDaySummary(
@@ -173,19 +177,32 @@ class CashDayService:
     def _agregar(cash_day_id: str) -> dict:
         """Soma o dia a partir das linhas. Três consultas, sem laço com query
         dentro (o N+1 clássico deste projeto)."""
-        txs = supabase.table("cash_transactions").select(
-            "type, amount, status, player_session_id"
-        ).eq("cash_day_id", cash_day_id).execute().data or []
+        # `*` e não a lista de colunas: as do fiado só existem depois da
+        # migração, e pedi-las pelo nome derrubaria o resumo do dia antes dela.
+        txs = supabase.table("cash_transactions").select("*") \
+            .eq("cash_day_id", cash_day_id).execute().data or []
 
-        entradas = saidas = 0.0
+        entradas = saidas = fiado = abatido = 0.0
         for t in txs:
             if (t.get("status") or "active") != "active":
                 continue  # cancelada: o dinheiro voltou para a mão do jogador
             valor = float(t.get("amount") or 0)
             if t.get("type") in ("buy_in", "rebuy"):
                 entradas += valor
+                if t.get("payment_source") == FIADO:
+                    fiado += valor
             elif t.get("type") in ("cash_out", "jackpot_payout"):
                 saidas += valor
+                abatido += float(t.get("debt_settled_amount") or 0)
+
+        recebido = 0.0
+        if HouseCreditService.migrado():
+            recebimentos = supabase.table("house_credit_entries").select("type, amount") \
+                .eq("cash_day_id", cash_day_id).in_("type", ["payment", "payment_reversal"]) \
+                .execute().data or []
+            recebido = sum(
+                float(r["amount"]) * (1 if r["type"] == "payment" else -1) for r in recebimentos
+            )
 
         rakes = supabase.table("cash_rake_entries").select(
             "rake_amount, jackpot_amount"
@@ -218,6 +235,9 @@ class CashDayService:
             "players_seated": len(sentados),
             "players_total": len({s["id"] for s in sessoes}),
             "cash_in_play": round(em_jogo, 2),
+            "total_credit_issued": round(fiado, 2),
+            "total_debt_offset": round(abatido, 2),
+            "total_debt_payments": round(recebido, 2),
         }
 
     # ============================================================
@@ -263,6 +283,13 @@ class CashDayService:
             "tables_count": agregado["tables_total"],
             "players_count": agregado["players_total"],
         }
+        if HouseCreditService.migrado():
+            # Só com a migração: as colunas não existem antes dela.
+            atualizacao.update({
+                "total_credit_issued": agregado["total_credit_issued"],
+                "total_debt_offset": agregado["total_debt_offset"],
+                "total_debt_payments": agregado["total_debt_payments"],
+            })
         if notes:
             atualizacao["notes"] = notes
 

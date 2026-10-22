@@ -52,6 +52,9 @@ class CashDayResponse(BaseModel):
     variance: Optional[float] = None
     tables_count: Optional[int] = None
     players_count: Optional[int] = None
+    total_credit_issued: Optional[float] = None
+    total_debt_offset: Optional[float] = None
+    total_debt_payments: Optional[float] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
 
@@ -81,6 +84,12 @@ class CashDaySummary(BaseModel):
     players_seated: int = 0
     players_total: int = 0
     cash_in_play: float = 0.0       # fichas na mesa: sentados que ainda não saíram
+    # FIADO. Os buy-ins acima contam as FICHAS (a conta do dia não muda); estes
+    # dizem quanto delas não passou pela gaveta. Sem eles, a gaveta do dia
+    # parece faltar exatamente o fiado concedido — e o operador seria cobrado.
+    total_credit_issued: float = 0.0   # fichas vendidas no fiado (não entraram na gaveta)
+    total_debt_offset: float = 0.0     # abatido da dívida nos cash-outs (não saiu da gaveta)
+    total_debt_payments: float = 0.0   # fiado recebido nas gavetas do dia (entrou)
 
 
 # ────────────────────────────────────────────────
@@ -231,7 +240,9 @@ class SitPlayer(BaseModel):
     player_id: str
     buy_in_amount: float = Field(..., gt=0)
     payment_method: Optional[str] = None
-    payment_source: Optional[str] = None
+    # 'house_credit' = fiado da casa (não entra na gaveta). Nulo/'cash' =
+    # dinheiro de verdade, em qualquer meio.
+    payment_source: Optional[str] = Field(None, pattern="^(cash|house_credit)$")
     client_mutation_id: Optional[str] = None
     notes: Optional[str] = None
 
@@ -246,12 +257,18 @@ class StandPlayer(BaseModel):
     payment_method: Optional[str] = None
     client_mutation_id: Optional[str] = None
     notes: Optional[str] = None
+    # Quanto das fichas abate o fiado do jogador. OBRIGATÓRIO quando ele deve
+    # (inclusive 0): uma tela antiga que não sabe do fiado não pode mandar
+    # "pagar X" enquanto a gaveta só moveria X − dívida. Abaixo do proposto
+    # (o menor entre dívida e fichas) exige motivo.
+    debt_offset_amount: Optional[float] = Field(None, ge=0)
+    debt_offset_reason: Optional[str] = Field(None, max_length=300)
 
 
 class CashRebuy(BaseModel):
     amount: float = Field(..., gt=0)
     payment_method: Optional[str] = None
-    payment_source: Optional[str] = None
+    payment_source: Optional[str] = Field(None, pattern="^(cash|house_credit)$")
     client_mutation_id: Optional[str] = None
     notes: Optional[str] = None
 
@@ -295,6 +312,10 @@ class CashTransactionResponse(BaseModel):
     payment_method: Optional[str] = None
     payment_source: Optional[str] = None
     cashbox_id: Optional[str] = None
+    # Cash-out: parte das fichas que abateu o fiado (a gaveta pagou o resto).
+    debt_settled_amount: float = 0.0
+    debt_offset_expected: Optional[float] = None
+    debt_offset_reason: Optional[str] = None
     status: str = "active"
     cancelled_at: Optional[datetime] = None
     cancel_reason: Optional[str] = None

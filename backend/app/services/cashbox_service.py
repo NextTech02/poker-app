@@ -29,7 +29,9 @@ LEGACY_ADMIN_PERMISSIONS = ("financial", "general_cash", "employees")
 # `bar_sale` é o pagamento de comanda com dinheiro real (qualquer meio). A
 # perna paga com crédito do jogador não passa por aqui — não é dinheiro na
 # gaveta. O estorno de pagamento do bar reusa `refund`, com `bar_payment_id`.
-_INFLOW_TYPES = {"buy_in", "rebuy", "addon", "supply", "cash_buy_in", "bar_sale"}
+# `debt_payment` é o recebimento de FIADO (jogador pagando o que deve): entra,
+# mas não é venda. O estorno reusa `refund`, com `house_credit_entry_id`.
+_INFLOW_TYPES = {"buy_in", "rebuy", "addon", "supply", "cash_buy_in", "bar_sale", "debt_payment"}
 # `refund` é o estorno de uma venda cancelada: o dinheiro SAI da gaveta e volta
 # para o jogador, igual a um prêmio pago.
 _OUTFLOW_TYPES = {"prize", "sangria", "refund", "cash_out"}
@@ -70,6 +72,7 @@ def _eh_estorno(tx: dict) -> bool:
         tx.get("transaction_id") is not None
         or tx.get("cash_transaction_id") is not None
         or tx.get("bar_payment_id") is not None
+        or tx.get("house_credit_entry_id") is not None
     )
 
 
@@ -890,6 +893,9 @@ class CashboxService:
             elif t_type == "bar_sale":
                 agg.total_bar_sales += amt
                 agg.bar_sale_count += 1
+            elif t_type == "debt_payment":
+                agg.total_debt_payments += amt
+                agg.debt_payment_count += 1
             elif _eh_estorno(t):
                 # Venda cancelada: o dinheiro saiu da gaveta de verdade.
                 agg.total_refunds += abs(float(t["signed_amount"]))
@@ -983,6 +989,7 @@ class CashboxService:
             out.grand_total_cash_buy_ins += s.total_cash_buy_ins
             out.grand_total_cash_outs += s.total_cash_outs
             out.grand_total_bar_sales += s.total_bar_sales
+            out.grand_total_debt_payments += s.total_debt_payments
         return out
 
     @staticmethod
@@ -1040,7 +1047,7 @@ class CashboxService:
         # fechamento — ver _compute_session_report).
         txs = supabase.table("cashbox_transactions").select(
             "session_id, type, amount, signed_amount, transaction_id, "
-            "cash_transaction_id, bar_payment_id, created_at"
+            "cash_transaction_id, bar_payment_id, house_credit_entry_id, created_at"
         ).in_("session_id", session_ids).execute().data or []
         for tx in txs:
             tx_by_session.setdefault(tx["session_id"], []).append(tx)
@@ -1091,6 +1098,7 @@ class CashboxService:
             out.grand_cash_buy_ins += report.total_cash_buy_ins
             out.grand_cash_outs += report.total_cash_outs
             out.grand_bar_sales += report.total_bar_sales
+            out.grand_debt_payments += report.total_debt_payments
             out.grand_refunds += report.total_refunds
             out.grand_refunds_after_close += report.total_refunds_after_close
             out.grand_adjustments += report.total_adjustments
@@ -1104,7 +1112,7 @@ class CashboxService:
 
         for field in ("grand_initial", "grand_supply", "grand_sangria", "grand_buy_ins",
                       "grand_prizes", "grand_cash_buy_ins", "grand_cash_outs",
-                      "grand_bar_sales",
+                      "grand_bar_sales", "grand_debt_payments",
                       "grand_refunds", "grand_refunds_after_close",
                       "grand_adjustments",
                       "grand_expected", "grand_actual", "grand_difference"):
@@ -1157,9 +1165,9 @@ class CashboxService:
 
         supply = sangria = buy_ins = rebuys = addons = prizes = adjustments = 0.0
         refunds = refunds_after = 0.0
-        cash_buy_ins = cash_outs = bar_sales = 0.0
+        cash_buy_ins = cash_outs = bar_sales = debt_payments = 0.0
         buy_in_count = rebuy_count = addon_count = prize_count = refund_count = 0
-        cash_buy_in_count = cash_out_count = bar_sale_count = 0
+        cash_buy_in_count = cash_out_count = bar_sale_count = debt_payment_count = 0
         refund_after_count = 0
         signed_total = 0.0
         for tx in transactions:
@@ -1190,6 +1198,8 @@ class CashboxService:
                 cash_outs += amt; cash_out_count += 1
             elif ttype == "bar_sale":
                 bar_sales += amt; bar_sale_count += 1
+            elif ttype == "debt_payment":
+                debt_payments += amt; debt_payment_count += 1
             elif _eh_estorno(tx):
                 refunds += abs(float(tx["signed_amount"])); refund_count += 1
             elif ttype == "adjustment":
@@ -1247,6 +1257,8 @@ class CashboxService:
             cash_out_count=cash_out_count,
             total_bar_sales=round(bar_sales, 2),
             bar_sale_count=bar_sale_count,
+            total_debt_payments=round(debt_payments, 2),
+            debt_payment_count=debt_payment_count,
             total_refunds=round(refunds, 2),
             refund_count=refund_count,
             total_refunds_after_close=round(refunds_after, 2),

@@ -11,6 +11,7 @@ from app.models.financial import (
 from app.services.cash_report_service import CashReportService
 from app.services.bar_report_service import BarReportService
 from app.services.expense_service import ExpenseService
+from app.services.house_credit_service import HouseCreditService
 from app.services.transaction_filters import sem_canceladas
 
 
@@ -55,6 +56,8 @@ class FinancialService:
                 )
                 # O bar também não tem etapa: um clube só de bar cai aqui.
                 bar = BarReportService.summarize(organization_id, start_date, end_date)
+                fiado = HouseCreditService.summarize(organization_id, start_date, end_date)
+                perdas = fiado["house_credit_write_offs"]
                 bruto = cash["cash_revenue"] + bar["bar_revenue"]
                 return FinancialSummary(
                     revenue=RevenueBreakdown(),
@@ -64,6 +67,7 @@ class FinancialService:
                     rake=cash["cash_revenue"],
                     **cash,
                     **bar,
+                    **fiado,
                     expenses=exp["total"],
                     expenses_paid=exp["paid"],
                     expenses_pending=exp["pending"],
@@ -72,11 +76,11 @@ class FinancialService:
                     other_revenue_received=rev["received"],
                     other_revenue_pending=rev["pending"],
                     other_revenue_by_source=[ExpenseCategoryTotal(**c) for c in rev["by_source"]],
-                    net_result=bruto + rev["total"] - exp["total"],
+                    net_result=bruto + rev["total"] - exp["total"] - perdas,
                     # Etapa sem torneio: o DRE de torneio é só o que já se
                     # gastou (e as outras receitas lançadas nela).
                     tournament_net_result=rev["total"] - exp["total"],
-                    cash_net_result=cash["cash_revenue"],
+                    cash_net_result=cash["cash_revenue"] - perdas,
                 )
 
         # Filtro por torneio específico (compõe com etapa/datas).
@@ -294,11 +298,17 @@ class FinancialService:
         # junto como informação (a compra já é despesa — não subtrair 2x).
         bar = BarReportService.summarize(organization_id, start_date, end_date)
 
+        # ── 12. Fiado da casa ──
+        # A baixa é perda do período (despesa); o recebível em aberto é só
+        # informação — não é receita enquanto não volta.
+        fiado = HouseCreditService.summarize(organization_id, start_date, end_date)
+        perdas = fiado["house_credit_write_offs"]
+
         gross_revenue = revenue_total + cash["cash_revenue"] + bar["bar_revenue"]
         # O cash não paga prêmio: o dinheiro que sai é cash-out, que é a
         # devolução das fichas do próprio jogador.
         operational_result = gross_revenue - prize_total
-        net_result = operational_result + rev["total"] - exp["total"]
+        net_result = operational_result + rev["total"] - exp["total"] - perdas
 
         return FinancialSummary(
             revenue=RevenueBreakdown(
@@ -316,6 +326,7 @@ class FinancialService:
             rake=rake_total + cash["cash_revenue"],
             **cash,
             **bar,
+            **fiado,
             expenses=exp["total"],
             expenses_paid=exp["paid"],
             expenses_pending=exp["pending"],
@@ -332,7 +343,7 @@ class FinancialService:
             tournament_rake=rake_total,
             tournament_operational_result=revenue_total - prize_total,
             tournament_net_result=revenue_total - prize_total + rev["total"] - exp["total"],
-            cash_net_result=cash["cash_revenue"],
+            cash_net_result=cash["cash_revenue"] - perdas,
             pending_credits=pending_credits,
             available_tickets=available_tickets,
             by_tournament=by_tournament,

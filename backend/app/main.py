@@ -12,7 +12,7 @@ from app.database.supabase_client import set_request_jwt, reset_request_jwt, sta
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, public_consent, organizations, loyalty, expenses, leads, activity_logs, knockouts, teams
-from app.routers import cash_game, mfa, bar, auth_public
+from app.routers import cash_game, mfa, bar, auth_public, house_credit
 
 # Defense-in-depth: block sangi-only users from financial/admin routers at the
 # API level (the frontend already hides these screens). Non-sangi roles and
@@ -210,6 +210,10 @@ app.include_router(expenses.router, dependencies=_no_sangi)
 app.include_router(expenses.revenues_router, dependencies=_no_sangi)
 app.include_router(cash_game.router, dependencies=_cash_game)
 app.include_router(bar.router, dependencies=_bar)
+# Fiado da casa: UMA conta do jogador para o clube inteiro (nasce no cash,
+# recebe também no bar) — sem require_module único; cada rota exige a sua
+# permissão (fiado.manage para gestão, operação de caixa para receber).
+app.include_router(house_credit.router, dependencies=_no_sangi)
 
 
 @app.exception_handler(httpx.LocalProtocolError)

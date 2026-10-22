@@ -39,6 +39,11 @@ class CashboxTransactionType(str, Enum):
     # aqui — crédito não é dinheiro na gaveta. O estorno reusa `refund`, com
     # `bar_payment_id` preenchido.
     bar_sale = "bar_sale"
+    # Recebimento de FIADO (o jogador pagando o que deve ao clube), em gaveta de
+    # cash ou de bar. É dinheiro entrando, mas NÃO é venda: reusar
+    # cash_buy_in/bar_sale somaria dívida antiga no faturamento do dia/turno.
+    # O estorno do recebimento reusa `refund`, com `house_credit_entry_id`.
+    debt_payment = "debt_payment"
 
 
 # ────────────────────────────────────────────────
@@ -149,6 +154,7 @@ class CashboxTransactionResponse(BaseModel):
     transaction_id: Optional[str] = None
     cash_transaction_id: Optional[str] = None
     bar_payment_id: Optional[str] = None
+    house_credit_entry_id: Optional[str] = None
     performed_by: Optional[str] = None
     notes: Optional[str] = None
     created_at: datetime
@@ -191,6 +197,9 @@ class CashboxSummary(BaseModel):
     # Bar: pagamentos de comanda em dinheiro real (entrada).
     total_bar_sales: float = 0.0
     bar_sale_count: int = 0
+    # Fiado recebido (entrada; não é venda).
+    total_debt_payments: float = 0.0
+    debt_payment_count: int = 0
     # Vendas canceladas (dinheiro devolvido ao jogador). Saída REAL da gaveta —
     # entra no saldo esperado, ao contrário de total_adjustments.
     total_refunds: float = 0.0
@@ -211,6 +220,7 @@ class CashboxAggregatedSummary(BaseModel):
     grand_total_cash_buy_ins: float = 0.0
     grand_total_cash_outs: float = 0.0
     grand_total_bar_sales: float = 0.0
+    grand_total_debt_payments: float = 0.0
 
 
 # ────────────────────────────────────────────────
@@ -253,6 +263,9 @@ class CashboxSessionReport(BaseModel):
     # cash: o esperado já os soma; sem a coluna a tela não bate com a conta.
     total_bar_sales: float = 0.0
     bar_sale_count: int = 0
+    # Fiado recebido nesta sessão. Mesma razão das colunas acima.
+    total_debt_payments: float = 0.0
+    debt_payment_count: int = 0
     # Estornos de vendas canceladas ocorridos DENTRO da sessão: saída real da
     # gaveta, ENTRA no esperado.
     total_refunds: float = 0.0
@@ -281,6 +294,7 @@ class CashboxDemonstrativo(BaseModel):
     grand_cash_buy_ins: float = 0.0
     grand_cash_outs: float = 0.0
     grand_bar_sales: float = 0.0
+    grand_debt_payments: float = 0.0
     grand_refunds: float = 0.0
     # Devoluções lançadas depois do fechamento das sessões do período — fora
     # de grand_expected/grand_difference de propósito.
