@@ -27,6 +27,10 @@ export const AUDITED_TABLES = [
   'app_settings',
   'cash_days',
   'cash_transactions',
+  // Fiado da casa (database_migration_fiado_fase0.sql).
+  'house_credit_accounts',
+  'house_credit_entries',
+  'house_credit_settings',
 ];
 
 /** Opções do select de evento: acessos + "tudo de uma tabela" (prefixo). */

@@ -3206,7 +3206,10 @@
       "payment_methods": "payment method",
       "app_settings": "settings",
       "cash_days": "cash game day",
-      "cash_transactions": "cash game transaction"
+      "cash_transactions": "cash game transaction",
+      "house_credit_accounts": "house-credit account",
+      "house_credit_entries": "house-credit entry",
+      "house_credit_settings": "house-credit settings"
     },
     "fields": {
       "name": "name",

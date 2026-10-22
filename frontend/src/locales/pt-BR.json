@@ -3206,7 +3206,10 @@
       "payment_methods": "meio de pagamento",
       "app_settings": "configurações",
       "cash_days": "dia de cash game",
-      "cash_transactions": "transação de cash game"
+      "cash_transactions": "transação de cash game",
+      "house_credit_accounts": "conta de fiado",
+      "house_credit_entries": "lançamento de fiado",
+      "house_credit_settings": "configuração do fiado"
     },
     "fields": {
       "name": "nome",
