@@ -34,6 +34,8 @@ yarn-error.log*
 !db/test_data/*.sql
 # Testes de trigger num Postgres descartável (ex.: db/tests/fiado).
 !db/tests/**/*.sql
+# Saída do roteiro E2E do fiado (ids criados em prod, por rodada).
+backend/scripts/e2e_fiado_ids.json
 
 # ── Planilhas e arquivos locais ────────────────────────────────────────────────
 *.xlsx
