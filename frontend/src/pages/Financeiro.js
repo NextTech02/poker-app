@@ -19,6 +19,7 @@ import ExpensesManager from '../components/ExpensesManager';
 import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { eDividido, rotuloDoPagamento } from '../utils/pagamentoDividido';
 
 // Os mesmos ids de MODULO_* do ModuleContext, repetidos aqui de propósito: os
 // testes desta tela substituem o contexto inteiro e as constantes sumiriam.
@@ -162,6 +163,8 @@ const Financeiro = () => {
   };
 
   const getPaymentDisplay = (tx) => {
+    // Paga em mais de um meio: "Dinheiro R$ 300,00 · Transferência R$ 200,00".
+    if (eDividido(tx)) return rotuloDoPagamento(tx, resolveLabel, fmt);
     const method = tx.payment_method;
     if (method && method !== 'cash') return resolveLabel(method);
     return resolveLabel(tx.payment_source);

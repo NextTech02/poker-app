@@ -125,7 +125,9 @@ export const applyRegister = async (body) => {
     type: 'buy_in',
     amount,
     payment_source: body.payment_source || 'cash',
-    payment_method: body.payment_method || 'cash',
+    // Dividido: a réplica grava como o servidor ('split' + as partes).
+    payment_method: body.payment_split ? 'split' : (body.payment_method || 'cash'),
+    payment_split: body.payment_split || null,
     buy_type_id: body.buy_type_id || null,
     // Retrato do que foi vendido, como o backend passa a gravar: renomear ou
     // apagar o meio de entrada não pode reescrever o recibo, e o estorno
@@ -193,7 +195,9 @@ export const applyRebuy = async (body) => {
     type: 'rebuy',
     amount,
     payment_source: body.payment_source || 'cash',
-    payment_method: body.payment_method || 'cash',
+    // Dividido: a réplica grava como o servidor ('split' + as partes).
+    payment_method: body.payment_split ? 'split' : (body.payment_method || 'cash'),
+    payment_split: body.payment_split || null,
     buy_type_id: body.buy_type_id || null,
     buy_type_name: (buyType && buyType.name) || null,
     chips,
@@ -240,7 +244,9 @@ export const applyAddon = async (body) => {
     type: 'addon',
     amount,
     payment_source: body.payment_source || 'cash',
-    payment_method: body.payment_method || 'cash',
+    // Dividido: a réplica grava como o servidor ('split' + as partes).
+    payment_method: body.payment_split ? 'split' : (body.payment_method || 'cash'),
+    payment_split: body.payment_split || null,
     buy_type_id: body.buy_type_id || null,
     buy_type_name: (buyType && buyType.name) || null,
     chips,

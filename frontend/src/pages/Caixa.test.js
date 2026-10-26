@@ -2225,3 +2225,146 @@ describe('torneio por equipes', () => {
     expect(screen.queryByRole('button', { name: /Cobrar equipe/ })).toBeNull();
   });
 });
+
+
+/**
+ * Pagamento dividido ("pago mixto"): a venda paga com mais de um meio. As
+ * partes valem para o TOTAL da venda e o envio as reparte entre os itens, na
+ * ordem (a entrada e depois os extras). Cada item leva as suas partes no
+ * CORPO; os parâmetros de consulta levam um meio só, a maior parte — é o que
+ * um servidor antigo grava.
+ */
+describe('pagamento dividido', () => {
+  const BONO = {
+    id: 'b5', name: 'Bono Dealer', category: 'addon', amount: 20, rake_percentage: 100, chips: 10000, active: true,
+  };
+  const ENTRADA = {
+    id: 'b6', name: 'Entrada', category: 'buy_in', amount: 200, rake_percentage: 10, chips: 20000, active: true,
+  };
+  const METODOS = [
+    { id: 'm1', code: 'cash', name: 'Dinheiro' },
+    { id: 'm2', code: 'transfer', name: 'Transferência' },
+  ];
+
+  beforeEach(() => {
+    usePaymentMethods.mockReturnValue({ activeMethods: METODOS });
+    useBuyTypes.mockReturnValue({
+      activeBuyTypes: [...TIPOS, ENTRADA, BONO], tournamentId: 't1', tiposCarregados: true, selectTournament,
+    });
+  });
+
+  const valorDaParte = (i) => screen.getAllByLabelText('Valor da parte {{n}}')[i];
+
+  it('entrada 200 + bono 20 com 150 em dinheiro + 70 em transferência', async () => {
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    // Abre com o total inteiro no meio escolhido.
+    expect(valorDaParte(0)).toHaveValue(220);
+
+    await userEvent.clear(valorDaParte(0));
+    await userEvent.type(valorDaParte(0), '150');
+    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
+    expect(valorDaParte(1)).toHaveValue(70);
+    await enviar();
+
+    await waitFor(() => expect(chamada('/addon')).toBeTruthy());
+    // A entrada fecha 200: 150 em dinheiro + 50 em transferência.
+    const [registro] = chamada('/tournament-players');
+    expect(registro.body).toMatchObject({
+      payment_source: 'cash',
+      payment_method: 'cash',
+      payment_split: [
+        { payment_method: 'cash', amount: 150 },
+        { payment_method: 'transfer', amount: 50 },
+      ],
+    });
+    // O bono cai inteiro na transferência: venda de um meio só.
+    const [addon] = chamada('/addon');
+    expect(addon.body.payment_method).toBe('transfer');
+    expect(addon.body.payment_split).toBeUndefined();
+    expect(addon.params.payment_method).toBe('transfer');
+    expect(addon.params.payment_split).toBeUndefined();
+  });
+
+  it('reentrada dividida manda as partes no corpo e um meio só nos parâmetros', async () => {
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b2' }); // Recompra turbo: 600
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    await userEvent.clear(valorDaParte(0));
+    await userEvent.type(valorDaParte(0), '200');
+    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
+    await enviar();
+
+    await waitFor(() => expect(chamada('/rebuy')).toBeTruthy());
+    const [op] = chamada('/rebuy');
+    expect(op.body.payment_split).toEqual([
+      { payment_method: 'cash', amount: 200 },
+      { payment_method: 'transfer', amount: 400 },
+    ]);
+    // A maior parte é a reserva para um servidor que ainda não divide.
+    expect(op.params.payment_method).toBe('transfer');
+    expect(op.params.payment_split).toBeUndefined();
+  });
+
+  it('não registra enquanto as partes não fecham o total', async () => {
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b6' });
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    await userEvent.clear(valorDaParte(0));
+    await userEvent.type(valorDaParte(0), '150');
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeDisabled();
+    expect(screen.getByText('Falta {{value}}')).toBeInTheDocument();
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('desligar a divisão volta ao meio único', async () => {
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b6' });
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    await enviar();
+    await waitFor(() => expect(chamada('/tournament-players')).toBeTruthy());
+    expect(chamada('/tournament-players')[0].body.payment_split).toBeUndefined();
+  });
+
+  it('trocar o pagamento de uma venda já registrada para dividido', async () => {
+    await montar();
+    await userEvent.click(screen.getAllByRole('button', { name: 'Trocar pagamento' })[0]); // x1: 1000
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    await userEvent.clear(valorDaParte(0));
+    await userEvent.type(valorDaParte(0), '600');
+    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith('/transactions/x1/payment-method', {
+        payment_method: 'cash',
+        payment_split: [
+          { payment_method: 'cash', amount: 600 },
+          { payment_method: 'transfer', amount: 400 },
+        ],
+      })
+    );
+  });
+
+  it('a venda dividida aparece no extrato com as partes e o estorno diz o que devolver', async () => {
+    const dividida = {
+      id: 'x9', player_name: 'Dora', tournament_name: 'Main Event', type: 'buy_in', amount: 500,
+      created_at: '2026-06-08T23:00:00Z', tournament_id: 't1', player_id: 'p4', payment_source: 'cash',
+      payment_method: 'split', status: 'active',
+      payment_split: [{ payment_method: 'cash', amount: 300 }, { payment_method: 'transfer', amount: 200 }],
+    };
+    await montar({ transacoes: [dividida] });
+    expect(screen.getByText('financial.paymentCash R$ 300.00 · financial.paymentTransfer R$ 200.00'))
+      .toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar venda' }));
+    expect(screen.getByText('Devolver ao jogador:')).toBeInTheDocument();
+    expect(screen.getByText('financial.paymentCash: R$ 300.00')).toBeInTheDocument();
+    expect(screen.getByText('financial.paymentTransfer: R$ 200.00')).toBeInTheDocument();
+  });
+});

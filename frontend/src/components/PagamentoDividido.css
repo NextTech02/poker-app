@@ -1,0 +1,68 @@
+/* Editor das partes de um pagamento dividido — mesmo desenho das pernas do Bar. */
+.pd {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.pd-partes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pd-parte {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 150px) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pd-parte__meio,
+.pd-parte__valor {
+  width: 100%;
+}
+
+.pd-rodape {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.pd-rodape__ok {
+  color: var(--text-success);
+  font-weight: 600;
+}
+
+.pd-rodape__problema {
+  color: var(--text-danger);
+  font-weight: 600;
+}
+
+/* "Dividir pagamento": o interruptor ao lado do meio de pagamento. */
+.pd-alternar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* Partes de uma venda já gravada (estorno, troca de pagamento). */
+.pd-resumo {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 560px) {
+  .pd-parte {
+    grid-template-columns: minmax(0, 1fr) minmax(90px, 120px) auto;
+  }
+}

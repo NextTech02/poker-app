@@ -4,6 +4,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { exportSections } from '../utils/reportExport';
+import { eDividido, rotuloDoPagamento } from '../utils/pagamentoDividido';
 import './ReportExportPanel.css';
 
 // Painel "Exportar" da aba Relatórios.
@@ -242,7 +243,9 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           description: tx.buy_type_name
             || (tx.type === 'prize' && tx.prize_kind === 'knockout'
               ? t('financial.descKnockout', 'Prêmio por eliminação (KO)') : '—'),
-          payment_method: tx.payment_method || tx.payment_source || '—',
+          payment_method: eDividido(tx)
+            ? rotuloDoPagamento(tx, (code) => code || '—', formatCurrency)
+            : (tx.payment_method || tx.payment_source || '—'),
         })),
       });
     }

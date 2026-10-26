@@ -65,6 +65,9 @@ export const PaymentMethodsProvider = ({ children }) => {
       if (!name) throw new Error('empty-label');
       const base = slugify(name);
       const existing = new Set(methods.map((m) => m.code));
+      // 'split' é o código RESERVADO do pagamento dividido (o banco recusa):
+      // um meio chamado "Split" vira 'split-2'.
+      existing.add('split');
       let code = base;
       let i = 2;
       while (existing.has(code)) code = `${base}-${i++}`;

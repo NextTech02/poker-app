@@ -17,6 +17,10 @@ import { useBuyTypes } from '../contexts/BuyTypesContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { methodLabel } from '../utils/paymentMethodLabels';
+import PagamentoDividido from '../components/PagamentoDividido';
+import {
+  eDividido, pagamentoDoItem, partesDaLinha, partesIniciais, repartirPagamento, rotuloDoPagamento, validarPartes,
+} from '../utils/pagamentoDividido';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
@@ -132,6 +136,12 @@ const Caixa = () => {
   const [avisosDoEstorno, setAvisosDoEstorno] = useState([]);
   const [changingMethod, setChangingMethod] = useState(null);
   const [newMethod, setNewMethod] = useState('cash');
+  // Partes da troca de pagamento (null = um meio só).
+  const [partesDaTroca, setPartesDaTroca] = useState(null);
+  // Pagamento dividido da venda: 300 em dinheiro + 200 em transferência. As
+  // partes valem para o TOTAL da venda; o envio reparte entre os itens.
+  const [dividir, setDividir] = useState(false);
+  const [partes, setPartes] = useState([]);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     tournament_id: '',
@@ -551,6 +561,27 @@ const Caixa = () => {
       payment_source: formData.payment_source || 'cash',
       payment_method: formData.payment_method || 'cash',
     };
+    // Dividido: o total pago é repartido entre os itens na ordem de envio (a
+    // entrada e depois os extras). Cada item leva as SUAS partes — o servidor
+    // confere que elas fecham o valor dele.
+    const itensNaOrdem = [...(entrada ? [entrada] : []), ...extras];
+    let repartido = null;
+    if (dividindo) {
+      repartido = repartirPagamento(itensNaOrdem, partes);
+      if (!repartido) {
+        toast.warning(t('splitPayment.mustClose', 'As partes do pagamento precisam somar o total da venda.'));
+        return;
+      }
+    }
+    // `payment_split` só vai no CORPO; os parâmetros de consulta continuam
+    // levando um meio só (a maior parte), que é o que um servidor antigo grava.
+    const pagamentoDoIndice = (i) => {
+      if (!repartido) return { corpo: pagamento, parametros: pagamento };
+      const { payment_method: metodo, payment_split: partesDoItem } = repartido[i];
+      const parametros = { payment_source: 'cash', payment_method: metodo };
+      return { parametros, corpo: partesDoItem ? { ...parametros, payment_split: partesDoItem } : parametros };
+    };
+    const pagamentoDaEntrada = pagamentoDoIndice(0);
 
     try {
       let tpId = null;
@@ -568,7 +599,7 @@ const Caixa = () => {
           tournament_day_id: formData.tournament_day_id || null,
           player_id: formData.player_id,
           buy_in_count: 1,
-          ...pagamento,
+          ...pagamentoDaEntrada.corpo,
           buy_type_id: entrada.buy_type_id || null,
           notes: `Registrado via Caixa - ${formData.payment_method}`,
           client_id: clientTpId,
@@ -607,7 +638,7 @@ const Caixa = () => {
           const cmid = uuid();
           const rbBody = {
             tournament_player_id: tpId,
-            ...pagamento,
+            ...pagamentoDaEntrada.corpo,
             buy_type_id: entrada.buy_type_id || null,
             client_mutation_id: cmid,
           };
@@ -618,7 +649,7 @@ const Caixa = () => {
             // consulta, e o corpo era descartado — foi assim que a protecao
             // contra registrar a mesma venda duas vezes se perdeu.
             params: {
-              ...pagamento,
+              ...pagamentoDaEntrada.parametros,
               client_mutation_id: cmid,
               ...(entrada.buy_type_id ? { buy_type_id: entrada.buy_type_id } : {}),
             },
@@ -639,11 +670,12 @@ const Caixa = () => {
       // bilhete sai só com ele, e o operador vê exatamente o que faltou.
       const extrasVendidos = [];
       const extrasRecusados = [];
-      for (const item of extras) {
+      for (const [indice, item] of extras.entries()) {
         const cmid = uuid();
+        const pagamentoDoExtra = pagamentoDoIndice(indice + (entrada ? 1 : 0));
         const adBody = {
           tournament_player_id: tpId,
-          ...pagamento,
+          ...pagamentoDoExtra.corpo,
           buy_type_id: item.buy_type_id || null,
           client_mutation_id: cmid,
         };
@@ -653,7 +685,7 @@ const Caixa = () => {
             kind: 'addon', method: 'post',
             url: `/tournament-players/${tpId}/addon`,
             params: {
-              ...pagamento,
+              ...pagamentoDoExtra.parametros,
               ...(item.buy_type_id ? { buy_type_id: item.buy_type_id } : {}),
             },
             body: adBody,
@@ -737,6 +769,8 @@ const Caixa = () => {
         payment_source: 'cash',
         buy_type_ids: [],
       });
+      setDividir(false);
+      setPartes([]);
       setPlayerCredit(0);
       setTournamentDays([]);
       loadData();
@@ -888,6 +922,15 @@ const Caixa = () => {
       (categoria) => valorDaCategoria(categoria, formData.tournament_day_id, formData.tournament_id),
     );
   const totaisDaVenda = totaisDosItens(itensDaVenda);
+  // Dividir só entre meios de dinheiro de verdade: com crédito de patrocinador
+  // a venda segue o caminho dele.
+  const dividindo = dividir && (formData.payment_source || 'cash') === 'cash';
+  const problemaDasPartes = dividindo ? validarPartes(partes, totaisDaVenda.amount) : null;
+  const rotuloDoMeio = (code) => methodLabel(t, activeMethods.find((m) => m.code === code) || { code });
+  const alternarDivisao = (ligar) => {
+    setDividir(ligar);
+    setPartes(ligar ? partesIniciais(formData.payment_method || activeMethods[0]?.code || 'cash', totaisDaVenda.amount) : []);
+  };
 
   // Categoria "da venda": a da ENTRADA marcada (buy-in/reentrada) ou, sem
   // entrada, add-on. É ela que decide se a venda inscreve, traz de volta ou só
@@ -1063,6 +1106,8 @@ const Caixa = () => {
     // Relê o bloqueio da etapa: o diretor pode ter travado a venda enquanto a
     // tela estava aberta.
     loadStageBlock(selectedStage?.id);
+    setDividir(false);
+    setPartes([]);
     setShowModal(true);
   };
 
@@ -1135,16 +1180,25 @@ const Caixa = () => {
       toast.warning(t('cashRegister.cancelOnlineOnly', 'Cancelar uma venda exige conexão.'));
       return;
     }
-    setNewMethod(transaction.payment_method || activeMethods[0]?.code || 'cash');
+    const dividida = eDividido(transaction);
+    const atuais = partesDaLinha(transaction);
+    // Na dividida, o meio de reserva é a maior parte: é o que fica se o
+    // operador desligar a divisão.
+    setNewMethod(
+      (dividida ? pagamentoDoItem(atuais)?.payment_method : transaction.payment_method)
+      || activeMethods[0]?.code || 'cash'
+    );
+    setPartesDaTroca(dividida ? atuais.map((p) => ({ payment_method: p.payment_method, amount: String(p.amount) })) : null);
     setChangingMethod(transaction);
   };
 
   const confirmarTrocaDeMetodo = async () => {
     setSaving(true);
     try {
-      await api.patch(`/transactions/${changingMethod.id}/payment-method`, {
-        payment_method: newMethod,
-      });
+      const dividido = partesDaTroca ? pagamentoDoItem(partesDaTroca) : null;
+      await api.patch(`/transactions/${changingMethod.id}/payment-method`, dividido
+        ? { payment_method: dividido.payment_method, ...(dividido.payment_split ? { payment_split: dividido.payment_split } : {}) }
+        : { payment_method: newMethod });
       toast.success(t('cashRegister.paymentMethodChanged', 'Forma de pagamento atualizada'));
       setChangingMethod(null);
       loadData();
@@ -1362,7 +1416,14 @@ const Caixa = () => {
                           </span>
                         )}
                       </td>
-                      <td className="amount">{formatCurrency(transaction.amount)}</td>
+                      <td className="amount">
+                        {formatCurrency(transaction.amount)}
+                        {eDividido(transaction) && (
+                          <small className="cx-split-hint">
+                            {rotuloDoPagamento(transaction, rotuloDoMeio, formatCurrency)}
+                          </small>
+                        )}
+                      </td>
                       <td>
                         {/* Estorno pela metade: a venda já saiu das somas, mas
                             ainda falta desfazer algum passo (caixa da etapa,
@@ -1694,20 +1755,40 @@ const Caixa = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="payment_method">{t('cashRegister.paymentMethod')}</label>
-                  <select
-                    id="payment_method"
-                    name="payment_method"
-                    value={formData.payment_method}
-                    onChange={handleChange}
-                  >
-                    {activeMethods.length === 0 && (
-                      <option value="cash">{t('cashRegister.cash')}</option>
-                    )}
-                    {activeMethods.map((m) => (
-                      <option key={m.id} value={m.code}>{methodLabel(t, m)}</option>
-                    ))}
-                  </select>
+                  <label htmlFor={dividindo ? 'cx-pd-meio-0' : 'payment_method'}>{t('cashRegister.paymentMethod')}</label>
+                  {dividindo ? (
+                    <PagamentoDividido
+                      total={totaisDaVenda.amount}
+                      partes={partes}
+                      onChange={setPartes}
+                      metodos={activeMethods}
+                      idPrefix="cx-pd"
+                    />
+                  ) : (
+                    <select
+                      id="payment_method"
+                      name="payment_method"
+                      value={formData.payment_method}
+                      onChange={handleChange}
+                    >
+                      {activeMethods.length === 0 && (
+                        <option value="cash">{t('cashRegister.cash')}</option>
+                      )}
+                      {activeMethods.map((m) => (
+                        <option key={m.id} value={m.code}>{methodLabel(t, m)}</option>
+                      ))}
+                    </select>
+                  )}
+                  {(formData.payment_source || 'cash') === 'cash' && (
+                    <label className="pd-alternar">
+                      <input
+                        type="checkbox"
+                        checked={dividir}
+                        onChange={(e) => alternarDivisao(e.target.checked)}
+                      />
+                      {t('splitPayment.toggle', 'Dividir pagamento')}
+                    </label>
+                  )}
                 </div>
 
                 {/* Credit payment option - only visible when player has credit */}
@@ -1742,7 +1823,7 @@ const Caixa = () => {
                   <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
                     {t('common.cancel')}
                   </Button>
-                  <Button type="submit">{t('cashRegister.register')}</Button>
+                  <Button type="submit" disabled={!!problemaDasPartes}>{t('cashRegister.register')}</Button>
                 </div>
               </form>
             </div>
@@ -1788,6 +1869,18 @@ const Caixa = () => {
                     placeholder={t('cashRegister.cancelReasonPlaceholder', 'Ex.: cobrança em duplicidade')}
                   />
                 </div>
+                {eDividido(cancelling) && (
+                  // Pago em mais de um meio: o operador devolve cada parte
+                  // pelo meio em que ela entrou.
+                  <div className="form-group">
+                    <span>{t('splitPayment.refundParts', 'Devolver ao jogador:')}</span>
+                    <ul className="pd-resumo">
+                      {partesDaLinha(cancelling).map((p) => (
+                        <li key={p.payment_method}>{rotuloDoMeio(p.payment_method)}: {formatCurrency(p.amount)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
               <div className="modal-actions">
                 <Button type="button" variant="secondary" onClick={() => setCancelling(null)}>
@@ -1850,26 +1943,54 @@ const Caixa = () => {
               </div>
               <div className="modal-body">
                 <div className="form-group">
-                  <label htmlFor="new_payment_method">{t('cashRegister.paymentMethod')}</label>
-                  <select
-                    id="new_payment_method"
-                    value={newMethod}
-                    onChange={(e) => setNewMethod(e.target.value)}
-                  >
-                    {activeMethods.length === 0 && (
-                      <option value="cash">{t('cashRegister.cash')}</option>
-                    )}
-                    {activeMethods.map((m) => (
-                      <option key={m.id} value={m.code}>{methodLabel(t, m)}</option>
-                    ))}
-                  </select>
+                  <label htmlFor={partesDaTroca ? 'cx-troca-meio-0' : 'new_payment_method'}>{t('cashRegister.paymentMethod')}</label>
+                  {partesDaTroca ? (
+                    <PagamentoDividido
+                      total={Number(changingMethod.amount) || 0}
+                      partes={partesDaTroca}
+                      onChange={setPartesDaTroca}
+                      metodos={activeMethods}
+                      idPrefix="cx-troca"
+                    />
+                  ) : (
+                    <select
+                      id="new_payment_method"
+                      value={newMethod}
+                      onChange={(e) => setNewMethod(e.target.value)}
+                    >
+                      {activeMethods.length === 0 && (
+                        <option value="cash">{t('cashRegister.cash')}</option>
+                      )}
+                      {activeMethods.map((m) => (
+                        <option key={m.id} value={m.code}>{methodLabel(t, m)}</option>
+                      ))}
+                    </select>
+                  )}
+                  {/* Prêmio, crédito e ticket não dividem: o servidor recusa. */}
+                  {['buy_in', 'rebuy', 'addon'].includes(changingMethod.type)
+                    && (changingMethod.payment_source || 'cash') === 'cash' && (
+                    <label className="pd-alternar">
+                      <input
+                        type="checkbox"
+                        checked={!!partesDaTroca}
+                        onChange={(e) => setPartesDaTroca(
+                          e.target.checked ? partesIniciais(newMethod, Number(changingMethod.amount) || 0) : null
+                        )}
+                      />
+                      {t('splitPayment.toggle', 'Dividir pagamento')}
+                    </label>
+                  )}
                 </div>
               </div>
               <div className="modal-actions">
                 <Button type="button" variant="secondary" onClick={() => setChangingMethod(null)}>
                   {t('common.cancel')}
                 </Button>
-                <Button type="button" onClick={confirmarTrocaDeMetodo} disabled={saving}>
+                <Button
+                  type="button"
+                  onClick={confirmarTrocaDeMetodo}
+                  disabled={saving || (!!partesDaTroca && validarPartes(partesDaTroca, Number(changingMethod.amount) || 0) !== null)}
+                >
                   {t('common.save', 'Salvar')}
                 </Button>
               </div>

@@ -1496,7 +1496,16 @@
     "jogador_com_fiado": "This player owes {{divida}} in house credit: confirm how much to deduct (suggested {{abatimento_sugerido}}).",
     "abatimento_maior_que_o_possivel": "The deduction exceeds the debt or the amount to pay (max {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Give a reason for deducting less than {{proposto}}.",
-    "fiado_indisponivel": "House credit is not available in this club yet."
+    "fiado_indisponivel": "House credit is not available in this club yet.",
+    "pagamento_dividido_nao_fecha": "The payment parts ({{soma}}) do not add up to the sale amount ({{valor}}).",
+    "pagamento_dividido_sem_partes": "Split payment without parts: enter how much was paid with each method.",
+    "pagamento_dividido_com_credito": "A sale paid with credit or a ticket cannot be split.",
+    "pagamento_dividido_com_fiado": "A house-credit sale cannot be split with other methods.",
+    "pagamento_dividido_meio_invalido": "Invalid payment method in one of the parts.",
+    "pagamento_dividido_invalido": "The payment parts do not match the sale amount.",
+    "pagamento_dividido_indisponivel": "Split payment is not available on this server yet. Record the sale with a single method.",
+    "pagamento_dividido_com_quantidade": "Split payment works for one re-entry at a time.",
+    "pagamento_dividido_so_em_venda": "Only a sale can have a split payment."
   },
   "premiacao": {
     "loadError": "Error loading prize data",
@@ -1927,7 +1936,8 @@
     "colDescription": "Description",
     "typeFee": "Fee",
     "optFee": "Fee",
-    "descKnockout": "Knockout prize (KO)"
+    "descKnockout": "Knockout prize (KO)",
+    "paymentSplit": "Split"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Tournament",
@@ -3005,7 +3015,8 @@
     "moveHint": "The player takes the chips along. Nothing enters or leaves the cash desk, and their result for the night stays the same.",
     "playerMoved": "Player moved",
     "toSeat": "Seat",
-    "toTable": "Destination table"
+    "toTable": "Destination table",
+    "buyInsByMethod": "Buy-ins by method"
   },
   "cashWaitlist": {
     "actionError": "Could not complete",
@@ -3913,5 +3924,18 @@
     "koOffset": "House credit: deducts {{offset}} · pays {{net}}",
     "prizeGross": "Prize (gross)",
     "offsetPrize": "Deduct from prize"
+  },
+  "splitPayment": {
+    "toggle": "Split payment",
+    "method": "Method of part {{n}}",
+    "amount": "Amount of part {{n}}",
+    "remove": "Remove part {{n}}",
+    "addPart": "Another method",
+    "missing": "{{value}} missing",
+    "over": "{{value}} over",
+    "empty": "Enter how much was paid with each method.",
+    "closes": "Totals {{value}}",
+    "mustClose": "The payment parts must add up to the sale total.",
+    "refundParts": "Give back to the player:"
   }
 }

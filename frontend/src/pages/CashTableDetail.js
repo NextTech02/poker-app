@@ -17,6 +17,8 @@ import { methodLabel } from '../utils/paymentMethodLabels';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 import { usePermissions } from '../contexts/PermissionContext';
 import ReceberFiadoModal from '../components/fiado/ReceberFiadoModal';
+import PagamentoDividido from '../components/PagamentoDividido';
+import { pagamentoDoItem, partesIniciais, validarPartes } from '../utils/pagamentoDividido';
 import {
   FIADO, buscarContaFiado, detalheDoErro, imprimirCupomDeFiado, novoIdDeOperacao,
 } from '../utils/fiado';
@@ -152,6 +154,8 @@ const CashTableDetail = () => {
       debt_offset_amount: '',
       debt_offset_reason: '',
       offsetEdited: false,
+      // Pagamento dividido (null = um meio só): só em sentar e recomprar.
+      partes: null,
       // Um id por ABERTURA do modal (não por clique): o retry depois de uma
       // resposta perdida devolve a mesma operação em vez de repeti-la.
       cmid: novoIdDeOperacao(),
@@ -176,9 +180,19 @@ const CashTableDetail = () => {
 
   // Venda: fiado não é meio de pagamento — vai como ORIGEM, sem meio e sem
   // gaveta (o servidor e o banco garantem as duas coisas).
-  const pagamento = () => (form.payment_method === FIADO
-    ? { payment_source: FIADO, payment_method: null }
-    : { payment_method: form.payment_method });
+  //
+  // Dividido: `payment_method` leva a maior parte (é o que um servidor antigo
+  // grava) e `payment_split` as partes, que o servidor confere contra o valor.
+  const pagamento = () => {
+    if (form.payment_method === FIADO) return { payment_source: FIADO, payment_method: null };
+    const dividido = form.partes ? pagamentoDoItem(form.partes) : null;
+    if (dividido) {
+      return dividido.payment_split
+        ? { payment_method: dividido.payment_method, payment_split: dividido.payment_split }
+        : { payment_method: dividido.payment_method };
+    }
+    return { payment_method: form.payment_method };
+  };
 
   const aposVenda = async (mensagem, jogador, valor) => {
     const foiFiado = form.payment_method === FIADO;
@@ -562,10 +576,10 @@ const CashTableDetail = () => {
                         })}
                       </small>
                     </div>
-                    {MetodoDePagamento({ t, form, setForm, activeMethods, fiado, formatCurrency })}
+                    {MetodoDePagamento({ t, form, setForm, activeMethods, fiado, formatCurrency, permiteDividir: true })}
                     {Acoes({
                       t, submitting, setModal, rotulo: t('cash.sit', 'Sentar'),
-                      bloqueado: FiadoAcimaDoDisponivel(form, fiado),
+                      bloqueado: FiadoAcimaDoDisponivel(form, fiado) || PartesNaoFecham(form),
                     })}
                   </form>
                 </>
@@ -590,10 +604,10 @@ const CashTableDetail = () => {
                       </small>
                       {SituacaoDoFiado({ t, fiado, formatCurrency })}
                     </div>
-                    {MetodoDePagamento({ t, form, setForm, activeMethods, fiado, formatCurrency })}
+                    {MetodoDePagamento({ t, form, setForm, activeMethods, fiado, formatCurrency, permiteDividir: true })}
                     {Acoes({
                       t, submitting, setModal, rotulo: t('cash.rebuy', 'Recompra'),
-                      bloqueado: FiadoAcimaDoDisponivel(form, fiado),
+                      bloqueado: FiadoAcimaDoDisponivel(form, fiado) || PartesNaoFecham(form),
                     })}
                   </form>
                 </>
@@ -801,6 +815,11 @@ function FiadoAcimaDoDisponivel(form, fiado) {
     && (parseFloat(form.amount || 0) || 0) > Number(fiado?.available || 0) + 0.004;
 }
 
+/* Pagamento dividido cujas partes ainda não fecham o valor digitado. */
+function PartesNaoFecham(form) {
+  return !!form.partes && validarPartes(form.partes, parseFloat(form.amount || 0) || 0) !== null;
+}
+
 function SituacaoDoFiado({ t, fiado, formatCurrency }) {
   if (!fiado || (!fiado.exists && !Number(fiado.balance || 0))) return null;
   const deve = Number(fiado.balance || 0);
@@ -821,27 +840,54 @@ function SituacaoDoFiado({ t, fiado, formatCurrency }) {
 /* Trechos repetidos entre os cinco formulários. Funções e não componentes de
    verdade: componentes novos remontariam a árvore a cada digitação e o campo
    perderia o foco no meio do valor. */
-function MetodoDePagamento({ t, form, setForm, activeMethods, fiado = null, formatCurrency }) {
+function MetodoDePagamento({ t, form, setForm, activeMethods, fiado = null, formatCurrency, permiteDividir = false }) {
   // "Fiado" só aparece na COMPRA de fichas e só para quem tem conta liberada,
   // não vencida e com saldo — é o gerente quem libera, não o caixa.
   const podeFiado = !!fiado?.enabled && !fiado.blocked && Number(fiado.available || 0) > 0;
+  // Dividir (600 dinheiro + 400 transferência) só na compra de fichas e
+  // nunca com fiado: o fiado não é meio de pagamento.
+  const dividindo = permiteDividir && !!form.partes;
+  const valor = parseFloat(form.amount || 0) || 0;
   return (
     <div className="form-group">
-      <label htmlFor="ctd-method">{t('cash.paymentMethod', 'Meio de pagamento')}</label>
-      <select
-        id="ctd-method"
-        value={form.payment_method || ''}
-        onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
-      >
-        {activeMethods.map((m) => (
-          <option key={m.code} value={m.code}>{methodLabel(t, m)}</option>
-        ))}
-        {podeFiado && (
-          <option value={FIADO}>
-            {t('fiado.optionLabel', 'Fiado (disponível {{value}})', { value: formatCurrency(fiado.available) })}
-          </option>
-        )}
-      </select>
+      <label htmlFor={dividindo ? 'ctd-pd-meio-0' : 'ctd-method'}>{t('cash.paymentMethod', 'Meio de pagamento')}</label>
+      {dividindo ? (
+        <PagamentoDividido
+          total={valor}
+          partes={form.partes}
+          onChange={(partes) => setForm({ ...form, partes })}
+          metodos={activeMethods}
+          idPrefix="ctd-pd"
+        />
+      ) : (
+        <select
+          id="ctd-method"
+          value={form.payment_method || ''}
+          onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
+        >
+          {activeMethods.map((m) => (
+            <option key={m.code} value={m.code}>{methodLabel(t, m)}</option>
+          ))}
+          {podeFiado && (
+            <option value={FIADO}>
+              {t('fiado.optionLabel', 'Fiado (disponível {{value}})', { value: formatCurrency(fiado.available) })}
+            </option>
+          )}
+        </select>
+      )}
+      {permiteDividir && form.payment_method !== FIADO && (
+        <label className="pd-alternar">
+          <input
+            type="checkbox"
+            checked={dividindo}
+            onChange={(e) => setForm({
+              ...form,
+              partes: e.target.checked ? partesIniciais(form.payment_method || activeMethods[0]?.code || 'cash', valor) : null,
+            })}
+          />
+          {t('splitPayment.toggle', 'Dividir pagamento')}
+        </label>
+      )}
       {form.payment_method === FIADO && (
         <small className="form-hint">
           {t('fiado.notInDrawer', 'No fiado, nada entra no seu caixa: o jogador fica devendo ao clube.')}

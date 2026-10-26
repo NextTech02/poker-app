@@ -360,3 +360,89 @@ describe('trocar de mesa', () => {
     expect(screen.queryByRole('button', { name: 'Mover de mesa' })).toBeNull();
   });
 });
+
+
+describe('pagamento dividido', () => {
+  beforeEach(() => {
+    usePaymentMethods.mockReturnValue({
+      activeMethods: [{ code: 'cash', label: 'Dinheiro' }, { code: 'transfer', label: 'Transferência' }],
+    });
+  });
+
+  it('senta com 250 em dinheiro + 150 em transferência', async () => {
+    montar();
+    const botoes = await screen.findAllByRole('button', { name: 'Sentar' });
+    await userEvent.click(botoes[0]);
+    await userEvent.type(screen.getByLabelText('Jogador'), 'jogador-1');
+    const valor = screen.getByLabelText('Buy-in');
+    await userEvent.clear(valor);
+    await userEvent.type(valor, '400');
+
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    const parte1 = screen.getByLabelText('Valor da parte 1');
+    expect(parte1).toHaveValue(400);
+    await userEvent.clear(parte1);
+    await userEvent.type(parte1, '250');
+    const dialogo = screen.getByRole('dialog');
+    // Enquanto as partes não fecham o buy-in, não senta.
+    expect(within(dialogo).getByRole('button', { name: 'Sentar' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
+    expect(screen.getByLabelText('Valor da parte 2')).toHaveValue(150);
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Sentar' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/cash-game/tables/mesa-1/seats/2/sit',
+      expect.objectContaining({
+        buy_in_amount: 400,
+        // A maior parte é a reserva para um servidor que ainda não divide.
+        payment_method: 'cash',
+        payment_split: [
+          { payment_method: 'cash', amount: 250 },
+          { payment_method: 'transfer', amount: 150 },
+        ],
+      }),
+    ));
+  });
+
+  it('recompra dividida', async () => {
+    montar();
+    await userEvent.click(await screen.findByRole('button', { name: 'Recompra' }));
+    await userEvent.type(screen.getByLabelText('Valor'), '100');
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    const parte1 = screen.getByLabelText('Valor da parte 1');
+    await userEvent.clear(parte1);
+    await userEvent.type(parte1, '30');
+    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
+    const dialogo = screen.getByRole('dialog');
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Recompra' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/cash-game/player-sessions/s1/rebuy',
+      expect.objectContaining({
+        amount: 100,
+        payment_method: 'transfer',
+        payment_split: [
+          { payment_method: 'cash', amount: 30 },
+          { payment_method: 'transfer', amount: 70 },
+        ],
+      }),
+    ));
+  });
+
+  it('venda de um meio só não manda partes', async () => {
+    montar();
+    await userEvent.click(await screen.findByRole('button', { name: 'Recompra' }));
+    await userEvent.type(screen.getByLabelText('Valor'), '100');
+    const dialogo = screen.getByRole('dialog');
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Recompra' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post.mock.calls[0][1].payment_split).toBeUndefined();
+  });
+
+  it('levantar não oferece dividir', async () => {
+    montar();
+    await userEvent.click(await screen.findByRole('button', { name: 'Levantar' }));
+    expect(screen.queryByLabelText('Dividir pagamento')).toBeNull();
+  });
+});

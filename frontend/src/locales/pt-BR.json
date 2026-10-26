@@ -1496,7 +1496,16 @@
     "jogador_com_fiado": "Este jogador deve {{divida}} de fiado: confirme quanto abater (sugerido {{abatimento_sugerido}}).",
     "abatimento_maior_que_o_possivel": "O abatimento passa da dívida ou do valor a pagar (máximo {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Informe o motivo para abater menos do que {{proposto}}.",
-    "fiado_indisponivel": "O fiado ainda não está disponível neste clube."
+    "fiado_indisponivel": "O fiado ainda não está disponível neste clube.",
+    "pagamento_dividido_nao_fecha": "As partes do pagamento ({{soma}}) não somam o valor da venda ({{valor}}).",
+    "pagamento_dividido_sem_partes": "Pagamento dividido sem as partes: informe quanto foi pago em cada meio.",
+    "pagamento_dividido_com_credito": "Venda com crédito ou ticket não pode ser dividida.",
+    "pagamento_dividido_com_fiado": "Venda no fiado não pode ser dividida com outros meios.",
+    "pagamento_dividido_meio_invalido": "Meio de pagamento inválido numa das partes.",
+    "pagamento_dividido_invalido": "As partes do pagamento não fecham o valor da venda.",
+    "pagamento_dividido_indisponivel": "O pagamento dividido ainda não está disponível neste servidor. Registre a venda em um meio só.",
+    "pagamento_dividido_com_quantidade": "Pagamento dividido vale para uma reentrada por vez.",
+    "pagamento_dividido_so_em_venda": "Só venda pode ter o pagamento dividido."
   },
   "premiacao": {
     "loadError": "Erro ao carregar dados da premiação",
@@ -1927,7 +1936,8 @@
     "colDescription": "Descrição",
     "typeFee": "Taxa",
     "optFee": "Taxa",
-    "descKnockout": "Prêmio por eliminação (KO)"
+    "descKnockout": "Prêmio por eliminação (KO)",
+    "paymentSplit": "Dividido"
   },
   "tournamentRankings": {
     "breadcrumbTournamentFallback": "Torneio",
@@ -3005,7 +3015,8 @@
     "moveHint": "O jogador leva as fichas com ele. Nada entra nem sai do caixa, e o resultado da noite dele continua o mesmo.",
     "playerMoved": "Jogador movido",
     "toSeat": "Lugar",
-    "toTable": "Mesa de destino"
+    "toTable": "Mesa de destino",
+    "buyInsByMethod": "Compras por meio"
   },
   "cashWaitlist": {
     "actionError": "Não foi possível concluir",
@@ -3913,5 +3924,18 @@
     "koOffset": "Fiado: abate {{offset}} · paga {{net}}",
     "prizeGross": "Prêmio (bruto)",
     "offsetPrize": "Abater do prêmio"
+  },
+  "splitPayment": {
+    "toggle": "Dividir pagamento",
+    "method": "Meio da parte {{n}}",
+    "amount": "Valor da parte {{n}}",
+    "remove": "Remover parte {{n}}",
+    "addPart": "Outra forma",
+    "missing": "Falta {{value}}",
+    "over": "Passa {{value}}",
+    "empty": "Informe quanto foi pago em cada meio.",
+    "closes": "Fecha {{value}}",
+    "mustClose": "As partes do pagamento precisam somar o total da venda.",
+    "refundParts": "Devolver ao jogador:"
   }
 }
