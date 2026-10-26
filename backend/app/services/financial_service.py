@@ -184,6 +184,7 @@ class FinancialService:
                 type=tx_type,
                 payment_source=tx.get("payment_source"),
                 payment_method=tx.get("payment_method"),
+                payment_split=tx.get("payment_split"),
                 amount=amount,
                 buy_type_name=tx.get("buy_type_name"),
                 is_fee=bool(tx.get("is_fee")),

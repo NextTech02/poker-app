@@ -202,7 +202,8 @@ def update_transaction_payment_method(
 
     try:
         return TransactionService.update_payment_method(
-            transaction_id, data.payment_method, data.notes
+            transaction_id, data.payment_method, data.notes,
+            payment_split=data.payment_split,
         )
     except ValueError as e:
         raise da_excecao(e)

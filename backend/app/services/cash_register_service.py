@@ -21,6 +21,7 @@ from app.models.cash_register import (
     SangriaResponse
 )
 from app.services.transaction_filters import ler_transacoes_ativas
+from app.services import pagamento_dividido
 from app.utils.erros import ErroDeNegocio
 
 
@@ -230,24 +231,24 @@ class CashRegisterService:
             tours = supabase.table("tournaments").select("id").eq("stage_id", stage_id).execute()
             tour_ids = [t["id"] for t in (tours.data or [])]
 
-            somas: dict = {}
+            vendas: list = []
             if tour_ids:
                 # A venda cancelada saiu da gaveta junto com o dinheiro
                 # devolvido; mantê-la aqui inflaria a conferência por método.
-                linhas = ler_transacoes_ativas(
+                # `*`: `payment_split` só existe depois da migração, e pedi-la
+                # pelo nome derrubaria a conferência antes dela.
+                vendas = ler_transacoes_ativas(
                     lambda cols: (
                         supabase.table("transactions")
                         .select(cols)
                         .in_("tournament_id", tour_ids)
                         .in_("type", ENTRY_TYPES)
                     ),
-                    "payment_method, amount",
+                    "*",
                 )
-                for t in linhas:
-                    code = t.get("payment_method") or None
-                    total, count = somas.get(code, (Decimal("0"), 0))
-                    somas[code] = (total + _dec(t.get("amount")), count + 1)
-            linhas = [(code, total, count) for code, (total, count) in somas.items()]
+            # Venda dividida soma cada parte no seu meio (300 no dinheiro, 200
+            # na transferência), como a função do banco.
+            linhas = pagamento_dividido.somar_por_meio(vendas)
 
         # Maior primeiro: é a ordem em que o operador confere a gaveta.
         linhas.sort(key=lambda item: (-item[1], item[0] or ""))

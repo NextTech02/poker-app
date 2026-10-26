@@ -8,6 +8,7 @@ from app.models.tournament_player import (
 )
 from app.services.tournament_player_service import TournamentPlayerService
 from app.models.knockout import EliminateRequest
+from app.models.pagamento import PagamentoDaVenda
 from app.auth.jwt import get_current_user
 from app.utils.erros import da_excecao
 
@@ -42,6 +43,7 @@ def add_rebuy(
     buy_type_id: Optional[str] = Query(None),
     quantity: int = Query(1, ge=1, le=20, description="EM DEPRECIAÇÃO — quantas recompras registrar de uma vez. A recompra dupla passou a ser um meio de entrada com valor e fichas próprios."),
     client_mutation_id: Optional[str] = Query(None, description="Identificador gerado no cliente; torna a chamada repetível sem duplicar a venda."),
+    body: Optional[PagamentoDaVenda] = Body(None),
     current_user: dict = Depends(get_current_user),
 ):
     """Registra uma ou mais recompras do jogador.
@@ -63,7 +65,7 @@ def add_rebuy(
     """
     user_id = current_user.get("sub")
     try:
-        return TournamentPlayerService.add_rebuy(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id, quantity=quantity, client_mutation_id=client_mutation_id)
+        return TournamentPlayerService.add_rebuy(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id, quantity=quantity, client_mutation_id=client_mutation_id, payment_split=(body.payment_split if body else None))
     except ValueError as e:
         raise da_excecao(e, status=404)
 
@@ -74,12 +76,16 @@ def add_addon(
     payment_source: Optional[str] = Query("cash"),
     payment_method: Optional[str] = Query("cash"),
     buy_type_id: Optional[str] = Query(None),
+    body: Optional[PagamentoDaVenda] = Body(None),
     current_user: dict = Depends(get_current_user),
 ):
-    """Add an add-on for a tournament player"""
+    """Add an add-on for a tournament player.
+
+    O corpo é opcional e só traz as partes do pagamento dividido; o resto
+    continua vindo pelos parâmetros."""
     user_id = current_user.get("sub")
     try:
-        return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id)
+        return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id, payment_split=(body.payment_split if body else None))
     except ValueError as e:
         raise da_excecao(e, status=404)
 

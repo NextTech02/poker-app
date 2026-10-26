@@ -15,6 +15,7 @@ from app.services.eliminacao import (
 )
 from app.utils.erros import ErroDeNegocio
 from app.services import ko_regras
+from app.services import pagamento_dividido
 from app.services.knockout_service import KnockoutService
 from app.services.team_service import TeamService
 from app.models.tournament_player import (
@@ -485,6 +486,17 @@ class TournamentPlayerService:
         buy_in_amount = buy_in * registration_data.buy_in_count
         total_chips = starting_chips * registration_data.buy_in_count
 
+        # Pagamento dividido conferido ANTES de gravar a inscrição: recusar
+        # depois deixaria um inscrito sem venda.
+        metodo, partes = pagamento_dividido.resolver(
+            registration_data.payment_method or "cash",
+            registration_data.payment_split,
+            buy_in_amount,
+            registration_data.payment_source or "cash",
+        )
+        if partes:
+            pagamento_dividido.exigir_coluna("transactions")
+
         # Create tournament player entry
         data = {
             "tournament_id": registration_data.tournament_id,
@@ -522,7 +534,7 @@ class TournamentPlayerService:
             "type": "buy_in",
             "amount": buy_in_amount,
             "payment_source": payment_source,
-            "payment_method": registration_data.payment_method or "cash",
+            "payment_method": metodo,
             "buy_type_id": registration_data.buy_type_id,
             "buy_type_name": (buy_type or {}).get("name"),
             "rake_percentage": rake_pct,
@@ -539,7 +551,15 @@ class TournamentPlayerService:
             transaction_data["ticket_id"] = ticket_id
         if client_mutation_id:
             transaction_data["client_id"] = client_mutation_id
-        supabase.table("transactions").insert(transaction_data).execute()
+        if partes:
+            # Só a venda dividida cita a coluna: a simples segue funcionando
+            # num banco que ainda não recebeu a migração.
+            transaction_data["payment_split"] = partes
+        try:
+            supabase.table("transactions").insert(transaction_data).execute()
+        except Exception as exc:
+            pagamento_dividido.traduzir_erro(exc)
+            raise
 
         # Get player info
         player = supabase.table("players").select("name, nickname").eq("id", registration_data.player_id).execute()
@@ -554,7 +574,7 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1, permitir_meio_inativo: bool = False, skip_elimination_gate: bool = False) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1, permitir_meio_inativo: bool = False, skip_elimination_gate: bool = False, payment_split=None) -> TournamentPlayer:
         """Registra UMA OU MAIS recompras do jogador, numa ida só.
 
         REENTRADA TRAZ DE VOLTA UM ELIMINADO — e só isso. Sem ninguém
@@ -639,6 +659,20 @@ class TournamentPlayerService:
             buy_type, day_info.get("rebuy_chips") or 10000
         )
 
+        # Pagamento dividido conferido antes de consumir eliminação ou mexer nos
+        # contadores. As partes são de UMA venda; o lote antigo (`quantity`)
+        # gravaria N linhas e não há como repartir uma divisão entre elas.
+        if payment_split and quantity > 1:
+            raise ErroDeNegocio(
+                "pagamento_dividido_com_quantidade",
+                "Pagamento dividido vale para uma reentrada por vez.",
+            )
+        metodo, partes = pagamento_dividido.resolver(
+            payment_method or "cash", payment_split, rebuy_amount, payment_source
+        )
+        if partes:
+            pagamento_dividido.exigir_coluna("transactions")
+
         # Check if rebuys are still allowed based on blind level (o nível atual é
         # calculado pelo relógio do dia quando o caixa não informa).
         TournamentPlayerService._recusar_rebuy_fora_do_nivel(day_info, current_blind_level, skip_level_gate)
@@ -720,7 +754,7 @@ class TournamentPlayerService:
                 "type": "rebuy",
                 "amount": rebuy_amount,
                 "payment_source": actual_payment_source,
-                "payment_method": payment_method or "cash",
+                "payment_method": metodo,
                 "buy_type_id": buy_type_id,
                 "buy_type_name": (buy_type or {}).get("name"),
                 "rake_percentage": rake_pct,
@@ -741,9 +775,15 @@ class TournamentPlayerService:
                     client_mutation_id if quantity == 1
                     else f"{client_mutation_id}:{indice}"
                 )
+            if partes:
+                linha["payment_split"] = partes
             return linha
 
-        supabase.table("transactions").insert([_linha(i) for i in range(quantity)]).execute()
+        try:
+            supabase.table("transactions").insert([_linha(i) for i in range(quantity)]).execute()
+        except Exception as exc:
+            pagamento_dividido.traduzir_erro(exc)
+            raise
 
         # Quem recompra volta para a mesa: a recompra DESFAZ uma eliminacao.
         # Sem isto o telao mostrava "2 entradas - 0 eliminacoes = 7 ativos",
@@ -830,7 +870,7 @@ class TournamentPlayerService:
                 pass
 
     @staticmethod
-    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_sales_block: bool = False, permitir_meio_inativo: bool = False) -> TournamentPlayer:
+    def add_addon(tournament_player_id: str, user_id: str, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_sales_block: bool = False, permitir_meio_inativo: bool = False, payment_split=None) -> TournamentPlayer:
         """Add an add-on for a tournament player"""
         # Get tournament player info with tournament_day data
         tp_response = _ler_inscrito_com_o_dia(
@@ -870,6 +910,13 @@ class TournamentPlayerService:
         addon_chips = TournamentPlayerService._fichas_do_tipo(
             buy_type, day_info.get("addon_chips") or 10000
         )
+        # Antes de somar no jogador: recusar depois deixaria o add-on contado
+        # sem a venda.
+        metodo, partes = pagamento_dividido.resolver(
+            payment_method or "cash", payment_split, addon_amount, payment_source
+        )
+        if partes:
+            pagamento_dividido.exigir_coluna("transactions")
         torneio_ko = _torneio_ko(tp)
         _recusar_venda_na_fase_mystery(torneio_ko, replay=skip_sales_block)
         # TAXA (categoria 'fee', ex.: Bono Dealer): vende pelo mesmo caminho do
@@ -909,7 +956,7 @@ class TournamentPlayerService:
             "type": "addon",
             "amount": addon_amount,
             "payment_source": actual_payment_source,
-            "payment_method": payment_method or "cash",
+            "payment_method": metodo,
             "buy_type_id": buy_type_id,
             "buy_type_name": (buy_type or {}).get("name"),
             "rake_percentage": rake_pct,
@@ -929,7 +976,13 @@ class TournamentPlayerService:
             transaction_data["is_fee"] = True
         if client_mutation_id:
             transaction_data["client_id"] = client_mutation_id
-        supabase.table("transactions").insert(transaction_data).execute()
+        if partes:
+            transaction_data["payment_split"] = partes
+        try:
+            supabase.table("transactions").insert(transaction_data).execute()
+        except Exception as exc:
+            pagamento_dividido.traduzir_erro(exc)
+            raise
 
         return TournamentPlayer(**response.data[0])
 

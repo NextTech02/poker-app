@@ -36,6 +36,8 @@ class TransactionEntry(BaseModel):
     type: str
     payment_source: Optional[str] = None
     payment_method: Optional[str] = None
+    # Pagamento dividido: [{payment_method, amount}, ...] (payment_method = 'split').
+    payment_split: Optional[List[dict]] = None
     amount: float
     # O que foi vendido, como o clube chama ("Bono Dealer", "Doble"): a
     # categoria sozinha (Add-on, Rebuy) não diz qual meio de entrada foi.

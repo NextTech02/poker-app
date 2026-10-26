@@ -428,6 +428,19 @@ def fiado_isolado(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def pagamento_dividido_isolado(monkeypatch):
+    """O pagamento dividido confere a coluna `payment_split` com o PRÓPRIO
+    `supabase` antes de gravar uma venda dividida. Por padrão ele vê um banco
+    vazio (a coluna "existe") e esquece o que conferiu no teste anterior."""
+    from app.services import pagamento_dividido as mod
+    fake = FakeSupabase({})
+    monkeypatch.setattr(mod, "supabase", fake)
+    mod._coluna_ok.clear()
+    yield fake
+    mod._coluna_ok.clear()
+
+
+@pytest.fixture(autouse=True)
 def envios_de_consentimento(monkeypatch):
     from app.services import player_consent_service as mod
     gravados = _EnviosGravados()

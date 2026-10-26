@@ -24,6 +24,7 @@ from app.models.cash_game import (
     CashDayResponse,
     CashDaySummary,
 )
+from app.services import pagamento_dividido
 from app.services.house_credit_service import PAYMENT_SOURCE as FIADO, HouseCreditService
 from app.utils.erros import ErroDeNegocio
 
@@ -164,6 +165,9 @@ class CashDayService:
                 total_credit_issued=float(dia.get("total_credit_issued") or 0),
                 total_debt_offset=float(dia.get("total_debt_offset") or 0),
                 total_debt_payments=float(dia.get("total_debt_payments") or 0),
+                # Recalculado mesmo no dia fechado: as linhas não mudam depois
+                # do fechamento, e o dia congelado não guarda esta quebra.
+                buy_ins_by_method=agregado["buy_ins_by_method"],
             )
 
         return CashDaySummary(
@@ -183,6 +187,7 @@ class CashDayService:
             .eq("cash_day_id", cash_day_id).execute().data or []
 
         entradas = saidas = fiado = abatido = 0.0
+        compras_pagas = []
         for t in txs:
             if (t.get("status") or "active") != "active":
                 continue  # cancelada: o dinheiro voltou para a mão do jogador
@@ -191,6 +196,8 @@ class CashDayService:
                 entradas += valor
                 if t.get("payment_source") == FIADO:
                     fiado += valor
+                else:
+                    compras_pagas.append(t)
             elif t.get("type") in ("cash_out", "jackpot_payout"):
                 saidas += valor
                 abatido += float(t.get("debt_settled_amount") or 0)
@@ -238,6 +245,12 @@ class CashDayService:
             "total_credit_issued": round(fiado, 2),
             "total_debt_offset": round(abatido, 2),
             "total_debt_payments": round(recebido, 2),
+            # Quanto entrou em cada meio (dinheiro, Yape, transferência…), com
+            # a venda dividida somada parte a parte.
+            "buy_ins_by_method": [
+                {"code": metodo, "total": float(total), "count": qtd}
+                for metodo, total, qtd in pagamento_dividido.somar_por_meio(compras_pagas)
+            ],
         }
 
     # ============================================================

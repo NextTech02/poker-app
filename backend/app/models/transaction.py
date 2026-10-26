@@ -3,6 +3,8 @@ from typing import List, Optional
 from datetime import datetime
 from enum import Enum
 
+from app.models.pagamento import PaymentLeg
+
 
 class TransactionType(str, Enum):
     buy_in = "buy_in"
@@ -58,6 +60,9 @@ class Transaction(TransactionBase):
     rake_percentage: Optional[float] = None
     rake_amount: Optional[float] = None
     payment_source: Optional[str] = None
+    # Pagamento dividido: com ele, `payment_method` é 'split' e as partes
+    # dizem quanto entrou em cada meio. Nulo = um meio só.
+    payment_split: Optional[List[PaymentLeg]] = None
     cashbox_id: Optional[str] = None
 
     # Estorno lógico. Default 'active' para tolerar o schema antigo: enquanto a
@@ -99,4 +104,7 @@ class TransactionPaymentMethodUpdate(BaseModel):
     refazer a venda.
     """
     payment_method: str = Field(..., min_length=1, max_length=50)
+    # Trocar para pagamento dividido: as partes têm de somar o valor da venda.
+    # Sem elas, a venda passa a ter um meio só (e perde a divisão, se tinha).
+    payment_split: Optional[List[PaymentLeg]] = Field(None, max_length=10)
     notes: Optional[str] = None

@@ -11,6 +11,7 @@ from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService
 from app.services.transaction_filters import sem_canceladas
 from app.utils.erros import ErroDeNegocio
+from app.services import pagamento_dividido
 
 logger = logging.getLogger(__name__)
 
@@ -1123,7 +1124,8 @@ class TransactionService:
 
     @staticmethod
     def update_payment_method(
-        transaction_id: str, payment_method: str, notes: Optional[str] = None
+        transaction_id: str, payment_method: str, notes: Optional[str] = None,
+        payment_split=None,
     ) -> TransactionDetail:
         """Troca só o RÓTULO da forma de pagamento (dinheiro/pix/cartão).
 
@@ -1145,10 +1147,32 @@ class TransactionService:
                 "venda_cancelada_nao_alteravel", "Venda cancelada não pode ser alterada"
             )
 
-        dados = {"payment_method": payment_method}
+        linha = atual.data[0]
+        if payment_split and linha.get("type") not in ("buy_in", "rebuy", "addon"):
+            raise ErroDeNegocio(
+                "pagamento_dividido_so_em_venda", "Só venda pode ter o pagamento dividido."
+            )
+        # As partes fecham o valor DA LINHA (cada item da venda é uma linha).
+        metodo, partes = pagamento_dividido.resolver(
+            payment_method, payment_split, linha.get("amount") or 0,
+            linha.get("payment_source") or "cash",
+        )
+        dados = {"payment_method": metodo}
+        if partes:
+            pagamento_dividido.exigir_coluna("transactions")
+            dados["payment_split"] = partes
+        elif "payment_split" in linha:
+            # Voltou para um meio só: a divisão antiga sai junto. Só quando a
+            # coluna existe (a linha lida a trouxe) — num banco sem a migração
+            # citá-la derrubaria a troca simples.
+            dados["payment_split"] = None
         if notes is not None:
             dados["notes"] = notes
-        resp = supabase.table("transactions").update(dados).eq("id", transaction_id).execute()
+        try:
+            resp = supabase.table("transactions").update(dados).eq("id", transaction_id).execute()
+        except Exception as exc:
+            pagamento_dividido.traduzir_erro(exc)
+            raise
         return TransactionService._detalhar(resp.data[0])
 
     @staticmethod

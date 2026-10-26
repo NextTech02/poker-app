@@ -33,6 +33,7 @@ from app.models.cash_game import (
     SitPlayerResult,
     StandPlayer,
 )
+from app.services import pagamento_dividido
 from app.services.cash_day_service import CashDayService
 from app.services.cash_table_service import CashTableService
 from app.services.cashbox_service import CashboxService
@@ -129,6 +130,13 @@ class CashTransactionService:
 
         org = organization_id or mesa.get("organization_id")
         fiado = data.payment_source == FIADO
+        # Antes de tomar a cadeira, como o fiado: recusar aqui não deixa nada
+        # para desfazer.
+        metodo, partes = pagamento_dividido.resolver(
+            data.payment_method, data.payment_split, data.buy_in_amount, data.payment_source
+        )
+        if partes:
+            pagamento_dividido.exigir_coluna("cash_transactions")
         if fiado:
             # Antes de tomar a cadeira: recusar aqui não deixa nada para desfazer.
             HouseCreditService.exigir_disponivel(data.player_id, data.buy_in_amount, org)
@@ -202,11 +210,12 @@ class CashTransactionService:
                 player_session_id=sessao["id"], player_id=data.player_id,
                 # Fiado não é meio de pagamento nem dinheiro na gaveta: sem
                 # método e sem gaveta (o banco também garante as duas coisas).
-                payment_method=None if fiado else data.payment_method,
+                payment_method=None if fiado else metodo,
                 payment_source=data.payment_source,
                 client_mutation_id=data.client_mutation_id, notes=data.notes,
                 auth_user_id=auth_user_id, organization_id=org,
                 cashbox_id=None if fiado else (caixa or {}).get("id"),
+                extras={"payment_split": partes} if partes else None,
             )
         except Exception:
             # Sessão sem venda é um jogador sentado sem ter pago: some com ela
@@ -307,6 +316,11 @@ class CashTransactionService:
 
         org = organization_id or mesa.get("organization_id")
         fiado = data.payment_source == FIADO
+        metodo, partes = pagamento_dividido.resolver(
+            data.payment_method, data.payment_split, data.amount, data.payment_source
+        )
+        if partes:
+            pagamento_dividido.exigir_coluna("cash_transactions")
         if fiado:
             HouseCreditService.exigir_disponivel(sessao["player_id"], data.amount, org)
 
@@ -316,12 +330,13 @@ class CashTransactionService:
         venda = CashTransactionService._inserir(
             mesa=mesa, tipo="rebuy", amount=data.amount,
             player_session_id=player_session_id, player_id=sessao["player_id"],
-            payment_method=None if fiado else data.payment_method,
+            payment_method=None if fiado else metodo,
             payment_source=data.payment_source,
             client_mutation_id=data.client_mutation_id, notes=data.notes,
             auth_user_id=auth_user_id,
             organization_id=org,
             cashbox_id=None if fiado else (caixa or {}).get("id"),
+            extras={"payment_split": partes} if partes else None,
         )
         return CashTransactionService._enriquecer([venda])[0]
 
@@ -599,6 +614,7 @@ class CashTransactionService:
                 existente = CashTransactionService._por_mutation_id(client_mutation_id)
                 if existente:
                     return existente
+            pagamento_dividido.traduzir_erro(exc)
             _traduzir_erro_do_banco(exc)
         return resp.data[0]
 
