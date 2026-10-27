@@ -17,6 +17,8 @@ import { FORMATOS_KO, formatoKo, koParaApi } from '../utils/ko';
 import { MAX_FINALISTAS, equipesDoTorneio, equipesParaApi } from '../utils/equipes';
 import { bilheteDoTorneio, bilheteParaApi } from '../utils/bilhete';
 import BilheteConfigModal from '../components/bilhete/BilheteConfigModal';
+import ExcluirComVendasModal from '../components/ExcluirComVendasModal';
+import { usePermissions } from '../contexts/PermissionContext';
 import ImagemDoBilheteCampo from '../components/bilhete/ImagemDoBilheteCampo';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -91,6 +93,9 @@ const Torneios = () => {
   const { toast, confirm } = useToast();
   const { selectedStage } = useStage();
   const { currency, formatCurrency } = useCurrency();
+  const { isAdmin, hasPermission } = usePermissions();
+  // Mesma permissão do estorno de venda no Caixa: quem administra o caixa.
+  const podeEstornar = isAdmin || hasPermission('cashbox.admin');
   const hasStage = !!selectedStage?.id;
 
   const [tournaments, setTournaments] = useState([]);
@@ -122,6 +127,8 @@ const Torneios = () => {
   const [formError, setFormError] = useState('');
   // Bilhete de inscrição do CLUBE (imagem, cidade, sede, enfeites).
   const [showBilhete, setShowBilhete] = useState(false);
+  // Torneio criado por engano sendo excluído junto com as compras (o impacto).
+  const [excluindoComVendas, setExcluindoComVendas] = useState(null);
 
   useEffect(() => {
     loadTournaments();
@@ -450,7 +457,7 @@ const Torneios = () => {
 
   // Texto da recusa: repete os NÚMEROS, porque é o tamanho do que está em jogo
   // que faz o operador entender por que o sistema não deixa apagar.
-  const textoDoBloqueio = (impacto) =>
+  const textoDoBloqueio = (impacto) => [
     t(
       'tournaments.deleteBlocked',
       'Este torneio não pode ser excluído: tem {{entries}} entrada(s) vendida(s) somando {{amount}}, {{players}} jogador(es) pago(s) e {{prizes}} pagamento(s) de premiação. Excluir apagaria a venda, o dinheiro recebido e o registro de quem pagou — e o caixa da etapa NÃO seria estornado. Cancele as vendas no Caixa (o estorno devolve o dinheiro e acerta o caixa) antes de excluir.',
@@ -460,7 +467,33 @@ const Torneios = () => {
         players: impacto.paying_players || 0,
         prizes: impacto.prizes || 0,
       }
-    );
+    ),
+    // O que o estorno em massa não resolve: o operador precisa saber o QUÊ
+    // está travando, senão estorna tudo no Caixa e continua sem conseguir.
+    impacto.non_cash_entries > 0 && t(
+      'tournaments.deleteBlockedNonCash',
+      '{{count}} venda(s) foram pagas com crédito ou ticket e precisam de ajuste manual.',
+      { count: impacto.non_cash_entries }
+    ),
+    (impacto.blocking_links || []).includes('satellite_tickets') && t(
+      'tournaments.deleteBlockedTickets', 'Há tickets de satélite ligados a este torneio.'
+    ),
+    (impacto.blocking_links || []).includes('satellite_prizes') && t(
+      'tournaments.deleteBlockedSatPrizes', 'Há vagas de satélite (prêmio) apontando para este torneio.'
+    ),
+    (impacto.blocking_links || []).includes('sponsor_credit') && t(
+      'tournaments.deleteBlockedCredit', 'Há crédito de patrocinador usado neste torneio.'
+    ),
+    impacto.paying_without_sale > 0 && t(
+      'tournaments.deleteBlockedNoSale',
+      '{{count}} jogador(es) têm valor pago sem venda registrada (importação ou ajuste).',
+      { count: impacto.paying_without_sale }
+    ),
+    impacto.can_cancel_and_delete && !podeEstornar && t(
+      'tournaments.deleteWithSalesAdminOnly',
+      'Um administrador do caixa pode excluir este torneio junto com todas as compras.'
+    ),
+  ].filter(Boolean).join(' ');
 
   // Confirmação com números reais. Sem eles, "tem certeza?" não diz se o
   // torneio está vazio ou se leva junto o histórico de uma noite inteira.
@@ -502,6 +535,11 @@ const Torneios = () => {
     }
 
     if (impacto?.blocked) {
+      // Só vendas em dinheiro em cima: oferece estornar todas e excluir.
+      if (impacto.can_cancel_and_delete && podeEstornar) {
+        setExcluindoComVendas(impacto);
+        return;
+      }
       toast.error(textoDoBloqueio(impacto), {
         title: t('tournaments.deleteBlockedTitle', 'Torneio com movimento financeiro'),
         duration: 14000,
@@ -751,6 +789,14 @@ const Torneios = () => {
             entryError={entryError}
             onEntryError={setEntryError}
             t={t}
+          />
+        )}
+
+        {excluindoComVendas && (
+          <ExcluirComVendasModal
+            impacto={excluindoComVendas}
+            onClose={() => setExcluindoComVendas(null)}
+            onChanged={() => { invalidateCache('/tournaments'); loadTournaments(); }}
           />
         )}
 

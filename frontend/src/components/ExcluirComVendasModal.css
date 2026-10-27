@@ -1,0 +1,31 @@
+/* Excluir torneio com todas as compras — mesmo tom do painel de avisos do estorno no Caixa. */
+.ecv {
+  max-width: 560px;
+  border: 1px solid var(--warning, #eab308);
+}
+
+.ecv .modal-body p {
+  margin: 0 0 0.75rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.ecv-progresso {
+  font-weight: 600;
+}
+
+.ecv-erro,
+.ecv-alerta {
+  color: var(--text-danger);
+  font-weight: 600;
+}
+
+.ecv-avisos {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}

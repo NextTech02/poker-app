@@ -32,6 +32,7 @@ import { getSelectedStage } from '../utils/stageUtils';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import * as PermissionContext from '../contexts/PermissionContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -1070,5 +1071,122 @@ describe('bilhete do torneio', () => {
     await userEvent.click(screen.getByRole('button', { name: 'tournaments.createFirst' }));
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/tournaments', expect.objectContaining({ ticket_city: 'Chiclayo' })));
     expect(api.post.mock.calls[0][1]).not.toHaveProperty('ticket_venue');
+  });
+});
+
+
+/**
+ * Torneio criado por engano: excluir JUNTO com as compras (pedido do NSOP).
+ * Quando o que trava a exclusão são só vendas em dinheiro, o admin do caixa
+ * ganha "Excluir com todas as compras": motivo + nome do torneio, e o
+ * servidor estorna cada venda (como no Caixa) em rodadas antes de apagar.
+ */
+describe('excluir torneio com todas as compras', () => {
+  const excluir = async (nome) =>
+    userEvent.click(within(cartaoDe(nome)).getByRole('button', { name: /common.delete|Excluir/ }));
+
+  const comVendas = (extra = {}) =>
+    api.get.mockResolvedValue({
+      data: {
+        tournament_id: 't2', tournament_name: 'Turbo',
+        days: 1, players: 2, paying_players: 2,
+        entries: 3, entries_amount: 2100, prizes: 0, prizes_amount: 0,
+        cancelled_entries: 0, blocked: true, non_cash_entries: 0,
+        blocking_links: [], paying_without_sale: 0, can_cancel_and_delete: true,
+        ...extra,
+      },
+    });
+
+  const preencher = async ({ motivo = 'criado por engano', nome = 'Turbo' } = {}) => {
+    await userEvent.type(screen.getByLabelText('Motivo'), motivo);
+    await userEvent.type(screen.getByLabelText(/Digite o nome do torneio/), nome);
+  };
+
+  it('abre o modal em vez de recusar, com o tamanho do estrago', async () => {
+    comVendas();
+    await montar();
+    await excluir('Turbo');
+    expect(await screen.findByRole('dialog', { name: 'Excluir com todas as compras' })).toBeInTheDocument();
+    expect(screen.getByText(/3 venda\(s\) somando R\$ 2100.00/)).toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(confirmar).not.toHaveBeenCalled();
+  });
+
+  it('só libera com motivo e o nome certo do torneio', async () => {
+    comVendas();
+    await montar();
+    await excluir('Turbo');
+    const botao = await screen.findByRole('button', { name: 'Estornar tudo e excluir' });
+    expect(botao).toBeDisabled();
+    await preencher({ nome: 'Turbo 2' });
+    expect(botao).toBeDisabled();
+    await userEvent.clear(screen.getByLabelText(/Digite o nome do torneio/));
+    await userEvent.type(screen.getByLabelText(/Digite o nome do torneio/), '  turbo ');
+    expect(botao).toBeEnabled();
+  });
+
+  it('chama o servidor em rodadas até excluir e mostra os avisos do estorno', async () => {
+    comVendas();
+    api.post
+      .mockResolvedValueOnce({ data: { deleted: false, cancelled: 2, remaining: 1, refunded_amount: 1100, warnings: ['A etapa já teve sangria.'] } })
+      .mockResolvedValueOnce({ data: { deleted: true, cancelled: 1, remaining: 0, refunded_amount: 1000, warnings: ['A etapa já teve sangria.'] } });
+    await montar();
+    await excluir('Turbo');
+    await screen.findByRole('dialog', { name: 'Excluir com todas as compras' });
+    await preencher();
+    await userEvent.click(screen.getByRole('button', { name: 'Estornar tudo e excluir' }));
+
+    expect(await screen.findByText('Torneio excluído')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledTimes(2);
+    expect(api.post).toHaveBeenCalledWith('/tournaments/t2/cancel-sales-and-delete', {
+      reason: 'criado por engano', confirm_name: 'Turbo',
+    });
+    expect(screen.getByText(/3 venda\(s\) estornada\(s\), R\$ 2100.00 devolvido/)).toBeInTheDocument();
+    // O mesmo aviso de duas rodadas aparece uma vez só, e fica até o admin dizer que leu.
+    expect(screen.getAllByText('A etapa já teve sangria.')).toHaveLength(1);
+    expect(invalidateCache).toHaveBeenCalledWith('/tournaments');
+    await userEvent.click(screen.getByRole('button', { name: 'Entendi, vou acertar' }));
+    expect(screen.queryByText('Torneio excluído')).toBeNull();
+  });
+
+  it('estorno que para no meio mostra o motivo e deixa tentar de novo', async () => {
+    comVendas();
+    api.post.mockRejectedValueOnce({ userMessage: 'O estorno parou depois de 1 venda(s).' });
+    await montar();
+    await excluir('Turbo');
+    await screen.findByRole('dialog', { name: 'Excluir com todas as compras' });
+    await preencher();
+    await userEvent.click(screen.getByRole('button', { name: 'Estornar tudo e excluir' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('O estorno parou depois de 1 venda(s).');
+    expect(screen.getByRole('button', { name: 'Estornar tudo e excluir' })).toBeEnabled();
+  });
+
+  it('sem ser admin do caixa: só a recusa, dizendo quem pode', async () => {
+    const permissoes = jest.spyOn(PermissionContext, 'usePermissions')
+      .mockReturnValue({ isAdmin: false, hasPermission: () => false });
+    try {
+      comVendas();
+      await montar();
+      await excluir('Turbo');
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(toast.error.mock.calls[0][0]).toContain('Um administrador do caixa pode excluir');
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      permissoes.mockRestore();
+    }
+  });
+
+  it('o que o estorno não desfaz é explicado na recusa', async () => {
+    comVendas({
+      can_cancel_and_delete: false, non_cash_entries: 1, blocking_links: ['satellite_tickets', 'sponsor_credit'],
+    });
+    await montar();
+    await excluir('Turbo');
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    const [mensagem] = toast.error.mock.calls[0];
+    expect(mensagem).toContain('1 venda(s) foram pagas com crédito ou ticket');
+    expect(mensagem).toContain('tickets de satélite');
+    expect(mensagem).toContain('crédito de patrocinador');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

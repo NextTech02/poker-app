@@ -297,7 +297,26 @@
     "finalDayName": "Final Day",
     "qualifyingDayName": "Day {{label}}",
     "mysteryGuarantee": "Mystery guarantee (optional)",
-    "mysteryStartLevel": "Mystery phase from level (optional)"
+    "mysteryStartLevel": "Mystery phase from level (optional)",
+    "deleteWithSalesTitle": "Delete with all purchases",
+    "deleteWithSalesIntro": "The tournament \"{{name}}\" has {{entries}} sale(s) totaling {{amount}}. To delete it, each sale will be REFUNDED as in the Cash Register: the money leaves the drawer of whoever sold it and the stage cash, and goes back to the player. Then the tournament and everything in it are deleted. This cannot be undone.",
+    "deleteWithSalesReason": "Reason",
+    "deleteWithSalesReasonPlaceholder": "E.g.: tournament created by mistake",
+    "deleteWithSalesConfirmName": "Type the tournament name to confirm: {{name}}",
+    "deleteWithSalesProgress": "{{count}} sale(s) refunded so far ({{amount}}).",
+    "deleteWithSalesSubmit": "Refund all and delete",
+    "deleteWithSalesRunning": "Refunding...",
+    "deleteWithSalesOnline": "Refunding the sales requires a connection.",
+    "deleteWithSalesError": "Could not refund the sales and delete the tournament.",
+    "deleteWithSalesDoneTitle": "Tournament deleted",
+    "deleteWithSalesDone": "{{count}} sale(s) refunded, {{amount}} given back to players, and the tournament \"{{name}}\" was deleted.",
+    "deleteWithSalesWarnings": "The refund could not fix the items below on its own. Resolve each one before closing the night:",
+    "deleteWithSalesAdminOnly": "A cash register administrator can delete this tournament together with all purchases.",
+    "deleteBlockedNonCash": "{{count}} sale(s) were paid with credit or a ticket and need a manual adjustment.",
+    "deleteBlockedTickets": "There are satellite tickets linked to this tournament.",
+    "deleteBlockedSatPrizes": "There are satellite seats (prizes) pointing to this tournament.",
+    "deleteBlockedCredit": "There is sponsor credit used in this tournament.",
+    "deleteBlockedNoSale": "{{count}} player(s) have an amount paid with no recorded sale (import or adjustment)."
   },
   "tournamentDays": {
     "restarted": "Day restarted.",
@@ -1496,7 +1515,11 @@
     "jogador_com_fiado": "This player owes {{divida}} in house credit: confirm how much to deduct (suggested {{abatimento_sugerido}}).",
     "abatimento_maior_que_o_possivel": "The deduction exceeds the debt or the amount to pay (max {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Give a reason for deducting less than {{proposto}}.",
-    "fiado_indisponivel": "House credit is not available in this club yet."
+    "fiado_indisponivel": "House credit is not available in this club yet.",
+    "nome_do_torneio_nao_confere": "The name typed is not this tournament's ({{nome}}).",
+    "estorno_em_massa_interrompido": "The refund stopped after {{estornadas}} sale(s): {{motivo}} What was already refunded stays refunded; try again to continue.",
+    "torneio_nao_estornavel": "This tournament cannot be deleted with its purchases: there is a paid prize, a sale paid with credit or a ticket, a satellite or sponsor credit linked to it.",
+    "sem_permissao_excluir_com_vendas": "Only cash register administrators can refund the sales and delete the tournament."
   },
   "premiacao": {
     "loadError": "Error loading prize data",

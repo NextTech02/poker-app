@@ -297,7 +297,26 @@
     "finalDayName": "Día Final",
     "qualifyingDayName": "Día {{label}}",
     "mysteryGuarantee": "Garantizado Mystery (opcional)",
-    "mysteryStartLevel": "Fase Mystery desde el nivel (opcional)"
+    "mysteryStartLevel": "Fase Mystery desde el nivel (opcional)",
+    "deleteWithSalesTitle": "Eliminar con todas las compras",
+    "deleteWithSalesIntro": "El torneo \"{{name}}\" tiene {{entries}} venta(s) que suman {{amount}}. Para eliminarlo, cada venta será REVERTIDA como en la Caja: el dinero sale de la caja de quien vendió y de la caja de la etapa, y vuelve al jugador. Después se eliminan el torneo y todo lo que es suyo. No se puede deshacer.",
+    "deleteWithSalesReason": "Motivo",
+    "deleteWithSalesReasonPlaceholder": "Ej.: torneo creado por error",
+    "deleteWithSalesConfirmName": "Escribe el nombre del torneo para confirmar: {{name}}",
+    "deleteWithSalesProgress": "{{count}} venta(s) revertida(s) hasta ahora ({{amount}}).",
+    "deleteWithSalesSubmit": "Revertir todo y eliminar",
+    "deleteWithSalesRunning": "Revirtiendo...",
+    "deleteWithSalesOnline": "Revertir las ventas requiere conexión.",
+    "deleteWithSalesError": "No se pudieron revertir las ventas y eliminar el torneo.",
+    "deleteWithSalesDoneTitle": "Torneo eliminado",
+    "deleteWithSalesDone": "{{count}} venta(s) revertida(s), {{amount}} devuelto(s) a los jugadores, y el torneo \"{{name}}\" fue eliminado.",
+    "deleteWithSalesWarnings": "La reversión no pudo ajustar sola los puntos de abajo. Resuelve cada uno antes de cerrar la noche:",
+    "deleteWithSalesAdminOnly": "Un administrador de caja puede eliminar este torneo junto con todas las compras.",
+    "deleteBlockedNonCash": "{{count}} venta(s) se pagaron con crédito o ticket y necesitan ajuste manual.",
+    "deleteBlockedTickets": "Hay tickets de satélite vinculados a este torneo.",
+    "deleteBlockedSatPrizes": "Hay cupos de satélite (premio) apuntando a este torneo.",
+    "deleteBlockedCredit": "Hay crédito de patrocinador usado en este torneo.",
+    "deleteBlockedNoSale": "{{count}} jugador(es) tienen un monto pagado sin venta registrada (importación o ajuste)."
   },
   "tournamentDays": {
     "restarted": "Día reiniciado.",
@@ -1496,7 +1515,11 @@
     "jogador_com_fiado": "Este jugador debe {{divida}} de fiado: confirmá cuánto descontar (sugerido {{abatimento_sugerido}}).",
     "abatimento_maior_que_o_possivel": "El descuento supera la deuda o el monto a pagar (máximo {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Indicá el motivo para descontar menos que {{proposto}}.",
-    "fiado_indisponivel": "El fiado todavía no está disponible en este club."
+    "fiado_indisponivel": "El fiado todavía no está disponible en este club.",
+    "nome_do_torneio_nao_confere": "El nombre escrito no es el de este torneo ({{nome}}).",
+    "estorno_em_massa_interrompido": "La reversión se detuvo después de {{estornadas}} venta(s): {{motivo}} Lo ya revertido sigue revertido; intenta de nuevo para continuar.",
+    "torneio_nao_estornavel": "Este torneo no se puede eliminar con las compras: hay un premio pagado, una venta con crédito o ticket, un satélite o crédito de patrocinador vinculado.",
+    "sem_permissao_excluir_com_vendas": "Solo quien administra la caja puede revertir las ventas y eliminar el torneo."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",

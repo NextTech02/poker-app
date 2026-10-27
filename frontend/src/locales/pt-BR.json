@@ -297,7 +297,26 @@
     "finalDayName": "Dia Final",
     "qualifyingDayName": "Dia {{label}}",
     "mysteryGuarantee": "Garantido Mystery (opcional)",
-    "mysteryStartLevel": "Fase Mystery a partir do nível (opcional)"
+    "mysteryStartLevel": "Fase Mystery a partir do nível (opcional)",
+    "deleteWithSalesTitle": "Excluir com todas as compras",
+    "deleteWithSalesIntro": "O torneio \"{{name}}\" tem {{entries}} venda(s) somando {{amount}}. Para excluí-lo, cada venda será ESTORNADA como no Caixa: o dinheiro sai da gaveta de quem vendeu e do caixa da etapa e volta para o jogador. Depois o torneio e tudo o que é dele são apagados. Não há como desfazer.",
+    "deleteWithSalesReason": "Motivo",
+    "deleteWithSalesReasonPlaceholder": "Ex.: torneio criado por engano",
+    "deleteWithSalesConfirmName": "Digite o nome do torneio para confirmar: {{name}}",
+    "deleteWithSalesProgress": "{{count}} venda(s) estornada(s) até agora ({{amount}}).",
+    "deleteWithSalesSubmit": "Estornar tudo e excluir",
+    "deleteWithSalesRunning": "Estornando...",
+    "deleteWithSalesOnline": "Estornar as vendas exige conexão.",
+    "deleteWithSalesError": "Não foi possível estornar as vendas e excluir o torneio.",
+    "deleteWithSalesDoneTitle": "Torneio excluído",
+    "deleteWithSalesDone": "{{count}} venda(s) estornada(s), {{amount}} devolvido(s) aos jogadores, e o torneio \"{{name}}\" foi excluído.",
+    "deleteWithSalesWarnings": "O estorno não conseguiu acertar sozinho os itens abaixo. Resolva cada um antes de fechar a noite:",
+    "deleteWithSalesAdminOnly": "Um administrador do caixa pode excluir este torneio junto com todas as compras.",
+    "deleteBlockedNonCash": "{{count}} venda(s) foram pagas com crédito ou ticket e precisam de ajuste manual.",
+    "deleteBlockedTickets": "Há tickets de satélite ligados a este torneio.",
+    "deleteBlockedSatPrizes": "Há vagas de satélite (prêmio) apontando para este torneio.",
+    "deleteBlockedCredit": "Há crédito de patrocinador usado neste torneio.",
+    "deleteBlockedNoSale": "{{count}} jogador(es) têm valor pago sem venda registrada (importação ou ajuste)."
   },
   "tournamentDays": {
     "restarted": "Dia reiniciado.",
@@ -1496,7 +1515,11 @@
     "jogador_com_fiado": "Este jogador deve {{divida}} de fiado: confirme quanto abater (sugerido {{abatimento_sugerido}}).",
     "abatimento_maior_que_o_possivel": "O abatimento passa da dívida ou do valor a pagar (máximo {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Informe o motivo para abater menos do que {{proposto}}.",
-    "fiado_indisponivel": "O fiado ainda não está disponível neste clube."
+    "fiado_indisponivel": "O fiado ainda não está disponível neste clube.",
+    "nome_do_torneio_nao_confere": "O nome digitado não é o deste torneio ({{nome}}).",
+    "estorno_em_massa_interrompido": "O estorno parou depois de {{estornadas}} venda(s): {{motivo}} O que já foi estornado continua estornado; tente de novo para continuar.",
+    "torneio_nao_estornavel": "Este torneio não pode ser excluído com as compras: há prêmio pago, venda com crédito ou ticket, satélite ou crédito de patrocinador ligado a ele.",
+    "sem_permissao_excluir_com_vendas": "Só quem administra o caixa pode estornar as vendas e excluir o torneio."
   },
   "premiacao": {
     "loadError": "Erro ao carregar dados da premiação",
