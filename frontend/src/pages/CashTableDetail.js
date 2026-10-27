@@ -15,6 +15,7 @@ import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { methodLabel } from '../utils/paymentMethodLabels';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
+import { useHistoricoDoJogador } from '../hooks/useHistoricoDoJogador';
 import { usePermissions } from '../contexts/PermissionContext';
 import ReceberFiadoModal from '../components/fiado/ReceberFiadoModal';
 import {
@@ -44,6 +45,8 @@ const CashTableDetail = () => {
   const { activeMethods } = usePaymentMethods();
   const { cashDayId } = useCashDay();
   const { staffName, organizationName } = usePermissions();
+  // O nome na cadeira abre o histórico do jogador.
+  const { podeVerHistorico, propsDoHistorico } = useHistoricoDoJogador();
 
   const [table, setTable] = useState(null);
   const [seats, setSeats] = useState([]);
@@ -431,7 +434,12 @@ const CashTableDetail = () => {
                     </>
                   ) : (
                     <>
-                      <span className="ctd-seat-player">{s.player_name || '—'}</span>
+                      <span
+                        className={`ctd-seat-player${podeVerHistorico && s.player_id ? ' ctd-seat-player--link' : ''}`}
+                        {...propsDoHistorico(s.player_id)}
+                      >
+                        {s.player_name || '—'}
+                      </span>
                       <span className="ctd-seat-amount">
                         {t('cash.boughtIn', 'Comprou {{value}}', {
                           value: formatCurrency(s.total_buy_in || 0),

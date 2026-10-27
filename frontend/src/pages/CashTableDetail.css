@@ -50,6 +50,19 @@
   overflow-wrap: anywhere;
 }
 
+/* Nome que leva ao histórico do jogador. */
+.ctd-seat-player--link {
+  cursor: pointer;
+}
+.ctd-seat-player--link:hover {
+  text-decoration: underline;
+}
+.ctd-seat-player--link:focus-visible {
+  outline: 2px solid var(--accent-color, #7233f8);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .ctd-seat-empty {
   flex: 1;
   font-size: 0.9rem;

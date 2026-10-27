@@ -528,6 +528,19 @@
 
 /* Nome sempre à vista no assento: até 3 linhas (nome e sobrenomes), o resto
    vai para o title. Quebra entre palavras; no meio só se a palavra não couber. */
+/* Nome que leva ao histórico do jogador (o assento continua arrastável). */
+.tm-seat-name--link {
+  cursor: pointer;
+}
+.tm-seat-name--link:hover {
+  text-decoration: underline;
+}
+.tm-seat-name--link:focus-visible {
+  outline: 2px solid var(--accent-color, #7233f8);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .tm-seat-name {
   max-width: 100%;
   font-size: 0.7rem;
