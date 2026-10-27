@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import List, Optional
 from datetime import datetime
 from collections import defaultdict
@@ -11,6 +12,7 @@ from app.models.tournament import (
     Tournament,
     TournamentSummary,
     TournamentDeleteImpact,
+    TournamentCancelAndDeleteResult,
 )
 from app.utils.erros import ErroDeNegocio
 from app.services.eliminacao import modo_do_torneio
@@ -23,6 +25,21 @@ MSG_TORNEIO_COM_MOVIMENTO = (
     "Cancele as vendas no Caixa (o estorno devolve o dinheiro ao jogador e "
     "acerta o caixa da etapa) antes de excluir."
 )
+
+# Recusa do estorno em massa: sobra algo que o estorno automático não desfaz.
+MSG_TORNEIO_NAO_ESTORNAVEL = (
+    "Este torneio não pode ser excluído com as compras: há prêmio pago, venda "
+    "com crédito ou ticket, satélite ou crédito de patrocinador ligado a ele. "
+    "Resolva esses itens antes de excluir."
+)
+
+# Tempo de cada rodada do estorno em massa. Cada venda custa várias idas ao
+# banco (contadores, caixa da etapa, gaveta, fidelidade); sem um teto, um
+# torneio com dezenas de vendas estouraria o tempo da requisição no meio. A
+# rodada para no teto e a tela chama de novo — o estorno retoma sozinho.
+ORCAMENTO_DO_ESTORNO_EM_MASSA = 20.0
+
+TIPOS_DE_ENTRADA = ("buy_in", "rebuy", "addon")
 
 
 class MovimentoFinanceiroImpedeExclusao(Exception):
@@ -66,6 +83,34 @@ def resumir_vendas(vendas: List[dict]) -> dict:
             resumo["entries"] += 1
             resumo["entries_amount"] = round(resumo["entries_amount"] + valor, 2)
     return resumo
+
+
+def vendas_vivas(vendas: List[dict]) -> List[dict]:
+    """Entradas que ainda valem dinheiro (inclui o estorno pela metade)."""
+    return [
+        v for v in vendas
+        if v.get("type") in TIPOS_DE_ENTRADA and (v.get("status") or "active") != "cancelled"
+    ]
+
+
+def fila_do_estorno(vendas: List[dict]) -> List[dict]:
+    """Ordem em que o estorno em massa desfaz as vendas.
+
+    1. o estorno que parou no meio ('cancelling') — retomar antes de começar outro;
+    2. reentradas e add-ons — o buy-in só pode ser estornado depois deles
+       (`_exigir_recompras_canceladas`);
+    3. os buy-ins.
+    Dentro de cada grupo, da mais nova para a mais antiga.
+    """
+    fila = sorted(vendas_vivas(vendas), key=lambda v: v.get("created_at") or "", reverse=True)
+    return sorted(fila, key=lambda v: (
+        0 if v.get("status") == "cancelling" else 1,
+        1 if v.get("type") == "buy_in" else 0,
+    ))
+
+
+def _normalizar_nome(nome: Optional[str]) -> str:
+    return " ".join((nome or "").split()).casefold()
 
 
 def contar_pagantes(inscricoes: List[dict]) -> int:
@@ -550,15 +595,78 @@ class TournamentService:
 
         resumo = resumir_vendas(vendas)
         pagantes = contar_pagantes(inscricoes)
+        vivas = vendas_vivas(vendas)
+        nao_dinheiro = sum(1 for v in vivas if (v.get("payment_source") or "cash") != "cash")
+        # Quem pagou sem venda viva (importação, ajuste manual): o estorno das
+        # vendas não zera esse dinheiro.
+        com_venda = {v.get("tournament_player_id") for v in vivas}
+        sem_venda = sum(
+            1 for i in inscricoes
+            if (i.get("status") or "") != "cancelled"
+            and float(i.get("total_spent") or 0) > 0
+            and i.get("id") not in com_venda
+        )
+        ligacoes = TournamentService._ligacoes_que_travam(
+            tournament_id, [d["id"] for d in dias], [i["id"] for i in inscricoes]
+        )
+        bloqueado = bool(resumo["entries"] or resumo["prizes"] or pagantes or ligacoes)
         return TournamentDeleteImpact(
             tournament_id=tournament_id,
             tournament_name=torneio.data[0].get("name") or "",
             days=len(dias),
             players=len(inscricoes),
             paying_players=pagantes,
-            blocked=bool(resumo["entries"] or resumo["prizes"] or pagantes),
+            blocked=bloqueado,
+            non_cash_entries=nao_dinheiro,
+            blocking_links=ligacoes,
+            paying_without_sale=sem_venda,
+            # Só vendas em dinheiro em cima: o estorno em massa resolve tudo.
+            can_cancel_and_delete=bool(
+                bloqueado and resumo["entries"] and not resumo["prizes"]
+                and not nao_dinheiro and not sem_venda and not ligacoes
+            ),
             **resumo,
         )
+
+    @staticmethod
+    def _ligacoes_que_travam(tournament_id: str, dias: List[str], inscricoes: List[str]) -> List[str]:
+        """Registros de OUTRAS tabelas que o banco não deixa apagar junto.
+
+        As FKs de `satellite_tickets`, `credit_transactions` e da vaga de
+        satélite em `prize_allocations` não são CASCADE: com qualquer uma
+        delas apontando para o torneio (ou um dia, ou uma inscrição dele), o
+        DELETE estoura no banco. Tabela ausente num ambiente antigo = sem
+        ligação.
+        """
+        def existe(montar) -> bool:
+            try:
+                return bool(montar().limit(1).execute().data)
+            except Exception:
+                logger.warning("conferência de ligação do torneio falhou", exc_info=True)
+                return False
+
+        ligacoes: List[str] = []
+        tickets = existe(lambda: supabase.table("satellite_tickets").select("id")
+                         .eq("target_tournament_id", tournament_id))
+        if not tickets and dias:
+            tickets = existe(lambda: supabase.table("satellite_tickets").select("id")
+                             .in_("target_tournament_day_id", dias))
+        if not tickets and inscricoes:
+            tickets = existe(lambda: supabase.table("satellite_tickets").select("id")
+                             .in_("redeemed_tournament_player_id", inscricoes))
+        if tickets:
+            ligacoes.append("satellite_tickets")
+        if existe(lambda: supabase.table("prize_allocations").select("id")
+                  .eq("vaga_target_tournament_id", tournament_id)):
+            ligacoes.append("satellite_prizes")
+        credito = existe(lambda: supabase.table("credit_transactions").select("id")
+                         .eq("tournament_id", tournament_id))
+        if not credito and dias:
+            credito = existe(lambda: supabase.table("credit_transactions").select("id")
+                             .in_("tournament_day_id", dias))
+        if credito:
+            ligacoes.append("sponsor_credit")
+        return ligacoes
 
     @staticmethod
     def delete_tournament(tournament_id: str) -> bool:
@@ -584,3 +692,97 @@ class TournamentService:
 
         response = supabase.table("tournaments").delete().eq("id", tournament_id).execute()
         return len(response.data) > 0
+
+    @staticmethod
+    def cancel_sales_and_delete(
+        tournament_id: str,
+        user_id: str,
+        reason: str,
+        confirm_name: str,
+        orcamento_segundos: float = ORCAMENTO_DO_ESTORNO_EM_MASSA,
+    ) -> Optional[TournamentCancelAndDeleteResult]:
+        """Torneio criado por engano: estorna TODAS as vendas e exclui.
+
+        Não existe atalho de dinheiro aqui: cada venda passa pelo MESMO estorno
+        do Caixa (`TransactionService.cancel_transaction`) — devolve a gaveta do
+        operador, o caixa da etapa, os contadores e a fidelidade, e avisa o que
+        não conseguiu acertar sozinho (sangria já feita, caixa já fechado). Só
+        quando não sobra venda viva o torneio é apagado, pela exclusão de
+        sempre, que reconfere a guarda.
+
+        Roda em RODADAS de `orcamento_segundos`: devolve `remaining` > 0 e a
+        tela chama de novo. Interromper no meio é seguro — cada estorno é
+        retomável e nunca debita duas vezes.
+
+        Recusa (sem estornar nada) quando sobra o que o estorno não desfaz:
+        prêmio pago, venda com crédito/ticket, satélite, crédito de patrocinador
+        ou inscrito pago sem venda.
+        """
+        from app.services.transaction_service import TransactionService
+
+        impacto = TournamentService.get_delete_impact(tournament_id)
+        if impacto is None:
+            return None
+        if _normalizar_nome(confirm_name) != _normalizar_nome(impacto.tournament_name):
+            raise ErroDeNegocio(
+                "nome_do_torneio_nao_confere",
+                "O nome digitado não é o deste torneio.",
+                nome=impacto.tournament_name,
+            )
+        if impacto.blocked and not impacto.can_cancel_and_delete:
+            raise MovimentoFinanceiroImpedeExclusao(impacto, MSG_TORNEIO_NAO_ESTORNAVEL)
+
+        vendas = (
+            supabase.table("transactions").select("*")
+            .eq("tournament_id", tournament_id).execute().data or []
+        )
+        fila = fila_do_estorno(vendas)
+        inicio = time.monotonic()
+        estornadas = 0
+        devolvido = 0.0
+        avisos: List[str] = []
+        for venda in fila:
+            # Pelo menos UMA venda por rodada: a rodada sempre avança.
+            if estornadas and time.monotonic() - inicio >= orcamento_segundos:
+                break
+            try:
+                detalhe = TransactionService.cancel_transaction(venda["id"], user_id, reason)
+            except ErroDeNegocio as erro:
+                # KO já entregue, estorno disputado por outra tela... O que já
+                # foi estornado fica estornado (dinheiro devolvido de verdade);
+                # a tela recarrega o impacto e mostra o que sobrou.
+                raise ErroDeNegocio(
+                    "estorno_em_massa_interrompido",
+                    f"O estorno parou numa venda: {erro.message}",
+                    status=409,
+                    estornadas=estornadas,
+                    motivo=erro.message,
+                    motivo_code=erro.code,
+                ) from erro
+            except Exception as erro:
+                logger.exception("estorno em massa: venda %s parou no meio", venda.get("id"))
+                raise ErroDeNegocio(
+                    "estorno_em_massa_interrompido",
+                    "Um estorno parou no meio. Tente de novo: ele retoma de onde parou.",
+                    status=409,
+                    estornadas=estornadas,
+                ) from erro
+            estornadas += 1
+            devolvido += float(venda.get("amount") or 0)
+            avisos.extend(detalhe.cancel_warnings or [])
+
+        # Mesmo aviso repetido em várias vendas (ex.: "a etapa já teve
+        # sangria") aparece uma vez só.
+        avisos = list(dict.fromkeys(avisos))
+        restantes = len(fila) - estornadas
+        if restantes:
+            return TournamentCancelAndDeleteResult(
+                deleted=False, cancelled=estornadas, remaining=restantes,
+                refunded_amount=round(devolvido, 2), warnings=avisos,
+            )
+
+        excluido = TournamentService.delete_tournament(tournament_id)
+        return TournamentCancelAndDeleteResult(
+            deleted=excluido, cancelled=estornadas, remaining=0,
+            refunded_amount=round(devolvido, 2), warnings=avisos,
+        )

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from enum import Enum
 
@@ -224,6 +224,42 @@ class TournamentDeleteImpact(BaseModel):
     # True = tem dinheiro em cima; a exclusão é RECUSADA (409), e o caminho
     # passa a ser cancelar as vendas no Caixa (estorno acerta o caixa) antes.
     blocked: bool = False
+    # Vendas VIVAS pagas com crédito de patrocinador ou ticket: o estorno não
+    # sabe devolver saldo nem bilhete, então elas não saem no estorno em massa.
+    non_cash_entries: int = 0
+    # Ligações que o BANCO não deixa apagar (FK sem cascata): tickets de
+    # satélite para este torneio ou resgatados nele (`satellite_tickets`),
+    # crédito de patrocinador usado nele (`sponsor_credit`) e vaga de satélite
+    # como prêmio (`satellite_prizes`). Sem conferir, o DELETE estourava.
+    blocking_links: List[str] = []
+    # Inscritos com dinheiro gravado SEM venda viva (importação, ajuste):
+    # nenhum estorno os zera.
+    paying_without_sale: int = 0
+    # True = o que trava a exclusão são só vendas em dinheiro: dá para
+    # estornar todas (devolvendo gaveta e caixa da etapa) e excluir.
+    can_cancel_and_delete: bool = False
+
+
+class TournamentCancelAndDelete(BaseModel):
+    """Excluir o torneio criado por engano junto com as compras.
+
+    O nome digitado confere que é ESTE torneio (a confirmação genérica não
+    protege de um clique no torneio vizinho); o motivo vai em cada estorno."""
+    reason: str = Field(..., min_length=3, max_length=500)
+    confirm_name: str = Field(..., min_length=1, max_length=300)
+
+
+class TournamentCancelAndDeleteResult(BaseModel):
+    """Resultado de UMA rodada do estorno em massa.
+
+    O estorno roda em lotes com tempo contado (cada venda custa várias idas ao
+    banco): `deleted` falso com `remaining` > 0 quer dizer "chame de novo" —
+    cada estorno é retomável e nunca debita duas vezes."""
+    deleted: bool = False
+    cancelled: int = 0          # vendas estornadas NESTA rodada
+    remaining: int = 0          # vendas ainda vivas no torneio
+    refunded_amount: float = 0  # quanto voltou aos jogadores nesta rodada
+    warnings: List[str] = []    # o que o estorno não acertou sozinho
 
 
 class TournamentSummary(BaseModel):

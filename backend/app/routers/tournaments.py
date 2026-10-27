@@ -6,6 +6,8 @@ from app.models.tournament import (
     Tournament,
     TournamentSummary,
     TournamentDeleteImpact,
+    TournamentCancelAndDelete,
+    TournamentCancelAndDeleteResult,
 )
 from app.models.buy_type import BuyTypesReplace
 from app.services.buy_type_service import BuyTypeService
@@ -15,6 +17,7 @@ from app.services.tournament_service import (
 )
 from app.auth.jwt import get_current_user
 from app.dependencies import get_stage_id_optional
+from app.services.cashbox_service import CashboxService
 # Recusas com CODIGO: a tela escolhe a frase no idioma do clube
 # (Brasil, Peru, Colombia) — ver app/utils/erros.py.
 from app.utils.erros import conflito, da_excecao, nao_encontrado, recusado, sem_permissao
@@ -191,6 +194,59 @@ def delete_tournament(
         )
     if not success:
         raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
+
+
+@router.post(
+    "/{tournament_id}/cancel-sales-and-delete",
+    response_model=TournamentCancelAndDeleteResult,
+    responses={
+        400: {"description": "O nome digitado não é o do torneio."},
+        403: {"description": "Só quem administra o caixa pode estornar as vendas."},
+        404: {"description": "Torneio não encontrado."},
+        409: {
+            "description": (
+                "Sobra o que o estorno não desfaz (prêmio pago, venda com crédito "
+                "ou ticket, satélite, crédito de patrocinador) — o corpo traz "
+                "`impact` —, ou um estorno parou no meio (`estorno_em_massa_interrompido`)."
+            )
+        },
+    },
+)
+def cancel_sales_and_delete_tournament(
+    tournament_id: str,
+    data: TournamentCancelAndDelete,
+    current_user: dict = Depends(get_current_user),
+    stage_id: Optional[str] = Depends(get_stage_id_optional),
+):
+    """Torneio criado por engano: estorna TODAS as vendas e exclui.
+
+    Cada venda passa pelo estorno do Caixa (gaveta, caixa da etapa, contadores,
+    fidelidade). Roda em rodadas: `deleted` falso com `remaining` > 0 quer dizer
+    "chame de novo". Mesma permissão do estorno de venda: admin de caixa.
+    """
+    user_id = current_user.get("sub")
+    if not CashboxService.can_admin(user_id):
+        raise sem_permissao(
+            "sem_permissao_excluir_com_vendas",
+            "Só quem administra o caixa pode estornar as vendas e excluir o torneio",
+        )
+    _exigir_torneio_da_etapa(tournament_id, stage_id)
+
+    try:
+        resultado = TournamentService.cancel_sales_and_delete(
+            tournament_id, user_id, data.reason.strip(), data.confirm_name
+        )
+    except MovimentoFinanceiroImpedeExclusao as recusa:
+        raise conflito(
+            "torneio_nao_estornavel",
+            recusa.mensagem,
+            impact=recusa.impacto.model_dump(),
+        )
+    except ValueError as e:
+        raise da_excecao(e)
+    if resultado is None:
+        raise nao_encontrado("torneio_nao_encontrado", "Tournament not found")
+    return resultado
 
 
 # ── Meios de entrada do torneio ─────────────────────────────────────────────
