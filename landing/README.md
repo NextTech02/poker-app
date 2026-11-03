@@ -1,30 +1,50 @@
 # Landing page — aceblind.net
 
-Página única, HTML estático, sem build. Baseada no protótipo do marketing
-(`aceblind-landing.html`), com os números conferidos contra o banco e os textos
-que não podiam ir ao ar como estavam.
+Página única, HTML estático, em três idiomas — cada um com a sua URL:
+`aceblind.net/` (português), `/es/` e `/en/`. Baseada no protótipo do
+marketing (`aceblind-landing.html`), com os números conferidos contra o banco e
+os textos que não podiam ir ao ar como estavam.
 
 ```
 landing/
-├── index.html      a página (HTML + CSS + JS), em português
-├── i18n.js         as traduções para inglês e espanhol
-├── nginx.conf      como é servida
-├── Dockerfile      container (nginx:alpine, ~10 MB)
-└── public/         robots.txt, sitemap.xml — e og.png, quando existir
+├── index.html      a página (HTML + CSS + JS), em português — a fonte do markup
+├── i18n.js         as traduções para inglês e espanhol, e título/descrição de cada idioma
+├── build.mjs       gera dist/: uma página por idioma, sitemap e dados estruturados
+├── nginx.conf      como é servida (+ seguranca.conf, os cabeçalhos)
+├── Dockerfile      build em Node, serve com nginx:alpine (~10 MB)
+└── public/         robots.txt, 404.html — e og.png, quando existir
 ```
 
-## Idiomas
+## Idiomas e SEO
 
 A página é escrita em **português no HTML**, e inglês e espanhol vivem em
-`i18n.js`. O português não está lá de propósito: ele é o próprio HTML, que é o
-que o buscador lê e o que sobra se o JavaScript falhar. Duplicá-lo criaria duas
-fontes do mesmo texto, e uma ficaria para trás na primeira correção de copy.
+`i18n.js`. O `build.mjs` aplica as traduções e gera **um HTML por idioma**, com
+o texto já traduzido, título, descrição, canonical e `hreflang` próprios:
 
-Qual idioma aparece, nesta ordem: `?lang=es` na URL → o que a pessoa escolheu
-antes → o idioma do navegador dela → português.
+| URL | Idioma |
+|---|---|
+| `aceblind.net/` | português (também o `x-default`) |
+| `aceblind.net/es/` | espanhol |
+| `aceblind.net/en/` | inglês |
 
-O `?lang=` serve para o link que você manda pronto: `aceblind.net/?lang=es` abre
-em espanhol no celular de um clube colombiano, sem depender do navegador dele.
+Antes, os três idiomas viviam na mesma URL e o JavaScript trocava o texto no
+navegador. Para o Google era uma página só — e, como o robô renderiza com o
+navegador em inglês, ele podia até ler a home em inglês. Por isso o idioma
+agora é decidido **só pela URL**: nada de detectar pelo navegador nem lembrar a
+escolha. O seletor de idioma são links para as três URLs.
+
+Os links antigos com `?lang=es` / `?lang=en` continuam funcionando: o nginx
+manda (301) para `/es/` ou `/en/`.
+
+O build também gera:
+
+- `sitemap.xml` com as três URLs ligadas por `hreflang`;
+- os **dados estruturados** (JSON-LD) de cada página — `Organization`,
+  `SoftwareApplication` com os planos e `FAQPage` com as perguntas —, lidos do
+  próprio texto já traduzido. Mudou uma pergunta ou um preço no HTML, o JSON-LD
+  acompanha;
+- o link `wa.me` dos botões de WhatsApp já no HTML, com a mensagem no idioma da
+  página.
 
 **Ao acrescentar texto novo**, marque no HTML e adicione a chave nos dois
 idiomas de `i18n.js`:
@@ -35,15 +55,28 @@ idiomas de `i18n.js`:
 <nav data-i18n-aria="minha.chaveAria" aria-label="Seções">
 ```
 
-Chave faltando não quebra a página — o trecho fica em português — e o console
-do navegador avisa quais faltaram.
+Chave faltando não quebra a página — o trecho fica em português — e o build
+avisa no log quais faltaram.
 
 ## Editar o texto
 
-`index.html`, direto. Não há build: salvou, subiu.
+`index.html` (português) e `i18n.js` (inglês e espanhol). Título e descrição
+de cada idioma, para o Google e para o link compartilhado, ficam em
+`ACEBLIND_META`, no fim de `i18n.js`.
+
+Para ver o resultado antes de subir:
+
+```bash
+cd landing
+npm install          # uma vez
+npm run build        # gera dist/
+npx serve dist       # ou qualquer servidor estático
+```
+
+Abrir o `index.html` direto no navegador também funciona, mas só em português.
 
 Os dois valores de configuração ficam juntos, no bloco `CONFIGURAÇÃO DA PÁGINA`
-no fim do arquivo:
+no fim do `index.html`:
 
 ```js
 window.ACEBLIND_API = 'https://api.aceblind.net';
@@ -93,7 +126,9 @@ SELECT * FROM leads WHERE notified_at IS NULL AND status = 'new'
 
 ## Deploy
 
-O `docker-compose.yml` já traz o serviço `landing` na porta 3003.
+O `docker-compose.yml` já traz o serviço `landing` na porta 3003. O build
+(tradução, sitemap, JSON-LD) roda dentro do `docker compose build`; não é
+preciso Node no VPS.
 
 ```bash
 docker compose build landing

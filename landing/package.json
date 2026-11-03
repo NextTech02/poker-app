@@ -1,0 +1,12 @@
+{
+  "name": "aceblind-landing",
+  "private": true,
+  "type": "module",
+  "description": "Landing aceblind.net — gera uma página HTML por idioma (/, /es/, /en/).",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "cheerio": "1.0.0"
+  }
+}

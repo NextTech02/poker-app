@@ -1,21 +1,28 @@
-# Landing page — HTML estático, sem build.
+# Landing page — HTML estático, gerado por idioma no build.
 #
-# nginx:alpine e não `serve` (usado pelo frontend): aqui não há SPA para
-# reescrever, e o nginx entrega arquivo estático com cache e gzip sem
-# depender de Node em produção. A imagem final tem ~10 MB.
+# Estágio 1: build.mjs aplica as traduções de i18n.js no index.html e gera uma
+# página por idioma (/, /es/, /en/), o sitemap e os dados estruturados. É
+# isso que o Google lê — por isso o texto sai pronto no HTML, e não traduzido
+# pelo navegador.
+FROM node:22-alpine AS build
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY build.mjs index.html i18n.js ./
+# robots.txt, 404.html e o que mais entrar (og.png, fontes). A pasta é
+# versionada justamente para este COPY não falhar — `COPY` de diretório
+# inexistente aborta o build.
+COPY public/ public/
+RUN node build.mjs
+
+# Estágio 2: nginx:alpine e não `serve` (usado pelo frontend): aqui não há SPA
+# para reescrever, e o nginx entrega arquivo estático com cache e gzip sem
+# depender de Node em produção. A imagem final tem ~10 MB — o Node do
+# estágio 1 não vai junto.
 FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY index.html /usr/share/nginx/html/index.html
-# Sem esta linha o `<script src="i18n.js">` do index.html nao acha o arquivo, e
-# o `try_files $uri /index.html` do nginx.conf responde com a PAGINA INTEIRA,
-# status 200 e content-type text/html. O navegador tenta ler HTML como
-# JavaScript, quebra, e ACEBLIND_I18N/ACEBLIND_META ficam undefined: ingles e
-# espanhol caem calados para portugues. Falha sem erro visivel — a pagina abre.
-COPY i18n.js /usr/share/nginx/html/i18n.js
-# robots.txt, sitemap.xml e o que mais entrar (og.png, fontes). A pasta é
-# versionada com esses dois arquivos justamente para este COPY não falhar —
-# `COPY` de diretório inexistente aborta o build.
-COPY public/ /usr/share/nginx/html/
+COPY seguranca.conf /etc/nginx/aceblind-seguranca.conf
+COPY --from=build /src/dist/ /usr/share/nginx/html/
 
 EXPOSE 80

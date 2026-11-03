@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Página de erro: não deve aparecer na busca. O nginx a entrega com status
+     404 de verdade — antes, qualquer endereço inexistente devolvia a home com
+     status 200, e o Google via dezenas de cópias da mesma página. -->
+<meta name="robots" content="noindex">
+<title>Página não encontrada | AceBlind</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%2314052E'/%3E%3Cpath d='M20 6 L33 34 H26.5 L20 19 L13.5 34 H7 Z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{--feltro:#14052E;--violeta:#6D3BFF;--lavanda:#B79CFF;--texto:#C9C2DE}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;
+  background:var(--feltro);color:#fff;font-family:'Montserrat','Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:560px}
+.cod{font-family:'JetBrains Mono',Consolas,monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--lavanda);margin-bottom:20px}
+h1{font-size:clamp(30px,6vw,44px);font-weight:400;line-height:1.1;letter-spacing:-.025em;margin-bottom:16px}
+p{color:var(--texto);font-size:17px;line-height:1.6;margin-bottom:28px}
+nav{display:flex;flex-wrap:wrap;gap:12px}
+a{display:inline-flex;align-items:center;height:46px;padding:0 20px;border-radius:10px;font-weight:500;font-size:15px;text-decoration:none}
+.pri{background:var(--violeta);color:#fff}
+.sec{border:1px solid rgba(255,255,255,.22);color:#fff}
+a:focus-visible{outline:2px solid var(--lavanda);outline-offset:3px}
+.outros{margin-top:36px;font-size:14px;color:var(--texto)}
+.outros a{display:inline;height:auto;padding:0;color:var(--lavanda);font-weight:400;text-decoration:underline}
+</style>
+</head>
+<body>
+<main>
+  <div class="cod">Erro 404</div>
+  <h1>Esta página não existe.</h1>
+  <p>O endereço pode ter mudado ou ter sido digitado errado. Se você procurava o sistema do seu clube, ele fica em app.aceblind.net.</p>
+  <nav>
+    <a class="pri" href="/#demo">Começar o teste grátis</a>
+    <a class="sec" href="/">Ir para a página inicial</a>
+    <a class="sec" href="https://app.aceblind.net">Entrar no sistema</a>
+  </nav>
+  <p class="outros"><a href="/es/" lang="es">Ir a la página en español</a> · <a href="/en/" lang="en">Go to the English page</a></p>
+</main>
+</body>
+</html>
