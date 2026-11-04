@@ -2,7 +2,7 @@ import axios from 'axios';
 import i18n from 'i18next';
 import { getSelectedStageId } from '../utils/stageUtils';
 import { emitToastError } from '../utils/toastEmitter';
-import { putGetCache, getGetCache } from '../offline/db';
+import { agendarGetCache, lerGetCache } from '../offline/db';
 import { markOffline, markOnline } from '../offline/connectivity';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -51,7 +51,10 @@ api.interceptors.request.use((config) => {
 // de quebrar. Online, sempre bate no servidor: nada de dado velho com rede.
 //
 // A chave é escopada por USUÁRIO + ORGANIZAÇÃO (claims do JWT), senão o cache de
-// um cliente vazaria para outro no mesmo dispositivo. É limpo no logout.
+// um cliente vazaria para outro no mesmo dispositivo.
+//
+// A gravação é COALESCIDA por endpoint (`agendarGetCache`): a mesma lista não é
+// regravada a cada recarga, e a versão ainda não gravada é servida da memória.
 
 // Endpoints voláteis/ruidosos: não vale cachear (mudam a cada segundo ou têm
 // lógica offline própria).
@@ -93,7 +96,7 @@ api.interceptors.response.use(
     try {
       if (isCacheableGet(response.config)) {
         markOnline();
-        putGetCache(cacheKey(response.config), response.data);
+        agendarGetCache(cacheKey(response.config), response.data);
       }
     } catch (_) { /* cache nunca atrapalha a resposta */ }
     return response;
@@ -103,7 +106,7 @@ api.interceptors.response.use(
     // falhar — é o que faz as telas carregarem sem internet.
     if (isNetworkError(error) && error.config && isCacheableGet(error.config)) {
       markOffline();
-      const cached = await getGetCache(cacheKey(error.config));
+      const cached = await lerGetCache(cacheKey(error.config));
       if (cached !== null && cached !== undefined) {
         return { data: cached, status: 200, statusText: 'OK (cache offline)',
                  headers: {}, config: error.config, _fromCache: true };
