@@ -60,6 +60,18 @@ if (typeof global.ResizeObserver === 'undefined') {
   };
 }
 
+// As leituras via `cachedGet` (a lista de jogadores dos seletores, por exemplo)
+// ficam em memória no módulo, entre montagens — é o que evita baixar tudo de
+// novo a cada tela. Nos testes isso faria um teste herdar a lista do anterior,
+// então zera entre eles. O `require` fica DENTRO do afterEach de propósito: um
+// import aqui em cima carregaria o módulo antes dos `jest.mock` do arquivo de
+// teste (ex.: o de stageUtils) e ele usaria as dependências de verdade.
+afterEach(() => {
+  // eslint-disable-next-line global-require
+  const { clearCache } = require('./utils/apiCache');
+  if (typeof clearCache === 'function') clearCache();
+});
+
 // Timeout por teste. O padrão do Jest (5s) foi calibrado para teste de unidade;
 // as telas grandes (Caixa, Premiação, Jogadores) preenchem formulários inteiros
 // com userEvent e levam ~1s cada QUANDO RODAM SOZINHAS. Com a suíte completa em

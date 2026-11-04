@@ -34,6 +34,9 @@ import {
   clearOfflineDB,
   putGetCache,
   getGetCache,
+  agendarGetCache,
+  lerGetCache,
+  GRAVAR_NO_MAXIMO_A_CADA_MS,
 } from './db';
 
 const entrada = (id, extra = {}) => ({
@@ -302,6 +305,72 @@ describe('cache de respostas GET', () => {
     await putGetCache('u1|/players', ['do usuário 1']);
     await putGetCache('u2|/players', ['do usuário 2']);
     expect(await getGetCache('u1|/players')).toEqual(['do usuário 1']);
+  });
+});
+
+describe('gravação coalescida do cache de GET', () => {
+  // A mesma lista (jogadores, vendas) era regravada a cada recarga — no Caixa,
+  // a cada venda de qualquer operador. Agora: uma gravação por intervalo, por
+  // endpoint, sempre da versão mais nova; a não gravada é servida da memória.
+  //
+  // Relógio falso para os timers do agendador. O fake-indexeddb anda pelo
+  // setImmediate DO NODE (fora do jsdom), que o relógio falso não toca — e é
+  // por ele que o teste espera o IndexedDB terminar.
+  const { setImmediate: imediato } = jest.requireActual('timers');
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  /** Deixa o IndexedDB terminar o que a fila mandou gravar. */
+  const assentar = async () => {
+    for (let i = 0; i < 30; i += 1) await new Promise((r) => imediato(r));
+  };
+  const passar = async (ms) => {
+    jest.advanceTimersByTime(ms);
+    await assentar();
+  };
+
+  it('a primeira resposta grava logo; as seguintes, uma vez por intervalo e a mais nova', async () => {
+    agendarGetCache('u1|/players', ['v1']);
+    await passar(0);
+    expect(await getGetCache('u1|/players')).toEqual(['v1']);
+
+    agendarGetCache('u1|/players', ['v2']);
+    agendarGetCache('u1|/players', ['v3']);
+    await passar(1000);
+    expect(await getGetCache('u1|/players')).toEqual(['v1']);   // ainda não regravou
+    expect(await lerGetCache('u1|/players')).toEqual(['v3']);   // mas a leitura offline vê a nova
+
+    await passar(GRAVAR_NO_MAXIMO_A_CADA_MS);
+    expect(await getGetCache('u1|/players')).toEqual(['v3']);   // v2 nunca foi gravada à toa
+  });
+
+  it('um endpoint esperando não segura a primeira gravação de outro', async () => {
+    agendarGetCache('u1|/players', ['a1']);
+    await passar(0);
+    agendarGetCache('u1|/players', ['a2']);
+    agendarGetCache('u1|/transactions', ['t1']);
+    await passar(0);
+    expect(await getGetCache('u1|/transactions')).toEqual(['t1']);
+    expect(await getGetCache('u1|/players')).toEqual(['a1']);
+  });
+
+  it('sair da página (F5, fechar a aba) grava a fila na hora', async () => {
+    // É o F5 sem internet que precisa abrir com o último dado visto.
+    agendarGetCache('u1|/players', ['v1']);
+    await passar(0);
+    agendarGetCache('u1|/players', ['v2']);
+    window.dispatchEvent(new Event('pagehide'));
+    await assentar();
+    expect(await getGetCache('u1|/players')).toEqual(['v2']);
+  });
+
+  it('o logout descarta o que ainda não foi gravado', async () => {
+    // O dado é do usuário que saiu: não pode cair no disco depois do logout.
+    agendarGetCache('u1|/players', ['de quem saiu']);
+    await clearOfflineDB();
+    await passar(GRAVAR_NO_MAXIMO_A_CADA_MS);
+    expect(await getGetCache('u1|/players')).toBeNull();
+    expect(await lerGetCache('u1|/players')).toBeNull();
   });
 });
 

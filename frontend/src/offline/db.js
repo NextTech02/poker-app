@@ -212,6 +212,7 @@ export const removeConflict = async (id) => {
 
 /** Limpa TUDO (usado no logout). */
 export const clearOfflineDB = async () => {
+  descartarFilaDoGetCache();
   const db = await getDB();
   await Promise.all(
     ['mutationQueue', 'entities', 'conflicts', 'getCache'].map((s) => db.clear(s))
@@ -238,3 +239,85 @@ export const getGetCache = async (key) => {
     return null;
   }
 };
+
+// ── Gravação COALESCIDA do cache de GET ───────────────────────────────────────
+// Toda resposta GET vira cópia offline. Gravando na hora, a MESMA lista grande
+// (jogadores, vendas) era regravada a cada recarga — e no Caixa a recarga vem
+// a cada venda de qualquer operador do clube. Cada gravação clona o objeto
+// inteiro na thread da tela.
+//
+// Agora, por chave: no máximo uma gravação a cada GRAVAR_NO_MAXIMO_A_CADA_MS,
+// sempre da versão mais RECENTE, no tempo ocioso do navegador. O que ainda não
+// foi gravado fica em memória e é o que `lerGetCache` devolve primeiro — sem
+// rede, a tela nunca vê dado mais velho do que via antes. Ao sair da página
+// (F5, fechar a aba) a fila é gravada na hora, para o F5 sem internet abrir
+// com o último dado.
+export const GRAVAR_NO_MAXIMO_A_CADA_MS = 30000;
+const naFila = new Map();     // chave -> dado mais recente ainda não gravado
+const gravadoEm = new Map();  // chave -> Date.now() da última gravação
+let timer = null;
+let prazo = Infinity;
+
+const quandoOcioso = (fn) => (
+  typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, { timeout: 2000 }) : fn()
+);
+
+const esperaDe = (key, agora) =>
+  (gravadoEm.has(key) ? gravadoEm.get(key) + GRAVAR_NO_MAXIMO_A_CADA_MS - agora : 0);
+
+const gravar = (key, data, agora) => {
+  naFila.delete(key);
+  gravadoEm.set(key, agora);
+  putGetCache(key, data);
+};
+
+const esvaziarFila = () => {
+  const agora = Date.now();
+  let proxima = null;
+  naFila.forEach((data, key) => {
+    const espera = esperaDe(key, agora);
+    if (espera <= 0) gravar(key, data, agora);
+    else if (proxima == null || espera < proxima) proxima = espera;
+  });
+  if (proxima != null) agendar(proxima);
+};
+
+function agendar(ms) {
+  const quando = Date.now() + ms;
+  if (timer != null && quando >= prazo) return;
+  if (timer != null) clearTimeout(timer);
+  prazo = quando;
+  timer = setTimeout(() => {
+    timer = null;
+    prazo = Infinity;
+    quandoOcioso(esvaziarFila);
+  }, ms);
+}
+
+/** Grava TUDO o que está na fila agora, sem respeitar o intervalo. */
+export const gravarGetCacheAgora = () => {
+  const agora = Date.now();
+  naFila.forEach((data, key) => gravar(key, data, agora));
+};
+
+/** Guarda a resposta de um GET para leitura offline (ver bloco acima). */
+export const agendarGetCache = (key, data) => {
+  naFila.set(key, data);
+  agendar(Math.max(0, esperaDe(key, Date.now())));
+};
+
+/** Última resposta de um GET: a da fila (mais nova) ou a gravada (ou null). */
+export const lerGetCache = async (key) => (naFila.has(key) ? naFila.get(key) : getGetCache(key));
+
+/** Esquece a fila sem gravar (logout: o dado é do usuário que saiu). */
+export const descartarFilaDoGetCache = () => {
+  naFila.clear();
+  gravadoEm.clear();
+  if (timer != null) clearTimeout(timer);
+  timer = null;
+  prazo = Infinity;
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', gravarGetCacheAgora);
+}

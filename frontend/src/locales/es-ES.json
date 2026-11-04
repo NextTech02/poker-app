@@ -469,6 +469,8 @@
     "noPlayers": "Ningún jugador registrado",
     "noPlayersHint": "Empieza registrando el primer jugador",
     "noResults": "Ningún jugador encontrado",
+    "keepTyping": "{{count}} jugadores más — sigue escribiendo",
+    "showMore": "Mostrar más ({{count}} restantes)",
     "noResultsHint": "Ningún resultado para",
     "searchPlaceholder": "Buscar por nombre, apodo o email...",
     "searchPlayers": "Buscar jugadores...",

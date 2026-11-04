@@ -80,6 +80,13 @@
   background: var(--card-bg-hover);
 }
 
+/* "Mostrar mais": a tabela desenha uma página por vez. */
+.pl-more {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 1rem 1rem;
+}
+
 .pl-btn-new {
   display: inline-flex;
   align-items: center;

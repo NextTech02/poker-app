@@ -3,7 +3,20 @@ import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { currentOrgId, enterOrg } from '../utils/orgScope';
+import { cachedGet, cachedValue } from '../utils/apiCache';
 import './OrgSwitcher.css';
+
+// O menu lateral é remontado a cada tela, e este seletor vai junto: sem cache,
+// era uma ida ao servidor por navegação. As organizações de alguém quase nunca
+// mudam — e trocar de organização já limpa o cache e recarrega a página.
+const URL_DAS_ORGS = '/organizations/mine';
+const VALIDADE_DAS_ORGS_MS = 5 * 60 * 1000;
+
+const orgAtual = (list) => {
+  // A org do token é a fonte da verdade do que está ativo agora.
+  const activeId = currentOrgId();
+  return list.find((o) => o.id === activeId) || list.find((o) => o.is_active_org) || list[0] || null;
+};
 
 /**
  * Seletor de organização — para quem pertence a mais de um clube.
@@ -18,20 +31,19 @@ import './OrgSwitcher.css';
 const OrgSwitcher = ({ collapsed }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [orgs, setOrgs] = useState([]);
-  const [current, setCurrent] = useState(null);
+  // Começa com o que já está em memória: trocar de tela não pisca o seletor.
+  const [orgs, setOrgs] = useState(() => cachedValue(URL_DAS_ORGS) || []);
+  const [current, setCurrent] = useState(() => orgAtual(cachedValue(URL_DAS_ORGS) || []));
   const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    api.get('/organizations/mine', { _silentError: true })
-      .then((res) => {
+    cachedGet(api, URL_DAS_ORGS, VALIDADE_DAS_ORGS_MS, null, { _silentError: true })
+      .then((data) => {
         if (!alive) return;
-        const list = res.data || [];
+        const list = data || [];
         setOrgs(list);
-        // A org do token é a fonte da verdade do que está ativo agora.
-        const activeId = currentOrgId();
-        setCurrent(list.find((o) => o.id === activeId) || list.find((o) => o.is_active_org) || list[0] || null);
+        setCurrent(orgAtual(list));
       })
       .catch(() => {});
     return () => { alive = false; };

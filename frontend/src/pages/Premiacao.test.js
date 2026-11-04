@@ -295,6 +295,18 @@ describe('prêmio garantido', () => {
     await userEvent.click(within(document.querySelector('.guaranteed-card')).getByRole('button'));
     expect(await screen.findByText('premiacao.guaranteedSaveError')).toBeInTheDocument();
   });
+
+  it('salvar recarrega POR TRÁS: a tela não some no meio', async () => {
+    // Antes, cada ação trocava a página inteira por "carregando" até a
+    // recarga voltar — parecia que o sistema tinha travado.
+    await montar();
+    const pedidosAntes = api.get.mock.calls.length;
+    api.get.mockImplementation(() => new Promise(() => {}));   // a recarga fica pendente
+    await userEvent.click(within(document.querySelector('.guaranteed-card')).getByRole('button'));
+    await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(pedidosAntes));
+    expect(screen.queryByText('common.loading')).toBeNull();
+    expect(document.querySelector('.guaranteed-card')).toBeInTheDocument();
+  });
 });
 
 describe('premiação reservada', () => {
