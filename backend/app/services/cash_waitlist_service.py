@@ -326,12 +326,13 @@ class CashWaitlistService:
             .eq("cash_day_id", cash_day_id).neq("status", "closed").execute().data or []
         if not mesas:
             return 0
-        vencidas = supabase.table("cash_seats").select("id") \
-            .in_("table_id", [m["id"] for m in mesas]) \
+        # UM update, com as condições checadas NA ESCRITA (ainda reservada e já
+        # vencida). Antes era uma leitura e depois um update por cadeira, só
+        # pelo id: além de N idas ao banco, o jogador que sentasse entre a
+        # leitura e o update tinha a cadeira devolvida à sala.
+        liberadas = supabase.table("cash_seats").update({
+            "status": "free", "reserved_for": None, "reserved_until": None,
+            "updated_at": agora,
+        }).in_("table_id", [m["id"] for m in mesas]) \
             .eq("status", "reserved").lte("reserved_until", agora).execute().data or []
-        for a in vencidas:
-            supabase.table("cash_seats").update({
-                "status": "free", "reserved_for": None, "reserved_until": None,
-                "updated_at": agora,
-            }).eq("id", a["id"]).execute()
-        return len(vencidas)
+        return len(liberadas)

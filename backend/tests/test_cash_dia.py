@@ -258,6 +258,18 @@ def test_dia_fechado_devolve_o_congelado(monkeypatch):
     assert s.status == "closed"
 
 
+def test_dia_fechado_nao_soma_o_movimento_para_jogar_fora(monkeypatch):
+    """O resumo do dia fechado é o congelado: somar o dia (várias consultas)
+    e descartar o resultado era espera pura em toda abertura da tela."""
+    fechado = _dia(status="closed", total_buy_ins=600, total_cash_outs=250,
+                   total_rake=130, total_jackpot=26, variance=194,
+                   tables_count=1, players_count=2)
+    _banco(monkeypatch, cash_days=[fechado], **_movimento())
+    monkeypatch.setattr(CDS, "_agregar", staticmethod(
+        lambda dia: (_ for _ in ()).throw(AssertionError("não devia somar o dia fechado"))))
+    assert CDS.summary(DIA).revenue == 130
+
+
 # ══════════════════════════════════════════════════════════════════════
 # Guarda usada por quem movimenta dinheiro
 # ══════════════════════════════════════════════════════════════════════

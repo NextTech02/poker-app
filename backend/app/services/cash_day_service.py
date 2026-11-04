@@ -143,7 +143,6 @@ class CashDayService:
         receita multiplicaria o faturamento do clube por dez no papel.
         """
         dia = CashDayService.get_day(cash_day_id)
-        agregado = CashDayService._agregar(cash_day_id)
 
         if dia.get("status") == "closed" and dia.get("total_rake") is not None:
             # Resultado congelado: foi contra ele que a conferência foi feita.
@@ -167,6 +166,9 @@ class CashDayService:
                 total_debt_payments=float(dia.get("total_debt_payments") or 0),
             )
 
+        # Só agora: somar o dia custa várias consultas, e o dia fechado (acima)
+        # devolve o congelado sem usar nada disso — antes somava e jogava fora.
+        agregado = CashDayService._agregar(cash_day_id)
         return CashDaySummary(
             cash_day_id=cash_day_id,
             business_date=dia["business_date"],
