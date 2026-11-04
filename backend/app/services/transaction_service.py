@@ -8,7 +8,8 @@ from app.services.allocation_service import liberar_assento_do_dia
 from app.services.eliminacao import MODO_MESA, modo_do_torneio, recontar_eliminacoes, registrar_eliminacao
 from app.models.transaction import TransactionCreate, Transaction, TransactionDetail
 from app.services.cashbox_service import CashboxService
-from app.services.sales_block_service import SalesBlockService
+from app.services.sales_block_service import SalesBlockService, inscricoes_do_jogador
+from app.services.tournament_service import ler_torneio
 from app.services.transaction_filters import sem_canceladas
 from app.utils.erros import ErroDeNegocio
 
@@ -54,25 +55,21 @@ class TransactionService:
         # Postgres devolve na ordem que quiser (um UPDATE em tournament_players
         # reescreve a tupla no fim do heap e inverte a ordem física), e a trava
         # de vendas conferia UM dia enquanto a venda era gravada no OUTRO.
-        tp_response = (
-            supabase.table("tournament_players").select("id")
-            .eq("tournament_id", data["tournament_id"])
-            .eq("player_id", data["player_id"])
-            .order("registered_at")
-            .order("id")
-            .execute()
-        )
-        if tp_response.data:
-            data["tournament_player_id"] = tp_response.data[0]["id"]
+        # A mesma leitura que a trava do dia já fez nesta requisição.
+        inscricoes = inscricoes_do_jogador(supabase, data["tournament_id"], data["player_id"])
+        if inscricoes:
+            data["tournament_player_id"] = inscricoes[0]["id"]
+
+        # O nome do torneio sai da linha já lida (rota/caixa) e ANTES de gravar:
+        # a venda não muda o nome, e depois da escrita a memória é apagada.
+        torneio = ler_torneio(supabase, data["tournament_id"]) or {}
 
         response = supabase.table("transactions").insert(data).execute()
         trans = response.data[0]
 
-        # Get related info
-        tournament = supabase.table("tournaments").select("name").eq("id", data["tournament_id"]).execute()
         player = supabase.table("players").select(COLUNAS_JOGADOR).eq("id", data["player_id"]).execute()
 
-        tournament_name = tournament.data[0]["name"] if tournament.data else ""
+        tournament_name = torneio.get("name") or ""
         player_info = player.data[0] if player.data else {}
 
         return TransactionDetail(

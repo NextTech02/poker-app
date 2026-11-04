@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.auth.permissions import forbid_permission
 from app.auth.modules import require_module
 from app.database.supabase_client import set_request_jwt, reset_request_jwt, start_query_counter
+from app.database.memo import abrir as abrir_memo, fechar as fechar_memo
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, public_consent, organizations, loyalty, expenses, leads, activity_logs, knockouts, teams
@@ -101,9 +102,12 @@ class SupabaseUserContextMiddleware(BaseHTTPMiddleware):
                 token = auth[7:].strip() or None
 
         ctx = set_request_jwt(token)
+        # Memória das leituras repetidas DESTA requisição (app/database/memo.py).
+        memo = abrir_memo()
         try:
             return await call_next(request)
         finally:
+            fechar_memo(memo)
             reset_request_jwt(ctx)  # nunca vaza o token para a próxima request
 
 

@@ -9,6 +9,7 @@ from typing import Optional
 from supabase import create_client, Client, ClientOptions
 import supabase._sync.client as _supabase_sync_client
 from app.config import get_settings
+from app.database.memo import esquecer_tudo as esquecer_memo
 import httpx
 from httpx import Limits
 from postgrest import SyncPostgrestClient
@@ -257,11 +258,53 @@ def _build_user_postgrest(jwt: str) -> SyncPostgrestClient:
     return client
 
 
+class _EscritaEsqueceMemo:
+    """O request builder do PostgREST, com UMA diferença: começar uma escrita
+    apaga a memória da requisição (app/database/memo.py). É o que garante que
+    nenhuma leitura guardada sobrevive a um insert/update/upsert/delete — nem ao
+    que um trigger mudou por causa dele."""
+
+    _ESCRITAS = frozenset({"insert", "update", "upsert", "delete"})
+    __slots__ = ("_rb",)
+
+    def __init__(self, request_builder):
+        self._rb = request_builder
+
+    def __getattr__(self, nome):
+        if nome in self._ESCRITAS:
+            esquecer_memo()
+        return getattr(self._rb, nome)
+
+
+class _AdminEsqueceMemo:
+    """O client service_role, com a mesma regra: escrita (ou RPC) por ele
+    também apaga a memória da requisição. O resto (storage, auth) passa direto."""
+
+    def __init__(self, cliente: Client):
+        self._cliente = cliente
+
+    def table(self, name: str):
+        return _EscritaEsqueceMemo(self._cliente.table(name))
+
+    from_ = table
+
+    def rpc(self, *args, **kwargs):
+        esquecer_memo()
+        return self._cliente.rpc(*args, **kwargs)
+
+    def __getattr__(self, item):
+        return getattr(self._cliente, item)
+
+
 class _SupabaseProxy:
     """Encaminha `.table()` / `.rpc()` para o client certo da request.
 
     Com JWT no contexto  -> PostgREST como o usuário (RLS aplica).
     Sem JWT              -> service_role (rotas públicas, sync, startup).
+
+    Escrita e RPC apagam a memória da requisição (ver `_EscritaEsqueceMemo`).
+    RPC apaga sempre, mesmo as de leitura: não há como saber daqui, e errar
+    para o lado de ir ao banco de novo é o lado seguro.
     """
 
     def __init__(self, admin_client: Client):
@@ -284,12 +327,13 @@ class _SupabaseProxy:
 
     def table(self, name: str):
         _conta(name)
-        return self._active().table(name)
+        return _EscritaEsqueceMemo(self._active().table(name))
 
     from_ = table
 
     def rpc(self, fn: str, params: dict | None = None):
         _conta("rpc:" + fn)
+        esquecer_memo()
         return self._active().rpc(fn, params or {})
 
     def __getattr__(self, item):
@@ -299,7 +343,8 @@ class _SupabaseProxy:
 
 # Client service_role puro. Use quando a operação PRECISA ignorar RLS:
 # ledger de sync, provisionamento de organização, rotas públicas.
-supabase_admin: Client = get_supabase()
+_cliente_admin: Client = get_supabase()
+supabase_admin = _AdminEsqueceMemo(_cliente_admin)
 
 # Client padrão usado por todos os services (31 imports).
-supabase = _SupabaseProxy(supabase_admin)
+supabase = _SupabaseProxy(_cliente_admin)

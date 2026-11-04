@@ -428,6 +428,16 @@ def fiado_isolado(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def caches_curtos_limpos():
+    """Os caches com validade (módulos do clube, TV pública) vivem no PROCESSO:
+    sem isto, um teste herdaria o que o anterior guardou."""
+    from app.utils.cache_curto import limpar_todos
+    limpar_todos()
+    yield
+    limpar_todos()
+
+
+@pytest.fixture(autouse=True)
 def envios_de_consentimento(monkeypatch):
     from app.services import player_consent_service as mod
     gravados = _EnviosGravados()

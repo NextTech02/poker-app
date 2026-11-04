@@ -24,9 +24,11 @@ class ChipConsignmentService:
 
     @staticmethod
     def _staff_for_user(auth_user_id: str) -> Optional[dict]:
-        resp = supabase.table("staff").select("id, name, active") \
-            .eq("auth_user_id", auth_user_id).execute()
-        return resp.data[0] if resp.data else None
+        # A mesma linha que a guarda de permissão da rota já leu nesta
+        # requisição; devolve uma cópia só com o que esta tela usa.
+        from app.services.staff_service import ler_staff_do_usuario
+        row = ler_staff_do_usuario(supabase, auth_user_id)
+        return {k: row.get(k) for k in ("id", "name", "active")} if row else None
 
     @staticmethod
     def _build(item: dict, with_sales: bool = False) -> ConsignmentResponse:
