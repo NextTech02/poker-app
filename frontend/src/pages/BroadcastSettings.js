@@ -15,7 +15,7 @@ import { buildTvSettings } from '../components/broadcast/tvModel';
 import { resolveBackground } from '../components/broadcast/tvBackgrounds';
 import { sampleModel } from '../components/broadcast/tvSampleData';
 import BackgroundGallery from '../components/broadcast/BackgroundGallery';
-import { useBroadcastBackgrounds } from '../hooks/useBroadcastBackgrounds';
+import { useBroadcastBackgrounds, uploadClubLogo } from '../hooks/useBroadcastBackgrounds';
 import './BroadcastSettings.css';
 
 // ─────────────────────────────────────────────────────────────────
@@ -24,6 +24,14 @@ import './BroadcastSettings.css';
 // Padrões: a MESMA fonte que o telão usa (`tvDefaults`), para a prévia e a
 // TV nunca divergirem. NULL no banco = este padrão.
 const DEFAULT_SETTINGS = TV_DEFAULT_SETTINGS;
+
+// Recusas do envio da logo (códigos de `uploadClubLogo`) e a frase de reserva.
+const ERRO_DA_LOGO = {
+  bgUploadInvalidType: 'Use JPG, PNG ou WebP.',
+  clubLogoMaxSize: 'A logo precisa ter até 2 MB.',
+  bgUploadNoOrg: 'Não foi possível identificar o clube.',
+  bgUploadError: 'Não foi possível enviar a imagem.',
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Reusable form controls
@@ -160,6 +168,7 @@ const BroadcastSettings = () => {
   // Biblioteca de fundos do clube — uma lista só para os dois seletores
   // (fundo principal e fundo do intervalo).
   const library = useBroadcastBackgrounds();
+  const [enviandoLogo, setEnviandoLogo] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -282,6 +291,20 @@ const BroadcastSettings = () => {
     }
     return next;
   });
+
+  // A logo sobe para o Storage e o dia guarda só o link (ver `uploadClubLogo`).
+  const enviarLogo = async (file) => {
+    if (!file) return;
+    setEnviandoLogo(true);
+    try {
+      set('broadcast_club_logo_url', await uploadClubLogo(file));
+    } catch (err) {
+      const code = ERRO_DA_LOGO[err?.code] ? err.code : 'bgUploadError';
+      toast.warning(t(`broadcastSettings.${code}`, ERRO_DA_LOGO[code]));
+    } finally {
+      setEnviandoLogo(false);
+    }
+  };
 
   const limparFundoRemovido = (url) => setSettings(prev => ({
     ...prev,
@@ -452,21 +475,18 @@ const BroadcastSettings = () => {
                 ) : (
                   <label className="bs-upload-zone">
                     <input
-                      type="file" accept="image/*" className="bs-hidden"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        // Teto menor que o do fundo (2MB): a imagem viaja em base64
-                        // dentro do JSON do dia, que o telão rebusca a cada 30s.
-                        if (file.size > 512 * 1024) { toast.warning(t('broadcastSettings.clubLogoMaxSize', 'A logo precisa ter até 512KB. Acima disso, prefira colar a URL da imagem.')); return; }
-                        const reader = new FileReader();
-                        reader.onloadend = () => set('broadcast_club_logo_url', reader.result);
-                        reader.readAsDataURL(file);
-                      }}
+                      type="file" accept="image/png,image/jpeg,image/webp" className="bs-hidden"
+                      data-testid="club-logo-input"
+                      disabled={enviandoLogo}
+                      onChange={(e) => enviarLogo(e.target.files[0])}
                     />
                     <span className="bs-upload-plus">+</span>
-                    <span className="bs-upload-main">{t('broadcastSettings.clubLogoUpload', 'Enviar a logo do clube')}</span>
-                    <span className="bs-upload-sub">{t('broadcastSettings.clubLogoUploadHint', 'PNG com fundo transparente, até 512KB')}</span>
+                    <span className="bs-upload-main">
+                      {enviandoLogo
+                        ? t('broadcastSettings.bgUploading', 'Enviando…')
+                        : t('broadcastSettings.clubLogoUpload', 'Enviar a logo do clube')}
+                    </span>
+                    <span className="bs-upload-sub">{t('broadcastSettings.clubLogoUploadHint', 'PNG com fundo transparente, até 2 MB')}</span>
                   </label>
                 )}
                 <div className="bs-url-row">
