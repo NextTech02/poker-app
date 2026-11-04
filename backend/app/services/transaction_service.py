@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.services.allocation_service import liberar_assento_do_dia
 from app.services.eliminacao import MODO_MESA, modo_do_torneio, recontar_eliminacoes, registrar_eliminacao
 from app.models.transaction import TransactionCreate, Transaction, TransactionDetail
@@ -1167,27 +1168,31 @@ class TransactionService:
         """Get all transactions with details, optionally filtered by stage_id.
 
         `limit`: só as N mais recentes, cortadas NO BANCO (a ordem já é da mais
-        nova para a mais velha)."""
-        if stage_id:
-            # Filter transactions by tournaments that belong to the stage
-            query = (
-                supabase.table("transactions")
-                .select("*, tournaments!inner(name, stage_id), players(name, nickname)")
-                .eq("tournaments.stage_id", stage_id)
-                .order("created_at", desc=True)
-            )
-        else:
-            query = (
-                supabase.table("transactions")
-                .select("*, tournaments(name), players(name, nickname)")
-                .order("created_at", desc=True)
-            )
+        nova para a mais velha). Sem `limit`, TODAS — de mil em mil, porque o
+        Caixa soma os totais da gaveta a partir desta lista e o PostgREST
+        cortaria em 1000 sem avisar (app/database/paginacao.py)."""
+        def montar():
+            if stage_id:
+                # Filter transactions by tournaments that belong to the stage
+                query = (
+                    supabase.table("transactions")
+                    .select("*, tournaments!inner(name, stage_id), players(name, nickname)")
+                    .eq("tournaments.stage_id", stage_id)
+                )
+            else:
+                query = (
+                    supabase.table("transactions")
+                    .select("*, tournaments(name), players(name, nickname)")
+                )
+            return query.order("created_at", desc=True).order("id")
+
         if limit:
-            query = query.limit(limit)
-        response = query.execute()
+            linhas = montar().limit(limit).execute().data or []
+        else:
+            linhas = todas_as_linhas(montar)
 
         transactions = []
-        for item in response.data:
+        for item in linhas:
             tournament = item.get("tournaments", {})
             player = item.get("players", {})
 
@@ -1205,17 +1210,18 @@ class TransactionService:
 
     @staticmethod
     def get_transactions_by_tournament(tournament_id: str) -> List[TransactionDetail]:
-        """Get transactions for a specific tournament"""
-        response = (
+        """Get transactions for a specific tournament (todas: um evento grande
+        passa de mil vendas — ver app/database/paginacao.py)."""
+        linhas = todas_as_linhas(lambda: (
             supabase.table("transactions")
             .select("*, players(name, nickname)")
             .eq("tournament_id", tournament_id)
             .order("created_at", desc=True)
-            .execute()
-        )
+            .order("id")
+        ))
 
         transactions = []
-        for item in response.data:
+        for item in linhas:
             player = item.get("players", {})
             trans_data = {k: v for k, v in item.items() if k != "players"}
 

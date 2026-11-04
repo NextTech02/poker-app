@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.models.cash_game import (
     CashDayCreate,
     CashDayResponse,
@@ -179,8 +180,16 @@ class CashDayService:
         dentro (o N+1 clássico deste projeto)."""
         # `*` e não a lista de colunas: as do fiado só existem depois da
         # migração, e pedi-las pelo nome derrubaria o resumo do dia antes dela.
-        txs = supabase.table("cash_transactions").select("*") \
-            .eq("cash_day_id", cash_day_id).execute().data or []
+        #
+        # De mil em mil (app/database/paginacao.py): estes totais são os que o
+        # fechamento CONGELA em cash_days, e o PostgREST cortaria em 1000.
+        def _do_dia(tabela, colunas):
+            return todas_as_linhas(lambda: (
+                supabase.table(tabela).select(colunas)
+                .eq("cash_day_id", cash_day_id).order("id")
+            ))
+
+        txs = _do_dia("cash_transactions", "*")
 
         entradas = saidas = fiado = abatido = 0.0
         for t in txs:
@@ -204,18 +213,14 @@ class CashDayService:
                 float(r["amount"]) * (1 if r["type"] == "payment" else -1) for r in recebimentos
             )
 
-        rakes = supabase.table("cash_rake_entries").select(
-            "rake_amount, jackpot_amount"
-        ).eq("cash_day_id", cash_day_id).execute().data or []
+        rakes = _do_dia("cash_rake_entries", "id, rake_amount, jackpot_amount")
         rake = sum(float(r.get("rake_amount") or 0) for r in rakes)
         jackpot = sum(float(r.get("jackpot_amount") or 0) for r in rakes)
 
         mesas = supabase.table("cash_tables").select("id, status") \
             .eq("cash_day_id", cash_day_id).execute().data or []
 
-        sessoes = supabase.table("cash_player_sessions").select(
-            "id, status, total_buy_in, total_cash_out"
-        ).eq("cash_day_id", cash_day_id).execute().data or []
+        sessoes = _do_dia("cash_player_sessions", "id, status, total_buy_in, total_cash_out")
         sentados = [s for s in sessoes if s.get("status") == "active"]
         # Fichas ainda na mesa: o que os sentados compraram e não devolveram.
         # Explica a maior parte da variância enquanto o dia está aberto.

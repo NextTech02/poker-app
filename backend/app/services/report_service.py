@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.models.report import (
     ReportSummary,
     PlayerReport,
@@ -103,18 +104,22 @@ class ReportService:
         if day_ids:
             colunas_tp = ("id, tournament_day_id, player_id, status, buy_in_count, rebuy_count, "
                           "addon_count, total_buy_in_amount, total_rebuy_amount, total_addon_amount")
+            # Todas, de mil em mil: um torneio grande passa de mil inscrições
+            # (app/database/paginacao.py).
+            def _inscricoes(colunas):
+                return todas_as_linhas(lambda: (
+                    supabase.table("tournament_players")
+                    .select(colunas)
+                    .in_("tournament_day_id", day_ids)
+                    .order("id")
+                ))
+
             try:
-                all_tp_resp = supabase.table("tournament_players")\
-                    .select(f"{colunas_tp}, fee_count, total_fee_amount")\
-                    .in_("tournament_day_id", day_ids)\
-                    .execute()
+                todas_tp = _inscricoes(f"{colunas_tp}, fee_count, total_fee_amount")
             except Exception:
                 # Banco sem os contadores de taxa (migração pendente).
-                all_tp_resp = supabase.table("tournament_players")\
-                    .select(colunas_tp)\
-                    .in_("tournament_day_id", day_ids)\
-                    .execute()
-            for p in (all_tp_resp.data or []):
+                todas_tp = _inscricoes(colunas_tp)
+            for p in todas_tp:
                 if p.get("id"):
                     dia_do_tp[str(p["id"])] = p.get("tournament_day_id")
                 # Inscrição com o buy-in cancelado não disputou o dia: a linha
@@ -380,7 +385,15 @@ class ReportService:
         tournament_count = tournament_query.execute().count or 0
 
         # Generate player reports from tournament_players data
-        player_query = supabase.table("tournament_players").select("*, players(name)")
+        # Todas as inscrições, de mil em mil (app/database/paginacao.py).
+        def _inscricoes(tournament_ids=None):
+            def montar():
+                q = supabase.table("tournament_players").select("*, players(name)")
+                if tournament_ids is not None:
+                    q = q.in_("tournament_id", tournament_ids)
+                return q.order("id")
+            return todas_as_linhas(montar)
+
         player_data = []
 
         if start_date or end_date:
@@ -392,10 +405,10 @@ class ReportService:
                 date_query = date_query.lte("created_at", end_date)
             tournament_ids = [t["id"] for t in (date_query.execute().data or [])]
             if tournament_ids:
-                player_data = player_query.in_("tournament_id", tournament_ids).execute().data or []
+                player_data = _inscricoes(tournament_ids)
             # senão: sem torneios no período → player_data fica vazio
         else:
-            player_data = player_query.execute().data or []
+            player_data = _inscricoes()
 
         # Aggregate player stats
         player_stats = {}

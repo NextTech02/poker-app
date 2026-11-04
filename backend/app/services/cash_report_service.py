@@ -22,8 +22,25 @@ from datetime import date, datetime
 from typing import List, Optional
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 
 logger = logging.getLogger(__name__)
+
+
+def _todas(tabela: str, colunas: str, coluna: str, valores: list) -> List[dict]:
+    """Todas as linhas de `tabela` com `coluna` em `valores`, de mil em mil.
+
+    Os relatórios do cash SOMAM essas listas (rake, buy-in, resultado por
+    jogador) num período de semanas, e o PostgREST cortaria em 1000 sem avisar
+    (app/database/paginacao.py). O `id` vai no select para a leitura descartar
+    a linha repetida entre páginas.
+    """
+    if colunas.strip() != "*" and "id" not in {c.strip() for c in colunas.split(",")}:
+        colunas = f"id, {colunas}"
+    return todas_as_linhas(lambda: (
+        supabase.table(tabela).select(colunas).in_(coluna, valores).order("id")
+    ))
+
 
 # Segunda = 0, como no `weekday()` do Python.
 DIAS_DA_SEMANA = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -112,16 +129,10 @@ class CashReportService:
 
         ids = [d["id"] for d in dias]
 
-        rakes = supabase.table("cash_rake_entries").select(
-            "cash_day_id, rake_amount, jackpot_amount"
-        ).in_("cash_day_id", ids).execute().data or []
-        movimentos = supabase.table("cash_transactions").select(
-            "cash_day_id, type, amount, status"
-        ).in_("cash_day_id", ids).execute().data or []
-        mesas = supabase.table("cash_tables").select("cash_day_id, id") \
-            .in_("cash_day_id", ids).execute().data or []
-        sessoes = supabase.table("cash_player_sessions").select("cash_day_id, player_id") \
-            .in_("cash_day_id", ids).execute().data or []
+        rakes = _todas("cash_rake_entries", "cash_day_id, rake_amount, jackpot_amount", "cash_day_id", ids)
+        movimentos = _todas("cash_transactions", "cash_day_id, type, amount, status", "cash_day_id", ids)
+        mesas = _todas("cash_tables", "cash_day_id", "cash_day_id", ids)
+        sessoes = _todas("cash_player_sessions", "cash_day_id, player_id", "cash_day_id", ids)
 
         rake = defaultdict(float)
         jackpot = defaultdict(float)
@@ -262,18 +273,13 @@ class CashReportService:
         if not ids:
             return []
 
-        mesas = supabase.table("cash_tables").select("*") \
-            .in_("cash_day_id", ids).execute().data or []
+        mesas = _todas("cash_tables", "*", "cash_day_id", ids)
         if not mesas:
             return []
         mesa_ids = [m["id"] for m in mesas]
 
-        rakes = supabase.table("cash_rake_entries").select(
-            "table_id, rake_amount, jackpot_amount"
-        ).in_("table_id", mesa_ids).execute().data or []
-        sessoes = supabase.table("cash_player_sessions").select(
-            "table_id, player_id, total_buy_in"
-        ).in_("table_id", mesa_ids).execute().data or []
+        rakes = _todas("cash_rake_entries", "table_id, rake_amount, jackpot_amount", "table_id", mesa_ids)
+        sessoes = _todas("cash_player_sessions", "table_id, player_id, total_buy_in", "table_id", mesa_ids)
 
         rake = defaultdict(float)
         jackpot = defaultdict(float)
@@ -331,9 +337,11 @@ class CashReportService:
         if not ids:
             return []
 
-        sessoes = supabase.table("cash_player_sessions").select(
-            "player_id, cash_day_id, total_buy_in, total_cash_out, started_at, ended_at"
-        ).in_("cash_day_id", ids).execute().data or []
+        sessoes = _todas(
+            "cash_player_sessions",
+            "player_id, cash_day_id, total_buy_in, total_cash_out, started_at, ended_at",
+            "cash_day_id", ids,
+        )
         if not sessoes:
             return []
 

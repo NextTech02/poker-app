@@ -1,6 +1,7 @@
 from typing import Optional, List
 from datetime import datetime, timezone
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 
 # Despesas da etapa — alimentam o DRE (ver financial_service).
 #
@@ -209,19 +210,22 @@ class ExpenseService:
         if not org_id:
             return empty
 
-        q = ExpenseService._base_query(
-            org_id, "amount, status, category_id, expense_categories(name, kind)"
-        )
-        if stage_id:
-            q = q.eq("stage_id", stage_id)
-        if tournament_id:
-            q = q.eq("tournament_id", tournament_id)
-        if start:
-            q = q.gte("created_at", start)
-        if end:
-            q = q.lte("created_at", _iso_end_of_day(end))
+        def montar():
+            q = ExpenseService._base_query(
+                org_id, "id, amount, status, category_id, expense_categories(name, kind)"
+            )
+            if stage_id:
+                q = q.eq("stage_id", stage_id)
+            if tournament_id:
+                q = q.eq("tournament_id", tournament_id)
+            if start:
+                q = q.gte("created_at", start)
+            if end:
+                q = q.lte("created_at", _iso_end_of_day(end))
+            return q.order("id")
 
-        rows = q.execute().data or []
+        # Todas, de mil em mil: o DRE soma daqui (app/database/paginacao.py).
+        rows = todas_as_linhas(montar)
         if not rows:
             return empty
 
@@ -276,15 +280,18 @@ class ExpenseService:
         if tournament_id:
             return 0.0, 0.0, 0.0
         try:
-            q = supabase.table("staff_payments").select("amount, status") \
-                .eq("organization_id", org_id)
-            if stage_id:
-                q = q.eq("stage_id", stage_id)
-            if start:
-                q = q.gte("created_at", start)
-            if end:
-                q = q.lte("created_at", _iso_end_of_day(end))
-            rows = q.execute().data or []
+            def montar():
+                q = supabase.table("staff_payments").select("id, amount, status") \
+                    .eq("organization_id", org_id)
+                if stage_id:
+                    q = q.eq("stage_id", stage_id)
+                if start:
+                    q = q.gte("created_at", start)
+                if end:
+                    q = q.lte("created_at", _iso_end_of_day(end))
+                return q.order("id")
+
+            rows = todas_as_linhas(montar)
         except Exception:
             return 0.0, 0.0, 0.0
 
@@ -524,19 +531,23 @@ class ExpenseService:
         empty = {"total": 0.0, "received": 0.0, "pending": 0.0, "by_source": []}
         if not org_id:
             return empty
-        q = (
-            supabase.table("other_revenues").select("amount, status, source")
-            .eq("organization_id", org_id)
-        )
-        if stage_id:
-            q = q.eq("stage_id", stage_id)
-        if tournament_id:
-            q = q.eq("tournament_id", tournament_id)
-        if start:
-            q = q.gte("created_at", start)
-        if end:
-            q = q.lte("created_at", _iso_end_of_day(end))
-        rows = q.execute().data or []
+        def montar():
+            q = (
+                supabase.table("other_revenues").select("id, amount, status, source")
+                .eq("organization_id", org_id)
+            )
+            if stage_id:
+                q = q.eq("stage_id", stage_id)
+            if tournament_id:
+                q = q.eq("tournament_id", tournament_id)
+            if start:
+                q = q.gte("created_at", start)
+            if end:
+                q = q.lte("created_at", _iso_end_of_day(end))
+            return q.order("id")
+
+        # Todas, de mil em mil: o DRE soma daqui (app/database/paginacao.py).
+        rows = todas_as_linhas(montar)
         if not rows:
             return empty
 

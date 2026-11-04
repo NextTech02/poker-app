@@ -190,6 +190,11 @@ class _FakeQuery:
     def order(self, *a, **k):
         return self
 
+    def range(self, *a, **k):
+        # A leitura de mil em mil pede página por página; aqui são poucas
+        # linhas, então a primeira página já é tudo.
+        return self
+
     def execute(self):
         return SimpleNamespace(data=self._rows)
 

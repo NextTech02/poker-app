@@ -23,6 +23,7 @@ from decimal import Decimal
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.services import ko_regras
 from app.utils.erros import ErroDeNegocio
 
@@ -96,21 +97,29 @@ class KnockoutService:
 
     @staticmethod
     def _livro(tournament_id: str) -> Tuple[List[dict], List[dict], List[dict]]:
-        vendas = (
+        """O livro do KO do torneio: entradas, eliminações e pagamentos.
+
+        TODAS as linhas, de mil em mil (app/database/paginacao.py). É deste
+        livro que sai o bounty PAGO numa eliminação: com o corte silencioso do
+        PostgREST em 1000, um torneio grande pagaria bounty errado sem erro
+        nenhum na tela.
+        """
+        tid = str(tournament_id)
+        vendas = todas_as_linhas(lambda: (
             supabase.table("transactions")
             .select("id, tournament_player_id, type, amount, bounty_amount, status, created_at")
-            .eq("tournament_id", str(tournament_id))
+            .eq("tournament_id", tid)
             .in_("type", _TIPOS_DE_ENTRADA)
-            .execute().data or []
-        )
-        knockouts = (
+            .order("id")
+        ))
+        knockouts = todas_as_linhas(lambda: (
             supabase.table("tournament_knockouts").select("*")
-            .eq("tournament_id", str(tournament_id)).execute().data or []
-        )
-        payouts = (
+            .eq("tournament_id", tid).order("id")
+        ))
+        payouts = todas_as_linhas(lambda: (
             supabase.table("tournament_knockout_payouts").select("*")
-            .eq("tournament_id", str(tournament_id)).execute().data or []
-        )
+            .eq("tournament_id", tid).order("id")
+        ))
         return vendas, knockouts, payouts
 
     @staticmethod
@@ -763,10 +772,11 @@ class KnockoutService:
         else:
             vendas, knockouts, payouts = KnockoutService._livro(tournament_id)
             saldos = ko_regras.bounties_derivados(vendas, knockouts, payouts)
-            inscritos = (
+            # Todos os inscritos (de mil em mil): quem tem saldo de bounty recebe.
+            inscritos = todas_as_linhas(lambda: (
                 supabase.table("tournament_players").select("*")
-                .eq("tournament_id", str(tournament_id)).execute().data or []
-            )
+                .eq("tournament_id", str(tournament_id)).order("id")
+            ))
             for tp in sorted(inscritos, key=lambda t: str(t["id"])):
                 saldo = saldos.get(str(tp["id"]), Decimal("0"))
                 if saldo <= 0:
@@ -819,13 +829,17 @@ class KnockoutService:
         if torneio.get("mystery_started_at"):
             raise ErroDeNegocio("mystery_ja_iniciado", "A fase Mystery já foi iniciada.", status=409)
 
-        consulta = (
-            supabase.table("tournament_players").select("id, status, tournament_day_id")
-            .eq("tournament_id", str(tournament_id))
-        )
-        if day_id:
-            consulta = consulta.eq("tournament_day_id", day_id)
-        vivos = [t for t in (consulta.execute().data or []) if t.get("status") in _VIVOS]
+        def montar():
+            consulta = (
+                supabase.table("tournament_players").select("id, status, tournament_day_id")
+                .eq("tournament_id", str(tournament_id))
+            )
+            if day_id:
+                consulta = consulta.eq("tournament_day_id", day_id)
+            return consulta.order("id")
+
+        # Todos (de mil em mil): a contagem de vivos congela o pote do Mystery.
+        vivos = [t for t in todas_as_linhas(montar) if t.get("status") in _VIVOS]
         if not vivos:
             raise ErroDeNegocio("mystery_sem_jogadores", "Não há jogadores vivos para iniciar a fase.")
 
@@ -911,10 +925,10 @@ class KnockoutService:
         if valor <= 0:
             raise ErroDeNegocio("premio_valor_invalido", "Informe um valor maior que zero.")
 
-        inscritos = (
+        inscritos = todas_as_linhas(lambda: (
             supabase.table("tournament_players").select("id, player_id, tournament_day_id")
-            .eq("tournament_id", str(tournament_id)).execute().data or []
-        )
+            .eq("tournament_id", str(tournament_id)).order("id")
+        ))
         por_id = {str(i["id"]): i for i in inscritos}
         recebe = por_id.get(str(recebe_tp_id))
         if not recebe:
@@ -1102,10 +1116,10 @@ class KnockoutService:
         torneio = KnockoutService.config(tournament_id)
         fmt = ko_regras.formato(torneio)
         vendas, knockouts, payouts = KnockoutService._livro(tournament_id)
-        inscritos = (
+        inscritos = todas_as_linhas(lambda: (
             supabase.table("tournament_players").select("id, player_id, status")
-            .eq("tournament_id", str(tournament_id)).execute().data or []
-        )
+            .eq("tournament_id", str(tournament_id)).order("id")
+        ))
         nomes = KnockoutService._nomes(
             [t.get("player_id") for t in inscritos]
             + [k.get("eliminated_player_id") for k in knockouts]

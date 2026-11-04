@@ -1,6 +1,7 @@
 from typing import Optional
 from datetime import datetime
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.models.financial import (
     FinancialSummary,
     RevenueBreakdown,
@@ -27,18 +28,13 @@ class FinancialService:
         """Generate comprehensive financial summary for DRE and closing"""
 
         # ── 1. Transactions ──
-        query = supabase.table("transactions").select(
-            "*, players(name), tournaments(name)"
-        )
-
+        t_ids = None
         if stage_id:
             # Get tournament IDs for this stage
             stage_tournaments = supabase.table("tournaments").select("id") \
                 .eq("stage_id", stage_id).execute()
             t_ids = [t["id"] for t in (stage_tournaments.data or [])]
-            if t_ids:
-                query = query.in_("tournament_id", t_ids)
-            else:
+            if not t_ids:
                 # Etapa ainda sem torneios: não há receita, mas pode já haver
                 # despesa lançada (aluguel, montagem). O DRE precisa mostrar o
                 # prejuízo — devolver zerado esconderia dinheiro já gasto.
@@ -83,23 +79,34 @@ class FinancialService:
                     cash_net_result=cash["cash_revenue"] - perdas,
                 )
 
-        # Filtro por torneio específico (compõe com etapa/datas).
-        if tournament_id:
-            query = query.eq("tournament_id", tournament_id)
+        fim_do_dia = (
+            datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59).isoformat()
+            if end_date else None
+        )
 
-        if start_date:
-            query = query.gte("created_at", start_date)
-        if end_date:
-            end_dt = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
-            query = query.lte("created_at", end_dt.isoformat())
+        def montar_transacoes():
+            query = supabase.table("transactions").select(
+                "*, players(name), tournaments(name)"
+            )
+            if t_ids:
+                query = query.in_("tournament_id", t_ids)
+            # Filtro por torneio específico (compõe com etapa/datas).
+            if tournament_id:
+                query = query.eq("tournament_id", tournament_id)
+            if start_date:
+                query = query.gte("created_at", start_date)
+            if fim_do_dia:
+                query = query.lte("created_at", fim_do_dia)
+            return query.order("created_at", desc=True).order("id")
 
         # Venda cancelada sai do DRE inteiro (receita, extrato e por torneio):
         # o dinheiro foi devolvido, então contá-la mostraria um lucro que o
         # clube não teve. A consulta usa select("*"), então o filtro é aqui em
         # Python — assim continua funcionando antes da migração da coluna.
-        transactions_data = sem_canceladas(
-            query.order("created_at", desc=True).execute().data or []
-        )
+        #
+        # TODAS as linhas, de mil em mil: o DRE inteiro é somado daqui, e o
+        # PostgREST cortaria em 1000 sem avisar (app/database/paginacao.py).
+        transactions_data = sem_canceladas(todas_as_linhas(montar_transacoes))
 
         # ── 2. Revenue breakdown ──
         buy_in_total = 0.0
@@ -193,17 +200,18 @@ class FinancialService:
         revenue_total = buy_in_total + rebuy_total + addon_total + fee_total
 
         # ── 3. Tickets redeemed value ──
-        tickets_query = supabase.table("satellite_tickets").select("ticket_value") \
-            .eq("status", "redeemed")
-        if stage_id:
-            tickets_query = tickets_query.or_(f"stage_id.eq.{stage_id},stage_id.is.null")
-        if start_date:
-            tickets_query = tickets_query.gte("redeemed_at", start_date)
-        if end_date:
-            end_dt = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
-            tickets_query = tickets_query.lte("redeemed_at", end_dt.isoformat())
+        def montar_tickets():
+            tickets_query = supabase.table("satellite_tickets").select("id, ticket_value") \
+                .eq("status", "redeemed")
+            if stage_id:
+                tickets_query = tickets_query.or_(f"stage_id.eq.{stage_id},stage_id.is.null")
+            if start_date:
+                tickets_query = tickets_query.gte("redeemed_at", start_date)
+            if fim_do_dia:
+                tickets_query = tickets_query.lte("redeemed_at", fim_do_dia)
+            return tickets_query.order("id")
 
-        redeemed_tickets = tickets_query.execute().data or []
+        redeemed_tickets = todas_as_linhas(montar_tickets)
         tickets_redeemed_value = sum(float(t.get("ticket_value") or 0) for t in redeemed_tickets)
 
         # ── 4. Rake — soma do rake REAL por transação (Fase 1: tipos de buy).
@@ -219,11 +227,14 @@ class FinancialService:
         # ── 5. Pending credits ──
         pending_credits = 0.0
         try:
-            credits_query = supabase.table("player_credits").select("amount, used_amount") \
-                .eq("status", "active")
-            if stage_id:
-                credits_query = credits_query.or_(f"stage_id.eq.{stage_id},stage_id.is.null")
-            credits_data = credits_query.execute().data or []
+            def montar_creditos():
+                credits_query = supabase.table("player_credits").select("id, amount, used_amount") \
+                    .eq("status", "active")
+                if stage_id:
+                    credits_query = credits_query.or_(f"stage_id.eq.{stage_id},stage_id.is.null")
+                return credits_query.order("id")
+
+            credits_data = todas_as_linhas(montar_creditos)
             pending_credits = sum(
                 float(c.get("amount") or 0) - float(c.get("used_amount") or 0)
                 for c in credits_data
