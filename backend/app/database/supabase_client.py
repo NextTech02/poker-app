@@ -196,6 +196,16 @@ def reset_request_jwt(token: Token) -> None:
     _request_jwt.reset(token)
 
 
+def requisicao_anonima() -> bool:
+    """True quando a requisição NÃO tem usuário (a TV do salão, sem login).
+
+    É o que diz se uma resposta pode ser compartilhada entre quem pede: sem
+    usuário, as consultas rodam com a chave de serviço e dão o mesmo para
+    todos; com usuário, o RLS dele decide o que ele vê.
+    """
+    return not _request_jwt.get()
+
+
 # Clientes já montados, por token. Ver `_build_user_postgrest`.
 #
 # Um operador faz centenas de requisições com o MESMO token ao longo do turno;

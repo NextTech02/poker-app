@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 # consulta de quase todas as requisições; contratar um módulo leva até isso
 # para valer.
 _modulos_do_clube = CacheCurto(validade_s=30)
+# Nome do clube: cabeçalho do menu e do telão (pedido a cada 30 s por TV).
+_nome_do_clube = CacheCurto(validade_s=60)
 
 
 class _LeituraFalhou(Exception):
@@ -54,9 +56,19 @@ class ModuleService:
     @staticmethod
     def org_name(organization_id: str) -> Optional[str]:
         """Nome da organização para o cabeçalho do menu. Nunca levanta: a tela
-        de permissões não pode cair por causa de uma linha decorativa."""
+        de permissões não pode cair por causa de uma linha decorativa.
+
+        Guardado por 60 s: o telão pede a cada 30 s, por TV, e renomear o clube
+        é raro. Falha não fica guardada."""
         if not organization_id:
             return None
+        try:
+            return _nome_do_clube.obter(organization_id, lambda: ModuleService._ler_nome(organization_id))
+        except _LeituraFalhou:
+            return None
+
+    @staticmethod
+    def _ler_nome(organization_id: str) -> Optional[str]:
         # A tabela `organizations` só tem a política restritiva de 2FA (nenhum
         # SELECT permissivo para `authenticated`): como usuário a leitura volta
         # vazia. O id vem do claim assinado, então buscar o nome com a chave de
@@ -64,8 +76,8 @@ class ModuleService:
         try:
             from app.database.supabase_client import supabase_admin
             resp = supabase_admin.table("organizations").select("name")                 .eq("id", organization_id).limit(1).execute()
-        except Exception:
-            return None
+        except Exception as exc:
+            raise _LeituraFalhou() from exc
         rows = resp.data or []
         return (rows[0] or {}).get("name") if rows else None
 
