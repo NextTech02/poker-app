@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.models.player import (
     PlayerCreate,
     PlayerUpdate,
@@ -198,23 +199,30 @@ class PlayerService:
 
     @staticmethod
     def get_players(search: Optional[str] = None) -> List[Player]:
-        """Get all players, optionally filtered by search term"""
-        query = supabase.table("players").select("*")
+        """Get all players, optionally filtered by search term.
 
-        if search:
-            # A busca continua sobre `name` porque `name` é, por construção
-            # (trigger do banco + sincronizar_nome aqui), "first_name
-            # last_name" — então um ilike só já acha por nome, por sobrenome ou
-            # pelos dois juntos. Isto é a busca do balcão, com fila esperando:
-            # trocar por um OR de três colunas quebraria enquanto a migração
-            # não estivesse aplicada.
-            # O termo é limpo antes: quem digita "beto  silva" (dois espaços)
-            # não pode receber "nenhum jogador encontrado".
-            termo = nome_limpo(search)
-            query = query.or_(f"name.ilike.%{termo}%,nickname.ilike.%{termo}%")
+        TODOS, de mil em mil (app/database/paginacao.py): os seletores de
+        jogador filtram esta lista na tela, e com o corte silencioso do
+        PostgREST quem estivesse depois do milésimo nome não seria achado."""
+        termo = nome_limpo(search) if search else None
 
-        response = query.order("name").execute()
-        return [Player(**item) for item in response.data]
+        def montar():
+            query = supabase.table("players").select("*")
+            if termo:
+                # A busca continua sobre `name` porque `name` é, por construção
+                # (trigger do banco + sincronizar_nome aqui), "first_name
+                # last_name" — então um ilike só já acha por nome, por
+                # sobrenome ou pelos dois juntos. Isto é a busca do balcão, com
+                # fila esperando: trocar por um OR de três colunas quebraria
+                # enquanto a migração não estivesse aplicada.
+                # O termo é limpo antes: quem digita "beto  silva" (dois
+                # espaços) não pode receber "nenhum jogador encontrado".
+                query = query.or_(f"name.ilike.%{termo}%,nickname.ilike.%{termo}%")
+            # `id` de desempate: dois jogadores com o mesmo nome não podem
+            # trocar de página entre uma leitura e outra.
+            return query.order("name").order("id")
+
+        return [Player(**item) for item in todas_as_linhas(montar)]
 
     @staticmethod
     def get_player(player_id: str) -> Optional[Player]:

@@ -110,10 +110,11 @@ class DashboardService:
                 player_count = DashboardService._safe_count(players_q)
 
             # ── 4. Total revenue ───────────────────────────────────────────
-            # Limit to 5000 rows as a safety net — avoids fetching entire table
             # Venda cancelada não é receita: o dinheiro voltou para o jogador.
+            # Sem `.limit`: o PostgREST cortaria em 1000 de qualquer jeito, e a
+            # leitura de mil em mil (ler_transacoes_ativas) é quem traz todas.
             def _revenue_q(cols):
-                q = supabase.table("transactions").select(cols).limit(5000)
+                q = supabase.table("transactions").select(cols)
                 return q.in_("tournament_id", tournament_ids) if tournament_ids else q
 
             total_revenue = DashboardService._sum_amount(
@@ -128,7 +129,6 @@ class DashboardService:
                     supabase.table("transactions")
                     .select(cols)
                     .gte("created_at", today)
-                    .limit(5000)
                 )
                 return q.in_("tournament_id", tournament_ids) if tournament_ids else q
 

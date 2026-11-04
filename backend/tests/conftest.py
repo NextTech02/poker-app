@@ -38,6 +38,7 @@ class FakeQuery:
         self._negar = False  # `.not_` nega o PROXIMO filtro (eq / is_ / in_)
         self._orders = []   # list of (col, desc)
         self._limit = None
+        self._range = None
         self._single = False
 
     # ── builders ──
@@ -115,7 +116,10 @@ class FakeQuery:
         self._limit = n
         return self
 
-    def range(self, *a, **k):
+    def range(self, start, end, *a, **k):
+        """Fatia de verdade (como o PostgREST): é o que a leitura de mil em mil
+        (app/database/paginacao.py) usa, e um no-op esconderia o laço."""
+        self._range = (start, end)
         return self
 
     def is_(self, col, val):
@@ -193,11 +197,15 @@ class FakeQuery:
             # PostgREST).
             for col, desc in reversed(self._orders):
                 rows.sort(key=lambda r: _chave_de_ordem(r.get(col)), reverse=desc)
+            total = len(rows)
+            if self._range is not None:
+                rows = rows[self._range[0]: self._range[1] + 1]
             if self._limit is not None:
                 rows = rows[: self._limit]
             if self._single:
                 return SimpleNamespace(data=(rows[0] if rows else None))
-            return SimpleNamespace(data=rows, count=len(rows))
+            # `count` é o total da consulta (como no count="exact"), não o da página.
+            return SimpleNamespace(data=rows, count=total if self._range is not None else len(rows))
         if self._op == "insert":
             items = self._payload if isinstance(self._payload, list) else [self._payload]
             out = []
@@ -425,6 +433,16 @@ def fiado_isolado(monkeypatch):
     monkeypatch.setattr(mod, "supabase_admin", fake)
     monkeypatch.setattr(mod.HouseCreditService, "_tabelas_ok", None)
     return fake
+
+
+@pytest.fixture(autouse=True)
+def caches_curtos_limpos():
+    """Os caches com validade (módulos do clube, TV pública) vivem no PROCESSO:
+    sem isto, um teste herdaria o que o anterior guardou."""
+    from app.utils.cache_curto import limpar_todos
+    limpar_todos()
+    yield
+    limpar_todos()
 
 
 @pytest.fixture(autouse=True)

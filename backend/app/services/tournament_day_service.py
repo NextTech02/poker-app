@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from collections import defaultdict
 import time
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 # Chave de serviço para a leitura do código da TV — ver `resolve_broadcast_code`.
 from app.database.supabase_client import supabase_admin
 # Venda estornada não entregou ficha nenhuma: contá-la infla o chipcount do
@@ -997,11 +998,16 @@ class TournamentDayService:
         q_day_ids = [q["id"] for q in (qualifying_days_response.data or [])]
         players_by_day = {}
         if q_day_ids:
-            all_q_players = supabase.table("tournament_players")\
-                .select("*")\
-                .in_("tournament_day_id", q_day_ids)\
-                .execute()
-            for p in (all_q_players.data or []):
+            # Todos os classificatórios juntos passam fácil de mil inscrições:
+            # de mil em mil (app/database/paginacao.py), ou o total arrecadado
+            # do dia final sairia menor que o real.
+            all_q_players = todas_as_linhas(lambda: (
+                supabase.table("tournament_players")
+                .select("*")
+                .in_("tournament_day_id", q_day_ids)
+                .order("id")
+            ))
+            for p in all_q_players:
                 players_by_day.setdefault(p.get("tournament_day_id"), []).append(p)
 
         # Vendas por meio de entrada de todos os classificatórios, numa consulta.

@@ -413,3 +413,81 @@ class TestListaDeEnvelopesNoTelao:
         banco.store["tournaments"] = [{"id": TOUR, "mystery_start_level": 13}]
         r = PublicTvService.get_day_extras(DIA)
         assert r.mystery_start_level == 13 and r.mystery_envelopes == []
+
+
+class TestCacheDasTvs:
+    """Várias TVs do mesmo dia (cada uma pedindo a cada 30 s) são servidas da
+    mesma leitura por alguns segundos — os extras custam 11 a 13 consultas."""
+
+    def _contando(self, monkeypatch, banco):
+        idas = []
+
+        class _Conta:
+            def table(self, nome):
+                idas.append(nome)
+                return banco.table(nome)
+
+        monkeypatch.setattr(mod, "supabase_admin", _Conta())
+        return idas
+
+    def test_a_segunda_tv_do_mesmo_dia_nao_vai_ao_banco(self, banco, monkeypatch):
+        idas = self._contando(monkeypatch, banco)
+        primeira = PublicTvService.get_day_extras(DIA)
+        consultas_da_primeira = len(idas)
+        assert consultas_da_primeira > 0
+        assert PublicTvService.get_day_extras(DIA) == primeira
+        assert len(idas) == consultas_da_primeira
+
+    def test_dia_inexistente_nao_fica_guardado(self, banco):
+        # O 404 de agora não pode virar 404 por 15 s depois que o dia existir.
+        with pytest.raises(ErroDeNegocio):
+            PublicTvService.get_day_extras("dia-novo")
+        banco.store["tournament_days"].append(
+            {"id": "dia-novo", "tournament_id": TOUR, "organization_id": ORG})
+        assert PublicTvService.get_day_extras("dia-novo").day_id == "dia-novo"
+
+    def test_falha_nos_ajustes_do_clube_nao_fica_guardada(self, banco, monkeypatch):
+        # Senão a TV de um clube peruano mostraria reais (o padrão) por 1 min.
+        class _SemAjustes:
+            def table(self, nome):
+                if nome == "app_settings":
+                    raise RuntimeError("rede")
+                return banco.table(nome)
+
+        monkeypatch.setattr(mod, "supabase_admin", _SemAjustes())
+        assert PublicTvService._org_settings(ORG)["currency"] == "BRL"
+        monkeypatch.setattr(mod, "supabase_admin", banco)
+        assert PublicTvService._org_settings(ORG)["currency"] == "PEN"
+
+
+class TestInscritosDoDiaNaTv:
+    """GET /tournament-players/day/{id}: a TV pede a cada 10 s, sem login."""
+
+    def _contando(self, monkeypatch):
+        from app.services.tournament_player_service import TournamentPlayerService
+        chamadas = []
+        monkeypatch.setattr(TournamentPlayerService, "get_tournament_day_players",
+                            staticmethod(lambda dia: chamadas.append(dia) or []))
+        return chamadas
+
+    def test_sem_login_as_tvs_compartilham_a_leitura(self, monkeypatch):
+        from app.routers import tournament_players as rota
+        chamadas = self._contando(monkeypatch)
+        rota.get_tournament_day_players(DIA)
+        rota.get_tournament_day_players(DIA)
+        assert len(chamadas) == 1
+
+    def test_com_login_nunca_vem_do_cache(self, monkeypatch):
+        # Com usuário, o RLS dele decide o que ele vê: compartilhar a resposta
+        # poderia entregar a um clube os jogadores de outro.
+        from app.database.supabase_client import reset_request_jwt, set_request_jwt
+        from app.routers import tournament_players as rota
+        chamadas = self._contando(monkeypatch)
+        rota.get_tournament_day_players(DIA)          # anônima: guarda
+        token = set_request_jwt("a.b.c")
+        try:
+            rota.get_tournament_day_players(DIA)
+            rota.get_tournament_day_players(DIA)
+        finally:
+            reset_request_jwt(token)
+        assert len(chamadas) == 3
