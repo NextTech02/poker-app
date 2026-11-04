@@ -469,6 +469,8 @@
     "noPlayers": "No players registered",
     "noPlayersHint": "Start by registering the first player",
     "noResults": "No players found",
+    "keepTyping": "{{count}} more players — keep typing",
+    "showMore": "Show more ({{count}} left)",
     "noResultsHint": "No results for",
     "searchPlaceholder": "Search by name, nickname or email...",
     "searchPlayers": "Search players...",

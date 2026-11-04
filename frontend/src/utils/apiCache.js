@@ -56,7 +56,7 @@ export const cachedGet = async (api, url, staleMs = 30000, params = null) => {
 
   const promise = (async () => {
     try {
-      const res = await api.get(url, params ? { params } : undefined);
+      const res = await (params ? api.get(url, { params }) : api.get(url));
       _cache.set(key, { data: res.data, ts: Date.now() });
       return res.data;
     } finally {
@@ -67,6 +67,13 @@ export const cachedGet = async (api, url, staleMs = 30000, params = null) => {
   _inflight.set(key, promise);
   return promise;
 };
+
+/**
+ * What is already in memory for this URL (current stage scope), stale or not;
+ * `undefined` when nothing. For stale-while-revalidate: show this right away,
+ * then `cachedGet` to refresh.
+ */
+export const cachedValue = (url, params = null) => _cache.get(_buildKey(url, params))?.data;
 
 /**
  * Invalidate a specific cache entry across all stage scopes (call after

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import api from '../config/api';
+import { useListaDeJogadores, MAX_OPCOES } from '../hooks/useListaDeJogadores';
 import './PlayerMultiSelect.css';
 
 /**
@@ -16,20 +16,11 @@ import './PlayerMultiSelect.css';
  */
 const PlayerMultiSelect = ({ values = [], onChange, disabled = false }) => {
   const { t } = useTranslation();
-  const [players, setPlayers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Mesma lista em memória do <PlayerSelect> (ver useListaDeJogadores).
+  const { players, loading } = useListaDeJogadores();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const wrapRef = useRef(null);
-
-  useEffect(() => {
-    let vivo = true;
-    api.get('/players')
-      .then((res) => { if (vivo) setPlayers(res.data || []); })
-      .catch(() => { /* lista vazia: o modal continua utilizável */ })
-      .finally(() => { if (vivo) setLoading(false); });
-    return () => { vivo = false; };
-  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -45,16 +36,20 @@ const PlayerMultiSelect = ({ values = [], onChange, disabled = false }) => {
   const apelido = (p) => (p.nickname ? ` (${p.nickname})` : '');
   const label = (p) => `${p.name}${apelido(p)}`;
 
-  const q = norm(query).trim();
+  // A busca filtra com um passo de atraso: o campo responde à tecla na hora.
+  const q = norm(useDeferredValue(query)).trim();
   // Memoizado pela busca: sem isso a lista era refiltrada a cada render do
   // componente, e nao apenas quando o texto digitado muda.
-  const filtered = useMemo(
+  const encontrados = useMemo(
     () =>
       q
         ? players.filter((p) => norm(p.name).includes(q) || norm(p.nickname).includes(q))
         : players,
     [players, q],
   );
+  // Só os primeiros MAX_OPCOES viram linha; o resto, digitando.
+  const filtered = encontrados.slice(0, MAX_OPCOES);
+  const restantes = encontrados.length - filtered.length;
 
   // Indice por id, montado uma vez por lista de jogadores.
   //
@@ -130,6 +125,11 @@ const PlayerMultiSelect = ({ values = [], onChange, disabled = false }) => {
                 </li>
               );
             })
+          )}
+          {restantes > 0 && (
+            <li className="pms-empty" role="presentation">
+              {t('players.keepTyping', 'Mais {{count}} jogadores — continue digitando', { count: restantes })}
+            </li>
           )}
         </ul>
       )}
