@@ -78,6 +78,19 @@ describe('OrgSwitcher', () => {
     expect(screen.getAllByRole('option')).toHaveLength(2);
   });
 
+  it('trocar de tela não pede a lista de novo e o seletor não pisca', async () => {
+    // O menu lateral é remontado a cada tela; sem cache era uma ida ao
+    // servidor por navegação.
+    responder([ORG_A, ORG_B]);
+    const primeira = render(<OrgSwitcher />);
+    await screen.findByRole('combobox');
+    primeira.unmount();
+
+    render(<OrgSwitcher />);
+    expect(screen.getByRole('combobox')).toHaveValue('org-a');   // na hora, sem esperar a rede
+    expect(api.get.mock.calls.filter(([u]) => u === '/organizations/mine')).toHaveLength(1);
+  });
+
   it('a organização ativa vem do TOKEN', async () => {
     // Mostrar outra coisa seria mentir sobre o que o servidor vai fazer: o
     // RLS decide pelo claim assinado.

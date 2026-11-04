@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { enterOrg } from '../utils/orgScope';
+import { invalidateCache } from '../utils/apiCache';
 import './OrgInviteModal.css';
 
 const ADIADO = 'orgInvites:adiado';
@@ -40,6 +41,9 @@ const OrgInviteModal = () => {
     try {
       if (aceitar) {
         await api.post(`/organizations/invites/${convite.staff_id}/accept`);
+        // O seletor de organização guarda a lista por alguns minutos: o clube
+        // recém-aceito tem que aparecer nele já.
+        invalidateCache('/organizations/mine');
         toast.success(t('orgInvite.accepted', 'Você agora faz parte de {{org}}.',
                         { org: convite.organization_name }));
       } else {

@@ -131,6 +131,12 @@ class TestConsultas:
         self._com_transacoes(monkeypatch)
         assert len(TransactionService.get_transactions()) == 2
 
+    def test_limit_traz_so_as_mais_recentes(self, monkeypatch):
+        # O painel pede 5; o corte é no banco, depois da ordem da mais nova.
+        self._com_transacoes(monkeypatch)
+        r = TransactionService.get_transactions(limit=1)
+        assert [t.id for t in r] == ["x2"]
+
     def test_lista_por_torneio(self, monkeypatch):
         self._com_transacoes(monkeypatch)
         r = TransactionService.get_transactions_by_tournament(TOUR)

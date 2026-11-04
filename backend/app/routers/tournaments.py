@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from typing import List, Optional
 from app.models.tournament import (
     TournamentCreate,
@@ -85,6 +85,9 @@ def create_tournament(
 @router.get("", response_model=List[TournamentSummary])
 def get_tournaments(
     stage_id: Optional[str] = None,
+    # Só os N primeiros da mesma lista (o painel mostra 3). Corta a resposta,
+    # não a conta: o resumo vem de um RPC só.
+    limit: Optional[int] = Query(None, ge=1, le=500),
     header_stage_id: Optional[str] = Depends(get_stage_id_optional),
     current_user: dict = Depends(get_current_user),
 ):
@@ -97,7 +100,8 @@ def get_tournaments(
     a single tournament via GET /tournaments/{id}, which stays open by design.
     """
     effective_stage_id = header_stage_id if header_stage_id else stage_id
-    return TournamentService.get_tournament_summary(stage_id=effective_stage_id)
+    resumos = TournamentService.get_tournament_summary(stage_id=effective_stage_id)
+    return resumos[:limit] if limit else resumos
 
 
 @router.get("/{tournament_id}", response_model=Tournament)

@@ -112,6 +112,13 @@ describe('torneios recentes', () => {
     expect(screen.queryByText('Quarto')).toBeNull();
   });
 
+  it('pede ao servidor só o que mostra (3 torneios, 5 vendas)', async () => {
+    // Antes vinham as listas inteiras a cada 30 s para mostrar 3 e 5 linhas.
+    await montar();
+    expect(api.get).toHaveBeenCalledWith('/tournaments', { params: { limit: 3 } });
+    expect(api.get).toHaveBeenCalledWith('/transactions', { params: { limit: 5 } });
+  });
+
   it('cada torneio leva à própria tela', async () => {
     await montar();
     expect(await screen.findByText('Main Event')).toBeInTheDocument();

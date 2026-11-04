@@ -1166,24 +1166,28 @@ class TransactionService:
         )
 
     @staticmethod
-    def get_transactions(stage_id: Optional[str] = None) -> List[TransactionDetail]:
-        """Get all transactions with details, optionally filtered by stage_id"""
+    def get_transactions(stage_id: Optional[str] = None, limit: Optional[int] = None) -> List[TransactionDetail]:
+        """Get all transactions with details, optionally filtered by stage_id.
+
+        `limit`: só as N mais recentes, cortadas NO BANCO (a ordem já é da mais
+        nova para a mais velha)."""
         if stage_id:
             # Filter transactions by tournaments that belong to the stage
-            response = (
+            query = (
                 supabase.table("transactions")
                 .select("*, tournaments!inner(name, stage_id), players(name, nickname)")
                 .eq("tournaments.stage_id", stage_id)
                 .order("created_at", desc=True)
-                .execute()
             )
         else:
-            response = (
+            query = (
                 supabase.table("transactions")
                 .select("*, tournaments(name), players(name, nickname)")
                 .order("created_at", desc=True)
-                .execute()
             )
+        if limit:
+            query = query.limit(limit)
+        response = query.execute()
 
         transactions = []
         for item in response.data:
