@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTimerSync, formatTime } from '../hooks/useTimerSync';
+import { useTimerSync } from '../hooks/useTimerSync';
+import TimerCountdown from '../components/TimerCountdown';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import Card from '../components/Card';
@@ -69,7 +70,9 @@ const BlindManagement = () => {
   // Onde o torneio está AGORA: o mesmo relógio do controle e do telão (poll +
   // Realtime). `current_level` é a POSIÇÃO (`level`) na estrutura; o diretor
   // vê a linha destacada sem precisar abrir a tela de controle.
-  const { timerState } = useTimerSync(dayId, blinds);
+  // `ticking: false`: a tabela só redesenha quando o servidor muda algo; o
+  // tempo que corre fica no <TimerCountdown> da linha atual.
+  const { timerState, clock } = useTimerSync(dayId, blinds, { ticking: false });
 
   const loadData = useCallback(async () => {
     setLoadError(null);
@@ -710,7 +713,7 @@ const BlindManagement = () => {
                           {ehAtual && (
                             <span className="current-badge">
                               <span className="pulse" aria-hidden="true" />
-                              {t('blinds.currentBadge', 'Agora')} · {formatTime(timerState.time_remaining_current_level)}
+                              {t('blinds.currentBadge', 'Agora')} · <TimerCountdown clock={clock} timerState={timerState} />
                             </span>
                           )}
                         </td>
@@ -775,7 +778,7 @@ const BlindManagement = () => {
                 <span className="summary-current">
                   {t('blinds.currentLevelStat', 'Nível atual')}: {blindAtual.is_break
                     ? t('blinds.break')
-                    : `${t('blinds.level')} ${displayLevelById[blindAtual.id]}`} · {formatTime(timerState.time_remaining_current_level)}
+                    : `${t('blinds.level')} ${displayLevelById[blindAtual.id]}`} · <TimerCountdown clock={clock} timerState={timerState} />
                 </span>
               )}
               <span>{t('blinds.levels')}: {blindLevels.length}</span>

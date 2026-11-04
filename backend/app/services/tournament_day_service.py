@@ -278,24 +278,31 @@ class TournamentDayService:
         return None
 
     @staticmethod
-    def get_day_with_stage(day_id: str):
+    def get_day_with_stage(day_id: str, with_blinds: bool = False):
         """Single round-trip validation helper: fetches the day row plus its parent
         tournament's stage_id (via FK embedding), WITHOUT the players sub-query.
-        Returns (TournamentDay | None, stage_id | None) so timer endpoints can
-        validate existence + stage scoping and reuse the day without re-fetching."""
+        Returns (TournamentDay | None, stage_id | None, blinds | None) so timer
+        endpoints can validate existence + stage scoping and reuse the day without
+        re-fetching.
+
+        `with_blinds`: embute também os blinds DO DIA na mesma ida ao banco. É o
+        que o relógio (consultado a cada 3 s por tela aberta) precisa logo em
+        seguida — antes eram duas consultas em série por leitura."""
+        colunas = "*, tournaments(stage_id), blinds(*)" if with_blinds else "*, tournaments(stage_id)"
         response = supabase.table("tournament_days")\
-            .select("*, tournaments(stage_id)")\
+            .select(colunas)\
             .eq("id", day_id)\
             .execute()
 
         if not response.data:
-            return None, None
+            return None, None, None
 
         row = dict(response.data[0])
         tourn = row.pop("tournaments", None)
+        blinds = row.pop("blinds", None) if with_blinds else None
         stage_id = tourn.get("stage_id") if isinstance(tourn, dict) else None
         row["total_entries"] = 0
-        return TournamentDay(**row), stage_id
+        return TournamentDay(**row), stage_id, blinds
 
     @staticmethod
     def get_tournament_day_summary(
@@ -1451,16 +1458,20 @@ class TournamentDayService:
     # ================================================
 
     @staticmethod
-    def _get_all_blinds(day_id: str, tournament_id: str) -> list:
-        """Get all blinds for a tournament day (day-specific or tournament-level)"""
-        # Try to get day-specific blinds first
-        blinds_response = supabase.table("blinds")\
-            .select("*")\
-            .eq("tournament_day_id", day_id)\
-            .order("level")\
-            .execute()
+    def _get_all_blinds(day_id: str, tournament_id: str, blinds_do_dia: Optional[list] = None) -> list:
+        """Get all blinds for a tournament day (day-specific or tournament-level)
 
-        blinds = blinds_response.data
+        `blinds_do_dia`: os do dia, quando já vieram embutidos na leitura do dia
+        (relógio) — poupa a consulta. Vêm sem ordem garantida, por isso o sort."""
+        if blinds_do_dia is not None:
+            blinds = sorted(blinds_do_dia, key=lambda b: b["level"])
+        else:
+            blinds = supabase.table("blinds")\
+                .select("*")\
+                .eq("tournament_day_id", day_id)\
+                .order("level")\
+                .execute()\
+                .data
 
         # If no day-specific blinds, get tournament blinds.
         # Só as linhas LEGADAS (sem dia), porque todo blind criado por dia
@@ -1592,10 +1603,15 @@ class TournamentDayService:
         }
 
     @staticmethod
-    def get_enriched_timer_status(day_id: str, day: Optional[TournamentDay] = None):
+    def get_enriched_timer_status(
+        day_id: str,
+        day: Optional[TournamentDay] = None,
+        blinds_do_dia: Optional[list] = None,
+    ):
         """Get timer status with all calculated information (current/next blind, break info).
         Auto-advances level in DB when elapsed time exceeds current level duration.
-        `day` may be passed pre-fetched (from the router validation) to skip a fetch;
+        `day` may be passed pre-fetched (from the router validation) to skip a fetch,
+        and `blinds_do_dia` too (embedded in that same read);
         total_entries/chipcount come from a cached players scan, not from the day."""
         if day is None:
             day = TournamentDayService.get_tournament_day(day_id, include_entries=False)
@@ -1605,7 +1621,7 @@ class TournamentDayService:
             )
 
         # Get all blinds sorted by level
-        blinds = TournamentDayService._get_all_blinds(day_id, day.tournament_id)
+        blinds = TournamentDayService._get_all_blinds(day_id, day.tournament_id, blinds_do_dia)
 
         # Calculate current elapsed time if timer is running
         current_elapsed = day.elapsed_time or 0

@@ -162,14 +162,44 @@ const anchorNow = (a) => {
   };
 };
 
+// Contagem EXIBIDA (ceil) do nível e do próximo intervalo: a mesma conta serve
+// o estado devolvido pelo hook e o <TimerCountdown>, para os dois nunca
+// divergirem. Sem âncora (antes da 1ª resposta), vale o que o servidor mandou.
+const lerContagem = (anchor, timerState) => {
+  let remaining = typeof timerState?.time_remaining_current_level === 'number'
+    ? timerState.time_remaining_current_level : 0;
+  let breakRemaining = timerState?.next_break ? timerState.next_break.time_until_break : null;
+  if (anchor) {
+    const r = anchorNow(anchor);
+    remaining = r.remaining;
+    if (r.breakRemaining != null) breakRemaining = r.breakRemaining;
+  }
+  // ceil = comportamento natural de contagem regressiva (cada segundo aparece
+  // pelo intervalo cheio; "15:00" some só quando falta menos de 15:00).
+  return {
+    remaining: Math.ceil(remaining),
+    breakRemaining: breakRemaining == null ? null : Math.ceil(breakRemaining),
+  };
+};
+
 // `publico`: o telão consulta o relógio SEM token (a TV não faz login; com o
 // token de alguém de outra organização o RLS esconderia o dia). O controle
 // continua autenticado.
-export const useTimerSync = (dayId, blinds = null, { publico = false } = {}) => {
+//
+// `ticking: false`: a página NÃO re-renderiza a cada segundo — só quando o
+// estado do servidor muda. O segundo a segundo fica com o <TimerCountdown
+// clock={clock} />, que re-renderiza só ele. Nesse modo o
+// `timerState.time_remaining_current_level` é uma FOTO do último render: quem
+// mostra o tempo deve usar o componente. Telas de operação (Controle, Blinds)
+// usam assim — antes redesenhavam a tabela inteira de blinds todo segundo.
+export const useTimerSync = (dayId, blinds = null, { publico = false, ticking = true } = {}) => {
   const [timerState, setTimerState] = useState(null); // server metadata (blinds, players, is_paused, level…)
   const [renderTick, setRenderTick] = useState(0);     // forces the smooth countdown to recompute
   const [error, setError] = useState(null);
   const [isOffline, setIsOffline] = useState(false);   // aviso visível: o relógio está rodando local
+  const tickingRef = useRef(ticking);
+  tickingRef.current = ticking;
+  const ouvintesDoSegundoRef = useRef(new Set());       // <TimerCountdown> inscritos no ticker
 
   const timerStateRef = useRef(null);
   const consecutiveFailsRef = useRef(0);
@@ -473,13 +503,17 @@ export const useTimerSync = (dayId, blinds = null, { publico = false } = {}) => 
   }, [dayId, publico]);
 
   // Poll server a cada ~3s, SEM empilhar: só agenda a próxima após a anterior terminar.
+  // Aba ESCONDIDA não consulta: o relógio local continua contando, a virada de
+  // nível ainda busca o servidor (ticker abaixo) e, ao voltar a aba, o
+  // `visibilitychange` sincroniza na hora. Um Controle esquecido numa aba de
+  // fundo era uma consulta ao banco a cada 3 s, a noite inteira.
   useEffect(() => {
     if (!dayId) return undefined;
 
     let stopped = false;
     let timeoutId = null;
     const loop = async () => {
-      await fetchStatus();
+      if (!document.hidden) await fetchStatus();
       if (!stopped) timeoutId = setTimeout(loop, 3000);
     };
     loop();
@@ -597,7 +631,8 @@ export const useTimerSync = (dayId, blinds = null, { publico = false } = {}) => 
 
     const tick = () => {
       if (stopped) return;
-      setRenderTick((t) => (t + 1) % 1000000); // força recomputar o display (ceil)
+      if (tickingRef.current) setRenderTick((t) => (t + 1) % 1000000); // força recomputar o display (ceil)
+      ouvintesDoSegundoRef.current.forEach((ouvir) => ouvir());
 
       const { remaining } = anchorNow(anchorRef.current);
       if (remaining == null) { timeoutId = setTimeout(tick, 250); return; }
@@ -658,28 +693,17 @@ export const useTimerSync = (dayId, blinds = null, { publico = false } = {}) => 
   const displayState = useMemo(() => {
     if (!timerState) return null;
 
-    const a = anchorRef.current;
-    let remaining = typeof timerState.time_remaining_current_level === 'number'
-      ? timerState.time_remaining_current_level : 0;
-    let breakRemaining = timerState.next_break ? timerState.next_break.time_until_break : null;
-
-    if (a) {
-      const r = anchorNow(a);
-      remaining = r.remaining;
-      if (r.breakRemaining != null) breakRemaining = r.breakRemaining;
-    }
+    const { remaining, breakRemaining } = lerContagem(anchorRef.current, timerState);
 
     return {
       ...timerState,
-      // ceil = comportamento natural de contagem regressiva (cada segundo aparece
-      // pelo intervalo cheio; "15:00" some só quando falta menos de 15:00).
-      time_remaining_current_level: Math.ceil(remaining),
+      time_remaining_current_level: remaining,
       next_break: timerState.next_break
         ? {
             ...timerState.next_break,
             time_until_break: breakRemaining == null
               ? timerState.next_break.time_until_break
-              : Math.ceil(breakRemaining),
+              : breakRemaining,
           }
         : null,
     };
@@ -687,9 +711,20 @@ export const useTimerSync = (dayId, blinds = null, { publico = false } = {}) => 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerState, renderTick]);
 
+  // Relógio para o <TimerCountdown>: assina o ticker e lê a âncora na hora.
+  // Estável (refs), então o componente se inscreve uma vez só.
+  const clock = useMemo(() => ({
+    subscribe: (ouvir) => {
+      ouvintesDoSegundoRef.current.add(ouvir);
+      return () => ouvintesDoSegundoRef.current.delete(ouvir);
+    },
+    read: (estado) => lerContagem(anchorRef.current, estado),
+  }), []);
+
   return {
     timerState: displayState,
     rawState: timerState,
+    clock,
     refetch: fetchStatus,
     triggerRefetch,
     applyOptimistic,
