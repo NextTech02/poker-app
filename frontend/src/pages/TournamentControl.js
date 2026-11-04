@@ -5,7 +5,8 @@ import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import { useTimerSync, formatTime, formatTimeHuman } from '../hooks/useTimerSync';
+import { useTimerSync, formatTimeHuman } from '../hooks/useTimerSync';
+import TimerCountdown from '../components/TimerCountdown';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
@@ -62,15 +63,18 @@ const TournamentControl = () => {
   const modoConhecido = modo !== null || !day?.tournament_id;
 
   // SINGLE SOURCE OF TRUTH - enriched timer from backend
+  // `ticking: false`: a página só redesenha quando o servidor muda algo; o
+  // segundo a segundo fica nos <TimerCountdown> abaixo.
   const {
     timerState,
+    clock,
     triggerRefetch: refetchTimer,
     applyOptimistic,
     applyLocalCommand,
     broadcastCommand,
     isOffline,
     isLoading: timerLoading,
-  } = useTimerSync(dayId, blinds);
+  } = useTimerSync(dayId, blinds, { ticking: false });
 
   // Mystery "a partir do nível X" (guia do NSOP): quando o relógio chega nele
   // e a fase não começou, o floor recebe o aviso com o atalho para a aba.
@@ -401,12 +405,12 @@ const TournamentControl = () => {
                 <div className="timer-break-indicator">
                   <div className="break-label-control">{t('control.break')}</div>
                   <div className="timer-value break">
-                    {formatTime(timerState?.time_remaining_current_level || 0)}
+                    <TimerCountdown clock={clock} timerState={timerState} />
                   </div>
                 </div>
               ) : (
                 <div className="timer-value">
-                  {formatTime(timerState?.time_remaining_current_level || 0)}
+                  <TimerCountdown clock={clock} timerState={timerState} />
                 </div>
               )}
 
@@ -482,7 +486,7 @@ const TournamentControl = () => {
               <Card className="control-stat-card break-countdown-card">
                 <div className="stat-label">{t('control.intervalIn').toUpperCase()}</div>
                 <div className="stat-value break-time">
-                  {formatTimeHuman(timerState.next_break.time_until_break)}
+                  <TimerCountdown clock={clock} timerState={timerState} kind="break" format={formatTimeHuman} />
                 </div>
               </Card>
             )}

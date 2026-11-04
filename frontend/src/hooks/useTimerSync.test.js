@@ -142,6 +142,52 @@ describe('useTimerSync', () => {
       expect(inicial - depois).toBeLessThanOrEqual(3);
     });
 
+    test('aba escondida não consulta o servidor; ao voltar, sincroniza na hora', async () => {
+      // Um Controle esquecido numa aba de fundo era uma consulta a cada 3 s.
+      api.get.mockResolvedValue({ data: mockTimerState });
+      let escondida = false;
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => escondida });
+      try {
+        renderHook(() => useTimerSync(mockDayId));
+        await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+
+        escondida = true;
+        await avancar(3000);
+        await avancar(3000);
+        expect(api.get).toHaveBeenCalledTimes(1);
+
+        escondida = false;
+        await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+        await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+      } finally {
+        delete document.hidden;
+      }
+    });
+
+    test('ticking: false — a tela não redesenha por segundo; o clock avisa e desconta', async () => {
+      // As telas de operação ligam assim: só o <TimerCountdown> repinta.
+      api.get.mockResolvedValue({ data: mockTimerState });
+      let renders = 0;
+      const { result } = renderHook(() => {
+        renders += 1;
+        return useTimerSync(mockDayId, null, { ticking: false });
+      });
+      await waitFor(() => expect(result.current.timerState).toBeTruthy());
+
+      const ouvinte = jest.fn();
+      const sair = result.current.clock.subscribe(ouvinte);
+      const rendersAntes = renders;
+      const antes = result.current.clock.read(result.current.timerState).remaining;
+
+      // Menos de 3 s: nenhuma consulta nova, só o ticker.
+      await act(async () => { jest.advanceTimersByTime(2100); });
+
+      expect(ouvinte.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(renders).toBe(rendersAntes);
+      expect(result.current.clock.read(result.current.timerState).remaining).toBeLessThan(antes);
+      sair();
+    });
+
     test('reancora no valor do servidor quando ele responde', async () => {
       api.get.mockResolvedValue({ data: mockTimerState });
 

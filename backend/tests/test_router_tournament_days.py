@@ -43,7 +43,7 @@ def _corpo_dia():
 def dia_valido(stub):
     """Dia existente cujo torneio pertence a ETAPA."""
     stub(TDS, get_tournament_day=lambda did: _dia() if did == DIA else None,
-         get_day_with_stage=lambda did: (_dia(), ETAPA) if did == DIA else (None, None))
+         get_day_with_stage=lambda did, with_blinds=False: (_dia(), ETAPA, []) if did == DIA else (None, None, None))
     stub(TS, get_tournament=lambda tid: _torneio() if tid == TOUR else None)
 
 
@@ -282,11 +282,11 @@ class TestRelogio:
         assert r.json()["success"] is True
 
     def test_dia_inexistente_da_404(self, client, stub):
-        stub(TDS, get_day_with_stage=lambda did: (None, None))
+        stub(TDS, get_day_with_stage=lambda did, with_blinds=False: (None, None, None))
         assert client.post(f"/tournament-days/{DIA}/timer/start").status_code == 404
 
     def test_dia_de_outra_etapa_da_403(self, client, stub):
-        stub(TDS, get_day_with_stage=lambda did: (_dia(), OUTRA_ETAPA))
+        stub(TDS, get_day_with_stage=lambda did, with_blinds=False: (_dia(), OUTRA_ETAPA, []))
         r = client.post(f"/tournament-days/{DIA}/timer/start",
                         headers={"X-Stage-ID": ETAPA})
         assert r.status_code == 403
@@ -298,7 +298,7 @@ class TestRelogio:
         assert r.json()["data"]["elapsed"] == -60
 
     def test_erro_de_regra_no_comando_da_400(self, client, dia_valido, stub):
-        def _estoura(did, day=None):
+        def _estoura(did, day=None, blinds_do_dia=None):
             raise ValueError("já está no primeiro nível")
         stub(TDS, previous_level=_estoura)
         assert client.post(f"/tournament-days/{DIA}/timer/prev-level").status_code == 400
@@ -309,14 +309,14 @@ class TestRelogio:
         assert r.status_code == 200
 
     def test_status_enriquecido(self, client, dia_valido, stub):
-        stub(TDS, get_enriched_timer_status=lambda did, day=None: {"level": 3})
+        stub(TDS, get_enriched_timer_status=lambda did, day=None, blinds_do_dia=None: {"level": 3})
         r = client.get(f"/tournament-days/{DIA}/timer/status-enriched")
         assert r.json()["level"] == 3
 
     def test_falha_inesperada_no_status_vira_503_e_nao_500(self, client, dia_valido, stub):
         """A TV consulta em loop. 503 diz "tente de novo"; 500 seria lido como
         defeito permanente pelo cliente e pelo monitoramento."""
-        def _estoura(did, day=None):
+        def _estoura(did, day=None, blinds_do_dia=None):
             raise RuntimeError("supabase fora do ar")
         stub(TDS, get_enriched_timer_status=_estoura)
         r = client.get(f"/tournament-days/{DIA}/timer/status-enriched")
@@ -324,7 +324,7 @@ class TestRelogio:
 
     def test_status_enriquecido_preserva_o_404(self, client, stub):
         """O except amplo do 503 nao pode engolir o HTTPException do 404."""
-        stub(TDS, get_day_with_stage=lambda did: (None, None))
+        stub(TDS, get_day_with_stage=lambda did, with_blinds=False: (None, None, None))
         r = client.get(f"/tournament-days/{DIA}/timer/status-enriched")
         assert r.status_code == 404
 

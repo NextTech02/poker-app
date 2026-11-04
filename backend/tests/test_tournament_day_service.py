@@ -298,17 +298,17 @@ class TestCriacaoELeitura:
     def test_dia_com_etapa_numa_consulta_so(self, monkeypatch):
         _monta(monkeypatch, tournament_days=[_dia(
             D1, tournaments={"stage_id": "etapa-1"})])
-        dia, etapa = S.get_day_with_stage(D1)
+        dia, etapa, _ = S.get_day_with_stage(D1)
         assert dia.id == D1
         assert etapa == "etapa-1"
 
     def test_dia_com_etapa_inexistente(self, monkeypatch):
         _monta(monkeypatch, tournament_days=[])
-        assert S.get_day_with_stage("nao-existe") == (None, None)
+        assert S.get_day_with_stage("nao-existe") == (None, None, None)
 
     def test_dia_sem_torneio_embutido_nao_quebra(self, monkeypatch):
         _monta(monkeypatch, tournament_days=[_dia(D1, tournaments=None)])
-        dia, etapa = S.get_day_with_stage(D1)
+        dia, etapa, _ = S.get_day_with_stage(D1)
         assert dia is not None
         assert etapa is None
 
@@ -1019,6 +1019,41 @@ class TestStatusEnriquecido:
         assert r["current_blind"]["level"] == 1
         assert r["next_blind"]["level"] == 2
         assert r["next_break"]["level"] == 3
+
+    def _contando_tabelas(self, monkeypatch, fake):
+        lidas = []
+        original = fake.table
+        monkeypatch.setattr(fake, "table", lambda nome: (lidas.append(nome), original(nome))[1])
+        return lidas
+
+    def test_blinds_vem_na_mesma_leitura_do_dia(self, monkeypatch):
+        """Antes eram duas consultas em série por leitura do relógio (dia, depois
+        blinds) — a cada 3 s, por tela aberta."""
+        fora_de_ordem = list(reversed(self._blinds()))
+        fake = _monta(monkeypatch, tournament_days=[_dia(
+            D1, tournaments={"stage_id": "etapa-1"}, blinds=fora_de_ordem)])
+        lidas = self._contando_tabelas(monkeypatch, fake)
+
+        dia, etapa, blinds = S.get_day_with_stage(D1, with_blinds=True)
+        r = S.get_enriched_timer_status(D1, day=dia, blinds_do_dia=blinds)
+
+        # o dia uma vez e NENHUMA leitura de blinds (a contagem de jogadores é
+        # outra conta, com cache próprio)
+        assert lidas.count("tournament_days") == 1
+        assert "blinds" not in lidas
+        assert etapa == "etapa-1"
+        # embutidos vêm sem ordem garantida: o relógio ordena pelo nível
+        assert r["current_blind"]["level"] == 1
+        assert r["next_blind"]["level"] == 2
+
+    def test_dia_sem_blinds_proprios_ainda_cai_nos_do_torneio(self, monkeypatch):
+        """Embutido vazio NÃO é "sem estrutura": vale a estrutura legada do
+        torneio (linhas sem dia), como no caminho antigo."""
+        legado = [{**b, "tournament_id": TOUR, "tournament_day_id": None} for b in self._blinds()]
+        _monta(monkeypatch, blinds=legado)
+        dia = S.get_tournament_day(D1, include_entries=False)
+        r = S.get_enriched_timer_status(D1, day=dia, blinds_do_dia=[])
+        assert r["current_blind"]["level"] == 1
 
     def test_numero_exibido_nao_conta_o_intervalo(self, monkeypatch):
         """O intervalo ocupa uma POSICAO na estrutura, mas nao e nivel de jogo.

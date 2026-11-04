@@ -36,6 +36,9 @@ yarn-error.log*
 !db/tests/**/*.sql
 # Saída do roteiro E2E do fiado (ids criados em prod, por rodada).
 backend/scripts/e2e_fiado_ids.json
+# Copia local dos valores originais da migracao das imagens do telao (tem as
+# imagens dos clubes em base64): nunca versionar.
+backend/backup_imagens_do_telao_*.json
 
 # ── Planilhas e arquivos locais ────────────────────────────────────────────────
 *.xlsx

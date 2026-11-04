@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
@@ -29,6 +29,19 @@ class BlindIncreaseType(str, Enum):
 class AllocationType(str, Enum):
     automatic = "automatic"
     manual = "manual"
+
+
+def _sem_imagem_embutida(v):
+    """Imagem do telão é LINK (Storage do clube ou URL externa), nunca a imagem.
+
+    Uma `data:` URL mora dentro da linha do dia, e o dia é lido a cada 3 s pelo
+    relógio de cada tela aberta: uma logo de 400 KB (houve fundo de 2 MB)
+    viajava junto em toda leitura. Só na ENTRADA (criar/editar): o modelo de
+    leitura continua aceitando, para um dia antigo nunca virar erro ao abrir.
+    """
+    if isinstance(v, str) and v.lstrip()[:5].lower() == "data:":
+        raise ValueError("Envie a imagem pelo upload: o dia guarda só o link dela.")
+    return v
 
 
 class TournamentDayBase(BaseModel):
@@ -151,7 +164,11 @@ class TournamentDayBase(BaseModel):
 
 class TournamentDayCreate(TournamentDayBase):
     """Model for creating a new tournament day"""
-    pass
+
+    @field_validator("broadcast_bg_image_url", "broadcast_club_logo_url", "broadcast_break_bg_image_url")
+    @classmethod
+    def _imagens_sao_links(cls, v):
+        return _sem_imagem_embutida(v)
 
 
 class TournamentDayUpdate(BaseModel):
@@ -259,6 +276,14 @@ class TournamentDayUpdate(BaseModel):
     broadcast_show_eliminations: Optional[bool] = None
     # Tamanho do título em %, separado da fonte geral.
     broadcast_title_size: Optional[int] = Field(None, ge=50, le=300)
+
+    @field_validator(
+        "broadcast_bg_image_url", "broadcast_club_logo_url",
+        "broadcast_break_bg_image_url", "broadcast_promo_url",
+    )
+    @classmethod
+    def _imagens_sao_links(cls, v):
+        return _sem_imagem_embutida(v)
 
 
 class TournamentDay(TournamentDayBase):

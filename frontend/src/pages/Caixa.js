@@ -224,7 +224,9 @@ const Caixa = () => {
   const fecharVenda = useCallback(() => setShowModal(false), []);
   const fecharCancelamento = useCallback(() => setCancelling(null), []);
   const fecharTrocaDeMetodo = useCallback(() => setChangingMethod(null), []);
-  const fecharTicket = () => { setShowTicketModal(false); loadData(); };
+  // Fechar o bilhete NÃO recarrega: ele não muda dado nenhum, e a venda que o
+  // gerou já pediu o recarregamento.
+  const fecharTicket = () => setShowTicketModal(false);
   useEscapeKey(showModal, fecharVenda);
   useEscapeKey(!!cancelling, fecharCancelamento);
   useEscapeKey(!!changingMethod, fecharTrocaDeMetodo);
@@ -232,6 +234,7 @@ const Caixa = () => {
 
   useEffect(() => {
     loadData();
+    hidratarJogadores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -241,12 +244,22 @@ const Caixa = () => {
   // operador logado, e quase sempre recebia de volta exatamente o que já
   // tinha. O poll segue como rede de segurança, em intervalo folgado.
   //
-  // Sem filtro de propósito: o RLS já limita os eventos ao clube de quem está
-  // logado, e o Caixa mostra a venda de TODOS os operadores — filtrar pela
-  // etapa esconderia a venda do colega até o próximo poll.
-  useRealtimeRefresh({
+  // `transactions` sem filtro de propósito: a tabela não tem a etapa (só o
+  // torneio), o RLS já limita os eventos ao clube de quem está logado, e o
+  // Caixa mostra a venda de TODOS os operadores. `tournaments` tem a etapa:
+  // mudança de torneio de outra etapa não é assunto deste caixa.
+  //
+  // Depois das PRÓPRIAS escritas a tela chama `recarregar` (o mesmo funil com
+  // debounce do Realtime), e não `loadData` direto: a venda gera eco no
+  // Realtime, e por caminhos separados eram dois refetches seguidos.
+  const recarregar = useRealtimeRefresh({
     canal: `caixa-${selectedStage?.id || 'sem-etapa'}`,
-    tabelas: [{ table: 'transactions' }, { table: 'tournaments' }],
+    tabelas: [
+      { table: 'transactions' },
+      selectedStage?.id
+        ? { table: 'tournaments', filter: `stage_id=eq.${selectedStage.id}` }
+        : { table: 'tournaments' },
+    ],
     aoMudar: () => loadData(),
   });
 
@@ -343,24 +356,33 @@ const Caixa = () => {
     return () => { cancelado = true; };
   }, [showModal, formData.tournament_id, formData.tournament_day_id, tournamentDays.length, redeOnline]);
 
+  // O que a lista e o formulário mostram. A lista de JOGADORES não entra aqui:
+  // isto roda a cada venda de qualquer operador do clube, e a lista inteira (e
+  // a regravação dela no IndexedDB) ia junto toda vez — ver `hidratarJogadores`.
   const loadData = async () => {
     try {
       // ISSUE-004 fix: use separate calls so one failure doesn't block the other
-      const [transactionsRes, tournamentsRes, playersRes] = await Promise.all([
+      const [transactionsRes, tournamentsRes] = await Promise.all([
         api.get('/transactions').catch(() => ({ data: [] })),
         api.get('/tournaments?status=active,pending').catch(() => ({ data: [] })),
-        api.get('/players').catch(() => ({ data: null })),
       ]);
       setTransactions(transactionsRes.data || []);
       setTournaments(tournamentsRes.data || []);
       // Hidrata a réplica offline (para registrar/consultar sem internet)
       if (tournamentsRes.data?.length) putEntities('tournaments', tournamentsRes.data);
-      if (playersRes.data?.length) putEntities('players', playersRes.data);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Réplica offline dos jogadores (o nome no bilhete de uma venda sem rede):
+  // UMA vez ao abrir a tela. Quem é cadastrado ou atendido depois entra pela
+  // venda online (`nomeDoJogador`) e pelo cadastro offline.
+  const hidratarJogadores = async () => {
+    const res = await api.get('/players').catch(() => null);
+    if (res?.data?.length) putEntities('players', res.data);
   };
 
   const loadTournamentDays = async (tournamentId) => {
@@ -417,6 +439,8 @@ const Caixa = () => {
         return pInfo?.name || '—';
       }
       const pRes = await api.get(`/players/${playerId}`);
+      // Já que veio: guarda na réplica, para a PRÓXIMA venda dele sem rede.
+      if (pRes.data?.id) putEntities('players', [pRes.data]);
       return pRes.data?.name || '—';
     } catch (_) {
       return '—';
@@ -739,7 +763,7 @@ const Caixa = () => {
       });
       setPlayerCredit(0);
       setTournamentDays([]);
-      loadData();
+      recarregar();
       avisarQueOCaixaMudou();
     } catch (error) {
       // ISSUE-004 fix: use userMessage from global interceptor for readable error
@@ -1118,7 +1142,7 @@ const Caixa = () => {
       } else {
         toast.success(t('cashRegister.cancelDone', 'Venda cancelada e valores estornados'));
       }
-      loadData();
+      recarregar();
       avisarQueOCaixaMudou();
     } catch (error) {
       toast.error(
@@ -1147,7 +1171,7 @@ const Caixa = () => {
       });
       toast.success(t('cashRegister.paymentMethodChanged', 'Forma de pagamento atualizada'));
       setChangingMethod(null);
-      loadData();
+      recarregar();
     } catch (error) {
       toast.error(
         error.userMessage || error.response?.data?.detail
@@ -1884,7 +1908,7 @@ const Caixa = () => {
                 <h2>
                   {tituloDoBilhete(allocationData)}
                 </h2>
-                <button type="button" className="close-btn" onClick={() => { setShowTicketModal(false); loadData(); }} aria-label={t('common.close')}>
+                <button type="button" className="close-btn" onClick={fecharTicket} aria-label={t('common.close')}>
                   <span className="close-icon"></span>
                 </button>
               </div>
@@ -1929,14 +1953,11 @@ const Caixa = () => {
                     total_chips: allocationData.total_chips,
                   }}
                   formatarValor={formatCurrency}
-                  onPrint={() => {
-                    setShowTicketModal(false);
-                    loadData();
-                  }}
+                  onPrint={fecharTicket}
                 />
               </div>
               <div className="modal-actions">
-                <Button onClick={() => { setShowTicketModal(false); loadData(); }}>
+                <Button onClick={fecharTicket}>
                   {t('common.close')}
                 </Button>
               </div>
@@ -1950,7 +1971,7 @@ const Caixa = () => {
             onCobrado={(res) => {
               setCobrarEquipeDe(null);
               toast.success(t('teams.charged', 'Equipe cobrada: {{n}} inscrição(ões).', { n: res?.charged ?? 0 }));
-              loadData();
+              recarregar();
             }}
           />
         )}

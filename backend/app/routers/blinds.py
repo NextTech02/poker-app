@@ -24,11 +24,15 @@ from ..utils.erros import conflito, nao_encontrado, recusado
 # rotas de blinds respondam exatamente o mesmo texto ao frontend.
 DIA_DE_TORNEIO_NAO_ENCONTRADO = "Tournament day not found"
 
+# Rotas `def`, NAO `async def`: o cliente do Supabase e sincrono. Numa rota
+# async ele roda direto no event loop e trava o worker inteiro durante a ida ao
+# banco — inclusive o relogio de todas as telas. Em `def` o FastAPI executa a
+# rota no threadpool e o loop segue atendendo o resto.
 router = APIRouter(tags=["blinds"])
 
 
 @router.get("/tournaments/{tournament_id}/blinds", response_model=List[BlindResponse])
-async def get_tournament_blinds(
+def get_tournament_blinds(
     tournament_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
@@ -50,7 +54,7 @@ async def get_tournament_blinds(
 
 
 @router.post("/tournaments/{tournament_id}/blinds", response_model=BlindResponse, status_code=status.HTTP_201_CREATED)
-async def create_blind(
+def create_blind(
     tournament_id: UUID,
     blind: BlindCreateRequest,
     current_user: dict = Depends(get_current_user)
@@ -100,7 +104,7 @@ async def create_blind(
 
 
 @router.patch("/tournaments/{tournament_id}/blinds/{blind_id}", response_model=BlindResponse)
-async def update_blind(
+def update_blind(
     tournament_id: UUID,
     blind_id: UUID,
     blind_update: BlindUpdate,
@@ -167,7 +171,7 @@ async def update_blind(
 
 
 @router.delete("/tournaments/{tournament_id}/blinds/{blind_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_blind(
+def delete_blind(
     tournament_id: UUID,
     blind_id: UUID,
     current_user: dict = Depends(get_current_user)
@@ -203,7 +207,7 @@ async def delete_blind(
 # ============================================
 
 @router.get("/tournament-days/{tournament_day_id}/blinds", response_model=List[BlindResponse])
-async def get_tournament_day_blinds(
+def get_tournament_day_blinds(
     tournament_day_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
@@ -225,7 +229,7 @@ async def get_tournament_day_blinds(
 
 
 @router.post("/tournament-days/{tournament_day_id}/blinds", response_model=BlindResponse, status_code=status.HTTP_201_CREATED)
-async def create_blind_for_day(
+def create_blind_for_day(
     tournament_day_id: UUID,
     blind: BlindCreateRequest,
     current_user: dict = Depends(get_current_user)
@@ -278,7 +282,7 @@ async def create_blind_for_day(
     "/tournament-days/{tournament_day_id}/blinds/replicate-duration",
     response_model=BlindReplicateDurationResponse,
 )
-async def replicate_duration_for_day(
+def replicate_duration_for_day(
     tournament_day_id: UUID,
     body: BlindReplicateDurationRequest,
     current_user: dict = Depends(get_current_user)
@@ -321,7 +325,7 @@ async def replicate_duration_for_day(
 
 
 @router.patch("/tournament-days/{tournament_day_id}/blinds/{blind_id}", response_model=BlindResponse)
-async def update_blind_for_day(
+def update_blind_for_day(
     tournament_day_id: UUID,
     blind_id: UUID,
     blind_update: BlindUpdate,
@@ -399,7 +403,7 @@ def _segundos_desde(iso) -> int:
 
 
 @router.put("/tournament-days/{tournament_day_id}/blinds/order", response_model=List[BlindResponse])
-async def reorder_blinds_for_day(
+def reorder_blinds_for_day(
     tournament_day_id: UUID,
     body: BlindReorderRequest,
     current_user: dict = Depends(get_current_user)
@@ -481,7 +485,7 @@ async def reorder_blinds_for_day(
 
 
 @router.delete("/tournament-days/{tournament_day_id}/blinds/{blind_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_blind_for_day(
+def delete_blind_for_day(
     tournament_day_id: UUID,
     blind_id: UUID,
     current_user: dict = Depends(get_current_user)
@@ -513,7 +517,7 @@ async def delete_blind_for_day(
 
 
 @router.delete("/tournament-days/{tournament_day_id}/blinds", status_code=status.HTTP_200_OK)
-async def delete_all_blinds_for_day(
+def delete_all_blinds_for_day(
     tournament_day_id: UUID,
     force: bool = Query(False, description="Confirma a limpeza mesmo com o dia em andamento"),
     current_user: dict = Depends(require_permission("blinds"))
