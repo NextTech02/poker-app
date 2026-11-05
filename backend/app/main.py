@@ -8,7 +8,9 @@ import httpx
 from app.config import get_settings
 from app.auth.permissions import forbid_permission
 from app.auth.modules import require_module
-from app.database.supabase_client import set_request_jwt, reset_request_jwt, start_query_counter
+from app.database.supabase_client import (
+    iniciar_aquecimento, set_request_jwt, reset_request_jwt, start_query_counter,
+)
 from app.database.memo import abrir as abrir_memo, fechar as fechar_memo
 
 logger = logging.getLogger("uvicorn.error")
@@ -42,6 +44,15 @@ app = FastAPI(
     description="API para gerenciamento de torneios de poker",
     version="2.0.0"
 )
+
+
+@app.on_event("startup")
+def _aquecer_pool_de_conexoes():
+    """Mantém conexões com o Supabase abertas entre uma venda e outra (ver
+    `iniciar_aquecimento`). Só em produção: os testes sobem o app com
+    TestClient e não podem fazer chamadas de rede."""
+    if settings.environment == "production":
+        iniciar_aquecimento()
 
 
 class CatchAllExceptionMiddleware(BaseHTTPMiddleware):
