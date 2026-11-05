@@ -66,8 +66,10 @@ aplicar() {
 
   # Auth: tudo o que veio, menos nulos e QUALQUER segredo (a API pode devolvê-lo
   # mascarado, e reenviar a máscara sobrescreveria o valor de verdade).
+  # `^smtp_pass$` e não `pass`: este pegaria também password_min_length,
+  # password_required_characters e password_hibp_enabled — a política de senha.
   jq 'with_entries(select(.value != null)
-        | select(.key | test("secret|pass|auth_token|api_key") | not))' \
+        | select(.key | test("secret|^smtp_pass$|auth_token|api_key|access_key") | not))' \
      config-antigo/config_auth.json > config-antigo/auth_para_o_novo.json
   # Se a API recusar um campo, `api` mostra a resposta, que diz QUAL.
   api PATCH "$NEW_REF/config/auth" --data @config-antigo/auth_para_o_novo.json > /dev/null
