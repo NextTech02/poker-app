@@ -173,6 +173,79 @@ class TestRebuyEAddon:
         assert fake.store["tournament_players"][0]["rebuy_count"] == 2
 
 
+class TestEntradaPagaComTicket:
+    """O ticket ja foi pago (emitido ou vendido): a entrada que ele paga nao
+    pode botar dinheiro no caixa de novo — a transacao grava 0, e o valor fica
+    so na inscricao. E esse caminho de graca nao pode ficar aberto ao cliente."""
+
+    def _com_jogador(self, monkeypatch, status="eliminated"):
+        # Quem volta de eliminado faz o ranking ser recalculado; aqui ele nao
+        # importa, e sem isto o teste tentaria o banco de verdade.
+        monkeypatch.setattr(tournament_player_service, "_recalcular_ranking",
+                            lambda *a, **k: None)
+        return _monta(monkeypatch, jogadores=[{
+            "id": TP, "tournament_id": TOUR, "tournament_day_id": DIA,
+            "player_id": PLAYER, "status": status, "rebuy_count": 0, "addon_count": 0,
+            "total_chips": 0, "total_spent": 100,
+            "total_buy_in_amount": 100, "total_rebuy_amount": 0, "total_addon_amount": 0,
+            "created_at": "2026-06-08T00:00:00Z", "registered_at": "2026-06-08T00:00:00Z",
+            # O dia vem embutido na leitura da inscricao (valor e fichas da recompra).
+            "tournament_days": dict(_dia()),
+        }])
+
+    def test_reentrada_com_ticket_nao_cobra_e_aponta_o_ticket(self, monkeypatch):
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, ticket_id="tk1")
+        (venda,) = [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
+        assert float(venda["amount"]) == 0.0
+        assert float(venda["rake_amount"]) == 0.0
+        assert float(venda["bounty_amount"]) == 0.0
+        assert venda["payment_source"] == "ticket"
+        assert venda["ticket_id"] == "tk1"
+        # As fichas da reentrada saem normalmente: o ticket vale a reentrada.
+        assert venda["chips"] == 10000
+        linha = fake.store["tournament_players"][0]
+        assert linha["rebuy_count"] == 1
+        assert linha["status"] == "active"
+        # O valor fica na inscricao, como no buy-in pago com ticket.
+        assert float(linha["total_rebuy_amount"]) == 100.0
+
+    def test_um_ticket_vale_uma_reentrada_so(self, monkeypatch):
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
+                                          quantity=3, ticket_id="tk1")
+        assert len([t for t in fake.store["transactions"] if t["type"] == "rebuy"]) == 1
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 1
+
+    def test_recompra_normal_continua_cobrando(self, monkeypatch):
+        """Mandar payment_source=ticket pela rota de recompra (sem ticket_id)
+        nao abre o caminho de graca."""
+        fake = self._com_jogador(monkeypatch)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
+                                          payment_source="ticket")
+        (venda,) = [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
+        assert float(venda["amount"]) == 100.0
+        assert "ticket_id" not in venda
+
+    def test_inscricao_com_ticket_vinda_do_cliente_e_recusada(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        with pytest.raises(ErroDeNegocio) as erro:
+            TournamentPlayerService.register_player(
+                _inscricao(payment_source="ticket", ticket_id="qualquer"), "u1")
+        assert erro.value.code == "ticket_so_pelo_resgate"
+        assert fake.store["tournament_players"] == []
+        assert fake.store["transactions"] == []
+
+    def test_inscricao_com_ticket_pelo_resgate_grava_zero(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        TournamentPlayerService.register_player(
+            _inscricao(payment_source="ticket", ticket_id="tk1"), "u1",
+            via_resgate_de_ticket=True)
+        (entrada,) = fake.store["transactions"]
+        assert float(entrada["amount"]) == 0.0
+        assert entrada["ticket_id"] == "tk1"
+
+
 class TestRecompraEmLote:
     """Recompra dupla/tripla numa ida só.
 

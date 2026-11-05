@@ -645,6 +645,20 @@ describe('resgatar ticket', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Entrada criada no Dia Final'));
   });
 
+  it('ticket de quem já está no dia avisa que virou REENTRADA', async () => {
+    // O operador esperava uma inscrição nova; precisa saber que o ticket pagou
+    // a reentrada do jogador que já estava no dia.
+    api.post.mockResolvedValue({ data: { reentrada: true, message: 'Ticket resgatado como reentrada' } });
+    await montar();
+    await abrir();
+    await escolherTicket('tk1');
+    expect(screen.getByText('satelliteTickets.redeemReentryHint')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.submitRedeem' }));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('satelliteTickets.toastRedeemedReentry')
+    );
+  });
+
   it('erro no resgate mostra o motivo', async () => {
     api.post.mockRejectedValue(erroHttp('Ticket expirado'));
     await montar();
