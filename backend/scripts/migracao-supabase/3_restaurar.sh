@@ -10,7 +10,8 @@
 # senão cada venda copiada moveria o caixa de novo.
 #
 # Depois do restore:
-#   - regras dos buckets, Realtime e jobs (pos_restore.sql);
+#   - regras dos buckets, Realtime, jobs e as permissões que o antigo tinha
+#     revogado (pos_restore.sql);
 #   - os links gravados com o endereço do projeto antigo (imagens do telão)
 #     passam a apontar para o novo;
 #   - uma varredura confirma que não sobrou nenhum link antigo.
@@ -31,7 +32,7 @@ echo "==> histórico de migrações"
 psql17 --single-transaction --variable ON_ERROR_STOP=1 \
   --file history_schema.sql --file history_data.sql --dbname "$NEW_DB_URL"
 
-echo "==> regras dos buckets, Realtime e jobs"
+echo "==> regras dos buckets, Realtime, jobs e permissões revogadas"
 psql17 --variable ON_ERROR_STOP=1 --file pos_restore.sql --dbname "$NEW_DB_URL"
 
 echo "==> links com o endereço do projeto antigo -> novo"

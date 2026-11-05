@@ -35,6 +35,7 @@ serve, porque mantém a mesma região.
 | Jobs (pg_cron) | activity-logs-purge, loyalty-birthday-grants, suspend-expired-free-trials | `pos_restore.sql` (gerado do antigo) |
 | Realtime | 23 tabelas na publicação | `pos_restore.sql` |
 | Storage | `broadcast-backgrounds` (público, 17 arquivos, ~4 MB) e `comprovantes` (privado, vazio) | buckets no dump; regras (6) no `pos_restore.sql`; arquivos com `4_copiar_storage.sh` |
+| Permissões revogadas | `delete_organization`, `set_active_organization`, `list_my_organizations` e o hook só para `service_role`; `activity_logs` sem `anon`/`authenticated`. O projeto novo **devolve** o acesso padrão ao que o restore cria (visto no ensaio) | `pos_restore.sql`, item 4, refaz as permissões de cada objeto igual ao antigo; `5_conferir.sh` compara |
 | Links com o endereço antigo | 31 valores em 4 colunas de `tournament_days` (imagens do telão) | reescritos por `3_restaurar.sh` |
 | Configuração de Auth/API | URLs, MFA, limites, captcha, `max_rows=1000` | `1_config.sh exportar` / `aplicar`; **secret do hCaptcha à mão** |
 | Não usado | Edge Functions, webhooks, segredos do Vault, roles próprios, triggers em `auth.users` | — |
