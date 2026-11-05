@@ -359,18 +359,19 @@ Each command loads specialized context and best practices for that domain.
 
 ## Additional Documentation
 
-Reference these files for specific features:
+Index of everything in `docs/`: **docs/README.md**. Current references:
 
 - **docs/STAGE_ENCAPSULATION.md** - Complete guide to stage-based scoping system
-- **docs/SISTEMA_ALOCACAO_README.md** - Table allocation and seating algorithms
 - **docs/IMPLEMENTACAO_CAIXA_SANGRIA.md** - Cash register and sangria operations
-- **docs/CORRECAO_CAIXA_GERAL.md** - General cash register corrections
-- **docs/PLAYER_REGISTRATION_GUIDE.md** - Player registration workflow
 - **docs/INTERVAL_FEATURE_GUIDE.md** - Tournament interval/break management
 - **docs/BROADCAST_SETUP_INSTRUCTIONS.md** - Public broadcast display setup
-- **docs/QUICKSTART.md** - Quick setup guide for new developers
-- **docs/TROUBLESHOOTING.md** - Common issues and solutions
-- **docs/MIGRATION_GUIDE_V2.md** - Database v1 to v2 migration
+- **docs/BROADCAST_TV_LAYOUT_2026-10.md** - TV layout (1920x1080 stage) and background library
+- **docs/BLINDS_NIVEL_ATUAL_E_REORDENACAO_2026-10.md** - Current blind level and drag-to-reorder
+- **docs/MIGRACAO_SUPABASE_SAO_PAULO.md** - Supabase migration Oregon → São Paulo (runbook and result)
+
+**docs/historico/** keeps old implementation reports, v1/v2 setup guides, PRDs and the old
+allocation/registration/troubleshooting guides. They describe the system as it was when written —
+check the code before relying on them.
 
 ## MCP Server Permissions
 
