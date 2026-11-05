@@ -17,11 +17,39 @@ exigir SUPABASE_ACCESS_TOKEN OLD_REF
 API=https://api.supabase.com/v1/projects
 auth_header=(-H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
 
+# Chama a Management API e devolve a resposta. Em erro, mostra o código E a
+# resposta — é ela que diz qual campo foi recusado — e para o script.
+#   api METODO CAMINHO [args do curl...]
+api() {
+  local metodo=$1 caminho=$2 corpo codigo
+  shift 2
+  corpo=$(mktemp)
+  codigo=$(curl -sS -o "$corpo" -w '%{http_code}' -X "$metodo" "${auth_header[@]}" \
+             -H "Content-Type: application/json" "$@" "$API/$caminho") || { rm -f "$corpo"; exit 1; }
+  if [ "${codigo:0:1}" != 2 ]; then
+    echo "ERRO $codigo em $metodo $caminho:" >&2
+    cat "$corpo" >&2
+    echo >&2
+    if [ "$codigo" = 401 ]; then
+      echo "401 = token recusado. Confira SUPABASE_ACCESS_TOKEN no variaveis.env (começa com sbp_;" >&2
+      echo "gere outro em supabase.com/dashboard/account/tokens)." >&2
+    fi
+    rm -f "$corpo"
+    exit 1
+  fi
+  cat "$corpo"
+  rm -f "$corpo"
+}
+
 exportar() {
   mkdir -p config-antigo
   for parte in config/auth postgrest config/storage; do
     arquivo="config-antigo/$(echo "$parte" | tr / _).json"
-    curl -fsS "${auth_header[@]}" "$API/$OLD_REF/$parte" > "$arquivo"
+    # Grava num .tmp e só troca se veio um JSON de verdade: um erro no meio
+    # não deixa arquivo vazio para o `aplicar` mandar ao projeto novo.
+    api GET "$OLD_REF/$parte" > "$arquivo.tmp"
+    jq -e 'type == "object" and length > 0' "$arquivo.tmp" > /dev/null
+    mv "$arquivo.tmp" "$arquivo"
     echo "salvo: $arquivo"
   done
   echo
@@ -31,32 +59,32 @@ exportar() {
 
 aplicar() {
   exigir NEW_REF
-  [ -d config-antigo ] || { echo "Rode antes: bash 1_config.sh exportar" >&2; exit 1; }
+  for f in config_auth postgrest config_storage; do
+    jq -e 'type == "object" and length > 0' "config-antigo/$f.json" > /dev/null 2>&1 \
+      || { echo "config-antigo/$f.json falta ou está vazio. Rode antes: bash 1_config.sh exportar" >&2; exit 1; }
+  done
 
   # Auth: tudo o que veio, menos nulos e QUALQUER segredo (a API pode devolvê-lo
   # mascarado, e reenviar a máscara sobrescreveria o valor de verdade).
   jq 'with_entries(select(.value != null)
         | select(.key | test("secret|pass|auth_token|api_key") | not))' \
      config-antigo/config_auth.json > config-antigo/auth_para_o_novo.json
-  # --fail-with-body: se a API recusar um campo, a resposta diz QUAL.
-  curl -sS --fail-with-body -X PATCH "${auth_header[@]}" -H "Content-Type: application/json" \
-       --data @config-antigo/auth_para_o_novo.json "$API/$NEW_REF/config/auth" > /dev/null
+  # Se a API recusar um campo, `api` mostra a resposta, que diz QUAL.
+  api PATCH "$NEW_REF/config/auth" --data @config-antigo/auth_para_o_novo.json > /dev/null
   echo "Auth aplicado."
 
   # API (PostgREST): o max_rows=1000 que o backend assume (paginacao.py).
   jq '{max_rows, db_schema, db_extra_search_path}' config-antigo/postgrest.json \
-    | curl -sS --fail-with-body -X PATCH "${auth_header[@]}" -H "Content-Type: application/json" \
-           --data @- "$API/$NEW_REF/postgrest" > /dev/null
+    | api PATCH "$NEW_REF/postgrest" --data @- > /dev/null
   echo "API aplicada."
 
   jq '{fileSizeLimit}' config-antigo/config_storage.json \
-    | curl -sS --fail-with-body -X PATCH "${auth_header[@]}" -H "Content-Type: application/json" \
-           --data @- "$API/$NEW_REF/config/storage" > /dev/null
+    | api PATCH "$NEW_REF/config/storage" --data @- > /dev/null
   echo "Storage aplicado."
 
   echo
   echo "Conferindo o hook de login no NOVO:"
-  curl -fsS "${auth_header[@]}" "$API/$NEW_REF/config/auth" \
+  api GET "$NEW_REF/config/auth" \
     | jq '{hook_custom_access_token_enabled, hook_custom_access_token_uri, mfa_totp_enroll_enabled, site_url}'
   echo
   echo "À MÃO no painel do NOVO (a API não devolve segredos):"
