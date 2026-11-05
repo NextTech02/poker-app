@@ -112,21 +112,51 @@ O sistema continua funcionando normalmente: o projeto antigo só é **lido**.
 9. Anotar o tempo de cada passo e qualquer erro (ver "Problemas conhecidos").
    **Apagar o projeto de ensaio** no fim, porque ele tem os dados reais.
 
+### Resultado do ensaio de 2026-11-05 (projeto `kjxzjqadqvbmmaukwghs`)
+
+Passou. Banco (contagens e somas das 86 tabelas, usuários, 2FA), permissões
+dos 209 objetos, regras do Storage, Realtime e jobs **idênticos** ao antigo; os
+17 arquivos idênticos (mesmo tamanho); Auth com "Nada pendente"; teste de uso
+completo (login com hook e 2FA, venda e estorno, relógio, TV, Realtime,
+relatório) gravando só no ensaio.
+
+| Da VPS para… | mediana | faixa |
+|---|---|---|
+| Oregon | 241 ms | 221–691 ms (picos) |
+| São Paulo | **65 ms** | 52–69 ms |
+
+O que o ensaio achou (tudo já corrigido nos scripts):
+- os `.sql` dos scripts estavam fora do git (o `.gitignore` ignora `*.sql`);
+- o restore **devolve** acesso padrão a `anon`/`authenticated` no que o antigo
+  revogou (`pos_restore.sql` item 4 refaz as permissões; `5_conferir` compara);
+- a Management API responde 401 também para campo recusado, exige a senha do
+  SMTP próprio (`SMTP_PASS`) e o secret do captcha (`HCAPTCHA_SECRET`), e dá 402
+  para hooks de planos maiores mesmo desligados (`aplicar` manda só o que difere);
+- os dois projetos assinam os tokens com **ES256**: o backend valida pelo JWKS e
+  `SUPABASE_JWT_SECRET` pode ficar vazio (foi assim no teste de uso).
+
 ## Fase B — Virada (janela de ~40 min, fora de evento)
 
 **No dia anterior:**
-- Combinar o horário com os clubes e avisar que todos vão entrar de novo.
-- Criar o projeto definitivo `App Poker` em São Paulo, **vazio**, com `pg_cron`
-  habilitado, e trocar os `NEW_*` do `variaveis.env` para ele.
+- Combinar o horário com os clubes e avisar que todos vão entrar de novo e que,
+  depois da virada, cada aparelho precisa de **F5** (ou fechar e abrir o app
+  instalado): as telas abertas ficam com a versão antiga, que ainda aponta para
+  Oregon, até recarregar. Só o telão recarrega sozinho (em até 5 min).
+- Renomear o projeto atual para `App Poker (Oregon)` (Settings > General), para
+  não confundir os dois no painel.
+- Criar o projeto definitivo `App Poker` em São Paulo, Postgres 17, **vazio**,
+  com `pg_cron` habilitado (Database > Extensions).
+- No `variaveis.env` da VPS, trocar os `NEW_*` para ele (`NEW_DB_URL` copiada do
+  botão Connect > Session pooler) e, se o token pessoal foi revogado depois do
+  ensaio, gerar outro. `SMTP_PASS` e `HCAPTCHA_SECRET` continuam valendo.
+- Apagar o que sobrou do ensaio: `rm -rf ~/migracao-supabase/dump ~/migracao-supabase/config-antigo`.
 - Na VPS, preparar o `.env.novo`: cópia do `.env` com as variáveis abaixo
   trocadas pelas do projeto novo.
   - `SUPABASE_URL`
   - `SUPABASE_SERVICE_KEY` (secret)
   - `REACT_APP_SUPABASE_ANON_KEY` (publishable)
-  - `SUPABASE_JWT_SECRET` (Settings > JWT Keys > legacy secret)
-
-  O backend aceita os dois formatos de chave e de token (HS256 e JWKS, ver
-  `app/auth/jwt.py` e `app/database/supabase_client.py`).
+  - `SUPABASE_JWT_SECRET=` **vazio**: os tokens são ES256 e o backend valida
+    pelo JWKS do projeto (`app/auth/jwt.py`), como no teste do ensaio.
 - Conferir que nenhum aparelho tem **venda offline pendente de sincronizar**.
 
 **Na janela:**
@@ -140,8 +170,8 @@ O sistema continua funcionando normalmente: o projeto antigo só é **lido**.
 | 11 | `bash $SCRIPTS/4_copiar_storage.sh`. Roda num container avulso da imagem do backend, sem subir a API: o sistema continua parado |
 | 13 | `bash $SCRIPTS/5_conferir.sh`, que **tem de dar IGUAIS** |
 | 15 | `cp .env .env.oregon && cp .env.novo .env && docker compose build --no-cache frontend backend && docker compose up -d` |
-| 25 | Teste rápido: entrar (admin e 2FA), abrir caixa, venda de teste na org Teste, relógio, TV, enviar uma imagem e ver o Realtime. No PERF_LOG, as consultas devem cair para poucos ms |
-| 35 | Reabrir e avisar os clubes |
+| 25 | Teste rápido: entrar (admin e 2FA), abrir caixa, venda de teste na org Teste, relógio, TV, enviar uma imagem e ver o Realtime. No PERF_LOG, cada consulta deve ficar perto de 65 ms (era 200–640) |
+| 35 | Reabrir e avisar os clubes: **F5** (ou fechar e abrir o app) e entrar de novo |
 
 ## Volta-atrás
 
