@@ -10,6 +10,15 @@
   position: relative;
 }
 
+/* Seletor de jogador dentro do cartão: a lista dele é absoluta e passa da
+   borda de baixo. Com o `overflow: hidden` acima, ela aparecia cortada — uma
+   faixa fina sob o campo, sem nenhum nome (tela Limite de Jogador). O cartão
+   com seletor deixa a lista sair; navegador sem :has() ignora a regra e fica
+   como antes. */
+.card:has(.player-select-wrap, .pms-wrap) {
+  overflow: visible;
+}
+
 .card-header {
   padding: 13px 18px;
   border-bottom: 1px solid var(--border-primary);
