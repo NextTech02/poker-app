@@ -426,21 +426,38 @@ class SatelliteTicketService:
                 "financiador_obrigatorio", "Informe quem financiou o ticket"
             )
 
-        # Register player using tournament_player_service
         from app.models.tournament_player import TournamentPlayerCreate
         from app.services.tournament_player_service import TournamentPlayerService
 
-        registration = TournamentPlayerCreate(
-            tournament_id=t["target_tournament_id"],
-            tournament_day_id=day_id,
-            player_id=player_id,
-            buy_in_count=1,
-            payment_source="ticket",
-            ticket_id=ticket_id,
-            notes=f"Resgate de ticket — financiado por {funded_by_clean}",
-        )
-
-        tp = TournamentPlayerService.register_player(registration, user_id)
+        inscricao = SatelliteTicketService._inscricao_no_dia(player_id, day_id)
+        if inscricao:
+            # Já inscrito no dia: o ticket paga a REENTRADA (decisão do clube,
+            # 2026-11-05). Antes o resgate era recusado ("Jogador já está
+            # registrado neste dia") e o ticket ficava sem uso. É a reentrada de
+            # sempre — a recompra na mesma inscrição, que traz de volta um
+            # eliminado —, com as travas dela: só eliminado volta, nível-limite
+            # do dia, caixa aberto, vendas bloqueadas.
+            atualizado = TournamentPlayerService.add_rebuy(
+                inscricao["id"], user_id, ticket_id=ticket_id
+            )
+            tp_id = atualizado.id
+            player_name, tournament_name = SatelliteTicketService._nomes(
+                player_id, t["target_tournament_id"]
+            )
+        else:
+            registration = TournamentPlayerCreate(
+                tournament_id=t["target_tournament_id"],
+                tournament_day_id=day_id,
+                player_id=player_id,
+                buy_in_count=1,
+                payment_source="ticket",
+                ticket_id=ticket_id,
+                notes=f"Resgate de ticket — financiado por {funded_by_clean}",
+            )
+            tp = TournamentPlayerService.register_player(
+                registration, user_id, via_resgate_de_ticket=True
+            )
+            tp_id, player_name, tournament_name = tp.id, tp.player_name, tp.tournament_name
 
         # Update ticket. If the `funded_by` column hasn't been added by the
         # migration yet, retry without it and fall back to storing the funder
@@ -449,7 +466,7 @@ class SatelliteTicketService:
             "status": "redeemed",
             "funded_by": funded_by_clean,
             "redeemed_at": datetime.now(timezone.utc).isoformat(),
-            "redeemed_tournament_player_id": tp.id,
+            "redeemed_tournament_player_id": tp_id,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         try:
@@ -464,12 +481,34 @@ class SatelliteTicketService:
 
         return {
             "ticket_id": ticket_id,
-            "tournament_player_id": tp.id,
-            "player_name": tp.player_name,
-            "tournament_name": tp.tournament_name,
+            "tournament_player_id": tp_id,
+            "player_name": player_name,
+            "tournament_name": tournament_name,
             "funded_by": funded_by_clean,
-            "message": "Ticket resgatado com sucesso",
+            # A tela avisa quando o ticket virou reentrada: o operador esperava
+            # uma inscrição nova.
+            "reentrada": bool(inscricao),
+            "message": (
+                "Ticket resgatado como reentrada" if inscricao
+                else "Ticket resgatado com sucesso"
+            ),
         }
+
+    @staticmethod
+    def _inscricao_no_dia(player_id: str, day_id: str) -> Optional[dict]:
+        """A inscrição do jogador no dia alvo, se houver. Estornada não conta:
+        o dinheiro dela voltou e não há o que reentrar."""
+        r = supabase.table("tournament_players").select("id, status") \
+            .eq("tournament_day_id", day_id).eq("player_id", player_id).execute()
+        vivas = [i for i in (r.data or []) if i.get("status") != "cancelled"]
+        return vivas[0] if vivas else None
+
+    @staticmethod
+    def _nomes(player_id: str, tournament_id: str) -> tuple:
+        """Nome do jogador e do torneio, para a resposta do resgate."""
+        p = supabase.table("players").select("name").eq("id", player_id).execute().data or [{}]
+        t = supabase.table("tournaments").select("name").eq("id", tournament_id).execute().data or [{}]
+        return p[0].get("name", ""), t[0].get("name", "")
 
     @staticmethod
     def cancel_ticket(ticket_id: str, user_id: str) -> TicketResponse:

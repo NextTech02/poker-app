@@ -421,8 +421,17 @@ class TournamentPlayerService:
             raise ValueError(f"Rebuys não são mais permitidos. Limite: nível {rebuy_level_limit}, Atual: nível {current_blind_level}")
 
     @staticmethod
-    def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False, permitir_meio_inativo: bool = False) -> TournamentPlayerDetail:
+    def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False, permitir_meio_inativo: bool = False, via_resgate_de_ticket: bool = False) -> TournamentPlayerDetail:
         """Register a player for a tournament day"""
+        # Entrada paga com TICKET grava valor 0 no caixa: o dinheiro entrou quando
+        # o ticket foi emitido ou vendido. Só o resgate (SatelliteTicketService),
+        # que confere e consome o ticket, pode pedir isso. Vindo do cliente, era
+        # uma inscrição de graça com qualquer `ticket_id` — ou nenhum.
+        if registration_data.payment_source == "ticket" and not via_resgate_de_ticket:
+            raise ErroDeNegocio(
+                "ticket_so_pelo_resgate",
+                "Entrada com ticket é feita pelo resgate, na tela de Tickets.",
+            )
         client_id = registration_data.client_id
         client_mutation_id = registration_data.client_mutation_id
 
@@ -554,7 +563,7 @@ class TournamentPlayerService:
         )
 
     @staticmethod
-    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1, permitir_meio_inativo: bool = False, skip_elimination_gate: bool = False) -> TournamentPlayer:
+    def add_rebuy(tournament_player_id: str, user_id: str, current_blind_level: int = None, payment_source: str = "cash", payment_method: str = "cash", buy_type_id: str = None, client_mutation_id: str = None, skip_level_gate: bool = False, skip_sales_block: bool = False, quantity: int = 1, permitir_meio_inativo: bool = False, skip_elimination_gate: bool = False, ticket_id: str = None) -> TournamentPlayer:
         """Registra UMA OU MAIS recompras do jogador, numa ida só.
 
         REENTRADA TRAZ DE VOLTA UM ELIMINADO — e só isso. Sem ninguém
@@ -593,8 +602,17 @@ class TournamentPlayerService:
         mandando `quantity=3`, e ignorá-lo registraria UMA recompra onde o
         jogador pagou três — dinheiro a menos no caixa. Só sai quando não
         houver mais nenhuma tela antiga em uso.
+
+        `ticket_id`: a reentrada é paga com um ticket de satélite (resgate do
+        ticket de quem já está inscrito no dia). Vale UMA reentrada e não entra
+        dinheiro no caixa — a transação grava 0, como o buy-in pago com ticket;
+        o valor fica só na inscrição. Só o resgate passa este campo: a rota de
+        recompra não o aceita, então ninguém recompra de graça por ela.
         """
         quantity = max(1, int(quantity or 1))
+        if ticket_id:
+            quantity = 1
+            payment_source = "ticket"
         # Get tournament player info with tournament_day data
         tp_response = _ler_inscrito_com_o_dia(
             tournament_player_id,
@@ -712,28 +730,34 @@ class TournamentPlayerService:
         # Create transaction
         # UMA linha por recompra (o relatório e a bolsa de prêmios contam linhas,
         # não somam quantidade), mas UM ÚNICO insert com as N de uma vez.
+        # Paga com ticket, nada entra no caixa (ver `ticket_id` na docstring).
+        valor_cobrado = 0 if ticket_id else rebuy_amount
+        rake_cobrado = round(valor_cobrado * rake_pct / 100, 2)
+
         def _linha(indice: int) -> dict:
             linha = {
                 "tournament_id": tp["tournament_id"],
                 "player_id": tp["player_id"],
                 "tournament_player_id": tournament_player_id,
                 "type": "rebuy",
-                "amount": rebuy_amount,
+                "amount": valor_cobrado,
                 "payment_source": actual_payment_source,
                 "payment_method": payment_method or "cash",
                 "buy_type_id": buy_type_id,
                 "buy_type_name": (buy_type or {}).get("name"),
                 "rake_percentage": rake_pct,
-                "rake_amount": round(rebuy_amount * rake_pct / 100, 2),
+                "rake_amount": rake_cobrado,
                 # Parte KO de UMA recompra (a reentrada ganha bounty novo).
                 "bounty_amount": float(ko_regras.parte_ko_da_venda(
-                    torneio_ko, rebuy_amount, round(rebuy_amount * rake_pct / 100, 2)
+                    torneio_ko, valor_cobrado, rake_cobrado
                 )),
                 # Fichas de UMA recompra por linha (o lote grava N linhas): é
                 # exatamente o que o estorno de UMA delas precisa devolver.
                 "chips": rebuy_chips,
                 "created_by": user_id,
             }
+            if ticket_id:
+                linha["ticket_id"] = ticket_id
             if client_mutation_id:
                 # Cada linha precisa do SEU identificador, senão o replay da fila
                 # offline acharia a primeira e concluiria que as N já entraram.

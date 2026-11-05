@@ -770,10 +770,13 @@ class TestConsultaDeTickets:
 
 class TestResgateDeTicket:
     def _com_registro(self, monkeypatch):
-        """O resgate delega a inscrição ao serviço de jogadores do torneio."""
+        """O resgate delega a inscrição ao serviço de jogadores do torneio.
+        Devolve o que a inscrição recebeu, para os testes conferirem."""
         from app.services import tournament_player_service as tps
+        recebido = {}
 
-        def _registra(registro, uid):
+        def _registra(registro, uid, **kw):
+            recebido.update(registro=registro, **kw)
             return TournamentPlayerDetail(
                 id="tp-novo", tournament_id=registro.tournament_id,
                 player_id=registro.player_id, total_spent=0.0, status="active",
@@ -782,6 +785,69 @@ class TestResgateDeTicket:
 
         monkeypatch.setattr(tps.TournamentPlayerService, "register_player",
                             staticmethod(_registra))
+        return recebido
+
+    def _com_reentrada(self, monkeypatch):
+        """Jogador já no dia: o resgate vira a recompra do serviço de jogadores."""
+        from types import SimpleNamespace
+        from app.services import tournament_player_service as tps
+        chamadas = []
+
+        def _recompra(tp_id, uid, **kw):
+            chamadas.append(dict(tp_id=tp_id, **kw))
+            return SimpleNamespace(id=tp_id)
+
+        monkeypatch.setattr(tps.TournamentPlayerService, "add_rebuy",
+                            staticmethod(_recompra))
+        return chamadas
+
+    def test_jogador_ja_inscrito_no_dia_reentra_pago_com_o_ticket(self, monkeypatch):
+        """Antes o resgate era recusado ("já está registrado neste dia") e o
+        ticket ficava parado. Agora ele paga a REENTRADA na mesma inscrição."""
+        inscricao = self._com_registro(monkeypatch)
+        recompras = self._com_reentrada(monkeypatch)
+        fake = _monta_ticket(monkeypatch, tournament_players=[
+            {"id": "tp-antigo", "tournament_day_id": DIA, "player_id": JOGADOR,
+             "status": "eliminated"}])
+        r = T.redeem_ticket("t1", None, AUTOR)
+        assert recompras == [{"tp_id": "tp-antigo", "ticket_id": "t1"}]
+        assert inscricao == {}  # nenhuma inscrição nova
+        assert r["reentrada"] is True
+        assert r["tournament_player_id"] == "tp-antigo"
+        assert (r["player_name"], r["tournament_name"]) == ("Fulano", "Torneio")
+        ticket = fake.store["satellite_tickets"][0]
+        assert ticket["status"] == "redeemed"
+        assert ticket["redeemed_tournament_player_id"] == "tp-antigo"
+
+    def test_inscricao_estornada_nao_conta_e_o_ticket_inscreve(self, monkeypatch):
+        """O dinheiro da inscrição estornada voltou: não há o que reentrar."""
+        self._com_registro(monkeypatch)
+        recompras = self._com_reentrada(monkeypatch)
+        _monta_ticket(monkeypatch, tournament_players=[
+            {"id": "tp-estornado", "tournament_day_id": DIA, "player_id": JOGADOR,
+             "status": "cancelled"}])
+        r = T.redeem_ticket("t1", None, AUTOR)
+        assert recompras == []
+        assert r["reentrada"] is False
+        assert r["tournament_player_id"] == "tp-novo"
+
+    def test_inscricao_em_outro_dia_nao_vira_reentrada(self, monkeypatch):
+        self._com_registro(monkeypatch)
+        recompras = self._com_reentrada(monkeypatch)
+        _monta_ticket(monkeypatch, tournament_players=[
+            {"id": "tp-outro-dia", "tournament_day_id": "outro-dia",
+             "player_id": JOGADOR, "status": "active"}])
+        assert T.redeem_ticket("t1", None, AUTOR)["tournament_player_id"] == "tp-novo"
+        assert recompras == []
+
+    def test_a_inscricao_com_ticket_sabe_que_vem_do_resgate(self, monkeypatch):
+        """Inscrição com ticket grava 0 no caixa; só o resgate pode pedir isso."""
+        inscricao = self._com_registro(monkeypatch)
+        _monta_ticket(monkeypatch)
+        T.redeem_ticket("t1", None, AUTOR)
+        assert inscricao["via_resgate_de_ticket"] is True
+        assert inscricao["registro"].payment_source == "ticket"
+        assert inscricao["registro"].ticket_id == "t1"
 
     def test_resgata_e_marca_como_usado(self, monkeypatch):
         self._com_registro(monkeypatch)
