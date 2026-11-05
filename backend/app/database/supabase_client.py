@@ -288,19 +288,25 @@ class _EscritaEsqueceMemo:
 
 class _AdminEsqueceMemo:
     """O client service_role, com a mesma regra: escrita (ou RPC) por ele
-    também apaga a memória da requisição. O resto (storage, auth) passa direto."""
+    também apaga a memória da requisição. O resto (storage, auth) passa direto.
+
+    Também entra no contador do PERF_LOG: antes só o `supabase` contava, e as
+    rotas que leem com a chave de serviço (o telão público inteiro) apareciam
+    no log com menos consultas do que faziam."""
 
     def __init__(self, cliente: Client):
         self._cliente = cliente
 
     def table(self, name: str):
+        _conta(name)
         return _EscritaEsqueceMemo(self._cliente.table(name))
 
     from_ = table
 
-    def rpc(self, *args, **kwargs):
+    def rpc(self, fn, *args, **kwargs):
+        _conta("rpc:" + str(fn))
         esquecer_memo()
-        return self._cliente.rpc(*args, **kwargs)
+        return self._cliente.rpc(fn, *args, **kwargs)
 
     def __getattr__(self, item):
         return getattr(self._cliente, item)

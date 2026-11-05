@@ -111,6 +111,11 @@ class SupabaseUserContextMiddleware(BaseHTTPMiddleware):
             reset_request_jwt(ctx)  # nunca vaza o token para a próxima request
 
 
+# A linha do PERF_LOG. É lida por backend/scripts/resumo_perf_log.py — mudar o
+# formato aqui sem mudar lá deixa o resumo da noite vazio (o teste pega).
+FORMATO_DA_LINHA_PERF = "[perf] %s %-6s %-42s %6.0fms  %2d consultas%s"
+
+
 class PerfLogMiddleware(BaseHTTPMiddleware):
     """Registra tempo e número de idas ao banco por requisição.
 
@@ -138,7 +143,7 @@ class PerfLogMiddleware(BaseHTTPMiddleware):
             # não com que frequência ela acontece — e numa tela que se atualiza
             # sozinha a frequência é metade da resposta.
             logger.info(
-                "[perf] %s %-6s %-42s %6.0fms  %2d consultas%s",
+                FORMATO_DA_LINHA_PERF,
                 time.strftime("%H:%M:%S"), request.method, request.url.path, ms, n, marca,
             )
         return resposta

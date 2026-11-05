@@ -35,6 +35,11 @@ services:
       # Interruptor de emergência do multi-tenant: false volta o backend ao modo
       # antigo (service_role, ignora RLS) sem precisar de deploy.
       - SUPABASE_RLS_AS_USER=${SUPABASE_RLS_AS_USER:-true}
+      # Medição: PERF_LOG=true no .env da VPS faz o backend registrar, por
+      # requisição, o tempo e quantas idas ao banco ela fez (resumo com
+      # backend/scripts/resumo_perf_log.py). Desligado por padrão: em produção
+      # seria uma linha por requisição que ninguém lê.
+      - PERF_LOG=${PERF_LOG:-false}
       - ENVIRONMENT=production
     networks:
       - torneios-net
