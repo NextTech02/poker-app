@@ -2,6 +2,13 @@
 
 Plano de 2026-11-05. Scripts em `backend/scripts/migracao-supabase/`.
 
+> **Virada concluída em 2026-11-05** (~20:25–20:40 UTC). Produção agora no
+> projeto `AceBlind` (`obhfozqcxbdvuqxugjxz`, sa-east-1, Micro). Antes de
+> reabrir: `5_conferir` IGUAIS (106 itens) e, conferido à parte, dados,
+> permissões dos 209 objetos, hook, regras, Realtime, jobs e os 17 arquivos
+> idênticos ao antigo; teste no site gravando só no novo. O projeto de Oregon
+> (`kymaaegfoladwojfwxrp`) fica intocado como garantia até 2026-11-12.
+
 ## Por quê
 
 A VPS está em **São Paulo** e o banco (projeto `App Poker`, `kymaaegfoladwojfwxrp`)
