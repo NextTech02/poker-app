@@ -9,8 +9,10 @@
 # liga o hook `custom_access_token_hook`, e com o hook ligado e a função ainda
 # inexistente ninguém consegue entrar.
 #
-# Segredos a API não devolve (secret do hCaptcha, senha de SMTP): o script
-# avisa, e eles são preenchidos à mão no painel do projeto novo.
+# Segredos a API não devolve, mas EXIGE para aceitar o resto: a senha do SMTP
+# próprio e o secret do captcha. Vêm do variaveis.env (SMTP_PASS,
+# HCAPTCHA_SECRET); sem eles, esses campos ficam de fora e o script avisa o que
+# fazer à mão no painel do projeto novo.
 source "$(dirname "${BASH_SOURCE[0]}")/comum.sh"
 exigir SUPABASE_ACCESS_TOKEN OLD_REF
 
@@ -30,7 +32,9 @@ api() {
     echo "ERRO $codigo em $metodo $caminho:" >&2
     cat "$corpo" >&2
     echo >&2
-    if [ "$codigo" = 401 ]; then
+    # A API também responde 401 a campo recusado (ex.: SMTP sem senha), então
+    # a dica do token só sai quando a resposta fala do token.
+    if [ "$codigo" = 401 ] && grep -qiE 'jwt|token|unauthorized' "$corpo"; then
       echo "401 = token recusado. Confira SUPABASE_ACCESS_TOKEN no variaveis.env (começa com sbp_;" >&2
       echo "gere outro em supabase.com/dashboard/account/tokens)." >&2
     fi
@@ -68,8 +72,20 @@ aplicar() {
   # mascarado, e reenviar a máscara sobrescreveria o valor de verdade).
   # `^smtp_pass$` e não `pass`: este pegaria também password_min_length,
   # password_required_characters e password_hibp_enabled — a política de senha.
-  jq 'with_entries(select(.value != null)
-        | select(.key | test("secret|^smtp_pass$|auth_token|api_key|access_key") | not))' \
+  # Depois, os dois segredos exigidos: com SMTP próprio, a API recusa smtp_* e
+  # rate_limit_email_sent sem smtp_pass ("Custom SMTP required ... Missing
+  # SMTP_PASS", visto no ensaio); o captcha ligado precisa do secret.
+  jq --arg smtp_pass "${SMTP_PASS:-}" --arg captcha "${HCAPTCHA_SECRET:-}" '
+      with_entries(select(.value != null)
+        | select(.key | test("secret|^smtp_pass$|auth_token|api_key|access_key") | not))
+      | if (.smtp_host // "") == "" then .
+        elif $smtp_pass != "" then . + {smtp_pass: $smtp_pass}
+        else with_entries(select(.key | test("^smtp_|^rate_limit_email_sent$") | not))
+        end
+      | if .security_captcha_enabled != true then .
+        elif $captcha != "" then . + {security_captcha_secret: $captcha}
+        else del(.security_captcha_enabled)
+        end' \
      config-antigo/config_auth.json > config-antigo/auth_para_o_novo.json
   # Se a API recusar um campo, `api` mostra a resposta, que diz QUAL.
   api PATCH "$NEW_REF/config/auth" --data @config-antigo/auth_para_o_novo.json > /dev/null
@@ -85,14 +101,24 @@ aplicar() {
   echo "Storage aplicado."
 
   echo
-  echo "Conferindo o hook de login no NOVO:"
+  echo "Conferindo no NOVO:"
   api GET "$NEW_REF/config/auth" \
-    | jq '{hook_custom_access_token_enabled, hook_custom_access_token_uri, mfa_totp_enroll_enabled, site_url}'
+    | jq '{hook_custom_access_token_enabled, hook_custom_access_token_uri, mfa_totp_enroll_enabled,
+           site_url, smtp_host, security_captcha_enabled}'
+
+  pendencias=()
+  if jq -e '(.smtp_host // "") != ""' config-antigo/config_auth.json > /dev/null && [ -z "${SMTP_PASS:-}" ]; then
+    pendencias+=("Authentication > Emails > SMTP Settings: o SMTP próprio NÃO foi copiado (falta SMTP_PASS no variaveis.env). Sem ele, os e-mails do Auth (convites) saem pelo SMTP padrão do Supabase, que é limitado.")
+  fi
+  if jq -e '.security_captcha_enabled == true' config-antigo/config_auth.json > /dev/null && [ -z "${HCAPTCHA_SECRET:-}" ]; then
+    pendencias+=("Authentication > Attack Protection: captcha DESLIGADO no novo (falta HCAPTCHA_SECRET no variaveis.env).")
+  fi
   echo
-  echo "À MÃO no painel do NOVO (a API não devolve segredos):"
-  echo "  - Authentication > Attack Protection: secret do hCaptcha (o mesmo HCAPTCHA_SECRET da VPS)"
-  if jq -e '.smtp_host // empty' config-antigo/config_auth.json > /dev/null; then
-    echo "  - Authentication > SMTP: senha do SMTP próprio"
+  if [ ${#pendencias[@]} -gt 0 ]; then
+    echo "PENDENTE no painel do NOVO:"
+    printf '  - %s\n' "${pendencias[@]}"
+  else
+    echo "Nada pendente: SMTP e captcha (se o antigo usa) foram copiados com os segredos do variaveis.env."
   fi
 }
 
