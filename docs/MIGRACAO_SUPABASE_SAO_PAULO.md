@@ -37,7 +37,7 @@ serve, porque mantém a mesma região.
 | Storage | `broadcast-backgrounds` (público, 17 arquivos, ~4 MB) e `comprovantes` (privado, vazio) | buckets no dump; regras (6) no `pos_restore.sql`; arquivos com `4_copiar_storage.sh` |
 | Permissões revogadas | `delete_organization`, `set_active_organization`, `list_my_organizations` e o hook só para `service_role`; `activity_logs` sem `anon`/`authenticated`. O projeto novo **devolve** o acesso padrão ao que o restore cria (visto no ensaio) | `pos_restore.sql`, item 4, refaz as permissões de cada objeto igual ao antigo; `5_conferir.sh` compara |
 | Links com o endereço antigo | 31 valores em 4 colunas de `tournament_days` (imagens do telão) | reescritos por `3_restaurar.sh` |
-| Configuração de Auth/API | URLs, MFA, limites, captcha, `max_rows=1000` | `1_config.sh exportar` / `aplicar`; **secret do hCaptcha à mão** |
+| Configuração de Auth/API | URLs, MFA, limites, captcha, SMTP próprio, `max_rows=1000` | `1_config.sh exportar` / `aplicar`. A API **exige e não devolve** a senha do SMTP e o secret do captcha: preencher `SMTP_PASS` e `HCAPTCHA_SECRET` no `variaveis.env` (sem eles o script aplica o resto e lista o que fazer à mão) |
 | Não usado | Edge Functions, webhooks, segredos do Vault, roles próprios, triggers em `auth.users` | — |
 
 O que muda para quem usa: **todo mundo entra de novo uma vez** (as chaves do
@@ -88,7 +88,8 @@ O sistema continua funcionando normalmente: o projeto antigo só é **lido**.
 2. `bash $SCRIPTS/2_dump.sh` copia o antigo para `dump/`.
 3. `bash $SCRIPTS/3_restaurar.sh` carrega o dump no ensaio e regrava os links.
 4. `bash $SCRIPTS/1_config.sh exportar` e depois `bash $SCRIPTS/1_config.sh aplicar`.
-   Em seguida, preencha o secret do hCaptcha no painel (o script avisa onde).
+   Com `SMTP_PASS` e `HCAPTCHA_SECRET` no `variaveis.env`, sai "Nada pendente";
+   senão, faça no painel o que ele listar como PENDENTE.
 5. `bash $SCRIPTS/4_copiar_storage.sh` copia os arquivos.
 6. `bash $SCRIPTS/5_conferir.sh`. No ensaio o sistema continua vendendo, então
    vendas feitas depois do dump aparecem como diferença; tudo o resto tem de bater.
@@ -135,7 +136,7 @@ O sistema continua funcionando normalmente: o projeto antigo só é **lido**.
 | 0 | `docker compose stop backend`. Parou: nenhuma venda nova entra no antigo |
 | 1 | `bash $SCRIPTS/2_dump.sh` |
 | 4 | `bash $SCRIPTS/3_restaurar.sh` |
-| 7 | `bash $SCRIPTS/1_config.sh exportar && bash $SCRIPTS/1_config.sh aplicar`, e depois o secret do hCaptcha no painel |
+| 7 | `bash $SCRIPTS/1_config.sh exportar && bash $SCRIPTS/1_config.sh aplicar`; tem de terminar com "Nada pendente" |
 | 11 | `bash $SCRIPTS/4_copiar_storage.sh`. Roda num container avulso da imagem do backend, sem subir a API: o sistema continua parado |
 | 13 | `bash $SCRIPTS/5_conferir.sh`, que **tem de dar IGUAIS** |
 | 15 | `cp .env .env.oregon && cp .env.novo .env && docker compose build --no-cache frontend backend && docker compose up -d` |
