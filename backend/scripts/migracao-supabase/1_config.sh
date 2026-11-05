@@ -68,16 +68,27 @@ aplicar() {
       || { echo "config-antigo/$f.json falta ou está vazio. Rode antes: bash 1_config.sh exportar" >&2; exit 1; }
   done
 
-  # Auth: tudo o que veio, menos nulos e QUALQUER segredo (a API pode devolvê-lo
-  # mascarado, e reenviar a máscara sobrescreveria o valor de verdade).
-  # `^smtp_pass$` e não `pass`: este pegaria também password_min_length,
-  # password_required_characters e password_hibp_enabled — a política de senha.
-  # Depois, os dois segredos exigidos: com SMTP próprio, a API recusa smtp_* e
-  # rate_limit_email_sent sem smtp_pass ("Custom SMTP required ... Missing
-  # SMTP_PASS", visto no ensaio); o captcha ligado precisa do secret.
-  jq --arg smtp_pass "${SMTP_PASS:-}" --arg captcha "${HCAPTCHA_SECRET:-}" '
-      with_entries(select(.value != null)
+  # Auth: só o que o antigo tem DIFERENTE do novo. Mandar a configuração inteira
+  # esbarra em campo que o plano não deixa nem mexer (no ensaio: 402 para os
+  # hooks de verificação de senha/MFA, desligados no antigo). Filtros, em ordem:
+  #  1. nulos/vazios e QUALQUER segredo (a API pode devolvê-lo mascarado, e
+  #     reenviar a máscara sobrescreveria o valor de verdade). `^smtp_pass$` e
+  #     não `pass`: este pegaria password_min_length, password_required_characters
+  #     e password_hibp_enabled — a política de senha;
+  #  2. hooks desligados no antigo;
+  #  3. os dois segredos exigidos: com SMTP próprio, a API recusa smtp_* e
+  #     rate_limit_email_sent sem smtp_pass ("Custom SMTP required ... Missing
+  #     SMTP_PASS", visto no ensaio); o captcha ligado precisa do secret;
+  #  4. o que já está igual no novo — e assim rodar de novo não reenvia nada.
+  api GET "$NEW_REF/config/auth" > config-antigo/auth_novo_antes.json
+  jq --slurpfile novo config-antigo/auth_novo_antes.json \
+     --arg smtp_pass "${SMTP_PASS:-}" --arg captcha "${HCAPTCHA_SECRET:-}" '
+      with_entries(select(.value != null and .value != "")
         | select(.key | test("secret|^smtp_pass$|auth_token|api_key|access_key") | not))
+      | [to_entries[] | select((.key | test("^hook_.+_enabled$")) and .value == true)
+         | .key | rtrimstr("_enabled")] as $ligados
+      | with_entries(select((.key | startswith("hook_") | not)
+          or (.key as $k | any($ligados[]; . as $h | $k | startswith($h + "_")))))
       | if (.smtp_host // "") == "" then .
         elif $smtp_pass != "" then . + {smtp_pass: $smtp_pass}
         else with_entries(select(.key | test("^smtp_|^rate_limit_email_sent$") | not))
@@ -85,11 +96,18 @@ aplicar() {
       | if .security_captcha_enabled != true then .
         elif $captcha != "" then . + {security_captcha_secret: $captcha}
         else del(.security_captcha_enabled)
-        end' \
+        end
+      | with_entries(select(.value != $novo[0][.key]))' \
      config-antigo/config_auth.json > config-antigo/auth_para_o_novo.json
-  # Se a API recusar um campo, `api` mostra a resposta, que diz QUAL.
-  api PATCH "$NEW_REF/config/auth" --data @config-antigo/auth_para_o_novo.json > /dev/null
-  echo "Auth aplicado."
+  # Só os NOMES dos campos (os valores podem ter segredo).
+  echo "Auth — campos que vão para o novo: $(jq -r 'keys | join(", ")' config-antigo/auth_para_o_novo.json)"
+  if jq -e 'length > 0' config-antigo/auth_para_o_novo.json > /dev/null; then
+    # Se a API recusar um campo, `api` mostra a resposta, que diz QUAL.
+    api PATCH "$NEW_REF/config/auth" --data @config-antigo/auth_para_o_novo.json > /dev/null
+    echo "Auth aplicado."
+  else
+    echo "Auth do novo já igual ao do antigo."
+  fi
 
   # API (PostgREST): o max_rows=1000 que o backend assume (paginacao.py).
   jq '{max_rows, db_schema, db_extra_search_path}' config-antigo/postgrest.json \
