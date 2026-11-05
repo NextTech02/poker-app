@@ -283,7 +283,7 @@ const SatelliteTickets = () => {
       fecharCriacao();
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastCreateError'));
+      toast.error(err.userMessage || t('satelliteTickets.toastCreateError'));
     } finally {
       setCreating(false);
     }
@@ -327,7 +327,7 @@ const SatelliteTickets = () => {
       setTransferTicket(null);
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastTransferError', 'Não foi possível transferir o ticket.'));
+      toast.error(err.userMessage || t('satelliteTickets.toastTransferError', 'Não foi possível transferir o ticket.'));
     } finally {
       setTransferring(false);
     }
@@ -367,7 +367,7 @@ const SatelliteTickets = () => {
       setAvailableTickets([]);
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastRedeemError'));
+      toast.error(err.userMessage || t('satelliteTickets.toastRedeemError'));
     }
   };
 
@@ -379,7 +379,7 @@ const SatelliteTickets = () => {
       toast.success(t('satelliteTickets.toastCancelled'));
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastCancelError'));
+      toast.error(err.userMessage || t('satelliteTickets.toastCancelError'));
     }
   };
 

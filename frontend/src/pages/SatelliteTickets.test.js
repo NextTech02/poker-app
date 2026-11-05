@@ -22,6 +22,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { textoDoDetalhe } from '../utils/textoDoErro';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -57,6 +58,8 @@ jest.mock('react-i18next', () => {
   const traducao = { t, i18n: { language: 'pt-BR' } };
   return { useTranslation: () => traducao };
 });
+// O texto das recusas com código: sem tradução carregada, vale a frase do servidor.
+jest.mock('i18next', () => ({ t: (chave, padrao) => padrao || chave }));
 
 const TICKETS = [
   { id: 'tk1', player_name: 'Ana', player_nickname: 'Aninha', target_tournament_name: 'Main Event',
@@ -114,9 +117,12 @@ const responder = ({
   });
 };
 
+/** O erro como o interceptor de config/api.js entrega à tela: o `detail` cru
+ *  e a frase pronta em `userMessage`. */
 const erroHttp = (detail) => {
   const e = new Error('http');
   e.response = { data: { detail } };
+  e.userMessage = textoDoDetalhe(detail);
   return e;
 };
 
@@ -646,6 +652,23 @@ describe('resgatar ticket', () => {
     await escolherTicket('tk1');
     await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.submitRedeem' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Ticket expirado'));
+  });
+
+  it('recusa com código chega ao aviso como FRASE, não como objeto', async () => {
+    // O backend recusa com `{code, message}`. Repassado cru, o objeto ia para o
+    // toast e derrubava o app inteiro: página em branco ao resgatar um ticket
+    // de jogador já inscrito no dia.
+    api.post.mockRejectedValue(erroHttp({
+      code: 'regra_de_negocio',
+      message: 'Jogador já está registrado neste dia do torneio',
+    }));
+    await montar();
+    await abrir();
+    await escolherTicket('tk1');
+    await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.submitRedeem' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Jogador já está registrado neste dia do torneio')
+    );
   });
 
   it('falha ao listar disponíveis não trava o modal', async () => {
