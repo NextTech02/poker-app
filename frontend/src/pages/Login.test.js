@@ -89,6 +89,25 @@ describe('entrada', () => {
     );
   });
 
+  it('e-mail digitado com maiúsculas vai em minúsculas', async () => {
+    // As contas são gravadas em minúsculas; o teclado do celular põe a
+    // primeira letra em maiúscula e o login falhava com a senha certa.
+    montar();
+    await preencherEEnviar('Operador@Clube.COM');
+    expect(screen.getByLabelText('login.email')).toHaveValue('operador@clube.com');
+    await waitFor(() =>
+      expect(entrar).toHaveBeenCalledWith('operador@clube.com', 'segredo', 'captcha-ok')
+    );
+  });
+
+  it('o teclado do celular não põe maiúscula nem corrige o e-mail', () => {
+    montar();
+    const campo = screen.getByLabelText('login.email');
+    expect(campo).toHaveAttribute('autocapitalize', 'none');
+    expect(campo).toHaveAttribute('autocorrect', 'off');
+    expect(campo).toHaveAttribute('spellcheck', 'false');
+  });
+
   it('grava o token junto com a resposta do login', async () => {
     // O interceptor do axios lê do localStorage; esperar o contexto faria a
     // chamada seguinte sair sem autenticação.
@@ -226,6 +245,21 @@ describe('esqueci minha senha', () => {
         '/public/auth/forgot-password',
         { email: 'a@b.com', captcha_token: 'captcha-ok' },
         expect.objectContaining({ _silentError: true })
+      )
+    );
+  });
+
+  it('o pedido de link também vai com o e-mail em minúsculas', async () => {
+    await irParaEsqueci();
+    const campo = screen.getByLabelText('login.email');
+    expect(campo).toHaveAttribute('autocapitalize', 'none');
+    await userEvent.type(campo, 'A@B.Com');
+    await userEvent.click(screen.getByRole('button', { name: /Enviar link/ }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/public/auth/forgot-password',
+        { email: 'a@b.com', captcha_token: 'captcha-ok' },
+        expect.anything()
       )
     );
   });

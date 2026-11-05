@@ -10,6 +10,18 @@ import aceblindLogo from '../assets/aceblind-logo-white.png';
 import './Login.css';
 import Icon from '../components/Icon';
 
+/* As contas são gravadas com o e-mail em minúsculas, mas o teclado do celular
+   costuma pôr a primeira letra em maiúscula — e "Operador@clube.com" não é o
+   e-mail cadastrado. O campo escreve em minúsculas enquanto a pessoa digita
+   (ela vê o que vai ser enviado), e o envio tira os espaços das pontas, que
+   costumam vir junto quando o e-mail é colado. */
+const emMinusculas = (texto) => texto.toLowerCase();
+const emailParaEnvio = (texto) => texto.trim().toLowerCase();
+
+/* Sem maiúscula automática nem corretor: o corretor troca o domínio por uma
+   palavra do dicionário. */
+const CAMPO_DE_EMAIL = { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false };
+
 const Login = () => {
   const { t } = useTranslation();
   const [mode, setMode] = useState('signin'); // signin | forgot
@@ -62,7 +74,7 @@ const Login = () => {
       return;
     }
 
-    const { data, error } = await signIn(email, password, captchaToken);
+    const { data, error } = await signIn(emailParaEnvio(email), password, captchaToken);
 
     if (error) {
       setError(t('login.invalidCredentials'));
@@ -110,7 +122,7 @@ const Login = () => {
     try {
       await api.post(
         '/public/auth/forgot-password',
-        { email, captcha_token: captchaToken },
+        { email: emailParaEnvio(email), captcha_token: captchaToken },
         { _silentError: true }
       );
     } catch (err) {
@@ -186,7 +198,9 @@ const Login = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(emMinusculas(e.target.value))}
+                {...CAMPO_DE_EMAIL}
+                autoComplete="username"
                 required
                 placeholder={t('login.emailPlaceholder')}
               />
@@ -227,7 +241,9 @@ const Login = () => {
                 id="forgot-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(emMinusculas(e.target.value))}
+                {...CAMPO_DE_EMAIL}
+                autoComplete="email"
                 required
                 placeholder={t('login.emailPlaceholder')}
               />
