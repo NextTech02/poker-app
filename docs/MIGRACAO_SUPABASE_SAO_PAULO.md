@@ -44,6 +44,12 @@ projeto são outras), com a mesma senha de sempre.
 
 ## Pré-requisitos (uma vez, na VPS)
 
+0. **Código e imagem do backend em dia.** `copiar_storage.py` e `medir_latencia.py`
+   rodam DENTRO da imagem do backend, que só os tem se foi construída depois que
+   os scripts entraram no `main`. `build` só monta a imagem, não reinicia nada:
+   ```bash
+   cd ~/var/www/poker-app/poker-app && git pull && docker compose build backend
+   ```
 1. **Supabase CLI** (o `supabase db dump` roda o pg_dump num container, e o Docker já está na VPS):
    ```bash
    curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
@@ -62,8 +68,13 @@ projeto são outras), com a mesma senha de sempre.
    mkdir -p ~/migracao-supabase && cd ~/migracao-supabase
    SCRIPTS=~/var/www/poker-app/poker-app/backend/scripts/migracao-supabase
    cp $SCRIPTS/variaveis.env.exemplo variaveis.env   # e preencha
+   chmod 600 variaveis.env
    ```
-   Todos os comandos abaixo rodam dessa pasta (`bash $SCRIPTS/…`).
+   Todos os comandos abaixo rodam dessa pasta (`bash $SCRIPTS/…`). A linha
+   `SCRIPTS=…` vale só para a sessão: rode de novo a cada SSH novo.
+   No `variaveis.env`, ponha cada valor entre aspas simples e copie as URIs do
+   banco do botão **Connect > Session pooler** (o host pode ser `aws-0-…` ou
+   `aws-1-…`). Senha com `@ # / ?` quebra a URI: redefina só com letras e números.
 
 ## Fase A — Ensaio (sem impacto em produção, 1–2 h)
 

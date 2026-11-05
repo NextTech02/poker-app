@@ -34,6 +34,8 @@ yarn-error.log*
 !db/test_data/*.sql
 # Testes de trigger num Postgres descartável (ex.: db/tests/fiado).
 !db/tests/**/*.sql
+# SQL que os scripts da migração do Supabase rodam (sem eles o 2_dump.sh falha).
+!backend/scripts/migracao-supabase/*.sql
 # Saída do roteiro E2E do fiado (ids criados em prod, por rodada).
 backend/scripts/e2e_fiado_ids.json
 # Copia local dos valores originais da migracao das imagens do telao (tem as
