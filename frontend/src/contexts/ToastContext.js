@@ -1,8 +1,21 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import '../components/Toast.css';
 import { registerToast } from '../utils/toastEmitter';
+import { textoDoDetalhe } from '../utils/textoDoErro';
 
 const ToastContext = createContext(null);
+
+/* O aviso desenha a mensagem como filho do React. Uma recusa da API repassada
+   crua (`err.response.data.detail`) é OBJETO, e desenhar objeto derruba o app
+   INTEIRO: este provider fica acima de todas as telas e dos ErrorBoundary
+   delas. Era a página em branco ao resgatar um ticket recusado. Texto, número
+   e elemento React passam como estão; o resto vira frase. */
+const comoMensagem = (m) => {
+  if (m == null || typeof m === 'string' || typeof m === 'number' || React.isValidElement(m)) {
+    return m;
+  }
+  return textoDoDetalhe(m) || 'Erro desconhecido';
+};
 
 let toastIdCounter = 0;
 
@@ -61,7 +74,8 @@ export const ToastProvider = ({ children }) => {
     }
   }, [aplicar]);
 
-  const addToast = useCallback((type, message, options = {}) => {
+  const addToast = useCallback((type, mensagem, options = {}) => {
+    const message = comoMensagem(mensagem);
     const duration = options.duration || (type === 'error' ? 6000 : 4000);
 
     // Dedupe: if a non-exiting toast with same (type, title, message) already exists,
