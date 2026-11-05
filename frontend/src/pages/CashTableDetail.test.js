@@ -20,6 +20,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CashTableDetail from './CashTableDetail';
 import api from '../config/api';
+import * as PermissionContext from '../contexts/PermissionContext';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
@@ -358,5 +359,37 @@ describe('trocar de mesa', () => {
     montar({ mesa: { ...MESA, status: 'closed' } });
     await screen.findByText('Ana');
     expect(screen.queryByRole('button', { name: 'Mover de mesa' })).toBeNull();
+  });
+});
+
+/* Clicar no jogador sentado leva direto ao histórico dele (/jogadores/:id). */
+describe('histórico pela cadeira', () => {
+  const comJogador = () => montar({
+    assentos: [{ ...assento(1, true), player_id: 'jog-1' }, assento(2), assento(3)],
+  });
+
+  it('clicar no nome do jogador abre o histórico dele', async () => {
+    comJogador();
+    await userEvent.click(await screen.findByRole('link', { name: 'Ana' }));
+    expect(mockNavegar).toHaveBeenCalledWith('/jogadores/jog-1');
+  });
+
+  it('os botões da cadeira continuam com a sua ação', async () => {
+    comJogador();
+    await userEvent.click(await screen.findByRole('button', { name: 'Recompra' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(mockNavegar).not.toHaveBeenCalledWith('/jogadores/jog-1');
+  });
+
+  it('sem a permissão de Jogadores o nome fica como texto', async () => {
+    const permissoes = jest.spyOn(PermissionContext, 'usePermissions')
+      .mockReturnValue({ hasPermission: (p) => p !== 'players' });
+    try {
+      comJogador();
+      expect(await screen.findByText('Ana')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Ana' })).toBeNull();
+    } finally {
+      permissoes.mockRestore();
+    }
   });
 });

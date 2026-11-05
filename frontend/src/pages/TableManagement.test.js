@@ -21,6 +21,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import TableManagement from './TableManagement';
 import api from '../config/api';
+import * as PermissionContext from '../contexts/PermissionContext';
 import { useToast } from '../contexts/ToastContext';
 import { offlineWrite } from '../offline/apiOffline';
 
@@ -1024,5 +1025,44 @@ describe('torneio KO: quem eliminou', () => {
     await waitFor(() => expect(confirmar).toHaveBeenCalled());
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+/* Clicar no jogador sentado leva direto ao histórico dele (/jogadores/:id).
+   O assento continua arrastável: o nome não é um <a>, é um link acessível. */
+describe('histórico pelo assento', () => {
+  const seatDaAna = () => assentos(mesaDoNumero(1))[0];
+
+  it('clicar no nome do jogador abre o histórico dele', async () => {
+    await montar();
+    const nome = within(seatDaAna()).getByRole('link', { name: 'Ana' });
+    expect(nome).toHaveClass('tm-seat-name');
+    await userEvent.click(nome);
+    expect(mockNavigate).toHaveBeenCalledWith('/jogadores/p1');
+  });
+
+  it('abre também pelo teclado', async () => {
+    await montar();
+    within(seatDaAna()).getByRole('link', { name: 'Ana' }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(mockNavigate).toHaveBeenCalledWith('/jogadores/p1');
+  });
+
+  it('o assento continua arrastável', async () => {
+    await montar();
+    expect(within(seatDaAna()).getByText('Ana').closest('[draggable="true"]')).not.toBeNull();
+  });
+
+  it('sem a permissão de Jogadores o nome fica como texto', async () => {
+    const permissoes = jest.spyOn(PermissionContext, 'usePermissions')
+      .mockReturnValue({ hasPermission: (p) => p !== 'players' });
+    try {
+      await montar();
+      expect(within(seatDaAna()).queryByRole('link')).toBeNull();
+      await userEvent.click(within(seatDaAna()).getByText('Ana'));
+      expect(mockNavigate).not.toHaveBeenCalledWith('/jogadores/p1');
+    } finally {
+      permissoes.mockRestore();
+    }
   });
 });

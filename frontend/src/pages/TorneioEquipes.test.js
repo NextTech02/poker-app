@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import TorneioEquipes from './TorneioEquipes';
 import api from '../config/api';
+import * as PermissionContext from '../contexts/PermissionContext';
 import { useToast } from '../contexts/ToastContext';
 
 jest.mock('../config/api', () => ({
@@ -234,5 +235,26 @@ describe('final', () => {
     await waitFor(() => expect(api.put).toHaveBeenCalledWith(
       '/tournaments/t1/teams/A/relay-order', { player_ids: ['a2', 'a1'], force: false },
     ));
+  });
+});
+
+/* Na mesa da fase 1, o nome do jogador leva ao histórico dele. */
+describe('histórico pela mesa da fase 1', () => {
+  it('o nome do jogador é um link para o histórico', async () => {
+    await montar('/torneios/t1/equipes?aba=fase1');
+    const link = await screen.findByRole('link', { name: 'Ana' });
+    expect(link).toHaveAttribute('href', '/jogadores/a1');
+  });
+
+  it('sem a permissão de Jogadores o nome fica como texto', async () => {
+    const permissoes = jest.spyOn(PermissionContext, 'usePermissions')
+      .mockReturnValue({ hasPermission: (p) => p !== 'players' });
+    try {
+      await montar('/torneios/t1/equipes?aba=fase1');
+      expect(await screen.findByText('Mesa 1')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Ana' })).toBeNull();
+    } finally {
+      permissoes.mockRestore();
+    }
   });
 });
