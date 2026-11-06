@@ -838,6 +838,21 @@ describe('rebuy', () => {
     expect(await screen.findByTestId('bilhete-alternado')).toHaveTextContent('true');
   });
 
+  it('mesa cheia recusada com CÓDIGO ainda entrega o bilhete de alternado', async () => {
+    // O servidor manda `detail` como objeto. Lido como texto, ele quebrava dentro
+    // do catch: a venda já paga aparecia como erro e o jogador ficava sem bilhete.
+    api.post.mockImplementation((url) => (url.includes('/auto')
+      ? Promise.reject({
+        response: { data: { detail: { code: 'alocacao_recusada', message: 'All tables are full' } } },
+      })
+      : Promise.resolve({ data: {} })));
+    await montar({ dias: [{ ...DIA, allocation_type: 'automatic' }] });
+    await comoRebuy();
+    await enviar();
+    expect(await screen.findByTestId('bilhete-alternado')).toHaveTextContent('true');
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it('outro erro na alocação do rebuy avisa', async () => {
     api.post.mockRejectedValue({ response: { data: { detail: 'Caiu' } } });
     await montar({ dias: [{ ...DIA, allocation_type: 'automatic' }] });

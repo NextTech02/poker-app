@@ -5,7 +5,7 @@ import Icon from '../components/Icon';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import PlayerSelect from '../components/PlayerSelect';
-import SeatTicket from '../components/SeatTicket';
+import BilheteModal from '../components/BilheteModal';
 import EmptyState from '../components/EmptyState';
 import CashboxBanner from '../components/CashboxBanner';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
@@ -28,6 +28,7 @@ import { applyRegister, applyRebuy, applyAddon } from '../offline/domainRules';
 import { uuid, putEntities, getEntity, getAllByTable } from '../offline/db';
 import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
+import { pedirAssento, soMesasAtivas } from '../utils/assentoDaEntrada';
 import { MODO_MESA, modoDoTorneio } from '../hooks/useModoDeEliminacao';
 import {
   alternarItem, eEntrada, fichasDoDia, fichasDoTipo, linhasDaMesmaVenda, montarItens, totaisDosItens,
@@ -84,21 +85,6 @@ const Caixa = () => {
     return t('cashRegister.buyIn', 'Buy-in');
   };
 
-  // Título do bilhete: reimpressão, etapa sem mesa cadastrada, alternado de
-  // verdade ou alocado. Um caso por linha — encadeados em ternário, o operador
-  // lia "alternado" onde na verdade faltava cadastrar mesa.
-  const tituloDoBilhete = (dados) => {
-    if (dados.is_reprint) return t('cashRegister.reprintTitle');
-    if (dados.motivo_alternate === 'sem-mesas') {
-      return t('cashRegister.registeredNoTables', 'Registrado — nenhuma mesa cadastrada');
-    }
-    if (dados.is_alternate) return t('cashRegister.registeredAsAlternate');
-    // Sem assento a mostrar: só add-on (o jogador já está sentado) ou alocação
-    // feita pelo staff. Dizer "alocado" aqui mandaria procurar uma mesa no papel.
-    if (dados.so_fichas) return t('cashRegister.chipsSoldTitle', 'Fichas vendidas');
-    if (dados.sem_assento) return t('cashRegister.registeredNoSeat', 'Venda registrada — o staff define o assento');
-    return t('cashRegister.registeredAndAllocated');
-  };
   const [transactions, setTransactions] = useState([]);
   // Filtro do extrato (torneio e dia). '' = todos.
   const [filtroTorneio, setFiltroTorneio] = useState('');
@@ -240,7 +226,6 @@ const Caixa = () => {
   useEscapeKey(showModal, fecharVenda);
   useEscapeKey(!!cancelling, fecharCancelamento);
   useEscapeKey(!!changingMethod, fecharTrocaDeMetodo);
-  useEscapeKey(showTicketModal, fecharTicket);
 
   useEffect(() => {
     loadData();
@@ -351,11 +336,7 @@ const Caixa = () => {
     (async () => {
       try {
         const res = await api.get(alvo);
-        // Mesa fechada/quebrada não recebe jogador: o servidor só aloca em
-        // mesa 'active', então contar as outras daria falso "está tudo certo".
-        const ativas = (Array.isArray(res.data) ? res.data : []).filter(
-          (m) => (m.status || 'active') === 'active'
-        );
+        const ativas = soMesasAtivas(res.data);
         if (!cancelado) setEstadoDasMesas(ativas.length > 0 ? 'com-mesas' : 'sem-mesas');
       } catch (error) {
         // Falha de consulta não é "não tem mesa": calar é melhor que mentir.
@@ -457,15 +438,9 @@ const Caixa = () => {
     }
   };
 
-  /* Assento de quem acabou de ENTRAR (buy-in ou reentrada) — devolve os dados
-     do bilhete, ou null quando o assento tem de ser feito na mão.
-
-     - offline: sem auto-assento (o servidor aloca no sync) → alternado;
-     - mesas travadas: alternado (ou "sem mesa", se nenhuma foi cadastrada);
-     - alocação automática: pede o assento ao servidor; sem lugar livre vira
-       alternado, outro erro avisa para alocar na mão;
-     - alocação manual: o staff senta o jogador; o bilhete sai SEM assento,
-       só com a compra e as fichas. */
+  /* Dados do bilhete de quem acabou de ENTRAR (buy-in ou reentrada). Offline não
+     há auto-assento (o servidor aloca no sync) e o jogador sai como alternado; o
+     resto é a regra de `pedirAssento`, a mesma do resgate de ticket. */
   const assentoDaEntrada = async ({ entradaOffline, tournament, selectedDay, avisoDeAlocacao }) => {
     const base = {
       tournament_name: tournament?.name || '',
@@ -485,56 +460,22 @@ const Caixa = () => {
       };
     }
 
-    const allocationTypeToUse = selectedDay?.allocation_type || tournament?.allocation_type;
-    if (allocationTypeToUse !== 'automatic') {
-      return { ...base, player_name: await nomeDoJogador(formData.player_id, false), sem_assento: true };
+    const { alocacao, falhou, motivo, ...semAssento } = await pedirAssento({
+      playerId: formData.player_id,
+      tournamentId: formData.tournament_id,
+      dayId: formData.tournament_day_id,
+      allocationType: selectedDay?.allocation_type || tournament?.allocation_type,
+      tablesLocked: selectedDay?.tables_locked ?? false,
+      semMesas: estadoDasMesas === 'sem-mesas',
+    });
+    if (alocacao) {
+      return { ...alocacao, day_name: selectedDay?.day_name || alocacao.day_name || '' };
     }
-
-    const tablesLocked = selectedDay?.tables_locked ?? false;
-    if (tablesLocked) {
-      // Mesas travadas SEM mesa nenhuma cadastrada não é fila de
-      // alternados, é etapa por configurar: o bilhete precisa dizer qual
-      // dos dois é, senão o operador procura uma fila que não existe.
-      return {
-        ...base,
-        player_name: await nomeDoJogador(formData.player_id, false),
-        is_alternate: true,
-        motivo_alternate: estadoDasMesas === 'sem-mesas' ? 'sem-mesas' : 'travadas',
-      };
-    }
-
-    try {
-      const allocationResponse = formData.tournament_day_id
-        // Day-scoped auto-allocation
-        ? await api.post(`/allocations/day/${formData.tournament_day_id}/auto?player_id=${formData.player_id}`)
-        // Tournament-scoped fallback
-        : await api.post(`/allocations/tournament/${formData.tournament_id}/auto?player_id=${formData.player_id}`);
-      return {
-        ...allocationResponse.data,
-        day_name: selectedDay?.day_name || allocationResponse.data.day_name || '',
-      };
-    } catch (allocationError) {
-      console.error('Erro ao alocar jogador:', allocationError);
-      const errDetail = allocationError.response?.data?.detail || '';
-      const semMesaAtiva = errDetail.toLowerCase().includes('no active tables');
-      const noSeats = errDetail.toLowerCase().includes('tables are full') || semMesaAtiva;
-      if (noSeats) {
-        // Sem assento o jogador vira alternado — mas o MOTIVO muda a
-        // ação: mesa cheia é fila de alternados; nenhuma mesa ativa é
-        // configuração faltando, e o staff tem de cadastrar as mesas.
-        if (semMesaAtiva) setEstadoDasMesas('sem-mesas');
-        return {
-          ...base,
-          player_name: await nomeDoJogador(formData.player_id, false),
-          is_alternate: true,
-          motivo_alternate: semMesaAtiva ? 'sem-mesas' : 'lotadas',
-        };
-      }
-      toast.warning(t(avisoDeAlocacao, { reason: errDetail || t('cashRegister.unknownError') }));
-      // A venda está paga: o bilhete sai mesmo assim, sem assento, para o
-      // floor entregar as fichas enquanto alguém senta o jogador na mão.
-      return { ...base, player_name: await nomeDoJogador(formData.player_id, false), sem_assento: true };
-    }
+    if (semAssento.motivo_alternate === 'sem-mesas') setEstadoDasMesas('sem-mesas');
+    if (falhou) toast.warning(t(avisoDeAlocacao, { reason: motivo || t('cashRegister.unknownError') }));
+    // A venda está paga: o bilhete sai mesmo assim, sem assento, para o
+    // floor entregar as fichas enquanto alguém senta o jogador na mão.
+    return { ...base, player_name: await nomeDoJogador(formData.player_id, false), ...semAssento };
   };
 
   const handleSubmit = async (e) => {
@@ -2023,67 +1964,7 @@ const Caixa = () => {
         )}
 
         {showTicketModal && allocationData && (
-          <div className="modal-overlay" role="presentation" onClick={aoClicarNoFundo(fecharTicket)}>
-            <div className="modal">
-              <div className="modal-header">
-                <h2>
-                  {tituloDoBilhete(allocationData)}
-                </h2>
-                <button type="button" className="close-btn" onClick={fecharTicket} aria-label={t('common.close')}>
-                  <span className="close-icon"></span>
-                </button>
-              </div>
-              <div className="modal-body">
-                {/* Por que este bilhete saiu sem assento. "Mesas cheias" é fila
-                    de alternados de verdade; "nenhuma mesa cadastrada" é a
-                    etapa por configurar e o bilhete NÃO significa fila. */}
-                {allocationData.motivo_alternate === 'sem-mesas' && (
-                  <p className="cx-warning cx-warning--mesas" role="alert">
-                    {t(
-                      'cashRegister.ticketNoTablesHint',
-                      'Não há mesa cadastrada neste dia: o jogador não entrou em fila de alternados. Cadastre as mesas em Mesas e aloque o jogador.'
-                    )}
-                  </p>
-                )}
-                {allocationData.motivo_alternate === 'sem-conexao' && (
-                  <output className="cx-warning cx-warning--mesas">
-                    {t(
-                      'cashRegister.ticketOfflineHint',
-                      'Venda guardada sem internet: o assento é definido na sincronização.'
-                    )}
-                  </output>
-                )}
-                <SeatTicket
-                  allocation={{
-                    id: allocationData.id,
-                    // O bilhete usa a imagem/sede do torneio (ou a do clube).
-                    tournament_id: allocationData.tournament_id,
-                    player_name: allocationData.player_name,
-                    tournament_name: allocationData.tournament_name,
-                    day_name: allocationData.day_name,
-                    table_number: allocationData.table_number,
-                    seat_number: allocationData.seat_number,
-                    created_at: allocationData.created_at,
-                    is_alternate: allocationData.is_alternate,
-                    sem_assento: allocationData.sem_assento,
-                    so_fichas: allocationData.so_fichas,
-                    // O que o jogador comprou NESTA venda e o total de fichas:
-                    // é por esse número que o floor entrega a pilha.
-                    itens: allocationData.itens,
-                    total_amount: allocationData.total_amount,
-                    total_chips: allocationData.total_chips,
-                  }}
-                  formatarValor={formatCurrency}
-                  onPrint={fecharTicket}
-                />
-              </div>
-              <div className="modal-actions">
-                <Button onClick={fecharTicket}>
-                  {t('common.close')}
-                </Button>
-              </div>
-            </div>
-          </div>
+          <BilheteModal dados={allocationData} formatarValor={formatCurrency} onFechar={fecharTicket} />
         )}
         {cobrarEquipeDe && (
           <CobrarEquipeModal

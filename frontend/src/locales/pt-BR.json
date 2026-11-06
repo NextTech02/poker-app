@@ -2046,6 +2046,8 @@
     "toastRedeemed": "Ticket resgatado!",
     "toastRedeemedReentry": "Ticket resgatado como reentrada.",
     "redeemReentryHint": "Se o jogador já estiver inscrito neste dia, o ticket vale como reentrada — e ele precisa estar eliminado.",
+    "ticketItem": "Ticket",
+    "redeemedNoSeat": "Ticket resgatado — o staff define o assento",
     "toastRedeemError": "Erro ao resgatar ticket",
     "confirmCancel": "Cancelar este ticket?",
     "toastCancelled": "Ticket cancelado",

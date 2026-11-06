@@ -1,0 +1,14 @@
+/* Por que o bilhete saiu sem assento. Mesmo desenho da faixa de aviso do Caixa,
+   mas com classe própria: o modal abre em telas que não carregam o Caixa.css, e
+   o operador precisa ver que falta mesa ANTES de imprimir o bilhete errado. */
+.bilhete-aviso {
+  display: block;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  background: rgba(234, 179, 8, 0.08);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
