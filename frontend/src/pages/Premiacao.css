@@ -176,6 +176,8 @@
 /* ── Tabs ── */
 .prem-tabs {
   display: flex;
+  /* Quebra em vez de rolar: aba escondida à direita o operador não acha. */
+  flex-wrap: wrap;
   gap: 0;
   margin-bottom: 1.75rem;
   border-bottom: 2px solid var(--surface);
@@ -196,6 +198,7 @@
   align-items: center;
   gap: 0.5rem;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .prem-tab:hover { color: var(--text-primary); }
@@ -222,19 +225,36 @@
 }
 
 /* ── Prize Summary Cards ── */
+/* As colunas seguem a largura do CONTEÚDO, não a da janela: a barra lateral e o
+   zoom do Windows tiram espaço que um @media não enxerga, e os cards apertavam
+   até sumir o campo do garantido. */
+.prize-summary-wrap {
+  container-type: inline-size;
+}
+
 .prize-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.5rem;
   margin-bottom: 1.75rem;
   align-items: stretch;
 }
 
-@media (max-width: 1200px) {
-  .prize-summary-grid { grid-template-columns: repeat(2, 1fr); }
+@container (max-width: 960px) {
+  .prize-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 640px) {
-  .prize-summary-grid { grid-template-columns: 1fr; }
+@container (max-width: 480px) {
+  .prize-summary-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* O valor acompanha a largura do card: num card estreito, cortar o número pela
+   metade é pior do que mostrá-lo menor. */
+.prize-summary-grid .summary-card {
+  container-type: inline-size;
+}
+
+.prize-summary-grid .summary-card .card-value {
+  font-size: clamp(1.2rem, 12cqi, 1.7rem);
 }
 
 .summary-card {
@@ -309,9 +329,22 @@
 /* Guaranteed card input */
 .guaranteed-card .card-content {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
   margin-top: auto;
+}
+
+/* Sem espaço para os dois, o botão desce e ocupa a linha: o campo nunca encolhe
+   a ponto de esconder o valor. Os pesos diferentes fazem o campo ficar com a
+   sobra enquanto estão lado a lado. */
+.guaranteed-card .input-with-prefix {
+  flex: 999 1 150px;
+  min-width: 0;
+}
+
+.guaranteed-card .card-content button {
+  flex: 1 0 auto;
 }
 
 .input-with-prefix {
@@ -341,6 +374,8 @@
 
 .guaranteed-input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   padding: 0.625rem 0.875rem;
   border: none;
   background: transparent;
@@ -373,6 +408,12 @@
   display: flex;
   gap: 3rem;
   flex-wrap: wrap;
+}
+
+.pool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .pool-item {
@@ -1189,9 +1230,12 @@
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .pool-header { flex-direction: column; align-items: flex-start; }
+  .prem-tab { padding: 0.6rem 1rem; font-size: 0.875rem; }
+  .pool-header { flex-direction: column; align-items: flex-start; padding: 1.25rem; }
   .pool-info { gap: 1.5rem; }
   .pool-value { font-size: 1.25rem; }
+  .pool-actions { width: 100%; }
+  .pool-actions > * { flex: 1 1 auto; }
   .allocations-table th,
   .allocations-table td { padding: 0.75rem; }
   .position-cell { width: auto; }

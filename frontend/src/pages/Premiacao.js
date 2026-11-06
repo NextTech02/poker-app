@@ -875,6 +875,7 @@ const Premiacao = () => {
         {activeTab === 'config' && (
           <>
             {/* Summary Cards */}
+            <div className="prize-summary-wrap">
             <div className="prize-summary-grid">
               <div className="summary-card guaranteed-card">
                 <div className="card-header">
@@ -940,6 +941,7 @@ const Premiacao = () => {
                 </div>
               </div>
             </div>
+            </div>
 
             {/* Allocations Section */}
             <div className="prize-pool-section">
@@ -962,7 +964,7 @@ const Premiacao = () => {
                     )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="pool-actions">
                   <Button variant="secondary" onClick={handleOpenAutoCalculate}>
                     {t('premiacao.calculateAuto')}
                   </Button>
