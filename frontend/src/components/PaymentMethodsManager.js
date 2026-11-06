@@ -5,6 +5,9 @@ import { useToast } from '../contexts/ToastContext';
 import { methodLabel, isBuiltinMethod } from '../utils/paymentMethodLabels';
 import './PaymentMethodsManager.css';
 
+// unique_violation do Postgres, repassado pelo PostgREST no `code` do erro.
+const CODIGO_REPETIDO = '23505';
+
 const PaymentMethodsManager = () => {
   const { t } = useTranslation();
   const { toast, confirm } = useToast();
@@ -24,7 +27,9 @@ const PaymentMethodsManager = () => {
       setNewLabel('');
       toast.success(t('paymentMethods.added', 'Método adicionado.'));
     } catch (err) {
-      toast.error(t('common.error'));
+      toast.error(err?.code === CODIGO_REPETIDO
+        ? t('paymentMethods.alreadyExists', 'Este método já existe.')
+        : t('common.error'));
     } finally {
       setBusy(false);
     }

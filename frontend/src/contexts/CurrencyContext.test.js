@@ -7,14 +7,17 @@
  * para "S/", e o banco corrige em seguida se estiver diferente.
  *
  * Sem login ou sem rede, o valor local continua valendo — uma casa que opera
- * offline não pode ver todos os valores mudarem de moeda.
+ * offline não pode ver todos os valores mudarem de moeda. Ao entrar, o banco é
+ * lido de novo: o login não recarrega a página.
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { CurrencyProvider, useCurrency } from './CurrencyContext';
+import { useAuth } from './AuthContext';
 import { supabase } from '../config/supabase';
 import i18n from '../config/i18n';
 import { marcarEscolhaDoUsuario } from '../utils/idiomaDoUsuario';
 
+jest.mock('./AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../config/supabase', () => {
   const cadeia = {};
   cadeia.from = jest.fn(() => cadeia);
@@ -39,11 +42,14 @@ function Sonda() {
   );
 }
 
-const montar = () => render(<CurrencyProvider><Sonda /></CurrencyProvider>);
+// Elemento novo a cada chamada: com o mesmo, o `rerender` não refaz o provider.
+const arvore = () => <CurrencyProvider><Sonda /></CurrencyProvider>;
+const montar = () => render(arvore());
 
 beforeEach(() => {
   localStorage.clear();
   api = null;
+  useAuth.mockReturnValue({ user: { id: 'u1' }, loading: false });
   supabase.from.mockReturnValue(supabase);
   supabase.select.mockReturnValue(supabase);
   supabase.update.mockReturnValue(supabase);
@@ -91,6 +97,39 @@ describe('carga', () => {
       montar();
     });
     expect(screen.getByTestId('moeda')).toHaveTextContent('EUR');
+  });
+
+  it('quem abriu o app deslogado recebe a moeda do clube ao entrar', async () => {
+    // Deslogado, o RLS não devolve configuração nenhuma, e o login troca de
+    // rota sem recarregar a página: sem reler, a moeda ficava a do computador.
+    localStorage.setItem('app_currency', 'BRL');
+    useAuth.mockReturnValue({ user: null, loading: false });
+    supabase.maybeSingle.mockResolvedValue({ data: null });
+    let tela;
+    await act(async () => {
+      tela = montar();
+    });
+    expect(screen.getByTestId('moeda')).toHaveTextContent('BRL');
+
+    supabase.maybeSingle.mockResolvedValue({ data: { id: 7, currency: 'USD' } });
+    useAuth.mockReturnValue({ user: { id: 'u1' }, loading: false });
+    tela.rerender(arvore());
+    await waitFor(() => expect(screen.getByTestId('moeda')).toHaveTextContent('USD'));
+  });
+
+  it('espera a sessão: abrir o app logado faz uma consulta só', async () => {
+    useAuth.mockReturnValue({ user: null, loading: true });
+    let tela;
+    await act(async () => {
+      tela = montar();
+    });
+    expect(supabase.maybeSingle).not.toHaveBeenCalled();
+
+    useAuth.mockReturnValue({ user: { id: 'u1' }, loading: false });
+    await act(async () => {
+      tela.rerender(arvore());
+    });
+    expect(supabase.maybeSingle).toHaveBeenCalledTimes(1);
   });
 });
 

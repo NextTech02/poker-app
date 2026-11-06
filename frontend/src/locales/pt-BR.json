@@ -169,6 +169,7 @@
     "intro": "Configure as formas de pagamento aceitas. Os métodos ativos aparecem no Caixa ao registrar transações.",
     "add": "Adicionar",
     "added": "Método adicionado.",
+    "alreadyExists": "Este método já existe.",
     "updated": "Método atualizado.",
     "confirmDelete": "Excluir o método",
     "namePlaceholder": "Nome do método (ex.: Yape, Nequi, Cartão)",

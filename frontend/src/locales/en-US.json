@@ -169,6 +169,7 @@
     "intro": "Configure the accepted payment methods. Active methods show up in the Cashier when registering transactions.",
     "add": "Add",
     "added": "Method added.",
+    "alreadyExists": "This method already exists.",
     "updated": "Method updated.",
     "confirmDelete": "Delete method",
     "namePlaceholder": "Method name (e.g. Yape, Nequi, Card)",

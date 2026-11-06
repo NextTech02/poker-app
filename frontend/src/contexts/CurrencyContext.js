@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import i18n from '../config/i18n';
 import { supabase } from '../config/supabase';
+import { useAuth } from './AuthContext';
 import {
   CURRENCIES,
   getStoredCurrency,
@@ -42,6 +43,8 @@ const lerConfiguracoes = () =>
   supabase.from('app_settings').select('id, currency, language').limit(1).maybeSingle();
 
 export const CurrencyProvider = ({ children }) => {
+  const { user, loading: carregandoSessao } = useAuth();
+  const userId = user?.id;
   // Start from the cached value (instant), then sync from the shared DB setting.
   const [currency, setCurrencyState] = useState(getStoredCurrency());
   /* Idioma do clube, só de leitura. Quem TROCA de idioma é a bandeira da barra
@@ -53,7 +56,10 @@ export const CurrencyProvider = ({ children }) => {
   // muda nada na tela.
   const idDasConfiguracoes = useRef(null);
 
+  // Relê a cada entrada: o login só troca de rota, e quem abriu o app deslogado
+  // ficava com a moeda e o idioma do computador, não os do clube.
   useEffect(() => {
+    if (carregandoSessao) return undefined;
     let active = true;
     (async () => {
       try {
@@ -75,7 +81,7 @@ export const CurrencyProvider = ({ children }) => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [carregandoSessao, userId]);
 
   /**
    * O id da linha a gravar. Se a carga inicial não chegou (rede instável,
