@@ -191,6 +191,37 @@ describe('blindValuesAt', () => {
   });
 });
 
+describe('pessoas e entradas', () => {
+  const base = { isDayBased: true, tournament: TORNEIO, tournamentDay: DIA };
+
+  it('"ativos de total" conta pessoas; o quadro Entradas conta o que foi vendido', () => {
+    // Dez pessoas, uma de Buy-in Doble: mostrar "10 de 11" com todo mundo
+    // sentado diria que falta alguém.
+    const m = buildTvModel({
+      ...base, timerState: relogio({ total_entries: 11, total_players: 10, active_players: 10 }),
+    });
+    expect(m.entries).toBe(11);
+    expect(m.players).toEqual({ active: 10, total: 10 });
+  });
+
+  it('relógio sem as pessoas usa as entradas, como antes', () => {
+    const m = buildTvModel({ ...base, timerState: relogio({ total_entries: 25 }) });
+    expect(m.players.total).toBe(25);
+  });
+
+  it('sem relógio, desconta os extras da lista de inscritos', () => {
+    const m = buildTvModel({
+      tournament: TORNEIO,
+      players: [
+        { player_id: 'p1', status: 'active', buy_in_count: 2, extra_entries: 1 },
+        { player_id: 'p2', status: 'active', buy_in_count: 1 },
+      ],
+    });
+    expect(m.entries).toBe(3);
+    expect(m.players).toEqual({ active: 2, total: 2 });
+  });
+});
+
 describe('garantido', () => {
   const base = { isDayBased: true, timerState: relogio(), tournament: TORNEIO, tournamentDay: DIA };
 

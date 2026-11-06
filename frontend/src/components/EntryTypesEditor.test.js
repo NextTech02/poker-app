@@ -6,7 +6,7 @@
  * última da categoria Entrada — sem ela não há como inscrever ninguém.
  */
 import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import EntryTypesEditor from './EntryTypesEditor';
 import { meiosPadrao, novaLinha } from '../utils/entryTypes';
@@ -85,25 +85,33 @@ describe('linhas', () => {
 describe('quantas entradas o meio vale', () => {
   const ROTULO = 'Vale por (entradas)';
 
-  it('só a recompra mostra o campo: é o caso da Reentrada Doble', () => {
+  const campo = (indice) => within(linhas()[indice]).queryByLabelText(ROTULO);
+
+  it('Entrada e Recompra mostram o campo; Add-on não', () => {
     render(<Harness inicial={meiosPadrao(t)} />);
-    expect(screen.getAllByLabelText(ROTULO)).toHaveLength(1);
-    expect(linhas()[1]).toContainElement(screen.getByLabelText(ROTULO));
-    expect(screen.getByLabelText(ROTULO)).toHaveValue(1);
+    expect(campo(0)).toHaveValue(1);
+    expect(campo(1)).toHaveValue(1);
+    expect(campo(2)).toBeNull();
   });
 
   it('digitar devolve o valor na linha', async () => {
     const aoMudar = jest.fn();
     render(<Harness inicial={meiosPadrao(t)} aoMudar={aoMudar} />);
-    await userEvent.clear(screen.getByLabelText(ROTULO));
-    await userEvent.type(screen.getByLabelText(ROTULO), '2');
-    expect(aoMudar.mock.calls.at(-1)[0][1].entry_count).toBe('2');
+    await userEvent.clear(campo(0));
+    await userEvent.type(campo(0), '2');
+    expect(aoMudar.mock.calls.at(-1)[0][0].entry_count).toBe('2');
   });
 
   it('trocar a categoria para Recompra faz o campo aparecer', async () => {
     render(<Harness inicial={meiosPadrao(t)} />);
     await userEvent.selectOptions(linha(2).categoria, 'rebuy');
-    expect(screen.getAllByLabelText(ROTULO)).toHaveLength(2);
+    expect(campo(2)).toBeInTheDocument();
+  });
+
+  it('marcar "por equipe" tira o campo: o valor é o da equipe inteira', async () => {
+    render(<Harness inicial={meiosPadrao(t)} porEquipe />);
+    await userEvent.click(within(linhas()[0]).getByRole('checkbox'));
+    expect(campo(0)).toBeNull();
   });
 });
 

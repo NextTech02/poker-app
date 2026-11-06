@@ -9,7 +9,12 @@ A regra, nas palavras do diretor:
 
     ENTRADAS   = Σ buy_in_count + classificados vindos de outro dia
     REENTRADAS = Σ rebuy_count            (add-on NÃO entra)
-    ATIVOS     = ENTRADAS − eliminations_count
+    PESSOAS    = ENTRADAS − Σ extra_entries
+    ATIVOS     = PESSOAS − eliminations_count
+
+O clube decide quantas entradas cada meio vale. O "Buy-in Doble" soma duas ao
+`buy_in_count`, mas quem senta é uma pessoa só: `extra_entries` guarda a diferença.
+ENTRADAS é o que o salão confere no telão; PESSOAS é quem está na mesa.
 
 O torneio escolhe na criação COMO o diretor elimina (`tournaments.elimination_mode`):
 
@@ -39,7 +44,7 @@ MODO_MESA = "table"
 MODO_MASSA = "bulk"
 
 # Colunas que a conta de ENTRADAS precisa ler de cada inscrito.
-COLUNAS_DE_ENTRADA = "buy_in_count, rebuy_count, addon_count, is_qualified_entry, status"
+COLUNAS_DE_ENTRADA = "buy_in_count, extra_entries, rebuy_count, addon_count, is_qualified_entry, status"
 
 
 def _campo(dia, nome):
@@ -52,7 +57,7 @@ def _campo(dia, nome):
 
 
 def entradas_para_ativos(inscritos: List[dict], dia=None) -> int:
-    """ENTRADAS do dia — o número de onde sai ATIVOS = ENTRADAS − ELIMINAÇÕES.
+    """PESSOAS do dia — o número de onde sai ATIVOS = PESSOAS − ELIMINAÇÕES.
 
     Entrada é o buy-in, MAIS o classificado vindo de outro dia: ele chega ao
     dia final com buy_in_count = 0 (a entrada foi cobrada no classificatório),
@@ -65,13 +70,20 @@ def entradas_para_ativos(inscritos: List[dict], dia=None) -> int:
     """
     entradas = 0
     for p in inscritos:
-        entradas += p.get("buy_in_count") or 0
+        entradas += (p.get("buy_in_count") or 0) - (p.get("extra_entries") or 0)
         if p.get("is_qualified_entry") and (p.get("status") or "") != "cancelled":
             entradas += 1
     tipo = _campo(dia, "day_type")
     if getattr(tipo, "value", tipo) == "final":
         entradas = max(entradas, _campo(dia, "registered_players") or 0)
     return entradas
+
+
+def entradas_contadas(inscritos: List[dict], dia=None) -> int:
+    """ENTRADAS que o salão confere: as pessoas, mais as entradas a mais que um
+    mesmo meio vale (o "Buy-in Doble" são duas). Sem isso, a conta de entradas
+    vezes o valor da entrada não fecha com o arrecadado."""
+    return entradas_para_ativos(inscritos, dia) + sum(p.get("extra_entries") or 0 for p in inscritos)
 
 
 def reentradas(inscritos: List[dict]) -> int:

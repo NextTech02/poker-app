@@ -1238,6 +1238,35 @@ class TestMeiosDeEntradaDoTorneio:
         assert [l["chips"] for l in linhas] == [25000, 25000]
         assert fake.store["tournament_players"][0]["total_chips"] == 60000
 
+    def _buy_in(self, entradas):
+        return self._tipos({
+            "id": "bt-bd", "tournament_id": TOUR, "name": "Buy-in Doble", "category": "buy_in",
+            "amount": 40, "rake_percentage": 0, "chips": 50000, "entry_count": entradas,
+        })
+
+    def test_buy_in_doble_conta_duas_entradas_de_uma_pessoa(self, monkeypatch):
+        """Valor e fichas ja sao os da venda inteira, e quem senta e UM jogador:
+        o extra guardado a parte e o que tira a segunda entrada dos ativos."""
+        fake = _monta(monkeypatch, dia=_dia(buy_in=100, chips=10000, rake=20),
+                      tabelas=self._buy_in(2))
+        TournamentPlayerService.register_player(_inscricao(buy_type_id="bt-bd"), "u1")
+        inscrito = fake.store["tournament_players"][0]
+        assert (inscrito["buy_in_count"], inscrito["extra_entries"]) == (2, 1)
+        assert float(inscrito["total_buy_in_amount"]) == 40.0
+        assert inscrito["total_chips"] == 50000
+        venda = fake.store["transactions"][0]
+        assert (venda["entry_count"], float(venda["amount"]), venda["chips"]) == (2, 40.0, 50000)
+
+    def test_buy_in_que_vale_uma_nao_cita_as_colunas(self, monkeypatch):
+        """Citar as colunas derrubaria a venda num banco sem a migracao."""
+        fake = _monta(monkeypatch, dia=_dia(buy_in=100, chips=10000, rake=20),
+                      tabelas=self._buy_in(1))
+        TournamentPlayerService.register_player(_inscricao(buy_type_id="bt-bd"), "u1")
+        inscrito = fake.store["tournament_players"][0]
+        assert inscrito["buy_in_count"] == 1
+        assert "extra_entries" not in inscrito
+        assert "entry_count" not in fake.store["transactions"][0]
+
     def _reentrada(self, fake, entradas):
         fake.store["buy_types"].append({
             "id": "bt-re", "tournament_id": TOUR, "name": "Reentrada Doble", "category": "rebuy",

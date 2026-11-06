@@ -494,6 +494,10 @@ class TournamentPlayerService:
         # Calculate initial amounts
         buy_in_amount = buy_in * registration_data.buy_in_count
         total_chips = starting_chips * registration_data.buy_in_count
+        # Quantas entradas a venda vale no contador ("Buy-in Doble" = 2). Só o
+        # contador: valor e fichas acima já são os da venda inteira.
+        entradas = int((buy_type or {}).get("entry_count") or 1)
+        entradas_vendidas = registration_data.buy_in_count * entradas
 
         # Pagamento dividido conferido ANTES de gravar a inscrição: recusar
         # depois deixaria um inscrito sem venda.
@@ -511,11 +515,14 @@ class TournamentPlayerService:
             "tournament_id": registration_data.tournament_id,
             "tournament_day_id": registration_data.tournament_day_id,
             "player_id": registration_data.player_id,
-            "buy_in_count": registration_data.buy_in_count,
+            "buy_in_count": entradas_vendidas,
             "total_buy_in_amount": buy_in_amount,
             "total_chips": total_chips,
             "notes": registration_data.notes,
         }
+        if entradas > 1:
+            # Quem senta é UMA pessoa: a diferença sai da base dos jogadores ativos.
+            data["extra_entries"] = entradas_vendidas - registration_data.buy_in_count
         # Offline: usa o id gerado no cliente como PK (para o rebuy/addon offline
         # referenciarem o jogador) e marca client_id para idempotência.
         if client_id:
@@ -558,6 +565,8 @@ class TournamentPlayerService:
         }
         if ticket_id:
             transaction_data["ticket_id"] = ticket_id
+        if entradas_vendidas > 1:
+            transaction_data["entry_count"] = entradas_vendidas
         if client_mutation_id:
             transaction_data["client_id"] = client_mutation_id
         if partes:

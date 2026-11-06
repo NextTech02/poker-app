@@ -145,6 +145,16 @@ def test_resumo_sem_a_funcao_do_banco_soma_as_entradas_das_recompras(monkeypatch
     assert ReportService.get_reports().totalRebuys == 3
 
 
+def test_resumo_sem_a_funcao_do_banco_soma_as_entradas_dos_buy_ins(monkeypatch):
+    tabelas = _tabelas()
+    tabelas["transactions"].append(
+        {**_venda("x8", "tp1", "buy_in", "bt-bd", "Buy-in Doble", 100), "entry_count": 2}
+    )
+    fake = FakeSupabase(tabelas)
+    monkeypatch.setattr(mod, "supabase", fake)
+    assert ReportService.get_reports().totalBuyIns == 4
+
+
 def test_banco_sem_as_colunas_novas_le_as_vendas_como_antes(monkeypatch):
     """O deploy não é atômico com a migração: relatório não pode cair por isso."""
     pedidas = []

@@ -11,6 +11,7 @@ import {
   linhasDaApi,
   meiosPadrao,
   meiosParaApi,
+  valeEntradas,
   novaLinha,
   removerLinha,
   validarMeios,
@@ -55,10 +56,28 @@ describe('quantas entradas o meio vale', () => {
     expect(meiosParaApi([entrada(), doble(3)])[1].entry_count).toBe(3);
   });
 
-  it('fora da recompra vale sempre uma, mesmo depois de trocar a categoria', () => {
-    // Em Entrada, o contador multiplica o preço e é a base dos jogadores ativos.
-    const trocada = { ...doble(3), category: 'addon' };
-    expect(meiosParaApi([entrada(), trocada])[1].entry_count).toBe(1);
+  it('entrada também vai como número: é o Buy-in Doble', () => {
+    expect(meiosParaApi([novaLinha({ name: 'Buy-in Doble', entry_count: 2 })])[0].entry_count).toBe(2);
+  });
+
+  it('add-on e taxa valem sempre uma, mesmo depois de trocar a categoria', () => {
+    // Não são entradas: nenhum contador de entradas olha para eles.
+    expect(meiosParaApi([entrada(), { ...doble(3), category: 'addon' }])[1].entry_count).toBe(1);
+    expect(meiosParaApi([entrada(), { ...doble(3), category: 'fee' }])[1].entry_count).toBe(1);
+  });
+
+  it('meio por equipe vale sempre uma', () => {
+    // O valor é o da equipe inteira, cobrado de cada integrante à parte.
+    const equipe = novaLinha({ name: 'Equipo', per_team: true, entry_count: 2 });
+    expect(meiosParaApi([equipe])[0].entry_count).toBe(1);
+  });
+
+  it('só entrada e recompra individuais têm o campo', () => {
+    expect(valeEntradas(novaLinha({ category: 'buy_in' }))).toBe(true);
+    expect(valeEntradas(novaLinha({ category: 'rebuy' }))).toBe(true);
+    expect(valeEntradas(novaLinha({ category: 'addon' }))).toBe(false);
+    expect(valeEntradas(novaLinha({ category: 'fee' }))).toBe(false);
+    expect(valeEntradas(novaLinha({ category: 'buy_in', per_team: true }))).toBe(false);
   });
 
   it('o inativo volta com o que tinha', () => {
@@ -67,7 +86,16 @@ describe('quantas entradas o meio vale', () => {
   });
 
   it.each(['0', '11', ''])('recompra valendo "%s" é recusada', (valor) => {
-    expect(validarMeios([entrada(), doble(valor)], t)).toBe('Cada recompra vale de 1 a 10 entradas.');
+    expect(validarMeios([entrada(), doble(valor)], t)).toBe('Cada meio vale de 1 a 10 entradas.');
+  });
+
+  it('entrada fora do limite também é recusada', () => {
+    expect(validarMeios([novaLinha({ name: 'Entrada', entry_count: '11' })], t))
+      .toBe('Cada meio vale de 1 a 10 entradas.');
+  });
+
+  it('add-on não passa por esse limite: o campo nem aparece', () => {
+    expect(validarMeios([entrada(), novaLinha({ name: 'Add', category: 'addon', entry_count: '0' })], t)).toBe('');
   });
 
   it('de 1 a 10 passa', () => {

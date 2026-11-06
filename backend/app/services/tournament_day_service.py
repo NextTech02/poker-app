@@ -44,6 +44,7 @@ from app.services.tournament_service import (
 from app.services.eliminacao import (
     COLUNAS_DE_ENTRADA,
     MODO_MESA,
+    entradas_contadas as _entradas_contadas,
     entradas_para_ativos as _entradas_para_ativos,
     modo_do_torneio,
     reentradas as _reentradas,
@@ -238,7 +239,7 @@ class TournamentDayService:
         agg = {}
         for d in day_ids:
             if d in por_dia or d in dias:
-                agg[d] = _entradas_para_ativos(por_dia.get(d, []), dias.get(d))
+                agg[d] = _entradas_contadas(por_dia.get(d, []), dias.get(d))
         reentradas = {d: _reentradas(linhas) for d, linhas in por_dia.items()}
         return agg, reentradas
 
@@ -268,9 +269,9 @@ class TournamentDayService:
                 )
                 # Entrada e buy-in (e o classificado vindo de outro dia). A
                 # recompra devolve o jogador ao torneio; ela nao e uma entrada
-                # nova. Add-on nao conta em nada. E a mesma conta da TV, para
-                # "ENTRADAS − ELIMINACOES = ATIVOS" fechar.
-                total_entries = _entradas_para_ativos(linhas, item)
+                # nova. Add-on nao conta em nada. E a mesma conta do quadro
+                # Entradas da TV.
+                total_entries = _entradas_contadas(linhas, item)
                 total_reentries = _reentradas(linhas)
 
             item["total_entries"] = total_entries
@@ -1437,11 +1438,12 @@ class TournamentDayService:
             .execute()
 
         rows = players_response.data or []
-        # A MESMA conta da TV e do Controle: ATIVOS = ENTRADAS − ELIMINACOES.
+        # A MESMA conta da TV e do Controle: ATIVOS = PESSOAS − ELIMINACOES.
         # Contar status 'active' errava duas vezes: o inscrito novo nasce
         # 'registered', e no modo em massa ninguem muda de status ao sair.
-        total_entries = _entradas_para_ativos(rows, day)
-        active_players = max(0, total_entries - (getattr(day, "eliminations_count", 0) or 0))
+        total_entries = _entradas_contadas(rows, day)
+        pessoas = _entradas_para_ativos(rows, day)
+        active_players = max(0, pessoas - (getattr(day, "eliminations_count", 0) or 0))
 
         # Calculate current elapsed time if timer is running
         current_elapsed = day.elapsed_time
@@ -1677,10 +1679,11 @@ class TournamentDayService:
         # Cache com formato antigo (menos posicoes) e tratado como vencido em vez
         # de lido pela metade: um campo faltando aqui viraria numero errado no
         # telao, e o custo e uma varredura a mais uma unica vez.
-        if cached and len(cached) > 3 and (now - cached[0]) < _CHIPCOUNT_TTL:
+        if cached and len(cached) > 4 and (now - cached[0]) < _CHIPCOUNT_TTL:
             chipcount = cached[1]
             total_entries = cached[2]
             total_reentries = cached[3]
+            total_players = cached[4]
         else:
             try:
                 agg_resp = supabase.table("tournament_players")\
@@ -1703,16 +1706,19 @@ class TournamentDayService:
                 chipcount = sum(int(p.get("total_chips") or 0) for p in players_data)
                 # ENTRADA = buy-in (e o classificado vindo de outro dia). Quem
                 # recompra voltou ao torneio; nao entrou nele de novo.
-                total_entries = _entradas_para_ativos(players_data, day)
+                total_entries = _entradas_contadas(players_data, day)
+                # Quem senta: o "Buy-in Doble" sao duas entradas de uma pessoa so.
+                total_players = _entradas_para_ativos(players_data, day)
                 # REENTRADA = recompra. Add-on nao traz ninguem de volta.
                 total_reentries = _reentradas(players_data)
-                _chipcount_cache[day_id] = (now, chipcount, total_entries, total_reentries)
+                _chipcount_cache[day_id] = (now, chipcount, total_entries, total_reentries, total_players)
             except Exception:
                 chipcount = cached[1] if cached else 0
                 total_entries = cached[2] if cached else 0
                 total_reentries = cached[3] if cached and len(cached) > 3 else 0
+                total_players = cached[4] if cached and len(cached) > 4 else total_entries
 
-        # Jogadores ativos = ENTRADAS - ELIMINACOES. E a conta que a tela mostra
+        # Jogadores ativos = PESSOAS - ELIMINACOES. E a conta que a tela mostra
         # por extenso, e ela so fecha porque a recompra baixa o contador de
         # eliminacoes (ver TournamentPlayerService._desfazer_eliminacoes): quem
         # recompra voltou para a mesa, nao virou um jogador a mais.
@@ -1720,7 +1726,7 @@ class TournamentDayService:
         # As eliminacoes sao lidas frescas da linha do dia, entao respondem na
         # hora mesmo com os agregados em cache.
         eliminations_count = day.eliminations_count if hasattr(day, 'eliminations_count') and day.eliminations_count else 0
-        active_players = max(0, total_entries - eliminations_count)
+        active_players = max(0, total_players - eliminations_count)
         average_stack = round(chipcount / active_players) if active_players > 0 else 0
 
         # If is_paused=False but timer_started_at is None, the timer was never actually
@@ -1770,6 +1776,8 @@ class TournamentDayService:
             "server_time": datetime.now(timezone.utc).timestamp(),
             "active_players": active_players,
             "total_entries": total_entries,
+            # O "de total" do telao: pessoas, nao entradas.
+            "total_players": total_players,
             # So recompras (add-on fica fora), para o telao exibir separado.
             "total_reentries": total_reentries,
             "eliminations_count": eliminations_count,

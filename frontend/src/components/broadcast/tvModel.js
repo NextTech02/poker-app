@@ -286,6 +286,11 @@ export const buildTvModel = ({
   const entries = live
     ? (timerState.total_entries || 0)
     : players.reduce((sum, p) => sum + (p.buy_in_count || 0), 0);
+  // Quem senta: o "Buy-in Doble" são duas entradas de uma pessoa só, e "10 de 11"
+  // com todo mundo na mesa diria que falta alguém.
+  const seated = live
+    ? (timerState.total_players ?? entries)
+    : entries - players.reduce((sum, p) => sum + (p.extra_entries || 0), 0);
   // REENTRADA = recompra. O add-on compra fichas para quem já está na mesa
   // e não traz ninguém de volta, então não conta (mesma regra do backend).
   const reentries = live
@@ -296,7 +301,7 @@ export const buildTvModel = ({
 
   // Dia final: o total é a soma dos classificatórios, não as entradas do dia.
   const isFinalDay = tournamentDay?.day_type === 'final' || players.some((p) => p.is_qualified_entry);
-  let totalPlayers = entries;
+  let totalPlayers = seated;
   if (isFinalDay && aggregatedStats) {
     const qualifying = aggregatedStats.qualifying_days?.reduce(
       (sum, day) => sum + (day.total_players || 0), 0,

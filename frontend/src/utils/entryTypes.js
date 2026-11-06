@@ -34,7 +34,7 @@ export const novaLinha = (dados = {}) => ({
   chips: semValor(dados.chips) ? String(FICHAS_PADRAO) : String(dados.chips),
   // Torneio por equipes: valor da EQUIPE inteira, dividido no "Cobrar equipe".
   per_team: !!dados.per_team,
-  // Quantas entradas a venda conta ("Reentrada Doble" = 2). Só recompra usa.
+  // Quantas entradas a venda conta ("Buy-in Doble" = 2). Ver `valeEntradas`.
   entry_count: semValor(dados.entry_count) ? '1' : String(dados.entry_count),
 });
 
@@ -50,6 +50,12 @@ export const inteiro = (texto) => {
 
 /** Limite do cadastro; o mesmo do backend e do CHECK do banco. */
 export const MAXIMO_DE_ENTRADAS = 10;
+
+/**
+ * Só entrada e recompra individuais contam entradas: add-on e taxa não são
+ * entradas, e o meio por equipe é cobrado de cada integrante à parte.
+ */
+export const valeEntradas = (l) => ['buy_in', 'rebuy'].includes(l.category) && !l.per_team;
 
 // Um torneio começa com os três meios de sempre; o clube renomeia, muda valor e
 // acrescenta quantos quiser. O VALOR fica em branco de propósito: é o que o
@@ -90,9 +96,12 @@ export const validarMeios = (linhas, t) => {
   if (!linhas.some((l) => l.category === 'buy_in')) {
     return faltaEntrada(t);
   }
-  const foraDoLimite = (l) => inteiro(l.entry_count) < 1 || inteiro(l.entry_count) > MAXIMO_DE_ENTRADAS;
-  if (linhas.some((l) => l.category === 'rebuy' && foraDoLimite(l))) {
-    return t('tournamentDayForm.entryMethodsEntriesRange', 'Cada recompra vale de 1 a 10 entradas.');
+  const foraDoLimite = (l) => {
+    const entradas = inteiro(l.entry_count ?? 1);
+    return entradas < 1 || entradas > MAXIMO_DE_ENTRADAS;
+  };
+  if (linhas.some((l) => valeEntradas(l) && foraDoLimite(l))) {
+    return t('tournamentDayForm.entryMethodsEntriesRange', 'Cada meio vale de 1 a 10 entradas.');
   }
   return '';
 };
@@ -119,7 +128,7 @@ export const meiosParaApi = (linhas, inativos = []) => [
     rake_percentage: numero(l.rake_percentage),
     chips: inteiro(l.chips),
     per_team: !!l.per_team && l.category === 'buy_in',
-    entry_count: l.category === 'rebuy' ? inteiro(l.entry_count) : 1,
+    entry_count: valeEntradas(l) ? inteiro(l.entry_count ?? 1) : 1,
     active: true,
     // A ordem da tela é a ordem que o Caixa mostra: o operador organiza aqui.
     sort_order: indice,

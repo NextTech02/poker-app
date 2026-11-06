@@ -22,6 +22,8 @@ class TournamentPlayerBase(BaseModel):
     tournament_id: str
     player_id: str
     buy_in_count: int = Field(default=1, ge=0)
+    # Entradas além da pessoa: no "Buy-in Doble", buy_in_count é 2 e isto é 1.
+    extra_entries: int = Field(default=0, ge=0)
     rebuy_count: int = Field(default=0, ge=0)
     addon_count: int = Field(default=0, ge=0)
     total_buy_in_amount: float = Field(default=0, ge=0)

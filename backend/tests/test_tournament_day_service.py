@@ -1239,6 +1239,40 @@ class TestStatusEnriquecido:
         mod.supabase.store["tournament_players"][0]["total_chips"] = 999999
         assert S.get_enriched_timer_status(D1)["chipcount"] == 15000
 
+    def test_buy_in_doble_soma_entrada_mas_nao_senta_duas_pessoas(self, monkeypatch):
+        """Duas pessoas, uma de Buy-in Doble: 3 entradas e 2 sentadas. Sem
+        separar, a TV mostraria um ativo a mais do que gente na mesa."""
+        _monta(monkeypatch, blinds=self._blinds(), tournament_players=[
+            _jogador(D1, buy=2, extra_entries=1),
+            _jogador(D1, buy=1, id="tp-2", player_id="p2"),
+        ])
+        r = S.get_enriched_timer_status(D1)
+        assert (r["total_entries"], r["total_players"], r["active_players"]) == (3, 2, 2)
+
+    def test_status_simples_do_relogio_conta_ativos_por_pessoa(self, monkeypatch):
+        _monta(monkeypatch, blinds=self._blinds(), tournament_players=[
+            _jogador(D1, buy=2, extra_entries=1),
+            _jogador(D1, buy=1, id="tp-2", player_id="p2"),
+        ])
+        r = S.get_timer_status(D1)
+        assert (r.total_entries, r.active_players) == (3, 2)
+
+    def test_dia_mostra_as_entradas_vendidas(self, monkeypatch):
+        """A tela do dia e a lista de dias somam entradas, não pessoas."""
+        _monta(monkeypatch, tournament_players=[
+            _jogador(D1, buy=2, extra_entries=1),
+            _jogador(D1, buy=1, id="tp-2", player_id="p2"),
+        ])
+        assert S.get_tournament_day(D1).total_entries == 3
+        assert S._entries_by_day([D1], {})[0][D1] == 3
+
+    def test_cache_antigo_sem_as_pessoas_vale_como_vencido(self, monkeypatch):
+        """Um processo recem-publicado pode achar o formato anterior no cache:
+        ler pela metade daria numero errado no telao."""
+        _monta(monkeypatch, blinds=self._blinds(), tournament_players=[_jogador(D1)])
+        mod._chipcount_cache[D1] = (9e12, 999, 9, 0)
+        assert S.get_enriched_timer_status(D1)["total_entries"] == 1
+
     def test_sem_jogadores_no_dia_cai_para_os_do_torneio(self, monkeypatch):
         """Dias antigos foram gravados só com `tournament_id`; sem esse
         fallback o chipcount da TV apareceria zerado."""

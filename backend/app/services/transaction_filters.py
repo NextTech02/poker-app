@@ -39,7 +39,8 @@ def sem_canceladas(linhas: List[dict]) -> List[dict]:
 
 def entradas_da_venda(linha: dict) -> int:
     """Quantas entradas a venda vale: a "Reentrada Doble" é UMA linha e DUAS
-    reentradas. Vale o número gravado na venda, não o do meio de entrada, que o
+    reentradas, e o "Buy-in Doble" é UMA linha e DUAS entradas. Vale o número
+    gravado na venda, não o do meio de entrada, que o
     clube pode mudar depois. Venda anterior à coluna vale uma."""
     return int(linha.get("entry_count") or 1)
 
