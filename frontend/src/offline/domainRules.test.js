@@ -190,6 +190,14 @@ describe('registro de jogador', () => {
     const { txn } = await applyRegister(corpoRegistro());
     expect(txn.payment_method).toBe('cash');
     expect(txn.payment_source).toBe('cash');
+    expect(txn.payment_split).toBeNull();
+  });
+
+  it('pagamento dividido fica como o servidor grava: split + as partes', async () => {
+    const partes = [{ payment_method: 'cash', amount: 300 }, { payment_method: 'transfer', amount: 200 }];
+    const { txn } = await applyRegister(corpoRegistro({ payment_method: 'cash', payment_split: partes }));
+    expect(txn.payment_method).toBe('split');
+    expect(txn.payment_split).toEqual(partes);
   });
 
   it('torneio sem etapa na réplica não quebra o registro', async () => {

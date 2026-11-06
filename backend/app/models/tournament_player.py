@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from enum import Enum
+
+from app.models.pagamento import PaymentLeg
 
 
 class TournamentPlayerStatus(str, Enum):
@@ -40,6 +42,10 @@ class TournamentPlayerCreate(BaseModel):
     buy_in_count: int = Field(default=1, ge=1)
     payment_source: Optional[str] = Field(default="cash", description="cash, credit, mixed, or ticket")
     payment_method: Optional[str] = Field(default=None, description="How it was paid: cash, pix, card, transfer")
+    # Pagamento dividido (300 dinheiro + 200 transferência): as partes têm de
+    # somar o valor da entrada. Com elas, `payment_method` traz só a maior
+    # parte — é o que um backend antigo grava ao ignorar este campo.
+    payment_split: Optional[List[PaymentLeg]] = Field(default=None, max_length=10)
     buy_type_id: Optional[str] = Field(default=None, description="Buy type (per stage) — defines amount and rake %")
     ticket_id: Optional[str] = Field(default=None, description="Satellite ticket ID for ticket payment")
     notes: Optional[str] = None

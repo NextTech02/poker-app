@@ -217,6 +217,20 @@ class TestEntradaPagaComTicket:
         assert len([t for t in fake.store["transactions"] if t["type"] == "rebuy"]) == 1
         assert fake.store["tournament_players"][0]["rebuy_count"] == 1
 
+    def test_ticket_nunca_e_dividido(self, monkeypatch):
+        """Reentrada com ticket não recebe dinheiro: não há o que repartir. A
+        recusa vem antes de consumir a eliminação ou mexer nos contadores."""
+        fake = self._com_jogador(monkeypatch)
+        partes = [{"payment_method": "cash", "amount": 60},
+                  {"payment_method": "transfer", "amount": 40}]
+        with pytest.raises(ErroDeNegocio) as erro:
+            TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True,
+                                              ticket_id="tk1", payment_split=partes)
+        assert erro.value.code == "pagamento_dividido_com_credito"
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 0
+        assert fake.store["transactions"] == []
+        assert [c for c in fake.rpc_calls if c[0] == "consumir_eliminacao"] == []
+
     def test_recompra_normal_continua_cobrando(self, monkeypatch):
         """Mandar payment_source=ticket pela rota de recompra (sem ticket_id)
         nao abre o caminho de graca."""

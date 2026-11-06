@@ -16,6 +16,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.models.pagamento import PaymentLeg
+
 
 # ────────────────────────────────────────────────
 # Dia de operação
@@ -90,6 +92,9 @@ class CashDaySummary(BaseModel):
     total_credit_issued: float = 0.0   # fichas vendidas no fiado (não entraram na gaveta)
     total_debt_offset: float = 0.0     # abatido da dívida nos cash-outs (não saiu da gaveta)
     total_debt_payments: float = 0.0   # fiado recebido nas gavetas do dia (entrou)
+    # Compras de fichas (buy-in + recompra) por meio de pagamento, com o
+    # pagamento dividido somado parte a parte. Fiado fica fora: não é meio.
+    buy_ins_by_method: List[dict] = []
 
 
 # ────────────────────────────────────────────────
@@ -243,6 +248,9 @@ class SitPlayer(BaseModel):
     # 'house_credit' = fiado da casa (não entra na gaveta). Nulo/'cash' =
     # dinheiro de verdade, em qualquer meio.
     payment_source: Optional[str] = Field(None, pattern="^(cash|house_credit)$")
+    # Pagamento dividido (600 dinheiro + 400 transferência): as partes somam
+    # o buy-in. Com elas, `payment_method` traz só a maior parte.
+    payment_split: Optional[List[PaymentLeg]] = Field(None, max_length=10)
     client_mutation_id: Optional[str] = None
     notes: Optional[str] = None
 
@@ -269,6 +277,7 @@ class CashRebuy(BaseModel):
     amount: float = Field(..., gt=0)
     payment_method: Optional[str] = None
     payment_source: Optional[str] = Field(None, pattern="^(cash|house_credit)$")
+    payment_split: Optional[List[PaymentLeg]] = Field(None, max_length=10)
     client_mutation_id: Optional[str] = None
     notes: Optional[str] = None
 
@@ -311,6 +320,8 @@ class CashTransactionResponse(BaseModel):
     amount: float
     payment_method: Optional[str] = None
     payment_source: Optional[str] = None
+    # Pagamento dividido: com ele, `payment_method` é 'split'.
+    payment_split: Optional[List[PaymentLeg]] = None
     cashbox_id: Optional[str] = None
     # Cash-out: parte das fichas que abateu o fiado (a gaveta pagou o resto).
     debt_settled_amount: float = 0.0

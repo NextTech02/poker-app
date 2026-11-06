@@ -112,6 +112,8 @@ class SyncService:
                     payment_method=p.get("payment_method", "cash"),
                     buy_type_id=p.get("buy_type_id"),
                     client_mutation_id=p.get("client_mutation_id") or cmid,
+                    # Pagamento dividido feito offline (a fila antiga não tem).
+                    payment_split=p.get("payment_split"),
                     skip_level_gate=True,  # offline: feito em tempo real; não re-gatear no sync
                     skip_sales_block=True,
                     permitir_meio_inativo=True,
@@ -127,6 +129,7 @@ class SyncService:
                     payment_method=p.get("payment_method", "cash"),
                     buy_type_id=p.get("buy_type_id"),
                     client_mutation_id=p.get("client_mutation_id") or cmid,
+                    payment_split=p.get("payment_split"),
                     skip_sales_block=True,
                     permitir_meio_inativo=True,
                 )

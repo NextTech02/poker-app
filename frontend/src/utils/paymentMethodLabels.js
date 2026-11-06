@@ -15,5 +15,8 @@ export const isBuiltinMethod = (code) =>
 export const methodLabel = (t, method) => {
   if (!method) return '--';
   if (BUILTIN_PAYMENT_CODES[method.code]) return t(BUILTIN_PAYMENT_CODES[method.code]);
+  // Código reservado do pagamento dividido: não é um meio cadastrado, é a
+  // venda paga em mais de um (as partes ficam na própria venda).
+  if (method.code === 'split') return t('financial.paymentSplit', 'Dividido');
   return method.label || method.code || '--';
 };

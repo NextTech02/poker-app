@@ -639,7 +639,7 @@ class TestTrocaDeFormaDePagamentoHTTP:
 
         stub(CashboxService, can_admin=lambda uid: False)
         stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(),
-             update_payment_method=lambda tid, pm, notes=None: _transacao())
+             update_payment_method=lambda tid, pm, notes=None, payment_split=None: _transacao())
         r = client.patch("/transactions/tx1/payment-method", json={"payment_method": "pix"})
         assert r.status_code == 200
 
@@ -656,7 +656,7 @@ class TestTrocaDeFormaDePagamentoHTTP:
 
         stub(CashboxService, can_admin=lambda uid: True)
         stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(created_by="outro"),
-             update_payment_method=lambda tid, pm, notes=None: _transacao())
+             update_payment_method=lambda tid, pm, notes=None, payment_split=None: _transacao())
         r = client.patch("/transactions/tx1/payment-method", json={"payment_method": "pix"})
         assert r.status_code == 200
 
@@ -665,7 +665,7 @@ class TestTrocaDeFormaDePagamentoHTTP:
 
         stub(CashboxService, can_admin=lambda uid: True)
 
-        def _estoura(tid, pm, notes=None):
+        def _estoura(tid, pm, notes=None, payment_split=None):
             raise ValueError("Venda cancelada não pode ser alterada")
 
         stub(TrS, get_raw_transaction=lambda tid: self._venda_crua(),

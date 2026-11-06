@@ -57,4 +57,10 @@ describe('rótulo exibido', () => {
   it('método sem código nem rótulo mostra um traço', () => {
     expect(methodLabel(t, {})).toBe('--');
   });
+
+  it('o código reservado do pagamento dividido tem rótulo próprio', () => {
+    // Não é meio cadastrado e não é embutido (o cadastro não o mostra).
+    expect(methodLabel(t, { code: 'split' })).toBe('<i18n:financial.paymentSplit>');
+    expect(isBuiltinMethod('split')).toBe(false);
+  });
 });

@@ -9,6 +9,8 @@ import Icon from '../components/Icon';
 import { SkeletonStatCard, SkeletonBlock } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { methodLabel } from '../utils/paymentMethodLabels';
 import { useCashDay } from '../contexts/CashDayContext';
 import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -34,6 +36,8 @@ const CashFloor = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
+  const { activeMethods = [] } = usePaymentMethods();
+  const rotuloDoMeio = (code) => methodLabel(t, activeMethods.find((m) => m.code === code) || { code });
   const { day, cashDayId, isOpen, loading: dayLoading, reload: reloadDay } = useCashDay();
 
   const [tables, setTables] = useState([]);
@@ -248,6 +252,23 @@ const CashFloor = () => {
                       </span>
                     </div>
                   ) : null}
+                  {/* Compras de fichas por meio, com o pagamento dividido
+                      somado parte a parte: é o que o operador confere na
+                      gaveta (dinheiro) e no extrato (transferência, Yape). Só
+                      aparece com mais de um meio — com um só, é o giro. */}
+                  {(summary?.buy_ins_by_method || []).length > 1 && (
+                    <div className="stat-card">
+                      <span className="stat-label">{t('cash.buyInsByMethod', 'Compras por meio')}</span>
+                      <span className="stat-value">
+                        {formatCurrency(summary.buy_ins_by_method.reduce((s, m) => s + (Number(m.total) || 0), 0))}
+                      </span>
+                      <span className="stat-hint">
+                        {summary.buy_ins_by_method
+                          .map((m) => `${rotuloDoMeio(m.code)} ${formatCurrency(m.total)}`)
+                          .join(' · ')}
+                      </span>
+                    </div>
+                  )}
                   <div className="stat-card">
                     <span className="stat-label">{t('cash.playersSeated', 'Jogadores sentados')}</span>
                     <span className="stat-value">{summary?.players_seated ?? 0}</span>

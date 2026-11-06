@@ -25,6 +25,7 @@ from app.models.cash_game import (
     CashDayResponse,
     CashDaySummary,
 )
+from app.services import pagamento_dividido
 from app.services.house_credit_service import PAYMENT_SOURCE as FIADO, HouseCreditService
 from app.utils.erros import ErroDeNegocio
 
@@ -164,6 +165,12 @@ class CashDayService:
                 total_credit_issued=float(dia.get("total_credit_issued") or 0),
                 total_debt_offset=float(dia.get("total_debt_offset") or 0),
                 total_debt_payments=float(dia.get("total_debt_payments") or 0),
+                # Recalculado mesmo no dia fechado: as linhas não mudam depois
+                # do fechamento, e o dia congelado não guarda esta quebra. É uma
+                # consulta só, e não a soma do dia inteiro.
+                buy_ins_by_method=CashDayService._buy_ins_por_meio(
+                    CashDayService._transacoes_do_dia(cash_day_id)
+                ),
             )
 
         # Só agora: somar o dia custa várias consultas, e o dia fechado (acima)
@@ -177,21 +184,44 @@ class CashDayService:
         )
 
     @staticmethod
+    def _linhas_do_dia(tabela: str, colunas: str, cash_day_id: str) -> list:
+        """De mil em mil (app/database/paginacao.py): os totais do dia são os que
+        o fechamento CONGELA em cash_days, e o PostgREST cortaria em 1000."""
+        return todas_as_linhas(lambda: (
+            supabase.table(tabela).select(colunas)
+            .eq("cash_day_id", cash_day_id).order("id")
+        ))
+
+    @staticmethod
+    def _transacoes_do_dia(cash_day_id: str) -> list:
+        # `*` e não a lista de colunas: as do fiado só existem depois da
+        # migração, e pedi-las pelo nome derrubaria o resumo do dia antes dela.
+        return CashDayService._linhas_do_dia("cash_transactions", "*", cash_day_id)
+
+    @staticmethod
+    def _buy_ins_por_meio(txs: list) -> list:
+        """Quanto entrou em cada meio (dinheiro, Yape, transferência…), com a
+        venda dividida somada parte a parte. Cancelada e fiado não são dinheiro
+        recebido."""
+        pagas = [
+            t for t in txs
+            if (t.get("status") or "active") == "active"
+            and t.get("type") in ("buy_in", "rebuy")
+            and t.get("payment_source") != FIADO
+        ]
+        return [
+            {"code": metodo, "total": float(total), "count": qtd}
+            for metodo, total, qtd in pagamento_dividido.somar_por_meio(pagas)
+        ]
+
+    @staticmethod
     def _agregar(cash_day_id: str) -> dict:
         """Soma o dia a partir das linhas. Três consultas, sem laço com query
         dentro (o N+1 clássico deste projeto)."""
-        # `*` e não a lista de colunas: as do fiado só existem depois da
-        # migração, e pedi-las pelo nome derrubaria o resumo do dia antes dela.
-        #
-        # De mil em mil (app/database/paginacao.py): estes totais são os que o
-        # fechamento CONGELA em cash_days, e o PostgREST cortaria em 1000.
         def _do_dia(tabela, colunas):
-            return todas_as_linhas(lambda: (
-                supabase.table(tabela).select(colunas)
-                .eq("cash_day_id", cash_day_id).order("id")
-            ))
+            return CashDayService._linhas_do_dia(tabela, colunas, cash_day_id)
 
-        txs = _do_dia("cash_transactions", "*")
+        txs = CashDayService._transacoes_do_dia(cash_day_id)
 
         entradas = saidas = fiado = abatido = 0.0
         for t in txs:
@@ -245,6 +275,7 @@ class CashDayService:
             "total_credit_issued": round(fiado, 2),
             "total_debt_offset": round(abatido, 2),
             "total_debt_payments": round(recebido, 2),
+            "buy_ins_by_method": CashDayService._buy_ins_por_meio(txs),
         }
 
     # ============================================================
