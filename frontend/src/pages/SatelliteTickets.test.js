@@ -13,6 +13,8 @@
  *   apagaria uma entrada que já virou fichas na mesa.
  * - **Escolher o dia-destino revela o valor do ticket**, que é o buy-in
  *   daquele dia — é a conferência de que a vaga vale o que se espera.
+ * - **Resgatar entrega o bilhete**, como a venda no Caixa: é com ele que o floor
+ *   senta o jogador e entrega as fichas. Sem assento o bilhete sai assim mesmo.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -47,6 +49,24 @@ jest.mock('../components/PlayerMultiSelect', () => ({ values, onChange }) => (
     <button type="button" onClick={() => onChange([...values, `p${values.length + 1}`])}>
       somar-jogador
     </button>
+  </div>
+));
+jest.mock('../components/SeatTicket', () => ({ allocation, onPrint, formatarValor }) => (
+  <div data-testid="bilhete">
+    <span data-testid="bilhete-jogador">{allocation.player_name}</span>
+    <span data-testid="bilhete-torneio">{allocation.tournament_id}</span>
+    <span data-testid="bilhete-dia">{allocation.day_name}</span>
+    <span data-testid="bilhete-mesa">{allocation.table_number ?? '-'}</span>
+    <span data-testid="bilhete-assento">{allocation.seat_number ?? '-'}</span>
+    <span data-testid="bilhete-alternado">{String(!!allocation.is_alternate)}</span>
+    <span data-testid="bilhete-sem-assento">{String(!!allocation.sem_assento)}</span>
+    <ul data-testid="bilhete-itens">
+      {(allocation.itens || []).map((item) => (
+        <li key={item.name}>{item.name}|{formatarValor(item.amount)}|{item.chips}</li>
+      ))}
+    </ul>
+    <span data-testid="bilhete-total-fichas">{allocation.total_chips ?? '-'}</span>
+    <button onClick={onPrint}>imprimir</button>
   </div>
 ));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
@@ -657,6 +677,120 @@ describe('resgatar ticket', () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith('satelliteTickets.toastRedeemedReentry')
     );
+  });
+
+  describe('bilhete do resgate', () => {
+    const RESGATE = {
+      ticket_id: 'tk1', tournament_player_id: 'tp1', player_id: 'p1', player_name: 'Ana',
+      tournament_id: 't1', tournament_day_id: 'd1', tournament_name: 'Main Event',
+      day_name: 'Dia Final', allocation_type: 'automatic', tables_locked: false,
+      ticket_value: 1000, chips: 30000, reentrada: false, message: 'Ticket resgatado com sucesso',
+    };
+
+    /** O resgate responde `resgate`; o pedido de assento, `assento`. */
+    const responderResgate = (resgate, assento) => {
+      api.post.mockImplementation((url) => {
+        if (url.endsWith('/redeem')) return Promise.resolve({ data: resgate });
+        return assento instanceof Error ? Promise.reject(assento) : Promise.resolve({ data: assento });
+      });
+    };
+
+    const resgatar = async () => {
+      await montar();
+      await abrir();
+      await escolherTicket('tk1');
+      await userEvent.click(screen.getByRole('button', { name: 'satelliteTickets.submitRedeem' }));
+    };
+
+    it('senta o jogador e entrega o bilhete com mesa, assento e fichas', async () => {
+      responderResgate(RESGATE, { id: 'a1', table_number: 4, seat_number: 2 });
+      await resgatar();
+      expect(await screen.findByTestId('bilhete-mesa')).toHaveTextContent('4');
+      expect(api.post).toHaveBeenCalledWith('/allocations/day/d1/auto?player_id=p1');
+      expect(screen.getByTestId('bilhete-assento')).toHaveTextContent('2');
+      expect(screen.getByTestId('bilhete-jogador')).toHaveTextContent('Ana');
+      expect(screen.getByTestId('bilhete-torneio')).toHaveTextContent('t1');
+      expect(screen.getByTestId('bilhete-dia')).toHaveTextContent('Dia Final');
+      expect(screen.getByTestId('bilhete-itens'))
+        .toHaveTextContent('satelliteTickets.ticketItem|R$ 1000.00|30000');
+      expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30000');
+      expect(screen.getByRole('heading', { name: 'cashRegister.registeredAndAllocated' })).toBeInTheDocument();
+    });
+
+    it('a reentrada paga com ticket também pede assento: o jogador tinha saído da mesa', async () => {
+      responderResgate({ ...RESGATE, reentrada: true }, { id: 'a1', table_number: 9, seat_number: 1 });
+      await resgatar();
+      expect(await screen.findByTestId('bilhete-mesa')).toHaveTextContent('9');
+    });
+
+    it('dia de alocação manual: bilhete sem assento, sem pedir nada ao servidor', async () => {
+      responderResgate({ ...RESGATE, allocation_type: 'manual' });
+      await resgatar();
+      expect(await screen.findByTestId('bilhete-sem-assento')).toHaveTextContent('true');
+      expect(api.post).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('heading', { name: 'satelliteTickets.redeemedNoSeat' })).toBeInTheDocument();
+    });
+
+    it('mesa cheia vira bilhete de alternado', async () => {
+      responderResgate(RESGATE, erroHttp({ code: 'alocacao_recusada', message: 'All tables are full' }));
+      await resgatar();
+      expect(await screen.findByTestId('bilhete-alternado')).toHaveTextContent('true');
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it('mesas travadas sem mesa cadastrada avisa que não é fila', async () => {
+      responderResgate({ ...RESGATE, tables_locked: true });
+      await resgatar();
+      expect(await screen.findByRole('alert')).toHaveTextContent('cashRegister.ticketNoTablesHint');
+      expect(api.get).toHaveBeenCalledWith('/tables/day/d1');
+    });
+
+    it('falha ao sentar não desfaz o resgate: avisa e entrega o bilhete sem assento', async () => {
+      responderResgate(RESGATE, erroHttp({ code: 'alocacao_recusada', message: 'Caiu' }));
+      await resgatar();
+      expect(await screen.findByTestId('bilhete-sem-assento')).toHaveTextContent('true');
+      expect(toast.success).toHaveBeenCalledWith('Ticket resgatado com sucesso');
+      expect(toast.warning).toHaveBeenCalledWith('cashRegister.allocationManualWarning');
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it('na reentrada, o aviso de falha é o da recompra', async () => {
+      responderResgate({ ...RESGATE, reentrada: true }, erroHttp({ code: 'alocacao_recusada', message: 'Caiu' }));
+      await resgatar();
+      await waitFor(() =>
+        expect(toast.warning).toHaveBeenCalledWith('cashRegister.rebuyAllocationManualWarning')
+      );
+    });
+
+    it('sem saber as fichas, a compra fica fora em vez de imprimir zero', async () => {
+      const { chips, ...semFichas } = RESGATE;
+      responderResgate(semFichas, { id: 'a1', table_number: 4, seat_number: 2 });
+      await resgatar();
+      expect(await screen.findByTestId('bilhete-total-fichas')).toHaveTextContent('-');
+      expect(screen.getByTestId('bilhete-itens')).toBeEmptyDOMElement();
+    });
+
+    it('imprimir fecha o bilhete', async () => {
+      responderResgate(RESGATE, { id: 'a1', table_number: 4, seat_number: 2 });
+      await resgatar();
+      await userEvent.click(await screen.findByRole('button', { name: 'imprimir' }));
+      expect(screen.queryByTestId('bilhete')).toBeNull();
+    });
+
+    it('Esc fecha o bilhete: o operador de caixa trabalha pelo teclado', async () => {
+      responderResgate(RESGATE, { id: 'a1', table_number: 4, seat_number: 2 });
+      await resgatar();
+      await screen.findByTestId('bilhete');
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByTestId('bilhete')).toBeNull();
+    });
+
+    it('resgate recusado não abre bilhete nenhum', async () => {
+      api.post.mockRejectedValue(erroHttp('Ticket expirado'));
+      await resgatar();
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Ticket expirado'));
+      expect(screen.queryByTestId('bilhete')).toBeNull();
+    });
   });
 
   it('erro no resgate mostra o motivo', async () => {

@@ -840,6 +840,58 @@ class TestResgateDeTicket:
         assert T.redeem_ticket("t1", None, AUTOR)["tournament_player_id"] == "tp-novo"
         assert recompras == []
 
+    def _dia_do_bilhete(self, **kw):
+        return {"id": DIA, "tournament_id": TOUR, "buy_in": 300, "day_name": "Dia Final",
+                "allocation_type": "automatic", "tables_locked": False, **kw}
+
+    def test_resposta_traz_o_que_a_tela_precisa_para_o_bilhete(self, monkeypatch):
+        """A tela senta o jogador e imprime com o que o resgate devolve: sem
+        isso, o operador teria de ir ao Caixa reimprimir."""
+        self._com_registro(monkeypatch)
+        _monta_ticket(monkeypatch, tournament_days=[self._dia_do_bilhete()],
+                      transactions=[{"id": "v1", "ticket_id": "t1", "chips": 30000}])
+        r = T.redeem_ticket("t1", None, AUTOR)
+        assert (r["player_id"], r["tournament_id"], r["tournament_day_id"]) == (JOGADOR, TOUR, DIA)
+        assert (r["day_name"], r["allocation_type"], r["tables_locked"]) == ("Dia Final", "automatic", False)
+        assert (r["ticket_value"], r["chips"]) == (300.0, 30000)
+
+    def test_reentrada_tambem_traz_os_dados_do_bilhete(self, monkeypatch):
+        self._com_reentrada(monkeypatch)
+        _monta_ticket(monkeypatch,
+                      tournament_days=[self._dia_do_bilhete(tables_locked=True)],
+                      tournament_players=[
+                          {"id": "tp-antigo", "tournament_day_id": DIA, "player_id": JOGADOR,
+                           "status": "eliminated"}],
+                      transactions=[{"id": "v1", "ticket_id": "t1", "chips": 15000}])
+        r = T.redeem_ticket("t1", None, AUTOR)
+        assert r["reentrada"] is True
+        assert (r["tables_locked"], r["chips"]) == (True, 15000)
+
+    def test_fichas_vem_da_venda_deste_ticket(self, monkeypatch):
+        self._com_registro(monkeypatch)
+        _monta_ticket(monkeypatch, transactions=[
+            {"id": "v0", "ticket_id": "outro-ticket", "chips": 99},
+            {"id": "v1", "ticket_id": "t1", "chips": 30000}])
+        assert T.redeem_ticket("t1", None, AUTOR)["chips"] == 30000
+
+    def test_falha_ao_ler_o_bilhete_nao_vira_erro_de_resgate(self, monkeypatch):
+        """O ticket já foi consumido: um erro aqui faria o operador repetir um
+        resgate que deu certo."""
+        self._com_registro(monkeypatch)
+        fake = _monta_ticket(monkeypatch)
+        tabela_original = fake.table
+
+        def _tabela(nome):
+            if nome == "transactions":
+                raise RuntimeError("conexão caiu")
+            return tabela_original(nome)
+
+        monkeypatch.setattr(fake, "table", _tabela)
+        r = T.redeem_ticket("t1", None, AUTOR)
+        assert r["tournament_player_id"] == "tp-novo"
+        assert "allocation_type" not in r
+        assert fake.store["satellite_tickets"][0]["status"] == "redeemed"
+
     def test_a_inscricao_com_ticket_sabe_que_vem_do_resgate(self, monkeypatch):
         """Inscrição com ticket grava 0 no caixa; só o resgate pode pedir isso."""
         inscricao = self._com_registro(monkeypatch)

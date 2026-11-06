@@ -5,6 +5,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import PlayerSelect from '../components/PlayerSelect';
 import PlayerMultiSelect from '../components/PlayerMultiSelect';
+import BilheteModal from '../components/BilheteModal';
 import EmptyState from '../components/EmptyState';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
@@ -14,6 +15,7 @@ import { usePermissions } from '../contexts/PermissionContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useTranslation } from 'react-i18next';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { pedirAssento } from '../utils/assentoDaEntrada';
 import './SatelliteTickets.css';
 
 const isAwarded = (status) => status === 'awarded' || status === 'available';
@@ -191,6 +193,7 @@ const SatelliteTickets = () => {
   // Redeem form — pick a ticket, then enter funding source
   const [availableTickets, setAvailableTickets] = useState([]);
   const [redeemForm, setRedeemForm] = useState({ ticket_id: '', funded_by: '' });
+  const [bilhete, setBilhete] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -351,6 +354,46 @@ const SatelliteTickets = () => {
 
   const selectedRedeemTicket = availableTickets.find(t => t.id === redeemForm.ticket_id);
 
+  // O ticket já virou entrada: é a mesma regra de assento da venda no Caixa, e o
+  // bilhete sai mesmo sem assento, para o floor entregar as fichas. Sem as fichas
+  // (leitura falhou no servidor), a compra fica de fora em vez de imprimir zero.
+  const abrirBilheteDoResgate = async (resgate) => {
+    const { alocacao, falhou, motivo, ...semAssento } = await pedirAssento({
+      playerId: resgate.player_id,
+      tournamentId: resgate.tournament_id,
+      dayId: resgate.tournament_day_id,
+      allocationType: resgate.allocation_type,
+      tablesLocked: resgate.tables_locked,
+    });
+    if (falhou) {
+      toast.warning(t(
+        resgate.reentrada ? 'cashRegister.rebuyAllocationManualWarning' : 'cashRegister.allocationManualWarning',
+        { reason: motivo || t('cashRegister.unknownError') }
+      ));
+    }
+    const compra = resgate.chips == null ? {} : {
+      itens: [{
+        name: t('satelliteTickets.ticketItem', 'Ticket'),
+        amount: resgate.ticket_value,
+        chips: resgate.chips,
+      }],
+      total_amount: resgate.ticket_value,
+      total_chips: resgate.chips,
+    };
+    setBilhete({
+      id: resgate.player_id,
+      player_name: resgate.player_name,
+      tournament_name: resgate.tournament_name,
+      created_at: new Date().toISOString(),
+      ...semAssento,
+      ...alocacao,
+      tournament_id: resgate.tournament_id,
+      day_name: resgate.day_name || alocacao?.day_name || '',
+      via_ticket: true,
+      ...compra,
+    });
+  };
+
   const handleRedeemTicket = async (e) => {
     e.preventDefault();
     try {
@@ -370,6 +413,7 @@ const SatelliteTickets = () => {
       setRedeemForm({ ticket_id: '', funded_by: '' });
       setAvailableTickets([]);
       loadData();
+      await abrirBilheteDoResgate(result.data);
     } catch (err) {
       toast.error(err.userMessage || t('satelliteTickets.toastRedeemError'));
     }
@@ -683,6 +727,10 @@ const SatelliteTickets = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {bilhete && (
+          <BilheteModal dados={bilhete} formatarValor={fmt} onFechar={() => setBilhete(null)} />
         )}
 
         {/* Transferir / Vender Ticket */}

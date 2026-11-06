@@ -482,9 +482,13 @@ class SatelliteTicketService:
         return {
             "ticket_id": ticket_id,
             "tournament_player_id": tp_id,
+            "player_id": player_id,
             "player_name": player_name,
+            "tournament_id": t["target_tournament_id"],
+            "tournament_day_id": day_id,
             "tournament_name": tournament_name,
             "funded_by": funded_by_clean,
+            "ticket_value": t.get("ticket_value"),
             # A tela avisa quando o ticket virou reentrada: o operador esperava
             # uma inscrição nova.
             "reentrada": bool(inscricao),
@@ -492,6 +496,31 @@ class SatelliteTicketService:
                 "Ticket resgatado como reentrada" if inscricao
                 else "Ticket resgatado com sucesso"
             ),
+            **SatelliteTicketService._dados_do_bilhete(ticket_id, day_id),
+        }
+
+    @staticmethod
+    def _dados_do_bilhete(ticket_id: str, day_id: str) -> dict:
+        """O que falta para a tela sentar o jogador e imprimir o bilhete: como
+        o dia aloca e quantas fichas o ticket deu.
+
+        Roda com o ticket já consumido. Uma falha aqui não pode virar erro de
+        resgate: o operador repetiria um resgate que deu certo. Sem estes dados
+        o bilhete sai sem assento, e a reimpressão do Caixa cobre o resto."""
+        try:
+            dia = supabase.table("tournament_days") \
+                .select("day_name, allocation_type, tables_locked") \
+                .eq("id", day_id).execute().data or [{}]
+            venda = supabase.table("transactions").select("chips") \
+                .eq("ticket_id", ticket_id).execute().data or [{}]
+        except Exception:
+            logger.exception("Resgate do ticket %s: bilhete sem os dados do dia", ticket_id)
+            return {}
+        return {
+            "day_name": dia[0].get("day_name", ""),
+            "allocation_type": dia[0].get("allocation_type"),
+            "tables_locked": bool(dia[0].get("tables_locked")),
+            "chips": venda[0].get("chips"),
         }
 
     @staticmethod

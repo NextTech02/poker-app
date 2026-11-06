@@ -2046,6 +2046,8 @@
     "toastRedeemed": "Ticket redeemed!",
     "toastRedeemedReentry": "Ticket redeemed as a re-entry.",
     "redeemReentryHint": "If the player is already registered for this day, the ticket counts as a re-entry — and the player must be eliminated.",
+    "ticketItem": "Ticket",
+    "redeemedNoSeat": "Ticket redeemed — staff assigns the seat",
     "toastRedeemError": "Error redeeming ticket",
     "confirmCancel": "Cancel this ticket?",
     "toastCancelled": "Ticket cancelled",
