@@ -169,6 +169,7 @@
     "intro": "Configura las formas de pago aceptadas. Los métodos activos aparecen en la Caja al registrar transacciones.",
     "add": "Agregar",
     "added": "Método agregado.",
+    "alreadyExists": "Este método ya existe.",
     "updated": "Método actualizado.",
     "confirmDelete": "Eliminar el método",
     "namePlaceholder": "Nombre del método (ej.: Yape, Nequi, Tarjeta)",

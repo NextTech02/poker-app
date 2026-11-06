@@ -10,11 +10,16 @@
  * 2. **A lista de leitura inclui inativos.** Desativar "Yape" não pode
  *    apagar o rótulo das transações antigas — o extrato da semana passada
  *    passaria a mostrar um código cru no lugar do nome.
+ * 3. **A lista acompanha a sessão.** O provider fica acima das rotas e não
+ *    desmonta no login. Lista vazia depois de entrar faz o Caixa oferecer só
+ *    dinheiro e gravar como dinheiro o que foi pago de outro jeito.
  */
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { PaymentMethodsProvider, usePaymentMethods } from './PaymentMethodsContext';
+import { useAuth } from './AuthContext';
 import { supabase } from '../config/supabase';
 
+jest.mock('./AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../config/supabase', () => {
   const cadeia = {};
   ['from', 'select', 'order', 'insert', 'update', 'delete', 'eq'].forEach((m) => {
@@ -45,9 +50,16 @@ const responder = (dados) => {
   });
 };
 
+// Elemento novo a cada chamada: com o mesmo, o `rerender` não refaz o provider.
+const arvore = () => <PaymentMethodsProvider><Sonda /></PaymentMethodsProvider>;
+
+const carregou = () =>
+  waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+
 const montar = async () => {
-  render(<PaymentMethodsProvider><Sonda /></PaymentMethodsProvider>);
-  await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+  const tela = render(arvore());
+  await carregou();
+  return tela;
 };
 
 beforeEach(() => {
@@ -56,6 +68,7 @@ beforeEach(() => {
     supabase[m].mockImplementation(() => supabase);
   });
   responder(METODOS);
+  useAuth.mockReturnValue({ user: { id: 'u1' }, loading: false });
 });
 
 describe('carga', () => {
@@ -85,6 +98,66 @@ describe('carga', () => {
     responder(null);
     await montar();
     expect(api.methods).toEqual([]);
+  });
+
+  it('leitura recusada não apaga a lista que já estava na tela', async () => {
+    // O supabase-js não lança: devolve `error` com `data` nulo. Lido como
+    // resposta vazia, uma falha passageira deixava o Caixa só com dinheiro.
+    await montar();
+    supabase.order.mockImplementation(() => {
+      const proximo = { ...supabase };
+      proximo.order = () => Promise.resolve({ data: null, error: { message: 'JWT expired' } });
+      return proximo;
+    });
+    await act(async () => {
+      await api.reload();
+    });
+    expect(api.methods).toHaveLength(2);
+  });
+});
+
+describe('login e logout', () => {
+  it('quem abriu o app deslogado vê os métodos depois de entrar', async () => {
+    // Clube em produção, 2026-11-06: a tela abriu no login, o RLS devolveu lista
+    // vazia, e o login troca de rota sem recarregar a página. O Caixa ficou só
+    // com dinheiro, e cadastrar USDT batia no método que já existia.
+    useAuth.mockReturnValue({ user: null, loading: false });
+    responder([]);
+    const { rerender } = await montar();
+    expect(api.activeMethods).toEqual([]);
+
+    responder(METODOS);
+    useAuth.mockReturnValue({ user: { id: 'u1' }, loading: false });
+    rerender(arvore());
+    await waitFor(() => expect(api.methods).toHaveLength(2));
+  });
+
+  it('sair limpa a lista: o próximo a entrar pode ser de outro clube', async () => {
+    const { rerender } = await montar();
+    responder([]);
+    useAuth.mockReturnValue({ user: null, loading: false });
+    rerender(arvore());
+    await waitFor(() => expect(api.methods).toEqual([]));
+  });
+
+  it('espera a sessão: abrir o app logado faz uma consulta só', async () => {
+    useAuth.mockReturnValue({ user: null, loading: true });
+    const { rerender } = render(arvore());
+    expect(supabase.from).not.toHaveBeenCalled();
+
+    useAuth.mockReturnValue({ user: { id: 'u1' }, loading: false });
+    rerender(arvore());
+    await carregou();
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it('renovar o token não recarrega: é a mesma pessoa', async () => {
+    const { rerender } = await montar();
+    supabase.from.mockClear();
+    useAuth.mockReturnValue({ user: { id: 'u1' }, loading: false });
+    rerender(arvore());
+    await act(async () => {});
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });
 
@@ -173,6 +246,19 @@ describe('criação', () => {
       Promise.resolve({ error: new Error('duplicado') })
     );
     await expect(api.createMethod('X')).rejects.toBeTruthy();
+  });
+
+  it('método que já existia aparece na lista, e a recusa sobe com o código', async () => {
+    // Código repetido quer dizer que a lista da tela estava atrasada: recarregar
+    // mostra o método, em vez de deixar o operador tentando de novo.
+    responder([]);
+    await montar();
+    responder(METODOS);
+    supabase.insert.mockImplementation(() => Promise.resolve({ error: { code: '23505' } }));
+    await act(async () => {
+      await expect(api.createMethod('Yape')).rejects.toMatchObject({ code: '23505' });
+    });
+    expect(api.methods).toHaveLength(2);
   });
 });
 
