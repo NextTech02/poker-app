@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.database.supabase_client import supabase_admin
 from app.models.house_credit import (
     HouseCreditAccount,
@@ -537,15 +538,23 @@ class HouseCreditService:
         if not HouseCreditService.migrado():
             return zerado
         try:
-            baixas = supabase.table("house_credit_entries").select("amount").eq("type", "write_off")
-            if organization_id:
-                baixas = baixas.eq("organization_id", organization_id)
-            if start_date:
-                baixas = baixas.gte("created_at", start_date)
-            if end_date:
-                fim = datetime.fromisoformat(end_date[:10]).replace(hour=23, minute=59, second=59)
-                baixas = baixas.lte("created_at", fim.isoformat())
-            perdido = sum(float(b["amount"]) for b in (baixas.execute().data or []))
+            fim = (
+                datetime.fromisoformat(end_date[:10]).replace(hour=23, minute=59, second=59).isoformat()
+                if end_date else None
+            )
+
+            def montar():
+                baixas = supabase.table("house_credit_entries").select("id, amount").eq("type", "write_off")
+                if organization_id:
+                    baixas = baixas.eq("organization_id", organization_id)
+                if start_date:
+                    baixas = baixas.gte("created_at", start_date)
+                if fim:
+                    baixas = baixas.lte("created_at", fim)
+                return baixas.order("id")
+
+            # Todas as baixas, de mil em mil (app/database/paginacao.py).
+            perdido = sum(float(b["amount"]) for b in todas_as_linhas(montar))
             devedores = HouseCreditService.debtors(organization_id)
         except Exception:
             logger.exception("fiado: falha ao somar o DRE; segue zerado")

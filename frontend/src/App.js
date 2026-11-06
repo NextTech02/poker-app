@@ -103,6 +103,33 @@ const HomeDoModulo = () => {
   return <Navigate to={homePath} replace />;
 };
 
+/** O que o Google pode indexar em app.aceblind.net: só a tela de login.
+ *
+ * Quem procura "aceblind login" precisa achar a tela de entrar; o resto do
+ * sistema exige sessão e, para o robô, é só uma tela de carregamento ou um
+ * redirect — páginas vazias que diluem o domínio. A landing (aceblind.net) é
+ * que deve aparecer na busca.
+ *
+ * Por que aqui e não num cabeçalho do servidor: o `serve -s` responde todas as
+ * rotas com o mesmo index.html, e os cabeçalhos do serve.json são escolhidos
+ * pelo ARQUIVO entregue, não pela URL pedida — não há como distinguir /login
+ * de /caixa por lá. E por que não um noindex fixo no index.html: o Google pode
+ * nem renderizar uma página que já chega com noindex, e então nunca veria que
+ * o /login deveria ser indexado. */
+const IndexacaoPorRota = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    let tag = document.querySelector('meta[name="robots"]');
+    if (!tag) {
+      tag = document.createElement('meta');
+      tag.setAttribute('name', 'robots');
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', pathname === '/login' ? 'index, follow' : 'noindex, nofollow');
+  }, [pathname]);
+  return null;
+};
+
 const PrivateRoute = ({ children, permission, anyPermission, module }) => {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
@@ -684,6 +711,7 @@ function App() {
                       <BuyTypesProvider>
                         <ToastProvider>
                           <ErrorBoundary title={t('app.errorTitle')} subtitle={t('app.errorSubtitle')}>
+                            <IndexacaoPorRota />
                             <OfflineBanner />
                             <OrgScopeBanner />
                             <OrgInviteModal />

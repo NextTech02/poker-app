@@ -18,7 +18,7 @@
  * cliente (idempotência) e o bilhete sai como alternado, porque quem aloca o
  * assento é o servidor, no sync.
  */
-import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, act, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Caixa from './Caixa';
 import api from '../config/api';
@@ -31,6 +31,7 @@ import { useBuyTypes } from '../contexts/BuyTypesContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { CAIXA_MUDOU } from '../utils/eventosDoCaixa';
+import { supabase } from '../config/supabase';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -214,6 +215,9 @@ const montar = async (opcoes) => {
 
 const esperarCarga = () =>
   waitFor(() => expect(document.querySelector('.skeleton-row')).toBeNull());
+
+/** Quantas vezes a tela pediu exatamente esta URL. */
+const pedidosDe = (url) => api.get.mock.calls.filter(([u]) => u === url).length;
 
 /** Os quatro indicadores do topo, na ordem: buy-in, rebuy, add-on, total. */
 const indicadores = () =>
@@ -997,16 +1001,20 @@ describe('reimpressão do bilhete', () => {
     expect(screen.getByTestId('bilhete-assento')).toHaveTextContent('2');
   });
 
-  it('fechar o bilhete recarrega o extrato', async () => {
+  it('fechar o bilhete NÃO recarrega o extrato', async () => {
+    // O bilhete não muda dado nenhum, e a venda que o gerou já recarregou.
+    // Recarregar de novo era mais uma ida ao banco por venda, à toa.
     await montar({ alocacoes: [] });
-    const antes = api.get.mock.calls.length;
     await userEvent.click(screen.getAllByRole('button', { name: /cashRegister.reprint/ })[0]);
     await screen.findByTestId('bilhete');
+    const antes = pedidosDe('/transactions');
     // O "X" do cabecalho e o botao do rodape tem o mesmo nome; o do rodape e o
     // ultimo.
     const fechar = screen.getAllByRole('button', { name: 'common.close' });
     await userEvent.click(fechar[fechar.length - 1]);
-    await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(antes));
+    await waitFor(() => expect(screen.queryByTestId('bilhete')).toBeNull());
+    await new Promise((r) => setTimeout(r, 300)); // passa do debounce do recarregar
+    expect(pedidosDe('/transactions')).toBe(antes);
   });
 
   it('imprimir fecha o bilhete', async () => {
@@ -2223,5 +2231,51 @@ describe('torneio por equipes', () => {
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
     expect(screen.queryByRole('button', { name: /Cobrar equipe/ })).toBeNull();
+  });
+});
+
+describe('recarregamento leve', () => {
+  // O canal do Realtime, capturado: é por ele que chega a venda de outro
+  // operador. Cada `.on` registra { filtro, ouvir }.
+  let ouvintes;
+  let espioes;
+  beforeEach(() => {
+    ouvintes = [];
+    const canal = {
+      on: jest.fn((_tipo, filtro, ouvir) => { ouvintes.push({ filtro, ouvir }); return canal; }),
+      subscribe: jest.fn(() => canal),
+    };
+    espioes = [
+      jest.spyOn(supabase, 'channel').mockReturnValue(canal),
+      jest.spyOn(supabase, 'removeChannel').mockImplementation(() => {}),
+    ];
+  });
+  // Desmonta ANTES de devolver o supabase de verdade: o unmount derruba o
+  // canal, e o removeChannel real não sabe lidar com o canal de mentira.
+  afterEach(() => {
+    cleanup();
+    espioes.forEach((e) => e.mockRestore());
+  });
+
+  const ouvinteDe = (tabela) => ouvintes.find((o) => o.filtro.table === tabela);
+
+  it('a lista de jogadores vem UMA vez; a venda de outro operador não a pede de novo', async () => {
+    // Antes, cada venda de qualquer caixa do clube baixava a lista inteira de
+    // jogadores (e a regravava no IndexedDB) em todas as telas de Caixa abertas.
+    await montar();
+    expect(pedidosDe('/players')).toBe(1);
+    const antes = pedidosDe('/transactions');
+
+    act(() => ouvinteDe('transactions').ouvir({}));
+
+    await waitFor(() => expect(pedidosDe('/transactions')).toBe(antes + 1));
+    expect(pedidosDe('/players')).toBe(1);
+  });
+
+  it('só torneio DESTA etapa acorda o caixa; venda, qualquer uma do clube', async () => {
+    // `transactions` não tem a etapa — filtrar esconderia a venda do colega.
+    await montar();
+    expect(ouvinteDe('tournaments').filtro.filter).toBe(`stage_id=eq.${ETAPA.id}`);
+    expect(ouvinteDe('transactions').filtro.filter).toBeUndefined();
   });
 });

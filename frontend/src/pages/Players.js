@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useMemo, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
@@ -13,7 +13,11 @@ import { uuid, getEntity, putEntity } from '../offline/db';
 import countries from '../data/countries';
 import { opcoesDocumento, validarDocumento, ehTipoLegado } from '../utils/documentos';
 import ContactConsentStatus from '../components/ContactConsentStatus';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import './Players.css';
+
+// A tabela desenha uma página por vez; o resto vem no "Mostrar mais".
+export const JOGADORES_POR_PAGINA = 100;
 
 // Carregado só quando o usuário importa: puxa o leitor de planilha junto.
 const PlayerImportModal = lazy(() => import('../components/PlayerImportModal'));
@@ -113,26 +117,37 @@ const Players = () => {
   const [formError, setFormError] = useState('');
   const [showImport, setShowImport] = useState(false);
 
+  // A busca vai ao servidor só quando o operador PARA de digitar: antes era
+  // uma requisição por tecla ("a", "an", "ana"...).
+  const busca = useDebouncedValue(searchTerm, 300);
+  const [limite, setLimite] = useState(JOGADORES_POR_PAGINA);
+
   useEffect(() => {
+    setLimite(JOGADORES_POR_PAGINA);
     loadPlayers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [busca]);
+
+  // Cada carga leva um número, e só a resposta da MAIS RECENTE vale: a busca
+  // por "an" que voltasse depois da por "ana" sobrescrevia o resultado certo.
+  const ultimaCargaRef = useRef(0);
 
   const loadPlayers = async () => {
+    const minha = ++ultimaCargaRef.current;
     try {
       // B3: cache 60s para lista sem filtro; busca não usa cache (query dinâmica)
       let data;
-      if (searchTerm) {
-        const res = await api.get('/players', { params: { search: searchTerm } });
+      if (busca) {
+        const res = await api.get('/players', { params: { search: busca } });
         data = res.data;
       } else {
         data = await cachedGet(api, '/players', 60000);
       }
-      setPlayers(data);
+      if (minha === ultimaCargaRef.current) setPlayers(data);
     } catch (error) {
       console.error('Erro ao carregar jogadores:', error);
     } finally {
-      setLoading(false);
+      if (minha === ultimaCargaRef.current) setLoading(false);
     }
   };
 
@@ -230,6 +245,10 @@ const Players = () => {
     () => [...players].sort((a, b) => a.name.localeCompare(b.name)),
     [players]
   );
+  // Só a página atual vira linha: com o cadastro inteiro na tela, cada tecla
+  // no formulário de jogador redesenhava centenas de linhas.
+  const visiveis = useMemo(() => sortedPlayers.slice(0, limite), [sortedPlayers, limite]);
+  const faltam = sortedPlayers.length - visiveis.length;
 
   const handleDelete = async (playerId) => {
     const ok = await confirm(t('players.confirmDelete'), {
@@ -238,6 +257,8 @@ const Players = () => {
     if (!ok) return;
     try {
       await api.delete(`/players/${playerId}`);
+      // Sem isto, a lista em memória (60 s) trazia o excluído de volta.
+      invalidateCache('/players');
       loadPlayers();
     } catch {
       toast.error(t('players.deleteError'));
@@ -354,7 +375,7 @@ const Players = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedPlayers.map((player) => {
+                  {visiveis.map((player) => {
                     const initials = getInitials(player.name);
                     const docLabel = DOC_TYPE_LABELS[player.document_type]
                       ? t(...DOC_TYPE_LABELS[player.document_type])
@@ -460,6 +481,17 @@ const Players = () => {
                 </tbody>
               </table>
             </div>
+            {faltam > 0 && (
+              <div className="pl-more">
+                <button
+                  type="button"
+                  className="pl-btn-import"
+                  onClick={() => setLimite((n) => n + JOGADORES_POR_PAGINA)}
+                >
+                  {t('players.showMore', 'Mostrar mais ({{count}} restantes)', { count: faltam })}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

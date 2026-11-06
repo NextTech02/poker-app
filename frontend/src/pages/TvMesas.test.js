@@ -106,6 +106,32 @@ it('queda de rede depois de carregar mantém a última lista', async () => {
   expect(nomesNaTela()).toHaveLength(3);
 });
 
+it('aba escondida não consulta; ao voltar, atualiza na hora', async () => {
+  // A mesma tela aberta num computador de operação consultava a cada 20 s
+  // em segundo plano, a noite inteira.
+  jest.useFakeTimers();
+  let escondida = false;
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => escondida });
+  const consultas = () => api.get.mock.calls.filter(([u]) => u.includes('/seating')).length;
+  try {
+    responder(QUADRO);
+    montar();
+    await screen.findByText('Ana Paredes');
+    expect(consultas()).toBe(1);
+
+    escondida = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await act(async () => { jest.advanceTimersByTime(60000); });
+    expect(consultas()).toBe(1);
+
+    escondida = false;
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(consultas()).toBe(2);
+  } finally {
+    delete document.hidden;
+  }
+});
+
 it('mais jogadores do que cabe: páginas que se alternam', async () => {
   jest.useFakeTimers();
   const muitos = Array.from({ length: 60 }, (_, i) => ({

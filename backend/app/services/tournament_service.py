@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 from collections import defaultdict
 from app.database import supabase
+from app.database.memo import lembrar
 from app.models.tournament import (
     EliminationMode,
     KoFormat,
@@ -40,6 +41,25 @@ MSG_TORNEIO_NAO_ESTORNAVEL = (
 ORCAMENTO_DO_ESTORNO_EM_MASSA = 20.0
 
 TIPOS_DE_ENTRADA = ("buy_in", "rebuy", "addon")
+
+
+def ler_torneio(cliente, tournament_id: str) -> Optional[dict]:
+    """A linha do torneio (com o nome do patrocinador), lida UMA vez por
+    requisição (app/database/memo.py), ou None.
+
+    Uma venda lia o mesmo torneio quatro vezes, cada uma com seu select: a rota
+    (etapa), o caixa aberto (etapa de novo), a trava de vendas e o nome para a
+    resposta. A linha é compartilhada: quem usa NÃO a altera (copie antes).
+
+    `cliente` é o `supabase` do módulo que chama — mesmo motivo de
+    `ler_staff_do_usuario`: em produção é um objeto só; nos testes, o de cada
+    service.
+    """
+    def _ler():
+        r = cliente.table("tournaments").select("*, sponsors(name)").eq("id", tournament_id).execute()
+        return r.data[0] if r.data else None
+
+    return lembrar(("torneio", tournament_id), _ler)
 
 
 class MovimentoFinanceiroImpedeExclusao(Exception):
@@ -186,10 +206,10 @@ class TournamentService:
     @staticmethod
     def get_tournament(tournament_id: str) -> Optional[Tournament]:
         """Get a tournament by ID"""
-        response = supabase.table("tournaments").select("*, sponsors(name)").eq("id", tournament_id).execute()
+        linha = ler_torneio(supabase, tournament_id)
 
-        if response.data:
-            item = response.data[0]
+        if linha:
+            item = dict(linha)   # a linha lida é compartilhada na requisição
             sponsor = item.pop("sponsors", None) or {}
             item["sponsor_name"] = sponsor.get("name")
             return Tournament(**item)

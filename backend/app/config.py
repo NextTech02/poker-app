@@ -1,3 +1,4 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -25,7 +26,13 @@ class Settings(BaseSettings):
     # o JWT do usuário e o RLS isola as organizações. Desligado: volta ao
     # comportamento antigo (service_role, ignora RLS) — rollback de emergência
     # sem precisar de deploy, basta SUPABASE_RLS_AS_USER=false e reiniciar.
-    rls_as_user: bool = True
+    # O alias é o que faz isso funcionar: o docker-compose passa
+    # SUPABASE_RLS_AS_USER, e sem ele o campo só lia RLS_AS_USER — o
+    # interruptor não desligava nada. RLS_AS_USER continua valendo.
+    rls_as_user: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("SUPABASE_RLS_AS_USER", "RLS_AS_USER"),
+    )
     # Aviso de lead da landing page. Sem eles o formulário continua funcionando
     # — o lead é gravado no banco de qualquer jeito; o e-mail é só a notificação.
     resend_api_key: str = ""

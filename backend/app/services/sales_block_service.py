@@ -14,6 +14,7 @@ import logging
 from typing import Optional
 
 from app.database import supabase
+from app.database.memo import lembrar
 from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,33 @@ _SINAIS_DE_COLUNA_AUSENTE = (
     "não existe",
     "could not find",
 )
+
+
+def inscricoes_do_jogador(cliente, tournament_id: str, player_id: str) -> list:
+    """As inscrições do jogador no torneio (`id`, `tournament_day_id`), da mais
+    antiga para a mais nova, lidas UMA vez por requisição (app/database/memo.py).
+
+    A venda avulsa perguntava isto duas vezes, com o mesmo filtro: uma para
+    achar o DIA da trava de vendas (`dia_da_venda`) e outra para gravar o
+    `tournament_player_id` (`create_transaction`). A ordem é a que as duas
+    exigem — `registered_at`, `id` de desempate — para conferirem a MESMA
+    inscrição. `cliente` é o `supabase` de quem chama (ver
+    `ler_staff_do_usuario`).
+    """
+    def _ler():
+        return (
+            cliente.table("tournament_players")
+            .select("id, tournament_day_id")
+            .eq("tournament_id", tournament_id)
+            .eq("player_id", player_id)
+            .order("registered_at")
+            .order("id")
+            .execute()
+            .data
+            or []
+        )
+
+    return lembrar(("inscricoes_do_jogador", tournament_id, player_id), _ler)
 
 
 def _falta_a_coluna_de_bloqueio(erro: Exception) -> bool:
@@ -224,15 +252,7 @@ class SalesBlockService:
         igual (`registered_at`, depois `id`).
         """
         try:
-            r = (
-                supabase.table("tournament_players")
-                .select("tournament_day_id")
-                .eq("tournament_id", tournament_id)
-                .eq("player_id", player_id)
-                .order("registered_at")
-                .order("id")
-                .execute()
-            )
+            linhas = inscricoes_do_jogador(supabase, tournament_id, player_id)
         except Exception as exc:
             # Mesma política da consulta da trava (ver `seguir_sem_a_trava`):
             # a venda segue e a falha fica registrada. Sem a inscrição também
@@ -242,7 +262,7 @@ class SalesBlockService:
         # Linha sem dia é inscrição anterior aos torneios multi-dia: ela não
         # tem dia a checar, então a busca continua na próxima (a trava da etapa
         # segue valendo para todas).
-        for linha in (r.data or []):
+        for linha in linhas:
             if linha.get("tournament_day_id"):
                 return linha["tournament_day_id"]
         return None

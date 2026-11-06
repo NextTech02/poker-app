@@ -3,9 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AceBlind — Sistema de gestão para clubes de poker</title>
-<meta name="description" content="Torneio, caixa e ranking numa ferramenta só — e que continua rodando quando a internet cai. Teste grátis por 60 dias, sem instalação.">
+<!-- Título, descrição, canonical, hreflang e Open Graph abaixo são os da
+     versão em português. As versões /es/ e /en/ recebem os seus no build
+     (build.mjs), a partir de ACEBLIND_META em i18n.js. -->
+<title>Sistema de Gestão para Clubes de Poker | AceBlind</title>
+<meta name="description" content="Sistema de gestão para clubes de poker: torneio, caixa e ranking numa ferramenta só, que segue rodando quando a internet cai. 60 dias grátis.">
 <link rel="canonical" href="https://aceblind.net/">
+<link rel="alternate" hreflang="pt-BR" href="https://aceblind.net/">
+<link rel="alternate" hreflang="es" href="https://aceblind.net/es/">
+<link rel="alternate" hreflang="en" href="https://aceblind.net/en/">
+<link rel="alternate" hreflang="x-default" href="https://aceblind.net/">
 <meta name="theme-color" content="#14052E">
 
 <!-- Compartilhamento em WhatsApp, Instagram e LinkedIn. Sem isto o link do
@@ -165,13 +172,14 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   box-shadow:0 18px 40px -12px rgba(0,0,0,.75);
 }
 .lang.is-open .lang__menu{display:flex}
-.lang__menu button{
+.lang__menu a{
+  display:block;
   background:transparent;color:#D8D2EA;text-align:left;
   padding:9px 12px;border-radius:6px;font-size:14.5px;
   transition:background .12s,color .12s;
 }
-.lang__menu button:hover{background:rgba(109,59,255,.28);color:#fff}
-.lang__menu button[aria-current="true"]{color:#fff;font-weight:600}
+.lang__menu a:hover{background:rgba(109,59,255,.28);color:#fff}
+.lang__menu a[aria-current]{color:#fff;font-weight:600}
 /* "Entrar" é para quem JÁ é cliente: fica discreto ao lado do CTA, mas nunca
    escondido — inclusive no celular, onde o menu de seções some. */
 .nav__login{font-size:15px;color:#D8D2EA;transition:color .15s;white-space:nowrap}
@@ -560,16 +568,21 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
     </nav>
     <div class="nav__acoes">
       <!-- Seletor de idioma. Fica ao lado do "Entrar" porque quem chega de
-           outro país procura a troca de idioma ANTES de ler a página. -->
+           outro país procura a troca de idioma ANTES de ler a página.
+
+           Os itens são LINKS para /, /es/ e /en/, e não botões que trocam o
+           texto: cada idioma é uma página própria, e o Google só descobre a
+           outra versão seguindo um <a href>. O build marca o idioma atual com
+           aria-current e escreve a sigla no botão. -->
       <div class="lang" id="lang">
         <button type="button" class="lang__btn" id="langBtn" aria-haspopup="true" aria-expanded="false">
           <span id="langAtual">PT</span>
           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
         </button>
-        <div class="lang__menu" id="langMenu" role="menu">
-          <button type="button" role="menuitem" data-lang="pt-BR">Português</button>
-          <button type="button" role="menuitem" data-lang="en-US">English</button>
-          <button type="button" role="menuitem" data-lang="es-ES">Español</button>
+        <div class="lang__menu" id="langMenu">
+          <a href="/" hreflang="pt-BR" lang="pt-BR" data-lang="pt-BR" aria-current="page">Português</a>
+          <a href="/en/" hreflang="en" lang="en" data-lang="en-US">English</a>
+          <a href="/es/" hreflang="es" lang="es" data-lang="es-ES">Español</a>
         </div>
       </div>
       <a class="nav__login" href="https://app.aceblind.net" data-i18n="nav.entrar">Entrar</a>
@@ -582,8 +595,12 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 <section class="hero band--dark" id="top">
   <div class="wrap hero__grid">
     <div class="hero__copy">
-      <span class="eyebrow" data-i18n="hero.eyebrow">Sistema de gestão para clubes de poker</span>
-      <h1 data-i18n="hero.titulo">Seu torneio não pode parar.<span class="italic">Seu sistema também não.</span></h1>
+      <!-- O H1 carrega o termo que o clube digita no Google ("sistema de
+           gestão para clubes de poker"); o slogan virou a linha de cima. Com
+           o slogan no H1, a página dizia ao buscador que é sobre "torneio que
+           não pode parar" — o que ninguém pesquisa. -->
+      <span class="eyebrow" data-i18n="hero.eyebrow">Seu torneio não pode parar. Seu sistema também não.</span>
+      <h1 data-i18n="hero.titulo">Sistema de gestão para clubes de poker<span class="italic">que não para quando a internet cai.</span></h1>
       <p class="lead" data-i18n="hero.lead">Torneio, caixa e ranking numa única ferramenta, construída para continuar rodando mesmo quando a internet cai no meio do dia mais cheio do mês.</p>
       <div class="hero__cta">
         <a class="btn btn--primary" href="#demo" data-i18n="hero.cta">Comece o teste grátis</a>
@@ -995,11 +1012,12 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   </svg>
 </a>
 
-<!-- As traduções vivem num arquivo à parte: são ~550 linhas de texto, e
-     misturá-las com o markup faria toda correção de copy conviver com o
-     layout. O português NÃO está lá — ele é o próprio HTML acima, que é o
-     que o buscador lê e o que sobra se o JavaScript falhar. -->
-<script src="i18n.js"></script>
+<!-- Textos que o JavaScript escreve depois da carga (animação da TV,
+     mensagens do formulário). Vazio aqui = português, o padrão escrito no
+     próprio código. O build (build.mjs) preenche este objeto em /es/ e /en/
+     com as chaves de i18n.js — só elas: nenhuma página publicada baixa o
+     dicionário inteiro, porque o texto da página já sai traduzido no HTML. -->
+<script id="textos-runtime">window.ACEBLIND_T = {};</script>
 <script>
 /* ============================================================
    CONFIGURAÇÃO DA PÁGINA
@@ -1019,118 +1037,24 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
 
   /* ==========================================================================
      IDIOMA
+     Decidido pela URL, e só por ela: / é português, /es/ espanhol, /en/
+     inglês. Cada versão é uma página HTML própria, gerada por build.mjs com o
+     texto já traduzido — nada é trocado aqui.
+
+     Por que não mais pelo navegador: o Googlebot renderiza com o navegador em
+     inglês. Com a detecção antiga, o robô podia ler a home em inglês, e o
+     espanhol nunca existia para ele como página. Quem prefere outro idioma
+     escolhe no seletor, que leva à URL daquele idioma.
+
+     O que o JavaScript ainda escreve na tela (animação da TV, mensagens do
+     formulário) vem de window.ACEBLIND_T, que o build injeta com só essas
+     chaves. Abrindo o index.html direto, sem build, ele não existe e tudo cai
+     no português escrito aqui como padrão.
      ========================================================================== */
-  var DICIONARIOS = window.ACEBLIND_I18N || {};
-  var METAS = window.ACEBLIND_META || {};
-  var IDIOMAS = ['pt-BR', 'en-US', 'es-ES'];
-  var CHAVE_IDIOMA = 'aceblind:lang';
+  var T = window.ACEBLIND_T || {};
+  function t(chave, padrao){ return T[chave] || padrao; }
 
-  /* O português é o próprio HTML. Guardamos o estado original ANTES da
-     primeira troca — sem isso, voltar para o português traria o texto em
-     inglês, porque não haveria de onde tirar o original. */
-  var ORIGINAL = null;
-  function guardarOriginal(){
-    if(ORIGINAL) return;
-    ORIGINAL = {texto: {}, ph: {}, aria: {}};
-    document.querySelectorAll('[data-i18n]').forEach(function(el, i){
-      el.dataset.i18nIdx = i; ORIGINAL.texto[i] = el.innerHTML;
-    });
-    document.querySelectorAll('[data-i18n-ph]').forEach(function(el, i){
-      el.dataset.i18nPhIdx = i; ORIGINAL.ph[i] = el.getAttribute('placeholder') || '';
-    });
-    document.querySelectorAll('[data-i18n-aria]').forEach(function(el, i){
-      el.dataset.i18nAriaIdx = i; ORIGINAL.aria[i] = el.getAttribute('aria-label') || '';
-    });
-  }
-
-  var idiomaAtual = 'pt-BR';
-
-  /* Texto avulso para o que o JavaScript escreve na tela (a animação da TV).
-     Cai no padrão em português quando a chave não existe. */
-  function t(chave, padrao){
-    var d = DICIONARIOS[idiomaAtual];
-    return (d && d[chave]) || padrao;
-  }
-
-  function aplicarIdioma(codigo){
-    if(IDIOMAS.indexOf(codigo) === -1) codigo = 'pt-BR';
-    guardarOriginal();
-    idiomaAtual = codigo;
-    var d = DICIONARIOS[codigo] || {};
-    var faltando = [];
-
-    document.querySelectorAll('[data-i18n]').forEach(function(el){
-      var k = el.getAttribute('data-i18n');
-      var v = codigo === 'pt-BR' ? ORIGINAL.texto[el.dataset.i18nIdx] : d[k];
-      if(v == null){ faltando.push(k); v = ORIGINAL.texto[el.dataset.i18nIdx]; }
-      el.innerHTML = v;
-    });
-    document.querySelectorAll('[data-i18n-ph]').forEach(function(el){
-      var k = el.getAttribute('data-i18n-ph');
-      var v = codigo === 'pt-BR' ? ORIGINAL.ph[el.dataset.i18nPhIdx] : d[k];
-      el.setAttribute('placeholder', v != null ? v : ORIGINAL.ph[el.dataset.i18nPhIdx]);
-    });
-    document.querySelectorAll('[data-i18n-aria]').forEach(function(el){
-      var k = el.getAttribute('data-i18n-aria');
-      var v = codigo === 'pt-BR' ? ORIGINAL.aria[el.dataset.i18nAriaIdx] : d[k];
-      el.setAttribute('aria-label', v != null ? v : ORIGINAL.aria[el.dataset.i18nAriaIdx]);
-    });
-
-    /* DIZ AO NAVEGADOR em que idioma a página está.
-       Sem isto o Chrome vê "página em português" para quem lê espanhol e
-       TRADUZ POR CIMA — retraduzindo um texto que já estava em espanhol. No
-       nosso próprio sistema isso já aconteceu: o intervalo do torneio virou
-       "allanamiento", que é como se traduz arrombamento. */
-    document.documentElement.setAttribute('lang', codigo);
-
-    var meta = METAS[codigo];
-    if(meta){
-      document.title = meta.title;
-      var descricao = document.querySelector('meta[name="description"]');
-      if(descricao) descricao.setAttribute('content', meta.description);
-    }
-
-    /* O rótulo do botão: PT / EN / ES. */
-    var atual = document.getElementById('langAtual');
-    if(atual) atual.textContent = codigo.slice(0, 2).toUpperCase();
-    document.querySelectorAll('#langMenu button').forEach(function(b){
-      b.setAttribute('aria-current', b.dataset.lang === codigo ? 'true' : 'false');
-    });
-
-    /* Os links do WhatsApp são refeitos DEPOIS da troca: o texto do rodapé do
-       formulário contém um deles, e trocar o conteúdo do parágrafo destrói o
-       link antigo junto. */
-    ligarWhatsApp();
-
-    try { window.localStorage.setItem(CHAVE_IDIOMA, codigo); } catch(e){}
-    if(faltando.length) console.warn('[i18n] sem tradução em ' + codigo + ':', faltando);
-  }
-
-  /* Qual idioma mostrar:
-     1. ?lang=es na URL — para o link que o marketing manda já no idioma do
-        clube, sem depender do navegador de quem abre;
-     2. o que a pessoa escolheu antes;
-     3. o do navegador dela — quem abre a página com o Chrome em espanhol
-        merece ler em espanhol sem procurar o seletor;
-     4. português. */
-  function idiomaInicial(){
-    var pedido = (new URLSearchParams(window.location.search).get('lang') || '').toLowerCase();
-    if(pedido){
-      var achado = IDIOMAS.filter(function(c){
-        return c.toLowerCase() === pedido || c.slice(0,2) === pedido.slice(0,2);
-      })[0];
-      if(achado) return achado;
-    }
-    try {
-      var salvo = window.localStorage.getItem(CHAVE_IDIOMA);
-      if(IDIOMAS.indexOf(salvo) !== -1) return salvo;
-    } catch(e){}
-    var nav = (navigator.language || 'pt').toLowerCase();
-    if(nav.indexOf('es') === 0) return 'es-ES';
-    if(nav.indexOf('en') === 0) return 'en-US';
-    return 'pt-BR';
-  }
-
+  /* Menu do seletor: só abre e fecha. Os itens são links normais. */
   var lang = document.getElementById('lang');
   var langBtn = document.getElementById('langBtn');
   if(langBtn){
@@ -1138,13 +1062,6 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
       e.stopPropagation();
       var aberto = lang.classList.toggle('is-open');
       langBtn.setAttribute('aria-expanded', aberto ? 'true' : 'false');
-    });
-    document.querySelectorAll('#langMenu button').forEach(function(b){
-      b.addEventListener('click', function(){
-        aplicarIdioma(b.dataset.lang);
-        lang.classList.remove('is-open');
-        langBtn.setAttribute('aria-expanded', 'false');
-      });
     });
     /* Fechar clicando fora e no Esc: sem isso o menu fica aberto atrás do
        dedo de quem tocou na tela e desistiu. */
@@ -1253,11 +1170,15 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
 
   function val(id){ var el = document.getElementById(id); return el ? el.value.trim() : ''; }
 
+  /* O rótulo do botão é lido da própria página, que já está no idioma certo:
+     antes ele voltava sempre para "Comece o teste grátis", em português. */
+  var textoEnviar = send.textContent;
+
   function falhar(msg){
     err.textContent = msg;
     err.hidden = false;
     send.removeAttribute('aria-busy');
-    send.textContent = 'Comece o teste grátis';
+    send.textContent = textoEnviar;
   }
 
   form.addEventListener('submit', function(e){
@@ -1268,14 +1189,14 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
        de novo — cliente nunca é fonte confiável —, mas quem preencheu merece
        saber na hora qual campo está faltando. */
     if(!val('f1') || !val('f2') || !val('f3') || !val('f4')){
-      return falhar('Preencha nome, clube, WhatsApp e e-mail.');
+      return falhar(t('form.erroCampos', 'Preencha nome, clube, WhatsApp e e-mail.'));
     }
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f4'))){
-      return falhar('Confira o e-mail: parece que falta alguma coisa.');
+      return falhar(t('form.erroEmail', 'Confira o e-mail: parece que falta alguma coisa.'));
     }
 
     send.setAttribute('aria-busy','true');
-    send.textContent = 'Enviando…';
+    send.textContent = t('form.enviando', 'Enviando…');
 
     fetch(API + '/public/leads', {
       method: 'POST',
@@ -1294,7 +1215,7 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
     }).catch(function(){
       /* Nunca engolir a falha: sem isto a pessoa vê "recebemos" e ninguém
          recebeu nada. O WhatsApp fica como saída imediata. */
-      falhar('Não consegui enviar agora. Tente de novo em instantes — ou chame no WhatsApp, que a gente responde por lá.');
+      falhar(t('form.erroEnvio', 'Não consegui enviar agora. Tente de novo em instantes — ou chame no WhatsApp, que a gente responde por lá.'));
     });
   });
 
@@ -1302,22 +1223,19 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
      mensagem escrita NO IDIOMA DA PÁGINA — quem leu em espanhol não deve ter
      que redigir em português para pedir informação.
 
-     Chamada de novo a cada troca de idioma, e não só na carga: o rodapé do
-     formulário contém um destes links dentro do texto traduzido, então ele é
-     destruído e recriado junto com o parágrafo. */
+     O build já grava o link wa.me no HTML de cada idioma (é o que o buscador
+     e quem está sem JavaScript enxergam). Isto aqui refaz o mesmo link para
+     quem abre o index.html direto, sem build, e para quando o número mudar
+     na configuração sem um build novo. */
   function ligarWhatsApp(){
     if(!WHATSAPP) return;   /* sem número, os botões seguem para o formulário */
-    var meta = METAS[idiomaAtual] || {};
-    var texto = meta.whatsapp || 'Olá, gostaria de saber mais informações sobre o AceBlind';
+    var texto = t('wa.texto', 'Olá, gostaria de saber mais informações sobre o AceBlind');
     var href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(texto);
     document.querySelectorAll('.wa-link').forEach(function(a){
       a.href = href; a.target = '_blank'; a.rel = 'noopener';
     });
   }
-
-  /* Aplica o idioma por último: o motor precisa dos elementos todos no lugar,
-     e é ele que liga os links do WhatsApp pela primeira vez. */
-  aplicarIdioma(idiomaInicial());
+  ligarWhatsApp();
 })();
 </script>
 </body>

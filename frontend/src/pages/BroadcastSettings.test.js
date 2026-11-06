@@ -401,23 +401,40 @@ describe('logo do clube', () => {
   const arquivo = (bytes) =>
     new File(['x'.repeat(bytes)], 'logo.png', { type: 'image/png' });
 
-  it('a logo escolhida é salva no dia', async () => {
+  it('a logo sobe para {org}/logo/ e o dia grava só o link público', async () => {
+    // Em base64 dentro do dia, a logo viajava em toda leitura do relógio (a
+    // cada 3 s, por tela aberta). No Storage o dia guarda um link curto.
     await montar();
     await userEvent.upload(zonaDaLogo().querySelector('input[type="file"]'), arquivo(10));
+    await waitFor(() => expect(storage.upload).toHaveBeenCalled());
+    const [path] = storage.upload.mock.calls[0];
+    expect(path).toMatch(/^org-1\/logo\/[A-Za-z0-9-]+\.jpg$/);
     await waitFor(() =>
       expect(document.querySelector('.bs-img-preview-wrap')).toBeInTheDocument()
     );
     await salvar();
     await waitFor(() => expect(api.patch).toHaveBeenCalled());
-    expect(enviado().broadcast_club_logo_url).toContain('data:');
+    expect(enviado().broadcast_club_logo_url).toBe(`https://cdn/${path}`);
   });
 
-  it('arquivo grande demais é recusado', async () => {
-    // A imagem viaja em base64 dentro do JSON do dia, que cada TV rebusca a
-    // cada 30s: uma logo pesada multiplica por telão ligado.
+  it('arquivo grande demais é recusado e nada sobe', async () => {
+    downscaleImage.mockImplementation(async () => ({
+      blob: { size: 2 * 1024 * 1024 + 1 }, ext: 'png', contentType: 'image/png',
+    }));
     await montar();
-    await userEvent.upload(zonaDaLogo().querySelector('input[type="file"]'), arquivo(513 * 1024));
-    expect(toast.warning).toHaveBeenCalled();
+    await userEvent.upload(zonaDaLogo().querySelector('input[type="file"]'), arquivo(10));
+    await waitFor(() => expect(toast.warning).toHaveBeenCalledWith('A logo precisa ter até 2 MB.'));
+    expect(storage.upload).not.toHaveBeenCalled();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_club_logo_url).toBeNull();
+  });
+
+  it('falha no Storage avisa e não grava logo nenhuma', async () => {
+    storage.upload.mockResolvedValue({ error: new Error('rede') });
+    await montar();
+    await userEvent.upload(zonaDaLogo().querySelector('input[type="file"]'), arquivo(10));
+    await waitFor(() => expect(toast.warning).toHaveBeenCalledWith('Não foi possível enviar a imagem.'));
     await salvar();
     await waitFor(() => expect(api.patch).toHaveBeenCalled());
     expect(enviado().broadcast_club_logo_url).toBeNull();

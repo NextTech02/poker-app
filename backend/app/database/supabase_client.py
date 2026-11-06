@@ -1,7 +1,9 @@
 import contextlib
 import hashlib
+import logging
 import re
 import threading
+import time
 from collections import OrderedDict
 from contextvars import ContextVar, Token
 from typing import Optional
@@ -9,6 +11,7 @@ from typing import Optional
 from supabase import create_client, Client, ClientOptions
 import supabase._sync.client as _supabase_sync_client
 from app.config import get_settings
+from app.database.memo import esquecer_tudo as esquecer_memo
 import httpx
 from httpx import Limits
 from postgrest import SyncPostgrestClient
@@ -54,6 +57,36 @@ def _allow_new_api_key_format():
         _supabase_sync_client.re = original
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Pool de conexões do processo
+# ─────────────────────────────────────────────────────────────────────────────
+# UM transporte — e com ele UM pool de conexões — para o processo inteiro: as
+# consultas com a chave de serviço e as feitas como o usuário. Antes eram dois
+# pools, cada um esfriando por conta própria, e conexão fria custa TCP + TLS até
+# o Supabase: ~215 ms medidos da VPS (1ª consulta ~280 ms, as seguintes ~65 ms).
+#
+# HTTP/1.1 de propósito: os endpoints sync rodam num threadpool, e o estado de
+# stream do HTTP/2 no httpcore corrompe sob essa concorrência (ver get_supabase).
+_SSL_CONTEXT = httpx.create_ssl_context()
+# Quanto uma conexão parada continua no pool. Medido em 2026-11-05 contra o
+# projeto: parada por 30, 60, 120 e 180 s, a conexão continuou a mesma; por 5 e
+# 7 minutos o servidor já a tinha fechado, e reaproveitá-la deu ERRO na consulta
+# (RemoteProtocolError) — não uma reconexão. Ficamos em 90 s, metade do limite
+# seguro medido. (Antes era 30 s, e o pool esfriava a cada pausa do caixa.)
+_VIDA_DA_CONEXAO_PARADA = 90.0
+_SHARED_TRANSPORT = httpx.HTTPTransport(
+    verify=_SSL_CONTEXT,
+    limits=Limits(
+        max_connections=50,
+        max_keepalive_connections=20,
+        keepalive_expiry=_VIDA_DA_CONEXAO_PARADA,
+    ),
+    http2=False,
+    retries=0,
+)
+_REST_TIMEOUT = httpx.Timeout(connect=15.0, read=60.0, write=15.0, pool=30.0)
+
+
 def get_supabase() -> Client:
     """Get Supabase client instance.
 
@@ -64,9 +97,10 @@ def get_supabase() -> Client:
     corrupts (KeyError in http2.py, "WriteError: EOF occurred in violation of
     protocol"), and the tiny pool serializes everything and times out (503s).
 
-    Fix: rebuild postgrest's underlying session over HTTP/1.1 with a larger pool.
-    HTTP/1.1 uses one connection per in-flight request from the pool, which is
-    robust under thread concurrency; the bigger pool stops the queueing/timeouts.
+    Fix: rebuild postgrest's underlying session over HTTP/1.1 on the process-wide
+    pool (_SHARED_TRANSPORT). HTTP/1.1 uses one connection per in-flight request
+    from the pool, which is robust under thread concurrency; the bigger pool
+    stops the queueing/timeouts.
     """
     options = ClientOptions(
         postgrest_client_timeout=30,
@@ -91,19 +125,13 @@ def get_supabase() -> Client:
 def _harden_postgrest_session(client: Client) -> None:
     old: SyncClient = client.postgrest.session
 
-    timeout = httpx.Timeout(connect=15.0, read=60.0, write=15.0, pool=30.0)
-    limits = Limits(
-        max_connections=50,            # was effectively the lib default; 10 was never applied
-        max_keepalive_connections=20,
-        keepalive_expiry=30.0,
-    )
-
     new_session = SyncClient(
         base_url=old.base_url,
         headers=old.headers,
-        timeout=timeout,
-        limits=limits,
-        http2=False,                   # the actual fix for the thread-safety corruption
+        timeout=_REST_TIMEOUT,
+        # O pool único do processo (HTTP/1.1, ver acima): as conexões que a
+        # chave de serviço aquece servem também às consultas do usuário.
+        transport=_SHARED_TRANSPORT,
         follow_redirects=True,
     )
 
@@ -134,15 +162,7 @@ def _harden_postgrest_session(client: Client) -> None:
 #
 # Sem token no contexto (rotas públicas, /sync, startup) => service_role, como
 # antes. Para forçar service_role explicitamente, use `supabase_admin`.
-
-_SSL_CONTEXT = httpx.create_ssl_context()
-_SHARED_TRANSPORT = httpx.HTTPTransport(
-    verify=_SSL_CONTEXT,
-    limits=Limits(max_connections=50, max_keepalive_connections=20, keepalive_expiry=30.0),
-    http2=False,   # mesma razão do _harden_postgrest_session
-    retries=0,
-)
-_REST_TIMEOUT = httpx.Timeout(connect=15.0, read=60.0, write=15.0, pool=30.0)
+# O transporte (_SHARED_TRANSPORT) é o pool único do processo, no topo do módulo.
 
 # JWT da request atual. ContextVar (não thread-local) porque o FastAPI executa
 # endpoints sync num threadpool e o anyio propaga o contexto para a thread.
@@ -193,6 +213,16 @@ def set_request_jwt(token: Optional[str]) -> Token:
 
 def reset_request_jwt(token: Token) -> None:
     _request_jwt.reset(token)
+
+
+def requisicao_anonima() -> bool:
+    """True quando a requisição NÃO tem usuário (a TV do salão, sem login).
+
+    É o que diz se uma resposta pode ser compartilhada entre quem pede: sem
+    usuário, as consultas rodam com a chave de serviço e dão o mesmo para
+    todos; com usuário, o RLS dele decide o que ele vê.
+    """
+    return not _request_jwt.get()
 
 
 # Clientes já montados, por token. Ver `_build_user_postgrest`.
@@ -257,11 +287,59 @@ def _build_user_postgrest(jwt: str) -> SyncPostgrestClient:
     return client
 
 
+class _EscritaEsqueceMemo:
+    """O request builder do PostgREST, com UMA diferença: começar uma escrita
+    apaga a memória da requisição (app/database/memo.py). É o que garante que
+    nenhuma leitura guardada sobrevive a um insert/update/upsert/delete — nem ao
+    que um trigger mudou por causa dele."""
+
+    _ESCRITAS = frozenset({"insert", "update", "upsert", "delete"})
+    __slots__ = ("_rb",)
+
+    def __init__(self, request_builder):
+        self._rb = request_builder
+
+    def __getattr__(self, nome):
+        if nome in self._ESCRITAS:
+            esquecer_memo()
+        return getattr(self._rb, nome)
+
+
+class _AdminEsqueceMemo:
+    """O client service_role, com a mesma regra: escrita (ou RPC) por ele
+    também apaga a memória da requisição. O resto (storage, auth) passa direto.
+
+    Também entra no contador do PERF_LOG: antes só o `supabase` contava, e as
+    rotas que leem com a chave de serviço (o telão público inteiro) apareciam
+    no log com menos consultas do que faziam."""
+
+    def __init__(self, cliente: Client):
+        self._cliente = cliente
+
+    def table(self, name: str):
+        _conta(name)
+        return _EscritaEsqueceMemo(self._cliente.table(name))
+
+    from_ = table
+
+    def rpc(self, fn, *args, **kwargs):
+        _conta("rpc:" + str(fn))
+        esquecer_memo()
+        return self._cliente.rpc(fn, *args, **kwargs)
+
+    def __getattr__(self, item):
+        return getattr(self._cliente, item)
+
+
 class _SupabaseProxy:
     """Encaminha `.table()` / `.rpc()` para o client certo da request.
 
     Com JWT no contexto  -> PostgREST como o usuário (RLS aplica).
     Sem JWT              -> service_role (rotas públicas, sync, startup).
+
+    Escrita e RPC apagam a memória da requisição (ver `_EscritaEsqueceMemo`).
+    RPC apaga sempre, mesmo as de leitura: não há como saber daqui, e errar
+    para o lado de ir ao banco de novo é o lado seguro.
     """
 
     def __init__(self, admin_client: Client):
@@ -284,12 +362,13 @@ class _SupabaseProxy:
 
     def table(self, name: str):
         _conta(name)
-        return self._active().table(name)
+        return _EscritaEsqueceMemo(self._active().table(name))
 
     from_ = table
 
     def rpc(self, fn: str, params: dict | None = None):
         _conta("rpc:" + fn)
+        esquecer_memo()
         return self._active().rpc(fn, params or {})
 
     def __getattr__(self, item):
@@ -299,7 +378,66 @@ class _SupabaseProxy:
 
 # Client service_role puro. Use quando a operação PRECISA ignorar RLS:
 # ledger de sync, provisionamento de organização, rotas públicas.
-supabase_admin: Client = get_supabase()
+_cliente_admin: Client = get_supabase()
+supabase_admin = _AdminEsqueceMemo(_cliente_admin)
 
 # Client padrão usado por todos os services (31 imports).
-supabase = _SupabaseProxy(supabase_admin)
+supabase = _SupabaseProxy(_cliente_admin)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Aquecimento do pool
+# ─────────────────────────────────────────────────────────────────────────────
+# Fora do pico, o caixa fica minutos parado entre uma venda e outra. Sem
+# tráfego as conexões expiram, e a primeira venda depois da pausa paga TCP + TLS
+# de novo (~215 ms medidos da VPS). Uma consulta mínima a cada 20 s mantém as
+# conexões abertas — duas, em paralelo, porque as telas com leituras em paralelo
+# (relatório, extras da TV) usam mais de uma ao mesmo tempo. O custo é uma
+# consulta de uma linha a cada 10 s por processo.
+#
+# Só em produção: main.py liga no startup. Nos testes o app sobe com
+# TestClient e não pode sair fazendo chamadas de rede.
+_AQUECER_A_CADA = 20.0
+_CONEXOES_AQUECIDAS = 2
+_log = logging.getLogger("uvicorn.error")
+_aquecimento: Optional[threading.Thread] = None
+
+
+def _aquecer_uma_vez() -> None:
+    """Uma consulta mínima por conexão a manter quente, todas ao mesmo tempo
+    (em sequência, elas reaproveitariam uma conexão só)."""
+    sessao = _cliente_admin.postgrest.session
+
+    def _ping() -> None:
+        try:
+            sessao.get("/plans", params={"select": "code", "limit": "1"})
+        except Exception as erro:  # rede fora: a próxima rodada tenta de novo
+            _log.debug("aquecimento do pool falhou: %s", erro)
+
+    extras = [threading.Thread(target=_ping, daemon=True)
+              for _ in range(_CONEXOES_AQUECIDAS - 1)]
+    for t in extras:
+        t.start()
+    _ping()
+    for t in extras:
+        t.join()
+
+
+def iniciar_aquecimento() -> threading.Thread:
+    """Liga o aquecimento do pool: uma thread daemon por processo (cada worker
+    do gunicorn tem o seu pool). Chamar de novo não abre uma segunda."""
+    global _aquecimento
+    if _aquecimento is not None and _aquecimento.is_alive():
+        return _aquecimento
+
+    def _laco() -> None:
+        while True:
+            _aquecer_uma_vez()
+            time.sleep(_AQUECER_A_CADA)
+
+    _aquecimento = threading.Thread(target=_laco, name="aquecimento-do-pool", daemon=True)
+    _aquecimento.start()
+    # Uma linha por worker: é o que confirma, no log da VPS, que está ligado.
+    _log.info("aquecimento do pool ligado: %d conexões a cada %.0f s",
+              _CONEXOES_AQUECIDAS, _AQUECER_A_CADA)
+    return _aquecimento

@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api';
+import { usePolling } from '../hooks/usePolling';
 import TvStage from '../components/broadcast/TvStage';
 import { buildTvSettings } from '../components/broadcast/tvModel';
 import { resolveBackground } from '../components/broadcast/tvBackgrounds';
@@ -30,7 +31,12 @@ const TvMesas = () => {
   const [dia, setDia] = useState(null);
   const [pagina, setPagina] = useState(0);
 
+  // Uma consulta por vez: com a rede lenta, a próxima não sai antes de a
+  // anterior voltar (sem isso elas se empilhavam).
+  const emVooRef = useRef(false);
   const carregar = useCallback(async () => {
+    if (emVooRef.current) return;
+    emVooRef.current = true;
     try {
       // Sem token: a TV não faz login, e o código é a credencial.
       const r = await api.get(`/public/tv/${encodeURIComponent(code || '')}/seating`, {
@@ -41,14 +47,17 @@ const TvMesas = () => {
     } catch (e) {
       // Só o 404 é "código inválido"; queda de rede mantém a última lista.
       setErro(e?.response?.status === 404 ? 'invalido' : 'rede');
+    } finally {
+      emVooRef.current = false;
     }
   }, [code]);
 
   useEffect(() => {
     carregar();
-    const id = setInterval(carregar, ATUALIZAR_MS);
-    return () => clearInterval(id);
   }, [carregar]);
+  // Pausa com a aba escondida e recarrega na hora quando ela volta: a mesma
+  // tela aberta num computador de operação não fica consultando em segundo plano.
+  usePolling(carregar, ATUALIZAR_MS);
 
   // Fundo e cor de destaque das Configurações do telão do dia (decorativo).
   const dayId = quadro?.day_id;

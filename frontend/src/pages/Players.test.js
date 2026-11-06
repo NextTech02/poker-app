@@ -21,7 +21,7 @@
  *   mas o cadastro ANTIGO continua editável: bloquear o jogador legado
  *   travaria o balcão com a fila esperando.
  */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Players, { mensagemDoErro } from './Players';
@@ -226,6 +226,60 @@ describe('busca', () => {
     const antes = cachedGet.mock.calls.length;
     await ue.click(document.querySelector('.pl-search-clear'));
     await waitFor(() => expect(cachedGet.mock.calls.length).toBeGreaterThan(antes));
+  });
+
+  const buscasFeitas = () => api.get.mock.calls.map(([, cfg]) => cfg?.params?.search);
+
+  it('vai ao servidor só quando o operador PARA de digitar', async () => {
+    // Antes era uma requisição por tecla: "a", "an", "ana".
+    await montar();
+    await ue.type(screen.getByPlaceholderText('players.searchPlaceholder'), 'ana');
+    await waitFor(() => expect(buscasFeitas()).toContain('ana'));
+    expect(buscasFeitas()).toEqual(['ana']);
+  });
+
+  it('a resposta atrasada de uma busca antiga não sobrescreve a nova', async () => {
+    await montar();
+    const respostas = {};
+    api.get.mockImplementation((_url, cfg) =>
+      new Promise((resolver) => { respostas[cfg.params.search] = resolver; }));
+    const campo = screen.getByPlaceholderText('players.searchPlaceholder');
+
+    await ue.type(campo, 'an');
+    await waitFor(() => expect(respostas.an).toBeDefined());
+    await ue.type(campo, 'a');
+    await waitFor(() => expect(respostas.ana).toBeDefined());
+
+    await act(async () => { respostas.ana({ data: [JOGADORES[1]] }); });
+    await waitFor(() => expect(document.querySelectorAll('.pl-row')).toHaveLength(1));
+    await act(async () => { respostas.an({ data: JOGADORES }); });   // a antiga chega depois
+    expect(document.querySelectorAll('.pl-row')).toHaveLength(1);
+    expect(linhaDe('Ana Costa')).toBeDefined();
+  });
+});
+
+describe('paginação', () => {
+  const MUITOS = Array.from({ length: 150 }, (_, i) => ({
+    id: `j${i}`, name: `Jogador ${String(i).padStart(3, '0')}`,
+  }));
+
+  it('desenha 100 por vez; "Mostrar mais" traz o resto', async () => {
+    // Com o cadastro inteiro na tela, cada tecla no formulário redesenhava
+    // centenas de linhas.
+    await montar({ lista: MUITOS });
+    await waitFor(() => expect(document.querySelectorAll('.pl-row')).toHaveLength(100));
+    // A contagem continua sendo a do cadastro, não a da página.
+    expect(document.querySelector('.pl-table-count')).toHaveTextContent('150');
+
+    await ue.click(screen.getByRole('button', { name: 'Mostrar mais (50 restantes)' }));
+    expect(document.querySelectorAll('.pl-row')).toHaveLength(150);
+    expect(screen.queryByRole('button', { name: /Mostrar mais/ })).toBeNull();
+  });
+
+  it('cadastro pequeno não mostra o botão', async () => {
+    await montar();
+    await waitFor(() => expect(document.querySelectorAll('.pl-row')).toHaveLength(2));
+    expect(screen.queryByRole('button', { name: /Mostrar mais/ })).toBeNull();
   });
 });
 
@@ -510,6 +564,13 @@ describe('excluir jogador', () => {
     await montar();
     await excluir('Beto Silva');
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('players.deleteError'));
+  });
+
+  it('excluir invalida a lista em memória', async () => {
+    // Sem isso, a lista de 60 s trazia o excluído de volta na recarga.
+    await montar();
+    await excluir('Beto Silva');
+    await waitFor(() => expect(invalidateCache).toHaveBeenCalledWith('/players'));
   });
 });
 

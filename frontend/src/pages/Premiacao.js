@@ -183,9 +183,14 @@ const Premiacao = () => {
   // pelos buy-ins (pedido do NSOP). O pozo é o mesmo nos dois.
   const [baseDoCampo, setBaseDoCampo] = useState(lerBaseDoCampo);
 
+  // A tela inteira só vira "carregando" na PRIMEIRA carga de cada torneio.
+  // Depois de cada ação (lançar prêmio, pagar, ajustar o garantido) a recarga
+  // é por trás: antes a página sumia e voltava a cada clique, e parecia travada.
+  const torneioCarregadoRef = useRef(null);
+
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
+      if (torneioCarregadoRef.current !== tournamentId) setLoading(true);
       setError(null);
 
       const [tournamentRes, summaryRes, daysRes, playersRes] = await Promise.all([
@@ -212,6 +217,7 @@ const Premiacao = () => {
 
       // Tournament players (for assigning to positions)
       setTournamentPlayers(playersRes.data || []);
+      torneioCarregadoRef.current = tournamentId;
 
     } catch (err) {
       console.error('Error loading data:', err);

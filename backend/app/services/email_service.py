@@ -9,7 +9,7 @@ Três peças:
 
 - `renderizar(tipo, idioma, link=..., **valores)` → (assunto, html, texto). Os
   textos vivem em `email_textos.py`; o layout é o mesmo para todos (o de
-  docs/email-templates/invite.html: tabela, cabeçalho roxo, botão, aviso).
+  docs/historico/email-templates/invite.html: tabela, cabeçalho roxo, botão, aviso).
 - `enviar_email(...)` → None quando saiu, ou um código curto do motivo. NUNCA
   levanta: e-mail que não sai é problema de reenviar, e derrubar a resposta
   faria o operador achar que nada foi criado.

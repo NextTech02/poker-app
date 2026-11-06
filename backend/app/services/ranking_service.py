@@ -2,6 +2,7 @@ import logging
 from typing import List, Dict, Optional
 from datetime import datetime
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -35,15 +36,18 @@ class RankingService:
     def _calculate_rankings_legacy(tournament_id: str) -> List[Dict]:
         """Per-player update fallback (N round-trips). See calculate_rankings."""
         try:
-            # Get all eliminated players ordered by elimination time (oldest first)
-            response = supabase.table("tournament_players")\
-                .select("id, player_id, eliminated_at, status, players(name)")\
-                .eq("tournament_id", tournament_id)\
-                .eq("status", "eliminated")\
-                .order("eliminated_at", desc=False)\
-                .execute()
-
-            eliminated_players = response.data
+            # Get all eliminated players ordered by elimination time (oldest first).
+            # TODOS, de mil em mil (app/database/paginacao.py): a posição final
+            # é gravada a partir desta lista, e um torneio de mil eliminados
+            # ficaria com as posições erradas sem erro nenhum.
+            eliminated_players = todas_as_linhas(lambda: (
+                supabase.table("tournament_players")
+                .select("id, player_id, eliminated_at, status, players(name)")
+                .eq("tournament_id", tournament_id)
+                .eq("status", "eliminated")
+                .order("eliminated_at", desc=False)
+                .order("id")
+            ))
 
             if not eliminated_players:
                 return []

@@ -47,6 +47,12 @@ def _torneio(stage_id=ETAPA):
                       created_by=AUTOR, created_at="2026-06-08T00:00:00Z")
 
 
+def _resumo_de_torneio(id_):
+    """Linha da lista de torneios (o resumo que o GET /tournaments devolve)."""
+    return {"id": id_, "name": f"Torneio {id_}", "stage_id": ETAPA,
+            "created_by": AUTOR, "created_at": "2026-06-08T00:00:00Z"}
+
+
 def _inscricao(status="active", gasto=100.0):
     return TournamentPlayer(id=TP, tournament_id=TOUR, player_id=JOGADOR,
                             total_spent=gasto, status=status,
@@ -136,6 +142,14 @@ class TestLeituraDeTorneio:
         stub(TS, get_tournament_summary=_resumo)
         client.get(f"/tournaments?stage_id={ETAPA}")
         assert recebidos["stage"] == ETAPA
+
+    def test_limit_corta_a_lista_na_mesma_ordem(self, client, stub):
+        # O painel mostra os 3 primeiros; cortar aqui devolve exatamente esses.
+        resumos = [_resumo_de_torneio(f"t{i}") for i in range(5)]
+        stub(TS, get_tournament_summary=lambda stage_id=None: resumos)
+        ids = [t["id"] for t in client.get("/tournaments?limit=3").json()]
+        assert ids == ["t0", "t1", "t2"]
+        assert len(client.get("/tournaments").json()) == 5
 
     def test_busca_um(self, client, stub):
         stub(TS, get_tournament=lambda tid: _torneio())
@@ -353,13 +367,29 @@ class TestTransacoes:
     def test_lista_filtrada_pela_etapa_do_header(self, client, stub):
         recebidos = {}
 
-        def _lista(stage_id=None):
+        def _lista(stage_id=None, limit=None):
             recebidos["stage"] = stage_id
+            recebidos["limit"] = limit
             return []
 
         stub(TrS, get_transactions=_lista)
         client.get("/transactions", headers={"X-Stage-ID": ETAPA})
         assert recebidos["stage"] == ETAPA
+        # Sem `limit`, a lista inteira: os totais do Caixa saem dela.
+        assert recebidos["limit"] is None
+
+    def test_limit_pede_so_as_mais_recentes(self, client, stub):
+        """O painel mostra 5 vendas e baixava a etapa inteira a cada 30 s."""
+        recebidos = {}
+
+        def _lista(stage_id=None, limit=None):
+            recebidos["limit"] = limit
+            return []
+
+        stub(TrS, get_transactions=_lista)
+        assert client.get("/transactions?limit=5").status_code == 200
+        assert recebidos["limit"] == 5
+        assert client.get("/transactions?limit=0").status_code == 422
 
     def test_lista_por_torneio(self, client, stub):
         stub(TrS, get_transactions_by_tournament=lambda tid: [_transacao()])

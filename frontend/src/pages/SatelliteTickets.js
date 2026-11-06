@@ -283,7 +283,7 @@ const SatelliteTickets = () => {
       fecharCriacao();
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastCreateError'));
+      toast.error(err.userMessage || t('satelliteTickets.toastCreateError'));
     } finally {
       setCreating(false);
     }
@@ -327,7 +327,7 @@ const SatelliteTickets = () => {
       setTransferTicket(null);
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastTransferError', 'Não foi possível transferir o ticket.'));
+      toast.error(err.userMessage || t('satelliteTickets.toastTransferError', 'Não foi possível transferir o ticket.'));
     } finally {
       setTransferring(false);
     }
@@ -361,13 +361,17 @@ const SatelliteTickets = () => {
         payload.funded_by = redeemForm.funded_by.trim();
       }
       const result = await api.post(`/satellite-tickets/${redeemForm.ticket_id}/redeem`, payload);
-      toast.success(result.data.message || t('satelliteTickets.toastRedeemed'));
+      // Jogador já inscrito no dia: o ticket pagou uma REENTRADA, não uma
+      // inscrição nova — o operador precisa saber o que aconteceu.
+      toast.success(result.data.reentrada
+        ? t('satelliteTickets.toastRedeemedReentry', 'Ticket resgatado como reentrada.')
+        : (result.data.message || t('satelliteTickets.toastRedeemed')));
       setShowRedeemModal(false);
       setRedeemForm({ ticket_id: '', funded_by: '' });
       setAvailableTickets([]);
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastRedeemError'));
+      toast.error(err.userMessage || t('satelliteTickets.toastRedeemError'));
     }
   };
 
@@ -379,7 +383,7 @@ const SatelliteTickets = () => {
       toast.success(t('satelliteTickets.toastCancelled'));
       loadData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || t('satelliteTickets.toastCancelError'));
+      toast.error(err.userMessage || t('satelliteTickets.toastCancelError'));
     }
   };
 
@@ -637,6 +641,11 @@ const SatelliteTickets = () => {
                         <div><span>{t('satelliteTickets.detailOrigin')}</span><strong>{selectedRedeemTicket.won_at || '--'}</strong></div>
                         <div><span>{t('satelliteTickets.detailFundedBy')}</span><strong>{selectedRedeemTicket.funded_by || '--'}</strong></div>
                       </div>
+                    )}
+                    {selectedRedeemTicket && (
+                      <small className="form-hint">
+                        {t('satelliteTickets.redeemReentryHint', 'Se o jogador já estiver inscrito neste dia, o ticket vale como reentrada — e ele precisa estar eliminado.')}
+                      </small>
                     )}
 
                     {/* Legacy fallback: only ask for funder when the ticket

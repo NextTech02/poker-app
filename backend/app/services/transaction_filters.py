@@ -11,6 +11,8 @@ não copiada em cada service.
 """
 from typing import Callable, List
 
+from app.database.paginacao import todas_as_linhas
+
 CANCELADA = "cancelled"
 EM_CANCELAMENTO = "cancelling"
 ATIVA = "active"
@@ -44,20 +46,33 @@ def ler_transacoes_ativas(monta_query: Callable[[str], object], colunas: str) ->
     migração que cria `transactions.status`. Enquanto a coluna não existir, o
     PostgREST recusa a consulta filtrada e caímos na consulta de hoje — o clube
     continua vendendo e faturando, em vez de tomar 500 no meio do evento.
+
+    Lê TODAS as linhas, de mil em mil (app/database/paginacao.py): quase todo
+    chamador SOMA o resultado — caixa da etapa, rake da sangria, prize pool,
+    DRE, fichas do telão — e o PostgREST cortaria em 1000 sem avisar. Por isso
+    o `id` entra no select (descarta a linha repetida entre páginas) e na ordem
+    (desempate estável). Quem monta a consulta NÃO põe `.limit`.
     """
-    com_status = colunas if colunas.strip() == "*" else f"{colunas}, status"
+    com_id = _com_coluna(colunas, "id")
+    com_status = com_id if colunas.strip() == "*" else _com_coluna(com_id, "status")
     try:
         # Os DOIS estados do estorno saem da soma: 'cancelled' (concluído) e
         # 'cancelling' (em andamento). Excluir só o primeiro deixaria a venda
         # contando durante o estorno — e uma sangria feita nesse meio-tempo
         # extrairia rake de dinheiro que já está voltando para o jogador.
-        resposta = (
+        return todas_as_linhas(lambda: (
             monta_query(com_status)
             .neq("status", CANCELADA)
             .neq("status", EM_CANCELAMENTO)
-            .execute()
-        )
-        return resposta.data or []
+            .order("id")
+        ))
     except Exception:
-        resposta = monta_query(colunas).execute()
-        return resposta.data or []
+        return todas_as_linhas(lambda: monta_query(com_id).order("id"))
+
+
+def _com_coluna(colunas: str, coluna: str) -> str:
+    """`colunas` com `coluna` no select, se ainda não estiver (ou se for `*`)."""
+    pedidas = {c.strip() for c in colunas.split(",")}
+    if "*" in pedidas or coluna in pedidas:
+        return colunas
+    return f"{colunas}, {coluna}"

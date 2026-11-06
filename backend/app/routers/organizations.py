@@ -327,6 +327,9 @@ def update_organization_modules(org_id: str, data: OrganizationModulesUpdate):
                 "organization_id": org_id, "module": modulo, "enabled": True,
             }).execute()
 
+    # A guarda de módulo guarda a lista por 30 s; neste worker, vale já. (No
+    # outro worker, em até 30 s.)
+    ModuleService.esquecer_cache(org_id)
     return list_organization_modules(org_id)
 
 

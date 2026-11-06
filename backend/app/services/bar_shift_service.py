@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.models.bar import (
     BarPaymentMethodTotal,
     BarShiftCreate,
@@ -175,10 +176,20 @@ class BarShiftService:
     @staticmethod
     def _agregar(bar_shift_id: str, organization_id: Optional[str] = None) -> dict:
         """Soma o turno a partir das linhas. Quatro consultas, sem laço com
-        query dentro."""
-        comandas = supabase.table("bar_tabs").select(
-            "id, status, subtotal, courtesy_amount, discount_amount, total, paid_amount"
-        ).eq("bar_shift_id", bar_shift_id).execute().data or []
+        query dentro.
+
+        Cada uma de mil em mil (app/database/paginacao.py): uma noite cheia de
+        bar passa de mil itens, e o PostgREST cortaria sem avisar — o
+        fechamento do turno sairia com o CMV e os pagamentos a menos."""
+        def _do_turno(tabela, colunas):
+            return todas_as_linhas(lambda: (
+                supabase.table(tabela).select(colunas)
+                .eq("bar_shift_id", bar_shift_id).order("id")
+            ))
+
+        comandas = _do_turno(
+            "bar_tabs", "id, status, subtotal, courtesy_amount, discount_amount, total, paid_amount"
+        )
 
         bruto = desconto = cortesia = liquido = pago = saldo = 0.0
         abertas = 0
@@ -201,9 +212,7 @@ class BarShiftService:
                 abertas += 1
                 saldo += max(tot - pg, 0)
 
-        itens = supabase.table("bar_tab_items").select(
-            "status, quantity, unit_cost"
-        ).eq("bar_shift_id", bar_shift_id).execute().data or []
+        itens = _do_turno("bar_tab_items", "id, status, quantity, unit_cost")
         cmv = 0.0
         pendentes = 0
         qtd_itens = 0
@@ -215,9 +224,7 @@ class BarShiftService:
             if i.get("status") == "pending":
                 pendentes += 1
 
-        pagamentos = supabase.table("bar_tab_payments").select(
-            "amount, payment_method, payment_source, status"
-        ).eq("bar_shift_id", bar_shift_id).execute().data or []
+        pagamentos = _do_turno("bar_tab_payments", "id, amount, payment_method, payment_source, status")
         pago_dinheiro = pago_credito = 0.0
         por_metodo: dict = {}
         for p in pagamentos:

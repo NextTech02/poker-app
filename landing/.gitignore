@@ -1,0 +1,8 @@
+# Gerados: `npm install` e `npm run build` (build.mjs).
+node_modules/
+dist/
+
+# A raiz ignora *.png e *.jpg (prints soltos). Aqui eles fazem parte da
+# página: og.png é a imagem do link compartilhado no WhatsApp.
+!public/**/*.png
+!public/**/*.jpg

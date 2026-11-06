@@ -29,6 +29,9 @@ import { supabase } from '../config/supabase';
  * @param {Function} opts.aoMudar   Chamado (com debounce) quando algo muda.
  * @param {number}   [opts.intervaloDeSeguranca=30000]  Poll de fallback. 0 desliga.
  * @param {boolean}  [opts.ativo=true]  Falso desliga tudo (ex.: id ainda nulo).
+ * @returns {Function} O mesmo recarregar com debounce, para a tela usar depois
+ *   das PRÓPRIAS escritas: a escrita gera eco no Realtime, e passando pelo
+ *   mesmo funil os dois viram um refetch só em vez de dois em sequência.
  */
 export function useRealtimeRefresh({
   canal,
@@ -150,6 +153,8 @@ export function useRealtimeRefresh({
       document.removeEventListener('visibilitychange', aoTrocarVisibilidade);
     };
   }, [ativo, intervaloDeSeguranca, recarregar]);
+
+  return recarregar;
 }
 
 export default useRealtimeRefresh;

@@ -63,7 +63,7 @@ def _torneio(stage_id=ETAPA):
 @pytest.fixture
 def dia_valido(stub):
     stub(TDS, get_tournament_day=lambda did: _dia() if did == DIA else None,
-         get_day_with_stage=lambda did: (_dia(), ETAPA) if did == DIA else (None, None))
+         get_day_with_stage=lambda did, with_blinds=False: (_dia(), ETAPA, []) if did == DIA else (None, None, None))
     stub(TS, get_tournament=lambda tid: _torneio() if tid == TOUR else None)
 
 
@@ -97,7 +97,7 @@ class TestDiasDeTorneio:
 
     def test_dia_de_outra_etapa_no_relogio(self, client, stub):
         """O relógio tem guarda própria (uma consulta só) — e o mesmo código."""
-        stub(TDS, get_day_with_stage=lambda did: (_dia(), OUTRA_ETAPA))
+        stub(TDS, get_day_with_stage=lambda did, with_blinds=False: (_dia(), OUTRA_ETAPA, []))
         r = client.post(f"/tournament-days/{DIA}/timer/start",
                         headers={"X-Stage-ID": ETAPA})
         assert r.status_code == 403

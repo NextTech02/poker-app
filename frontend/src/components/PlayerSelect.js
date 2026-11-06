@@ -1,6 +1,6 @@
-import React, { useEffect, useId, useState, useRef } from 'react';
+import React, { useDeferredValue, useEffect, useId, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import api from '../config/api';
+import { useListaDeJogadores, MAX_OPCOES } from '../hooks/useListaDeJogadores';
 import './PlayerSelect.css';
 
 /**
@@ -13,8 +13,7 @@ import './PlayerSelect.css';
  */
 const PlayerSelect = ({ value, onChange, required = false, name = 'player_id', allowedIds }) => {
   const { t } = useTranslation();
-  const [players, setPlayers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { players, loading } = useListaDeJogadores();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
@@ -28,10 +27,6 @@ const PlayerSelect = ({ value, onChange, required = false, name = 'player_id', a
   const listId = `${baseId}-list`;
   const optionId = (i) => `${baseId}-opt-${i}`;
 
-  useEffect(() => {
-    loadPlayers();
-  }, []);
-
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -41,28 +36,26 @@ const PlayerSelect = ({ value, onChange, required = false, name = 'player_id', a
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const loadPlayers = async () => {
-    try {
-      const response = await api.get('/players');
-      setPlayers(response.data || []);
-    } catch (error) {
-      console.error('Erro ao carregar jogadores:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const norm = (s) => (s || '').toString().toLowerCase();
   const label = (p) => `${p.name}${p.nickname ? ` (${p.nickname})` : ''}`;
 
   const selected = players.find((p) => p.id === value);
-  const permitidos = Array.isArray(allowedIds)
-    ? players.filter((p) => allowedIds.includes(p.id))
-    : players;
-  const q = norm(query).trim();
-  const filtered = q
-    ? permitidos.filter((p) => norm(p.name).includes(q) || norm(p.nickname).includes(q))
-    : permitidos;
+  // A busca filtra com um passo de atraso (`useDeferredValue`): o campo
+  // responde à tecla na hora e a lista acompanha logo depois, sem a digitação
+  // esperar pelo filtro do cadastro inteiro.
+  const busca = useDeferredValue(query);
+  const encontrados = useMemo(() => {
+    const ids = Array.isArray(allowedIds) ? new Set(allowedIds) : null;
+    const permitidos = ids ? players.filter((p) => ids.has(p.id)) : players;
+    const q = norm(busca).trim();
+    return q
+      ? permitidos.filter((p) => norm(p.name).includes(q) || norm(p.nickname).includes(q))
+      : permitidos;
+  }, [players, allowedIds, busca]);
+  // Só os primeiros MAX_OPCOES viram linha: abrir o campo desenhava o cadastro
+  // INTEIRO, e passar o mouse redesenhava tudo de novo a cada linha.
+  const filtered = encontrados.slice(0, MAX_OPCOES);
+  const restantes = encontrados.length - filtered.length;
 
   const pick = (id) => {
     onChange({ target: { name, value: id } });
@@ -131,6 +124,11 @@ const PlayerSelect = ({ value, onChange, required = false, name = 'player_id', a
                 {label(p)}
               </li>
             ))
+          )}
+          {restantes > 0 && (
+            <li className="player-select-empty" role="presentation">
+              {t('players.keepTyping', 'Mais {{count}} jogadores — continue digitando', { count: restantes })}
+            </li>
           )}
         </ul>
       )}

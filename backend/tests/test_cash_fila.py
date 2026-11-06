@@ -328,6 +328,22 @@ def test_reserva_no_prazo_e_mantida(monkeypatch):
     assert assento["status"] == "reserved"
 
 
+def test_varias_vencidas_saem_numa_escrita_so(monkeypatch):
+    """Antes: uma leitura e um update POR cadeira. Agora um update com as
+    condições na própria escrita (o jogador que sentou no meio-tempo não tem a
+    cadeira devolvida)."""
+    passado = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    fake = _banco(monkeypatch, cash_seats=_assentos(reservado=2, para=ANA, ate=passado))
+    outra = next(a for a in fake.store["cash_seats"] if a["seat_number"] == 3)
+    outra.update(status="reserved", reserved_for=ANA, reserved_until=passado)
+    idas = []
+    original = fake.table
+    monkeypatch.setattr(fake, "table", lambda nome: (idas.append(nome), original(nome))[1])
+
+    assert CWS.release_expired(DIA) == 2
+    assert idas.count("cash_seats") == 1
+
+
 # ══════════════════════════════════════════════════════════════════════
 # Reserva avulsa (sem passar pela fila)
 # ══════════════════════════════════════════════════════════════════════

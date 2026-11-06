@@ -9,9 +9,14 @@ from app.models.tournament_player import (
 from app.services.tournament_player_service import TournamentPlayerService
 from app.models.knockout import EliminateRequest
 from app.auth.jwt import get_current_user
+from app.database.supabase_client import requisicao_anonima
+from app.utils.cache_curto import CacheCurto
 from app.utils.erros import da_excecao
 
 router = APIRouter(prefix="/tournament-players", tags=["tournament-players"])
+
+# Inscritos do dia para a TV do salão (sem login) — ver get_tournament_day_players.
+_jogadores_do_dia_na_tv = CacheCurto(validade_s=5)
 
 
 @router.post("", response_model=TournamentPlayerDetail, status_code=status.HTTP_201_CREATED)
@@ -95,7 +100,16 @@ def get_tournament_players(
 
 @router.get("/day/{day_id}", response_model=List[TournamentPlayerDetail])
 def get_tournament_day_players(day_id: str):
-    """Get all players in a specific tournament day (no auth required for broadcast)"""
+    """Get all players in a specific tournament day (no auth required for broadcast)
+
+    Sem login (a TV do salão, a cada 10 s por TV), a resposta é a mesma para
+    todas as TVs: uma leitura serve todas por até 5 s. Com login, NUNCA vem do
+    cache — o RLS de quem pede decide o que ele vê, e compartilhar a resposta
+    poderia entregar a um clube os jogadores de outro."""
+    if requisicao_anonima():
+        return _jogadores_do_dia_na_tv.obter(
+            str(day_id), lambda: TournamentPlayerService.get_tournament_day_players(day_id)
+        )
     return TournamentPlayerService.get_tournament_day_players(day_id)
 
 

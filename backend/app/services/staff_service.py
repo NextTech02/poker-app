@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.database import supabase
+from app.database.memo import lembrar
 from app.database.supabase_client import supabase_admin
 from app.config import get_settings
 from app.utils.erros import ErroDeNegocio
@@ -65,6 +66,27 @@ def _nao_encontrado() -> ErroDeNegocio:
     return ErroDeNegocio(
         "funcionario_nao_encontrado", "Funcionário não encontrado.", status=404
     )
+
+
+def ler_staff_do_usuario(cliente, auth_user_id: str) -> Optional[dict]:
+    """A linha de `staff` do usuário logado, com o grupo de permissões, ou None.
+
+    Lida UMA vez por requisição (app/database/memo.py). A guarda de permissão
+    de toda rota, o caixa aberto e o id do funcionário faziam a mesma pergunta
+    ao banco, cada um com seu select — três ou quatro idas numa venda. Quem usa
+    só LÊ a linha devolvida: ela é compartilhada.
+
+    Recebe o `cliente` de quem chama (o `supabase` daquele módulo) em vez de
+    usar o daqui: em produção é o mesmo objeto, e a memória é uma só; nos
+    testes cada service troca o próprio `supabase`, e é esse que tem de valer.
+    """
+    def _ler():
+        r = cliente.table("staff").select(
+            "*, permission_groups(name, permissions)"
+        ).eq("auth_user_id", auth_user_id).execute()
+        return r.data[0] if r.data else None
+
+    return lembrar(("staff_do_usuario", auth_user_id), _ler)
 
 
 class StaffService:
@@ -996,11 +1018,14 @@ class StaffService:
     # ================================================
 
     @staticmethod
+    def staff_do_usuario(auth_user_id: str) -> Optional[dict]:
+        """A linha de `staff` do usuário logado (ver `ler_staff_do_usuario`)."""
+        return ler_staff_do_usuario(supabase, auth_user_id)
+
+    @staticmethod
     def get_my_permissions(auth_user_id: str) -> MyPermissions:
         """Get permissions for the currently logged-in user"""
-        response = supabase.table("staff").select(
-            "*, permission_groups(name, permissions)"
-        ).eq("auth_user_id", auth_user_id).execute()
+        staff = StaffService.staff_do_usuario(auth_user_id)
 
         # No staff record: historically treated as super-admin ("original user").
         # That made ANY authenticated user without a staff row a super-admin — a
@@ -1008,7 +1033,7 @@ class StaffService:
         # of owner IDs (SUPER_ADMIN_USER_IDS). If the allowlist is empty (not yet
         # configured) we fall back to the old behavior with a warning so a deploy
         # that forgets the env var doesn't lock everyone out.
-        if not response.data:
+        if not staff:
             from app.config import get_settings
             allow = get_settings().super_admin_ids
             if auth_user_id in allow:
@@ -1019,8 +1044,6 @@ class StaffService:
             # esquecesse a env dava poder total a qualquer usuário. Num SaaS isso
             # seria fatal: o funcionário de um cliente viraria dono de tudo.
             return MyPermissions(is_admin=False, permissions=[], group_name=None)
-
-        staff = response.data[0]
 
         if not staff.get("active"):
             return MyPermissions(is_admin=False, permissions=[], group_name=None)
