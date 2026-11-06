@@ -27,6 +27,7 @@ const BROADCAST_LABELS = {
     levelPrefix:    'Nível',          // "Nível 6: ..."
     of:             'de',             // "45 de 120"
     prizepool:      'PRIZEPOOL',
+    guaranteed:     'GARANTIDO',
     koPool:         'POOL KO',
     mysteryPool:    'POOL MYSTERY',
     mysteryStartsAt:'MYSTERY NO NÍVEL',
@@ -71,6 +72,7 @@ const BROADCAST_LABELS = {
     levelPrefix:    'Level',
     of:             'of',
     prizepool:      'PRIZEPOOL',
+    guaranteed:     'GUARANTEED',
     koPool:         'KO POOL',
     mysteryPool:    'MYSTERY POOL',
     mysteryStartsAt:'MYSTERY AT LEVEL',
@@ -114,6 +116,7 @@ const BROADCAST_LABELS = {
     levelPrefix:    'Nivel',
     of:             'de',
     prizepool:      'PRIZEPOOL',
+    guaranteed:     'GARANTIZADO',
     koPool:         'POZO KO',
     mysteryPool:    'POZO MYSTERY',
     mysteryStartsAt:'MYSTERY EN EL NIVEL',

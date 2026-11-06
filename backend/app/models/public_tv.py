@@ -45,6 +45,8 @@ class PublicTvExtras(BaseModel):
         default=None,
         description="Prize pool disponível (garantido + pool dos jogadores). None se o resumo falhar.",
     )
+    # O que a casa prometeu, para o telão mostrar à parte quando o diretor liga.
+    guaranteed_prize: Optional[float] = None
     prizes: list[PublicTvPrize] = []
     # Premiação por eliminação: o telão mostra o pool KO junto do prizepool e,
     # na fase Mystery, quantos envelopes ainda faltam sair. Nada de quem

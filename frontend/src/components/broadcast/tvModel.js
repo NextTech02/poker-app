@@ -137,6 +137,8 @@ export const buildTvSettings = (source, { fontSizeOverride = null } = {}) => {
     showBuyTypes: s.broadcast_show_buy_types === true,
     // Faixa animada de jogador eliminado: elemento novo, só ligado.
     showEliminations: s.broadcast_show_eliminations === true,
+    // Garantido do torneio junto do prizepool: elemento novo, só ligado.
+    showGuaranteed: s.broadcast_show_guaranteed === true,
     showEntries: on(s, 'broadcast_show_entries'),
     showTitle: on(s, 'broadcast_show_title'),
     showPrizepool: on(s, 'broadcast_show_prizepool'),
@@ -308,6 +310,7 @@ export const buildTvModel = ({
 
   const prizes = (extras?.prizes || []).filter((p) => p.visible !== false);
   const prizePool = parseFloat(extras?.prize_pool ?? tournamentDay?.prize_pool ?? 0) || 0;
+  const guaranteed = parseFloat(extras?.guaranteed_prize) || 0;
   // Premiação por eliminação: o pool KO aparece junto do prizepool e, na
   // fase Mystery, quantos envelopes ainda faltam sair.
   const koFormat = ['ko', 'pko', 'mystery'].includes(extras?.ko_format) ? extras.ko_format : null;
@@ -371,6 +374,7 @@ export const buildTvModel = ({
     breakIn,
     prizes,
     prizePool,
+    guaranteed,
     koFormat,
     koPool,
     envelopesLeft,

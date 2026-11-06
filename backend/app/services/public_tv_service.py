@@ -84,6 +84,7 @@ class PublicTvService:
             currency=ajustes["currency"],
             language=ajustes["language"],
             prize_pool=PublicTvService._prize_pool(resumo),
+            guaranteed_prize=PublicTvService._garantido(resumo),
             prizes=PublicTvService._prizes(tournament_id),
             buy_types=PublicTvService._buy_types(tournament_id, str(day["id"])),
             # Só o dia FINAL pode ter revezamento: nos outros, nenhuma consulta a mais.
@@ -387,6 +388,13 @@ class PublicTvService:
         # Posições + KO: o pozo que o salão viu entrar.
         total = getattr(resumo, "total_prize_pool", None)
         return float(total or resumo.available_prize_pool)
+
+    @staticmethod
+    def _garantido(resumo) -> Optional[float]:
+        """Garantido do torneio. Sem resumo, `None`: zero diria que não há garantido."""
+        if resumo is None:
+            return None
+        return float(getattr(resumo, "guaranteed_prize", None) or 0)
 
     @staticmethod
     def _ko(tournament_id: str, resumo) -> dict:

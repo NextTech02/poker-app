@@ -1246,6 +1246,7 @@
     "promoFitContain": "Mostrar entera (sin recortar)",
     "promoFitCover": "Rellenar la columna (puede recortar los bordes)",
     "visEliminations": "Aviso animado de jugador eliminado (parte inferior)",
+    "visGuaranteed": "Garantizado (valor definido en Premiación)",
     "previewElimination": "Probar aviso de eliminado"
   },
   "errors": {

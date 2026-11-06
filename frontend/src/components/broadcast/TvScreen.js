@@ -274,10 +274,22 @@ const PrizeTrack = ({ prizes, L, currency, forceScroll }) => {
   );
 };
 
+// Ligado pelo diretor e só em torneio com garantido: "GARANTIDO R$ 0,00" na
+// frente do salão diria que não há prêmio garantido.
+const mostraGarantido = (model, settings) => settings.showGuaranteed && model.guaranteed > 0;
+
 const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
   // Colocações consecutivas de mesmo prêmio viram uma faixa ("7º–9º").
   const prizes = settings.showPrizes ? groupPrizeRanges(model.prizes) : [];
-  if (!settings.showPrizepool && prizes.length === 0) return null;
+  const temGarantido = mostraGarantido(model, settings);
+  if (!settings.showPrizepool && !temGarantido && prizes.length === 0) return null;
+
+  const garantido = temGarantido ? (
+    <div className="tv-pool tv-pool--guaranteed">
+      <span className="tv-pool-label">{L.guaranteed}</span>
+      <span className="tv-pool-value">{formatCurrency(model.guaranteed, currency)}</span>
+    </div>
+  ) : null;
 
   const pool = settings.showPrizepool ? (
     <div className="tv-pool">
@@ -308,6 +320,7 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
           <Icon name="trophy-cup" />
           <span>{L.awards}</span>
         </div>
+        {garantido}
         {pool}
         {prizes.length > 0 && (
           <div className="tv-prizes-sidebar-wrap">
@@ -334,6 +347,7 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
         <Icon name="trophy-cup" />
         <span>{L.awards}</span>
       </div>
+      {garantido}
       {pool}
       {prizes.length > 0 && (
         <PrizeTrack prizes={prizes} L={L} currency={currency} forceScroll={forceScroll} />
@@ -581,7 +595,8 @@ const TvScreen = ({
   };
 
   const prizesAllowed = mode !== 'break';
-  const hasPrizeContent = s.showPrizepool || (s.showPrizes && model.prizes.length > 0);
+  const hasPrizeContent = s.showPrizepool || mostraGarantido(model, s)
+    || (s.showPrizes && model.prizes.length > 0);
   const sidebarPrizes = prizesAllowed && s.prizesLayout === 'sidebar' && hasPrizeContent;
   const bottomPrizes = prizesAllowed && s.prizesLayout !== 'sidebar' && hasPrizeContent;
   // Divulgação: fora do intervalo (que tem o próprio vídeo), se ligada e com

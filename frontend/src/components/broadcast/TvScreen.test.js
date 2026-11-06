@@ -562,6 +562,51 @@ describe('formato dos blinds', () => {
   });
 });
 
+describe('garantido', () => {
+  const LIGADO = { broadcast_show_guaranteed: true };
+  const bloco = () => document.querySelector('.tv-pool--guaranteed');
+
+  it('nasce desligado: a TV de nenhum clube muda sem o diretor pedir', () => {
+    montar({ currency: 'PEN', model: { guaranteed: 30000 } });
+    expect(bloco()).toBeNull();
+  });
+
+  it('ligado, aparece na barra junto do prizepool', () => {
+    montar({ currency: 'PEN', model: { guaranteed: 30000 } }, LIGADO);
+    expect(bloco()).toHaveTextContent('GARANTIDO');
+    expect(bloco()).toHaveTextContent('S/ 30,000.00');
+    expect(document.querySelector('.tv-prizes-bar')).toContainElement(bloco());
+    expect(document.querySelector('.tv-prizes-bar')).toHaveTextContent('PRIZEPOOL');
+  });
+
+  it('torneio sem garantido não mostra zero na frente do salão', () => {
+    montar({ model: { guaranteed: 0 } }, LIGADO);
+    expect(bloco()).toBeNull();
+  });
+
+  it('aparece mesmo com o prizepool e os prêmios desligados', () => {
+    // Sem isso a barra inteira sumia e a opção ligada não mostrava nada.
+    montar({ model: { guaranteed: 30000, prizes: [] } }, { ...LIGADO, broadcast_show_prizepool: false });
+    expect(bloco()).toBeInTheDocument();
+    expect(document.querySelector('.tv-prizes-bar')).not.toHaveTextContent('PRIZEPOOL');
+  });
+
+  it('com a premiação na lateral, vai junto dela', () => {
+    montar({ model: { guaranteed: 30000 } }, { ...LIGADO, broadcast_prizes_layout: 'sidebar' });
+    expect(document.querySelector('.tv-prizes-sidebar')).toContainElement(bloco());
+  });
+
+  it('segue o idioma do telão', () => {
+    montar({ model: { guaranteed: 30000 }, labels: BROADCAST_LABELS.es }, LIGADO);
+    expect(bloco()).toHaveTextContent('GARANTIZADO');
+  });
+
+  it('no intervalo sai junto com a barra de prêmios', () => {
+    montar({ mode: 'break', model: { guaranteed: 30000 } }, LIGADO);
+    expect(bloco()).toBeNull();
+  });
+});
+
 describe('premiação por eliminação', () => {
   it('o pool KO aparece junto do prizepool, com os envelopes Mystery restantes', () => {
     montar({ currency: 'PEN', model: { koFormat: 'mystery', koPool: 4000, envelopesLeft: 5 } });

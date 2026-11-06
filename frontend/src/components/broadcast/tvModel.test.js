@@ -191,6 +191,26 @@ describe('blindValuesAt', () => {
   });
 });
 
+describe('garantido', () => {
+  const base = { isDayBased: true, timerState: relogio(), tournament: TORNEIO, tournamentDay: DIA };
+
+  it('vem dos extras, separado do prizepool', () => {
+    const m = buildTvModel({ ...base, extras: { prize_pool: 34300, guaranteed_prize: 30000 } });
+    expect(m.guaranteed).toBe(30000);
+    expect(m.prizePool).toBe(34300);
+  });
+
+  it('sem extras ou sem garantido vale zero: o telão não mostra', () => {
+    expect(buildTvModel(base).guaranteed).toBe(0);
+    expect(buildTvModel({ ...base, extras: { guaranteed_prize: null } }).guaranteed).toBe(0);
+  });
+
+  it('a configuração nasce desligada', () => {
+    expect(buildTvSettings({}).showGuaranteed).toBe(false);
+    expect(buildTvSettings({ broadcast_show_guaranteed: true }).showGuaranteed).toBe(true);
+  });
+});
+
 describe('buildTvSettings', () => {
   it('campo nulo no banco mantém tudo LIGADO, reentradas inclusive', () => {
     const s = buildTvSettings({});
