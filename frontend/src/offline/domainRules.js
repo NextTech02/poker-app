@@ -158,6 +158,9 @@ export const applyRebuy = async (body) => {
   const amount = doTipoOuDoDia(buyType, 'amount', day && day.rebuy_amount);
   const chips = doTipoOuDoDia(buyType, 'chips', (day && day.rebuy_chips) || 10000);
   const rakePct = rakePctFor(day, buyType);
+  // Quantas entradas a venda vale no contador ("Reentrada Doble" = 2). Só o
+  // contador: valor e fichas do meio já são os da venda inteira.
+  const entradas = Math.max(1, parseInt(buyType && buyType.entry_count, 10) || 1);
 
   // Quantidade: a tela NÃO produz mais vendas com quantidade — um "rebuy duplo"
   // virou um meio de entrada próprio, com valor e fichas próprios, porque ele
@@ -166,7 +169,7 @@ export const applyRebuy = async (body) => {
   // eles precisam ser reaplicados exatamente como foram enfileirados.
   const qtd = Math.max(1, parseInt(body.quantity, 10) || 1);
 
-  tp.rebuy_count = Number(tp.rebuy_count || 0) + qtd;
+  tp.rebuy_count = Number(tp.rebuy_count || 0) + qtd * entradas;
   tp.total_rebuy_amount = round2(Number(tp.total_rebuy_amount || 0) + amount * qtd);
   tp.total_chips = Number(tp.total_chips || 0) + chips * qtd;
   tp.total_spent = round2(Number(tp.total_spent || 0) + amount * qtd);
@@ -201,6 +204,7 @@ export const applyRebuy = async (body) => {
     buy_type_id: body.buy_type_id || null,
     buy_type_name: (buyType && buyType.name) || null,
     chips,
+    entry_count: entradas,
     rake_percentage: rakePct,
     rake_amount: round2(amount * rakePct / 100),
     created_at: nowISO(),

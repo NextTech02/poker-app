@@ -24,7 +24,7 @@ from app.models.public_tv import (
 )
 from app.services.module_service import ModuleService
 from app.services.prize_allocation_service import PrizeAllocationService
-from app.services.transaction_filters import ler_transacoes_ativas
+from app.services.transaction_filters import entradas_da_venda, ler_transacoes_ativas
 from app.utils.cache_curto import CacheCurto
 from app.utils.erros import ErroDeNegocio
 
@@ -316,12 +316,14 @@ class PublicTvService:
                         .in_("tournament_player_id", lote)
                         .in_("type", ["buy_in", "rebuy", "addon"])
                     ),
-                    "buy_type_id, type",
+                    "buy_type_id, type, entry_count",
                 )
                 for linha in linhas:
                     chave = str(linha["buy_type_id"]) if linha.get("buy_type_id") \
                         else f"sem_meio:{linha.get('type') or 'buy_in'}"
-                    contagem[chave] = contagem.get(chave, 0) + 1
+                    # Entradas, não vendas: esta linha substitui os quadros de
+                    # Entradas e Reentradas no telão, e precisa dar o mesmo número.
+                    contagem[chave] = contagem.get(chave, 0) + entradas_da_venda(linha)
             return contagem
         except Exception as exc:  # decorativo: nunca derruba o telão
             logger.warning("Vendas por meio do dia %s não lidas para o telão: %s", day_id, exc)

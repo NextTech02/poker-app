@@ -18,6 +18,8 @@ logger = logging.getLogger("uvicorn.error")
 _COLUNAS = "id, tournament_id, name, category, amount, rake_percentage, chips, active, sort_order"
 # `per_team` (torneio por equipes) só existe depois da migração de equipes.
 _COLUNAS_COM_EQUIPE = _COLUNAS + ", per_team"
+# `entry_count` (quantas entradas a venda vale) só existe depois da sua migração.
+_COLUNAS_COM_ENTRADAS = _COLUNAS_COM_EQUIPE + ", entry_count"
 
 # Colunas antigas do DIA que seguem o primeiro meio ativo de cada categoria.
 # Elas continuam sendo lidas como RESERVA (venda sem tipo, bilhete de satélite,
@@ -34,7 +36,7 @@ class BuyTypeService:
     @staticmethod
     def listar(tournament_id: str) -> List[dict]:
         """Meios de entrada do torneio, na ordem em que o Caixa deve mostrá-los."""
-        for colunas in (_COLUNAS_COM_EQUIPE, _COLUNAS):
+        for colunas in (_COLUNAS_COM_ENTRADAS, _COLUNAS_COM_EQUIPE, _COLUNAS):
             try:
                 resposta = (
                     supabase.table("buy_types")
@@ -184,11 +186,23 @@ class BuyTypeService:
             any("per_team" in l for l in atuais.values())
             or any(i.get("per_team") for i in itens)
         )
+        # Mesma regra para `entry_count`.
+        com_coluna_de_entradas = (
+            any("entry_count" in l for l in atuais.values())
+            or any((i.get("entry_count") or 1) > 1 for i in itens)
+        )
 
         def _payload(item: dict) -> dict:
             extra = {}
             if com_coluna_de_equipe:
                 extra["per_team"] = bool(item.get("per_team"))
+            if com_coluna_de_entradas:
+                # Só recompra vale mais de uma: na categoria Entrada o contador
+                # também multiplica o preço e é a base dos jogadores ativos. A
+                # tela esconde o campo nas outras, e o banco recusa.
+                extra["entry_count"] = (
+                    int(item.get("entry_count") or 1) if item["category"] == "rebuy" else 1
+                )
             return {
                 **extra,
                 "tournament_id": tournament_id,

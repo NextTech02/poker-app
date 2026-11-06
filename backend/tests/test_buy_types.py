@@ -255,6 +255,52 @@ class TestEspelhoNosDias:
         assert float(fake.store["buy_types"][0]["amount"]) == 250.0
 
 
+class TestEntradasPorMeio:
+    """"Reentrada Doble" = 2 entradas: o que o clube configura em cada meio."""
+
+    def _doble(self, entradas=2):
+        return {**_item(name="Reentrada Doble", category="rebuy"), "entry_count": entradas}
+
+    def test_recompra_grava_quantas_entradas_vale(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        S.substituir(TORNEIO, [_item(), self._doble()])
+        assert [l["entry_count"] for l in fake.store["buy_types"]] == [1, 2]
+
+    def test_outra_categoria_vale_sempre_uma(self, monkeypatch):
+        """Em Entrada o contador multiplica o preço e é a base dos jogadores ativos."""
+        fake = _monta(monkeypatch)
+        S.substituir(TORNEIO, [{**_item(), "entry_count": 3}, self._doble()])
+        por_nome = {l["name"]: l["entry_count"] for l in fake.store["buy_types"]}
+        assert por_nome == {"Buy-in": 1, "Reentrada Doble": 2}
+
+    def test_editar_uma_linha_existente_mantem_o_que_foi_enviado(self, monkeypatch):
+        fake = _monta(monkeypatch, tipos=[
+            _tipo("b1"),
+            {**_tipo("r1", name="Reentrada Doble", category="rebuy"), "entry_count": 2},
+        ])
+        S.substituir(TORNEIO, [_item("b1"), {**self._doble(3), "id": "r1"}])
+        por_id = {l["id"]: l["entry_count"] for l in fake.store["buy_types"]}
+        assert por_id == {"b1": 1, "r1": 3}
+
+    def test_banco_sem_a_coluna_nao_manda_a_coluna(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        S.substituir(TORNEIO, [_item(), self._doble(1)])
+        assert all("entry_count" not in l for l in fake.store["buy_types"])
+
+    def test_limites_do_cadastro(self):
+        from pydantic import ValidationError
+        from app.models.buy_type import BuyTypeItem
+
+        assert BuyTypeItem(**_item()).entry_count == 1
+        assert BuyTypeItem(**self._doble(10)).entry_count == 10
+        for fora in (0, 11):
+            try:
+                BuyTypeItem(**self._doble(fora))
+            except ValidationError:
+                continue
+            raise AssertionError(f"{fora} deveria ser recusado")
+
+
 class TestPorEquipe:
     """Torneio por equipes: o meio "por equipe" (valor da equipe inteira)."""
 

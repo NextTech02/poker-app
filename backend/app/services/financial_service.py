@@ -13,7 +13,7 @@ from app.services.cash_report_service import CashReportService
 from app.services.bar_report_service import BarReportService
 from app.services.expense_service import ExpenseService
 from app.services.house_credit_service import HouseCreditService
-from app.services.transaction_filters import sem_canceladas
+from app.services.transaction_filters import entradas_da_venda, sem_canceladas
 from app.utils.paralelo import iniciar
 
 
@@ -239,7 +239,7 @@ class FinancialService:
                     tm["buy_ins_count"] += 1
                     tm["revenue"] += amount
                 elif tx_type == "rebuy":
-                    tm["rebuys_count"] += 1
+                    tm["rebuys_count"] += entradas_da_venda(tx)
                     tm["revenue"] += amount
                 elif tx_type == "addon" and tx.get("is_fee"):
                     tm["fees_count"] += 1

@@ -34,6 +34,8 @@ export const novaLinha = (dados = {}) => ({
   chips: semValor(dados.chips) ? String(FICHAS_PADRAO) : String(dados.chips),
   // Torneio por equipes: valor da EQUIPE inteira, dividido no "Cobrar equipe".
   per_team: !!dados.per_team,
+  // Quantas entradas a venda conta ("Reentrada Doble" = 2). Só recompra usa.
+  entry_count: semValor(dados.entry_count) ? '1' : String(dados.entry_count),
 });
 
 export const numero = (texto) => {
@@ -45,6 +47,9 @@ export const inteiro = (texto) => {
   const n = parseInt(texto, 10);
   return Number.isFinite(n) ? n : 0;
 };
+
+/** Limite do cadastro; o mesmo do backend e do CHECK do banco. */
+export const MAXIMO_DE_ENTRADAS = 10;
 
 // Um torneio começa com os três meios de sempre; o clube renomeia, muda valor e
 // acrescenta quantos quiser. O VALOR fica em branco de propósito: é o que o
@@ -85,6 +90,10 @@ export const validarMeios = (linhas, t) => {
   if (!linhas.some((l) => l.category === 'buy_in')) {
     return faltaEntrada(t);
   }
+  const foraDoLimite = (l) => inteiro(l.entry_count) < 1 || inteiro(l.entry_count) > MAXIMO_DE_ENTRADAS;
+  if (linhas.some((l) => l.category === 'rebuy' && foraDoLimite(l))) {
+    return t('tournamentDayForm.entryMethodsEntriesRange', 'Cada recompra vale de 1 a 10 entradas.');
+  }
   return '';
 };
 
@@ -110,6 +119,7 @@ export const meiosParaApi = (linhas, inativos = []) => [
     rake_percentage: numero(l.rake_percentage),
     chips: inteiro(l.chips),
     per_team: !!l.per_team && l.category === 'buy_in',
+    entry_count: l.category === 'rebuy' ? inteiro(l.entry_count) : 1,
     active: true,
     // A ordem da tela é a ordem que o Caixa mostra: o operador organiza aqui.
     sort_order: indice,
@@ -123,6 +133,7 @@ export const meiosParaApi = (linhas, inativos = []) => [
     rake_percentage: m.rake_percentage,
     chips: m.chips,
     per_team: !!m.per_team,
+    entry_count: m.entry_count ?? 1,
     active: false,
     sort_order: linhas.length + indice,
   })),

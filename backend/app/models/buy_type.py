@@ -25,6 +25,9 @@ class BuyTypeItem(BaseModel):
     # Fichas zeradas são válidas: o dia final costuma ter entrada sem pilha nova
     # para quem chega classificado.
     chips: int = Field(0, ge=0)
+    # Quantas entradas a venda conta ("Reentrada Doble" = 2). Só recompra usa:
+    # valor e fichas continuam sendo os desta linha, sem multiplicar.
+    entry_count: int = Field(1, ge=1, le=10)
     active: bool = True
     sort_order: int = 0
     # Torneio por equipes: o valor é o da EQUIPE inteira, dividido entre os

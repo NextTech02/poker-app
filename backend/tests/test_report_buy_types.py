@@ -114,6 +114,52 @@ def test_resumo_do_periodo_traz_os_meios_e_por_jogador(monkeypatch):
     assert por_jogador["Beto"] == {"Doble": 1}
 
 
+def _com_doble():
+    tabelas = _tabelas()
+    tabelas["transactions"].append(
+        {**_venda("x9", "tp1", "rebuy", "bt-re-doble", "Reentrada Doble", 40), "entry_count": 2}
+    )
+    return tabelas
+
+
+def test_meio_conta_as_entradas_que_vale_e_mantem_o_valor_da_venda():
+    """O total por meio precisa fechar com o contador do torneio."""
+    linhas = [l for l in _com_doble()["transactions"] if l["id"] == "x9"]
+    [grupo] = agrupar_vendas_por_meio(linhas)
+    assert (grupo.name, grupo.count, grupo.amount) == ("Reentrada Doble", 2, 40.0)
+
+
+def test_resumo_do_periodo_conta_a_doble_por_jogador(monkeypatch):
+    fake = FakeSupabase(_com_doble())
+    fake.rpcs["get_reports_totals"] = [{"total_revenue": 165, "total_buy_ins": 2, "total_rebuys": 3,
+                                        "total_addons": 1, "avg_buy_in": 40}]
+    monkeypatch.setattr(mod, "supabase", fake)
+    r = ReportService.get_reports()
+    por_jogador = {p.player_name: p.by_buy_type for p in r.playerReports}
+    assert por_jogador["Ana"]["Reentrada Doble"] == 2
+
+
+def test_resumo_sem_a_funcao_do_banco_soma_as_entradas_das_recompras(monkeypatch):
+    fake = FakeSupabase(_com_doble())
+    monkeypatch.setattr(mod, "supabase", fake)
+    assert ReportService.get_reports().totalRebuys == 3
+
+
+def test_banco_sem_as_colunas_novas_le_as_vendas_como_antes(monkeypatch):
+    """O deploy não é atômico com a migração: relatório não pode cair por isso."""
+    pedidas = []
+
+    def _ler(_monta, colunas):
+        pedidas.append(colunas)
+        if "is_fee" in colunas:
+            raise RuntimeError("coluna inexistente")
+        return [{"type": "rebuy"}]
+
+    monkeypatch.setattr(mod, "ler_transacoes_ativas", _ler)
+    assert mod.ler_vendas_com_taxa(lambda c: None, "type") == [{"type": "rebuy"}]
+    assert pedidas == ["type, is_fee, entry_count", "type, is_fee", "type"]
+
+
 def test_sem_vendas_as_listas_vem_vazias(monkeypatch):
     tabelas = _tabelas()
     tabelas["transactions"] = []

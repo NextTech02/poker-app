@@ -1400,6 +1400,18 @@ class TestFichasEmJogoVemDasVendas:
         assert fichas == 35000
         assert (entradas, reentradas) == (1, 1)
 
+    def test_reentrada_doble_nao_inventa_fichas(self, monkeypatch):
+        """Uma linha soma 2 ao contador. Contada como 1, sobraria uma recompra
+        sem venda e o dia ganharia fichas que ninguem comprou."""
+        jogador = _jogador(buy=1, rebuy=2)
+        _monta(monkeypatch, tournament_players=[jogador], transactions=[
+            self._venda(jogador["id"], "buy_in", 10000),
+            {**self._venda(jogador["id"], "rebuy", 50000), "entry_count": 2},
+        ])
+        fichas, _, reentradas = S._entradas_do_dia(self._dia_obj())
+        assert fichas == 60000
+        assert reentradas == 2
+
     def test_sem_venda_registrada_cai_na_multiplicacao_de_sempre(self, monkeypatch):
         """O classificado que o avanco cria nao tem transacao nenhuma: exigir
         venda zeraria as fichas do dia final inteiro."""

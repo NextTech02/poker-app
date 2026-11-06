@@ -229,6 +229,19 @@ describe('rebuy', () => {
     expect(tp.total_spent).toBe(600);
   });
 
+  it('reentrada doble conta duas e cobra uma venda, como o servidor', async () => {
+    // Na tela offline o numero precisa ser o mesmo que a sincronizacao vai gravar.
+    memoria.set('buy_types:bt-doble', {
+      id: 'bt-doble', tournament_id: TOUR, name: 'Reentrada Doble', category: 'rebuy',
+      amount: 40, chips: 50000, rake_percentage: 0, entry_count: 2,
+    });
+    const { tp } = await applyRebuy(corpoRebuy({ buy_type_id: 'bt-doble' }));
+    expect(tp.rebuy_count).toBe(2);
+    expect(tp.total_rebuy_amount).toBe(40);
+    expect(tp.total_chips).toBe(80000);
+    expect(memoria.get('transactions:mut-2')).toMatchObject({ amount: 40, chips: 50000, entry_count: 2 });
+  });
+
   it('recompra em lote soma as tres de uma vez', async () => {
     // O modo offline precisa chegar ao MESMO numero que o servidor vai gravar;
     // se divergir, a tela mostra um estado que a sincronizacao depois desmente.
