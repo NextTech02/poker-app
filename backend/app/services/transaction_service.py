@@ -11,7 +11,7 @@ from app.models.transaction import TransactionCreate, Transaction, TransactionDe
 from app.services.cashbox_service import CashboxService
 from app.services.sales_block_service import SalesBlockService, inscricoes_do_jogador
 from app.services.tournament_service import ler_torneio
-from app.services.transaction_filters import sem_canceladas
+from app.services.transaction_filters import entradas_da_venda, sem_canceladas
 from app.utils.erros import ErroDeNegocio
 from app.services import pagamento_dividido
 
@@ -502,7 +502,8 @@ class TransactionService:
                 int(fichas_da_venda) if fichas_da_venda is not None else fichas_do_dia
             )
             dados = {
-                campo_conta: max(int(tp.get(campo_conta) or 0) - 1, 0),
+                # O contador volta pelo que a VENDA somou, pelo mesmo motivo.
+                campo_conta: max(int(tp.get(campo_conta) or 0) - entradas_da_venda(tx), 0),
                 campo_total: max(round(float(tp.get(campo_total) or 0) - valor, 2), 0.0),
                 "total_chips": max(int(tp.get("total_chips") or 0) - fichas_do_tipo, 0),
             }

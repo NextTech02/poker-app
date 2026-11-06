@@ -42,6 +42,39 @@ describe('novaLinha', () => {
   });
 });
 
+describe('quantas entradas o meio vale', () => {
+  const entrada = () => novaLinha({ name: 'Entrada' });
+  const doble = (entry_count) => novaLinha({ name: 'Reentrada Doble', category: 'rebuy', entry_count });
+
+  it('linha nova vale uma; linha carregada mantém o gravado', () => {
+    expect(novaLinha().entry_count).toBe('1');
+    expect(doble(2).entry_count).toBe('2');
+  });
+
+  it('recompra vai como número', () => {
+    expect(meiosParaApi([entrada(), doble(3)])[1].entry_count).toBe(3);
+  });
+
+  it('fora da recompra vale sempre uma, mesmo depois de trocar a categoria', () => {
+    // Em Entrada, o contador multiplica o preço e é a base dos jogadores ativos.
+    const trocada = { ...doble(3), category: 'addon' };
+    expect(meiosParaApi([entrada(), trocada])[1].entry_count).toBe(1);
+  });
+
+  it('o inativo volta com o que tinha', () => {
+    const inativo = { id: 'v', name: 'Velha', category: 'rebuy', amount: 40, chips: 1, entry_count: 2 };
+    expect(meiosParaApi([entrada()], [inativo])[1].entry_count).toBe(2);
+  });
+
+  it.each(['0', '11', ''])('recompra valendo "%s" é recusada', (valor) => {
+    expect(validarMeios([entrada(), doble(valor)], t)).toBe('Cada recompra vale de 1 a 10 entradas.');
+  });
+
+  it('de 1 a 10 passa', () => {
+    expect(validarMeios([entrada(), doble('1'), doble('10')], t)).toBe('');
+  });
+});
+
 describe('meiosPadrao', () => {
   it('são Buy-in, Rebuy e Add-on, nessa ordem, todos com rake 20', () => {
     const linhas = meiosPadrao(t);

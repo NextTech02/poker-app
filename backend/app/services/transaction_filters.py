@@ -37,6 +37,13 @@ def sem_canceladas(linhas: List[dict]) -> List[dict]:
     return [linha for linha in (linhas or []) if not esta_cancelada(linha)]
 
 
+def entradas_da_venda(linha: dict) -> int:
+    """Quantas entradas a venda vale: a "Reentrada Doble" é UMA linha e DUAS
+    reentradas. Vale o número gravado na venda, não o do meio de entrada, que o
+    clube pode mudar depois. Venda anterior à coluna vale uma."""
+    return int(linha.get("entry_count") or 1)
+
+
 def ler_transacoes_ativas(monta_query: Callable[[str], object], colunas: str) -> List[dict]:
     """Lê `transactions` já sem as canceladas.
 

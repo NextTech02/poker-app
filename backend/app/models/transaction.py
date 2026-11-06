@@ -55,6 +55,8 @@ class Transaction(TransactionBase):
     # o jogador comprou — que é o que o floor confere antes de entregar a pilha.
     buy_type_name: Optional[str] = None
     chips: Optional[int] = None
+    # Entradas que a venda conta, congeladas como as fichas ("Reentrada Doble" = 2).
+    entry_count: Optional[int] = None
     # Venda de TAXA (type continua 'addon'): o Caixa e os relatórios separam.
     is_fee: bool = False
     rake_percentage: Optional[float] = None

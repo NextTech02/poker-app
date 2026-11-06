@@ -12,7 +12,7 @@ from app.models.report import (
     TournamentPrizeRow,
     BuyTypeReportRow,
 )
-from app.services.transaction_filters import ler_transacoes_ativas
+from app.services.transaction_filters import entradas_da_venda, ler_transacoes_ativas
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +30,15 @@ def categoria_da_venda(linha: dict) -> str:
 
 
 def ler_vendas_com_taxa(monta_query, colunas: str) -> list:
-    """Lê as vendas ativas trazendo a marca de taxa. Banco sem a coluna
-    (migração pendente): ninguém é taxa ainda, então vale a leitura de antes."""
-    try:
-        return ler_transacoes_ativas(monta_query, f"{colunas}, is_fee")
-    except Exception:
-        return ler_transacoes_ativas(monta_query, colunas)
+    """Lê as vendas ativas trazendo a marca de taxa e quantas entradas cada uma
+    vale. Banco sem as colunas (migração pendente): ninguém é taxa e toda venda
+    vale uma entrada, então vale a leitura de antes."""
+    for extras in (", is_fee, entry_count", ", is_fee"):
+        try:
+            return ler_transacoes_ativas(monta_query, f"{colunas}{extras}")
+        except Exception:
+            continue
+    return ler_transacoes_ativas(monta_query, colunas)
 
 
 def agrupar_vendas_por_meio(linhas, ordem_por_id=None) -> list:
@@ -58,7 +61,8 @@ def agrupar_vendas_por_meio(linhas, ordem_por_id=None) -> list:
                 "name": nome, "category": tipo, "count": 0, "amount": 0.0,
                 "_ordem": ordem.get(chave, 10 ** 6),
             }
-        grupo["count"] += 1
+        # Entradas, não vendas: a soma precisa fechar com os contadores do torneio.
+        grupo["count"] += entradas_da_venda(linha)
         grupo["amount"] += float(linha.get("amount") or 0)
     ordenados = sorted(
         grupos.values(),
@@ -340,7 +344,7 @@ class ReportService:
             transactions = ler_vendas_com_taxa(_monta, "type, amount")
             total_revenue = sum(float(t["amount"]) for t in transactions if t["type"] in ["buy_in", "rebuy", "addon"])
             total_buy_ins = sum(1 for t in transactions if t["type"] == "buy_in")
-            total_rebuys = sum(1 for t in transactions if t["type"] == "rebuy")
+            total_rebuys = sum(entradas_da_venda(t) for t in transactions if t["type"] == "rebuy")
             # Taxa sai do sistema como addon, mas não é add-on.
             total_addons = sum(1 for t in transactions if categoria_da_venda(t) == "addon")
             buy_in_amounts = [float(t["amount"]) for t in transactions if t["type"] == "buy_in"]
@@ -373,7 +377,7 @@ class ReportService:
                 continue
             nome = (v.get("buy_type_name") or "").strip() or ROTULO_DA_CATEGORIA.get(categoria_da_venda(v), categoria_da_venda(v))
             por_meio = meios_por_jogador.setdefault(pid, {})
-            por_meio[nome] = por_meio.get(nome, 0) + 1
+            por_meio[nome] = por_meio.get(nome, 0) + entradas_da_venda(v)
 
         # Get tournament count
         tournament_query = supabase.table("tournaments").select("id", count="exact")

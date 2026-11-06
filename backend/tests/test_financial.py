@@ -229,6 +229,17 @@ class TestMeiosDeEntradaPorTorneio:
         ]
         assert [(m.name, m.count) for m in por_torneio[outro].by_buy_type] == [("Buy-in", 1)]
 
+    def test_reentrada_doble_conta_duas_nas_reentradas_do_torneio(self, monkeypatch):
+        """Mesmo número do relatório do torneio: o Financeiro não pode dar outro."""
+        _monta(monkeypatch, transacoes=[
+            self._venda(1, "rebuy", 20, "bt-re", "Reentrada"),
+            {**self._venda(2, "rebuy", 40, "bt-doble", "Reentrada Doble"), "entry_count": 2},
+        ])
+        [t] = FinancialService.get_financial_summary(stage_id=STAGE, organization_id=ORG).by_tournament
+        assert t.rebuys_count == 3
+        assert t.revenue == 60
+        assert {m.name: m.count for m in t.by_buy_type} == {"Reentrada": 1, "Reentrada Doble": 2}
+
     def test_sem_a_tabela_de_meios_os_grupos_saem_mesmo_assim(self, monkeypatch):
         fake = _monta(monkeypatch, transacoes=[self._venda(1, "rebuy", 300, "bt-doble", "Doble")])
         original = fake.table

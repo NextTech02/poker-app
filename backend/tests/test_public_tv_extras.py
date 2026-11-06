@@ -116,6 +116,16 @@ class TestServico:
         r = PublicTvService.get_day_extras(DIA)
         assert [(b.name, b.count) for b in r.buy_types] == [("Buy-in", 3), ("Rebuy", 2)]
 
+    def test_reentrada_doble_conta_as_entradas_que_vale(self, banco):
+        """Esta linha substitui os quadros de Entradas e Reentradas no telão: com
+        a doble valendo uma, os dois números discordariam."""
+        banco.store["transactions"].append({
+            "id": "x-doble", "tournament_player_id": "p1", "type": "rebuy",
+            "buy_type_id": "bt2", "status": "active", "entry_count": 2,
+        })
+        r = PublicTvService.get_day_extras(DIA)
+        assert {b.name: b.count for b in r.buy_types}["Rebuy"] == 4
+
     def test_dia_sem_vendas_mostra_zero_em_cada_meio(self, banco):
         banco.store["transactions"] = []
         r = PublicTvService.get_day_extras(DIA)

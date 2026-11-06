@@ -84,6 +84,18 @@
   }
 }
 
+/* Recompra: quantas entradas a venda conta, abaixo da categoria */
+.entry-method-entries {
+  margin-top: 6px;
+}
+
+.entry-method-entries label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
 /* Torneio por equipes: "por equipe" abaixo da categoria */
 .entry-method-team {
   display: flex;

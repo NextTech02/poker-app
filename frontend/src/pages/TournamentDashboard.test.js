@@ -220,6 +220,14 @@ describe('itens por meio de entrada', () => {
     expect(screen.getAllByTestId('linha-item')).toHaveLength(4);
   });
 
+  it('reentrada doble conta as entradas que vale, com o valor da venda', async () => {
+    const doble = venda({
+      type: 'rebuy', buy_type_id: 'b2', buy_type_name: 'Reentrada Doble', amount: 40, entry_count: 2,
+    });
+    await montar({ inscritos: INSCRITOS_COM_ID, transacoes: [doble] });
+    expect(celulas('Reentrada Doble').slice(0, 3)).toEqual(['Reentrada Doble', '2', 'R$ 40.00']);
+  });
+
   it('ordena por categoria (entrada, recompra, add-on) e depois pelo nome', async () => {
     await montar({ inscritos: INSCRITOS_COM_ID, transacoes: VENDAS });
     const nomes = screen.getAllByTestId('linha-item').map((tr) => tr.querySelector('td').textContent);

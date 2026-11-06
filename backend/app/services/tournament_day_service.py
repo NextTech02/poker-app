@@ -9,7 +9,7 @@ from app.database.paginacao import todas_as_linhas
 from app.database.supabase_client import supabase_admin
 # Venda estornada não entregou ficha nenhuma: contá-la infla o chipcount do
 # telão com fichas que voltaram para o caixa.
-from app.services.transaction_filters import ler_transacoes_ativas
+from app.services.transaction_filters import entradas_da_venda, ler_transacoes_ativas
 # Recusa de REGRA com codigo. Herda de ValueError, entao todo
 # `except ValueError` que ja existe nos routers continua pegando — o que
 # muda e a tela receber um `code` para escolher a frase no idioma do clube
@@ -570,7 +570,7 @@ class TournamentDayService:
                     .in_("tournament_player_id", ids)
                     .in_("type", ["buy_in", "rebuy", "addon"])
                 ),
-                "tournament_player_id, type, chips",
+                "tournament_player_id, type, chips, entry_count",
             )
         except Exception:
             logger.warning(
@@ -590,9 +590,11 @@ class TournamentDayService:
             do_jogador = por_jogador.setdefault(linha.get("tournament_player_id"), {})
             somado, coberto = do_jogador.get(linha.get("type"), (0, 0))
             # O buy-in é UMA linha para a inscrição inteira (buy_in_count pode
-            # ser 2), então ela cobre o contador todo; recompra e add-on são uma
-            # linha por unidade.
-            do_jogador[linha.get("type")] = (somado + int(fichas), coberto + 1)
+            # ser 2), então ela cobre o contador todo; recompra e add-on cobrem o
+            # que a venda somou a ele (a "Reentrada Doble" soma 2 numa linha só).
+            do_jogador[linha.get("type")] = (
+                somado + int(fichas), coberto + entradas_da_venda(linha)
+            )
         return por_jogador
 
     @staticmethod

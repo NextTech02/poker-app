@@ -206,7 +206,8 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
         count: 0,
         amount: 0,
       };
-      grupo.count += 1;
+      // Entradas, não vendas: a "Reentrada Doble" é uma venda e duas reentradas.
+      grupo.count += Number(venda.entry_count) || 1;
       grupo.amount += Number(venda.amount) || 0;
       grupos.set(chave, grupo);
     }

@@ -1023,6 +1023,28 @@ class TestContadoresSaoDecrementados:
         TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert fake.store["tournament_days"][0]["eliminations_count"] == 1
 
+    def test_estorno_da_reentrada_doble_devolve_as_duas_ao_contador(self, monkeypatch):
+        """Uma venda, duas reentradas: devolver so uma deixaria no telao uma
+        reentrada que ninguem pagou. Quem saiu da mesa foi UM jogador, entao
+        volta uma eliminacao so."""
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(tipo="rebuy", valor=40, chips=50000, entry_count=2),
+            jogador={"buy_in_count": 3, "rebuy_count": 3, "total_rebuy_amount": 60,
+                     "total_chips": 100000},
+            tabelas={"tournament_days": [{
+                "id": DIA, "tournament_id": TOUR, "registered_players": 10,
+                "rebuy_chips": 25000, "addon_chips": 10000,
+                "eliminations_count": 1,
+            }]},
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        jogador = fake.store["tournament_players"][0]
+        assert jogador["rebuy_count"] == 1
+        assert float(jogador["total_rebuy_amount"]) == 20.0
+        assert jogador["total_chips"] == 50000
+        assert fake.store["tournament_days"][0]["eliminations_count"] == 2
+
     def test_modo_mesa_estornar_a_reentrada_elimina_o_jogador_de_novo(self, monkeypatch):
         """Por mesa, a reentrada tinha trazido AQUELE jogador de volta. Sem ela
         ele esta fora: volta a 'eliminated', o contador e recontado e a

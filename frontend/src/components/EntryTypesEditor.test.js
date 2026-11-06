@@ -82,6 +82,31 @@ describe('linhas', () => {
   });
 });
 
+describe('quantas entradas o meio vale', () => {
+  const ROTULO = 'Vale por (entradas)';
+
+  it('só a recompra mostra o campo: é o caso da Reentrada Doble', () => {
+    render(<Harness inicial={meiosPadrao(t)} />);
+    expect(screen.getAllByLabelText(ROTULO)).toHaveLength(1);
+    expect(linhas()[1]).toContainElement(screen.getByLabelText(ROTULO));
+    expect(screen.getByLabelText(ROTULO)).toHaveValue(1);
+  });
+
+  it('digitar devolve o valor na linha', async () => {
+    const aoMudar = jest.fn();
+    render(<Harness inicial={meiosPadrao(t)} aoMudar={aoMudar} />);
+    await userEvent.clear(screen.getByLabelText(ROTULO));
+    await userEvent.type(screen.getByLabelText(ROTULO), '2');
+    expect(aoMudar.mock.calls.at(-1)[0][1].entry_count).toBe('2');
+  });
+
+  it('trocar a categoria para Recompra faz o campo aparecer', async () => {
+    render(<Harness inicial={meiosPadrao(t)} />);
+    await userEvent.selectOptions(linha(2).categoria, 'rebuy');
+    expect(screen.getAllByLabelText(ROTULO)).toHaveLength(2);
+  });
+});
+
 describe('adicionar entrada', () => {
   it('acrescenta uma linha em branco, com rake 20, sem opção pré-pronta', async () => {
     // "Buy-in duplo" é algo que o clube CADASTRA, não um item de menu.

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from './Button';
 import { currencySymbol } from '../utils/currencyUtils';
-import { novaLinha, removerLinha } from '../utils/entryTypes';
+import { MAXIMO_DE_ENTRADAS, novaLinha, removerLinha } from '../utils/entryTypes';
 import './EntryTypesEditor.css';
 
 /**
@@ -165,6 +165,30 @@ const EntryTypesEditor = ({
                   />
                   {t('teams.perTeam', 'Por equipe (valor da equipe inteira)')}
                 </label>
+              )}
+              {meio.category === 'rebuy' && (
+                <div className="entry-method-entries">
+                  <label htmlFor={`${idPrefix}_entries_${meio.key}`}>
+                    {t('tournamentDayForm.entryMethodEntries', 'Vale por (entradas)')}
+                  </label>
+                  <input
+                    id={`${idPrefix}_entries_${meio.key}`}
+                    type="number"
+                    min="1"
+                    max={MAXIMO_DE_ENTRADAS}
+                    step="1"
+                    value={meio.entry_count}
+                    onChange={(e) => alterar(meio.key, 'entry_count', e.target.value)}
+                    aria-describedby={`${idPrefix}_entries_hint_${meio.key}`}
+                    disabled={disabled}
+                  />
+                  <small className="form-hint" id={`${idPrefix}_entries_hint_${meio.key}`}>
+                    {t(
+                      'tournamentDayForm.entryMethodEntriesHint',
+                      'Quantas reentradas esta venda conta no telão e nos relatórios. Valor e fichas continuam os desta linha.'
+                    )}
+                  </small>
+                </div>
               )}
               {indice === 0 && (
                 <small className="form-hint" id={hintId}>

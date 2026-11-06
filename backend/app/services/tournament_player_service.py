@@ -676,6 +676,10 @@ class TournamentPlayerService:
         rebuy_chips = TournamentPlayerService._fichas_do_tipo(
             buy_type, day_info.get("rebuy_chips") or 10000
         )
+        # Quantas entradas a venda vale no contador ("Reentrada Doble" = 2). Só o
+        # contador: valor e fichas acima já são os da venda inteira, e quem volta
+        # à mesa continua sendo UM jogador (uma eliminação consumida por venda).
+        entradas = int((buy_type or {}).get("entry_count") or 1)
 
         # Pagamento dividido conferido antes de consumir eliminação ou mexer nos
         # contadores. As partes são de UMA venda; o lote antigo (`quantity`)
@@ -726,7 +730,7 @@ class TournamentPlayerService:
         # podem virar N idas ao banco (ver docstring).
         valor_total = rebuy_amount * quantity
         updated_data = {
-            "rebuy_count": tp["rebuy_count"] + quantity,
+            "rebuy_count": tp["rebuy_count"] + quantity * entradas,
             "total_rebuy_amount": float(tp["total_rebuy_amount"]) + valor_total,
             "total_chips": tp["total_chips"] + (rebuy_chips * quantity),
             "status": "active",  # Reactivate player if they were eliminated
@@ -792,6 +796,10 @@ class TournamentPlayerService:
             }
             if ticket_id:
                 linha["ticket_id"] = ticket_id
+            if entradas > 1:
+                # Congelada na venda, como as fichas: o estorno devolve o que ela
+                # somou, mesmo que o clube mude o meio de entrada depois.
+                linha["entry_count"] = entradas
             if client_mutation_id:
                 # Cada linha precisa do SEU identificador, senão o replay da fila
                 # offline acharia a primeira e concluiria que as N já entraram.

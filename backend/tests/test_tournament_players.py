@@ -816,6 +816,17 @@ class TestRecompraDesfazEliminacao:
         # E as cinco recompras foram gravadas do mesmo jeito.
         assert fake.store["tournament_players"][0]["rebuy_count"] == 5
 
+    def test_reentrada_doble_desfaz_UMA_eliminacao(self, monkeypatch):
+        """Vale duas entradas, mas quem voltou a mesa foi UM jogador: desfazer
+        duas eliminacoes daria um ativo a mais do que gente sentada."""
+        fake = _monta(monkeypatch, jogadores=self._inscrito(), tabelas={"buy_types": [{
+            "id": "bt-doble", "tournament_id": TOUR, "name": "Reentrada Doble", "category": "rebuy",
+            "amount": 40, "rake_percentage": 0, "chips": 50000, "entry_count": 2,
+        }]})
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, buy_type_id="bt-doble")
+        assert len(self._chamadas_da_rpc(fake)) == 1
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 2
+
     def test_recompra_multipla_pelo_caminho_sem_a_funcao_tambem_desfaz_uma(self, monkeypatch):
         fake = _monta(monkeypatch,
                       dia=_dia(eliminations_count=3),
@@ -1226,6 +1237,35 @@ class TestMeiosDeEntradaDoTorneio:
         linhas = [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
         assert [l["chips"] for l in linhas] == [25000, 25000]
         assert fake.store["tournament_players"][0]["total_chips"] == 60000
+
+    def _reentrada(self, fake, entradas):
+        fake.store["buy_types"].append({
+            "id": "bt-re", "tournament_id": TOUR, "name": "Reentrada Doble", "category": "rebuy",
+            "amount": 40, "rake_percentage": 0, "chips": 50000, "entry_count": entradas,
+        })
+
+    def test_reentrada_doble_conta_duas_e_cobra_uma_venda(self, monkeypatch):
+        """O clube confere o telao multiplicando as entradas pelo valor da entrada:
+        a doble e UMA venda de 40 e DUAS reentradas de 20. Valor e fichas ja sao
+        os da venda inteira; multiplica-los cobraria o dobro."""
+        fake = self._com_jogador(monkeypatch)
+        self._reentrada(fake, 2)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, buy_type_id="bt-re")
+        inscrito = fake.store["tournament_players"][0]
+        assert inscrito["rebuy_count"] == 2
+        assert float(inscrito["total_rebuy_amount"]) == 40.0
+        assert inscrito["total_chips"] == 60000
+        [venda] = [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
+        assert (venda["entry_count"], float(venda["amount"]), venda["chips"]) == (2, 40.0, 50000)
+
+    def test_meio_que_vale_uma_entrada_nao_cita_a_coluna(self, monkeypatch):
+        """Citar a coluna derrubaria a venda num banco sem a migracao."""
+        fake = self._com_jogador(monkeypatch)
+        self._reentrada(fake, 1)
+        TournamentPlayerService.add_rebuy(TP, "u1", skip_level_gate=True, buy_type_id="bt-re")
+        assert fake.store["tournament_players"][0]["rebuy_count"] == 1
+        [venda] = [t for t in fake.store["transactions"] if t["type"] == "rebuy"]
+        assert "entry_count" not in venda
 
     def test_add_on_tambem_cobra_e_entrega_pelo_tipo(self, monkeypatch):
         fake = self._com_jogador(monkeypatch)
