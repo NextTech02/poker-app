@@ -95,6 +95,18 @@ class TestServico:
         assert [p.position for p in r.prizes] == [1, 2, 4]   # ordenado; o 3º está escondido
         assert r.prizes[0].prize_amount == 15000.0
 
+    def test_garantido_do_torneio_chega_ao_telao(self, banco, stub):
+        stub(PAS, get_prize_summary=lambda tid: SimpleNamespace(
+            available_prize_pool=Decimal("45000"), guaranteed_prize=Decimal("30000")))
+        assert PublicTvService.get_day_extras(DIA).guaranteed_prize == 30000.0
+
+    def test_sem_resumo_o_garantido_fica_vazio(self, banco, stub):
+        """Zero diria que o torneio não tem garantido; sem resumo, não se sabe."""
+        def _estoura(tid):
+            raise RuntimeError("rpc fora")
+        stub(PAS, get_prize_summary=_estoura)
+        assert PublicTvService.get_day_extras(DIA).guaranteed_prize is None
+
     def test_moeda_e_da_organizacao_do_dia_nao_da_primeira_linha(self, banco):
         """Antes a TV lia `app_settings` sem filtro e pegava a linha de
         qualquer clube (USD, aqui). O dia é do clube peruano: S/."""
@@ -294,6 +306,15 @@ class TestModeloDoDia:
         patch = TournamentDayUpdate(broadcast_promo_url="https://cdn/x.webp",
                                     broadcast_promo_fit="cover").model_dump(exclude_unset=True)
         assert patch == {"broadcast_promo_url": "https://cdn/x.webp", "broadcast_promo_fit": "cover"}
+
+    def test_garantido_no_telao_nasce_desligado_e_nao_vai_na_criacao_do_dia(self):
+        from app.models.tournament_day import TournamentDayCreate, TournamentDayUpdate
+        assert TournamentDay(**self._linha()).broadcast_show_guaranteed is False
+        dados = TournamentDayCreate(tournament_id=TOUR, day_name="Dia 1",
+                                    buy_in=100, max_players=200).model_dump()
+        assert "broadcast_show_guaranteed" not in dados
+        patch = TournamentDayUpdate(broadcast_show_guaranteed=True).model_dump(exclude_unset=True)
+        assert patch == {"broadcast_show_guaranteed": True}
 
     def test_meios_de_entrada_no_telao_nascem_desligados_e_entradas_ligada(self):
         from app.models.tournament_day import TournamentDayCreate

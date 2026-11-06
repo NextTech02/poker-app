@@ -274,6 +274,8 @@ class TournamentDayUpdate(BaseModel):
     broadcast_show_entries: Optional[bool] = None
     # Faixa animada "Jogador eliminado" na parte de baixo do telão.
     broadcast_show_eliminations: Optional[bool] = None
+    # Garantido do torneio junto do prizepool.
+    broadcast_show_guaranteed: Optional[bool] = None
     # Tamanho do título em %, separado da fonte geral.
     broadcast_title_size: Optional[int] = Field(None, ge=50, le=300)
 
@@ -336,6 +338,8 @@ class TournamentDay(TournamentDayBase):
     broadcast_show_entries: bool = True
     # Faixa animada de jogador eliminado (pedido do NSOP): nasce desligada.
     broadcast_show_eliminations: bool = False
+    # Garantido do torneio junto do prizepool: nasce desligado.
+    broadcast_show_guaranteed: bool = False
     # Tamanho do título em % (50–300), multiplicado pela fonte geral.
     broadcast_title_size: int = 100
 

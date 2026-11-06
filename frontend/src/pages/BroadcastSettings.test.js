@@ -640,6 +640,36 @@ describe('aviso animado de jogador eliminado', () => {
   });
 });
 
+describe('garantido no telão', () => {
+  const ROTULO = 'Garantido (valor definido na Premiação)';
+
+  it('nasce desligado; ligar vai no payload', async () => {
+    await montar();
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_guaranteed).toBe(false);
+    api.patch.mockClear();
+    await alternar(ROTULO);
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_guaranteed).toBe(true);
+  });
+
+  it('dia que já tem a opção ligada abre ligado', async () => {
+    await montar({ dia: { ...DIA, broadcast_show_guaranteed: true } });
+    await salvar();
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    expect(enviado().broadcast_show_guaranteed).toBe(true);
+  });
+
+  it('a prévia mostra o garantido de exemplo assim que liga', async () => {
+    await montar();
+    expect(document.querySelector('.bs-preview-stage .tv-pool--guaranteed')).toBeNull();
+    await alternar(ROTULO);
+    expect(document.querySelector('.bs-preview-stage .tv-pool--guaranteed')).toBeInTheDocument();
+  });
+});
+
 describe('tamanho do título', () => {
   it('nasce em 100% e vai no payload separado da fonte geral', async () => {
     await montar();

@@ -1246,6 +1246,7 @@
     "promoFitContain": "Show it whole (no cropping)",
     "promoFitCover": "Fill the column (edges may be cropped)",
     "visEliminations": "Animated \"player eliminated\" banner (bottom)",
+    "visGuaranteed": "Guaranteed (amount set in Prizes)",
     "previewElimination": "Test elimination banner"
   },
   "errors": {

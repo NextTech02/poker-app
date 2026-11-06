@@ -37,6 +37,7 @@ export const sampleModel = ({
   breakIn: 1112,
   prizes: SAMPLE_PRIZES,
   prizePool: 34300,
+  guaranteed: 30000,
   buyTypes: [
     { name: 'Buy-in', count: 120, amount: 50, category: 'buy_in' },
     { name: 'Rebuy', count: 40, amount: 20, category: 'rebuy' },

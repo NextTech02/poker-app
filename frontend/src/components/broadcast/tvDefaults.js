@@ -58,6 +58,8 @@ export const TV_DEFAULT_SETTINGS = {
   broadcast_show_buy_types: false,
   // Faixa animada "Jogador eliminado" na parte de baixo: nasce desligada.
   broadcast_show_eliminations: false,
+  // Garantido do torneio junto do prizepool: elemento novo, só ligado.
+  broadcast_show_guaranteed: false,
   // Tile "Entradas" (contagem) — interruptor próprio, ligado como sempre foi.
   broadcast_show_entries: true,
   broadcast_show_title: true,
