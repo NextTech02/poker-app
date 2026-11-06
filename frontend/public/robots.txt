@@ -1,0 +1,9 @@
+# app.aceblind.net — o sistema. Tudo liberado para rastreio DE PROPÓSITO: o
+# que não deve aparecer na busca é marcado com <meta name="robots"
+# content="noindex"> pela própria página (só /login fica indexável). Um
+# Disallow aqui impediria o Google de ler esse noindex.
+#
+# Sem este arquivo, o `serve -s` respondia /robots.txt com o index.html do
+# React.
+User-agent: *
+Allow: /

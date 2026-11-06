@@ -269,3 +269,55 @@ describe('acessibilidade', () => {
     expect(screen.getByRole('combobox')).toHaveAttribute('aria-required', 'true');
   });
 });
+
+describe('lista compartilhada e limite', () => {
+  const MUITOS = Array.from({ length: 120 }, (_, i) => ({ id: `j${i}`, name: `Jogador ${i}` }));
+  const pedidosDaLista = () => api.get.mock.calls.filter(([u]) => u === '/players').length;
+
+  it('mostra no máximo 50 e pede para continuar digitando', async () => {
+    // Abrir o campo desenhava o cadastro INTEIRO, e cada passada do mouse
+    // redesenhava tudo de novo.
+    api.get.mockResolvedValue({ data: MUITOS });
+    const { campo } = await montar();
+    await userEvent.click(campo);
+    expect(screen.getAllByRole('option')).toHaveLength(50);
+    expect(screen.getByText(/continue digitando/)).toBeInTheDocument();
+  });
+
+  it('digitar ainda acha quem está fora dos 50 primeiros', async () => {
+    api.get.mockResolvedValue({ data: MUITOS });
+    const { campo } = await montar();
+    await userEvent.type(campo, 'Jogador 119');
+    await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(1));
+    expect(screen.getByRole('option')).toHaveTextContent('Jogador 119');
+  });
+
+  it('dois seletores na mesma tela baixam a lista UMA vez', async () => {
+    // O Caixa tem dois; antes eram dois downloads do cadastro inteiro.
+    render(<><PlayerSelect onChange={jest.fn()} /><PlayerSelect onChange={jest.fn()} /></>);
+    await waitFor(() => screen.getAllByRole('combobox').forEach((c) => expect(c).not.toBeDisabled()));
+    expect(pedidosDaLista()).toBe(1);
+  });
+
+  it('reabrir mostra a lista na hora; passados 10 s, confere com o servidor', async () => {
+    // A recepção cadastra num computador e o caixa precisa achar no outro.
+    const primeiro = render(<PlayerSelect onChange={jest.fn()} />);
+    await waitFor(() => expect(screen.getByRole('combobox')).not.toBeDisabled());
+    primeiro.unmount();
+
+    const segundo = render(<PlayerSelect onChange={jest.fn()} />);
+    expect(screen.getByRole('combobox')).not.toBeDisabled();   // na hora, sem esperar a rede
+    expect(pedidosDaLista()).toBe(1);                          // ainda fresca: nem pergunta
+    segundo.unmount();
+
+    const agora = Date.now();
+    const relogio = jest.spyOn(Date, 'now').mockReturnValue(agora + 11000);
+    try {
+      render(<PlayerSelect onChange={jest.fn()} />);
+      expect(screen.getByRole('combobox')).not.toBeDisabled();
+      await waitFor(() => expect(pedidosDaLista()).toBe(2));
+    } finally {
+      relogio.mockRestore();
+    }
+  });
+});

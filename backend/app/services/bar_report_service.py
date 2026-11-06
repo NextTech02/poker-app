@@ -20,6 +20,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.models.bar import (
     BarDailyRow,
     BarPaymentMethodTotal,
@@ -69,15 +70,21 @@ class BarReportService:
         ids = [t["id"] for t in turnos]
         if not ids:
             return {"turnos": [], "tabs": [], "itens": [], "pagamentos": []}
-        tabs = supabase.table("bar_tabs").select(
-            "id, bar_shift_id, player_id, status, subtotal, courtesy_amount, discount_amount, total, paid_amount"
-        ).in_("bar_shift_id", ids).execute().data or []
-        itens = supabase.table("bar_tab_items").select(
-            "tab_id, bar_shift_id, product_id, product_name, quantity, unit_price, unit_cost, line_total, is_courtesy, status"
-        ).in_("bar_shift_id", ids).execute().data or []
-        pagamentos = supabase.table("bar_tab_payments").select(
-            "tab_id, bar_shift_id, amount, payment_method, payment_source, status"
-        ).in_("bar_shift_id", ids).execute().data or []
+
+        # TODAS as linhas do período, de mil em mil (app/database/paginacao.py):
+        # a receita do bar no DRE é a soma delas, e um mês de bar passa fácil
+        # de mil itens — o PostgREST cortaria sem avisar.
+        def todas(tabela, colunas):
+            return todas_as_linhas(lambda: (
+                supabase.table(tabela).select(colunas).in_("bar_shift_id", ids).order("id")
+            ))
+
+        tabs = todas("bar_tabs",
+                     "id, bar_shift_id, player_id, status, subtotal, courtesy_amount, discount_amount, total, paid_amount")
+        itens = todas("bar_tab_items",
+                      "id, tab_id, bar_shift_id, product_id, product_name, quantity, unit_price, unit_cost, line_total, is_courtesy, status")
+        pagamentos = todas("bar_tab_payments",
+                           "id, tab_id, bar_shift_id, amount, payment_method, payment_source, status")
         return {"turnos": turnos, "tabs": tabs, "itens": itens, "pagamentos": pagamentos}
 
     @staticmethod

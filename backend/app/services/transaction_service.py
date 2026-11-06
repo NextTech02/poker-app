@@ -4,11 +4,13 @@ from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.services.allocation_service import liberar_assento_do_dia
 from app.services.eliminacao import MODO_MESA, modo_do_torneio, recontar_eliminacoes, registrar_eliminacao
 from app.models.transaction import TransactionCreate, Transaction, TransactionDetail
 from app.services.cashbox_service import CashboxService
-from app.services.sales_block_service import SalesBlockService
+from app.services.sales_block_service import SalesBlockService, inscricoes_do_jogador
+from app.services.tournament_service import ler_torneio
 from app.services.transaction_filters import sem_canceladas
 from app.utils.erros import ErroDeNegocio
 from app.services import pagamento_dividido
@@ -55,25 +57,21 @@ class TransactionService:
         # Postgres devolve na ordem que quiser (um UPDATE em tournament_players
         # reescreve a tupla no fim do heap e inverte a ordem física), e a trava
         # de vendas conferia UM dia enquanto a venda era gravada no OUTRO.
-        tp_response = (
-            supabase.table("tournament_players").select("id")
-            .eq("tournament_id", data["tournament_id"])
-            .eq("player_id", data["player_id"])
-            .order("registered_at")
-            .order("id")
-            .execute()
-        )
-        if tp_response.data:
-            data["tournament_player_id"] = tp_response.data[0]["id"]
+        # A mesma leitura que a trava do dia já fez nesta requisição.
+        inscricoes = inscricoes_do_jogador(supabase, data["tournament_id"], data["player_id"])
+        if inscricoes:
+            data["tournament_player_id"] = inscricoes[0]["id"]
+
+        # O nome do torneio sai da linha já lida (rota/caixa) e ANTES de gravar:
+        # a venda não muda o nome, e depois da escrita a memória é apagada.
+        torneio = ler_torneio(supabase, data["tournament_id"]) or {}
 
         response = supabase.table("transactions").insert(data).execute()
         trans = response.data[0]
 
-        # Get related info
-        tournament = supabase.table("tournaments").select("name").eq("id", data["tournament_id"]).execute()
         player = supabase.table("players").select(COLUNAS_JOGADOR).eq("id", data["player_id"]).execute()
 
-        tournament_name = tournament.data[0]["name"] if tournament.data else ""
+        tournament_name = torneio.get("name") or ""
         player_info = player.data[0] if player.data else {}
 
         return TransactionDetail(
@@ -1190,27 +1188,35 @@ class TransactionService:
         )
 
     @staticmethod
-    def get_transactions(stage_id: Optional[str] = None) -> List[TransactionDetail]:
-        """Get all transactions with details, optionally filtered by stage_id"""
-        if stage_id:
-            # Filter transactions by tournaments that belong to the stage
-            response = (
-                supabase.table("transactions")
-                .select("*, tournaments!inner(name, stage_id), players(name, nickname)")
-                .eq("tournaments.stage_id", stage_id)
-                .order("created_at", desc=True)
-                .execute()
-            )
+    def get_transactions(stage_id: Optional[str] = None, limit: Optional[int] = None) -> List[TransactionDetail]:
+        """Get all transactions with details, optionally filtered by stage_id.
+
+        `limit`: só as N mais recentes, cortadas NO BANCO (a ordem já é da mais
+        nova para a mais velha). Sem `limit`, TODAS — de mil em mil, porque o
+        Caixa soma os totais da gaveta a partir desta lista e o PostgREST
+        cortaria em 1000 sem avisar (app/database/paginacao.py)."""
+        def montar():
+            if stage_id:
+                # Filter transactions by tournaments that belong to the stage
+                query = (
+                    supabase.table("transactions")
+                    .select("*, tournaments!inner(name, stage_id), players(name, nickname)")
+                    .eq("tournaments.stage_id", stage_id)
+                )
+            else:
+                query = (
+                    supabase.table("transactions")
+                    .select("*, tournaments(name), players(name, nickname)")
+                )
+            return query.order("created_at", desc=True).order("id")
+
+        if limit:
+            linhas = montar().limit(limit).execute().data or []
         else:
-            response = (
-                supabase.table("transactions")
-                .select("*, tournaments(name), players(name, nickname)")
-                .order("created_at", desc=True)
-                .execute()
-            )
+            linhas = todas_as_linhas(montar)
 
         transactions = []
-        for item in response.data:
+        for item in linhas:
             tournament = item.get("tournaments", {})
             player = item.get("players", {})
 
@@ -1228,17 +1234,18 @@ class TransactionService:
 
     @staticmethod
     def get_transactions_by_tournament(tournament_id: str) -> List[TransactionDetail]:
-        """Get transactions for a specific tournament"""
-        response = (
+        """Get transactions for a specific tournament (todas: um evento grande
+        passa de mil vendas — ver app/database/paginacao.py)."""
+        linhas = todas_as_linhas(lambda: (
             supabase.table("transactions")
             .select("*, players(name, nickname)")
             .eq("tournament_id", tournament_id)
             .order("created_at", desc=True)
-            .execute()
-        )
+            .order("id")
+        ))
 
         transactions = []
-        for item in response.data:
+        for item in linhas:
             player = item.get("players", {})
             trans_data = {k: v for k, v in item.items() if k != "players"}
 

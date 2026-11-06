@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import api from '../../config/api';
 import Button from '../Button';
 import { useToast } from '../../contexts/ToastContext';
+import { useHistoricoDoJogador } from '../../hooks/useHistoricoDoJogador';
 import { formatarPontos, previaDasMesas, resumoDasMesas } from '../../utils/equipes';
 import { imprimirConferencia } from './conferencia';
 import './Equipes.css';
@@ -17,6 +18,8 @@ const VIVOS = new Set(['registered', 'active']);
  */
 const Fase1Tab = ({ tournamentId, torneio, resumo, inscritosVivos = 0, onMudou }) => {
   const { t } = useTranslation();
+  // O nome na mesa abre o histórico do jogador.
+  const { podeVerHistorico } = useHistoricoDoJogador();
   const { toast, confirm } = useToast();
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState('');
@@ -167,7 +170,14 @@ const Fase1Tab = ({ tournamentId, torneio, resumo, inscritosVivos = 0, onMudou }
                   return (
                     <tr key={p.tp_id} className={eliminado ? '' : 'vivo'}>
                       <td>{p.position ? `${p.position}º${p.tie ? ' =' : ''}` : '—'}</td>
-                      <td>{p.name}{p.is_captain ? ` (${t('teams.captainShort', 'C')})` : ''}</td>
+                      <td>
+                        {podeVerHistorico && p.player_id ? (
+                          <Link to={`/jogadores/${p.player_id}`} title={t('players.viewHistory', 'Ver histórico')}>
+                            {p.name}
+                          </Link>
+                        ) : p.name}
+                        {p.is_captain ? ` (${t('teams.captainShort', 'C')})` : ''}
+                      </td>
                       <td>{p.team_name || t('teams.noTeam', 'sem equipe')}</td>
                       <td>{formatarPontos(p.points)}</td>
                       {!oficial && !mesa.manual && (

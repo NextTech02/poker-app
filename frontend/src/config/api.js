@@ -2,7 +2,8 @@ import axios from 'axios';
 import i18n from 'i18next';
 import { getSelectedStageId } from '../utils/stageUtils';
 import { emitToastError } from '../utils/toastEmitter';
-import { putGetCache, getGetCache } from '../offline/db';
+import { textoDoDetalhe } from '../utils/textoDoErro';
+import { agendarGetCache, lerGetCache } from '../offline/db';
 import { markOffline, markOnline } from '../offline/connectivity';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -51,7 +52,10 @@ api.interceptors.request.use((config) => {
 // de quebrar. Online, sempre bate no servidor: nada de dado velho com rede.
 //
 // A chave é escopada por USUÁRIO + ORGANIZAÇÃO (claims do JWT), senão o cache de
-// um cliente vazaria para outro no mesmo dispositivo. É limpo no logout.
+// um cliente vazaria para outro no mesmo dispositivo.
+//
+// A gravação é COALESCIDA por endpoint (`agendarGetCache`): a mesma lista não é
+// regravada a cada recarga, e a versão ainda não gravada é servida da memória.
 
 // Endpoints voláteis/ruidosos: não vale cachear (mudam a cada segundo ou têm
 // lógica offline própria).
@@ -93,7 +97,7 @@ api.interceptors.response.use(
     try {
       if (isCacheableGet(response.config)) {
         markOnline();
-        putGetCache(cacheKey(response.config), response.data);
+        agendarGetCache(cacheKey(response.config), response.data);
       }
     } catch (_) { /* cache nunca atrapalha a resposta */ }
     return response;
@@ -103,51 +107,18 @@ api.interceptors.response.use(
     // falhar — é o que faz as telas carregarem sem internet.
     if (isNetworkError(error) && error.config && isCacheableGet(error.config)) {
       markOffline();
-      const cached = await getGetCache(cacheKey(error.config));
+      const cached = await lerGetCache(cacheKey(error.config));
       if (cached !== null && cached !== undefined) {
         return { data: cached, status: 200, statusText: 'OK (cache offline)',
                  headers: {}, config: error.config, _fromCache: true };
       }
     }
 
+    // O `detail` pode vir em texto, em lista (validação 422) ou em objeto com
+    // código; a tela recebe sempre a frase pronta em `userMessage`.
     const detail = error?.response?.data?.detail;
-    // Erros de validação (422) do FastAPI vêm como LISTA de objetos
-    // ({type, loc, msg, input, ctx}), não como texto. Sem achatar aqui, quem
-    // renderizasse `detail` direto quebraria a tela com "Objects are not valid
-    // as a React child". Convertemos para uma frase legível, indicando o campo.
-    const flattenDetail = (d) => {
-      if (typeof d === 'string') return d;
-      if (Array.isArray(d)) {
-        return d
-          .map((item) => {
-            if (typeof item === 'string') return item;
-            const field = Array.isArray(item?.loc)
-              ? item.loc.filter((p) => p !== 'body').join('.')
-              : null;
-            const text = item?.msg || '';
-            return field ? `${field}: ${text}` : text;
-          })
-          .filter(Boolean)
-          .join(' · ');
-      }
-      if (d && typeof d === 'object') {
-        /* Recusa com CÓDIGO (ver backend/app/utils/erros.py). O servidor manda
-           `{code, message, ...extras}` justamente para NÃO decidir o idioma: o
-           sistema atende clubes no Brasil, no Peru e na Colômbia, e uma frase
-           pronta em português chegaria assim para todos eles.
-
-           A chave é `errors.<code>` e o padrão inline é a própria `message` do
-           servidor — então um código que a tela ainda não conhece aparece em
-           português, em vez de virar "erro desconhecido". Os extras entram como
-           variáveis da frase ({{name}}, {{nivel}}). */
-        if (d.code) return i18n.t(`errors.${d.code}`, d.message, d);
-        return d.msg || d.message || null;
-      }
-      return null;
-    };
-
     const msg =
-      flattenDetail(detail) ||
+      textoDoDetalhe(detail) ||
       error?.message ||
       'Erro desconhecido';
 

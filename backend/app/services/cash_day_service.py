@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.models.cash_game import (
     CashDayCreate,
     CashDayResponse,
@@ -143,7 +144,6 @@ class CashDayService:
         receita multiplicaria o faturamento do clube por dez no papel.
         """
         dia = CashDayService.get_day(cash_day_id)
-        agregado = CashDayService._agregar(cash_day_id)
 
         if dia.get("status") == "closed" and dia.get("total_rake") is not None:
             # Resultado congelado: foi contra ele que a conferência foi feita.
@@ -166,10 +166,16 @@ class CashDayService:
                 total_debt_offset=float(dia.get("total_debt_offset") or 0),
                 total_debt_payments=float(dia.get("total_debt_payments") or 0),
                 # Recalculado mesmo no dia fechado: as linhas não mudam depois
-                # do fechamento, e o dia congelado não guarda esta quebra.
-                buy_ins_by_method=agregado["buy_ins_by_method"],
+                # do fechamento, e o dia congelado não guarda esta quebra. É uma
+                # consulta só, e não a soma do dia inteiro.
+                buy_ins_by_method=CashDayService._buy_ins_por_meio(
+                    CashDayService._transacoes_do_dia(cash_day_id)
+                ),
             )
 
+        # Só agora: somar o dia custa várias consultas, e o dia fechado (acima)
+        # devolve o congelado sem usar nada disso — antes somava e jogava fora.
+        agregado = CashDayService._agregar(cash_day_id)
         return CashDaySummary(
             cash_day_id=cash_day_id,
             business_date=dia["business_date"],
@@ -178,16 +184,46 @@ class CashDayService:
         )
 
     @staticmethod
+    def _linhas_do_dia(tabela: str, colunas: str, cash_day_id: str) -> list:
+        """De mil em mil (app/database/paginacao.py): os totais do dia são os que
+        o fechamento CONGELA em cash_days, e o PostgREST cortaria em 1000."""
+        return todas_as_linhas(lambda: (
+            supabase.table(tabela).select(colunas)
+            .eq("cash_day_id", cash_day_id).order("id")
+        ))
+
+    @staticmethod
+    def _transacoes_do_dia(cash_day_id: str) -> list:
+        # `*` e não a lista de colunas: as do fiado só existem depois da
+        # migração, e pedi-las pelo nome derrubaria o resumo do dia antes dela.
+        return CashDayService._linhas_do_dia("cash_transactions", "*", cash_day_id)
+
+    @staticmethod
+    def _buy_ins_por_meio(txs: list) -> list:
+        """Quanto entrou em cada meio (dinheiro, Yape, transferência…), com a
+        venda dividida somada parte a parte. Cancelada e fiado não são dinheiro
+        recebido."""
+        pagas = [
+            t for t in txs
+            if (t.get("status") or "active") == "active"
+            and t.get("type") in ("buy_in", "rebuy")
+            and t.get("payment_source") != FIADO
+        ]
+        return [
+            {"code": metodo, "total": float(total), "count": qtd}
+            for metodo, total, qtd in pagamento_dividido.somar_por_meio(pagas)
+        ]
+
+    @staticmethod
     def _agregar(cash_day_id: str) -> dict:
         """Soma o dia a partir das linhas. Três consultas, sem laço com query
         dentro (o N+1 clássico deste projeto)."""
-        # `*` e não a lista de colunas: as do fiado só existem depois da
-        # migração, e pedi-las pelo nome derrubaria o resumo do dia antes dela.
-        txs = supabase.table("cash_transactions").select("*") \
-            .eq("cash_day_id", cash_day_id).execute().data or []
+        def _do_dia(tabela, colunas):
+            return CashDayService._linhas_do_dia(tabela, colunas, cash_day_id)
+
+        txs = CashDayService._transacoes_do_dia(cash_day_id)
 
         entradas = saidas = fiado = abatido = 0.0
-        compras_pagas = []
         for t in txs:
             if (t.get("status") or "active") != "active":
                 continue  # cancelada: o dinheiro voltou para a mão do jogador
@@ -196,8 +232,6 @@ class CashDayService:
                 entradas += valor
                 if t.get("payment_source") == FIADO:
                     fiado += valor
-                else:
-                    compras_pagas.append(t)
             elif t.get("type") in ("cash_out", "jackpot_payout"):
                 saidas += valor
                 abatido += float(t.get("debt_settled_amount") or 0)
@@ -211,18 +245,14 @@ class CashDayService:
                 float(r["amount"]) * (1 if r["type"] == "payment" else -1) for r in recebimentos
             )
 
-        rakes = supabase.table("cash_rake_entries").select(
-            "rake_amount, jackpot_amount"
-        ).eq("cash_day_id", cash_day_id).execute().data or []
+        rakes = _do_dia("cash_rake_entries", "id, rake_amount, jackpot_amount")
         rake = sum(float(r.get("rake_amount") or 0) for r in rakes)
         jackpot = sum(float(r.get("jackpot_amount") or 0) for r in rakes)
 
         mesas = supabase.table("cash_tables").select("id, status") \
             .eq("cash_day_id", cash_day_id).execute().data or []
 
-        sessoes = supabase.table("cash_player_sessions").select(
-            "id, status, total_buy_in, total_cash_out"
-        ).eq("cash_day_id", cash_day_id).execute().data or []
+        sessoes = _do_dia("cash_player_sessions", "id, status, total_buy_in, total_cash_out")
         sentados = [s for s in sessoes if s.get("status") == "active"]
         # Fichas ainda na mesa: o que os sentados compraram e não devolveram.
         # Explica a maior parte da variância enquanto o dia está aberto.
@@ -245,12 +275,7 @@ class CashDayService:
             "total_credit_issued": round(fiado, 2),
             "total_debt_offset": round(abatido, 2),
             "total_debt_payments": round(recebido, 2),
-            # Quanto entrou em cada meio (dinheiro, Yape, transferência…), com
-            # a venda dividida somada parte a parte.
-            "buy_ins_by_method": [
-                {"code": metodo, "total": float(total), "count": qtd}
-                for metodo, total, qtd in pagamento_dividido.somar_por_meio(compras_pagas)
-            ],
+            "buy_ins_by_method": CashDayService._buy_ins_por_meio(txs),
         }
 
     # ============================================================

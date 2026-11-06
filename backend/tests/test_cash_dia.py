@@ -258,6 +258,40 @@ def test_dia_fechado_devolve_o_congelado(monkeypatch):
     assert s.status == "closed"
 
 
+def test_dia_fechado_nao_soma_o_movimento_para_jogar_fora(monkeypatch):
+    """O resumo do dia fechado é o congelado: somar o dia (várias consultas)
+    e descartar o resultado era espera pura em toda abertura da tela."""
+    fechado = _dia(status="closed", total_buy_ins=600, total_cash_outs=250,
+                   total_rake=130, total_jackpot=26, variance=194,
+                   tables_count=1, players_count=2)
+    _banco(monkeypatch, cash_days=[fechado], **_movimento())
+    monkeypatch.setattr(CDS, "_agregar", staticmethod(
+        lambda dia: (_ for _ in ()).throw(AssertionError("não devia somar o dia fechado"))))
+    assert CDS.summary(DIA).revenue == 130
+
+
+def test_dia_fechado_ainda_mostra_as_compras_por_meio(monkeypatch):
+    """O congelado não guarda essa quebra: ela sai das linhas do dia, numa
+    consulta só, e a venda dividida entra parte a parte."""
+    fechado = _dia(status="closed", total_buy_ins=500, total_cash_outs=0,
+                   total_rake=0, total_jackpot=0, variance=0,
+                   tables_count=1, players_count=1)
+    _banco(monkeypatch, cash_days=[fechado], cash_transactions=[
+        {"id": "t1", "cash_day_id": DIA, "type": "buy_in", "amount": 300,
+         "payment_method": "split", "status": "active",
+         "payment_split": [{"payment_method": "cash", "amount": 100},
+                           {"payment_method": "transfer", "amount": 200}]},
+        {"id": "t2", "cash_day_id": DIA, "type": "rebuy", "amount": 200,
+         "payment_method": "cash", "status": "active"},
+        {"id": "t3", "cash_day_id": DIA, "type": "buy_in", "amount": 900,
+         "payment_method": "cash", "status": "cancelled"},
+    ])
+    monkeypatch.setattr(CDS, "_agregar", staticmethod(
+        lambda dia: (_ for _ in ()).throw(AssertionError("não devia somar o dia fechado"))))
+    por_meio = {m["code"]: m["total"] for m in CDS.summary(DIA).buy_ins_by_method}
+    assert por_meio == {"cash": 300.0, "transfer": 200.0}
+
+
 # ══════════════════════════════════════════════════════════════════════
 # Guarda usada por quem movimenta dinheiro
 # ══════════════════════════════════════════════════════════════════════

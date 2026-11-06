@@ -56,13 +56,27 @@ class AdvanceQualifiersResponse(BaseModel):
 router = APIRouter(prefix="/tournament-days", tags=["tournament-days"])
 
 
-def _validate_day_for_timer(day_id: str, stage_id: Optional[str]) -> TournamentDay:
+def _validate_day_and_blinds_for_timer(day_id: str, stage_id: Optional[str]):
     """Timer-endpoint guard in a SINGLE round-trip: fetches the day + its parent
-    tournament's stage_id (no players sub-query) and enforces existence + stage
-    scoping. Returns the day so the caller can hand it to the service and avoid a
-    second fetch. Replaces the old 2-query (get_tournament_day + get_tournament)
-    validation that ran on every timer command/poll."""
-    day, day_stage_id = TournamentDayService.get_day_with_stage(day_id)
+    tournament's stage_id (no players sub-query) + the day's blinds, and enforces
+    existence + stage scoping. Returns (day, blinds_do_dia) so the caller can hand
+    both to the service and avoid further fetches. Replaces the old 2-query
+    (get_tournament_day + get_tournament) validation that ran on every timer
+    command/poll — and, for the poll, the separate blinds query after it."""
+    day, day_stage_id, blinds = TournamentDayService.get_day_with_stage(day_id, with_blinds=True)
+    if not day:
+        raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
+    if stage_id and day_stage_id != stage_id:
+        raise sem_permissao(
+            "dia_fora_da_etapa",
+            "Tournament day does not belong to the selected stage",
+        )
+    return day, blinds
+
+
+def _validate_day_for_timer(day_id: str, stage_id: Optional[str]) -> TournamentDay:
+    """O mesmo guarda, para os COMANDOS do relógio, que não usam os blinds."""
+    day, day_stage_id, _ = TournamentDayService.get_day_with_stage(day_id)
     if not day:
         raise nao_encontrado("dia_nao_encontrado", "Tournament day not found")
     if stage_id and day_stage_id != stage_id:
@@ -736,8 +750,8 @@ def get_tournament_timer_status_enriched(
     Public endpoint - no authentication required for broadcast display.
     """
     try:
-        day = _validate_day_for_timer(day_id, stage_id)
-        return TournamentDayService.get_enriched_timer_status(day_id, day=day)
+        day, blinds_do_dia = _validate_day_and_blinds_for_timer(day_id, stage_id)
+        return TournamentDayService.get_enriched_timer_status(day_id, day=day, blinds_do_dia=blinds_do_dia)
     except HTTPException:
         raise
     except ValueError as e:

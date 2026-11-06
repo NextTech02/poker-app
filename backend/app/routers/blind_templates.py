@@ -14,11 +14,12 @@ from ..models.blind import BlindResponse
 # Recusas com CODIGO para a tela traduzir (ver app/utils/erros.py).
 from ..utils.erros import da_excecao, nao_encontrado
 
+# `def`, nao `async def`: cliente do Supabase sincrono (ver routers/blinds.py).
 router = APIRouter(prefix="/blind-templates", tags=["blind-templates"])
 
 
 @router.get("", response_model=List[BlindTemplateResponse])
-async def get_templates(
+def get_templates(
     stage_id: Optional[UUID] = Query(None, description="Filter by stage ID"),
     current_user: dict = Depends(get_current_user)
 ):
@@ -28,7 +29,7 @@ async def get_templates(
 
 
 @router.get("/{template_id}", response_model=BlindTemplateResponse)
-async def get_template(
+def get_template(
     template_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
@@ -42,7 +43,7 @@ async def get_template(
 
 
 @router.post("", response_model=BlindTemplateResponse, status_code=status.HTTP_201_CREATED)
-async def create_template(
+def create_template(
     template: BlindTemplateCreate,
     current_user: dict = Depends(get_current_user)
 ):
@@ -58,7 +59,7 @@ async def create_template(
 
 
 @router.patch("/{template_id}", response_model=BlindTemplateResponse)
-async def update_template(
+def update_template(
     template_id: UUID,
     template_update: BlindTemplateUpdate,
     current_user: dict = Depends(get_current_user)
@@ -73,7 +74,7 @@ async def update_template(
 
 
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_template(
+def delete_template(
     template_id: UUID,
     current_user: dict = Depends(get_current_user)
 ):
@@ -87,7 +88,7 @@ async def delete_template(
 
 
 @router.post("/apply", response_model=List[BlindResponse])
-async def apply_template(
+def apply_template(
     request: ApplyTemplateRequest,
     current_user: dict = Depends(get_current_user)
 ):
@@ -109,7 +110,7 @@ async def apply_template(
 
 
 @router.post("/save-from-day", response_model=BlindTemplateResponse, status_code=status.HTTP_201_CREATED)
-async def save_blinds_as_template(
+def save_blinds_as_template(
     tournament_day_id: UUID = Query(..., description="Tournament day to copy blinds from"),
     template_name: str = Query(..., description="Name for the new template"),
     description: Optional[str] = Query(None, description="Template description"),

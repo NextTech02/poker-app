@@ -192,3 +192,49 @@ class TestCodigoDeTV:
         self._monta(monkeypatch, dias=[])
         with pytest.raises(ValueError, match="não encontrado"):
             TournamentDayService.get_or_create_broadcast_code("nao-existe")
+
+
+class TestImagemDoTelaoEhLink:
+    """Imagem do telão é LINK, nunca a imagem em base64 dentro do dia: o dia é
+    lido a cada 3 s pelo relógio de cada tela aberta, e uma logo embutida de
+    400 KB viajava junto em toda leitura."""
+
+    BASE64 = "data:image/png;base64,iVBORw0KGgo="
+
+    def _criar(self, **campos):
+        from app.models.tournament_day import TournamentDayCreate
+        return TournamentDayCreate(tournament_id=TOUR, day_name="Dia 1A", buy_in=100, max_players=90, **campos)
+
+    @pytest.mark.parametrize("campo", [
+        "broadcast_bg_image_url", "broadcast_club_logo_url",
+        "broadcast_break_bg_image_url", "broadcast_promo_url",
+    ])
+    def test_editar_recusa_base64(self, campo):
+        from pydantic import ValidationError
+        from app.models.tournament_day import TournamentDayUpdate
+        with pytest.raises(ValidationError):
+            TournamentDayUpdate(**{campo: self.BASE64})
+
+    def test_criar_recusa_base64(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            self._criar(broadcast_club_logo_url=self.BASE64)
+
+    def test_link_preset_e_vazio_continuam_valendo(self):
+        from app.models.tournament_day import TournamentDayUpdate
+        u = TournamentDayUpdate(
+            broadcast_bg_image_url="preset:navy",
+            broadcast_club_logo_url="https://x.supabase.co/storage/v1/object/public/broadcast-backgrounds/org/logo/a.png",
+            broadcast_break_bg_image_url=None,
+        )
+        assert u.broadcast_bg_image_url == "preset:navy"
+        assert self._criar(broadcast_bg_image_url="https://clube.com/fundo.jpg").broadcast_bg_image_url
+
+    def test_dia_antigo_com_base64_ainda_e_lido(self):
+        # A recusa é só na entrada: um dia salvo antes da migração não pode
+        # virar erro 500 ao ser aberto.
+        from app.models.tournament_day import TournamentDay
+        dia = TournamentDay(id=DIA, tournament_id=TOUR, day_name="Dia 1A", buy_in=100,
+                            max_players=90, created_at="2026-11-01T20:00:00Z",
+                            broadcast_club_logo_url=self.BASE64)
+        assert dia.broadcast_club_logo_url == self.BASE64

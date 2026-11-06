@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
 from datetime import datetime, timezone
 from app.database import supabase
+from app.database.paginacao import todas_as_linhas
 from app.utils.erros import ErroDeNegocio
 from app.models.cashbox import (
     CashboxResponse,
@@ -145,16 +146,15 @@ class CashboxService:
         sem acesso. Num SaaS isso é obrigatório — uma conta de um cliente sem
         staff jamais pode virar admin.
         """
-        resp = supabase.table("staff").select(
-            "id, active, permission_groups(permissions)"
-        ).eq("auth_user_id", auth_user_id).execute()
+        # A mesma linha que a guarda de permissão da rota já leu nesta requisição.
+        from app.services.staff_service import ler_staff_do_usuario
+        row = ler_staff_do_usuario(supabase, auth_user_id)
 
-        if not resp.data:
+        if not row:
             from app.config import get_settings
             is_platform_admin = auth_user_id in get_settings().super_admin_ids
             return None, [], is_platform_admin
 
-        row = resp.data[0]
         if not row.get("active"):
             return row["id"], [], False
 
@@ -191,8 +191,9 @@ class CashboxService:
 
     @staticmethod
     def get_staff_id_for_user(auth_user_id: str) -> Optional[str]:
-        resp = supabase.table("staff").select("id").eq("auth_user_id", auth_user_id).execute()
-        return resp.data[0]["id"] if resp.data else None
+        from app.services.staff_service import ler_staff_do_usuario
+        row = ler_staff_do_usuario(supabase, auth_user_id)
+        return row["id"] if row else None
 
     @staticmethod
     def _get_or_create(
@@ -394,10 +395,12 @@ class CashboxService:
         _, _, is_super = CashboxService._staff_permissions(auth_user_id)
         if is_super:
             return None
-        t = supabase.table("tournaments").select("stage_id").eq("id", tournament_id).execute()
-        if not t.data:
+        # O mesmo torneio que a rota já leu nesta requisição.
+        from app.services.tournament_service import ler_torneio
+        t = ler_torneio(supabase, tournament_id)
+        if not t:
             raise ErroDeNegocio("torneio_nao_encontrado", "Torneio não encontrado", status=404)
-        return CashboxService.require_open_cashbox(auth_user_id, t.data[0].get("stage_id"))
+        return CashboxService.require_open_cashbox(auth_user_id, t.get("stage_id"))
 
     @staticmethod
     def require_open_cashbox(auth_user_id: str, stage_id: Optional[str]) -> Optional[dict]:
@@ -820,12 +823,15 @@ class CashboxService:
         cashbox_id: str,
         session_id: Optional[str] = None,
     ) -> List[CashboxTransactionResponse]:
-        query = supabase.table("cashbox_transactions").select("*") \
-            .eq("cashbox_id", cashbox_id)
-        if session_id:
-            query = query.eq("session_id", session_id)
-        resp = query.order("created_at", desc=True).execute()
-        return [CashboxTransactionResponse(**t) for t in (resp.data or [])]
+        def montar():
+            query = supabase.table("cashbox_transactions").select("*") \
+                .eq("cashbox_id", cashbox_id)
+            if session_id:
+                query = query.eq("session_id", session_id)
+            return query.order("created_at", desc=True).order("id")
+
+        # Todos os movimentos (de mil em mil — app/database/paginacao.py).
+        return [CashboxTransactionResponse(**t) for t in todas_as_linhas(montar)]
 
     # ============================================================
     # Summaries / demonstrativo
@@ -842,12 +848,17 @@ class CashboxService:
             raise ErroDeNegocio("caixa_nao_encontrado", "Caixa não encontrado", status=404)
         cb_row = cb.data[0]
 
-        tx_query = supabase.table("cashbox_transactions").select("*").eq("cashbox_id", cashbox_id)
-        if date_from:
-            tx_query = tx_query.gte("created_at", date_from)
-        if date_to:
-            tx_query = tx_query.lte("created_at", date_to)
-        txs = tx_query.execute().data or []
+        def montar():
+            tx_query = supabase.table("cashbox_transactions").select("*").eq("cashbox_id", cashbox_id)
+            if date_from:
+                tx_query = tx_query.gte("created_at", date_from)
+            if date_to:
+                tx_query = tx_query.lte("created_at", date_to)
+            return tx_query.order("id")
+
+        # TODOS os movimentos (de mil em mil): o saldo esperado da gaveta é a
+        # soma deles, e o PostgREST cortaria em 1000 sem avisar.
+        txs = todas_as_linhas(montar)
 
         # Initial balance: last opening's initial_balance for "current" period;
         # for filtered ranges, fall back to 0 (period-only view).
@@ -1045,10 +1056,11 @@ class CashboxService:
         # `created_at` também: é por ele que se sabe se o estorno entrou antes
         # ou depois do fechamento da sessão (o de depois não altera o
         # fechamento — ver _compute_session_report).
-        txs = supabase.table("cashbox_transactions").select(
-            "session_id, type, amount, signed_amount, transaction_id, "
+        # Todos (de mil em mil): o demonstrativo concilia sessão por sessão.
+        txs = todas_as_linhas(lambda: supabase.table("cashbox_transactions").select(
+            "id, session_id, type, amount, signed_amount, transaction_id, "
             "cash_transaction_id, bar_payment_id, house_credit_entry_id, created_at"
-        ).in_("session_id", session_ids).execute().data or []
+        ).in_("session_id", session_ids).order("id"))
         for tx in txs:
             tx_by_session.setdefault(tx["session_id"], []).append(tx)
 

@@ -10,6 +10,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { MODO_MESA, modoDoTorneio } from '../hooks/useModoDeEliminacao';
 import { useTorneioKo } from '../hooks/useTorneioKo';
+import { useHistoricoDoJogador } from '../hooks/useHistoricoDoJogador';
 import EliminadorModal from '../components/ko/EliminadorModal';
 import KoResultadoModal from '../components/ko/KoResultadoModal';
 import { candidatosAEliminador, codigoDaRecusa, corpoDaEliminacao } from '../utils/ko';
@@ -41,6 +42,8 @@ const TableManagement = () => {
   const navigate = useNavigate();
   const { toast, confirm } = useToast();
   const { formatCurrency = (v) => String(v) } = useCurrency() || {};
+  // O nome no assento abre o histórico do jogador.
+  const { podeVerHistorico, propsDoHistorico } = useHistoricoDoJogador();
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [day, setDay] = useState(null);
@@ -580,7 +583,12 @@ const TableManagement = () => {
             onDragStart={(e) => handleDragStart(e, { player_id: allocation.player_id, player_name: allocation.players?.name }, true, allocation.id)}
             title={allocation.players?.name}
           >
-            <span className="tm-seat-name">{nomeNoAssento || t('tableManagement.defaultPlayer')}</span>
+            <span
+              className={`tm-seat-name${podeVerHistorico ? ' tm-seat-name--link' : ''}`}
+              {...propsDoHistorico(allocation.player_id)}
+            >
+              {nomeNoAssento || t('tableManagement.defaultPlayer')}
+            </span>
             {fichasClassificadas > 0 && (
               <span
                 className="tm-seat-chips"

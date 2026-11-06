@@ -46,6 +46,30 @@ const newId = () => {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
+/**
+ * Logo do clube no telão: mesmo bucket público, na pasta `<org>/logo/`.
+ *
+ * Antes ia em base64 DENTRO do dia — e o dia é lido a cada 3 s pelo relógio
+ * de cada tela aberta: uma logo de 400 KB viajava junto em todas as leituras.
+ * No Storage ela vira um link curto, e a imagem o navegador guarda em cache.
+ *
+ * Não entra na biblioteca de fundos: é um arquivo por dia, não um item para
+ * escolher. Devolve a URL pública, que é o que o dia grava.
+ */
+export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
+export const uploadClubLogo = async (file) => {
+  if (!file || !ALLOWED_TYPES.includes(file.type)) throw new BackgroundError('bgUploadInvalidType');
+  const org = currentOrgId();
+  if (!org) throw new BackgroundError('bgUploadNoOrg');
+  const { blob, ext, contentType } = await downscaleImage(file, { maxWidth: 900 });
+  if (blob.size > LOGO_MAX_BYTES) throw new BackgroundError('clubLogoMaxSize');
+  const path = `${org}/logo/${newId()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType, upsert: false });
+  if (error) throw new BackgroundError('bgUploadError', error);
+  return publicUrlFor(path);
+};
+
 export const useBroadcastBackgrounds = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);

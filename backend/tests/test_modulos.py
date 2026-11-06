@@ -118,6 +118,55 @@ def test_falha_de_consulta_nao_apaga_o_menu(monkeypatch):
 
 
 # ══════════════════════════════════════════════════════════════════════
+# Cache de 30 s (a guarda roda em TODA rota do cash e do bar)
+# ══════════════════════════════════════════════════════════════════════
+
+class _BancoQueConta(FakeSupabase):
+    def __init__(self, tabelas):
+        super().__init__(tabelas)
+        self.idas = 0
+
+    def table(self, name):
+        self.idas += 1
+        return super().table(name)
+
+
+def test_a_lista_e_lida_uma_vez_e_servida_por_30_s(monkeypatch):
+    banco = _BancoQueConta({"org_modules": [_linha("tournament"), _linha("cash")]})
+    monkeypatch.setattr(module_mod, "supabase", banco)
+    for _ in range(5):
+        assert ModuleService.has_module(ORG, "cash") is True
+    assert banco.idas == 1
+
+
+def test_quem_recebe_a_lista_pode_mexer_nela_sem_estragar_o_cache(monkeypatch):
+    _banco(monkeypatch, [_linha("tournament"), _linha("cash")])
+    ModuleService.list_for_org(ORG).append("lixo")
+    assert ModuleService.list_for_org(ORG) == ["tournament", "cash"]
+
+
+def test_mudar_os_modulos_pela_plataforma_vale_na_hora(monkeypatch):
+    banco = _banco(monkeypatch, [_linha("tournament")])
+    assert ModuleService.has_module(ORG, "cash") is False
+    banco.store["org_modules"].append(_linha("cash"))
+    ModuleService.esquecer_cache(ORG)
+    assert ModuleService.has_module(ORG, "cash") is True
+
+
+def test_falha_de_leitura_nao_fica_guardada(monkeypatch):
+    """O padrão de emergência vale só para aquela vez: a próxima pergunta vai
+    ao banco de novo, e não serve 'só torneio' por 30 s a quem tem o cash."""
+    class BancoQueEstoura:
+        def table(self, _nome):
+            raise RuntimeError("connection reset")
+
+    monkeypatch.setattr(module_mod, "supabase", BancoQueEstoura())
+    assert ModuleService.list_for_org(ORG) == ["tournament"]
+    _banco(monkeypatch, [_linha("tournament"), _linha("cash")])
+    assert ModuleService.list_for_org(ORG) == ["tournament", "cash"]
+
+
+# ══════════════════════════════════════════════════════════════════════
 # Guarda de rota
 # ══════════════════════════════════════════════════════════════════════
 

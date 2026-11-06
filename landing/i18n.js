@@ -5,20 +5,24 @@
    misturá-las com o markup faria toda alteração de copy conviver com o layout.
 
    COMO FUNCIONA
-   O HTML carrega em português. Cada trecho traduzível carrega uma chave:
+   O HTML (index.html) é escrito em português. Cada trecho traduzível carrega
+   uma chave:
 
      data-i18n="hero.lead"        troca o conteúdo (aceita <b>, <span> etc.)
      data-i18n-ph="form.nomePh"   troca o placeholder do campo
      data-i18n-aria="nav.secoes"  troca o aria-label
 
-   O português NÃO está aqui: ele já está no HTML, que é o que o buscador lê e
-   o que aparece se o JavaScript falhar. Duplicá-lo criaria duas fontes do
-   mesmo texto, e uma delas ficaria para trás na primeira correção de copy.
-   Por isso `pt-BR` é o estado original da página, restaurado do próprio DOM.
+   O build (build.mjs) aplica estes dicionários e gera uma página por idioma:
+   aceblind.net/ (português), /es/ e /en/ — cada uma com o texto já no HTML,
+   que é o que o Google lê. Nada é traduzido no navegador.
+
+   O português NÃO está aqui: ele já está no HTML. Duplicá-lo criaria duas
+   fontes do mesmo texto, e uma delas ficaria para trás na primeira correção
+   de copy.
 
    AO ACRESCENTAR TEXTO NOVO: marque no HTML e adicione a chave nos DOIS
    idiomas abaixo. Chave faltando não quebra a página — o trecho fica em
-   português —, e o console avisa quais estão faltando.
+   português —, e o build avisa no log quais estão faltando.
    ============================================================================ */
 
 window.ACEBLIND_I18N = {
@@ -34,8 +38,8 @@ window.ACEBLIND_I18N = {
     'nav.entrar': 'Sign in',
     'nav.cta': 'Start free',
 
-    'hero.eyebrow': 'Tournament management for poker clubs',
-    'hero.titulo': 'Your tournament can’t stop.<span class="italic">Neither can your system.</span>',
+    'hero.eyebrow': 'Your tournament can’t stop. Neither can your system.',
+    'hero.titulo': 'Poker club management software<span class="italic">that keeps running when the internet drops.</span>',
     'hero.lead': 'Tournaments, cash desk and rankings in a single tool — built to keep running even when the internet drops on your busiest night of the month.',
     'hero.cta': 'Start your free trial',
     'hero.whats': 'Chat on WhatsApp',
@@ -218,6 +222,10 @@ window.ACEBLIND_I18N = {
     'form.ev4': 'More than 30',
     'form.enviar': 'Start your free trial',
     'form.rodape': 'No cost and no install. Rather see it working first? <a href="#" id="waLink" class="wa-link">Message us on WhatsApp</a>',
+    'form.enviando': 'Sending…',
+    'form.erroCampos': 'Fill in name, club, WhatsApp and email.',
+    'form.erroEmail': 'Check the email — something seems to be missing.',
+    'form.erroEnvio': 'We couldn’t send it right now. Try again in a moment — or message us on WhatsApp and we’ll reply there.',
     'form.okTitulo': 'Got it.',
     'form.okTexto': 'We’ll reach out on WhatsApp to open your account and set up the first tournament. If you’d rather get a head start, just message us.',
 
@@ -238,8 +246,8 @@ window.ACEBLIND_I18N = {
     'nav.entrar': 'Entrar',
     'nav.cta': 'Empezar gratis',
 
-    'hero.eyebrow': 'Sistema de gestión para clubes de póquer',
-    'hero.titulo': 'Tu torneo no puede parar.<span class="italic">Tu sistema tampoco.</span>',
+    'hero.eyebrow': 'Tu torneo no puede parar. Tu sistema tampoco.',
+    'hero.titulo': 'Sistema de gestión para clubes de póker<span class="italic">que no se detiene cuando se cae internet.</span>',
     'hero.lead': 'Torneo, caja y ranking en una sola herramienta, construida para seguir funcionando incluso cuando se cae internet en la noche más llena del mes.',
     'hero.cta': 'Empieza la prueba gratis',
     'hero.whats': 'Escribir por WhatsApp',
@@ -422,6 +430,10 @@ window.ACEBLIND_I18N = {
     'form.ev4': 'Más de 30',
     'form.enviar': 'Empezá la prueba gratis',
     'form.rodape': 'Sin costo y sin instalación. ¿Preferís verlo funcionando antes? <a href="#" id="waLink" class="wa-link">Escribinos por WhatsApp</a>',
+    'form.enviando': 'Enviando…',
+    'form.erroCampos': 'Completa nombre, club, WhatsApp y correo.',
+    'form.erroEmail': 'Revisa el correo: parece que falta algo.',
+    'form.erroEnvio': 'No pudimos enviarlo ahora. Intenta de nuevo en un momento, o escríbenos por WhatsApp y te respondemos por ahí.',
     'form.okTitulo': 'Pedido recibido.',
     'form.okTexto': 'Te escribimos por WhatsApp para abrir tu cuenta y configurar el primer torneo. Si preferís adelantar, escribinos noms.',
 
@@ -437,19 +449,29 @@ window.ACEBLIND_I18N = {
    Título da aba, descrição para buscadores e a mensagem já escrita do WhatsApp.
    ============================================================================ */
 window.ACEBLIND_META = {
+  /* title: até ~60 caracteres, termo principal primeiro, marca no fim.
+     description: até ~155, com o termo principal.
+     ogTitle/ogDescription: o que aparece no link compartilhado (WhatsApp,
+     LinkedIn) — ali o slogan funciona melhor que o termo de busca. */
   'pt-BR': {
-    title: 'AceBlind — Sistema de gestão para clubes de poker',
-    description: 'Torneio, caixa e ranking numa ferramenta só — e que continua rodando quando a internet cai. Teste grátis por 60 dias, sem instalação.',
+    title: 'Sistema de Gestão para Clubes de Poker | AceBlind',
+    description: 'Sistema de gestão para clubes de poker: torneio, caixa e ranking numa ferramenta só, que segue rodando quando a internet cai. 60 dias grátis.',
+    ogTitle: 'AceBlind — Seu torneio não pode parar. Seu sistema também não.',
+    ogDescription: 'Torneio, caixa e ranking numa ferramenta só — e que continua rodando quando a internet cai.',
     whatsapp: 'Olá, gostaria de saber mais informações sobre o AceBlind'
   },
   'en-US': {
-    title: 'AceBlind — Tournament management for poker clubs',
-    description: 'Tournaments, cash desk and rankings in one tool — and it keeps running when the internet drops. Free for 60 days, no install.',
+    title: 'Poker Club Management Software | AceBlind',
+    description: 'Poker club management software: tournaments, cash desk and rankings in one tool that keeps running when the internet drops. Free for 60 days.',
+    ogTitle: 'AceBlind — Your tournament can’t stop. Neither can your system.',
+    ogDescription: 'Tournaments, cash desk and rankings in one tool — and it keeps running when the internet drops.',
     whatsapp: 'Hi! I’d like to know more about AceBlind'
   },
   'es-ES': {
-    title: 'AceBlind — Sistema de gestión para clubes de póquer',
-    description: 'Torneo, caja y ranking en una sola herramienta — y sigue funcionando cuando se cae internet. Gratis por 60 días, sin instalación.',
+    title: 'Sistema de Gestión para Clubes de Póker | AceBlind',
+    description: 'Sistema de gestión para clubes de póker: torneo, caja y ranking en una sola herramienta que sigue funcionando sin internet. Gratis por 60 días.',
+    ogTitle: 'AceBlind — Tu torneo no puede parar. Tu sistema tampoco.',
+    ogDescription: 'Torneo, caja y ranking en una sola herramienta — y sigue funcionando cuando se cae internet.',
     whatsapp: 'Hola, me gustaría saber más información sobre AceBlind'
   }
 };

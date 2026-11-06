@@ -59,10 +59,13 @@ const Dashboard = () => {
 
   const loadAll = async (isRetry = false) => {
     // Track which sections succeeded / failed independently.
+    // Só o que o painel mostra (3 torneios, 5 vendas): antes vinham as listas
+    // inteiras, a cada 30 s. O `slice` lá embaixo fica como garantia para um
+    // backend anterior, que ignora o `limit`.
     const [statsResult, tourneysResult, txResult] = await Promise.allSettled([
       api.get('/dashboard/stats'),
-      api.get('/tournaments'),
-      api.get('/transactions'),
+      api.get('/tournaments', { params: { limit: 3 } }),
+      api.get('/transactions', { params: { limit: 5 } }),
     ]);
 
     if (statsResult.status === 'fulfilled') {

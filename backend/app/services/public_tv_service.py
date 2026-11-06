@@ -25,12 +25,23 @@ from app.models.public_tv import (
 from app.services.module_service import ModuleService
 from app.services.prize_allocation_service import PrizeAllocationService
 from app.services.transaction_filters import ler_transacoes_ativas
+from app.utils.cache_curto import CacheCurto
 from app.utils.erros import ErroDeNegocio
 
 logger = logging.getLogger(__name__)
 
 MOEDA_PADRAO = "BRL"
 IDIOMA_PADRAO = "pt-BR"
+
+# Tudo aqui é lido com a chave de serviço e é IGUAL para qualquer TV do salão
+# (ver o docstring do módulo) — então várias TVs do mesmo dia podem ser
+# servidas pela mesma leitura. Os extras custam 11 a 13 consultas (premiação,
+# meios de entrada, KO) e cada TV pede a cada 30 s; o quadro de mesas, a cada
+# 20 s. A validade é o atraso máximo a mais que o telão pode mostrar.
+_extras_do_dia = CacheCurto(validade_s=15)
+_quadro_de_mesas = CacheCurto(validade_s=10)
+# Moeda e idioma do clube quase nunca mudam.
+_ajustes_do_clube = CacheCurto(validade_s=60)
 
 # Só o que o telão mostra. `player_name`, documento e `paid_*` ficam de fora:
 # a rota é aberta à internet.
@@ -43,6 +54,12 @@ class PublicTvService:
 
     @staticmethod
     def get_day_extras(day_id: str) -> PublicTvExtras:
+        """Extras do telão do dia, servidos a todas as TVs da mesma leitura por
+        até 15 s (`_extras_do_dia`). O 404 de dia inexistente não é guardado."""
+        return _extras_do_dia.obter(str(day_id), lambda: PublicTvService._montar_extras(day_id))
+
+    @staticmethod
+    def _montar_extras(day_id: str) -> PublicTvExtras:
         resp = (
             supabase_admin.table("tournament_days")
             .select("id, tournament_id, organization_id, day_type")
@@ -85,6 +102,12 @@ class PublicTvService:
         lista é sempre a de quem está jogando.
         """
         code = (code or "").strip().upper()
+        # Várias TVs com o mesmo código, a cada 20 s: uma leitura serve todas
+        # por até 10 s. Código inválido (404) não é guardado.
+        return _quadro_de_mesas.obter(code, lambda: PublicTvService._montar_quadro(code))
+
+    @staticmethod
+    def _montar_quadro(code: str) -> PublicSeating:
         dias = []
         if code:
             dias = (
@@ -315,16 +338,24 @@ class PublicTvService:
         if not org_id:
             return padrao
         try:
-            resp = (
-                supabase_admin.table("app_settings")
-                .select("currency, language")
-                .eq("organization_id", org_id)
-                .limit(1)
-                .execute()
-            )
+            # Cópia: o valor guardado é compartilhado entre requisições.
+            return dict(_ajustes_do_clube.obter(org_id, lambda: PublicTvService._ler_ajustes(org_id)))
         except Exception as exc:  # decorativo: nunca derruba o telão
+            # A falha NÃO fica guardada: o padrão (BRL/pt-BR) vale só para esta
+            # vez — senão a TV de um clube peruano mostraria reais por 1 minuto.
             logger.warning("Ajustes da org %s não lidos para o telão: %s", org_id, exc)
             return padrao
+
+    @staticmethod
+    def _ler_ajustes(org_id: str) -> dict:
+        padrao = {"currency": MOEDA_PADRAO, "language": IDIOMA_PADRAO}
+        resp = (
+            supabase_admin.table("app_settings")
+            .select("currency, language")
+            .eq("organization_id", org_id)
+            .limit(1)
+            .execute()
+        )
         rows = resp.data or []
         if not rows:
             return padrao

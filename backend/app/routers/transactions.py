@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional
 from app.models.transaction import (
     TransactionCreate,
@@ -66,14 +66,18 @@ def create_transaction(
 
 @router.get("", response_model=List[TransactionDetail])
 def get_transactions(
+    # Só as N mais recentes: o painel mostra 5 e baixava a etapa inteira (com
+    # torneio e jogador embutidos) a cada 30 s. Sem `limit`, a lista completa
+    # — os totais do Caixa são somados a partir dela.
+    limit: Optional[int] = Query(None, ge=1, le=500),
     current_user: dict = Depends(get_current_user),
     stage_id: Optional[str] = Depends(get_stage_id_optional)
 ):
     """
-    Get all transactions.
+    Get all transactions (most recent first), or only the `limit` most recent.
     If X-Stage-ID header is present, returns only transactions from tournaments in that stage.
     """
-    return TransactionService.get_transactions(stage_id=stage_id)
+    return TransactionService.get_transactions(stage_id=stage_id, limit=limit)
 
 
 @router.get("/tournament/{tournament_id}", response_model=List[TransactionDetail])

@@ -20,6 +20,8 @@ import { registerToast } from '../utils/toastEmitter';
 
 jest.mock('../utils/toastEmitter', () => ({ registerToast: jest.fn() }));
 jest.mock('../components/Toast.css', () => ({}), { virtual: true });
+// Recusa com código sem tradução carregada: vale a frase do servidor.
+jest.mock('i18next', () => ({ t: (chave, padrao) => padrao || chave }));
 
 let api;
 
@@ -61,6 +63,35 @@ describe('exibição', () => {
     });
     expect(screen.getByText('primeiro')).toBeInTheDocument();
     expect(screen.getByText('segundo')).toBeInTheDocument();
+  });
+
+  describe('mensagem que não é texto', () => {
+    // O provider fica acima de todas as telas: desenhar um objeto aqui derruba
+    // o app inteiro (página em branco). Recusas da API repassadas cruas —
+    // `err.response.data.detail` — são objeto ou lista.
+    it('recusa com código vira a frase do servidor', () => {
+      montar();
+      act(() => api.toast.error({ code: 'regra_de_negocio', message: 'Jogador já inscrito no dia' }));
+      expect(screen.getByText('Jogador já inscrito no dia')).toBeInTheDocument();
+    });
+
+    it('erro de validação (lista) vira frase com o campo', () => {
+      montar();
+      act(() => api.toast.error([{ loc: ['body', 'email'], msg: 'Field required' }]));
+      expect(screen.getByText('email: Field required')).toBeInTheDocument();
+    });
+
+    it('objeto sem nada legível não quebra a tela', () => {
+      montar();
+      act(() => api.toast.error({ algo: 1 }));
+      expect(screen.getByText('Erro desconhecido')).toBeInTheDocument();
+    });
+
+    it('elemento React passa como está', () => {
+      montar();
+      act(() => api.toast.info(<strong>negrito</strong>));
+      expect(screen.getByText('negrito').tagName).toBe('STRONG');
+    });
   });
 
   it('a mesma mensagem com tipos diferentes não é deduplicada', () => {

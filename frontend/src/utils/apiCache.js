@@ -41,8 +41,10 @@ const _urlPart = (key) => {
  * @param {string} url      - Endpoint URL
  * @param {number} staleMs  - How long before the entry is considered stale (ms)
  * @param {object} params   - Optional query params (appended to key)
+ * @param {object} config   - Optional axios options that do NOT change the
+ *                            response (e.g. `_silentError`); not part of the key
  */
-export const cachedGet = async (api, url, staleMs = 30000, params = null) => {
+export const cachedGet = async (api, url, staleMs = 30000, params = null, config = null) => {
   const key = _buildKey(url, params);
   const entry = _cache.get(key);
 
@@ -56,7 +58,8 @@ export const cachedGet = async (api, url, staleMs = 30000, params = null) => {
 
   const promise = (async () => {
     try {
-      const res = await api.get(url, params ? { params } : undefined);
+      const opts = { ...(config || {}), ...(params ? { params } : {}) };
+      const res = await (Object.keys(opts).length ? api.get(url, opts) : api.get(url));
       _cache.set(key, { data: res.data, ts: Date.now() });
       return res.data;
     } finally {
@@ -67,6 +70,13 @@ export const cachedGet = async (api, url, staleMs = 30000, params = null) => {
   _inflight.set(key, promise);
   return promise;
 };
+
+/**
+ * What is already in memory for this URL (current stage scope), stale or not;
+ * `undefined` when nothing. For stale-while-revalidate: show this right away,
+ * then `cachedGet` to refresh.
+ */
+export const cachedValue = (url, params = null) => _cache.get(_buildKey(url, params))?.data;
 
 /**
  * Invalidate a specific cache entry across all stage scopes (call after

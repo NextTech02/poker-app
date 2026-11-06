@@ -8,7 +8,10 @@ import httpx
 from app.config import get_settings
 from app.auth.permissions import forbid_permission
 from app.auth.modules import require_module
-from app.database.supabase_client import set_request_jwt, reset_request_jwt, start_query_counter
+from app.database.supabase_client import (
+    iniciar_aquecimento, set_request_jwt, reset_request_jwt, start_query_counter,
+)
+from app.database.memo import abrir as abrir_memo, fechar as fechar_memo
 
 logger = logging.getLogger("uvicorn.error")
 from app.routers import tournaments, tournament_days, transactions, reports, dashboard, players, tournament_players, stages, tables, allocations, rankings, cash_register, blinds, prize_allocations, blind_templates, sponsors, player_credits, satellite_tickets, staff, cashboxes, chip_consignments, sync, public_tv, public_consent, organizations, loyalty, expenses, leads, activity_logs, knockouts, teams
@@ -41,6 +44,15 @@ app = FastAPI(
     description="API para gerenciamento de torneios de poker",
     version="2.0.0"
 )
+
+
+@app.on_event("startup")
+def _aquecer_pool_de_conexoes():
+    """Mantém conexões com o Supabase abertas entre uma venda e outra (ver
+    `iniciar_aquecimento`). Só em produção: os testes sobem o app com
+    TestClient e não podem fazer chamadas de rede."""
+    if settings.environment == "production":
+        iniciar_aquecimento()
 
 
 class CatchAllExceptionMiddleware(BaseHTTPMiddleware):
@@ -101,10 +113,18 @@ class SupabaseUserContextMiddleware(BaseHTTPMiddleware):
                 token = auth[7:].strip() or None
 
         ctx = set_request_jwt(token)
+        # Memória das leituras repetidas DESTA requisição (app/database/memo.py).
+        memo = abrir_memo()
         try:
             return await call_next(request)
         finally:
+            fechar_memo(memo)
             reset_request_jwt(ctx)  # nunca vaza o token para a próxima request
+
+
+# A linha do PERF_LOG. É lida por backend/scripts/resumo_perf_log.py — mudar o
+# formato aqui sem mudar lá deixa o resumo da noite vazio (o teste pega).
+FORMATO_DA_LINHA_PERF = "[perf] %s %-6s %-42s %6.0fms  %2d consultas%s"
 
 
 class PerfLogMiddleware(BaseHTTPMiddleware):
@@ -134,7 +154,7 @@ class PerfLogMiddleware(BaseHTTPMiddleware):
             # não com que frequência ela acontece — e numa tela que se atualiza
             # sozinha a frequência é metade da resposta.
             logger.info(
-                "[perf] %s %-6s %-42s %6.0fms  %2d consultas%s",
+                FORMATO_DA_LINHA_PERF,
                 time.strftime("%H:%M:%S"), request.method, request.url.path, ms, n, marca,
             )
         return resposta
