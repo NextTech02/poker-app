@@ -316,6 +316,8 @@
     "deleteBlockedTickets": "There are satellite tickets linked to this tournament.",
     "deleteBlockedSatPrizes": "There are satellite seats (prizes) pointing to this tournament.",
     "deleteBlockedCredit": "There is sponsor credit used in this tournament.",
+    "deleteBlockedHouseCredit": "A prize in this tournament was paid with a house credit deduction.",
+    "deleteWithSalesIncomplete": "What was refunded stays refunded, but the tournament has not been deleted yet. Try again.",
     "deleteBlockedNoSale": "{{count}} player(s) have an amount paid with no recorded sale (import or adjustment)."
   },
   "tournamentDays": {
@@ -1247,6 +1249,7 @@
     "meio_de_entrada_inativo": "This entry method has been deactivated. Choose another one.",
     "serverError": "Internal server error. Please try again shortly.",
     "caixa_fechado": "Open your cash desk before selling.",
+    "exclusao_falhou_apos_estorno": "The sales were refunded, but the tournament was not deleted. Try again.",
     "ticket_so_pelo_resgate": "Ticket entries are made by redeeming the ticket, on the Tickets screen.",
     "caixa_precisa_estar_aberto": "The cash desk must be open for this operation.",
     "caixa_ja_aberto": "This cash desk is already open.",

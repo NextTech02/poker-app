@@ -31,7 +31,7 @@ from app.services.tournament_service import (
 from app.services.transaction_service import TransactionService
 from app.utils.erros import ErroDeNegocio
 
-from tests.conftest import FakeSupabase
+from tests.conftest import FakeQuery, FakeSupabase
 
 
 TOUR = "22222222-2222-2222-2222-222222222222"
@@ -213,7 +213,9 @@ def test_premio_credito_ou_ticket_recusam_sem_estornar(monkeypatch, extra, campo
     ("satellite_tickets", {"id": "t2", "target_tournament_day_id": DIA}, "satellite_tickets"),
     ("satellite_tickets", {"id": "t3", "redeemed_tournament_player_id": TP_A}, "satellite_tickets"),
     ("prize_allocations", {"id": "v1", "vaga_target_tournament_id": TOUR}, "satellite_prizes"),
+    ("prize_allocations", {"id": "v2", "vaga_target_day_id": DIA}, "satellite_prizes"),
     ("credit_transactions", {"id": "c1", "tournament_id": TOUR}, "sponsor_credit"),
+    ("credit_transactions", {"id": "c2", "tournament_day_id": DIA}, "sponsor_credit"),
 ])
 def test_ligacoes_que_o_banco_nao_apaga_recusam(monkeypatch, tabela, linha, ligacao):
     fake = _banco(monkeypatch, _venda_do_high_roller(), **{tabela: [linha]})
@@ -222,6 +224,92 @@ def test_ligacoes_que_o_banco_nao_apaga_recusam(monkeypatch, tabela, linha, liga
         TS.cancel_sales_and_delete(TOUR, "admin-1", "engano", "HIGH ROLLER")
     assert e.value.impacto.blocking_links == [ligacao]
     assert chamadas == []
+
+
+def test_premio_cancelado_com_desconto_de_fiado_recusa_sem_estornar(monkeypatch):
+    """O extrato do fiado aponta para a venda do prêmio, é imutável e não tem
+    CASCADE: mesmo cancelado, o prêmio prende o torneio. Sem conferir antes, o
+    DELETE estouraria só DEPOIS de todo o dinheiro ter sido estornado."""
+    premio = _venda("pr", "prize", 900.0, status="cancelled", house_debt_offset=50.0)
+    fake = _banco(monkeypatch, _venda_do_high_roller() + [premio])
+    chamadas = _estorno_falso(monkeypatch, fake)
+    with pytest.raises(MovimentoFinanceiroImpedeExclusao) as e:
+        TS.cancel_sales_and_delete(TOUR, "admin-1", "engano", "HIGH ROLLER")
+    assert e.value.impacto.blocking_links == ["house_credit"]
+    assert chamadas == []
+
+
+def test_torneio_grande_nao_passa_lista_gigante_na_url(monkeypatch):
+    """A lista do `in` vai na URL. Centenas de ids passam do limite do gateway,
+    e a falha seria lida como "sem ligação": o ticket do jogador 250 sumiria."""
+    inscricoes = [_inscricao(f"tp-{n:03d}", 0.0) for n in range(250)]
+    fake = _banco(monkeypatch, [], inscricoes=inscricoes, satellite_tickets=[
+        {"id": "t1", "redeemed_tournament_player_id": "tp-249"},
+    ])
+    tamanhos = []
+    in_original = FakeQuery.in_
+
+    def espiar(self, coluna, valores):
+        tamanhos.append(len(valores))
+        return in_original(self, coluna, valores)
+
+    monkeypatch.setattr(FakeQuery, "in_", espiar)
+    impacto = TS.get_delete_impact(TOUR)
+    assert impacto.blocking_links == ["satellite_tickets"]
+    assert max(tamanhos) <= mod_torneio.LOTE_DE_IDS
+    assert fake.store["tournaments"]
+
+
+def test_mede_e_estorna_vendas_alem_das_primeiras_mil(monkeypatch):
+    """O PostgREST devolve no máximo mil linhas e corta em silêncio: sem ler em
+    páginas, a guarda veria um torneio menor e sobrariam vendas vivas."""
+    execute_original = FakeQuery.execute
+
+    def corta_em_mil(self):
+        resposta = execute_original(self)
+        if isinstance(resposta.data, list):
+            resposta.data = resposta.data[:1000]
+        return resposta
+
+    monkeypatch.setattr(FakeQuery, "execute", corta_em_mil)
+    vendas = [_venda(f"v-{n:04d}", "addon", 10.0, TP_A) for n in range(1200)]
+    fake = _banco(monkeypatch, vendas + [_venda("bi", "buy_in", 100.0, TP_A)],
+                  inscricoes=[_inscricao(TP_A, 12100.0)])
+    assert TS.get_delete_impact(TOUR).entries == 1201
+
+    chamadas = _estorno_falso(monkeypatch, fake)
+    r = TS.cancel_sales_and_delete(TOUR, "admin-1", "engano", "HIGH ROLLER",
+                                   orcamento_segundos=60)
+    assert len(chamadas) == 1201 and r.deleted is True
+
+
+@pytest.mark.parametrize("exclusao", [
+    lambda _id: (_ for _ in ()).throw(RuntimeError("violates foreign key constraint")),
+    lambda _id: False,
+])
+def test_exclusao_que_falha_depois_do_estorno_diz_que_o_dinheiro_ja_voltou(monkeypatch, exclusao):
+    fake = _banco(monkeypatch, _venda_do_high_roller())
+    _estorno_falso(monkeypatch, fake)
+    monkeypatch.setattr(TS, "delete_tournament", staticmethod(exclusao))
+    with pytest.raises(ErroDeNegocio) as e:
+        TS.cancel_sales_and_delete(TOUR, "admin-1", "engano", "HIGH ROLLER")
+    assert e.value.code == "exclusao_falhou_apos_estorno"
+    assert e.value.dados["estornadas"] == 3
+    assert e.value.status == 409
+
+
+def test_venda_nova_no_fim_do_estorno_devolve_o_impacto(monkeypatch):
+    """A guarda final recusou porque entrou movimento: não é falha de banco."""
+    fake = _banco(monkeypatch, _venda_do_high_roller())
+    _estorno_falso(monkeypatch, fake)
+    impacto = TS.get_delete_impact(TOUR)
+
+    def recusa(_id):
+        raise MovimentoFinanceiroImpedeExclusao(impacto)
+
+    monkeypatch.setattr(TS, "delete_tournament", staticmethod(recusa))
+    with pytest.raises(MovimentoFinanceiroImpedeExclusao):
+        TS.cancel_sales_and_delete(TOUR, "admin-1", "engano", "HIGH ROLLER")
 
 
 def test_ligacao_trava_tambem_a_exclusao_comum(monkeypatch):

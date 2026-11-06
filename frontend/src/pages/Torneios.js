@@ -484,6 +484,9 @@ const Torneios = () => {
     (impacto.blocking_links || []).includes('sponsor_credit') && t(
       'tournaments.deleteBlockedCredit', 'Há crédito de patrocinador usado neste torneio.'
     ),
+    (impacto.blocking_links || []).includes('house_credit') && t(
+      'tournaments.deleteBlockedHouseCredit', 'Há prêmio pago com desconto de fiado neste torneio.'
+    ),
     impacto.paying_without_sale > 0 && t(
       'tournaments.deleteBlockedNoSale',
       '{{count}} jogador(es) têm valor pago sem venda registrada (importação ou ajuste).',

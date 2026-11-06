@@ -58,7 +58,11 @@ const ExcluirComVendasModal = ({ impacto, onClose, onChanged }) => {
     let estornadas = 0;
     let devolvido = 0;
     const juntados = [];
+    // Sem exclusão o modal fica aberto, mas os avisos do estorno continuam
+    // sendo tarefas manuais: não podem se perder junto com o erro.
+    const comAvisos = (texto) => [texto, ...juntados].join(' ');
     try {
+      let excluido = false;
       for (let rodada = 0; rodada < MAX_RODADAS; rodada += 1) {
         // eslint-disable-next-line no-await-in-loop -- uma rodada por vez: o servidor retoma de onde a anterior parou
         const { data } = await api.post(`/tournaments/${impacto.tournament_id}/cancel-sales-and-delete`, {
@@ -69,11 +73,19 @@ const ExcluirComVendasModal = ({ impacto, onClose, onChanged }) => {
         devolvido += data?.refunded_amount || 0;
         (data?.warnings || []).forEach((a) => { if (!juntados.includes(a)) juntados.push(a); });
         setProgresso({ estornadas, devolvido, restantes: data?.remaining || 0 });
-        if (data?.deleted || !data?.remaining) break;
+        excluido = !!data?.deleted;
+        if (excluido || !data?.remaining) break;
       }
       avisarQueOCaixaMudou();
       onChanged?.();
-      setAvisos(juntados);
+      if (excluido) {
+        setAvisos(juntados);
+      } else {
+        setErro(comAvisos(t(
+          'tournaments.deleteWithSalesIncomplete',
+          'O que foi estornado continua estornado, mas o torneio ainda não foi excluído. Tente de novo.',
+        )));
+      }
     } catch (err) {
       // O que já foi estornado continua estornado: a lista recarrega para
       // mostrar o estado real, e o modal fica aberto para tentar de novo.
@@ -81,8 +93,8 @@ const ExcluirComVendasModal = ({ impacto, onClose, onChanged }) => {
         avisarQueOCaixaMudou();
         onChanged?.();
       }
-      setErro(err.userMessage || err.response?.data?.detail?.message
-        || t('tournaments.deleteWithSalesError', 'Não foi possível estornar as vendas e excluir o torneio.'));
+      setErro(comAvisos(err.userMessage || err.response?.data?.detail?.message
+        || t('tournaments.deleteWithSalesError', 'Não foi possível estornar as vendas e excluir o torneio.')));
     } finally {
       setRodando(false);
     }

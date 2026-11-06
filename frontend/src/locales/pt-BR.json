@@ -316,6 +316,8 @@
     "deleteBlockedTickets": "Há tickets de satélite ligados a este torneio.",
     "deleteBlockedSatPrizes": "Há vagas de satélite (prêmio) apontando para este torneio.",
     "deleteBlockedCredit": "Há crédito de patrocinador usado neste torneio.",
+    "deleteBlockedHouseCredit": "Há prêmio pago com desconto de fiado neste torneio.",
+    "deleteWithSalesIncomplete": "O que foi estornado continua estornado, mas o torneio ainda não foi excluído. Tente de novo.",
     "deleteBlockedNoSale": "{{count}} jogador(es) têm valor pago sem venda registrada (importação ou ajuste)."
   },
   "tournamentDays": {
@@ -1247,6 +1249,7 @@
     "meio_de_entrada_inativo": "Este meio de entrada foi desativado. Escolha outro.",
     "serverError": "Erro interno do servidor. Tente novamente em instantes.",
     "caixa_fechado": "Abra o seu caixa antes de vender.",
+    "exclusao_falhou_apos_estorno": "As vendas foram estornadas, mas o torneio não foi excluído. Tente de novo.",
     "ticket_so_pelo_resgate": "Entrada com ticket é feita pelo resgate, na tela de Tickets.",
     "caixa_precisa_estar_aberto": "O caixa precisa estar aberto para esta operação.",
     "caixa_ja_aberto": "Este caixa já está aberto.",

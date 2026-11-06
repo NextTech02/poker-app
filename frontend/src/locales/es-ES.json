@@ -316,6 +316,8 @@
     "deleteBlockedTickets": "Hay tickets de satélite vinculados a este torneo.",
     "deleteBlockedSatPrizes": "Hay cupos de satélite (premio) apuntando a este torneo.",
     "deleteBlockedCredit": "Hay crédito de patrocinador usado en este torneo.",
+    "deleteBlockedHouseCredit": "Hay un premio pagado con descuento de fiado en este torneo.",
+    "deleteWithSalesIncomplete": "Lo anulado sigue anulado, pero el torneo aún no se eliminó. Inténtalo de nuevo.",
     "deleteBlockedNoSale": "{{count}} jugador(es) tienen un monto pagado sin venta registrada (importación o ajuste)."
   },
   "tournamentDays": {
@@ -1247,6 +1249,7 @@
     "meio_de_entrada_inativo": "Este medio de entrada fue desactivado. Elige otro.",
     "serverError": "Error interno del servidor. Inténtelo de nuevo en un momento.",
     "caixa_fechado": "Abrí tu caja antes de vender.",
+    "exclusao_falhou_apos_estorno": "Las ventas se anularon, pero el torneo no se eliminó. Inténtalo de nuevo.",
     "ticket_so_pelo_resgate": "La entrada con ticket se hace canjeando el ticket, en la pantalla de Tickets.",
     "caixa_precisa_estar_aberto": "La caja tiene que estar abierta para esta operación.",
     "caixa_ja_aberto": "Esta caja ya está abierta.",

@@ -1161,6 +1161,31 @@ describe('excluir torneio com todas as compras', () => {
     expect(screen.getByRole('button', { name: 'Estornar tudo e excluir' })).toBeEnabled();
   });
 
+  it('sem a confirmação do servidor, não diz que excluiu e mantém os avisos', async () => {
+    comVendas();
+    api.post.mockResolvedValueOnce({
+      data: { deleted: false, cancelled: 3, remaining: 0, refunded_amount: 2100, warnings: ['A etapa já teve sangria.'] },
+    });
+    await montar();
+    await excluir('Turbo');
+    await screen.findByRole('dialog', { name: 'Excluir com todas as compras' });
+    await preencher();
+    await userEvent.click(screen.getByRole('button', { name: 'Estornar tudo e excluir' }));
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent('o torneio ainda não foi excluído');
+    expect(alerta).toHaveTextContent('A etapa já teve sangria.');
+    expect(screen.queryByText('Torneio excluído')).toBeNull();
+    expect(invalidateCache).toHaveBeenCalledWith('/tournaments');
+  });
+
+  it('prêmio com desconto de fiado aparece no motivo da recusa', async () => {
+    comVendas({ can_cancel_and_delete: false, blocking_links: ['house_credit'] });
+    await montar();
+    await excluir('Turbo');
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(toast.error.mock.calls[0][0]).toContain('desconto de fiado');
+  });
+
   it('sem ser admin do caixa: só a recusa, dizendo quem pode', async () => {
     const permissoes = jest.spyOn(PermissionContext, 'usePermissions')
       .mockReturnValue({ isAdmin: false, hasPermission: () => false });

@@ -5,6 +5,7 @@ from datetime import datetime
 from collections import defaultdict
 from app.database import supabase
 from app.database.memo import lembrar
+from app.database.paginacao import todas_as_linhas
 from app.models.tournament import (
     EliminationMode,
     KoFormat,
@@ -39,6 +40,9 @@ MSG_TORNEIO_NAO_ESTORNAVEL = (
 # torneio com dezenas de vendas estouraria o tempo da requisição no meio. A
 # rodada para no teto e a tela chama de novo — o estorno retoma sozinho.
 ORCAMENTO_DO_ESTORNO_EM_MASSA = 20.0
+
+# Ids por consulta `in`: a lista vai na URL e não pode crescer com o torneio.
+LOTE_DE_IDS = 100
 
 TIPOS_DE_ENTRADA = ("buy_in", "rebuy", "addon")
 
@@ -585,8 +589,9 @@ class TournamentService:
     def get_delete_impact(tournament_id: str) -> Optional[TournamentDeleteImpact]:
         """Mede o estrago da exclusão ANTES de executá-la.
 
-        Três round-trips fixos (dias, inscrições, vendas), independentemente do
-        tamanho do torneio: é uma tela de confirmação, não um poll.
+        Poucas idas ao banco (dias, inscrições, vendas e as ligações): é uma
+        tela de confirmação, não um poll. Inscrições e vendas vêm de mil em mil:
+        a guarda não pode medir só as primeiras mil linhas.
 
         `select("*")` nas vendas de propósito: pedir a coluna `status` pelo nome
         estoura no PostgREST se a migração de cancelamento ainda não rodou
@@ -604,14 +609,11 @@ class TournamentService:
             supabase.table("tournament_days").select("id")
             .eq("tournament_id", tournament_id).execute().data or []
         )
-        inscricoes = (
+        inscricoes = todas_as_linhas(lambda: (
             supabase.table("tournament_players").select("id, status, total_spent")
-            .eq("tournament_id", tournament_id).execute().data or []
-        )
-        vendas = (
-            supabase.table("transactions").select("*")
-            .eq("tournament_id", tournament_id).execute().data or []
-        )
+            .eq("tournament_id", tournament_id).order("id")
+        ))
+        vendas = TournamentService._vendas_do_torneio(tournament_id)
 
         resumo = resumir_vendas(vendas)
         pagantes = contar_pagantes(inscricoes)
@@ -627,7 +629,7 @@ class TournamentService:
             and i.get("id") not in com_venda
         )
         ligacoes = TournamentService._ligacoes_que_travam(
-            tournament_id, [d["id"] for d in dias], [i["id"] for i in inscricoes]
+            tournament_id, [d["id"] for d in dias], [i["id"] for i in inscricoes], vendas
         )
         bloqueado = bool(resumo["entries"] or resumo["prizes"] or pagantes or ligacoes)
         return TournamentDeleteImpact(
@@ -649,14 +651,25 @@ class TournamentService:
         )
 
     @staticmethod
-    def _ligacoes_que_travam(tournament_id: str, dias: List[str], inscricoes: List[str]) -> List[str]:
+    def _vendas_do_torneio(tournament_id: str) -> List[dict]:
+        """Todas as vendas do torneio, inclusive as canceladas, de mil em mil."""
+        return todas_as_linhas(lambda: (
+            supabase.table("transactions").select("*")
+            .eq("tournament_id", tournament_id).order("id")
+        ))
+
+    @staticmethod
+    def _ligacoes_que_travam(
+        tournament_id: str, dias: List[str], inscricoes: List[str], vendas: List[dict]
+    ) -> List[str]:
         """Registros de OUTRAS tabelas que o banco não deixa apagar junto.
 
-        As FKs de `satellite_tickets`, `credit_transactions` e da vaga de
-        satélite em `prize_allocations` não são CASCADE: com qualquer uma
-        delas apontando para o torneio (ou um dia, ou uma inscrição dele), o
-        DELETE estoura no banco. Tabela ausente num ambiente antigo = sem
-        ligação.
+        As FKs de `satellite_tickets`, `credit_transactions`,
+        `house_credit_entries` e da vaga de satélite em `prize_allocations` não
+        são CASCADE: com qualquer uma delas apontando para o torneio (ou um dia,
+        uma inscrição ou uma venda dele), o DELETE estoura no banco — e, no
+        estorno em massa, DEPOIS de o dinheiro já ter voltado. Tabela ausente
+        num ambiente antigo = sem ligação.
         """
         def existe(montar) -> bool:
             try:
@@ -665,27 +678,41 @@ class TournamentService:
                 logger.warning("conferência de ligação do torneio falhou", exc_info=True)
                 return False
 
+        def existe_em_lotes(tabela: str, coluna: str, ids: List[str]) -> bool:
+            # A lista de ids vai na URL: centenas deles passam do limite do
+            # gateway, e a falha seria lida acima como "sem ligação".
+            return any(
+                existe(lambda lote=ids[i:i + LOTE_DE_IDS]: (
+                    supabase.table(tabela).select("id").in_(coluna, lote)
+                ))
+                for i in range(0, len(ids), LOTE_DE_IDS)
+            )
+
         ligacoes: List[str] = []
-        tickets = existe(lambda: supabase.table("satellite_tickets").select("id")
-                         .eq("target_tournament_id", tournament_id))
-        if not tickets and dias:
-            tickets = existe(lambda: supabase.table("satellite_tickets").select("id")
-                             .in_("target_tournament_day_id", dias))
-        if not tickets and inscricoes:
-            tickets = existe(lambda: supabase.table("satellite_tickets").select("id")
-                             .in_("redeemed_tournament_player_id", inscricoes))
-        if tickets:
+        if (
+            existe(lambda: supabase.table("satellite_tickets").select("id")
+                   .eq("target_tournament_id", tournament_id))
+            or existe_em_lotes("satellite_tickets", "target_tournament_day_id", dias)
+            or existe_em_lotes("satellite_tickets", "redeemed_tournament_player_id", inscricoes)
+        ):
             ligacoes.append("satellite_tickets")
-        if existe(lambda: supabase.table("prize_allocations").select("id")
-                  .eq("vaga_target_tournament_id", tournament_id)):
+        if (
+            existe(lambda: supabase.table("prize_allocations").select("id")
+                   .eq("vaga_target_tournament_id", tournament_id))
+            or existe_em_lotes("prize_allocations", "vaga_target_day_id", dias)
+        ):
             ligacoes.append("satellite_prizes")
-        credito = existe(lambda: supabase.table("credit_transactions").select("id")
-                         .eq("tournament_id", tournament_id))
-        if not credito and dias:
-            credito = existe(lambda: supabase.table("credit_transactions").select("id")
-                             .in_("tournament_day_id", dias))
-        if credito:
+        if (
+            existe(lambda: supabase.table("credit_transactions").select("id")
+                   .eq("tournament_id", tournament_id))
+            or existe_em_lotes("credit_transactions", "tournament_day_id", dias)
+        ):
             ligacoes.append("sponsor_credit")
+        # Prêmio pago descontando fiado: o gatilho da venda grava a linha do
+        # extrato, que aponta para ela e é imutável. Só esse gatilho grava esse
+        # vínculo, então o campo da própria venda basta — cancelada também prende.
+        if any(float(v.get("house_debt_offset") or 0) > 0 for v in vendas):
+            ligacoes.append("house_credit")
         return ligacoes
 
     @staticmethod
@@ -752,11 +779,7 @@ class TournamentService:
         if impacto.blocked and not impacto.can_cancel_and_delete:
             raise MovimentoFinanceiroImpedeExclusao(impacto, MSG_TORNEIO_NAO_ESTORNAVEL)
 
-        vendas = (
-            supabase.table("transactions").select("*")
-            .eq("tournament_id", tournament_id).execute().data or []
-        )
-        fila = fila_do_estorno(vendas)
+        fila = fila_do_estorno(TournamentService._vendas_do_torneio(tournament_id))
         inicio = time.monotonic()
         estornadas = 0
         devolvido = 0.0
@@ -801,8 +824,25 @@ class TournamentService:
                 refunded_amount=round(devolvido, 2), warnings=avisos,
             )
 
-        excluido = TournamentService.delete_tournament(tournament_id)
+        # Aqui o dinheiro já voltou: se o banco ainda recusar, o operador precisa
+        # saber disso, e não ver um erro genérico. Tentar de novo é seguro, porque
+        # não sobrou venda para estornar.
+        recusa_da_exclusao = ErroDeNegocio(
+            "exclusao_falhou_apos_estorno",
+            "As vendas foram estornadas, mas o torneio não foi excluído. Tente de novo.",
+            status=409,
+            estornadas=estornadas,
+        )
+        try:
+            excluido = TournamentService.delete_tournament(tournament_id)
+        except MovimentoFinanceiroImpedeExclusao:
+            raise  # entrou movimento novo: o router devolve o impacto
+        except Exception as erro:
+            logger.exception("estorno em massa: exclusão do torneio %s falhou", tournament_id)
+            raise recusa_da_exclusao from erro
+        if not excluido:
+            raise recusa_da_exclusao
         return TournamentCancelAndDeleteResult(
-            deleted=excluido, cancelled=estornadas, remaining=0,
+            deleted=True, cancelled=estornadas, remaining=0,
             refunded_amount=round(devolvido, 2), warnings=avisos,
         )
