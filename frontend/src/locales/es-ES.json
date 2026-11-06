@@ -1250,6 +1250,10 @@
     "serverError": "Error interno del servidor. Inténtelo de nuevo en un momento.",
     "caixa_fechado": "Abrí tu caja antes de vender.",
     "exclusao_falhou_apos_estorno": "Las ventas se anularon, pero el torneo no se eliminó. Inténtalo de nuevo.",
+    "nome_do_torneio_nao_confere": "El nombre escrito no es el de este torneo ({{nome}}).",
+    "estorno_em_massa_interrompido": "La reversión se detuvo después de {{estornadas}} venta(s): {{motivo}} Lo ya revertido sigue revertido; intenta de nuevo para continuar.",
+    "torneio_nao_estornavel": "Este torneo no se puede eliminar con las compras: hay un premio pagado, una venta con crédito o ticket, un satélite o crédito de patrocinador vinculado.",
+    "sem_permissao_excluir_com_vendas": "Solo quien administra la caja puede revertir las ventas y eliminar el torneo.",
     "ticket_so_pelo_resgate": "La entrada con ticket se hace canjeando el ticket, en la pantalla de Tickets.",
     "caixa_precisa_estar_aberto": "La caja tiene que estar abierta para esta operación.",
     "caixa_ja_aberto": "Esta caja ya está abierta.",
@@ -1521,11 +1525,7 @@
     "jogador_com_fiado": "Este jugador debe {{divida}} de fiado: confirmá cuánto descontar (sugerido {{abatimento_sugerido}}).",
     "abatimento_maior_que_o_possivel": "El descuento supera la deuda o el monto a pagar (máximo {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Indicá el motivo para descontar menos que {{proposto}}.",
-    "fiado_indisponivel": "El fiado todavía no está disponible en este club.",
-    "nome_do_torneio_nao_confere": "El nombre escrito no es el de este torneo ({{nome}}).",
-    "estorno_em_massa_interrompido": "La reversión se detuvo después de {{estornadas}} venta(s): {{motivo}} Lo ya revertido sigue revertido; intenta de nuevo para continuar.",
-    "torneio_nao_estornavel": "Este torneo no se puede eliminar con las compras: hay un premio pagado, una venta con crédito o ticket, un satélite o crédito de patrocinador vinculado.",
-    "sem_permissao_excluir_com_vendas": "Solo quien administra la caja puede revertir las ventas y eliminar el torneo."
+    "fiado_indisponivel": "El fiado todavía no está disponible en este club."
   },
   "premiacao": {
     "loadError": "Error al cargar los datos de premiación",

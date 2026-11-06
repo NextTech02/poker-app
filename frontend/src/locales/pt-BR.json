@@ -1250,6 +1250,10 @@
     "serverError": "Erro interno do servidor. Tente novamente em instantes.",
     "caixa_fechado": "Abra o seu caixa antes de vender.",
     "exclusao_falhou_apos_estorno": "As vendas foram estornadas, mas o torneio não foi excluído. Tente de novo.",
+    "nome_do_torneio_nao_confere": "O nome digitado não é o deste torneio ({{nome}}).",
+    "estorno_em_massa_interrompido": "O estorno parou depois de {{estornadas}} venda(s): {{motivo}} O que já foi estornado continua estornado; tente de novo para continuar.",
+    "torneio_nao_estornavel": "Este torneio não pode ser excluído com as compras: há prêmio pago, venda com crédito ou ticket, satélite ou crédito de patrocinador ligado a ele.",
+    "sem_permissao_excluir_com_vendas": "Só quem administra o caixa pode estornar as vendas e excluir o torneio.",
     "ticket_so_pelo_resgate": "Entrada com ticket é feita pelo resgate, na tela de Tickets.",
     "caixa_precisa_estar_aberto": "O caixa precisa estar aberto para esta operação.",
     "caixa_ja_aberto": "Este caixa já está aberto.",
@@ -1521,11 +1525,7 @@
     "jogador_com_fiado": "Este jogador deve {{divida}} de fiado: confirme quanto abater (sugerido {{abatimento_sugerido}}).",
     "abatimento_maior_que_o_possivel": "O abatimento passa da dívida ou do valor a pagar (máximo {{maximo}}).",
     "motivo_do_abatimento_obrigatorio": "Informe o motivo para abater menos do que {{proposto}}.",
-    "fiado_indisponivel": "O fiado ainda não está disponível neste clube.",
-    "nome_do_torneio_nao_confere": "O nome digitado não é o deste torneio ({{nome}}).",
-    "estorno_em_massa_interrompido": "O estorno parou depois de {{estornadas}} venda(s): {{motivo}} O que já foi estornado continua estornado; tente de novo para continuar.",
-    "torneio_nao_estornavel": "Este torneio não pode ser excluído com as compras: há prêmio pago, venda com crédito ou ticket, satélite ou crédito de patrocinador ligado a ele.",
-    "sem_permissao_excluir_com_vendas": "Só quem administra o caixa pode estornar as vendas e excluir o torneio."
+    "fiado_indisponivel": "O fiado ainda não está disponível neste clube."
   },
   "premiacao": {
     "loadError": "Erro ao carregar dados da premiação",
