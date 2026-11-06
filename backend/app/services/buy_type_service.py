@@ -197,12 +197,11 @@ class BuyTypeService:
             if com_coluna_de_equipe:
                 extra["per_team"] = bool(item.get("per_team"))
             if com_coluna_de_entradas:
-                # Só recompra vale mais de uma: na categoria Entrada o contador
-                # também multiplica o preço e é a base dos jogadores ativos. A
-                # tela esconde o campo nas outras, e o banco recusa.
-                extra["entry_count"] = (
-                    int(item.get("entry_count") or 1) if item["category"] == "rebuy" else 1
-                )
+                # Só entrada e recompra individuais valem mais de uma: add-on e
+                # taxa não são entradas, e o meio por equipe é cobrado de cada
+                # integrante à parte. A tela esconde o campo, e o banco recusa.
+                vale_entradas = item["category"] in ("buy_in", "rebuy") and not item.get("per_team")
+                extra["entry_count"] = int(item.get("entry_count") or 1) if vale_entradas else 1
             return {
                 **extra,
                 "tournament_id": tournament_id,

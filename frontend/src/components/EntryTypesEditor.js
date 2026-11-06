@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from './Button';
 import { currencySymbol } from '../utils/currencyUtils';
-import { MAXIMO_DE_ENTRADAS, novaLinha, removerLinha } from '../utils/entryTypes';
+import { MAXIMO_DE_ENTRADAS, novaLinha, removerLinha, valeEntradas } from '../utils/entryTypes';
 import './EntryTypesEditor.css';
 
 /**
@@ -166,7 +166,7 @@ const EntryTypesEditor = ({
                   {t('teams.perTeam', 'Por equipe (valor da equipe inteira)')}
                 </label>
               )}
-              {meio.category === 'rebuy' && (
+              {valeEntradas(meio) && (
                 <div className="entry-method-entries">
                   <label htmlFor={`${idPrefix}_entries_${meio.key}`}>
                     {t('tournamentDayForm.entryMethodEntries', 'Vale por (entradas)')}
@@ -185,7 +185,7 @@ const EntryTypesEditor = ({
                   <small className="form-hint" id={`${idPrefix}_entries_hint_${meio.key}`}>
                     {t(
                       'tournamentDayForm.entryMethodEntriesHint',
-                      'Quantas reentradas esta venda conta no telão e nos relatórios. Valor e fichas continuam os desta linha.'
+                      'Quantas entradas esta venda conta no telão e nos relatórios. Valor e fichas continuam os desta linha.'
                     )}
                   </small>
                 </div>

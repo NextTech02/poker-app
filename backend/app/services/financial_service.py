@@ -236,7 +236,7 @@ class FinancialService:
                 if tx_type in ("buy_in", "rebuy", "addon"):
                     tm["vendas"].append(tx)
                 if tx_type == "buy_in":
-                    tm["buy_ins_count"] += 1
+                    tm["buy_ins_count"] += entradas_da_venda(tx)
                     tm["revenue"] += amount
                 elif tx_type == "rebuy":
                     tm["rebuys_count"] += entradas_da_venda(tx)

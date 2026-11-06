@@ -1023,6 +1023,21 @@ class TestContadoresSaoDecrementados:
         TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert fake.store["tournament_days"][0]["eliminations_count"] == 1
 
+    def test_estorno_do_buy_in_doble_zera_entradas_e_extras(self, monkeypatch):
+        """Extra sobrando num contador zerado daria pessoas negativas no dia:
+        os ativos ficariam um abaixo de quem está na mesa."""
+        fake = _cenario(
+            monkeypatch,
+            venda=_venda(valor=40, chips=50000, entry_count=2),
+            jogador={"buy_in_count": 2, "extra_entries": 1, "total_buy_in_amount": 40,
+                     "rebuy_count": 0, "addon_count": 0, "total_rebuy_amount": 0,
+                     "total_addon_amount": 0, "total_chips": 50000},
+        )
+        TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
+        jogador = fake.store["tournament_players"][0]
+        assert (jogador["buy_in_count"], jogador["extra_entries"]) == (0, 0)
+        assert jogador["status"] == "cancelled"
+
     def test_estorno_da_reentrada_doble_devolve_as_duas_ao_contador(self, monkeypatch):
         """Uma venda, duas reentradas: devolver so uma deixaria no telao uma
         reentrada que ninguem pagou. Quem saiu da mesa foi UM jogador, entao

@@ -526,6 +526,9 @@ class TransactionService:
                 "buy_in_count": 0,
                 "total_chips": 0,
             }
+            # Extra sobrando num contador zerado tiraria pessoas do dia.
+            if tp.get("extra_entries"):
+                dados["extra_entries"] = 0
 
         # `total_spent` é recalculado pelo trigger BEFORE UPDATE a partir dos
         # três totais, mas vai gravado junto: assim o número fica certo mesmo

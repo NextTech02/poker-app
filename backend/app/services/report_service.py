@@ -343,7 +343,7 @@ class ReportService:
 
             transactions = ler_vendas_com_taxa(_monta, "type, amount")
             total_revenue = sum(float(t["amount"]) for t in transactions if t["type"] in ["buy_in", "rebuy", "addon"])
-            total_buy_ins = sum(1 for t in transactions if t["type"] == "buy_in")
+            total_buy_ins = sum(entradas_da_venda(t) for t in transactions if t["type"] == "buy_in")
             total_rebuys = sum(entradas_da_venda(t) for t in transactions if t["type"] == "rebuy")
             # Taxa sai do sistema como addon, mas não é add-on.
             total_addons = sum(1 for t in transactions if categoria_da_venda(t) == "addon")

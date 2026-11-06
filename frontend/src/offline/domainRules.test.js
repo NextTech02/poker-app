@@ -157,6 +157,20 @@ describe('registro de jogador', () => {
     expect(ler('tournament_days', DIA).prize_pool).toBe(300);
   });
 
+  it('buy-in doble conta duas entradas de uma pessoa, como o servidor', async () => {
+    // Na tela offline o numero precisa ser o mesmo que a sincronizacao vai gravar.
+    guardar('buy_types', {
+      id: 'bt-bd', tournament_id: TOUR, name: 'Buy-in Doble', category: 'buy_in',
+      amount: 40, chips: 50000, rake_percentage: 0, entry_count: 2,
+    });
+    const { tp, txn } = await applyRegister(corpoRegistro({ buy_type_id: 'bt-bd' }));
+    expect(tp.buy_in_count).toBe(2);
+    expect(tp.extra_entries).toBe(1);
+    expect(tp.total_buy_in_amount).toBe(40);
+    expect(tp.total_chips).toBe(50000);
+    expect(txn).toMatchObject({ amount: 40, chips: 50000, entry_count: 2 });
+  });
+
   it('tipo de compra com rake zero não cai no padrão do dia', async () => {
     // Zero é um valor válido; tratá-lo como "ausente" reintroduziria os 20%.
     guardar('buy_types', { id: 'bt-0', rake_percentage: 0 });

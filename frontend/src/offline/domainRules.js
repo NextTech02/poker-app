@@ -82,12 +82,17 @@ const bumpStageCashAndPool = async (day, tournamentId, amount, rakePct) => {
   }
 };
 
+// Quantas entradas a venda vale no contador ("Buy-in Doble" = 2). Só o contador:
+// valor e fichas do meio já são os da venda inteira.
+const entradasDoMeio = (buyType) => Math.max(1, parseInt(buyType && buyType.entry_count, 10) || 1);
+
 /** Registro de jogador (buy-in). Espelha register_player + triggers. */
 export const applyRegister = async (body) => {
   const day = body.tournament_day_id ? await getEntity('tournament_days', body.tournament_day_id) : null;
   const buyType = body.buy_type_id ? await getEntity('buy_types', body.buy_type_id) : null;
 
   const count = body.buy_in_count || 1;
+  const entradasVendidas = count * entradasDoMeio(buyType);
   const buyIn = doTipoOuDoDia(buyType, 'amount', day && day.buy_in);
   const rakePct = rakePctFor(day, buyType);
   const startingChips = doTipoOuDoDia(buyType, 'chips', day && day.starting_chips);
@@ -102,7 +107,9 @@ export const applyRegister = async (body) => {
     tournament_id: body.tournament_id,
     tournament_day_id: body.tournament_day_id || null,
     player_id: body.player_id,
-    buy_in_count: count,
+    buy_in_count: entradasVendidas,
+    // Quem senta é UMA pessoa: a diferença sai da base dos jogadores ativos.
+    extra_entries: entradasVendidas - count,
     rebuy_count: 0,
     addon_count: 0,
     total_buy_in_amount: amount,
@@ -134,6 +141,7 @@ export const applyRegister = async (body) => {
     // devolve ESTAS fichas — não as que o cadastro disser depois.
     buy_type_name: (buyType && buyType.name) || null,
     chips: totalChips,
+    entry_count: entradasVendidas,
     rake_percentage: rakePct,
     rake_amount: round2(amount * rakePct / 100),
     created_at: nowISO(),
@@ -158,9 +166,7 @@ export const applyRebuy = async (body) => {
   const amount = doTipoOuDoDia(buyType, 'amount', day && day.rebuy_amount);
   const chips = doTipoOuDoDia(buyType, 'chips', (day && day.rebuy_chips) || 10000);
   const rakePct = rakePctFor(day, buyType);
-  // Quantas entradas a venda vale no contador ("Reentrada Doble" = 2). Só o
-  // contador: valor e fichas do meio já são os da venda inteira.
-  const entradas = Math.max(1, parseInt(buyType && buyType.entry_count, 10) || 1);
+  const entradas = entradasDoMeio(buyType);
 
   // Quantidade: a tela NÃO produz mais vendas com quantidade — um "rebuy duplo"
   // virou um meio de entrada próprio, com valor e fichas próprios, porque ele

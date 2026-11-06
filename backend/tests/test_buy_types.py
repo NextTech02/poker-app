@@ -266,12 +266,29 @@ class TestEntradasPorMeio:
         S.substituir(TORNEIO, [_item(), self._doble()])
         assert [l["entry_count"] for l in fake.store["buy_types"]] == [1, 2]
 
-    def test_outra_categoria_vale_sempre_uma(self, monkeypatch):
-        """Em Entrada o contador multiplica o preço e é a base dos jogadores ativos."""
+    def test_entrada_tambem_pode_valer_mais_de_uma(self, monkeypatch):
         fake = _monta(monkeypatch)
-        S.substituir(TORNEIO, [{**_item(), "entry_count": 3}, self._doble()])
+        S.substituir(TORNEIO, [{**_item(name="Buy-in Doble"), "entry_count": 2}])
+        assert fake.store["buy_types"][0]["entry_count"] == 2
+
+    def test_add_on_e_taxa_valem_sempre_uma(self, monkeypatch):
+        """Não são entradas: nenhum contador de entradas olha para eles."""
+        fake = _monta(monkeypatch)
+        S.substituir(TORNEIO, [
+            _item(),
+            {**_item(name="Add-on", category="addon"), "entry_count": 3},
+            {**_item(name="Tasa", category="fee"), "entry_count": 3},
+            self._doble(),
+        ])
         por_nome = {l["name"]: l["entry_count"] for l in fake.store["buy_types"]}
-        assert por_nome == {"Buy-in": 1, "Reentrada Doble": 2}
+        assert por_nome == {"Buy-in": 1, "Add-on": 1, "Tasa": 1, "Reentrada Doble": 2}
+
+    def test_meio_por_equipe_vale_sempre_uma(self, monkeypatch):
+        """O valor é o da equipe inteira, cobrado de cada integrante à parte."""
+        fake = _monta(monkeypatch)
+        S.substituir(TORNEIO, [_item(), {**_item(name="Equipo"), "per_team": True, "entry_count": 2}, self._doble()])
+        por_nome = {l["name"]: l["entry_count"] for l in fake.store["buy_types"]}
+        assert por_nome["Equipo"] == 1
 
     def test_editar_uma_linha_existente_mantem_o_que_foi_enviado(self, monkeypatch):
         fake = _monta(monkeypatch, tipos=[

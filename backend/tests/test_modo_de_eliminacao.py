@@ -10,7 +10,9 @@ import pytest
 
 from app.models.tournament import EliminationMode, TournamentCreate, TournamentUpdate
 from app.services import tournament_service
-from app.services.eliminacao import entradas_para_ativos, normalizar_modo, reentradas
+from app.services.eliminacao import (
+    entradas_contadas, entradas_para_ativos, normalizar_modo, reentradas,
+)
 from app.services.tournament_service import TournamentService
 from app.utils.erros import ErroDeNegocio
 
@@ -133,3 +135,28 @@ class TestRegraUnica:
     ])
     def test_modo_desconhecido_vale_em_massa(self, valor, esperado):
         assert normalizar_modo(valor) == esperado
+
+
+class TestPessoasEEntradas:
+    """"Buy-in Doble": duas entradas de uma pessoa só."""
+
+    def _inscrito(self, buy=1, extra=0, **kw):
+        return {"buy_in_count": buy, "extra_entries": extra, "status": "active", **kw}
+
+    def test_ativos_contam_quem_senta(self):
+        assert entradas_para_ativos([self._inscrito(2, 1), self._inscrito()]) == 2
+
+    def test_entradas_contam_o_que_foi_vendido(self):
+        assert entradas_contadas([self._inscrito(2, 1), self._inscrito()]) == 3
+
+    def test_sem_extras_os_dois_numeros_sao_iguais(self):
+        linhas = [self._inscrito(), self._inscrito(), self._inscrito(0, is_qualified_entry=True)]
+        assert entradas_para_ativos(linhas) == entradas_contadas(linhas) == 3
+
+    def test_inscricao_lida_sem_a_coluna_vale_como_antes(self):
+        assert entradas_para_ativos([{"buy_in_count": 1}]) == 1
+        assert entradas_contadas([{"buy_in_count": 1}]) == 1
+
+    def test_inscricao_estornada_zera_os_dois(self):
+        linha = self._inscrito(0, 0, status="cancelled")
+        assert entradas_para_ativos([linha]) == entradas_contadas([linha]) == 0

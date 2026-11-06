@@ -310,6 +310,29 @@ describe('contador de eliminados', () => {
 });
 
 
+describe('entradas extras na conta por extenso', () => {
+  const valores = () => Array.from(document.querySelectorAll('.elimination-stat-value'))
+    .map((el) => el.textContent);
+
+  it('Buy-in Doble: o termo a mais faz a conta fechar', async () => {
+    // Dez pessoas, uma de Buy-in Doble: "11 - 0 = 10" pareceria erro.
+    await montar({ total_entries: 11, total_players: 10, active_players: 10, eliminations_count: 0 });
+    expect(screen.getByText('CONTROL.EXTRAENTRIES')).toBeInTheDocument();
+    expect(valores().slice(0, 4)).toEqual(['11', '1', '0', '10']);
+  });
+
+  it('sem entrada extra, a conta fica como sempre foi', async () => {
+    await montar({ total_entries: 25, total_players: 25 });
+    expect(screen.queryByText('CONTROL.EXTRAENTRIES')).toBeNull();
+    expect(valores().slice(0, 3)).toEqual(['25', '7', '18']);
+  });
+
+  it('relógio sem as pessoas não inventa extras', async () => {
+    await montar();
+    expect(screen.queryByText('CONTROL.EXTRAENTRIES')).toBeNull();
+  });
+});
+
 describe('bloqueio de vendas do dia', () => {
   /** O dia é a trava fina: encerrar o Dia 1A não pode parar o 1B da mesma
    *  etapa. Quem decide a hora é o diretor, e ele está NESTA tela. */

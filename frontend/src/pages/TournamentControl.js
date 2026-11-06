@@ -294,6 +294,9 @@ const TournamentControl = () => {
   const isPaused = timerState?.is_paused;
   const activePlayersCount = timerState?.active_players || 0;
   const totalEntries = timerState?.total_entries || 0;
+  // O "Buy-in Doble" são duas entradas de uma pessoa só: sem este termo, a conta
+  // por extenso daria "11 - 0 = 10" e pareceria erro.
+  const extraEntries = Math.max(0, totalEntries - (timerState?.total_players ?? totalEntries));
   const eliminationsCount = timerState?.eliminations_count || 0;
   // Reentradas = recompras (add-on fica fora). Não entram na conta acima:
   // cada uma já desfez uma eliminação quando foi vendida.
@@ -500,6 +503,15 @@ const TournamentControl = () => {
                   <div className="elimination-stat-label">{t('control.entries').toUpperCase()}</div>
                   <div className="elimination-stat-value entries">{totalEntries}</div>
                 </div>
+                {extraEntries > 0 && (
+                  <>
+                    <div className="elimination-stat-operator">-</div>
+                    <div className="elimination-stat">
+                      <div className="elimination-stat-label">{t('control.extraEntries', 'Entradas extras').toUpperCase()}</div>
+                      <div className="elimination-stat-value entries">{extraEntries}</div>
+                    </div>
+                  </>
+                )}
                 <div className="elimination-stat-operator">-</div>
                 <div className="elimination-stat">
                   <div className="elimination-stat-label">{t('control.eliminations').toUpperCase()}</div>
