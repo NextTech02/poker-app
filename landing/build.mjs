@@ -161,6 +161,13 @@ function conferirPaginas(paginas){
   unico(p => p.titulo, 'título');
   unico(p => p.descricao, 'descrição');
 
+  /* Rascunho de texto legal nunca vai ao ar: `{{CNPJ}}` sem preencher para o
+     deploy aqui, e não na frente de quem lê a política de privacidade. */
+  for(const p of paginas){
+    const pendentes = [...new Set(p.corpo.match(/\{\{[A-Z_]+\}\}/g) || [])];
+    if(pendentes.length) throw new Error(`${p.arquivo}: falta preencher ${pendentes.join(', ')}`);
+  }
+
   for(const p of paginas){
     if(p.titulo.length > 62) console.warn(`  ! ${p.arquivo}: título com ${p.titulo.length} caracteres (o Google corta perto de 60)`);
     if(p.descricao.length > 160) console.warn(`  ! ${p.arquivo}: descrição com ${p.descricao.length} caracteres (o Google corta perto de 155)`);

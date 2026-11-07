@@ -191,6 +191,7 @@ window.ACEBLIND_I18N = {
     'prem.cta': 'Talk to the team',
 
     'form.emailPh': 'you@club.com',
+    'form.privacidade': 'By sending this, you agree that we may contact you by WhatsApp and email. See our <a href="/en/privacy/">privacy policy</a>.',
     'recursos.eyebrow': 'Inside the system',
     'recursos.titulo': 'See how each part works<span class="italic">on event day.</span>',
     'faq.titulo': 'Frequently asked questions about AceBlind',
@@ -402,6 +403,7 @@ window.ACEBLIND_I18N = {
     'prem.cta': 'Hablar con el equipo',
 
     'form.emailPh': 'tu@club.com',
+    'form.privacidade': 'Al enviar, autorizas que te contactemos por WhatsApp y correo. Mira la <a href="/es/privacidad/">política de privacidad</a>.',
     'recursos.eyebrow': 'Por dentro del sistema',
     'recursos.titulo': 'Mira cómo funciona cada parte<span class="italic">el día del evento.</span>',
     'faq.titulo': 'Preguntas frecuentes sobre AceBlind',
