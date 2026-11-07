@@ -16,6 +16,7 @@ import { BuyTypesProvider } from './contexts/BuyTypesContext';
 import { ConnectivityProvider } from './contexts/ConnectivityContext';
 import { isOnline } from './offline/connectivity';
 import OfflineBanner from './components/OfflineBanner';
+import { PERMISSOES_DO_RELOGIO } from './components/menus';
 import OrgScopeBanner from './components/OrgScopeBanner';
 import OrgInviteModal from './components/OrgInviteModal';
 import Login from './pages/Login';
@@ -57,6 +58,8 @@ const SyncConflicts = lazy(() => import('./pages/SyncConflicts'));
 const Organizacoes = lazy(() => import('./pages/Organizacoes'));
 const CaixaJogadores = lazy(() => import('./pages/CaixaJogadores'));
 const SatelliteTickets = lazy(() => import('./pages/SatelliteTickets'));
+const RelogioDeMesa = lazy(() => import('./pages/RelogioDeMesa'));
+const RelogioDaMesa = lazy(() => import('./pages/RelogioDaMesa'));
 const CaixaGeral = lazy(() => import('./pages/CaixaGeral'));
 const Relatorios = lazy(() => import('./pages/Relatorios'));
 const RelatorioTorneio = lazy(() => import('./pages/RelatorioTorneio'));
@@ -518,6 +521,30 @@ function AppRoutes() {
         element={
           <PrivateRoute module="tournament" permission="cashier_tickets">
             <SatelliteTickets />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/relogio-mesa"
+        element={
+          <PrivateRoute module="tournament" anyPermission={PERMISSOES_DO_RELOGIO}>
+            <RelogioDeMesa />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/relogio-mesa/:dayId"
+        element={
+          <PrivateRoute module="tournament" anyPermission={PERMISSOES_DO_RELOGIO}>
+            <RelogioDeMesa />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/relogio-mesa/:dayId/mesa/:tableId"
+        element={
+          <PrivateRoute module="tournament" anyPermission={PERMISSOES_DO_RELOGIO}>
+            <RelogioDaMesa />
           </PrivateRoute>
         }
       />

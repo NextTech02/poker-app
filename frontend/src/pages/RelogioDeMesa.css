@@ -1,0 +1,85 @@
+/* Escolher dia e mesa, configurar o dia e cuidar dos cartões. */
+.rcm-tela .card {
+  margin-top: 1.5rem;
+}
+
+.rcm-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 0.75rem;
+}
+
+.rcm-lista--mesas {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+}
+
+.rcm-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 72px;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.rcm-item:hover {
+  border-color: var(--brand-green);
+}
+
+.rcm-item span {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.rcm-item .rcm-aberto {
+  color: var(--brand-green);
+  font-weight: 600;
+}
+
+.rcm-outro-dia {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rcm-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 0 1rem;
+  margin-bottom: 1rem;
+}
+
+.rcm-caixa {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.rcm-aviso {
+  margin: 0 0 1rem;
+  color: var(--warning-color, #f59e0b);
+  font-size: 0.875rem;
+}
+
+.rcm-direito {
+  margin: 0 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.rcm-tabela {
+  overflow-x: auto;
+}
+
+.rcm-quem {
+  margin: 0 0 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}

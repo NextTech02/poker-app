@@ -27,6 +27,8 @@ ALL_PERMISSIONS = [
     'cashier_tickets.master', 'prizes',
     'prizes_release', 'financial', 'reports', 'general_cash', 'rankings',
     'blinds', 'tables', 'broadcast', 'employees',
+    # Tablet do dealer: abre o relógio da mesa e nada além dele.
+    'table_clock',
     'cashbox.operate', 'cashbox.admin',
     'sangi',
     # Módulo de cash game. Ter a chave não basta: o clube precisa ter o módulo
