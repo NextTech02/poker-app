@@ -1,0 +1,86 @@
+id: torneios-telao
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:telao
+titulo:
+  pt-BR: "Como configurar o telão do torneio"
+  en-US: "How to set up the tournament display"
+  es-ES: "Cómo configurar la pantalla del torneo"
+descricao:
+  pt-BR: "Título, fundo, o que aparece na tela e a prévia do intervalo."
+  en-US: "Title, background, what shows on screen and the break preview."
+  es-ES: "Título, fondo, lo que aparece en pantalla y la vista previa del descanso."
+passos:
+  - fala:
+      pt-BR: "O telão é a tela do salão, com relógio, blinds e jogadores. Cada dia tem a sua configuração. Abra o torneio e, no dia, clique em Broadcast."
+      en-US: "The display is the screen in the room, with the clock, blinds and players. Each day has its own settings. Open the tournament and, on the day, click Broadcast."
+      es-ES: "La pantalla es la que se ve en el salón, con reloj, blinds y jugadores. Cada día tiene su configuración. Abre el torneo y, en el día, haz clic en Transmisión."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{torneio_telao}']"}
+      - clicar: {css: ".day-card-actions button", t: tournamentDetail.broadcast}
+  - fala:
+      pt-BR: "No alto fica a prévia. Ela usa dados simulados e muda enquanto você ajusta."
+      en-US: "The preview is at the top. It uses simulated data and changes as you adjust."
+      es-ES: "Arriba está la vista previa. Usa datos simulados y cambia mientras ajustas."
+    acoes:
+      - destacar: {css: ".bs-preview-card"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Em Nome de Exibição, escreva o título do telão. Vazio, vale o nome do torneio."
+      en-US: "In Display Name, write the title for the display. If empty, it uses the tournament name."
+      es-ES: "En Nombre de Visualización, escribe el título de la pantalla. Vacío, se usa el nombre del torneo."
+    acoes:
+      - digitar: {css: ".bs-card input.bs-input", n: 0, valor: "{nome_telao}"}
+  - fala:
+      pt-BR: "Em Imagem de Fundo, escolha uma pronta, ou envie a do clube."
+      en-US: "Under Background Image, pick a ready-made one, or upload your club's."
+      es-ES: "En Imagen de Fondo, elige una lista, o sube la del club."
+    acoes:
+      - clicar: {css: ".bg-tile--preset", n: 2}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Veja o resultado na prévia."
+      en-US: "See the result in the preview."
+      es-ES: "Mira el resultado en la vista previa."
+    acoes:
+      - destacar: {css: ".bs-preview-card"}
+        segundos: 1.5
+  - fala:
+      pt-BR: "O botão Intervalo mostra como fica a tela de descanso."
+      en-US: "The Break button shows what the break screen looks like."
+      es-ES: "El botón Descanso muestra cómo queda la pantalla de descanso."
+    acoes:
+      - clicar: {css: ".bs-preview-mode-btn", n: 0}
+      - pausa: 2.0
+      - clicar: {css: ".bs-preview-mode-btn", n: 0}
+  - fala:
+      pt-BR: "Em Elementos Visíveis, você liga e desliga cada informação do telão."
+      en-US: "Under Visible Elements, you turn each piece of information on and off."
+      es-ES: "En Elementos Visibles, activas y desactivas cada dato de la pantalla."
+    acoes:
+      - rolar: {css: ".bs-card", t: broadcastSettings.sectionVisibility}
+      - destacar: {css: ".bs-card", t: broadcastSettings.sectionVisibility}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Ligue Meios de entrada para mostrar, abaixo dos blinds, quantas vendas teve cada meio. Ele substitui a contagem de entradas e reentradas."
+      en-US: "Turn on Entry options to show, below the blinds, how many sales each option had. It replaces the entries and re-entries count."
+      es-ES: "Activa Medios de entrada para mostrar, debajo de las ciegas, cuántas ventas tuvo cada medio. Reemplaza el conteo de entradas y reentradas."
+    acoes:
+      - clicar: {css: "label.bs-toggle", t: broadcastSettings.visBuyTypes}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "No fim da página, clique em Salvar Configurações."
+      en-US: "At the bottom of the page, click Save Settings."
+      es-ES: "Al final de la página, haz clic en Guardar Configuración."
+    acoes:
+      - clicar: {css: ".bs-btn-save"}
+  - fala:
+      pt-BR: "Pronto. Para ver o telão de verdade, use Abrir ao vivo, no alto da tela."
+      en-US: "Done. To see the real display, use Open live, at the top of the screen."
+      es-ES: "Listo. Para ver la pantalla real, usa Abrir en vivo, arriba."
+    acoes:
+      - destacar: {css: ".bs-btn-preview"}
+        segundos: 2.0

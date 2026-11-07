@@ -1,0 +1,80 @@
+id: cash-fila-espera
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash/fila
+preparar: cash:fila
+titulo:
+  pt-BR: "Como usar a fila de espera do cash game"
+  en-US: "How to use the cash game waiting list"
+  es-ES: "Cómo usar la lista de espera del cash game"
+descricao:
+  pt-BR: "Anotar, chamar e reservar o lugar."
+  en-US: "Take names, call players and reserve the seat."
+  es-ES: "Anotar, llamar y reservar el puesto."
+passos:
+  - fala:
+      pt-BR: "Quando a sala enche, a fila guarda a ordem de chegada. Ela é por modalidade, e não por mesa."
+      en-US: "When the room fills up, the list keeps the order of arrival. It is by game type, not by table."
+      es-ES: "Cuando la sala se llena, la lista guarda el orden de llegada. Es por modalidad, y no por mesa."
+    acoes:
+      - destacar: {css: ".cw-group"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Adicionar à fila e escolha o jogador. Para quem ainda não tem cadastro, basta digitar o nome."
+      en-US: "Click Add to the list and choose the player. For someone not registered yet, just type the name."
+      es-ES: "Haz clic en Agregar a la lista y elige el jugador. Para quien todavía no está registrado, basta escribir el nombre."
+    acoes:
+      - clicar: {css: ".page-header .btn-primary"}
+      - digitar: {css: ".player-select-input", valor: "{pessoa}"}
+      - clicar: {css: "li.player-select-option"}
+  - fala:
+      pt-BR: "Em Quer jogar, escolha a modalidade ou deixe Qualquer mesa, e confirme."
+      en-US: "Under Wants to play, choose the game type or leave Any table, and confirm."
+      es-ES: "En Quiere jugar, elige la modalidad o deja Cualquier mesa, y confirma."
+    acoes:
+      - escolher: {css: "#cw-type", opcao: "{tipo_base}"}
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".cw-item", texto: "{pessoa}"}
+  - fala:
+      pt-BR: "O número é o lugar na fila e sobe sozinho quando alguém senta. No alto do grupo, você vê as mesas e os lugares livres."
+      en-US: "The number is the place in line and moves up on its own when someone sits. At the top of the group, you see the tables and the seats open."
+      es-ES: "El número es el lugar en la fila y sube solo cuando alguien se sienta. Arriba del grupo, ves las mesas y los lugares libres."
+    acoes:
+      - destacar: {css: ".cw-group-head"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Abriu uma vaga? Clique em Chamar no primeiro da fila."
+      en-US: "A seat opened up? Click Call on the first in line."
+      es-ES: "¿Se abrió un puesto? Haz clic en Llamar en el primero de la fila."
+    acoes:
+      - clicar: {css: ".cw-item:has-text('{primeiro}') .cw-actions button", n: 0}
+      - esperar: {css: ".cw-item.called"}
+  - fala:
+      pt-BR: "Em Reservar lugar, você escolhe a mesa e a cadeira, e segura o lugar por alguns minutos. Passado o prazo, ela volta sozinha para a sala."
+      en-US: "With Reserve seat, you choose the table and the seat, and hold it for a few minutes. Once the time is up, the seat goes back to the room on its own."
+      es-ES: "En Reservar puesto, eliges la mesa y el puesto, y lo guardas por algunos minutos. Vencido el plazo, vuelve solo a la sala."
+    acoes:
+      - clicar: {css: ".cw-item.called .cw-actions button", n: 0}
+      - escolher: {css: "#cw-table", opcao: "{mesa_base}"}
+      - escolher: {css: "#cw-seat", opcao: "{lugar_livre}"}
+      - destacar: {css: ".modal .form-group:has(#cw-minutes)"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Reservar não é sentar: a compra das fichas continua sendo feita no caixa, na tela da mesa."
+      en-US: "Reserving is not seating: buying chips still happens at the cash desk, on the table screen."
+      es-ES: "Reservar no es sentar: la compra de fichas se sigue haciendo en la caja, en la pantalla de la mesa."
+    acoes:
+      - destacar: {css: ".ctd-close-hint"}
+        segundos: 2.5
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".cw-badge--seat"}
+  - fala:
+      pt-BR: "Se ele não aparecer, use Não veio. Depois que ele comprar as fichas, clique em Sentou para encerrar a espera."
+      en-US: "If the player does not show up, use No show. After the player buys chips, click Sat down to end the wait."
+      es-ES: "Si no aparece, usa No vino. Después de que compre las fichas, haz clic en Se sentó para terminar la espera."
+    acoes:
+      - passar: {css: ".cw-item.called .cw-actions .btn-secondary", n: 1}
+      - clicar: {css: ".cw-item.called .cw-actions .btn-primary"}
+      - pausa: 1.0

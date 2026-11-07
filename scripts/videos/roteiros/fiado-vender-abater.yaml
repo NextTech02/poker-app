@@ -1,0 +1,85 @@
+id: fiado-vender-abater
+area: fiado
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash
+preparar: fiado:venda
+titulo:
+  pt-BR: "Como vender fichas no fiado e abater no cash-out"
+  en-US: "How to sell chips on house credit and deduct at cash-out"
+  es-ES: "Cómo vender fichas al fiado y descontar en el cash-out"
+descricao:
+  pt-BR: "Da venda sem dinheiro ao abatimento nas fichas."
+  en-US: "From the sale with no money to the deduction from the chips."
+  es-ES: "De la venta sin dinero al descuento en las fichas."
+passos:
+  - fala:
+      pt-BR: "Com o fiado liberado, o jogador compra fichas sem pagar na hora. Entre na mesa e clique em Sentar."
+      en-US: "With house credit enabled, a player buys chips without paying on the spot. Go into the table and click Seat."
+      es-ES: "Con el fiado habilitado, el jugador compra fichas sin pagar en el momento. Entra a la mesa y haz clic en Sentar."
+    acoes:
+      - clicar: {css: "a[href='/cash/mesas/{mesa}']"}
+      - esperar: {css: ".ctd-seat.free"}
+      - clicar: {css: ".ctd-seat.free button"}
+  - fala:
+      pt-BR: "Selecione o jogador. O sistema mostra quanto ele tem de fiado disponível."
+      en-US: "Select the player. The system shows how much house credit is available."
+      es-ES: "Selecciona el jugador. El sistema muestra cuánto fiado tiene disponible."
+    acoes:
+      - digitar: {css: ".player-select-input", valor: "{pessoa}"}
+      - clicar: {css: "li.player-select-option"}
+      - esperar: {css: ".modal .form-group:has(.player-select-input) .form-hint"}
+      - destacar: {css: ".modal .form-group:has(.player-select-input)"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Digite o valor e, em Meio de pagamento, escolha Fiado. Nada entra no seu caixa: o jogador fica devendo ao clube."
+      en-US: "Type the amount and, under Payment method, choose House credit. Nothing enters your drawer: the player owes the club."
+      es-ES: "Escribe el monto y, en Medio de pago, elige Fiado. No entra nada en tu caja: el jugador queda debiéndole al club."
+    acoes:
+      - digitar: {css: "#ctd-amount", valor: "{buyin}", limpar: true}
+      - escolher: {css: "#ctd-method", opcao: "house_credit"}
+      - destacar: {css: ".modal .form-group:has(#ctd-method)"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Clique em Sentar. O sistema registra a venda e oferece o vale. Imprima e peça a assinatura do jogador."
+      en-US: "Click Seat. The system records the sale and offers the marker. Print it and ask the player to sign."
+      es-ES: "Haz clic en Sentar. El sistema registra la venta y ofrece el vale. Imprímelo y pide la firma del jugador."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: "#ctd-vale-titulo"}
+      - destacar: {css: ".modal .modal-actions .btn-secondary"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Feche o aviso. A cadeira agora mostra quanto ele deve."
+      en-US: "Close the notice. The seat now shows how much the player owes."
+      es-ES: "Cierra el aviso. El puesto ahora muestra cuánto debe."
+    acoes:
+      - clicar: {css: ".modal .modal-actions .btn-primary"}
+      - esperar: {css: ".ctd-seat-debt"}
+      - destacar: {css: ".ctd-seat:has-text('{pessoa}')"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Na saída, clique em Levantar e digite as fichas que ele devolveu."
+      en-US: "On the way out, click Stand up and type the chips returned."
+      es-ES: "A la salida, haz clic en Levantar y escribe las fichas que devolvió."
+    acoes:
+      - clicar: {css: ".ctd-seat:has-text('{pessoa}') .ctd-seat-actions .btn-primary"}
+      - esperar: {css: ".ctd-fiado-box"}
+      - digitar: {css: "#ctd-out", valor: "{fichas}"}
+  - fala:
+      pt-BR: "O sistema propõe abater a dívida das fichas e mostra quanto pagar ao jogador. Abater menos exige um motivo."
+      en-US: "The system proposes deducting the debt from the chips and shows what to pay the player. Deducting less requires a reason."
+      es-ES: "El sistema propone descontar la deuda de las fichas y muestra cuánto pagar al jugador. Descontar menos exige un motivo."
+    acoes:
+      - destacar: {css: ".ctd-fiado-box"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Clique em Levantar. A gaveta paga só o líquido, e a parte abatida quita o fiado."
+      en-US: "Click Stand up. The drawer pays only the net amount, and the deducted part settles the house credit."
+      es-ES: "Haz clic en Levantar. La caja paga solo el neto, y la parte descontada salda el fiado."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - pausa: 1.0
+      - destacar: {css: ".cashbox-banner"}
+        segundos: 2.0

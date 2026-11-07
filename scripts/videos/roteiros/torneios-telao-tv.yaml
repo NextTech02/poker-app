@@ -1,0 +1,59 @@
+id: torneios-telao-tv
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:telao
+titulo:
+  pt-BR: "Como abrir o telão na TV pelo código"
+  en-US: "How to open the display on a TV with the code"
+  es-ES: "Cómo abrir la pantalla en la TV con el código"
+descricao:
+  pt-BR: "O código do dia abre o relógio de blinds e o quadro de mesas, sem login."
+  en-US: "The day's code opens the blinds clock and the seating board, with no login."
+  es-ES: "El código del día abre el reloj de ciegas y el cuadro de mesas, sin iniciar sesión."
+passos:
+  - fala:
+      pt-BR: "Cada dia do torneio tem um código para a TV. Abra o torneio e, no dia, clique em Código TV."
+      en-US: "Each tournament day has a code for the TV. Open the tournament and, on the day, click TV Code."
+      es-ES: "Cada día del torneo tiene un código para la TV. Abre el torneo y, en el día, haz clic en Código TV."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{torneio_telao}']"}
+      - clicar: {css: ".day-card-actions button", t: tv.codeButton}
+  - fala:
+      pt-BR: "Aqui estão o código e o endereço que você abre na TV."
+      en-US: "Here are the code and the address you open on the TV."
+      es-ES: "Aquí están el código y la dirección que abres en la TV."
+    acoes:
+      - destacar: {css: ".tv-code-card"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Esta é a tela que aparece na TV. Ela não pede login: o código é a credencial. Deixe em Blinds, digite o código e clique em Entrar."
+      en-US: "This is the screen on the TV. It doesn't ask for a login: the code is the credential. Leave it on Blinds, type the code and click Enter."
+      es-ES: "Esta es la pantalla que aparece en la TV. No pide iniciar sesión: el código es la credencial. Déjala en Ciegas, escribe el código y haz clic en Entrar."
+    acoes:
+      - ir: /tv
+      - digitar: {css: ".tv-code__input", valor: "{codigo_tv}"}
+      - clicar: {css: ".tv-code__btn"}
+  - fala:
+      pt-BR: "O telão abre com o relógio, os blinds, os jogadores e tudo o que você ligou em Elementos Visíveis. Ele acompanha o Controle do Torneio."
+      en-US: "The display opens with the clock, the blinds, the players and everything you turned on under Visible Elements. It follows Tournament Control."
+      es-ES: "La pantalla abre con el reloj, las ciegas, los jugadores y todo lo que activaste en Elementos Visibles. Sigue el Control del Torneo."
+    acoes:
+      - pausa: 6.0
+  - fala:
+      pt-BR: "Numa segunda TV, abra o mesmo endereço, escolha Mesas e assentos e digite o mesmo código."
+      en-US: "On a second TV, open the same address, choose Tables and seats and type the same code."
+      es-ES: "En una segunda TV, abre la misma dirección, elige Mesas y asientos y escribe el mismo código."
+    acoes:
+      - ir: /tv
+      - clicar: {css: ".tv-code__screen", n: 1}
+      - digitar: {css: ".tv-code__input", valor: "{codigo_tv}"}
+      - clicar: {css: ".tv-code__btn"}
+  - fala:
+      pt-BR: "O quadro mostra os jogadores em ordem alfabética, com a mesa e o assento. Ele se atualiza sozinho e, com muita gente, alterna as páginas."
+      en-US: "The board shows the players in alphabetical order, with their table and seat. It updates on its own and, with many players, rotates its pages."
+      es-ES: "El cuadro muestra a los jugadores en orden alfabético, con mesa y asiento. Se actualiza solo y, con mucha gente, alterna las páginas."
+    acoes:
+      - pausa: 5.0

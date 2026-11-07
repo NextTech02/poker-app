@@ -1,0 +1,80 @@
+id: cash-abrir-dia-mesas
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash
+preparar: cash:sem_dia
+titulo:
+  pt-BR: "Como abrir o dia e as mesas do cash game"
+  en-US: "How to open the day and the cash game tables"
+  es-ES: "Cómo abrir el día y las mesas del cash game"
+descricao:
+  pt-BR: "Do Salão vazio à primeira mesa aberta."
+  en-US: "From an empty Floor to the first open table."
+  es-ES: "De la Sala vacía a la primera mesa abierta."
+passos:
+  - fala:
+      pt-BR: "O cash game é medido por dia. Sem um dia aberto, o Salão não libera as mesas."
+      en-US: "Cash game is measured by day. Without an open day, the Floor does not release the tables."
+      es-ES: "El cash game se mide por día. Sin un día abierto, la Sala no libera las mesas."
+    acoes:
+      - destacar: {css: ".empty-state-card"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Clique em Abrir dia. A data é a da noite: uma sessão que atravessa a meia-noite continua no mesmo dia."
+      en-US: "Click Open day. The date is the date of the night: a session that crosses midnight stays on the same day."
+      es-ES: "Haz clic en Abrir día. La fecha es la de la noche: una sesión que cruza la medianoche sigue siendo el mismo día."
+    acoes:
+      - clicar: {css: ".es-cta"}
+      - preencher: {css: "#cf-date", valor: "{data_dia}"}
+      - destacar: {css: ".modal .form-hint"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Confirme em Abrir dia."
+      en-US: "Confirm with Open day."
+      es-ES: "Confirma con Abrir día."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".cashbox-banner"}
+  - fala:
+      pt-BR: "Agora abra o seu caixa. Sem ele aberto, você não movimenta dinheiro nem abre mesa."
+      en-US: "Now open your cashbox. Until it is open, you cannot move money or open a table."
+      es-ES: "Ahora abre tu caja. Sin ella abierta, no mueves dinero ni abres mesas."
+    acoes:
+      - destacar: {css: ".cashbox-banner"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Clique em Abrir Caixa, informe o saldo inicial e confirme."
+      en-US: "Click Open Cashbox, enter the initial balance and confirm."
+      es-ES: "Haz clic en Abrir Caja, ingresa el saldo inicial y confirma."
+    acoes:
+      - clicar: {css: ".cashbox-banner__actions button"}
+      - digitar: {css: "#cb-initial", valor: "{saldo_inicial}", limpar: true}
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".cashbox-banner--open"}
+  - fala:
+      pt-BR: "Clique em Abrir mesa e escolha a modalidade. O número já vem com o próximo livre, e os lugares vêm da modalidade."
+      en-US: "Click Open table and choose the game type. The number comes filled in with the next free one, and the seats come from the game type."
+      es-ES: "Haz clic en Abrir mesa y elige la modalidad. El número ya viene con el próximo libre, y los puestos vienen de la modalidad."
+    acoes:
+      - clicar: {css: ".page-header .btn-primary"}
+      - escolher: {css: "#cf-type", opcao: "{tipo_base}"}
+      - destacar: {css: "#cf-number"}
+        segundos: 1.6
+  - fala:
+      pt-BR: "Confirme. A mesa aparece no Salão, com os lugares livres e o rake apurado até agora."
+      en-US: "Confirm. The table shows up on the Floor, with the free seats and the rake counted so far."
+      es-ES: "Confirma. La mesa aparece en la Sala, con los puestos libres y el rake contado hasta ahora."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".cf-table"}
+      - destacar: {css: ".cf-table"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "No alto, você acompanha o faturamento, as fichas na mesa e os jogadores sentados."
+      en-US: "At the top, you follow the revenue, the chips on the table and the players seated."
+      es-ES: "Arriba, sigues la facturación, las fichas en la mesa y los jugadores sentados."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 2.5

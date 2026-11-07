@@ -1,0 +1,78 @@
+id: jogadores-importar
+area: jogadores
+tipo: curto
+sessao: true
+modulo: tournament
+preparar: jogadores:importar
+inicio: /jogadores
+titulo:
+  pt-BR: "Como importar jogadores por planilha"
+  en-US: "How to import players from a spreadsheet"
+  es-ES: "Cómo importar jugadores desde una planilla"
+descricao:
+  pt-BR: "Traga a base do sistema antigo sem digitar um por um."
+  en-US: "Bring in your old system's base without typing one by one."
+  es-ES: "Trae la base del sistema anterior sin escribir uno por uno."
+passos:
+  - fala:
+      pt-BR: "Se o clube já tem a base de jogadores em outro sistema, não precisa digitar um por um. Em Jogadores, clique em Importar."
+      en-US: "If the club already has its players in another system, you don't need to type them one by one. In Players, click Import."
+      es-ES: "Si el club ya tiene su base de jugadores en otro sistema, no hace falta escribirlos uno por uno. En Jugadores, haz clic en Importar."
+    acoes:
+      - pausa: 3.5
+      - clicar: {css: ".pl-btn-import"}
+  - fala:
+      pt-BR: "Exporte a planilha do seu sistema atual, em xls ou xlsx, e clique em Escolher arquivo."
+      en-US: "Export the spreadsheet from your current system, as xls or xlsx, and click Choose file."
+      es-ES: "Exporta la planilla de tu sistema actual, en xls o xlsx, y haz clic en Elegir archivo."
+    acoes:
+      - destacar: {css: ".pim-hint"}
+        segundos: 3.0
+      - clicar: {css: ".pim-drop"}
+  - fala:
+      pt-BR: "O sistema lê o arquivo e mostra uma prévia. Nada foi salvo ainda."
+      en-US: "The system reads the file and shows a preview. Nothing has been saved yet."
+      es-ES: "El sistema lee el archivo y muestra una vista previa. Aún no se ha guardado nada."
+    acoes:
+      - esperar: {css: ".pim-nums"}
+      - destacar: {css: ".pim-hint"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Aqui você vê quantos serão importados, quantos já estão cadastrados e quantos estão incompletos."
+      en-US: "Here you see how many will be imported, how many are already registered and how many are incomplete."
+      es-ES: "Aquí ves cuántos se importarán, cuántos ya están registrados y cuántos están incompletos."
+    acoes:
+      - destacar: {css: ".pim-nums"}
+        segundos: 5.0
+  - fala:
+      pt-BR: "Cada linha precisa de nome e documento. Quem já está no clube é ignorado, então importar de novo não duplica ninguém."
+      en-US: "Each line needs a name and a document. Anyone already in the club is skipped, so importing again doesn't duplicate anyone."
+      es-ES: "Cada línea necesita nombre y documento. Quien ya está en el club se omite, así que importar de nuevo no duplica a nadie."
+    acoes:
+      - destacar: {css: ".pim-table-wrap"}
+        segundos: 6.0
+  - fala:
+      pt-BR: "Atenção: quem vier com e-mail na planilha recebe um pedido de autorização para contatos do clube."
+      en-US: "Keep in mind: anyone with an email in the spreadsheet gets a request to allow contact from the club."
+      es-ES: "Atención: quien venga con correo en la planilla recibe una solicitud de autorización para contactos del club."
+    acoes:
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Confira a amostra e clique no botão Importar."
+      en-US: "Check the sample and click the Import button."
+      es-ES: "Revisa la muestra y haz clic en el botón Importar."
+    acoes:
+      - clicar: {css: ".pim-acoes .pim-btn:not(.ghost)"}
+      - esperar: {css: ".pim-num.ok"}
+  - fala:
+      pt-BR: "Pronto. O resumo mostra quantos entraram. Feche, e os jogadores já aparecem na lista."
+      en-US: "Done. The summary shows how many came in. Close it, and the players are already on the list."
+      es-ES: "Listo. El resumen muestra cuántos entraron. Cierra, y los jugadores ya aparecen en la lista."
+    acoes:
+      - destacar: {css: ".pim-nums"}
+        segundos: 2.5
+      - clicar: {css: ".pim-acoes .pim-btn"}
+      - digitar: {css: ".pl-search-input", valor: "Demo"}
+      - pausa: 1.0
+      - destacar: {css: ".pl-table-card"}
+        segundos: 2.5

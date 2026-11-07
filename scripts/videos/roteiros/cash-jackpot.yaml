@@ -1,0 +1,64 @@
+id: cash-jackpot
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash/jackpot
+preparar: cash:jackpot
+titulo:
+  pt-BR: "Como acompanhar e pagar o jackpot"
+  en-US: "How to track and pay the jackpot"
+  es-ES: "Cómo seguir y pagar el jackpot"
+descricao:
+  pt-BR: "Um fundo dos jogadores, fora do faturamento."
+  en-US: "A players' fund, kept out of revenue."
+  es-ES: "Un fondo de los jugadores, fuera de la facturación."
+passos:
+  - fala:
+      pt-BR: "O jackpot é dinheiro dos jogadores, retido para pagamento. Ele é um passivo e não entra no faturamento do clube."
+      en-US: "The jackpot is the players' money, held for payout. It is a liability and does not count as club revenue."
+      es-ES: "El jackpot es dinero de los jugadores, retenido para pagarse. Es un pasivo y no entra en la facturación del club."
+    acoes:
+      - destacar: {css: ".cj-fund"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "O fundo cresce a cada apuração de mesa, pelo campo Jackpot contado. Aqui você vê o que já foi arrecadado e o que já foi pago."
+      en-US: "The fund grows with every table count, through the Jackpot counted field. Here you see what has been collected and what has been paid."
+      es-ES: "El fondo crece con cada conteo de mesa, por el campo Jackpot contado. Aquí ves lo que ya se recaudó y lo que ya se pagó."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para pagar um prêmio, clique em Pagar jackpot, escolha o jogador e digite o valor."
+      en-US: "To pay a prize, click Pay jackpot, choose the player and type the amount."
+      es-ES: "Para pagar un premio, haz clic en Pagar jackpot, elige el jugador y escribe el importe."
+    acoes:
+      - clicar: {css: ".page-header .btn-primary"}
+      - digitar: {css: ".player-select-input", valor: "{pessoa}"}
+      - clicar: {css: "li.player-select-option"}
+      - digitar: {css: "#cj-amount", valor: "{premio}"}
+  - fala:
+      pt-BR: "Escolha o tipo e descreva o que aconteceu."
+      en-US: "Choose the type and describe what happened."
+      es-ES: "Elige el tipo y describe lo que pasó."
+    acoes:
+      - escolher: {css: "#cj-kind", opcao: "bad_beat"}
+      - digitar: {css: "#cj-desc", valor: {pt-BR: "Quadra de 8 perdeu para straight flush", en-US: "Quad 8s lost to a straight flush", es-ES: "Póker de 8 perdió ante escalera de color"}}
+  - fala:
+      pt-BR: "Atenção: o valor sai do seu caixa e entra na conferência do fim da noite, como qualquer outra saída."
+      en-US: "Note: the amount leaves your cashbox and shows up in the end-of-night count, like any other payout."
+      es-ES: "Atención: el importe sale de tu caja y aparece en el conteo del cierre, como cualquier otra salida."
+    acoes:
+      - destacar: {css: ".ctd-close-hint"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Confirme. O pagamento entra no histórico e o acumulado baixa."
+      en-US: "Confirm. The payout joins the history and the pot goes down."
+      es-ES: "Confirma. El pago entra en el historial y el acumulado baja."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".data-table tbody tr"}
+      - destacar: {css: ".data-table tbody tr"}
+        segundos: 2.0
+      - destacar: {css: ".cj-fund"}
+        segundos: 1.8

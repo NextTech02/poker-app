@@ -1,0 +1,61 @@
+id: bar-pedidos
+area: bar
+tipo: curto
+sessao: true
+modulo: bar
+preparar: bar:pedidos
+inicio: /bar/pedidos
+titulo:
+  pt-BR: "Como usar a fila de pedidos do balcão"
+  en-US: "How to use the counter orders queue"
+  es-ES: "Cómo usar la fila de pedidos del mostrador"
+descricao:
+  pt-BR: "O que falta entregar, por comanda."
+  en-US: "What's left to deliver, by tab."
+  es-ES: "Lo que falta entregar, por comanda."
+passos:
+  - fala:
+      pt-BR: "Pedidos é a fila do balcão: tudo o que foi lançado nas comandas e ainda não foi entregue. O item aparece aqui assim que é lançado."
+      en-US: "Orders is the counter queue: everything added to tabs that hasn't been delivered yet. An item shows up here as soon as it's added."
+      es-ES: "Pedidos es la fila del mostrador: todo lo que se agregó a las comandas y aún no se ha entregado. El ítem aparece aquí apenas se agrega."
+    acoes:
+      - destacar: {css: ".bo-grid"}
+        segundos: 5.5
+  - fala:
+      pt-BR: "Cada cartão é uma comanda, com os itens em ordem de chegada e a hora do lançamento."
+      en-US: "Each card is a tab, with the items in order of arrival and the time they were added."
+      es-ES: "Cada tarjeta es una comanda, con los ítems en orden de llegada y la hora en que se agregaron."
+    acoes:
+      - destacar: {css: ".bo-card", n: 0}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Entregou um item? Clique em Entregar, e ele sai da fila."
+      en-US: "Delivered an item? Click Deliver, and it leaves the queue."
+      es-ES: "¿Entregaste un ítem? Haz clic en Entregar, y sale de la fila."
+    acoes:
+      - clicar: {css: ".bo-item button"}
+      - pausa: 1.2
+  - fala:
+      pt-BR: "Para dar baixa em tudo de uma comanda, clique em Entregar todos."
+      en-US: "To clear everything on a tab, click Deliver all."
+      es-ES: "Para marcar todo lo de una comanda, haz clic en Entregar todos."
+    acoes:
+      - clicar: {css: ".bo-card__header button"}
+      - pausa: 1.2
+  - fala:
+      pt-BR: "O título mostra quantos itens ainda aguardam entrega."
+      en-US: "The title shows how many items are still waiting for delivery."
+      es-ES: "El título muestra cuántos ítems esperan entrega."
+    acoes:
+      - destacar: {css: ".page-header p"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Quando a fila zera, a tela avisa que está tudo entregue."
+      en-US: "When the queue is empty, the screen tells you everything is delivered."
+      es-ES: "Cuando la fila queda vacía, la pantalla avisa que todo está entregado."
+    acoes:
+      - clicar: {css: ".bo-card__header button"}
+      - pausa: 0.8
+      - clicar: {css: ".bo-card__header button"}
+      - esperar: {t: bar.noPendingOrders}
+      - pausa: 1.5

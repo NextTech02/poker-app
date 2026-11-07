@@ -1,0 +1,77 @@
+id: torneios-bilhete
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:bilhete
+titulo:
+  pt-BR: "Como configurar o bilhete de inscrição"
+  en-US: "How to set up the registration ticket"
+  es-ES: "Cómo configurar el boleto de inscripción"
+descricao:
+  pt-BR: "Imagem, cidade e sede do clube, e o bilhete próprio de um torneio."
+  en-US: "The club's image, city and venue, and a ticket just for one tournament."
+  es-ES: "Imagen, ciudad y sede del club, y el boleto propio de un torneo."
+passos:
+  - fala:
+      pt-BR: "O bilhete de inscrição é o que o Caixa imprime na venda. Para configurar o padrão do clube, clique em Bilhete."
+      en-US: "The registration ticket is what the Cashier prints at the sale. To set the club default, click Ticket."
+      es-ES: "El boleto de inscripción es lo que la Caja imprime en la venta. Para configurar el estándar del club, haz clic en Boleto."
+    acoes:
+      - clicar: {css: ".tr-btn-bilhete"}
+  - fala:
+      pt-BR: "À direita, a prévia mostra como ele sai, com dados de exemplo."
+      en-US: "On the right, the preview shows how it comes out, with sample data."
+      es-ES: "A la derecha, la vista previa muestra cómo sale, con datos de ejemplo."
+    acoes:
+      - destacar: {css: ".bt-modal-previa"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Em Imagem do topo, clique em Enviar imagem e escolha um arquivo JPG, PNG ou WebP, com até 2 MB."
+      en-US: "Under Top image, click Upload image and pick a JPG, PNG or WebP file, up to 2 MB."
+      es-ES: "En Imagen superior, haz clic en Subir imagen y elige un archivo JPG, PNG o WebP, de hasta 2 MB."
+    acoes:
+      - destacar: {css: ".bt-modal-campos .bt-campo-imagem"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Digite a cidade, que sai abaixo da imagem, e a sede. A prévia acompanha."
+      en-US: "Enter the city, which goes below the image, and the venue. The preview follows along."
+      es-ES: "Escribe la ciudad, que sale debajo de la imagen, y la sede. La vista previa se actualiza."
+    acoes:
+      - digitar: {css: "#bt-clube-cidade", valor: "{cidade}", limpar: true}
+      - digitar: {css: "#bt-clube-sede", valor: "{sede}", limpar: true}
+  - fala:
+      pt-BR: "Os enfeites geométricos nos cantos são opcionais: marque para colocar, desmarque para tirar."
+      en-US: "The geometric corner ornaments are optional: check the box to add them, uncheck it to remove them."
+      es-ES: "Los adornos geométricos en las esquinas son opcionales: márcalos para ponerlos, desmárcalos para quitarlos."
+    acoes:
+      - clicar: {css: ".bt-check input"}
+      - pausa: 3.0
+      - clicar: {css: ".bt-check input"}
+  - fala:
+      pt-BR: "Clique em Salvar."
+      en-US: "Click Save."
+      es-ES: "Haz clic en Guardar."
+    acoes:
+      - clicar: {css: ".bt-modal-rodape .bt-botao:not(.bt-botao--secundario)"}
+  - fala:
+      pt-BR: "Um torneio pode ter o bilhete próprio. Clique em Editar no torneio e vá até Bilhete deste torneio."
+      en-US: "A tournament can have its own ticket. Click Edit on the tournament and go to This tournament's ticket."
+      es-ES: "Un torneo puede tener su propio boleto. Haz clic en Editar en el torneo y ve a Boleto de este torneo."
+    acoes:
+      - clicar: {css: ".tr-card:has(a.tr-card-cta[aria-label*='{torneio_bilhete}']) .tr-btn-edit"}
+      - rolar: {css: "#tr-ticket-city"}
+  - fala:
+      pt-BR: "Aqui também dá para trocar a imagem. Digite a cidade e a sede deste torneio. O que ficar em branco segue o padrão do clube."
+      en-US: "You can change the image here too. Enter this tournament's city and venue. Whatever stays blank follows the club default."
+      es-ES: "Aquí también se puede cambiar la imagen. Escribe la ciudad y la sede de este torneo. Lo que quede en blanco sigue el estándar del club."
+    acoes:
+      - digitar: {css: "#tr-ticket-city", valor: "{cidade_torneio}"}
+      - digitar: {css: "#tr-ticket-venue", valor: "{sede_torneio}"}
+  - fala:
+      pt-BR: "Clique em Salvar Alterações. Nas vendas deste torneio, o bilhete sai com esses dados."
+      en-US: "Click Save Changes. Sales for this tournament print the ticket with these details."
+      es-ES: "Haz clic en Guardar Cambios. En las ventas de este torneo, el boleto sale con estos datos."
+    acoes:
+      - clicar: {css: ".tr-btn-submit"}

@@ -1,0 +1,76 @@
+id: fiado-configurar
+area: fiado
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /fiado
+preparar: fiado:configurar
+titulo:
+  pt-BR: "Como configurar o fiado e liberar um jogador"
+  en-US: "How to set up house credit and enable a player"
+  es-ES: "Cómo configurar el fiado y habilitar a un jugador"
+descricao:
+  pt-BR: "Prazo, bloqueio e limite por jogador."
+  en-US: "Due date, blocking and a limit per player."
+  es-ES: "Plazo, bloqueo y límite por jugador."
+passos:
+  - fala:
+      pt-BR: "Fiado é o que os jogadores devem ao clube. É recebível, e não receita: só vira dinheiro quando volta."
+      en-US: "House credit is what players owe the club. It is a receivable, not revenue: it only becomes money when it comes back."
+      es-ES: "El fiado es lo que los jugadores le deben al club. Es una cuenta por cobrar, no ingreso: solo es dinero cuando vuelve."
+    acoes:
+      - destacar: {css: ".page-header .subtitle"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Comece pela aba Configuração e defina o prazo para pagar, em dias."
+      en-US: "Start on the Settings tab and set the days to pay."
+      es-ES: "Empieza por la pestaña Configuración y define el plazo para pagar, en días."
+    acoes:
+      - clicar: {papel: tab, t: fiado.tabSettings}
+      - digitar: {css: "#fiado-prazo", valor: "15", limpar: true}
+  - fala:
+      pt-BR: "Com esta opção marcada, quem passar do prazo só compra no fiado de novo depois de pagar."
+      en-US: "With this option checked, a player past the due date can only buy on house credit again after paying."
+      es-ES: "Con esta opción marcada, quien pase del plazo solo compra al fiado de nuevo después de pagar."
+    acoes:
+      - destacar: {css: ".fiado-check"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Clique em Salvar."
+      en-US: "Click Save."
+      es-ES: "Haz clic en Guardar."
+    acoes:
+      - clicar: {css: "form.pd-history-card button[type=submit]"}
+      - pausa: 1.8
+  - fala:
+      pt-BR: "O fiado é liberado jogador por jogador, na ficha dele. Nenhum jogador compra no fiado sem essa liberação."
+      en-US: "House credit is enabled player by player, on the player's profile. No player can buy on house credit without it."
+      es-ES: "El fiado se habilita jugador por jugador, en su ficha. Ningún jugador compra al fiado sin esa habilitación."
+    acoes:
+      - ir: "/jogadores/{pessoa_id}"
+      - esperar: {css: ".fiado-card"}
+      - destacar: {css: ".fiado-card"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Liberar fiado, deixe a opção marcada e digite o limite."
+      en-US: "Click Enable house credit, keep the option checked and type the limit."
+      es-ES: "Haz clic en Habilitar fiado, deja la opción marcada y escribe el límite."
+    acoes:
+      - clicar: {css: ".fiado-actions button"}
+      - digitar: {css: "#fiado-limite", valor: "{limite}", limpar: true}
+  - fala:
+      pt-BR: "O limite é o máximo que ele pode dever ao clube. Baixar o limite depois não cobra nada: só impede venda nova acima dele."
+      en-US: "The limit is the most the player can owe the club. Lowering it later collects nothing: it only blocks new sales above it."
+      es-ES: "El límite es lo máximo que puede deberle al club. Bajarlo después no cobra nada: solo impide ventas nuevas por encima."
+    acoes:
+      - destacar: {css: ".modal .form-group:has(#fiado-limite)"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Clique em Salvar. A ficha passa a mostrar Liberado, com o limite e o valor disponível."
+      en-US: "Click Save. The profile now shows Enabled, with the limit and the amount available."
+      es-ES: "Haz clic en Guardar. La ficha pasa a mostrar Habilitado, con el límite y el monto disponible."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".fiado-status.on"}
+      - destacar: {css: ".fiado-card"}
+        segundos: 3.0

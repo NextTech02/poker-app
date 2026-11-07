@@ -1,0 +1,59 @@
+id: cash-encerrar-dia
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash/dias
+preparar: cash:dia_para_encerrar
+titulo:
+  pt-BR: "Como encerrar o dia do cash game"
+  en-US: "How to close the cash game day"
+  es-ES: "Cómo cerrar el día del cash game"
+descricao:
+  pt-BR: "O encerramento congela os números do dia."
+  en-US: "Closing the day freezes its numbers."
+  es-ES: "El cierre congela los números del día."
+passos:
+  - fala:
+      pt-BR: "Em Dias de operação, cada linha é um dia. Enquanto o dia está aberto, os totais ficam vazios: o número ao vivo está no Salão."
+      en-US: "On Operating days, each row is a day. While the day is open, the totals stay empty: the live number is on the Floor."
+      es-ES: "En Días de operación, cada fila es un día. Mientras el día está abierto, los totales quedan vacíos: el número en vivo está en la Sala."
+    acoes:
+      - preencher: {css: "#cd-from", valor: "{de}"}
+      - esperar: {css: "tr.cd-open"}
+      - destacar: {css: "tr.cd-open"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Antes de encerrar, feche todas as mesas: com mesa aberta, o sistema recusa. Depois, clique em Encerrar."
+      en-US: "Before closing, close every table: with a table open, the system refuses. Then click Close."
+      es-ES: "Antes de cerrar, cierra todas las mesas: con una mesa abierta, el sistema lo rechaza. Luego, haz clic en Cerrar."
+    acoes:
+      - clicar: {css: "tr.cd-open button"}
+  - fala:
+      pt-BR: "O faturamento do dia será congelado. É a última apuração de cada mesa que fecha a conta."
+      en-US: "The day's revenue will be frozen. The last count of each table settles the books."
+      es-ES: "La facturación del día quedará congelada. El último conteo de cada mesa cierra la cuenta."
+    acoes:
+      - destacar: {css: ".ctd-close-hint"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Se quiser, escreva uma observação. Clique em Encerrar para confirmar."
+      en-US: "Add a note if you want. Click Close to confirm."
+      es-ES: "Si quieres, escribe una observación. Haz clic en Cerrar para confirmar."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".data-table tbody tr", texto: "{data_dia}"}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Pronto. O dia passa para Fechado, com o faturamento, o jackpot, o giro e os cash-outs."
+      en-US: "Done. The day switches to Closed, with the revenue, the jackpot, the turnover and the cash-outs."
+      es-ES: "Listo. El día pasa a Cerrado, con la facturación, el jackpot, el movimiento y los cash-outs."
+    acoes:
+      - destacar: {css: ".data-table tbody tr", texto: "{data_dia}"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Esses números ficam congelados. Para voltar a operar, abra um novo dia no Salão."
+      en-US: "These numbers stay frozen. To operate again, open a new day on the Floor."
+      es-ES: "Estos números quedan congelados. Para volver a operar, abre un nuevo día en la Sala."
+    acoes:
+      - pausa: 0.5

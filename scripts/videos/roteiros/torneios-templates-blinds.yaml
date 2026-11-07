@@ -1,0 +1,89 @@
+id: torneios-templates-blinds
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:templates
+titulo:
+  pt-BR: "Como usar templates de blinds"
+  en-US: "How to use blind templates"
+  es-ES: "Cómo usar plantillas de ciegas"
+descricao:
+  pt-BR: "Monte a estrutura uma vez e carregue em qualquer dia de torneio."
+  en-US: "Build the structure once and load it into any tournament day."
+  es-ES: "Arma la estructura una vez y cárgala en cualquier día de torneo."
+passos:
+  - fala:
+      pt-BR: "O template guarda uma estrutura de blinds para reaproveitar. No menu Torneios, abra Templates de Blinds."
+      en-US: "A template stores a blind structure so you can reuse it. In the Tournaments menu, open Blind Templates."
+      es-ES: "La plantilla guarda una estructura de ciegas para reutilizarla. En el menú Torneos, abre Plantillas de Ciegas."
+    acoes:
+      - clicar: {papel: link, t: sidebar.blindTemplates}
+  - fala:
+      pt-BR: "Clique em Novo template. Dê um nome e, se quiser, uma descrição."
+      en-US: "Click New template. Give it a name and, if you like, a description."
+      es-ES: "Haz clic en Nueva plantilla. Ponle un nombre y, si quieres, una descripción."
+    acoes:
+      - clicar: {css: ".bt-btn-new"}
+      - digitar: {css: "#bt-name", valor: "{template}"}
+      - digitar: {css: "#bt-desc", valor: "{template_descricao}"}
+  - fala:
+      pt-BR: "Ajuste o primeiro nível: small blind, big blind e duração."
+      en-US: "Set the first level: small blind, big blind and duration."
+      es-ES: "Ajusta el primer nivel: small blind, big blind y duración."
+    acoes:
+      - digitar: {css: ".bt-levels-table input", n: 0, valor: "100", limpar: true}
+      - digitar: {css: ".bt-levels-table input", n: 1, valor: "200", limpar: true}
+      - digitar: {css: ".bt-levels-table input", n: 3, valor: "20", limpar: true}
+  - fala:
+      pt-BR: "Cada clique em Adicionar Blind cria o próximo nível, com os blinds dobrados."
+      en-US: "Each click on Add Blind creates the next level, with the blinds doubled."
+      es-ES: "Cada clic en Agregar Blind crea el siguiente nivel, con los blinds duplicados."
+    acoes:
+      - clicar: {css: ".bt-btn-add", n: 0}
+      - pausa: 0.5
+      - clicar: {css: ".bt-btn-add", n: 0}
+      - pausa: 0.5
+      - clicar: {css: ".bt-btn-add", n: 0}
+  - fala:
+      pt-BR: "Adicionar Break coloca um intervalo no fim. Arraste a linha, ou use as setas, para mudar a ordem. A numeração se refaz sozinha."
+      en-US: "Add Break puts a break at the end. Drag the row, or use the arrows, to change the order. The numbering redoes itself."
+      es-ES: "Agregar Descanso pone un descanso al final. Arrastra la fila, o usa las flechas, para cambiar el orden. La numeración se rehace sola."
+    acoes:
+      - clicar: {css: ".bt-btn-add-break"}
+      - pausa: 1.5
+      - clicar: {css: ".bt-row-break .bt-mover button", n: 0}
+      - pausa: 1.5
+  - fala:
+      pt-BR: "Clique em Salvar. O template entra na lista."
+      en-US: "Click Save. The template joins the list."
+      es-ES: "Haz clic en Guardar. La plantilla entra en la lista."
+    acoes:
+      - clicar: {css: ".bt-btn-save"}
+      - destacar: {css: ".bt-card", texto: "{template}"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Para usar, abra a estrutura de blinds do dia e clique em Carregar Template."
+      en-US: "To use it, open the day's blind structure and click Load Template."
+      es-ES: "Para usarla, abre la estructura de blinds del día y haz clic en Cargar Plantilla."
+    acoes:
+      - clicar: {papel: link, t: sidebar.tournamentsList}
+      - clicar: {css: "a.tr-card-cta[aria-label*='{torneio_templates}']"}
+      - clicar: {css: ".day-card-actions button", t: blinds.title}
+      - clicar: {papel: button, t: blinds.loadTemplate}
+  - fala:
+      pt-BR: "Clique em Aplicar, e os níveis entram na hora. Se o dia já tiver blinds, o sistema avisa que vai substituir tudo."
+      en-US: "Click Apply, and the levels load right away. If the day already has blinds, the system warns that it will replace them all."
+      es-ES: "Haz clic en Aplicar, y los niveles entran de inmediato. Si el día ya tiene blinds, el sistema avisa que va a reemplazarlos todos."
+    acoes:
+      - clicar: {css: ".template-item:has-text('{template}') .template-actions button", n: 0}
+      - esperar: {css: ".blind-row"}
+      - destacar: {css: ".blinds-table"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Ao criar um torneio com dias classificatórios, você também pode escolher o template, e ele vale para todos os classificatórios."
+      en-US: "When you create a tournament with qualifying days, you can also pick the template, and it applies to all qualifying days."
+      es-ES: "Al crear un torneo con días clasificatorios, también puedes elegir la plantilla, y vale para todos los clasificatorios."
+    acoes:
+      - pausa: 1.0

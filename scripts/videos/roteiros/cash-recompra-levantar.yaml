@@ -1,0 +1,66 @@
+id: cash-recompra-levantar
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash
+preparar: cash:mesa_com_jogadores
+titulo:
+  pt-BR: "Como fazer a recompra e levantar um jogador"
+  en-US: "How to record a rebuy and stand a player up"
+  es-ES: "Cómo hacer la recompra y levantar a un jugador"
+descricao:
+  pt-BR: "Mais fichas na mesa e o cash-out na saída."
+  en-US: "More chips at the table and the cash-out on the way out."
+  es-ES: "Más fichas en la mesa y el cash-out a la salida."
+passos:
+  - fala:
+      pt-BR: "Na tela da mesa, cada jogador sentado tem os botões Recompra e Levantar."
+      en-US: "On the table screen, each seated player has the Rebuy and Stand up buttons."
+      es-ES: "En la pantalla de la mesa, cada jugador sentado tiene los botones Recompra y Levantar."
+    acoes:
+      - clicar: {css: "a[href='/cash/mesas/{mesa}']"}
+      - esperar: {css: ".ctd-seat.occupied"}
+      - pausa: 1.5
+      - destacar: {css: ".ctd-seat:has-text('{quem_recompra}') .ctd-seat-actions"}
+        segundos: 1.8
+  - fala:
+      pt-BR: "Clique em Recompra, digite o valor e escolha o meio de pagamento. A recompra repõe fichas e não é limitada pelo teto da mesa."
+      en-US: "Click Rebuy, type the amount and choose the payment method. A rebuy tops chips back up and is not limited by the table cap."
+      es-ES: "Haz clic en Recompra, escribe el importe y elige el medio de pago. La recompra repone fichas y no está limitada por el tope de la mesa."
+    acoes:
+      - clicar: {css: ".ctd-seat:has-text('{quem_recompra}') .ctd-seat-actions .btn-secondary"}
+      - digitar: {css: "#ctd-rebuy", valor: "{recompra}"}
+      - escolher: {css: "#ctd-method", opcao: "cash"}
+  - fala:
+      pt-BR: "Confirme. O total comprado na cadeira sobe na hora."
+      en-US: "Confirm. The total bought in that seat goes up right away."
+      es-ES: "Confirma. El total comprado en ese puesto sube de inmediato."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - pausa: 1.0
+      - destacar: {css: ".ctd-seat:has-text('{quem_recompra}') .ctd-seat-amount"}
+        segundos: 1.8
+  - fala:
+      pt-BR: "Quando o jogador for embora, clique em Levantar e digite em Cash-out o valor das fichas que ele devolveu."
+      en-US: "When the player leaves, click Stand up and type the value of the chips returned under Cash-out."
+      es-ES: "Cuando el jugador se vaya, haz clic en Levantar y escribe en Cash-out el valor de las fichas que devolvió."
+    acoes:
+      - clicar: {css: ".ctd-seat:has-text('{quem_levanta}') .ctd-seat-actions .btn-primary"}
+      - digitar: {css: "#ctd-out", valor: "{fichas}"}
+  - fala:
+      pt-BR: "Zero é válido: quem perdeu tudo levanta do mesmo jeito. O cash-out sai do seu caixa, então confira aqui o saldo disponível."
+      en-US: "Zero is valid: a player who lost it all still stands up. The cash-out comes out of your drawer, so check the available balance here."
+      es-ES: "Cero es válido: quien perdió todo se levanta igual. El cash-out sale de tu caja, así que revisa aquí el saldo disponible."
+    acoes:
+      - destacar: {css: ".modal .form-group:has(#ctd-out)"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Levantar. A cadeira fica livre e o saldo do caixa baixa."
+      en-US: "Click Stand up. The seat is freed and the cashbox balance goes down."
+      es-ES: "Haz clic en Levantar. El puesto queda libre y el saldo de la caja baja."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - pausa: 1.0
+      - destacar: {css: ".cashbox-banner"}
+        segundos: 2.0

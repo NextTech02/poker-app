@@ -1,0 +1,71 @@
+id: cash-rake-fechar-mesa
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash
+preparar: cash:mesa_para_fechar
+titulo:
+  pt-BR: "Como apurar o rake e fechar a mesa"
+  en-US: "How to count the rake and close the table"
+  es-ES: "Cómo contar el rake y cerrar la mesa"
+descricao:
+  pt-BR: "O rake é contado na caixa da mesa."
+  en-US: "The rake is counted in the table's rake box."
+  es-ES: "El rake se cuenta en la caja de la mesa."
+passos:
+  - fala:
+      pt-BR: "O rake é contado, não calculado. O sistema não vê mão a mão: ele registra o que você contar na caixa da mesa."
+      en-US: "The rake is counted, not calculated. The system does not see hand by hand: it records what you count in the table's rake box."
+      es-ES: "El rake se cuenta, no se calcula. El sistema no ve mano a mano: registra lo que cuentes en la caja de la mesa."
+    acoes:
+      - clicar: {css: "a[href='/cash/mesas/{mesa}']"}
+      - esperar: {css: ".ctd-rake-hint"}
+      - pausa: 1.5
+      - destacar: {css: ".ctd-rake-hint"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Durante a noite, clique em Apurar para lançar uma contagem parcial."
+      en-US: "During the night, click Count to record a partial count."
+      es-ES: "Durante la noche, haz clic en Contar para registrar un conteo parcial."
+    acoes:
+      - clicar: {css: ".ctd-rake-head button"}
+  - fala:
+      pt-BR: "Digite o rake contado e, se houver, o jackpot contado. O jackpot não é receita do clube: ele vai para um fundo próprio."
+      en-US: "Type the rake counted and, if there is any, the jackpot counted. The jackpot is not club revenue: it goes into its own fund."
+      es-ES: "Escribe el rake contado y, si lo hay, el jackpot contado. El jackpot no es ingreso del club: va a un fondo propio."
+    acoes:
+      - digitar: {css: "#ctd-rake", valor: "{rake_parcial}"}
+      - digitar: {css: "#ctd-jackpot", valor: "{jackpot_parcial}"}
+  - fala:
+      pt-BR: "Confirme. A contagem entra na lista como parcial, e o saldo do caixa não muda: esse dinheiro já está lá."
+      en-US: "Confirm. The count joins the list as partial, and the cashbox balance does not change: that money is already there."
+      es-ES: "Confirma. El conteo entra en la lista como parcial, y el saldo de la caja no cambia: ese dinero ya está ahí."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".ctd-rake-list"}
+      - destacar: {css: ".ctd-rake"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para encerrar a mesa, todos precisam ter levantado. Clique em Fechar mesa."
+      en-US: "To end the table, everyone must have stood up. Click Close table."
+      es-ES: "Para terminar la mesa, todos deben haberse levantado. Haz clic en Cerrar mesa."
+    acoes:
+      - clicar: {css: ".page-header .btn-danger"}
+  - fala:
+      pt-BR: "Informe a contagem final. O total da noite soma as parciais já lançadas."
+      en-US: "Enter the final count. The night total adds the partial counts already recorded."
+      es-ES: "Indica el conteo final. El total de la noche suma los parciales ya registrados."
+    acoes:
+      - digitar: {css: "#ctd-rake", valor: "{rake_final}"}
+      - destacar: {css: ".ctd-close-hint"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Clique em Fechar mesa. A mesa sai do Salão, e o faturamento do dia já soma esse rake."
+      en-US: "Click Close table. The table leaves the Floor, and the day's revenue now includes that rake."
+      es-ES: "Haz clic en Cerrar mesa. La mesa sale de la Sala, y la facturación del día ya suma ese rake."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".stat-card--highlight"}
+      - destacar: {css: ".stat-card--highlight"}
+        segundos: 2.5

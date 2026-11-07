@@ -1,0 +1,79 @@
+id: fiado-baixa-estorno
+area: fiado
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /fiado
+preparar: fiado:divida_com_recebimento
+titulo:
+  pt-BR: "Como estornar um recebimento e dar baixa no fiado"
+  en-US: "How to reverse a payment and write off house credit"
+  es-ES: "Cómo revertir un cobro y dar de baja el fiado"
+descricao:
+  pt-BR: "As duas correções que só o gerente faz."
+  en-US: "The two corrections only a manager can make."
+  es-ES: "Las dos correcciones que solo hace el gerente."
+passos:
+  - fala:
+      pt-BR: "Em Devedores, você vê quem deve, quanto e desde quando. A dívida mais antiga vem primeiro."
+      en-US: "Under Debtors, you see who owes, how much and since when. The oldest debt comes first."
+      es-ES: "En Deudores, ves quién debe, cuánto y desde cuándo. La deuda más antigua viene primero."
+    acoes:
+      - destacar: {css: ".pd-table-wrap"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Abra a ficha do jogador para ver o extrato."
+      en-US: "Open the player's profile to see the statement."
+      es-ES: "Abre la ficha del jugador para ver el extracto."
+    acoes:
+      - clicar: {css: "a[href='/jogadores/{pessoa_id}']"}
+      - esperar: {css: ".fiado-card .pd-table"}
+      - rolar: {css: ".fiado-card .pd-table"}
+  - fala:
+      pt-BR: "Cada lançamento mostra o valor, o saldo e quem fez. Um recebimento lançado por engano pode ser estornado."
+      en-US: "Each entry shows the amount, the balance and who made it. A payment recorded by mistake can be reversed."
+      es-ES: "Cada movimiento muestra el monto, el saldo y quién lo hizo. Un cobro registrado por error se puede revertir."
+    acoes:
+      - destacar: {css: ".fiado-card .pd-table"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Estornar. O dinheiro sai da mesma gaveta que recebeu, e só enquanto ela estiver aberta na mesma sessão."
+      en-US: "Click Reverse. The money leaves the same drawer that received it, and only while it is open in the same session."
+      es-ES: "Haz clic en Revertir. El dinero sale de la misma caja que lo cobró, y solo mientras siga abierta en la misma sesión."
+    acoes:
+      - clicar: {css: ".fiado-card .pd-table tbody button"}
+      - esperar: {css: "#fiado-estorno"}
+      - destacar: {css: ".modal .form-hint"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Escreva o motivo e confirme. A dívida volta."
+      en-US: "Write the reason and confirm. The debt comes back."
+      es-ES: "Escribe el motivo y confirma. La deuda vuelve."
+    acoes:
+      - digitar: {css: "#fiado-estorno", valor: "{motivo_estorno}"}
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".fiado-card .pd-table tbody .fiado-reason"}
+  - fala:
+      pt-BR: "Se o clube desistir de cobrar, clique em Dar baixa. A baixa perdoa a dívida e entra no DRE como perda. Não volta atrás."
+      en-US: "If the club gives up on collecting, click Write off. A write-off forgives the debt and goes into the P&L as a loss. It cannot be undone."
+      es-ES: "Si el club desiste de cobrar, haz clic en Dar de baja. La baja perdona la deuda y entra en el estado de resultados como pérdida. No se puede deshacer."
+    acoes:
+      - clicar: {css: ".fiado-actions .btn-danger"}
+      - esperar: {css: "#fiado-baixa"}
+      - destacar: {css: ".modal .form-hint"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "O valor já vem com a dívida inteira. Escreva o motivo e confirme em Dar baixa."
+      en-US: "The amount comes filled in with the full debt. Write the reason and confirm with Write off."
+      es-ES: "El monto ya viene con toda la deuda. Escribe el motivo y confirma con Dar de baja."
+    acoes:
+      - digitar: {css: "#fiado-motivo", valor: "{motivo_baixa}"}
+      - clicar: {css: ".modal form button[type=submit]"}
+      - pausa: 1.2
+  - fala:
+      pt-BR: "O saldo zera, e o extrato guarda a baixa, com o motivo e quem fez."
+      en-US: "The balance goes to zero, and the statement keeps the write-off, with the reason and who made it."
+      es-ES: "El saldo queda en cero, y el extracto guarda la baja, con el motivo y quién la hizo."
+    acoes:
+      - destacar: {css: ".fiado-card"}
+        segundos: 3.0

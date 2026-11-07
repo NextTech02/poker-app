@@ -1,0 +1,75 @@
+id: cash-modalidades
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash/configuracao
+preparar: cash:modalidades
+titulo:
+  pt-BR: "Como cadastrar as modalidades do cash game"
+  en-US: "How to set up cash game types"
+  es-ES: "Cómo registrar las modalidades del cash game"
+descricao:
+  pt-BR: "Stakes, buy-in e rake de cada mesa."
+  en-US: "Stakes, buy-in and rake for each table."
+  es-ES: "Ciegas, buy-in y rake de cada mesa."
+passos:
+  - fala:
+      pt-BR: "Modalidades são os stakes que o clube oferece, com blinds, buy-in e rake. Você cadastra uma vez e usa todas as noites."
+      en-US: "Game types are the stakes your club offers, with blinds, buy-in and rake. You set them up once and use them every night."
+      es-ES: "Las modalidades son los niveles que ofrece el club, con ciegas, buy-in y rake. Las registras una vez y las usas todas las noches."
+    acoes:
+      - destacar: {css: ".table-container"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Nova modalidade, dê um nome e escolha o jogo."
+      en-US: "Click New game type, give it a name and choose the game."
+      es-ES: "Haz clic en Nueva modalidad, ponle un nombre y elige el juego."
+    acoes:
+      - clicar: {papel: button, t: cash.newGameType}
+      - digitar: {css: "#cc-name", valor: "{nova}"}
+      - escolher: {css: "#cc-variant", opcao: "plo"}
+  - fala:
+      pt-BR: "Preencha o small blind e o big blind. Se a mesa não tiver ante, deixe zero."
+      en-US: "Fill in the small blind and the big blind. If the table has no ante, leave it at zero."
+      es-ES: "Completa la ciega pequeña y la ciega grande. Si la mesa no tiene ante, déjalo en cero."
+    acoes:
+      - digitar: {css: "#cc-sb", valor: "{sb}"}
+      - digitar: {css: "#cc-bb", valor: "{bb}"}
+  - fala:
+      pt-BR: "Defina o buy-in mínimo e o máximo. O máximo vazio quer dizer sem teto. O teto vale para sentar: a recompra não é limitada por ele."
+      en-US: "Set the minimum and maximum buy-in. An empty maximum means no cap. The cap applies when sitting: a rebuy is not limited by it."
+      es-ES: "Define el buy-in mínimo y el máximo. El máximo vacío significa sin tope. El tope vale para sentarse: la recompra no está limitada por él."
+    acoes:
+      - digitar: {css: "#cc-min", valor: "{minimo}"}
+      - digitar: {css: "#cc-max", valor: "{maximo}"}
+  - fala:
+      pt-BR: "Informe o rake em percentual, o cap por pote e, se o clube usar, o jackpot por pote."
+      en-US: "Enter the rake percentage, the cap per pot and, if your club uses one, the jackpot per pot."
+      es-ES: "Indica el porcentaje de rake, el tope por bote y, si el club lo usa, el jackpot por bote."
+    acoes:
+      - digitar: {css: "#cc-cap", valor: "{cap}", limpar: true}
+      - digitar: {css: "#cc-jp", valor: "{pote}", limpar: true}
+  - fala:
+      pt-BR: "Esses valores orientam quem corta na mesa. A receita registrada é a que for contada na caixa da mesa."
+      en-US: "These values guide whoever takes the rake at the table. The revenue recorded is what gets counted in the table's rake box."
+      es-ES: "Estos valores orientan a quien corta en la mesa. El ingreso registrado es el que se cuente en la caja de la mesa."
+    acoes:
+      - destacar: {css: ".cc-note"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Salvar. A modalidade entra na lista e já pode ser usada para abrir mesas."
+      en-US: "Click Save. The game type joins the list and is ready for opening tables."
+      es-ES: "Haz clic en Guardar. La modalidad entra en la lista y ya se puede usar para abrir mesas."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".data-table tbody tr", texto: "{nova}"}
+      - destacar: {css: ".data-table tbody tr", texto: "{nova}"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Cada mesa guarda um retrato destes valores ao abrir. Editar aqui não muda mesas já abertas."
+      en-US: "Each table takes a snapshot of these values when it opens. Editing here does not change tables already running."
+      es-ES: "Cada mesa guarda una foto de estos valores al abrir. Editar aquí no cambia mesas ya abiertas."
+    acoes:
+      - destacar: {css: ".page-header .subtitle"}
+        segundos: 2.5

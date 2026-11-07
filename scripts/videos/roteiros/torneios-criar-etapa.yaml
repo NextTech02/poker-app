@@ -1,0 +1,81 @@
+id: torneios-criar-etapa
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /etapas
+preparar: torneios_config:etapas
+titulo:
+  pt-BR: "Como criar, selecionar e arquivar uma etapa"
+  en-US: "How to create, select and archive a stage"
+  es-ES: "Cómo crear, seleccionar y archivar una etapa"
+descricao:
+  pt-BR: "Crie a etapa, escolha a Etapa Atual e tire da frente a que já passou."
+  en-US: "Create the stage, choose the Current Stage and put away the one that's over."
+  es-ES: "Crea la etapa, elige la Etapa Actual y quita de en medio la que ya pasó."
+passos:
+  - fala:
+      pt-BR: "A etapa agrupa os torneios de um evento ou circuito. Todo torneio pertence a uma etapa."
+      en-US: "A stage groups the tournaments of an event or circuit. Every tournament belongs to a stage."
+      es-ES: "La etapa agrupa los torneos de un evento o circuito. Todo torneo pertenece a una etapa."
+    acoes:
+      - destacar: {css: ".stages-table"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Nova Etapa."
+      en-US: "Click New Stage."
+      es-ES: "Haz clic en Nueva Etapa."
+    acoes:
+      - clicar: {papel: button, t: stages.newStage}
+  - fala:
+      pt-BR: "Preencha o nome, o local e a data de início. A data de término é opcional."
+      en-US: "Fill in the name, the location and the start date. The end date is optional."
+      es-ES: "Completa el nombre, la ubicación y la fecha de inicio. La fecha de fin es opcional."
+    acoes:
+      - digitar: {css: "#name", valor: "{etapa_nova}"}
+      - digitar: {css: "#location", valor: "{local_etapa}"}
+      - preencher: {css: "#start_date", valor: "{inicio_etapa}"}
+      - preencher: {css: "#end_date", valor: "{fim_etapa}"}
+  - fala:
+      pt-BR: "Clique em Adicionar. A etapa entra na lista. Com a data de hoje dentro do período, ela fica Em Andamento."
+      en-US: "Click Add. The stage joins the list. With today inside its dates, it shows as In Progress."
+      es-ES: "Haz clic en Agregar. La etapa entra en la lista. Con la fecha de hoy dentro del periodo, queda En Curso."
+    acoes:
+      - clicar: {css: ".modal-actions-right button[type=submit]"}
+      - destacar: {css: "tr:has-text('{etapa_nova}')"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para trabalhar nela, clique em Selecionar. Ela vira a Etapa Atual, e os torneios que você vê e cria passam a ser dessa etapa."
+      en-US: "To work in it, click Select. It becomes the Current Stage, and the tournaments you see and create now belong to it."
+      es-ES: "Para trabajar en ella, haz clic en Seleccionar. Se convierte en la Etapa Actual, y los torneos que ves y creas pasan a ser de esa etapa."
+    acoes:
+      - clicar: {css: "tr:has-text('{etapa_nova}') .et-acts button", n: 0}
+      - destacar: {css: "tr:has-text('{etapa_nova}')"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para tirar da frente uma etapa que já passou, clique no lápis dela."
+      en-US: "To put away a stage that's over, click its pencil icon."
+      es-ES: "Para quitar de en medio una etapa que ya pasó, haz clic en su lápiz."
+    acoes:
+      - clicar: {css: "tr:has-text('{etapa_arquivar}') .et-acts button:last-child"}
+  - fala:
+      pt-BR: "Clique em Excluir. Como ela teve movimento financeiro, o sistema não exclui e oferece arquivar."
+      en-US: "Click Delete. Since it had financial activity, the system won't delete it and offers to archive it."
+      es-ES: "Haz clic en Eliminar. Como tuvo movimiento financiero, el sistema no la elimina y ofrece archivarla."
+    acoes:
+      - clicar: {css: ".modal-actions-left button"}
+      - esperar: {css: ".confirm-dialog"}
+  - fala:
+      pt-BR: "Clique em Arquivar. Nada é apagado."
+      en-US: "Click Archive. Nothing is deleted."
+      es-ES: "Haz clic en Archivar. No se borra nada."
+    acoes:
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "Você encontra a etapa no filtro Arquivadas, com tudo o que ela tinha."
+      en-US: "You'll find the stage under the Archived filter, with everything it had."
+      es-ES: "Encuentras la etapa en el filtro Archivadas, con todo lo que tenía."
+    acoes:
+      - clicar: {css: ".seg__btn", t: stages.filterArchived}
+      - destacar: {css: "tr:has-text('{etapa_arquivar}')"}
+        segundos: 2.0

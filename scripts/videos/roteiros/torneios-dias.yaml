@@ -1,0 +1,90 @@
+id: torneios-dias
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:dias
+titulo:
+  pt-BR: "Como criar, iniciar e encerrar um dia do torneio"
+  en-US: "How to create, start and finish a tournament day"
+  es-ES: "Cómo crear, iniciar y cerrar un día del torneo"
+descricao:
+  pt-BR: "Criar o dia, limitar o rebuy, iniciar, finalizar e reabrir."
+  en-US: "Create the day, limit rebuys, start, finish and reopen."
+  es-ES: "Crear el día, limitar el rebuy, iniciar, finalizar y reabrir."
+passos:
+  - fala:
+      pt-BR: "Depois de criar o torneio, crie o dia em que ele acontece. Abra o torneio e clique em Criar Dia."
+      en-US: "After creating the tournament, create the day it runs on. Open the tournament and click Create Day."
+      es-ES: "Después de crear el torneo, crea el día en que se juega. Abre el torneo y haz clic en Crear Día."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{torneio_dias}']"}
+      - clicar: {css: ".empty-days-professional button"}
+  - fala:
+      pt-BR: "Digite o nome do dia. Os meios de entrada vêm do torneio: para mudar, edite o torneio."
+      en-US: "Enter the day's name. The entry methods come from the tournament: to change them, edit the tournament."
+      es-ES: "Escribe el nombre del día. Los medios de entrada vienen del torneo: para cambiarlos, edita el torneo."
+    acoes:
+      - digitar: {css: "#day_name", valor: "{nome_dia}"}
+      - destacar: {css: ".entry-methods-section"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Informe o máximo de jogadores."
+      en-US: "Enter the max players."
+      es-ES: "Indica el máximo de jugadores."
+    acoes:
+      - digitar: {css: "#max_players", valor: "120", limpar: true}
+  - fala:
+      pt-BR: "Em Nível Limite Rebuy, diga até qual nível de blind o rebuy é permitido. Depois dele, o sistema recusa a venda. Vazio é ilimitado."
+      en-US: "In Rebuy Level Limit, set the last blind level where rebuys are allowed. After it, the system refuses the sale. Empty means unlimited."
+      es-ES: "En Nivel Límite de Rebuy, indica hasta qué nivel de blind se permite el rebuy. Después, el sistema rechaza la venta. Vacío es ilimitado."
+    acoes:
+      - digitar: {css: "#rebuy_level_limit", valor: "6"}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Clique em Criar Dia. Ele aparece como Pendente."
+      en-US: "Click Create Day. It shows as Pending."
+      es-ES: "Haz clic en Crear Día. Aparece como Pendiente."
+    acoes:
+      - clicar: {css: ".form-actions button[type=submit]"}
+      - destacar: {css: ".day-card-title"}
+        segundos: 1.5
+  - fala:
+      pt-BR: "Na hora de começar, clique em Iniciar Dia e confirme."
+      en-US: "When it's time to begin, click Start Day and confirm."
+      es-ES: "A la hora de comenzar, haz clic en Iniciar Día y confirma."
+    acoes:
+      - clicar: {css: ".day-card-actions button", t: tournamentDays.startDay}
+      - pausa: 1.0
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "O dia fica Ativo, e aparecem os botões da operação. O relógio você comanda em Controle do Torneio."
+      en-US: "The day becomes Active, and the operation buttons appear. You run the clock in Tournament Control."
+      es-ES: "El día queda Activo, y aparecen los botones de la operación. El reloj lo manejas en Control del Torneo."
+    acoes:
+      - destacar: {css: ".day-card-header"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Ao terminar, clique em Finalizar Dia e confirme."
+      en-US: "When it's over, click Finish Day and confirm."
+      es-ES: "Al terminar, haz clic en Finalizar Día y confirma."
+    acoes:
+      - clicar: {css: ".day-card-actions button", t: tournamentDays.finishDay}
+      - pausa: 1.0
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "Finalizou por engano? Clique em Reabrir Dia e confirme. O dia volta a Ativo, e o relógio fica como estava."
+      en-US: "Finished by mistake? Click Reopen Day and confirm. The day is Active again, and the clock stays as it was."
+      es-ES: "¿Finalizaste por error? Haz clic en Reabrir Día y confirma. El día vuelve a Activo, y el reloj queda como estaba."
+    acoes:
+      - clicar: {css: ".day-card-actions button", t: tournamentDays.reopenDay}
+      - pausa: 1.0
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "Já Reiniciar Dia é outra coisa: ele zera o relógio e volta ao nível um."
+      en-US: "Restart Day is different: it resets the clock and goes back to level one."
+      es-ES: "Reiniciar Día es otra cosa: pone el reloj en cero y vuelve al nivel uno."
+    acoes:
+      - destacar: {css: ".day-card-actions button", t: tournamentDays.restartDay}
+        segundos: 2.5
