@@ -545,7 +545,7 @@ describe('grupos de permissão', () => {
         'dashboard', 'stages', 'tournaments', 'players', 'cashier', 'cashier_players', 'cashier_tickets',
         'cashier_tickets.master', 'prizes', 'prizes_release', 'financial', 'reports', 'general_cash',
         'cashbox.operate', 'cashbox.admin', 'rankings', 'blinds', 'tables', 'broadcast', 'employees', 'access_log',
-        'fiado.manage',
+        'fiado.manage', 'table_clock',
       ] }],
     });
     await irGrupos();

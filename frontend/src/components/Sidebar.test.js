@@ -109,6 +109,22 @@ describe('itens por permissão', () => {
     expect(screen.queryByRole('link', { name: /sidebar.sales/ })).toBeNull();
   });
 
+  it('o dealer vê só o relógio de mesa', () => {
+    montar({ permissoes: ['table_clock'] });
+    expect(screen.getByRole('link', { name: /sidebar.tableClock/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /sidebar.sales/ })).toBeNull();
+  });
+
+  it('quem administra as mesas vê o relógio sem precisar da chave do dealer', () => {
+    montar({ permissoes: ['tables'] });
+    expect(screen.getByRole('link', { name: /sidebar.tableClock/ })).toBeInTheDocument();
+  });
+
+  it('sem nenhuma das chaves, o relógio não aparece', () => {
+    montar({ permissoes: ['cashier'] });
+    expect(screen.queryByRole('link', { name: /sidebar.tableClock/ })).toBeNull();
+  });
+
   it('o sangi puro vê a própria tela no primeiro nível', () => {
     // É a única tela dele; sem o item de topo, ficaria sem acesso.
     // No módulo de CASH: a sangeur circula pelas mesas vendendo fichas, e no
