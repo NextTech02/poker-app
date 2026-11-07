@@ -54,6 +54,7 @@ passo dura o tempo da fala, ou mais, se os gestos demorarem.
 | `escolher` | `escolher: {css: "#payment_method", opcao: {pt-BR: "pix", en-US: "card"}}` |
 | `destacar` | `destacar: {css: ".cx-sale-totals"}` com `segundos: 2.5` ao lado |
 | `arrastar` | `arrastar: {de: {css: ".assento"}, para: {css: ".livre"}}` |
+| `enviar` | `enviar: {css: "input[type=file]", arquivo: "{imagem}"}` |
 | `passar` | `passar: {css: ".linha"}` (cursor sobre o item) |
 | `rolar` | `rolar: {css: ".rodape"}` |
 | `tecla` | `tecla: Escape` |
@@ -80,6 +81,9 @@ Em `pronuncia.json` (opcional) entram termos que a voz lê errado, por idioma:
 - Nenhum vídeo pode enviar e-mail: não conclua convite nem "esqueci a senha", e
   jogador não tem e-mail. Não ative 2FA no usuário das gravações.
 - Sem CPF: os documentos são passaportes `DEMO...`.
+- Cada gravação encerra a própria sessão. Ao terminar um lote, rode
+  `python clube_demo.py --encerrar-sessoes` para fechar o que sobrou. Nunca rode
+  isso com uma gravação em andamento.
 - O F0 do Azure dá 500 mil caracteres por mês e 20 pedidos por minuto. O limite
   de pedidos é respeitado entre processos, e `narracao.py` para antes de esgotar
   a cota. O áudio fica em cache: só texto novo gasta caracteres.

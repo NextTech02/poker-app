@@ -156,7 +156,7 @@ async def sintetizar(texto: str, idioma: str, tabela: dict) -> tuple[Path, float
     fornecedor = provedor()
     chave = hashlib.sha256(f"{fornecedor}|{VOZES[idioma]}|{falado}".encode("utf-8")).hexdigest()[:20]
     destino = CACHE / f"{idioma}-{chave}.mp3"
-    if not destino.exists():
+    if not destino.exists() or destino.stat().st_size == 0:
         if fornecedor == "azure":
             await asyncio.to_thread(_azure, falado, idioma, destino)
         else:

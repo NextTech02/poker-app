@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 
 import yaml
+from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 import montar
@@ -118,6 +119,9 @@ async def executar(g: Gravador, acao: dict, idioma: str, base: str, variaveis: d
         await g.escolher(achar(d), valor(d.get("opcao")), valor(d.get("rotulo_opcao")))
     elif "destacar" in acao:
         await g.destacar(achar(acao["destacar"]), acao.get("segundos", 1.6))
+    elif "enviar" in acao:
+        d = acao["enviar"]
+        await achar(d).set_input_files(str(valor(d["arquivo"])))
     elif "arrastar" in acao:
         await g.arrastar(achar(acao["arrastar"]["de"]), achar(acao["arrastar"]["para"]))
     elif "passar" in acao:
@@ -145,7 +149,37 @@ def preparar(roteiro: dict, idioma: str, api) -> dict:
     return getattr(importlib.import_module(f"sementes.{modulo}"), funcao)(idioma, api) or {}
 
 
+async def entrar_no_app(pagina, entrada: str) -> None:
+    """Abre a sessão pela URL com os tokens.
+
+    O erro do Playwright repete a URL, e um log guardaria os tokens: por isso a
+    falha final sai fora do `except`, sem a exceção original encadeada."""
+    for _ in range(3):
+        try:
+            await pagina.goto(entrada, wait_until="domcontentloaded", timeout=60000)
+            await pagina.wait_for_function(
+                "() => Object.keys(localStorage).some((k) => k.endsWith('-auth-token'))", timeout=20000
+            )
+            return
+        except PlaywrightError:
+            continue
+    raise RuntimeError("não consegui abrir a sessão no app")
+
+
 async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
+    """Grava e, com ou sem sucesso, encerra a sessão aberta para a gravação."""
+    sessoes = []
+    try:
+        return await gravar(roteiro, idioma, base, sessoes)
+    finally:
+        if sessoes:
+            import clube_demo
+
+            for sessao in sessoes:
+                clube_demo.encerrar_sessao(sessao)
+
+
+async def gravar(roteiro: dict, idioma: str, base: str, sessoes: list) -> Path:
     tabela = narracao.carregar_pronuncia()
     falas = [
         await narracao.sintetizar(por_idioma(p["fala"], idioma), idioma, tabela)
@@ -170,6 +204,7 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
         if "{jogador}" in json.dumps(roteiro):
             variaveis["jogador"] = clube_demo.proximo_jogador(idioma)
         tokens = clube_demo.abrir_sessao(idioma)
+        sessoes.append(tokens)
         variaveis.update(preparar(roteiro, idioma, clube_demo.Api(tokens)))
         # Uma semente pode trocar a etapa selecionada: cada área grava na sua,
         # para fechar o caixa num vídeo não atrapalhar outro.
@@ -186,10 +221,7 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
         if entrada:
             # O supabase-js guarda a sessão ao ler o hash; depois disso o token
             # não fica na URL de nenhuma tela gravada.
-            await g.pagina.goto(entrada, wait_until="domcontentloaded")
-            await g.pagina.wait_for_function(
-                "() => Object.keys(localStorage).some((k) => k.endsWith('-auth-token'))", timeout=20000
-            )
+            await entrar_no_app(g.pagina, entrada)
         await g.pagina.goto(base + preencher(roteiro.get("inicio", "/"), variaveis), wait_until="domcontentloaded")
         await assentar(g.pagina)
         await g.cartao(por_idioma(roteiro["titulo"], idioma), por_idioma(roteiro.get("descricao", ""), idioma))

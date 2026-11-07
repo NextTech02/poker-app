@@ -12,7 +12,6 @@ guarda o torneio entre uma tomada e outra. `ETAPA_ARQUIVAR` tem uma venda porque
 """
 from datetime import date, timedelta
 
-import gravador
 from clube_demo import CLUBES
 from sementes.torneios_operacao import (
     _achar_etapa, _criar_torneio, _meios, _sentar, _torneio_de_um_dia, _vender,
@@ -50,8 +49,6 @@ BILHETE_TORNEIO = {
     "en-US": ("Clearwater Bay", "Event Hall"),
     "es-ES": ("Bahía Clara", "Salón de Eventos"),
 }
-
-SO_NA_JANELA_PRINCIPAL = "if (window === window.top) "
 
 # (small, big, ante, minutos): sem intervalo, que é o que o vídeo acrescenta.
 ESTRUTURA_INICIAL = ((100, 200, 0, 20), (200, 400, 0, 20), (300, 600, 600, 20), (400, 800, 800, 20))
@@ -205,10 +202,6 @@ def telao(idioma: str, api) -> dict:
 
 
 def bilhete(idioma: str, api) -> dict:
-    # A prévia do bilhete é um iframe, e o script de init do gravador roda em
-    # todo frame: sem isto sobra um segundo cursor parado em cima do bilhete.
-    if not gravador.CAMADA.startswith(SO_NA_JANELA_PRINCIPAL):
-        gravador.CAMADA = SO_NA_JANELA_PRINCIPAL + gravador.CAMADA
     etapa = _etapa(idioma, api)
     _torneio_novo(idioma, api, etapa["id"], "bilhete")
     cidade, sede = BILHETE_CLUBE[idioma]
