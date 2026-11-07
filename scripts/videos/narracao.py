@@ -12,6 +12,8 @@ import json
 import os
 import re
 import subprocess
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -25,6 +27,11 @@ XML_LANG = {"pt-BR": "pt-BR", "en-US": "en-US", "es-ES": "es-CO"}
 
 AQUI = Path(__file__).resolve().parent
 CACHE = AQUI / "cache" / "audio"
+
+# Plano gratuito (F0): 20 pedidos por minuto, limite que não pode ser aumentado.
+INTERVALO_AZURE = 3.2
+TENTATIVAS = 5
+_ultimo_pedido = 0.0
 
 
 def provedor() -> str:
@@ -60,8 +67,23 @@ def _azure(texto: str, idioma: str, destino: Path) -> None:
             "User-Agent": "aceblind-videos",
         },
     )
-    with urllib.request.urlopen(pedido, timeout=60) as resposta:
-        destino.write_bytes(resposta.read())
+    global _ultimo_pedido
+    for tentativa in range(TENTATIVAS):
+        espera = _ultimo_pedido + INTERVALO_AZURE - time.monotonic()
+        if espera > 0:
+            time.sleep(espera)
+        _ultimo_pedido = time.monotonic()
+        try:
+            with urllib.request.urlopen(pedido, timeout=60) as resposta:
+                destino.write_bytes(resposta.read())
+            return
+        except urllib.error.HTTPError as erro:
+            # 429 também vem de falta de capacidade momentânea da voz na região,
+            # não só do limite por minuto. Cota do mês esgotada dá outro erro,
+            # que sobe direto: esperar não resolve.
+            if erro.code != 429 or tentativa == TENTATIVAS - 1:
+                raise
+            time.sleep(15 * (tentativa + 1))
 
 
 async def _edge(texto: str, idioma: str, destino: Path) -> None:
