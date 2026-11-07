@@ -71,6 +71,7 @@
     "logout": "Salir",
     "goHome": "Ir al inicio",
     "security": "Seguridad",
+    "support": "Soporte",
     "clubSection": "Club",
     "fiado": "Fiado"
   },
@@ -3173,6 +3174,19 @@
     "errorInvalidCode": "Código inválido o vencido. Revise la aplicación e intente de nuevo.",
     "errorInvalidRecovery": "Código de recuperación inválido o ya utilizado.",
     "errorLoadFactors": "No se pudieron cargar sus métodos de verificación."
+  },
+  "support": {
+    "title": "Soporte",
+    "subtitle": "Aprende a usar el sistema con videos cortos y una capacitación completa.",
+    "emptyTitle": "Los videos están en camino",
+    "emptySubtitle": "Pronto encontrarás aquí los videos de capacitación del sistema.",
+    "training": "Capacitación completa",
+    "shortVideos": "Videos cortos",
+    "searchPlaceholder": "Buscar por tema",
+    "allAreas": "Todos",
+    "noResults": "No se encontraron videos para esta búsqueda.",
+    "close": "Cerrar",
+    "subtitles": "Subtítulos"
   },
   "security": {
     "title": "Seguridad de la cuenta",

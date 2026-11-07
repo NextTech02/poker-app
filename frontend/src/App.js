@@ -34,6 +34,7 @@ import './components/SkeletonLoader.css';
 
 // Lazy-load less-frequented pages (B4)
 const Seguranca = lazy(() => import('./pages/Seguranca'));
+const Suporte = lazy(() => import('./pages/Suporte'));
 const TournamentBroadcast = lazy(() => import('./pages/TournamentBroadcast'));
 const TournamentDetail = lazy(() => import('./pages/TournamentDetail'));
 const TorneioEquipes = lazy(() => import('./pages/TorneioEquipes'));
@@ -659,6 +660,15 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Seguranca />
+          </PrivateRoute>
+        }
+      />
+      {/* Suporte: sem permissão e sem módulo, pelo mesmo motivo da Segurança. */}
+      <Route
+        path="/suporte"
+        element={
+          <PrivateRoute>
+            <Suporte />
           </PrivateRoute>
         }
       />
