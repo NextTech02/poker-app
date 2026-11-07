@@ -1,0 +1,109 @@
+/* ---------- páginas internas (só entra nelas; a home não carrega isto) ---------- */
+.pg-topo{
+  background:
+    radial-gradient(900px 480px at 82% 20%,rgba(109,59,255,.4),transparent 62%),
+    radial-gradient(640px 420px at 6% 6%,rgba(43,10,107,.85),transparent 68%),
+    var(--feltro);
+  color:#fff;padding:128px 0 64px;
+}
+.pg-topo h1{font-size:clamp(32px,4.4vw,54px);max-width:880px;margin-bottom:18px}
+.pg-topo .lead{max-width:720px;color:#C9C2DE}
+.pg-data{font-family:var(--mono);font-size:12.5px;color:#B7AED6;margin-top:16px}
+.migalhas{margin-bottom:22px}
+.migalhas ol{list-style:none;display:flex;flex-wrap:wrap;gap:6px;font-size:13.5px;color:#B7AED6}
+.migalhas li+li::before{content:"/";margin-right:6px;color:#7A6FA0}
+.migalhas a{color:#D8D2EA;border-bottom:1px solid rgba(183,156,255,.35)}
+.migalhas a:hover{color:#fff}
+
+.pg-corpo{background:var(--sala);padding:64px 0 96px}
+.pg-relacionados{margin-top:64px}
+.pg-relacionados h2{font-size:clamp(24px,2.4vw,30px);margin-bottom:22px}
+.pg-corpo>.wrap>.recursos{margin-top:32px}
+
+/* Texto corrido: linha curta para ler bem, e títulos que quebram o assunto. */
+.prosa{max-width:760px}
+.prosa--larga{max-width:none}
+.prosa--larga>h2,.prosa--larga>h3,.prosa--larga>p,.prosa--larga>ul,.prosa--larga>ol,.prosa--larga>details.pergunta,.prosa--larga>.nota,.prosa--larga>.chamada{max-width:760px}
+.prosa h2{font-size:clamp(25px,2.6vw,33px);line-height:1.18;margin:48px 0 16px}
+.prosa h3{font-size:clamp(18px,1.6vw,21px);margin:30px 0 10px}
+.prosa>:first-child{margin-top:0}
+.prosa p,.prosa li{font-size:17px;line-height:1.65;color:#403856}
+.prosa p+p{margin-top:14px}
+.prosa ul,.prosa ol{margin:12px 0 18px 22px}
+.prosa li{margin-bottom:7px}
+.prosa a{color:#4F22D9;border-bottom:1px solid rgba(79,34,217,.35)}
+.prosa a:hover{border-bottom-color:currentColor}
+.prosa a.btn{color:#fff;border-bottom:0}
+.prosa strong{color:var(--tinta);font-weight:600}
+.prosa table{width:100%;border-collapse:collapse;margin:18px 0 24px;font-size:15.5px;background:#fff}
+.prosa th,.prosa td{padding:10px 12px;text-align:left;border-bottom:1px solid rgba(26,16,48,.1);vertical-align:top;color:#403856}
+.prosa th{font-weight:600;color:var(--tinta);background:#E9E6F2}
+.tabela-rola{overflow-x:auto}
+
+.nota{background:#fff;border:1px solid rgba(26,16,48,.1);border-left:3px solid var(--violeta);border-radius:10px;padding:18px 20px;margin:22px 0}
+.nota p{margin:0;font-size:16px}
+.nota p+p{margin-top:10px}
+
+.chamada{background:var(--feltro);border-radius:12px;padding:26px 28px;margin:34px 0;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.chamada p{color:#E4DFF2;margin:0;font-size:17px;flex:1 1 300px}
+
+details.pergunta{border-top:1px solid rgba(26,16,48,.13)}
+details.pergunta:last-of-type{border-bottom:1px solid rgba(26,16,48,.13)}
+details.pergunta summary{cursor:pointer;padding:18px 0;font-size:17.5px;font-weight:500;color:var(--tinta);list-style-position:outside}
+details.pergunta div{padding-bottom:16px}
+
+/* ---------- ferramentas grátis ---------- */
+.fer-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;background:#fff;border:1px solid rgba(26,16,48,.1);border-radius:12px;padding:22px;margin-bottom:18px}
+.fer-campo{display:flex;flex-direction:column;gap:6px}
+.fer-campo span{font-size:14px;font-weight:500;color:var(--tinta)}
+.fer-campo small{font-size:12.5px;color:var(--tinta-fraca)}
+.fer-campo input,.fer-campo select{height:46px;padding:0 12px;border:1px solid rgba(26,16,48,.22);border-radius:8px;font:inherit;font-size:16px;color:var(--tinta);background:#fff;width:100%}
+.fer-campo input:focus,.fer-campo select:focus{outline:2px solid var(--violeta);outline-offset:1px}
+.fer-resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+.fer-resumo div{background:var(--feltro);border-radius:10px;padding:14px 16px}
+.fer-resumo small{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#C9C2DE;margin-bottom:6px}
+.fer-resumo b{font-size:23px;font-weight:600;color:#fff;letter-spacing:-.02em}
+.fer-tabela{overflow-x:auto;background:#fff;border:1px solid rgba(26,16,48,.1);border-radius:12px;margin-bottom:16px}
+.fer-tabela table{margin:0;font-variant-numeric:tabular-nums}
+.fer-tabela th{white-space:nowrap}
+.fer-tabela input{width:92px;height:36px;padding:0 8px;border:1px solid rgba(26,16,48,.22);border-radius:6px;font:inherit;font-size:15px}
+tr.fer-pausa td{background:#F2EEFC;color:#3B2A77;font-weight:500}
+.fer-acoes{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:28px}
+.fer-nota{font-size:14px!important;color:var(--tinta-fraca)!important;margin:12px 0 18px}
+.fer-editor{margin-bottom:28px}
+.fer-editor summary{cursor:pointer;font-weight:500;color:var(--tinta);padding:10px 0}
+.fer-remover{background:none;font-size:20px;line-height:1;color:var(--tinta-fraca);padding:4px 10px}
+.fer-remover:hover{color:#C2263B}
+.fer-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+/* Timer: a tela que vai para a TV da sala. Em tela cheia, tudo cresce com ela. */
+.tm{background:linear-gradient(165deg,#1B0740,#0B0119);border-radius:16px;color:#fff;text-align:center;padding:30px 20px 26px}
+.tm__etapa{font-family:var(--mono);font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--lavanda)}
+.tm__relogio{font-size:clamp(80px,17vw,190px);font-weight:700;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;margin:6px 0}
+.tm__blinds{font-size:clamp(32px,6vw,68px);font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.tm__ante{font-size:clamp(17px,2.4vw,26px);color:#D8D2EA;min-height:1.3em}
+.tm__prox{font-family:var(--mono);font-size:clamp(13px,1.5vw,17px);color:#C9C2DE;margin-top:6px}
+.tm__acoes{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:22px}
+.tm--pausa .tm__relogio{color:var(--ambar)}
+.tm:fullscreen{display:flex;flex-direction:column;justify-content:center;border-radius:0;padding:4vh 4vw}
+.tm:fullscreen .tm__etapa{font-size:3vh}
+.tm:fullscreen .tm__relogio{font-size:34vh}
+.tm:fullscreen .tm__blinds{font-size:13vh}
+.tm:fullscreen .tm__ante{font-size:5vh}
+.tm:fullscreen .tm__prox{font-size:3.2vh}
+
+@media (max-width:720px){
+  .pg-topo{padding:104px 0 44px}
+  .pg-corpo{padding:44px 0 72px}
+  .chamada{padding:22px 20px}
+}
+
+/* A folha que vai para a mesa do diretor de torneio: só a tabela. */
+@media print{
+  .nav,.foot,.wa,#demo,.pg-relacionados,.fer-form,.fer-acoes,.chamada,.migalhas{display:none!important}
+  .pg-topo{background:none;color:#000;padding:0 0 12px}
+  .pg-topo .lead{display:none}
+  .prosa>:not(#ferramenta){display:none}
+  .fer-resumo div{background:none;border:1px solid #999}
+  .fer-resumo small,.fer-resumo b{color:#000}
+}

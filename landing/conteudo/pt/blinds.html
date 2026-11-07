@@ -1,0 +1,40 @@
+---
+id: blinds
+secao: ferramentas
+slug: ferramentas/estrutura-de-blinds
+ferramenta: blinds
+titulo: Gerador de Estrutura de Blinds para Torneio | AceBlind
+descricao: Monte a estrutura de blinds do seu torneio de poker em segundos: informe jogadores, stack e duração. Baixe a planilha, imprima ou abra no timer. Grátis.
+h1: Gerador de estrutura de blinds para torneio de poker
+lead: Informe os jogadores, o stack e quanto tempo o torneio deve durar. A tabela de blinds sai pronta.
+rotulo: Estrutura de blinds
+resumo: Tabela de blinds calculada pela duração do torneio.
+atualizado: 2026-11-06
+ordem: 20
+relacionados: timer, premiacao, estrutura
+---
+<div id="ferramenta" data-timer="/ferramentas/timer-de-poker/"><noscript><p>O gerador precisa de JavaScript ligado no navegador.</p></noscript></div>
+
+<h2>Como a estrutura é calculada</h2>
+<p>O gerador parte de duas pontas. A primeira é o blind inicial: o stack começa com cerca de 100 big blinds, ou menos se a menor ficha não permitir. A segunda é o blind final, escolhido para que, na hora do heads-up, o stack médio fique perto de 20 big blinds.</p>
+<p>Entre as duas pontas, cada nível sobe a mesma proporção. Depois, cada valor é arredondado para um número que as fichas da mesa conseguem pagar: o small blind é sempre a metade do big blind e múltiplo da menor ficha.</p>
+<p>A duração é a meta do campo "Duração desejada". O torneio real depende de quantos jogadores aparecem e de como eles jogam, então use a tabela como ponto de partida e ajuste ao seu público.</p>
+
+<h2>Exemplos de estrutura por tipo de torneio</h2>
+<div class="tabela-rola"><table>
+  <thead><tr><th>Tipo</th><th>Stack inicial</th><th>Minutos por nível</th><th>Duração típica</th></tr></thead>
+  <tbody>
+    <tr><td>Turbo</td><td>50 big blinds</td><td>10 a 12</td><td>2 a 3 horas</td></tr>
+    <tr><td>Regular de clube</td><td>100 big blinds</td><td>15 a 20</td><td>4 a 6 horas</td></tr>
+    <tr><td>Deep stack</td><td>200 big blinds ou mais</td><td>30 a 40</td><td>8 horas ou mais</td></tr>
+  </tbody>
+</table></div>
+<p>Esses números são referências comuns, não regra. O guia <a href="/guias/como-montar-estrutura-de-blinds/">como montar uma estrutura de blinds</a> explica cada escolha.</p>
+
+<h2>Perguntas frequentes</h2>
+<details class="pergunta"><summary>Como baixar a estrutura em planilha?</summary><div><p>Clique em "Baixar planilha". O arquivo abre no Excel e no Google Planilhas, já com níveis, blinds, ante, minutos e horário de início. O botão "Imprimir" gera uma folha só com a tabela.</p></div></details>
+<details class="pergunta"><summary>O que é a menor ficha?</summary><div><p>É o menor valor de ficha que estará em jogo. Com fichas de 25, o small blind precisa ser múltiplo de 25, então o gerador nunca propõe um nível de 110/220.</p></div></details>
+<details class="pergunta"><summary>Devo usar ante?</summary><div><p>É opcional. O formato mais usado hoje é o big blind ante, em que só o big blind paga o ante da mesa. Ele deixa o jogo mais rápido do que cobrar de cada jogador. Preencha 0 para não usar.</p></div></details>
+<details class="pergunta"><summary>Como uso esta estrutura no timer?</summary><div><p>Clique em "Abrir no timer". A estrutura vai para o <a href="/ferramentas/timer-de-poker/">timer de poker grátis</a>, pronta para rodar na TV.</p></div></details>
+
+<div class="chamada"><p>No AceBlind, a estrutura vira template: você salva uma vez e reaproveita em todo torneio.</p><a class="btn btn--primary btn--sm" href="#demo">Comece o teste grátis</a></div>

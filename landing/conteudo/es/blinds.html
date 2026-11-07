@@ -1,0 +1,40 @@
+---
+id: blinds
+secao: ferramentas
+slug: herramientas/estructura-de-ciegas
+ferramenta: blinds
+titulo: Estructura de ciegas: generador para torneos | AceBlind
+descricao: Estructura de ciegas para tu torneo de póker en segundos: indica jugadores, stack y duración. Descárgala en Excel, imprímela o ábrela en el reloj. Gratis.
+h1: Generador de estructura de ciegas para torneos de póker
+lead: Indica los jugadores, el stack y cuánto debe durar el torneo. La tabla de ciegas sale lista.
+rotulo: Estructura de ciegas
+resumo: Tabla de ciegas calculada según la duración del torneo.
+atualizado: 2026-11-06
+ordem: 20
+relacionados: timer, premiacao, estrutura
+---
+<div id="ferramenta" data-timer="/es/herramientas/reloj-de-poker/"><noscript><p>El generador necesita que JavaScript esté activado en el navegador.</p></noscript></div>
+
+<h2>Cómo se calcula la estructura</h2>
+<p>El generador parte de dos extremos. El primero es la ciega inicial: el stack empieza con cerca de 100 ciegas grandes, o menos si la ficha más pequeña no lo permite. El segundo es la ciega final, elegida para que, al llegar al heads-up, el stack promedio quede cerca de 20 ciegas grandes.</p>
+<p>Entre los dos extremos, cada nivel sube en la misma proporción. Después, cada valor se redondea a un número que las fichas de la mesa puedan pagar: la ciega chica siempre es la mitad de la ciega grande y múltiplo de la ficha más pequeña.</p>
+<p>La duración es la meta del campo "Duración deseada". El torneo real depende de cuántos jugadores lleguen y de cómo jueguen, así que usa la tabla como punto de partida y ajústala a tu público.</p>
+
+<h2>Ejemplos de estructura por tipo de torneo</h2>
+<div class="tabela-rola"><table>
+  <thead><tr><th>Tipo</th><th>Stack inicial</th><th>Minutos por nivel</th><th>Duración típica</th></tr></thead>
+  <tbody>
+    <tr><td>Turbo</td><td>50 ciegas grandes</td><td>10 a 12</td><td>2 a 3 horas</td></tr>
+    <tr><td>Regular de club</td><td>100 ciegas grandes</td><td>15 a 20</td><td>4 a 6 horas</td></tr>
+    <tr><td>Deep stack</td><td>200 ciegas grandes o más</td><td>30 a 40</td><td>8 horas o más</td></tr>
+  </tbody>
+</table></div>
+<p>Estos números son referencias comunes, no una regla. La guía <a href="/es/guias/como-armar-una-estructura-de-ciegas/">cómo armar una estructura de ciegas</a> explica cada decisión.</p>
+
+<h2>Preguntas frecuentes</h2>
+<details class="pergunta"><summary>¿Cómo descargo la estructura en hoja de cálculo?</summary><div><p>Haz clic en "Descargar hoja de cálculo". El archivo abre en Excel y en Google Sheets, ya con niveles, ciegas, ante, minutos y hora de inicio. El botón "Imprimir" genera una hoja solo con la tabla.</p></div></details>
+<details class="pergunta"><summary>¿Qué es la ficha más pequeña?</summary><div><p>Es el menor valor de ficha que estará en juego. Con fichas de 25, la ciega chica tiene que ser múltiplo de 25, así que el generador nunca propone un nivel de 110/220.</p></div></details>
+<details class="pergunta"><summary>¿Debo usar ante?</summary><div><p>Es opcional. El formato más usado hoy es el big blind ante, en el que solo la ciega grande paga el ante de la mesa. Hace el juego más rápido que cobrarle a cada jugador. Escribe 0 para no usarlo.</p></div></details>
+<details class="pergunta"><summary>¿Cómo uso esta estructura en el reloj?</summary><div><p>Haz clic en "Abrir en el reloj". La estructura pasa al <a href="/es/herramientas/reloj-de-poker/">reloj de póker gratis</a>, lista para correr en la TV.</p></div></details>
+
+<div class="chamada"><p>En AceBlind, la estructura se convierte en plantilla: la guardas una vez y la reutilizas en cada torneo.</p><a class="btn btn--primary btn--sm" href="#demo">Empieza la prueba gratis</a></div>

@@ -1,14 +1,17 @@
 # Landing page — HTML estático, gerado por idioma no build.
 #
-# Estágio 1: build.mjs aplica as traduções de i18n.js no index.html e gera uma
-# página por idioma (/, /es/, /en/), o sitemap e os dados estruturados. É
-# isso que o Google lê — por isso o texto sai pronto no HTML, e não traduzido
-# pelo navegador.
+# Estágio 1: build.mjs gera a home por idioma (/, /es/, /en/), as páginas
+# internas de conteudo/, o sitemap e os dados estruturados. É isso que o Google
+# lê — por isso o texto sai pronto no HTML, e não montado pelo navegador.
 FROM node:22-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY build.mjs index.html i18n.js ./
+# As páginas internas e o JavaScript das ferramentas grátis. Sem estas duas
+# linhas o build para com erro: é ele que monta o site inteiro.
+COPY conteudo/ conteudo/
+COPY ferramentas/ ferramentas/
 # robots.txt, 404.html e o que mais entrar (og.png, fontes). A pasta é
 # versionada justamente para este COPY não falhar — `COPY` de diretório
 # inexistente aborta o build.

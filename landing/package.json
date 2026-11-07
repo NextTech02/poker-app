@@ -2,9 +2,10 @@
   "name": "aceblind-landing",
   "private": true,
   "type": "module",
-  "description": "Landing aceblind.net — gera uma página HTML por idioma (/, /es/, /en/).",
+  "description": "Site aceblind.net — home, páginas internas e ferramentas grátis, em HTML estático.",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "test": "node --test \"testes/*.test.mjs\""
   },
   "devDependencies": {
     "cheerio": "1.0.0"

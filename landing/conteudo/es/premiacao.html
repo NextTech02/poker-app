@@ -1,0 +1,53 @@
+---
+id: premiacao
+secao: ferramentas
+slug: herramientas/calculadora-de-premios
+ferramenta: premiacao
+titulo: Calculadora de premios de póker para torneos | AceBlind
+descricao: Calcula los premios de tu torneo de póker: prize pool, parte de la casa, puestos pagados y valor de cada uno. Gratis, sin registro, hasta 2.000 entradas.
+h1: Calculadora de premios de póker para torneos
+lead: Indica las entradas, el buy-in y la parte de la casa. La tabla muestra cuántos puestos se pagan y cuánto recibe cada uno.
+rotulo: Calculadora de premios
+resumo: Prize pool y valor de cada puesto, del 1.º al último pagado.
+atualizado: 2026-11-06
+ordem: 30
+relacionados: calcular, blinds, timer
+---
+<div id="ferramenta"><noscript><p>La calculadora necesita que JavaScript esté activado en el navegador.</p></noscript></div>
+
+<h2>Cómo se calculan los premios</h2>
+<ol>
+  <li><strong>Recaudado</strong>: las entradas multiplicadas por el valor del buy-in.</li>
+  <li><strong>Parte de la casa</strong>: el porcentaje de rake o tarifa sobre lo recaudado.</li>
+  <li><strong>Prize pool</strong>: lo que queda después de la parte de la casa, sumado al garantizado, si lo hay.</li>
+  <li><strong>Puestos pagados</strong>: salen de la tabla de premios, según el número de entradas.</li>
+  <li><strong>Redondeo</strong>: cada premio se redondea y la diferencia va al 1.er puesto. La suma siempre coincide con el prize pool.</li>
+</ol>
+<p>Es la misma tabla que AceBlind aplica en los torneos de los clubes. Con el redondeo en 1, el resultado de aquí coincide con el de la pantalla de premios del sistema.</p>
+
+<div class="nota"><p><strong>Los rebuys cuentan como entrada.</strong> Dos inscritos con cinco rebuys pagan como un torneo de 7. Si tu torneo cuenta solo los buy-ins para definir cuántos puestos se pagan, ajusta el campo de entradas.</p></div>
+
+<h2>Cuántos puestos se pagan en cada torneo</h2>
+<div class="tabela-rola"><table>
+  <thead><tr><th>Entradas</th><th>Puestos pagados</th><th>1.er puesto</th></tr></thead>
+  <tbody>
+    <tr><td>Hasta 5</td><td>2</td><td>65%</td></tr>
+    <tr><td>6 a 17</td><td>3</td><td>50%</td></tr>
+    <tr><td>18 a 26</td><td>4</td><td>44%</td></tr>
+    <tr><td>27 a 35</td><td>5</td><td>36%</td></tr>
+    <tr><td>36 a 53</td><td>7</td><td>31,5%</td></tr>
+    <tr><td>54 a 62</td><td>9</td><td>29%</td></tr>
+    <tr><td>63 a 80</td><td>11</td><td>26%</td></tr>
+    <tr><td>81 a 98</td><td>13</td><td>25,5%</td></tr>
+    <tr><td>99 a 107</td><td>15</td><td>24,5%</td></tr>
+  </tbody>
+</table></div>
+<p>El paso a paso con un ejemplo completo está en la guía <a href="/es/guias/como-calcular-los-premios-de-un-torneo/">cómo calcular los premios de un torneo de póker</a>.</p>
+
+<h2>Preguntas frecuentes</h2>
+<details class="pergunta"><summary>¿Cómo funciona el garantizado en la calculadora?</summary><div><p>El valor garantizado se suma a lo que pagaron los jugadores, como en AceBlind. Con 1.800 de recaudación neta y 5.000 de garantizado, el prize pool es de 6.800. Si no hay garantizado, deja el campo en 0.</p></div></details>
+<details class="pergunta"><summary>¿Qué porcentaje de la casa debo usar?</summary><div><p>Usa el que cobra tu club. No existe un valor estándar: cambia con el buy-in, el costo de la operación y la región. La guía sobre el <a href="/es/guias/como-controlar-el-rake-en-un-club-de-poker/">rake en un club de póker</a> trata este tema.</p></div></details>
+<details class="pergunta"><summary>¿Por qué el 1.er puesto no recibe el porcentaje exacto?</summary><div><p>Porque recibe el sobrante del redondeo. Así nadie tiene que dividir centavos y el total pagado es igual al prize pool.</p></div></details>
+<details class="pergunta"><summary>¿Puedo descargar la tabla de premios?</summary><div><p>Sí. "Descargar hoja de cálculo" genera un archivo para Excel o Google Sheets, e "Imprimir" genera una hoja solo con la tabla.</p></div></details>
+
+<div class="chamada"><p>En AceBlind, los premios salen del propio torneo, con un clic, y el pago entra en la caja.</p><a class="btn btn--primary btn--sm" href="#demo">Empieza la prueba gratis</a></div>

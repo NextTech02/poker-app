@@ -1,0 +1,53 @@
+---
+id: premiacao
+secao: ferramentas
+slug: ferramentas/calculadora-de-premiacao
+ferramenta: premiacao
+titulo: Calculadora de Premiação de Torneio de Poker | AceBlind
+descricao: Calcule a premiação do seu torneio de poker: prize pool, parte da casa, lugares pagos e valor de cada lugar. Grátis, sem cadastro, até 2.000 entradas.
+h1: Calculadora de premiação de torneio de poker
+lead: Informe entradas, buy-in e a parte da casa. A tabela mostra quantos lugares pagam e quanto cada um recebe.
+rotulo: Calculadora de premiação
+resumo: Prize pool e valor de cada lugar, da 1ª à última posição paga.
+atualizado: 2026-11-06
+ordem: 30
+relacionados: calcular, blinds, timer
+---
+<div id="ferramenta"><noscript><p>A calculadora precisa de JavaScript ligado no navegador.</p></noscript></div>
+
+<h2>Como a premiação é calculada</h2>
+<ol>
+  <li><strong>Arrecadado</strong>: entradas multiplicadas pelo valor do buy-in.</li>
+  <li><strong>Parte da casa</strong>: o percentual de rake ou taxa sobre o arrecadado.</li>
+  <li><strong>Prize pool</strong>: o que sobra depois da parte da casa, somado ao garantido, se houver.</li>
+  <li><strong>Lugares pagos</strong>: vêm da tabela de premiação, conforme o número de entradas.</li>
+  <li><strong>Arredondamento</strong>: cada prêmio é arredondado, e a diferença vai para o 1º lugar. A soma sempre fecha com o prize pool.</li>
+</ol>
+<p>Esta é a mesma tabela que o AceBlind aplica nos torneios dos clubes. Com o arredondamento em 1, o resultado daqui bate com o da tela de premiação do sistema.</p>
+
+<div class="nota"><p><strong>Recompras contam como entrada.</strong> Dois inscritos com cinco recompras pagam como um torneio de 7. Se o seu torneio conta só os buy-ins para definir quantos lugares pagam, ajuste o campo de entradas.</p></div>
+
+<h2>Quantos lugares pagam em cada torneio</h2>
+<div class="tabela-rola"><table>
+  <thead><tr><th>Entradas</th><th>Lugares pagos</th><th>1º lugar</th></tr></thead>
+  <tbody>
+    <tr><td>Até 5</td><td>2</td><td>65%</td></tr>
+    <tr><td>6 a 17</td><td>3</td><td>50%</td></tr>
+    <tr><td>18 a 26</td><td>4</td><td>44%</td></tr>
+    <tr><td>27 a 35</td><td>5</td><td>36%</td></tr>
+    <tr><td>36 a 53</td><td>7</td><td>31,5%</td></tr>
+    <tr><td>54 a 62</td><td>9</td><td>29%</td></tr>
+    <tr><td>63 a 80</td><td>11</td><td>26%</td></tr>
+    <tr><td>81 a 98</td><td>13</td><td>25,5%</td></tr>
+    <tr><td>99 a 107</td><td>15</td><td>24,5%</td></tr>
+  </tbody>
+</table></div>
+<p>O passo a passo com um exemplo completo está no guia <a href="/guias/como-calcular-premiacao-de-torneio/">como calcular a premiação de um torneio de poker</a>.</p>
+
+<h2>Perguntas frequentes</h2>
+<details class="pergunta"><summary>Como funciona o garantido na calculadora?</summary><div><p>O valor garantido é somado ao que os jogadores pagaram, como no AceBlind. Com 1.800 de arrecadação líquida e 5.000 de garantido, o prize pool é de 6.800. Se não houver garantido, deixe o campo em 0.</p></div></details>
+<details class="pergunta"><summary>Qual percentual da casa devo usar?</summary><div><p>Use o que o seu clube cobra. Não existe um valor padrão: ele muda com o buy-in, o custo da operação e a região. O guia sobre <a href="/guias/como-controlar-rake-em-clube-de-poker/">rake em clube de poker</a> trata desse assunto.</p></div></details>
+<details class="pergunta"><summary>Por que o 1º lugar não recebe o percentual exato?</summary><div><p>Porque ele recebe a sobra do arredondamento. Assim ninguém precisa dividir centavos, e o total pago é igual ao prize pool.</p></div></details>
+<details class="pergunta"><summary>Posso baixar a tabela de premiação?</summary><div><p>Pode. "Baixar planilha" gera um arquivo para o Excel ou o Google Planilhas, e "Imprimir" gera uma folha só com a tabela.</p></div></details>
+
+<div class="chamada"><p>No AceBlind, a premiação sai do próprio torneio, com um clique, e o pagamento entra no caixa.</p><a class="btn btn--primary btn--sm" href="#demo">Comece o teste grátis</a></div>
