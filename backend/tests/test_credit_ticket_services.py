@@ -702,6 +702,12 @@ class TestConsultaDeTickets:
             _ticket("t1"), dict(_ticket("t2"), target_tournament_id="outro")])
         assert len(T.get_available_tickets(target_tournament_id=TOUR)) == 1
 
+    def test_disponiveis_por_jogador(self, monkeypatch):
+        """O Caixa pergunta a cada jogador escolhido: não pode trazer o clube todo."""
+        _monta_ticket(monkeypatch, tickets=[
+            dict(_ticket("t1"), player_id="ana"), dict(_ticket("t2"), player_id="beto")])
+        assert [t.id for t in T.get_available_tickets(player_id="ana")] == ["t1"]
+
     def test_resumo_conta_os_tres_baldes(self, monkeypatch):
         _monta_ticket(monkeypatch, tickets=[
             _ticket("t1", status="awarded"), _ticket("t2", status="available"),

@@ -342,6 +342,7 @@ class SatelliteTicketService:
     @staticmethod
     def get_available_tickets(
         target_tournament_id: Optional[str] = None,
+        player_id: Optional[str] = None,
     ) -> List[TicketResponse]:
         """Get all un-redeemed tickets (covers both 'awarded' and the legacy
         'available' status)."""
@@ -350,6 +351,8 @@ class SatelliteTicketService:
 
         if target_tournament_id:
             query = query.eq("target_tournament_id", target_tournament_id)
+        if player_id:
+            query = query.eq("player_id", player_id)
 
         response = query.order("created_at").execute()
         return SatelliteTicketService._enrich_many(response.data or [])
