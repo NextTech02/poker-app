@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import secrets
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -32,6 +33,7 @@ from produzir import AQUI, IDIOMAS, carregar_env
 PROJETO = "https://obhfozqcxbdvuqxugjxz.supabase.co"
 API = "https://api.aceblind.net"
 MODULOS = ["tournament", "cash", "bar"]
+TENTATIVAS_SESSAO = 4
 
 
 @dataclass(frozen=True)
@@ -133,20 +135,26 @@ def criar(idioma: str) -> None:
 
 
 def abrir_sessao(idioma: str) -> dict:
-    """Sessão sem senha e sem captcha: o link admin é conferido aqui mesmo e não sai e-mail."""
-    link = httpx.post(
-        f"{PROJETO}/auth/v1/admin/generate_link", headers=_admin(), timeout=30,
-        json={"type": "magiclink", "email": CLUBES[idioma].email},
-    )
-    link.raise_for_status()
-    corpo = link.json()
-    token = corpo.get("hashed_token") or corpo["properties"]["hashed_token"]
-    verificado = httpx.post(
-        f"{PROJETO}/auth/v1/verify", headers=_admin(), timeout=30,
-        json={"type": "magiclink", "token_hash": token},
-    )
-    verificado.raise_for_status()
-    return verificado.json()
+    """Sessão sem senha e sem captcha: o link admin é conferido aqui mesmo e não sai e-mail.
+
+    Um link novo invalida o anterior do mesmo usuário: duas gravações abrindo
+    sessão juntas podem receber 403 no verify, e pedir outro link resolve."""
+    for tentativa in range(TENTATIVAS_SESSAO):
+        link = httpx.post(
+            f"{PROJETO}/auth/v1/admin/generate_link", headers=_admin(), timeout=30,
+            json={"type": "magiclink", "email": CLUBES[idioma].email},
+        )
+        link.raise_for_status()
+        corpo = link.json()
+        token = corpo.get("hashed_token") or corpo["properties"]["hashed_token"]
+        verificado = httpx.post(
+            f"{PROJETO}/auth/v1/verify", headers=_admin(), timeout=30,
+            json={"type": "magiclink", "token_hash": token},
+        )
+        if verificado.status_code != 403 or tentativa == TENTATIVAS_SESSAO - 1:
+            verificado.raise_for_status()
+            return verificado.json()
+        time.sleep(2 + tentativa * 2)
 
 
 class Api:

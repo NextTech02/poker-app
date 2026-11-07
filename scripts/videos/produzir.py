@@ -118,6 +118,8 @@ async def executar(g: Gravador, acao: dict, idioma: str, base: str, variaveis: d
         await g.escolher(achar(d), valor(d.get("opcao")), valor(d.get("rotulo_opcao")))
     elif "destacar" in acao:
         await g.destacar(achar(acao["destacar"]), acao.get("segundos", 1.6))
+    elif "arrastar" in acao:
+        await g.arrastar(achar(acao["arrastar"]["de"]), achar(acao["arrastar"]["para"]))
     elif "passar" in acao:
         await g.passar(achar(acao["passar"]))
     elif "rolar" in acao:
@@ -188,7 +190,7 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
             await g.pagina.wait_for_function(
                 "() => Object.keys(localStorage).some((k) => k.endsWith('-auth-token'))", timeout=20000
             )
-        await g.pagina.goto(base + roteiro.get("inicio", "/"), wait_until="domcontentloaded")
+        await g.pagina.goto(base + preencher(roteiro.get("inicio", "/"), variaveis), wait_until="domcontentloaded")
         await assentar(g.pagina)
         await g.cartao(por_idioma(roteiro["titulo"], idioma), por_idioma(roteiro.get("descricao", ""), idioma))
         await asyncio.sleep(0.6)

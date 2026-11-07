@@ -162,6 +162,20 @@ class Gravador:
         await self.mover(x, y)
         await alvo.fill(valor)
 
+    async def arrastar(self, origem, destino) -> None:
+        """Com o mouse de verdade: o arrastar da página escuta os eventos dele."""
+        x, y, _ = await self._centro(origem)
+        await self.mover(x, y)
+        await self.pagina.mouse.move(x, y)
+        await self.pagina.mouse.down()
+        await asyncio.sleep(0.25)
+        fim_x, fim_y, _ = await self._centro(destino)
+        await self.pagina.mouse.move((x + fim_x) / 2, (y + fim_y) / 2, steps=6)
+        await self.mover(fim_x, fim_y)
+        await self.pagina.mouse.move(fim_x, fim_y, steps=6)
+        await asyncio.sleep(0.25)
+        await self.pagina.mouse.up()
+
     async def passar(self, alvo) -> None:
         x, y, _ = await self._centro(alvo)
         await self.mover(x, y)

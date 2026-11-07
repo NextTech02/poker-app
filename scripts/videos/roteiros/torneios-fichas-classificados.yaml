@@ -1,0 +1,75 @@
+id: torneios-fichas-classificados
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:fichas
+titulo:
+  pt-BR: "Como registrar as fichas dos classificados"
+  en-US: "How to record the qualifiers' chips"
+  es-ES: "Cómo registrar las fichas de los clasificados"
+descricao:
+  pt-BR: "Do dia classificatório ao dia final, com o stack contado de cada jogador."
+  en-US: "From the qualifying day to the final day, with each player's counted stack."
+  es-ES: "Del día clasificatorio al día final, con el stack contado de cada jugador."
+passos:
+  - fala:
+      pt-BR: "Em torneio com classificatórias, quem sobrevive ao dia classificatório vai para o dia final com o stack contado na mesa."
+      en-US: "In a tournament with qualifiers, whoever survives the qualifying day goes to the final day with the stack counted at the table."
+      es-ES: "En un torneo con clasificatorias, quien sobrevive al día clasificatorio pasa al día final con el stack contado en la mesa."
+    acoes:
+      - pausa: 2.5
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_fichas}']"}
+  - fala:
+      pt-BR: "No dia classificatório, clique em Fichas dos Classificados."
+      en-US: "On the qualifying day, click Qualifiers' Chips."
+      es-ES: "En el día clasificatorio, haz clic en Fichas de los Clasificados."
+    acoes:
+      - clicar: {css: ".day-card-actions button", t: tournamentDays.chipCountTitle}
+  - fala:
+      pt-BR: "A lista traz só quem está vivo. Ao lado de Fichas concedidas, digite em Fichas reais o que foi contado."
+      en-US: "The list shows only who is still alive. Next to Granted chips, type what was counted under Actual chips."
+      es-ES: "La lista trae solo a quienes siguen vivos. Junto a Fichas otorgadas, escribe en Fichas reales lo que se contó."
+    acoes:
+      - destacar: {css: ".fc-linha", n: 0}
+        segundos: 2.0
+      - digitar: {css: ".fc-input", n: 0, valor: "61500"}
+      - digitar: {css: ".fc-input", n: 1, valor: "48200"}
+      - digitar: {css: ".fc-input", n: 2, valor: "52300"}
+      - digitar: {css: ".fc-input", n: 3, valor: "39000"}
+      - digitar: {css: ".fc-input", n: 4, valor: "39000"}
+  - fala:
+      pt-BR: "O resumo mostra o chipcount total e o stack médio. Clique em Salvar. O avanço só é liberado com as fichas de todos."
+      en-US: "The summary shows the total chipcount and the average stack. Click Save. Advancing only unlocks once everyone has chips recorded."
+      es-ES: "El resumen muestra el chipcount total y el stack promedio. Haz clic en Guardar. El avance solo se habilita con las fichas de todos."
+    acoes:
+      - destacar: {css: ".fc-resumo"}
+        segundos: 3.2
+      - clicar: {css: ".fc-rodape button"}
+  - fala:
+      pt-BR: "Volte ao torneio, clique em Finalizar Dia e confirme."
+      en-US: "Go back to the tournament, click Finish Day and confirm."
+      es-ES: "Vuelve al torneo, haz clic en Finalizar Día y confirma."
+    acoes:
+      - clicar: {css: ".page-header button", t: common.back}
+      - clicar: {css: ".day-card-actions button", t: tournamentDays.finishDay}
+      - pausa: 1.0
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "Agora clique em Avançar Classificados. A confirmação mostra quantos passam e com quantas fichas."
+      en-US: "Now click Advance Qualifiers. The confirmation shows how many move on and with how many chips."
+      es-ES: "Ahora haz clic en Avanzar Clasificados. La confirmación muestra cuántos pasan y con cuántas fichas."
+    acoes:
+      - clicar: {css: ".day-card-actions button", t: tournamentDays.advanceQualifiers}
+      - destacar: {css: ".confirm-dialog"}
+        segundos: 3.0
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "Pronto. Cada classificado entra no dia final com o stack que você registrou."
+      en-US: "Done. Each qualifier enters the final day with the stack you recorded."
+      es-ES: "Listo. Cada clasificado entra al día final con el stack que registraste."
+    acoes:
+      - pausa: 1.0
+      - destacar: {css: ".days-list-section-final"}
+        segundos: 3.5

@@ -1,0 +1,85 @@
+id: torneios-equipes-pontos-final
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:fase1
+titulo:
+  pt-BR: "Equipes: pontos da Fase 1 e final por revezamento"
+  en-US: "Teams: Stage 1 points and the relay final"
+  es-ES: "Equipos: puntos de la Fase 1 y final por relevos"
+descricao:
+  pt-BR: "Como os pontos são contados, como oficializar e como montar a final."
+  en-US: "How points are counted, how to make them official and how to set up the final."
+  es-ES: "Cómo se cuentan los puntos, cómo oficializar y cómo armar la final."
+passos:
+  - fala:
+      pt-BR: "Abra o torneio, clique em Equipes e vá para a aba Fase 1."
+      en-US: "Open the tournament, click Teams and go to the Stage 1 tab."
+      es-ES: "Abre el torneo, haz clic en Equipos y ve a la pestaña Fase 1."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_fase1}']"}
+      - clicar: {css: ".header-actions button", t: teams.title}
+      - clicar: {css: ".eq-aba", n: 1}
+  - fala:
+      pt-BR: "Você elimina os jogadores na Gestão de Mesas, como sempre. Cada mesa joga até sobrar um."
+      en-US: "You eliminate players in Table Management, as usual. Each table plays down to one player."
+      es-ES: "Eliminas a los jugadores en la Gestión de Mesas, como siempre. Cada mesa juega hasta que queda uno."
+    acoes:
+      - destacar: {css: "a.eq-link", t: teams.openTables}
+        segundos: 3.6
+  - fala:
+      pt-BR: "Quem sai primeiro faz cinco pontos, e cada posição seguinte vale cinco a mais."
+      en-US: "The first player out scores five points, and each next position is worth five more."
+      es-ES: "El primero en salir hace cinco puntos, y cada posición siguiente vale cinco más."
+    acoes:
+      - destacar: {css: ".eq-mesa", n: 0}
+        segundos: 4.0
+  - fala:
+      pt-BR: "A classificação soma os pontos dos quatro integrantes. O primeiro desempate é o capitão."
+      en-US: "The standings add up the points of the four members. The first tiebreaker is the captain."
+      es-ES: "La clasificación suma los puntos de los cuatro integrantes. El primer desempate es el capitán."
+    acoes:
+      - destacar: {css: ".eq-ranking"}
+        segundos: 4.6
+  - fala:
+      pt-BR: "Depois que o capitão conferir, marque Conferido."
+      en-US: "Once the captain has checked, tick Checked."
+      es-ES: "Cuando el capitán revise, marca Verificado."
+    acoes:
+      - clicar: {css: ".eq-ranking input[type=checkbox]", n: 0}
+  - fala:
+      pt-BR: "Com as mesas terminadas, clique em Oficializar e confirme."
+      en-US: "With the tables finished, click Make official and confirm."
+      es-ES: "Con las mesas terminadas, haz clic en Oficializar y confirma."
+    acoes:
+      - clicar: {css: ".eq-acoes button", t: teams.official}
+      - pausa: 1.2
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "Na aba Final, informe quantas equipes vão à final e o stack de cada uma, e clique em Montar a final."
+      en-US: "On the Final tab, enter how many teams go to the final and each team's stack, then click Set up the final."
+      es-ES: "En la pestaña Final, indica cuántos equipos van a la final y el stack de cada uno, y haz clic en Armar la final."
+    acoes:
+      - clicar: {css: ".eq-aba", n: 2}
+      - digitar: {css: "#eq-finalistas", valor: "2", limpar: true}
+      - digitar: {css: "#eq-fichas", valor: "50000"}
+      - pausa: 0.5
+      - clicar: {css: ".eq-final button", t: teams.setupFinal}
+  - fala:
+      pt-BR: "Os pontos não passam: cada equipe começa com o mesmo stack. A cada nível de blinds, entra o próximo da ordem."
+      en-US: "Points don't carry over: each team starts with the same stack. At each blind level, the next player in the order comes in."
+      es-ES: "Los puntos no pasan: cada equipo empieza con el mismo stack. En cada nivel de blinds, entra el siguiente del orden."
+    acoes:
+      - pausa: 0.8
+      - destacar: {css: ".eq-equipes-final"}
+        segundos: 5.0
+  - fala:
+      pt-BR: "Na tela de Controle da final, você vê quem joga agora em cada equipe e quem entra no próximo nível."
+      en-US: "On the final's Control screen, you see who is playing now on each team and who comes in at the next level."
+      es-ES: "En la pantalla de Control de la final, ves quién juega ahora en cada equipo y quién entra en el siguiente nivel."
+    acoes:
+      - clicar: {css: "a.eq-link", t: teams.openControl}
+      - destacar: {css: ".rv-card"}
+        segundos: 4.0

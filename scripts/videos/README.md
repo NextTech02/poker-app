@@ -53,6 +53,7 @@ passo dura o tempo da fala, ou mais, se os gestos demorarem.
 | `preencher` | `preencher: {css: "#data", valor: "2026-12-01"}` (campo de data) |
 | `escolher` | `escolher: {css: "#payment_method", opcao: {pt-BR: "pix", en-US: "card"}}` |
 | `destacar` | `destacar: {css: ".cx-sale-totals"}` com `segundos: 2.5` ao lado |
+| `arrastar` | `arrastar: {de: {css: ".assento"}, para: {css: ".livre"}}` |
 | `passar` | `passar: {css: ".linha"}` (cursor sobre o item) |
 | `rolar` | `rolar: {css: ".rodape"}` |
 | `tecla` | `tecla: Escape` |
