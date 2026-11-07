@@ -34,7 +34,7 @@ CAMADA = r"""
   #__ace_cartao{position:fixed;inset:0;z-index:2147483647;pointer-events:none;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:18px;background:radial-gradient(1100px 620px at 50% 118%,#4015a0 0%,#0b0a12 68%);color:#f3f1f8;opacity:0;
     transition:opacity .45s ease;font-family:Inter,Segoe UI,Arial,sans-serif;text-align:center;padding:0 120px}
-  #__ace_cartao .marca{height:46px;margin-bottom:14px}
+  #__ace_cartao .marca{height:84px;margin-bottom:10px}
   #__ace_cartao .titulo{font-size:50px;font-weight:700;line-height:1.15;max-width:1150px}
   #__ace_cartao .sub{font-size:22px;color:#aaa7bb;max-width:950px;line-height:1.4}`;
   const SETA = `<svg viewBox="0 0 24 24" width="30" height="30"><path fill="#fff" stroke="#111" stroke-width="1.6"
@@ -151,6 +151,15 @@ class Gravador:
         await self.mover(x, y)
         await alvo.click()
         await alvo.press_sequentially(texto, delay=55)
+
+    async def escolher(self, alvo, valor: str | None = None, rotulo: str | None = None) -> None:
+        """A lista aberta de um <select> nativo não sai na captura: o cursor vai
+        até o campo e o valor muda na frente de quem assiste."""
+        x, y, _ = await self._centro(alvo)
+        await self.mover(x, y)
+        await self.pagina.evaluate("([x, y]) => window.__ace.onda(x, y)", [x, y])
+        await asyncio.sleep(0.35)
+        await alvo.select_option(value=valor) if valor else await alvo.select_option(label=rotulo)
 
     async def destacar(self, alvo, segundos: float = 1.6) -> None:
         x, y, caixa = await self._centro(alvo)

@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 import yaml
+from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 import montar
 import narracao
@@ -76,17 +77,29 @@ def localizar(pagina, alvo, idioma: str):
     return achado.nth(alvo.get("n", 0))
 
 
-async def executar(g: Gravador, acao: dict, idioma: str, base: str) -> None:
+async def assentar(pagina) -> None:
+    """Espera a tela carregar. O app faz polling em algumas telas e a rede pode
+    nunca ficar quieta, então o limite de tempo aqui não é erro."""
+    try:
+        await pagina.wait_for_load_state("networkidle", timeout=8000)
+    except PlaywrightTimeout:
+        pass
+    await pagina.evaluate("() => window.__ace.monta()")
+
+
+async def executar(g: Gravador, acao: dict, idioma: str, base: str, variaveis: dict) -> None:
     pagina = g.pagina
     if "ir" in acao:
         await pagina.goto(base + acao["ir"], wait_until="domcontentloaded")
-        await pagina.wait_for_load_state("networkidle")
-        await pagina.evaluate("() => window.__ace.monta()")
+        await assentar(pagina)
     elif "clicar" in acao:
         await g.clicar(localizar(pagina, acao["clicar"], idioma))
     elif "digitar" in acao:
         d = acao["digitar"]
-        await g.digitar(localizar(pagina, d, idioma), por_idioma(d["valor"], idioma))
+        await g.digitar(localizar(pagina, d, idioma), por_idioma(d["valor"], idioma).format(**variaveis))
+    elif "escolher" in acao:
+        d = acao["escolher"]
+        await g.escolher(localizar(pagina, d, idioma), d.get("opcao"), d.get("rotulo_opcao"))
     elif "destacar" in acao:
         await g.destacar(localizar(pagina, acao["destacar"], idioma), acao.get("segundos", 1.6))
     elif "esperar" in acao:
@@ -97,7 +110,7 @@ async def executar(g: Gravador, acao: dict, idioma: str, base: str) -> None:
         raise ValueError(f"ação desconhecida: {acao}")
 
 
-async def produzir(roteiro: dict, idioma: str, base: str, sessao: dict | None, armazenamento: dict) -> Path:
+async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
     tabela = narracao.carregar_pronuncia()
     falas = [
         await narracao.sintetizar(por_idioma(p["fala"], idioma), idioma, tabela)
@@ -109,11 +122,32 @@ async def produzir(roteiro: dict, idioma: str, base: str, sessao: dict | None, a
     trabalho.mkdir(parents=True)
 
     linha_do_tempo = []
-    guardado = {CHAVE_IDIOMA: idioma, "i18nextLng": idioma, **armazenamento}
+    guardado = {CHAVE_IDIOMA: idioma, "i18nextLng": idioma}
+    variaveis = {}
+    entrada = None
+    if roteiro.get("sessao"):
+        import clube_demo
+
+        estado = json.loads(clube_demo.ESTADO.read_text(encoding="utf-8"))
+        guardado["selected_module"] = roteiro.get("modulo", "tournament")
+        guardado["selected_stage"] = json.dumps(estado["etapa"])
+        variaveis["jogador"] = clube_demo.proximo_jogador()
+        tokens = clube_demo.abrir_sessao()
+        entrada = (
+            f"{base}/#access_token={tokens['access_token']}&refresh_token={tokens['refresh_token']}"
+            f"&expires_in={tokens.get('expires_in', 3600)}&token_type=bearer&type=magiclink"
+        )
+
     async with Gravador(trabalho, idioma, guardado) as g:
-        await g.pagina.goto(base + (sessao or {}).get("hash", roteiro.get("inicio", "/")), wait_until="domcontentloaded")
-        await g.pagina.wait_for_load_state("networkidle")
-        await g.pagina.evaluate("() => window.__ace.monta()")
+        if entrada:
+            # O supabase-js guarda a sessão ao ler o hash; depois disso o token
+            # não fica na URL de nenhuma tela gravada.
+            await g.pagina.goto(entrada, wait_until="domcontentloaded")
+            await g.pagina.wait_for_function(
+                "() => Object.keys(localStorage).some((k) => k.endsWith('-auth-token'))", timeout=20000
+            )
+        await g.pagina.goto(base + roteiro.get("inicio", "/"), wait_until="domcontentloaded")
+        await assentar(g.pagina)
         await g.cartao(por_idioma(roteiro["titulo"], idioma), por_idioma(roteiro.get("descricao", ""), idioma))
         await asyncio.sleep(0.6)
         await g.iniciar_captura()
@@ -124,7 +158,7 @@ async def produzir(roteiro: dict, idioma: str, base: str, sessao: dict | None, a
         for passo, (audio, segundos) in zip(roteiro["passos"], falas):
             comeco = time.time()
             for acao in passo.get("acoes", []):
-                await executar(g, acao, idioma, base)
+                await executar(g, acao, idioma, base, variaveis)
             sobra = segundos - (time.time() - comeco)
             await asyncio.sleep(max(sobra, 0) + RESPIRO)
             linha_do_tempo.append((por_idioma(passo["fala"], idioma), audio, comeco, segundos))
@@ -162,7 +196,7 @@ def main() -> None:
     opcoes = args.parse_args()
     roteiro = yaml.safe_load(Path(opcoes.roteiro).read_text(encoding="utf-8"))
     for idioma in opcoes.idioma or IDIOMAS:
-        saida = asyncio.run(produzir(roteiro, idioma, opcoes.base, None, {}))
+        saida = asyncio.run(produzir(roteiro, idioma, opcoes.base))
         print(idioma, saida, narracao.duracao(saida))
 
 
