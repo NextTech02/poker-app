@@ -73,6 +73,12 @@ frontend/coverage/
 # alem de capturas e videos pesados. Nada disso deve ir para o repositorio.
 dogfood-output/
 
+# Vídeos de suporte: gravações, áudio em cache e as chaves ficam fora do git.
+scripts/videos/cache/
+scripts/videos/saida/
+scripts/videos/__pycache__/
+**/videos.env
+
 # ── Preview visual local (backend/scripts/ui_preview_session.py, frontend/scripts/ui_shot.py) ──
 backend/scripts/.ui_preview_state.json
 backend/scripts/.ui_preview_url.txt

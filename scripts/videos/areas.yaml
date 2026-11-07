@@ -1,0 +1,10 @@
+# Áreas da tela de Suporte, na ordem em que aparecem.
+- {id: conta, titulo: {pt-BR: "Conta e acesso", en-US: "Account and access", es-ES: "Cuenta y acceso"}}
+- {id: torneios, titulo: {pt-BR: "Torneios", en-US: "Tournaments", es-ES: "Torneos"}}
+- {id: caixa, titulo: {pt-BR: "Caixa", en-US: "Cashier", es-ES: "Caja"}}
+- {id: cash, titulo: {pt-BR: "Cash game", en-US: "Cash game", es-ES: "Cash game"}}
+- {id: bar, titulo: {pt-BR: "Bar", en-US: "Bar", es-ES: "Bar"}}
+- {id: fiado, titulo: {pt-BR: "Fiado", en-US: "House credit", es-ES: "Fiado"}}
+- {id: financeiro, titulo: {pt-BR: "Financeiro", en-US: "Financial", es-ES: "Finanzas"}}
+- {id: jogadores, titulo: {pt-BR: "Jogadores", en-US: "Players", es-ES: "Jugadores"}}
+- {id: equipe, titulo: {pt-BR: "Equipe", en-US: "Staff", es-ES: "Equipo"}}

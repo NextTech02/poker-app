@@ -71,6 +71,7 @@
     "logout": "Logout",
     "goHome": "Go to home",
     "security": "Security",
+    "support": "Support",
     "clubSection": "Club",
     "fiado": "House credit"
   },
@@ -3183,6 +3184,19 @@
     "errorInvalidCode": "Invalid or expired code. Check the app and try again.",
     "errorInvalidRecovery": "Recovery code invalid or already used.",
     "errorLoadFactors": "Could not load your verification methods."
+  },
+  "support": {
+    "title": "Support",
+    "subtitle": "Learn how to use the system with short videos and a complete training.",
+    "emptyTitle": "The videos are on their way",
+    "emptySubtitle": "You will soon find the system training videos here.",
+    "training": "Complete training",
+    "shortVideos": "Short videos",
+    "searchPlaceholder": "Search by topic",
+    "allAreas": "All",
+    "noResults": "No videos found for this search.",
+    "close": "Close",
+    "subtitles": "Subtitles"
   },
   "security": {
     "title": "Account security",
