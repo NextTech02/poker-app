@@ -52,7 +52,7 @@ passos:
       en-US: "Choose the payment method and click Register."
       es-ES: "Elige el método de pago y haz clic en Registrar."
     acoes:
-      - escolher: {css: "#payment_method", opcao: "pix"}
+      - escolher: {css: "#payment_method", opcao: {pt-BR: "pix", en-US: "card", es-ES: "card"}}
       - clicar: {css: "form button[type=submit]"}
   - fala:
       pt-BR: "Pronto. O sistema senta o jogador e mostra o bilhete com a mesa, o assento e as fichas."

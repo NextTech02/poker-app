@@ -116,6 +116,7 @@
 .rail-btn.mod-tournament.active { background: var(--mod-tournament-soft); color: var(--mod-tournament); }
 .rail-btn.mod-cash.active       { background: var(--mod-cash-soft);       color: var(--mod-cash); }
 .rail-btn.mod-bar.active        { background: var(--mod-bar-soft);        color: var(--mod-bar); }
+.rail-btn.rail-link.active      { background: var(--accent-soft);         color: var(--primary-300); }
 .rail-btn.active .rail-lbl      { color: var(--text-secondary); }
 
 .rail-btn.active::before {
@@ -131,6 +132,12 @@
 
 .rail-spacer {
   flex: 1;
+}
+
+/* Link no trilho: o rótulo fica sob o ícone, fora da caixa de 44 px. */
+.rail-link {
+  margin-bottom: 14px;
+  text-decoration: none;
 }
 
 .logout-btn {

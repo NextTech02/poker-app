@@ -99,7 +99,7 @@ async def executar(g: Gravador, acao: dict, idioma: str, base: str, variaveis: d
         await g.digitar(localizar(pagina, d, idioma), por_idioma(d["valor"], idioma).format(**variaveis))
     elif "escolher" in acao:
         d = acao["escolher"]
-        await g.escolher(localizar(pagina, d, idioma), d.get("opcao"), d.get("rotulo_opcao"))
+        await g.escolher(localizar(pagina, d, idioma), por_idioma(d.get("opcao"), idioma), d.get("rotulo_opcao"))
     elif "destacar" in acao:
         await g.destacar(localizar(pagina, acao["destacar"], idioma), acao.get("segundos", 1.6))
     elif "esperar" in acao:
@@ -128,11 +128,10 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
     if roteiro.get("sessao"):
         import clube_demo
 
-        estado = json.loads(clube_demo.ESTADO.read_text(encoding="utf-8"))
         guardado["selected_module"] = roteiro.get("modulo", "tournament")
-        guardado["selected_stage"] = json.dumps(estado["etapa"])
-        variaveis["jogador"] = clube_demo.proximo_jogador()
-        tokens = clube_demo.abrir_sessao()
+        guardado["selected_stage"] = json.dumps(clube_demo.estado(idioma)["etapa"])
+        variaveis["jogador"] = clube_demo.proximo_jogador(idioma)
+        tokens = clube_demo.abrir_sessao(idioma)
         entrada = (
             f"{base}/#access_token={tokens['access_token']}&refresh_token={tokens['refresh_token']}"
             f"&expires_in={tokens.get('expires_in', 3600)}&token_type=bearer&type=magiclink"
