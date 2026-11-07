@@ -124,7 +124,9 @@ def redeem_ticket(
     user=Depends(require_permission(*TICKET_PERMS)),
 ):
     try:
-        return SatelliteTicketService.redeem_ticket(ticket_id, data.funded_by, user.get("id") or user["sub"])
+        return SatelliteTicketService.redeem_ticket(
+            ticket_id, data.funded_by, user.get("id") or user["sub"], buy_type_id=data.buy_type_id
+        )
     except ValueError as e:
         raise da_excecao(e)
 

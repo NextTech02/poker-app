@@ -2166,6 +2166,195 @@ describe('venda com vários meios de entrada', () => {
   });
 });
 
+/**
+ * O ticket é uma entrada já paga. O jogador chega com ele e pede também o bono
+ * dealer: a entrada sai pelo ticket, só o extra é cobrado, e o floor recebe UM
+ * boleto com tudo. Antes eram duas telas e dois boletos.
+ */
+describe('entrada paga com ticket de satélite', () => {
+  const BONO = {
+    id: 'b5', name: 'Bono Dealer', category: 'addon', amount: 20, rake_percentage: 100, chips: 10000, active: true,
+  };
+  const ENTRADA = {
+    id: 'b6', name: 'Entrada', category: 'buy_in', amount: 150, rake_percentage: 10, chips: 20000, active: true,
+  };
+  const TICKET = {
+    id: 'tk1', player_id: 'p1', target_tournament_id: 't1', target_tournament_day_id: 'd1',
+    ticket_value: 150, status: 'awarded', funded_by: 'Clube', won_at: 'Satélite de quarta',
+  };
+  const RESGATE = {
+    ticket_id: 'tk1', tournament_player_id: 'tp9', player_id: 'p1', tournament_id: 't1',
+    tournament_day_id: 'd1', player_name: 'Ana', tournament_name: 'Main Event', day_name: 'Dia 1A',
+    ticket_value: 150, chips: 20000, reentrada: false,
+  };
+  const OPCAO = 'Pagar a entrada com ticket de satélite';
+
+  const abrirComTickets = async (tickets = [TICKET]) => {
+    useBuyTypes.mockReturnValue({
+      activeBuyTypes: [...TIPOS, ENTRADA, BONO], tournamentId: 't1', tiposCarregados: true, selectTournament,
+    });
+    await montar();
+    // `responder` não conhece os tickets: a rota entra por cima dele.
+    const padrao = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/satellite-tickets/available' ? Promise.resolve({ data: tickets }) : padrao(url, ...resto)
+    ));
+    api.post.mockImplementation((url) => Promise.resolve({ data: url.endsWith('/redeem') ? RESGATE : {} }));
+    await abrirModal();
+  };
+
+  const usarTicket = async () => userEvent.click(await screen.findByLabelText(OPCAO));
+  const resgates = () => api.post.mock.calls.filter(([url]) => url.endsWith('/redeem'));
+
+  it('sem ticket para o dia, a opção não aparece', async () => {
+    await abrirComTickets([]);
+    await preencher({ tipo: 'b6' });
+    await waitFor(() => expect(pedidosDe('/satellite-tickets/available')).toBeGreaterThan(0));
+    expect(screen.queryByLabelText(OPCAO)).toBeNull();
+  });
+
+  it('ticket de outro jogador ou de outro dia não conta', async () => {
+    await abrirComTickets([
+      { ...TICKET, id: 'tk2', player_id: 'p2' },
+      { ...TICKET, id: 'tk3', target_tournament_day_id: 'd3' },
+    ]);
+    await preencher({ tipo: 'b6' });
+    await waitFor(() => expect(pedidosDe('/satellite-tickets/available')).toBeGreaterThan(0));
+    expect(screen.queryByLabelText(OPCAO)).toBeNull();
+  });
+
+  it('operador sem permissão de ticket não vê a opção: o servidor recusaria', async () => {
+    usePermissions.mockReturnValue({ isAdmin: false, hasPermission: () => false });
+    await abrirComTickets();
+    await preencher({ tipo: 'b6' });
+    expect(pedidosDe('/satellite-tickets/available')).toBe(0);
+    expect(screen.queryByLabelText(OPCAO)).toBeNull();
+  });
+
+  it('sem entrada marcada, a opção fica desligada e diz o que falta', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: 'b5' });
+    expect(await screen.findByLabelText(OPCAO)).toBeDisabled();
+    expect(document.querySelector('.cx-ticket-option')).toHaveTextContent('Marque a entrada que o ticket paga.');
+  });
+
+  it('mostra o total e cobra só o que o ticket não cobre', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await usarTicket();
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(170);
+    expect(document.querySelector('.cx-ticket-option')).toHaveTextContent('R$ 20.00');
+    expect(screen.getByLabelText('cashRegister.paymentMethod')).toBeInTheDocument();
+  });
+
+  it('sai UM boleto: resgata, soma o extra e diz que a entrada foi paga com ticket', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await usarTicket();
+    await enviar();
+    expect(await screen.findAllByTestId('bilhete')).toHaveLength(1);
+    expect(resgates()).toEqual([['/satellite-tickets/tk1/redeem', { buy_type_id: 'b6' }]]);
+    // A entrada não passa pela venda comum: cobraria o jogador de novo.
+    expect(offlineWrite.mock.calls.map((c) => c[0].url)).toEqual(['/tournament-players/tp9/addon']);
+    const itens = within(screen.getByTestId('bilhete-itens')).getAllByRole('listitem');
+    expect(itens.map((li) => li.textContent)).toEqual(['Entrada (Ticket)|150|20000', 'Bono Dealer|20|10000']);
+    expect(screen.getByTestId('bilhete-total-valor')).toHaveTextContent('170');
+    expect(screen.getByTestId('bilhete-total-fichas')).toHaveTextContent('30000');
+  });
+
+  it('só a entrada: não há o que cobrar, e o método de pagamento some', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: 'b6' });
+    await usarTicket();
+    expect(screen.queryByLabelText('cashRegister.paymentMethod')).toBeNull();
+    await enviar();
+    expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('ao dividir, as partes fecham só o que sobra', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await usarTicket();
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    expect(document.querySelector('.pd-parte__valor')).toHaveValue(20);
+  });
+
+  it('ligar o ticket desfaz uma divisão já montada: o total a fechar mudou', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    expect(document.querySelector('.pd-parte__valor')).toHaveValue(170);
+    await usarTicket();
+    expect(document.querySelector('.pd-parte__valor')).toBeNull();
+  });
+
+  it('ticket que não cobre a entrada trava o registro e explica', async () => {
+    await abrirComTickets([{ ...TICKET, ticket_value: 100 }]);
+    await preencher({ tipo: 'b6' });
+    await usarTicket();
+    expect(screen.getByRole('alert')).toHaveTextContent('R$ 100.00');
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeDisabled();
+    expect(resgates()).toEqual([]);
+  });
+
+  it('resgate recusado não vende nada', async () => {
+    await abrirComTickets();
+    const erro = new Error('recusado');
+    erro.userMessage = 'Ticket já resgatado';
+    api.post.mockImplementation((url) => (url.endsWith('/redeem') ? Promise.reject(erro) : Promise.resolve({ data: {} })));
+    await preencher({ tipo: ['b6', 'b5'] });
+    await usarTicket();
+    await enviar();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Ticket já resgatado'));
+    expect(offlineWrite).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('bilhete')).toBeNull();
+  });
+
+  it('extra recusado depois do resgate: avisa, e o boleto sai com a entrada', async () => {
+    await abrirComTickets();
+    offlineWrite.mockRejectedValue(Object.assign(new Error('x'), { userMessage: 'Caixa fechado' }));
+    await preencher({ tipo: ['b6', 'b5'] });
+    await usarTicket();
+    await enviar();
+    const itens = within(await screen.findByTestId('bilhete-itens')).getAllByRole('listitem');
+    expect(itens.map((li) => li.textContent)).toEqual(['Entrada (Ticket)|150|20000']);
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it('reentrada: o ticket paga a recompra marcada, sem passar pela venda comum', async () => {
+    await abrirComTickets([{ ...TICKET, ticket_value: 600 }]);
+    api.post.mockImplementation((url) => Promise.resolve({
+      data: url.endsWith('/redeem') ? { ...RESGATE, reentrada: true, chips: 30000 } : {},
+    }));
+    await preencher({ tipo: 'b2' });
+    await usarTicket();
+    await enviar();
+    expect(await screen.findByTestId('bilhete')).toBeInTheDocument();
+    expect(resgates()[0][1]).toEqual({ buy_type_id: 'b2' });
+    expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('com dois tickets, o operador escolhe qual usar', async () => {
+    await abrirComTickets([TICKET, { ...TICKET, id: 'tk2', won_at: 'Satélite de sexta' }]);
+    await preencher({ tipo: 'b6' });
+    await usarTicket();
+    await userEvent.selectOptions(screen.getByLabelText('Qual ticket'), 'tk2');
+    await enviar();
+    await screen.findByTestId('bilhete');
+    expect(resgates()[0][0]).toBe('/satellite-tickets/tk2/redeem');
+  });
+
+  it('trocar de jogador tira o ticket da venda', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: 'b6' });
+    await usarTicket();
+    await userEvent.selectOptions(screen.getByLabelText('jogador'), 'p2');
+    await waitFor(() => expect(screen.queryByLabelText(OPCAO)).toBeNull());
+    expect(screen.getByLabelText('cashRegister.paymentMethod')).toBeInTheDocument();
+  });
+});
+
 describe('filtro do extrato por torneio e dia', () => {
   // Pedido do NSOP: ver as vendas (e os totais) de UM torneio e, no torneio
   // de vários dias, de cada dia separado.

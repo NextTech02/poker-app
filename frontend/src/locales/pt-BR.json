@@ -678,6 +678,11 @@
     "tablesUnknownHint": "Sem internet não dá para conferir as mesas. A venda é guardada e o assento é definido na sincronização.",
     "ticketNoTablesHint": "Não há mesa cadastrada neste dia: o jogador não entrou em fila de alternados. Cadastre as mesas em Mesas e aloque o jogador.",
     "ticketOfflineHint": "Venda guardada sem internet: o assento é definido na sincronização.",
+    "payWithTicket": "Pagar a entrada com ticket de satélite",
+    "ticketNeedsEntry": "Marque a entrada que o ticket paga.",
+    "whichTicket": "Qual ticket",
+    "ticketPaysEntry": "O ticket paga a entrada. A cobrar: {{value}}",
+    "ticketDoesNotCover": "O ticket vale {{ticket}} e esta entrada custa {{entry}}: escolha outra entrada ou venda sem o ticket.",
     "ticketBuyType": "Meio de entrada",
     "buyTypesHint": "Marque tudo o que o jogador está comprando: uma entrada (buy-in ou reentrada) e os extras, como add-on e bono dealer. Sai um bilhete só, com o total de fichas.",
     "totalChips": "Fichas a entregar",
@@ -1251,6 +1256,8 @@
     "previewElimination": "Testar aviso de eliminado"
   },
   "errors": {
+    "ticket_nao_cobre_a_entrada": "Esta entrada custa mais do que o ticket vale.",
+    "ticket_meio_de_outra_categoria": "Quem já está no dia usa o ticket numa reentrada; quem ainda não está, numa entrada.",
     "meio_de_entrada_de_outro_torneio": "O meio de entrada escolhido não pertence a este torneio.",
     "meio_de_entrada_inativo": "Este meio de entrada foi desativado. Escolha outro.",
     "serverError": "Erro interno do servidor. Tente novamente em instantes.",

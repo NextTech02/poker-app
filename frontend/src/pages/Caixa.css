@@ -191,6 +191,22 @@
 }
 
 /* ── Credit payment option ── */
+/* Ticket de satélite pagando a entrada: a caixa, o seletor e o que sobra a cobrar. */
+.cx-ticket-option label.pd-alternar {
+  margin-top: 0;
+}
+
+.cx-ticket-option select {
+  margin-top: 0.5rem;
+}
+
+/* É o valor que o caixa vai cobrar: não pode passar despercebido. */
+.cx-ticket-option .cx-field-hint {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .cx-credit-option {
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 8px;

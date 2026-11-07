@@ -114,9 +114,22 @@ class TestEscritaExigePermissao:
         assert client.post("/satellite-tickets/tk1/cancel").status_code == 403
 
     def test_perfil_de_sangeur_nao_resgata(self, client, monkeypatch, stub):
-        stub(T, redeem_ticket=lambda tid, f, u: {"ok": True})
+        stub(T, redeem_ticket=lambda tid, f, u, buy_type_id=None: {"ok": True})
         _perfil(monkeypatch, "sangi")
         assert client.post("/satellite-tickets/tk1/redeem", json={}).status_code == 403
+
+    def test_resgate_repassa_o_meio_marcado_no_caixa(self, client, monkeypatch, stub):
+        recebido = {}
+
+        def _resgata(tid, f, u, buy_type_id=None):
+            recebido["buy_type_id"] = buy_type_id
+            return {"ok": True}
+
+        stub(T, redeem_ticket=_resgata)
+        _perfil(monkeypatch, "cashier")
+        resposta = client.post("/satellite-tickets/tk1/redeem", json={"buy_type_id": "bt"})
+        assert resposta.status_code == 200
+        assert recebido == {"buy_type_id": "bt"}
 
     def test_consulta_continua_aberta_a_quem_esta_autenticado(self, client, monkeypatch, stub):
         """A tela do jogador (permissão 'players') precisa ler os tickets dele."""
