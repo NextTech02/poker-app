@@ -96,6 +96,8 @@ class Gravador:
                 f"for (const [k, v] of Object.entries({valores})) localStorage.setItem(k, v);"
             )
         self.pagina = await self.contexto.new_page()
+        # Sem isto o Playwright recusa todo confirm() nativo da página.
+        self.pagina.on("dialog", lambda dialogo: asyncio.ensure_future(dialogo.accept()))
         self.cdp = await self.contexto.new_cdp_session(self.pagina)
         self.cdp.on("Page.screencastFrame", self._quadro)
         return self
@@ -146,11 +148,24 @@ class Gravador:
         await asyncio.sleep(0.12)
         await alvo.click()
 
-    async def digitar(self, alvo, texto: str) -> None:
+    async def digitar(self, alvo, texto: str, limpar: bool = False) -> None:
         x, y, _ = await self._centro(alvo)
         await self.mover(x, y)
         await alvo.click()
+        if limpar:
+            await alvo.fill("")
         await alvo.press_sequentially(texto, delay=55)
+
+    async def preencher(self, alvo, valor: str) -> None:
+        """Para campos que não aceitam digitação tecla a tecla, como os de data."""
+        x, y, _ = await self._centro(alvo)
+        await self.mover(x, y)
+        await alvo.fill(valor)
+
+    async def passar(self, alvo) -> None:
+        x, y, _ = await self._centro(alvo)
+        await self.mover(x, y)
+        await alvo.hover()
 
     async def escolher(self, alvo, valor: str | None = None, rotulo: str | None = None) -> None:
         """A lista aberta de um <select> nativo não sai na captura: o cursor vai
