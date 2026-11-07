@@ -104,6 +104,13 @@ teve "roda localmente na máquina", "check-in" e "o único sistema da categoria"
 Nenhuma se sustentava. O que funciona sem internet está em `conteudo/pt/offline.html`,
 e essa lista precisa acompanhar o código.
 
+## Espanhol
+
+O público é a América Latina hispânica. Espanhol neutro, com "tú": sem voseo e
+sem "planilla". O negócio é "club" ou "sala" ("poker room" no México), nunca
+"casa de póker". A retirada de caixa é "retiro de caja", como na tela do sistema,
+e não "sangría". Um teste reprova esses termos nas páginas `/es/`.
+
 ## Ferramentas grátis
 
 `calculos.js` tem as contas, sem nenhum acesso à tela; `comum.js`, o que as três
