@@ -367,6 +367,7 @@ Index of everything in `docs/`: **docs/README.md**. Current references:
 - **docs/BROADCAST_SETUP_INSTRUCTIONS.md** - Public broadcast display setup
 - **docs/BROADCAST_TV_LAYOUT_2026-10.md** - TV layout (1920x1080 stage) and background library
 - **docs/BLINDS_NIVEL_ATUAL_E_REORDENACAO_2026-10.md** - Current blind level and drag-to-reorder
+- **docs/RELOGIO_DE_MESA_2026-11.md** - Dealer table shot clock and per-player time bank
 - **docs/MIGRACAO_SUPABASE_SAO_PAULO.md** - Supabase migration Oregon → São Paulo (runbook and result)
 
 **docs/historico/** keeps old implementation reports, v1/v2 setup guides, PRDs and the old
