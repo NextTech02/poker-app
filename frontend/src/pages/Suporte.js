@@ -124,7 +124,7 @@ const Suporte = () => {
             <div className="suporte-filtros">
               <input
                 type="search"
-                className="form-input suporte-busca"
+                className="suporte-busca"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder={t('support.searchPlaceholder', 'Buscar por assunto')}
@@ -180,11 +180,11 @@ const Suporte = () => {
                 <h2>{textoNoIdioma(aberto.titulo, idioma)}</h2>
                 <button
                   type="button"
-                  className="suporte-fechar"
+                  className="close-btn"
                   onClick={fechar}
                   aria-label={t('support.close', 'Fechar')}
                 >
-                  <Icon name="x" size={20} />
+                  <span className="close-icon"></span>
                 </button>
               </div>
               {/* `key` troca o elemento ao mudar de vídeo: só trocar o `src` do

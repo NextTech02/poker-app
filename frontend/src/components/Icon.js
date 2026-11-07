@@ -50,7 +50,6 @@ export const ICON_PATHS = {
   'chevron-left': 'M15 6l-6 6 6 6',
   'chevron-down': 'M6 9l6 6 6-6',
   shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z M9 12l2 2 4-4',
-  x: 'M6 18L18 6M6 6l12 12',
   help: 'M12 21a9 9 0 100-18 9 9 0 000 18z M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2.2 M12 17h.01',
   building: 'M4 21V4a1 1 0 011-1h14a1 1 0 011 1v17M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3M2 21h20',
   search: 'M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z',

@@ -17,7 +17,24 @@
 }
 
 .suporte-busca {
+  width: 100%;
   max-width: 420px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+}
+
+.suporte-busca::placeholder {
+  color: var(--text-tertiary);
+}
+
+.suporte-busca:focus {
+  outline: none;
+  border-color: var(--accent-hover);
 }
 
 .suporte-areas {
@@ -161,20 +178,6 @@
   gap: 12px;
   padding: 14px 18px;
   margin: 0;
-}
-
-.suporte-fechar {
-  display: inline-flex;
-  padding: 6px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.suporte-fechar:hover {
-  color: var(--text-primary);
 }
 
 .suporte-video {

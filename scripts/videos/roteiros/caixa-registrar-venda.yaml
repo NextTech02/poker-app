@@ -15,7 +15,7 @@ descricao:
 passos:
   - fala:
       pt-BR: "Na tela de Vendas, você registra a entrada de um jogador no torneio. Antes de vender, confira se o seu caixa está aberto."
-      en-US: "On the Sales screen, you record a player's entry into a tournament. Before selling, make sure your cash register is open."
+      en-US: "On the Sales screen, you record a player's entry into a tournament. Before selling, make sure your cashbox is open."
       es-ES: "En la pantalla de Ventas, registras la entrada de un jugador al torneo. Antes de vender, confirma que tu caja esté abierta."
     acoes:
       - destacar: {css: ".cashbox-banner"}
@@ -29,7 +29,7 @@ passos:
   - fala:
       pt-BR: "Escolha o torneio. Quando ele tem um dia só, o dia entra sozinho, e você confere aqui a lotação e o valor."
       en-US: "Choose the tournament. When it has a single day, the day is filled in for you, and you can check capacity and price here."
-      es-ES: "Elige el torneo. Cuando tiene un solo día, el día se completa solo, y aquí revisas el cupo y el valor."
+      es-ES: "Elige el torneo. Cuando tiene un solo día, el día se completa solo, y aquí revisas el cupo y el monto."
     acoes:
       - escolher: {css: "#tournament_id", rotulo_opcao: "Main Event"}
       - destacar: {css: ".cx-day-auto"}
@@ -43,7 +43,7 @@ passos:
   - fala:
       pt-BR: "Marque o que ele está comprando. O valor e as fichas a entregar são calculados automaticamente."
       en-US: "Check what the player is buying. The amount and the chips to deliver are calculated automatically."
-      es-ES: "Marca lo que está comprando. El valor y las fichas a entregar se calculan automáticamente."
+      es-ES: "Marca lo que está comprando. El monto y las fichas a entregar se calculan automáticamente."
     acoes:
       - clicar: {css: ".cx-buytype-option", texto: "Buy-in"}
       - destacar: {css: ".cx-sale-totals"}
@@ -55,8 +55,15 @@ passos:
       - escolher: {css: "#payment_method", opcao: "pix"}
       - clicar: {css: "form button[type=submit]"}
   - fala:
-      pt-BR: "Pronto. O sistema senta o jogador e mostra o bilhete com a mesa, o assento e as fichas. É só imprimir e entregar."
-      en-US: "Done. The system seats the player and shows the ticket with the table, the seat and the chips. Just print it and hand it over."
-      es-ES: "Listo. El sistema sienta al jugador y muestra el boleto con la mesa, el asiento y las fichas. Solo tienes que imprimirlo y entregarlo."
+      pt-BR: "Pronto. O sistema senta o jogador e mostra o bilhete com a mesa, o assento e as fichas."
+      en-US: "Done. The system seats the player and shows the ticket with the table, the seat and the chips."
+      es-ES: "Listo. El sistema sienta al jugador y muestra el boleto con la mesa, el asiento y las fichas."
     acoes:
       - pausa: 1.0
+  - fala:
+      pt-BR: "Agora é só imprimir e entregar ao jogador."
+      en-US: "Now just print it and hand it to the player."
+      es-ES: "Ahora solo tienes que imprimirlo y entregárselo al jugador."
+    acoes:
+      - destacar: {css: ".btn-print-ticket"}
+        segundos: 2.0

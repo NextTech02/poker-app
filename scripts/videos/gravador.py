@@ -162,12 +162,13 @@ class Gravador:
         await alvo.select_option(value=valor) if valor else await alvo.select_option(label=rotulo)
 
     async def destacar(self, alvo, segundos: float = 1.6) -> None:
-        x, y, caixa = await self._centro(alvo)
+        _, _, caixa = await self._centro(alvo)
         await self.pagina.evaluate(
             "([x, y, w, h]) => window.__ace.destaque(x, y, w, h)",
             [caixa["x"], caixa["y"], caixa["width"], caixa["height"]],
         )
-        await self.mover(x, y)
+        # No canto, e não no centro: ali o cursor cobriria o valor destacado.
+        await self.mover(caixa["x"] + caixa["width"] - 10, caixa["y"] + caixa["height"] - 6)
         await asyncio.sleep(segundos)
         await self.pagina.evaluate("() => window.__ace.semDestaque()")
 
