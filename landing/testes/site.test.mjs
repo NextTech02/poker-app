@@ -98,10 +98,11 @@ test('nenhuma afirmação retirada voltou ao site', pular, () => {
   }
 });
 
-/* O mercado em espanhol é Peru e Colômbia: nada de voseo argentino, nem de
-   "planilla", que no Peru é folha de pagamento. */
+/* Espanhol neutro para a LatAm: nada de voseo, nem de "planilla", que no Peru é
+   folha de pagamento. "Sangría" só retorna vinho na busca, e "casa de póker"
+   só retorna cidade brasileira: os termos são "retiro de caja" e "club o sala". */
 test('espanhol neutro nas páginas /es/', pular, () => {
-  const fora = /(?<![\p{L}])(sos|vos|querés|podés|tenés|preferís|abrís|elegís|pasás|usás|cargás|empezá|escribinos|probá|ahorrá|pedí|creá|corré|hablá|mirá|acá|planilla|planillas)(?![\p{L}])/iu;
+  const fora = /(?<![\p{L}])(sos|vos|querés|podés|tenés|preferís|abrís|elegís|pasás|usás|cargás|empezá|escribinos|probá|ahorrá|pedí|creá|corré|hablá|mirá|acá|planilla|planillas|sangría|sangrías|casa de póker|casas de póker)(?![\p{L}])/iu;
   for(const [url, $] of paginas){
     if(!url.startsWith(`${SITE}/es/`)) continue;
     const achado = $('body').clone().find('script,style').remove().end().text().match(fora);

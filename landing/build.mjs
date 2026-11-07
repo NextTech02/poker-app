@@ -341,6 +341,12 @@ function traduzir(fonte, idioma, { dic }, faltando){
       const k = $(el).attr('data-i18n-aria');
       if(d[k] == null) faltando.add(k); else $(el).attr('aria-label', d[k]);
     });
+    /* Os valores do mockup não têm chave de tradução. Real na tela é sinal de
+       produto brasileiro para quem chega do México ou da Colômbia. */
+    $('.app b, .tv b').each((_, el) => {
+      const valor = $(el).text();
+      if(valor.startsWith('R$ ')) $(el).text(valor.replace('R$ ', '$ '));
+    });
   }
   return { $, d };
 }
