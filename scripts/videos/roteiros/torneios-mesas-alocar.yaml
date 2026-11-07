@@ -1,0 +1,101 @@
+id: torneios-mesas-alocar
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:mesas
+titulo:
+  pt-BR: "Como montar as mesas e sentar os jogadores"
+  en-US: "How to set up tables and seat players"
+  es-ES: "Cómo armar las mesas y sentar a los jugadores"
+descricao:
+  pt-BR: "Criar mesas em lote, distribuir os jogadores, mover um jogador e bloquear as mesas."
+  en-US: "Create tables in bulk, distribute players, move a player and lock the tables."
+  es-ES: "Crear mesas en lote, distribuir a los jugadores, mover a un jugador y bloquear las mesas."
+passos:
+  - fala:
+      pt-BR: "Abra o torneio e, no dia, clique em Mesas."
+      en-US: "Open the tournament and, on the day, click Tables."
+      es-ES: "Abre el torneo y, en el día, haz clic en Mesas."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_mesas}']"}
+      - clicar: {css: ".day-card-actions button", t: tables.title}
+  - fala:
+      pt-BR: "À esquerda ficam os inscritos que ainda não têm mesa."
+      en-US: "On the left are the registered players who don't have a table yet."
+      es-ES: "A la izquierda están los inscritos que todavía no tienen mesa."
+    acoes:
+      - destacar: {css: ".tm-players-panel"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Clique em Adicionar Mesa. Informe a quantidade de mesas e os assentos por mesa."
+      en-US: "Click Add Table. Enter the number of tables and the seats per table."
+      es-ES: "Haz clic en Agregar Mesa. Indica la cantidad de mesas y los asientos por mesa."
+    acoes:
+      - clicar: {css: ".tm-header-actions button", t: tableManagement.addTable}
+      - preencher: {css: ".tm-modal-body input", n: 0, valor: "3"}
+      - pausa: 1.0
+      - passar: {css: ".tm-modal-body input", n: 1}
+  - fala:
+      pt-BR: "Confirme, e as mesas aparecem vazias."
+      en-US: "Confirm, and the empty tables appear."
+      es-ES: "Confirma, y las mesas aparecen vacías."
+    acoes:
+      - clicar: {css: ".tm-modal-actions .tm-btn-primary"}
+  - fala:
+      pt-BR: "Para sentar todo mundo de uma vez, clique em Alocar em Massa."
+      en-US: "To seat everyone at once, click Bulk Allocate."
+      es-ES: "Para sentar a todos de una vez, haz clic en Asignar en Masa."
+    acoes:
+      - clicar: {css: ".tm-header-actions button", t: tableManagement.bulkAllocate}
+  - fala:
+      pt-BR: "Sequencial enche uma mesa de cada vez. Equilibrado reparte um por mesa, em rodízio. Equilibrado Aleatório faz o mesmo, com o assento sorteado."
+      en-US: "Sequential fills one table at a time. Balanced deals one per table, in rotation. Random Balanced does the same, with a randomly drawn seat."
+      es-ES: "Secuencial llena una mesa a la vez. Equilibrado reparte uno por mesa, en rotación. Equilibrado Aleatorio hace lo mismo, con el asiento sorteado."
+    acoes:
+      - passar: {css: ".tm-mode-card", n: 0}
+      - pausa: 2.4
+      - passar: {css: ".tm-mode-card", n: 1}
+      - pausa: 2.6
+      - clicar: {css: ".tm-mode-card", n: 2}
+  - fala:
+      pt-BR: "Clique em Alocar. Em instantes, cada jogador tem mesa e assento."
+      en-US: "Click Allocate. In a moment, every player has a table and a seat."
+      es-ES: "Haz clic en Asignar. En un momento, cada jugador tiene mesa y asiento."
+    acoes:
+      - clicar: {css: ".tm-modal-actions .tm-btn-primary"}
+  - fala:
+      pt-BR: "Para mudar alguém de lugar, arraste o nome até um assento vazio."
+      en-US: "To move someone, drag the name to an empty seat."
+      es-ES: "Para cambiar a alguien de lugar, arrastra el nombre hasta un asiento vacío."
+    acoes:
+      - pausa: 1.2
+      - arrastar:
+          de: {css: ".tm-table:nth-child(1) .tm-seat.occupied .tm-seat-player", n: 0}
+          para: {css: ".tm-table:nth-child(2) .tm-seat.empty", n: 0}
+  - fala:
+      pt-BR: "O sistema grava a troca e mostra o bilhete com a nova mesa e o novo assento."
+      en-US: "The system saves the move and shows the ticket with the new table and seat."
+      es-ES: "El sistema guarda el cambio y muestra el boleto con la nueva mesa y el nuevo asiento."
+    acoes:
+      - destacar: {css: ".tm-modal .seat-ticket"}
+        segundos: 3.0
+      - clicar: {css: ".tm-close-btn"}
+  - fala:
+      pt-BR: "Quando o registro fechar, clique em Mesas Abertas e confirme em Bloquear."
+      en-US: "When registration closes, click Tables Open and confirm with Lock."
+      es-ES: "Cuando cierre el registro, haz clic en Mesas Abiertas y confirma en Bloquear."
+    acoes:
+      - clicar: {css: ".tm-btn-lock"}
+      - pausa: 1.2
+      - clicar: {css: ".confirm-btn-confirm"}
+  - fala:
+      pt-BR: "Com as mesas bloqueadas, quem comprar entrada fica como alternate, até você arrastar o jogador para um assento."
+      en-US: "With the tables locked, anyone who buys in becomes an alternate, until you drag the player to a seat."
+      es-ES: "Con las mesas bloqueadas, quien compre entrada queda como alternate, hasta que arrastres al jugador a un asiento."
+    acoes:
+      - destacar: {css: ".tm-btn-lock"}
+        segundos: 2.0
+      - destacar: {css: ".tm-players-panel .tm-alt-hint"}
+        segundos: 4.0

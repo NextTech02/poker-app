@@ -159,8 +159,12 @@ const Sidebar = () => {
   });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const itensDoModulo = useMemo(() => filtrar(menuDoModulo), [menuDoModulo, hasPermission, isPlatformAdmin]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const itensDoClube = useMemo(() => filtrar(MENU_COMUM), [hasPermission, isPlatformAdmin]);
+  const itensDoClube = useMemo(
+    () => filtrar(MENU_COMUM.filter((item) => !item.noTrilho)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasPermission, isPlatformAdmin],
+  );
+  const itensDoTrilho = MENU_COMUM.filter((item) => item.noTrilho);
 
   const toggleGroup = (groupKey) => {
     setOpenGroups(prev => {
@@ -350,6 +354,23 @@ const Sidebar = () => {
           </div>
 
           <div className="rail-spacer" />
+
+          {itensDoTrilho.map((item) => {
+            const rotulo = t(item.labelKey);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`rail-btn rail-link ${isPathActive(item.path) ? 'active' : ''}`}
+                title={rotulo}
+                aria-current={isPathActive(item.path) ? 'page' : undefined}
+                onClick={() => isMobile && setIsOpen(false)}
+              >
+                <Icon name={item.icon} />
+                <span className="rail-lbl">{rotulo}</span>
+              </Link>
+            );
+          })}
 
           {/* Collapse toggle button (desktop only) */}
           {!isMobile && (

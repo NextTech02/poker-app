@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import time
+from datetime import date
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -31,7 +32,8 @@ CACHE = AQUI / "cache" / "audio"
 # Plano gratuito (F0): 20 pedidos por minuto, limite que não pode ser aumentado.
 INTERVALO_AZURE = 3.2
 TENTATIVAS = 5
-_ultimo_pedido = 0.0
+# Margem sob os 500 mil caracteres mensais do F0: passar disso bloqueia a voz.
+TETO_MENSAL = 480_000
 
 
 def provedor() -> str:
@@ -51,6 +53,54 @@ def para_voz(texto: str, idioma: str, tabela: dict) -> str:
     return texto
 
 
+def _arquivo_de_uso() -> Path:
+    return CACHE / f"caracteres-{date.today():%Y-%m}.txt"
+
+
+def caracteres_do_mes() -> int:
+    arquivo = _arquivo_de_uso()
+    return int(arquivo.read_text() or 0) if arquivo.exists() else 0
+
+
+def _com_trava(acao):
+    """O limite do F0 vale por recurso, não por processo: quem grava em paralelo
+    precisa dividir a mesma fila."""
+    trava = CACHE / ".trava"
+    while True:
+        try:
+            descritor = os.open(trava, os.O_CREAT | os.O_EXCL)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - trava.stat().st_mtime > 30:  # sobra de processo morto
+                    trava.unlink(missing_ok=True)
+            except OSError:
+                pass
+            time.sleep(0.1)
+    try:
+        return acao()
+    finally:
+        os.close(descritor)
+        trava.unlink(missing_ok=True)
+
+
+def _esperar_a_vez() -> None:
+    marca = CACHE / ".ultimo-pedido"
+
+    def agendar():
+        ultimo = float(marca.read_text() or 0) if marca.exists() else 0.0
+        espera = ultimo + INTERVALO_AZURE - time.time()
+        if espera > 0:
+            time.sleep(espera)
+        marca.write_text(str(time.time()))
+
+    _com_trava(agendar)
+
+
+def _somar_caracteres(quantidade: int) -> None:
+    _com_trava(lambda: _arquivo_de_uso().write_text(str(caracteres_do_mes() + quantidade)))
+
+
 def _azure(texto: str, idioma: str, destino: Path) -> None:
     regiao = os.environ["AZURE_SPEECH_REGION"]
     ssml = (
@@ -67,15 +117,15 @@ def _azure(texto: str, idioma: str, destino: Path) -> None:
             "User-Agent": "aceblind-videos",
         },
     )
-    global _ultimo_pedido
+    uso = caracteres_do_mes()
+    if uso + len(texto) > TETO_MENSAL:
+        raise RuntimeError(f"cota mensal do Azure quase esgotada: {uso} caracteres usados")
     for tentativa in range(TENTATIVAS):
-        espera = _ultimo_pedido + INTERVALO_AZURE - time.monotonic()
-        if espera > 0:
-            time.sleep(espera)
-        _ultimo_pedido = time.monotonic()
+        _esperar_a_vez()
         try:
             with urllib.request.urlopen(pedido, timeout=60) as resposta:
                 destino.write_bytes(resposta.read())
+            _somar_caracteres(len(texto))
             return
         except urllib.error.HTTPError as erro:
             # 429 também vem de falta de capacidade momentânea da voz na região,

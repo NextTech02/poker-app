@@ -1,0 +1,87 @@
+id: torneios-equipes
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:equipes
+titulo:
+  pt-BR: "Como cadastrar equipes e sortear as mesas"
+  en-US: "How to register teams and draw the tables"
+  es-ES: "Cómo registrar equipos y sortear las mesas"
+descricao:
+  pt-BR: "Modo equipes: criar a equipe, cobrar a inscrição e sortear a Fase 1."
+  en-US: "Team mode: create the team, charge the entry and draw Stage 1."
+  es-ES: "Modo equipos: crear el equipo, cobrar la inscripción y sortear la Fase 1."
+passos:
+  - fala:
+      pt-BR: "O modo equipes é ligado no cadastro do torneio. Abra o torneio e clique em Equipes."
+      en-US: "Team mode is turned on when you register the tournament. Open the tournament and click Teams."
+      es-ES: "El modo por equipos se activa al registrar el torneo. Abre el torneo y haz clic en Equipos."
+    acoes:
+      - pausa: 2.5
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_equipes}']"}
+      - clicar: {css: ".header-actions button", t: teams.title}
+  - fala:
+      pt-BR: "Clique em Nova equipe e digite o nome."
+      en-US: "Click New team and type the name."
+      es-ES: "Haz clic en Nuevo equipo y escribe el nombre."
+    acoes:
+      - clicar: {css: ".eq-bloco-header button"}
+      - digitar: {css: "#eq-nome", valor: "{equipe_nova}"}
+  - fala:
+      pt-BR: "Escolha os quatro integrantes, na ordem do revezamento da final, e marque o capitão. Ele desempata e representa a equipe na final."
+      en-US: "Choose the four members, in the relay order for the final, and mark the captain. The captain breaks ties and represents the team in the final."
+      es-ES: "Elige a los cuatro integrantes, en el orden de relevos de la final, y marca al capitán. Él desempata y representa al equipo en la final."
+    acoes:
+      - digitar: {css: ".eq-member-select .player-select-input", n: 0, valor: "{membro1}"}
+      - clicar: {css: "li.player-select-option"}
+      - digitar: {css: ".eq-member-select .player-select-input", n: 1, valor: "{membro2}"}
+      - clicar: {css: "li.player-select-option"}
+      - digitar: {css: ".eq-member-select .player-select-input", n: 2, valor: "{membro3}"}
+      - clicar: {css: "li.player-select-option"}
+      - digitar: {css: ".eq-member-select .player-select-input", n: 3, valor: "{membro4}"}
+      - clicar: {css: "li.player-select-option"}
+      - clicar: {css: ".eq-captain input", n: 0}
+  - fala:
+      pt-BR: "Clique em Salvar. A equipe aparece na lista, ainda sem inscrição."
+      en-US: "Click Save. The team appears in the list, not registered yet."
+      es-ES: "Haz clic en Guardar. El equipo aparece en la lista, todavía sin inscripción."
+    acoes:
+      - clicar: {css: ".eq-modal-footer button[type=submit]"}
+      - destacar: {css: ".eq-cartao:has-text('{equipe_nova}')"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Cada integrante pode comprar no Caixa, ou você inscreve todos de uma vez em Cobrar equipe."
+      en-US: "Each member can buy in at the Cashier, or you can register them all at once with Charge team."
+      es-ES: "Cada integrante puede comprar en la Caja, o inscribes a todos de una vez en Cobrar equipo."
+    acoes:
+      - pausa: 3.0
+      - clicar: {css: ".eq-cartao:has-text('{equipe_nova}') button", t: teams.charge}
+  - fala:
+      pt-BR: "O valor é dividido entre os integrantes. Escolha a forma de pagamento e confirme."
+      en-US: "The amount is split among the members. Choose the payment method and confirm."
+      es-ES: "El valor se divide entre los integrantes. Elige el método de pago y confirma."
+    acoes:
+      - destacar: {css: ".eq-modal .eq-hint"}
+        segundos: 2.4
+      - escolher: {css: "#eq-metodo", opcao: cash}
+      - pausa: 0.6
+      - clicar: {css: ".eq-modal-footer button", t: teams.charge}
+  - fala:
+      pt-BR: "Com todos inscritos e as mesas do dia criadas, abra a aba Fase 1 e clique em Sortear mesas."
+      en-US: "With everyone registered and the day's tables created, open the Stage 1 tab and click Draw seats."
+      es-ES: "Con todos inscritos y las mesas del día creadas, abre la pestaña Fase 1 y haz clic en Sortear mesas."
+    acoes:
+      - pausa: 1.5
+      - clicar: {css: ".eq-aba", n: 1}
+      - pausa: 1.0
+      - clicar: {css: ".eq-acoes button", t: teams.drawSeats}
+  - fala:
+      pt-BR: "O sorteio coloca os integrantes de cada equipe em mesas diferentes, no máximo oito por mesa."
+      en-US: "The draw puts teammates at different tables, at most eight per table."
+      es-ES: "El sorteo pone a los integrantes de cada equipo en mesas distintas, máximo ocho por mesa."
+    acoes:
+      - pausa: 0.8
+      - destacar: {css: ".eq-mesas"}
+        segundos: 4.0

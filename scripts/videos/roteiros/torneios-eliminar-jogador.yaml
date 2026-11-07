@@ -1,0 +1,78 @@
+id: torneios-eliminar-jogador
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:eliminar
+titulo:
+  pt-BR: "Como eliminar um jogador"
+  en-US: "How to eliminate a player"
+  es-ES: "Cómo eliminar a un jugador"
+descricao:
+  pt-BR: "O X no assento, o que muda na mesa e o contador do relógio."
+  en-US: "The X on the seat, what changes at the table and the clock counter."
+  es-ES: "La X en el asiento, lo que cambia en la mesa y el contador del reloj."
+passos:
+  - fala:
+      pt-BR: "Abra o torneio e, no dia, clique em Mesas."
+      en-US: "Open the tournament and, on the day, click Tables."
+      es-ES: "Abre el torneo y, en el día, haz clic en Mesas."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_eliminar}']"}
+      - clicar: {css: ".day-card-actions button", t: tables.title}
+  - fala:
+      pt-BR: "Este torneio elimina pelas mesas: cada jogador sentado tem um X junto ao nome."
+      en-US: "This tournament eliminates at the tables: every seated player has an X next to the name."
+      es-ES: "Este torneo elimina en las mesas: cada jugador sentado tiene una X junto al nombre."
+    acoes:
+      - destacar: {css: ".tm-table:nth-child(1) .tm-seat.occupied", n: 0}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique no X do jogador que caiu e confirme."
+      en-US: "Click the X of the player who busted and confirm."
+      es-ES: "Haz clic en la X del jugador que cayó y confirma."
+    acoes:
+      - clicar: {css: ".tm-table:nth-child(1) .tm-btn-elim", n: 0}
+      - pausa: 1.0
+      - clicar: {css: ".confirm-btn-danger"}
+  - fala:
+      pt-BR: "O assento fica livre, a ocupação da mesa cai e o nome vai para a lista de Eliminados."
+      en-US: "The seat is freed, the table count drops and the name moves to the Eliminated list."
+      es-ES: "El asiento queda libre, la ocupación de la mesa baja y el nombre pasa a la lista de Eliminados."
+    acoes:
+      - destacar: {css: ".tm-table:nth-child(1)"}
+        segundos: 2.6
+      - destacar: {css: ".tm-eliminated-panel"}
+        segundos: 2.2
+  - fala:
+      pt-BR: "Eliminou o jogador errado? Clique em Desfazer. Ele volta ao torneio sem mesa, e você o senta de novo."
+      en-US: "Eliminated the wrong player? Click Undo. The player returns to the tournament without a table, and you seat them again."
+      es-ES: "¿Eliminaste al jugador equivocado? Haz clic en Deshacer. Vuelve al torneo sin mesa y lo sientas de nuevo."
+    acoes:
+      - destacar: {css: ".tm-btn-undo"}
+        segundos: 4.5
+  - fala:
+      pt-BR: "Se o jogador vai reentrar, não use Desfazer: a reentrada é vendida no Caixa."
+      en-US: "If the player is re-entering, don't use Undo: re-entries are sold at the Cashier."
+      es-ES: "Si el jugador va a reentrar, no uses Deshacer: la reentrada se vende en la Caja."
+    acoes:
+      - destacar: {css: ".tm-eliminated-panel .tm-alt-hint"}
+        segundos: 3.6
+  - fala:
+      pt-BR: "Na tela de Controle, o contador já mostra a eliminação e os jogadores ativos."
+      en-US: "On the Control screen, the counter already shows the elimination and the active players."
+      es-ES: "En la pantalla de Control, el contador ya muestra la eliminación y los jugadores activos."
+    acoes:
+      - clicar: {css: ".tm-btn-back"}
+      - clicar: {papel: button, t: control.title}
+      - rolar: {css: ".elimination-by-table"}
+      - destacar: {css: ".elimination-section .elimination-stats"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "O modo é definido no cadastro do torneio. No modo em massa, você usa Eliminar 1 aqui no Controle, sem dizer quem saiu."
+      en-US: "The mode is set when you register the tournament. In bulk mode, you use Eliminate 1 here in Control, without saying who left."
+      es-ES: "El modo se define al registrar el torneo. En el modo en masa, usas Eliminar 1 aquí en el Control, sin indicar quién salió."
+    acoes:
+      - destacar: {css: ".elimination-by-table"}
+        segundos: 5.0

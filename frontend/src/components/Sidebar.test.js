@@ -411,6 +411,26 @@ describe('sair', () => {
   });
 });
 
+describe('suporte no trilho', () => {
+  it.each(['tournament', 'cash', 'bar'])('aparece em uma só posição no módulo %s', (modulo) => {
+    montar({ modulo });
+    const links = screen.getAllByRole('link', { name: 'sidebar.support' });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/suporte');
+    expect(links[0]).toHaveClass('rail-link');
+  });
+
+  it('aparece mesmo para quem não tem nenhuma permissão', () => {
+    montar({ permissoes: [] });
+    expect(screen.getByRole('link', { name: 'sidebar.support' })).toBeInTheDocument();
+  });
+
+  it('marca a tela atual', () => {
+    montar({ rota: '/suporte' });
+    expect(screen.getByRole('link', { name: 'sidebar.support' })).toHaveAttribute('aria-current', 'page');
+  });
+});
+
 describe('menu por módulo', () => {
   it('o módulo de torneio mostra as telas de torneio', () => {
     montar({ modulo: 'tournament' });

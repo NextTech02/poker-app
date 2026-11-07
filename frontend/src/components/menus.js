@@ -127,7 +127,11 @@ export const MENU_COMUM = [
   // verificação em duas etapas.
   { path: '/seguranca', labelKey: 'sidebar.security', icon: 'shield' },
   // Vídeos de treinamento: para todo mundo, sem permissão, como Segurança.
-  { path: '/suporte', labelKey: 'sidebar.support', icon: 'help' },
+  // `noTrilho` tira o item do painel e o leva para o trilho, onde ele aparece
+  // em todo módulo e sem rolagem: quem procura ajuda não pode ter de procurar
+  // o botão de ajuda. Continua nesta lista porque a barra do topo a usa para
+  // dar nome à tela atual.
+  { path: '/suporte', labelKey: 'sidebar.support', icon: 'help', noTrilho: true },
   // Só a NextHub: cadastro dos clubes clientes. `platformAdminOnly` não é
   // permissão de grupo — vem do claim do JWT. O backend valida o mesmo claim.
   { path: '/organizacoes', labelKey: 'sidebar.organizations', icon: 'building', platformAdminOnly: true },

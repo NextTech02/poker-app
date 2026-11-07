@@ -96,6 +96,8 @@ class Gravador:
                 f"for (const [k, v] of Object.entries({valores})) localStorage.setItem(k, v);"
             )
         self.pagina = await self.contexto.new_page()
+        # Sem isto o Playwright recusa todo confirm() nativo da página.
+        self.pagina.on("dialog", lambda dialogo: asyncio.ensure_future(dialogo.accept()))
         self.cdp = await self.contexto.new_cdp_session(self.pagina)
         self.cdp.on("Page.screencastFrame", self._quadro)
         return self
@@ -146,11 +148,38 @@ class Gravador:
         await asyncio.sleep(0.12)
         await alvo.click()
 
-    async def digitar(self, alvo, texto: str) -> None:
+    async def digitar(self, alvo, texto: str, limpar: bool = False) -> None:
         x, y, _ = await self._centro(alvo)
         await self.mover(x, y)
         await alvo.click()
+        if limpar:
+            await alvo.fill("")
         await alvo.press_sequentially(texto, delay=55)
+
+    async def preencher(self, alvo, valor: str) -> None:
+        """Para campos que não aceitam digitação tecla a tecla, como os de data."""
+        x, y, _ = await self._centro(alvo)
+        await self.mover(x, y)
+        await alvo.fill(valor)
+
+    async def arrastar(self, origem, destino) -> None:
+        """Com o mouse de verdade: o arrastar da página escuta os eventos dele."""
+        x, y, _ = await self._centro(origem)
+        await self.mover(x, y)
+        await self.pagina.mouse.move(x, y)
+        await self.pagina.mouse.down()
+        await asyncio.sleep(0.25)
+        fim_x, fim_y, _ = await self._centro(destino)
+        await self.pagina.mouse.move((x + fim_x) / 2, (y + fim_y) / 2, steps=6)
+        await self.mover(fim_x, fim_y)
+        await self.pagina.mouse.move(fim_x, fim_y, steps=6)
+        await asyncio.sleep(0.25)
+        await self.pagina.mouse.up()
+
+    async def passar(self, alvo) -> None:
+        x, y, _ = await self._centro(alvo)
+        await self.mover(x, y)
+        await alvo.hover()
 
     async def escolher(self, alvo, valor: str | None = None, rotulo: str | None = None) -> None:
         """A lista aberta de um <select> nativo não sai na captura: o cursor vai
@@ -162,12 +191,13 @@ class Gravador:
         await alvo.select_option(value=valor) if valor else await alvo.select_option(label=rotulo)
 
     async def destacar(self, alvo, segundos: float = 1.6) -> None:
-        x, y, caixa = await self._centro(alvo)
+        _, _, caixa = await self._centro(alvo)
         await self.pagina.evaluate(
             "([x, y, w, h]) => window.__ace.destaque(x, y, w, h)",
             [caixa["x"], caixa["y"], caixa["width"], caixa["height"]],
         )
-        await self.mover(x, y)
+        # No canto, e não no centro: ali o cursor cobriria o valor destacado.
+        await self.mover(caixa["x"] + caixa["width"] - 10, caixa["y"] + caixa["height"] - 6)
         await asyncio.sleep(segundos)
         await self.pagina.evaluate("() => window.__ace.semDestaque()")
 
