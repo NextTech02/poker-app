@@ -1,3 +1,4 @@
 playwright
 edge-tts
 pyyaml
+httpx

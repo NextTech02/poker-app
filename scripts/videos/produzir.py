@@ -12,6 +12,7 @@ Sem AZURE_SPEECH_KEY a saída vai para `saida/rascunho/`: a voz de rascunho não
 """
 import argparse
 import asyncio
+import importlib
 import json
 import os
 import shutil
@@ -60,12 +61,17 @@ def por_idioma(valor, idioma: str):
     return valor[idioma] if isinstance(valor, dict) and idioma in valor else valor
 
 
-def localizar(pagina, alvo, idioma: str):
+def preencher(valor, variaveis: dict):
+    return valor.format(**variaveis) if isinstance(valor, str) and "{" in valor else valor
+
+
+def localizar(pagina, alvo, idioma: str, variaveis: dict):
     """`t` = chave de tradução, `texto` = texto por idioma, `css` = seletor.
     `papel` restringe a um papel ARIA; `n` escolhe entre vários resultados."""
     texto = traducao(idioma, alvo["t"]) if "t" in alvo else por_idioma(alvo.get("texto"), idioma)
+    texto = preencher(texto, variaveis)
     if "css" in alvo:
-        achado = pagina.locator(alvo["css"])
+        achado = pagina.locator(preencher(alvo["css"], variaveis))
         if texto:
             achado = achado.filter(has_text=texto)
     elif "papel" in alvo:
@@ -89,25 +95,54 @@ async def assentar(pagina) -> None:
 
 async def executar(g: Gravador, acao: dict, idioma: str, base: str, variaveis: dict) -> None:
     pagina = g.pagina
+
+    def achar(alvo):
+        return localizar(pagina, alvo, idioma, variaveis)
+
+    def valor(campo):
+        return preencher(por_idioma(campo, idioma), variaveis)
+
     if "ir" in acao:
-        await pagina.goto(base + acao["ir"], wait_until="domcontentloaded")
+        await pagina.goto(base + preencher(acao["ir"], variaveis), wait_until="domcontentloaded")
         await assentar(pagina)
     elif "clicar" in acao:
-        await g.clicar(localizar(pagina, acao["clicar"], idioma))
+        await g.clicar(achar(acao["clicar"]))
     elif "digitar" in acao:
         d = acao["digitar"]
-        await g.digitar(localizar(pagina, d, idioma), por_idioma(d["valor"], idioma).format(**variaveis))
+        await g.digitar(achar(d), str(valor(d["valor"])), limpar=d.get("limpar", False))
+    elif "preencher" in acao:
+        d = acao["preencher"]
+        await g.preencher(achar(d), str(valor(d["valor"])))
     elif "escolher" in acao:
         d = acao["escolher"]
-        await g.escolher(localizar(pagina, d, idioma), d.get("opcao"), d.get("rotulo_opcao"))
+        await g.escolher(achar(d), valor(d.get("opcao")), valor(d.get("rotulo_opcao")))
     elif "destacar" in acao:
-        await g.destacar(localizar(pagina, acao["destacar"], idioma), acao.get("segundos", 1.6))
+        await g.destacar(achar(acao["destacar"]), acao.get("segundos", 1.6))
+    elif "arrastar" in acao:
+        await g.arrastar(achar(acao["arrastar"]["de"]), achar(acao["arrastar"]["para"]))
+    elif "passar" in acao:
+        await g.passar(achar(acao["passar"]))
+    elif "rolar" in acao:
+        await achar(acao["rolar"]).scroll_into_view_if_needed()
+    elif "tecla" in acao:
+        await pagina.keyboard.press(acao["tecla"])
     elif "esperar" in acao:
-        await localizar(pagina, acao["esperar"], idioma).wait_for(state="visible", timeout=20000)
+        await achar(acao["esperar"]).wait_for(state="visible", timeout=20000)
     elif "pausa" in acao:
         await asyncio.sleep(acao["pausa"])
     else:
         raise ValueError(f"ação desconhecida: {acao}")
+
+
+def preparar(roteiro: dict, idioma: str, api) -> dict:
+    """`preparar: cash:mesa_com_jogadores` chama essa função de sementes/cash.py
+    antes de gravar. Ela deixa o clube no estado que o vídeo precisa e devolve
+    as variáveis que o roteiro usa, como `{mesa}`."""
+    nome = roteiro.get("preparar")
+    if not nome:
+        return {}
+    modulo, funcao = nome.split(":")
+    return getattr(importlib.import_module(f"sementes.{modulo}"), funcao)(idioma, api) or {}
 
 
 async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
@@ -128,11 +163,20 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
     if roteiro.get("sessao"):
         import clube_demo
 
-        estado = json.loads(clube_demo.ESTADO.read_text(encoding="utf-8"))
         guardado["selected_module"] = roteiro.get("modulo", "tournament")
-        guardado["selected_stage"] = json.dumps(estado["etapa"])
-        variaveis["jogador"] = clube_demo.proximo_jogador()
-        tokens = clube_demo.abrir_sessao()
+        dados = clube_demo.estado(idioma)
+        guardado["selected_stage"] = json.dumps(dados["etapa"])
+        variaveis.update(dia=dados["dia"], torneio=dados["torneio"], etapa=dados["etapa"]["id"], org=dados["org"])
+        if "{jogador}" in json.dumps(roteiro):
+            variaveis["jogador"] = clube_demo.proximo_jogador(idioma)
+        tokens = clube_demo.abrir_sessao(idioma)
+        variaveis.update(preparar(roteiro, idioma, clube_demo.Api(tokens)))
+        # Uma semente pode trocar a etapa selecionada: cada área grava na sua,
+        # para fechar o caixa num vídeo não atrapalhar outro.
+        if "etapa_selecionada" in variaveis:
+            selecionada = variaveis.pop("etapa_selecionada")
+            guardado["selected_stage"] = json.dumps(selecionada)
+            variaveis["etapa"] = selecionada["id"]
         entrada = (
             f"{base}/#access_token={tokens['access_token']}&refresh_token={tokens['refresh_token']}"
             f"&expires_in={tokens.get('expires_in', 3600)}&token_type=bearer&type=magiclink"
@@ -146,7 +190,7 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
             await g.pagina.wait_for_function(
                 "() => Object.keys(localStorage).some((k) => k.endsWith('-auth-token'))", timeout=20000
             )
-        await g.pagina.goto(base + roteiro.get("inicio", "/"), wait_until="domcontentloaded")
+        await g.pagina.goto(base + preencher(roteiro.get("inicio", "/"), variaveis), wait_until="domcontentloaded")
         await assentar(g.pagina)
         await g.cartao(por_idioma(roteiro["titulo"], idioma), por_idioma(roteiro.get("descricao", ""), idioma))
         await asyncio.sleep(0.6)
@@ -155,10 +199,18 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
         await g.sem_cartao()
         await asyncio.sleep(0.6)
 
-        for passo, (audio, segundos) in zip(roteiro["passos"], falas):
+        for numero, (passo, (audio, segundos)) in enumerate(zip(roteiro["passos"], falas), start=1):
             comeco = time.time()
-            for acao in passo.get("acoes", []):
-                await executar(g, acao, idioma, base, variaveis)
+            try:
+                for acao in passo.get("acoes", []):
+                    await executar(g, acao, idioma, base, variaveis)
+            except Exception:
+                # O print da tela no momento da falha é o que resolve um seletor errado.
+                erro = AQUI / "cache" / "erros" / f"{roteiro['id']}-{idioma}-passo{numero}.png"
+                erro.parent.mkdir(parents=True, exist_ok=True)
+                await g.pagina.screenshot(path=str(erro))
+                print(f"falhou no passo {numero}: {erro}", file=sys.stderr)
+                raise
             sobra = segundos - (time.time() - comeco)
             await asyncio.sleep(max(sobra, 0) + RESPIRO)
             linha_do_tempo.append((por_idioma(passo["fala"], idioma), audio, comeco, segundos))
@@ -190,14 +242,16 @@ async def produzir(roteiro: dict, idioma: str, base: str) -> Path:
 def main() -> None:
     carregar_env()
     args = argparse.ArgumentParser()
-    args.add_argument("roteiro")
+    args.add_argument("roteiros", nargs="+")
     args.add_argument("--idioma", choices=IDIOMAS, action="append")
     args.add_argument("--base", default="https://app.aceblind.net")
     opcoes = args.parse_args()
-    roteiro = yaml.safe_load(Path(opcoes.roteiro).read_text(encoding="utf-8"))
-    for idioma in opcoes.idioma or IDIOMAS:
-        saida = asyncio.run(produzir(roteiro, idioma, opcoes.base))
-        print(idioma, saida, narracao.duracao(saida))
+    for caminho in opcoes.roteiros:
+        roteiro = yaml.safe_load(Path(caminho).read_text(encoding="utf-8"))
+        for idioma in opcoes.idioma or IDIOMAS:
+            saida = asyncio.run(produzir(roteiro, idioma, opcoes.base))
+            print(idioma, saida, narracao.duracao(saida))
+    print("caracteres usados no Azure neste mês:", narracao.caracteres_do_mes())
 
 
 if __name__ == "__main__":

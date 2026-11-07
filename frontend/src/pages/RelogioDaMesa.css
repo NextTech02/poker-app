@@ -1,0 +1,323 @@
+/* Tablet do dealer: fica na mesa, lido de longe e tocado sem olhar muito. */
+.rm-tela {
+  --rm-fundo: #0b0f14;
+  --rm-painel: #161c24;
+  --rm-borda: #2a3340;
+  --rm-texto: #f8fafc;
+  --rm-suave: #a7b1bf;
+  --rm-verde: #16a34a;
+  --rm-aviso: #f59e0b;
+  --rm-urgente: #ef4444;
+
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  background: var(--rm-fundo);
+  color: var(--rm-texto);
+  transition: background-color 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.rm-tela--carregando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.rm-tela--aviso .rm-digitos {
+  color: var(--rm-aviso);
+}
+
+.rm-tela--urgente {
+  background: #3b0d0d;
+}
+
+.rm-tela--urgente .rm-digitos {
+  color: var(--rm-urgente);
+}
+
+.rm-topo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+
+.rm-voltar {
+  padding: 0 0.5rem;
+  color: var(--rm-suave);
+  font-size: 2rem;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.rm-mesa {
+  font-size: 1.5rem;
+}
+
+.rm-nivel {
+  color: var(--rm-suave);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rm-pendentes {
+  color: var(--rm-aviso);
+  font-weight: 600;
+}
+
+.rm-opcoes {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.rm-opcoes label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  color: var(--rm-suave);
+}
+
+.rm-opcoes input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.rm-aviso {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: var(--rm-painel);
+  color: var(--rm-aviso);
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.rm-centro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.rm-digitos {
+  font-size: clamp(7rem, 42vmin, 26rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Quem senta do outro lado da mesa lê de cabeça para baixo sem isto. */
+.rm-digitos--invertido {
+  font-size: clamp(5rem, 26vmin, 16rem);
+  transform: rotate(180deg);
+}
+
+.rm-rotulo {
+  margin: 0.25rem 0 0;
+  color: var(--rm-suave);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.rm-ultimo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rm-borda);
+  border-radius: 8px;
+  background: var(--rm-painel);
+  font-size: 1.125rem;
+}
+
+.rm-ultimo button {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--rm-borda);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--rm-texto);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Flex, e não grade: a quantidade de botões muda com o time bank, e a última
+   linha sempre preenche a largura. */
+.rm-comandos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rm-comandos button {
+  flex: 1 1 28%;
+  min-height: 72px;
+  padding: 0.5rem;
+  border: 1px solid var(--rm-borda);
+  border-radius: 10px;
+  background: var(--rm-painel);
+  color: var(--rm-texto);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.rm-comandos button:active:not(:disabled) {
+  background: var(--rm-borda);
+}
+
+.rm-comandos button:disabled {
+  opacity: 0.35;
+}
+
+/* É o toque de quase toda ação: o maior alvo da tela. */
+.rm-comandos .rm-principal {
+  flex-basis: 100%;
+  order: -1;
+  min-height: 96px;
+  border-color: var(--rm-verde);
+  background: var(--rm-verde);
+  font-size: 1.75rem;
+}
+
+.rm-comandos .rm-principal:active:not(:disabled) {
+  background: #15803d;
+}
+
+.rm-escolha {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-y: auto;
+  /* Herda da tela: com o tempo esgotado, a urgência continua à vista. */
+  background: inherit;
+}
+
+/* O jogador pode pedir o cartão com o tempo ainda correndo. */
+.rm-escolha-tempo {
+  margin: 0;
+  font-size: 3rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.rm-escolha h2 {
+  margin: 0;
+  color: var(--rm-texto);
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.rm-limite {
+  margin: 0;
+  color: var(--rm-aviso);
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.rm-assentos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 0.5rem;
+}
+
+.rm-assentos button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+  min-height: 84px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rm-borda);
+  border-radius: 10px;
+  background: var(--rm-painel);
+  color: var(--rm-texto);
+  text-align: left;
+}
+
+.rm-assentos button:disabled {
+  opacity: 0.4;
+}
+
+.rm-assento-numero {
+  grid-row: span 2;
+  font-size: 2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.rm-assento-nome {
+  overflow: hidden;
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rm-assento-cartoes {
+  color: var(--rm-suave);
+  font-size: 1rem;
+}
+
+.rm-fechar {
+  min-height: 64px;
+  margin-top: auto;
+  border: 1px solid var(--rm-borda);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--rm-texto);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+@media (orientation: landscape) and (max-height: 620px) {
+  .rm-comandos {
+    flex-wrap: nowrap;
+  }
+
+  .rm-comandos button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 64px;
+    font-size: 1rem;
+  }
+
+  .rm-comandos .rm-principal {
+    flex: 2 1 0;
+    order: 0;
+    min-height: 64px;
+    font-size: 1.25rem;
+  }
+
+  .rm-digitos {
+    font-size: 48vmin;
+  }
+
+  .rm-digitos--invertido {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-tela {
+    transition: none;
+  }
+}

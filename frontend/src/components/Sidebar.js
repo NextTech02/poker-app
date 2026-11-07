@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useModule, MODULO_TORNEIO, MODULO_CASH, MODULO_BAR } from '../contexts/ModuleContext';
-import { MENUS_POR_MODULO, MENU_COMUM } from './menus';
+import { MENUS_POR_MODULO, MENU_COMUM, podeAbrir } from './menus';
 import OrgSwitcher from './OrgSwitcher';
 import LanguageSelector from './LanguageSelector';
 import TopBar from './TopBar';
@@ -147,7 +147,7 @@ const Sidebar = () => {
     // Suppress an item that would otherwise duplicate one already reachable
     // through a group (e.g. the standalone Sangi entry for cashier/admin users).
     if (item.hideIfPermission && hasPermission(item.hideIfPermission)) return false;
-    return hasPermission(item.permission);
+    return podeAbrir(item, hasPermission);
   }).map((item) => {
     if (item.type === 'group') {
       return {
@@ -159,8 +159,12 @@ const Sidebar = () => {
   });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const itensDoModulo = useMemo(() => filtrar(menuDoModulo), [menuDoModulo, hasPermission, isPlatformAdmin]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const itensDoClube = useMemo(() => filtrar(MENU_COMUM), [hasPermission, isPlatformAdmin]);
+  const itensDoClube = useMemo(
+    () => filtrar(MENU_COMUM.filter((item) => !item.noTrilho)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasPermission, isPlatformAdmin],
+  );
+  const itensDoTrilho = MENU_COMUM.filter((item) => item.noTrilho);
 
   const toggleGroup = (groupKey) => {
     setOpenGroups(prev => {
@@ -350,6 +354,23 @@ const Sidebar = () => {
           </div>
 
           <div className="rail-spacer" />
+
+          {itensDoTrilho.map((item) => {
+            const rotulo = t(item.labelKey);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`rail-btn rail-link ${isPathActive(item.path) ? 'active' : ''}`}
+                title={rotulo}
+                aria-current={isPathActive(item.path) ? 'page' : undefined}
+                onClick={() => isMobile && setIsOpen(false)}
+              >
+                <Icon name={item.icon} />
+                <span className="rail-lbl">{rotulo}</span>
+              </Link>
+            );
+          })}
 
           {/* Collapse toggle button (desktop only) */}
           {!isMobile && (

@@ -109,6 +109,22 @@ describe('itens por permissão', () => {
     expect(screen.queryByRole('link', { name: /sidebar.sales/ })).toBeNull();
   });
 
+  it('o dealer vê só o relógio de mesa', () => {
+    montar({ permissoes: ['table_clock'] });
+    expect(screen.getByRole('link', { name: /sidebar.tableClock/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /sidebar.sales/ })).toBeNull();
+  });
+
+  it('quem administra as mesas vê o relógio sem precisar da chave do dealer', () => {
+    montar({ permissoes: ['tables'] });
+    expect(screen.getByRole('link', { name: /sidebar.tableClock/ })).toBeInTheDocument();
+  });
+
+  it('sem nenhuma das chaves, o relógio não aparece', () => {
+    montar({ permissoes: ['cashier'] });
+    expect(screen.queryByRole('link', { name: /sidebar.tableClock/ })).toBeNull();
+  });
+
   it('o sangi puro vê a própria tela no primeiro nível', () => {
     // É a única tela dele; sem o item de topo, ficaria sem acesso.
     // No módulo de CASH: a sangeur circula pelas mesas vendendo fichas, e no
@@ -392,6 +408,26 @@ describe('sair', () => {
     const botao = screen.getByRole('button', { name: /sidebar.logout/i });
     await userEvent.click(botao);
     expect(sair).toHaveBeenCalled();
+  });
+});
+
+describe('suporte no trilho', () => {
+  it.each(['tournament', 'cash', 'bar'])('aparece em uma só posição no módulo %s', (modulo) => {
+    montar({ modulo });
+    const links = screen.getAllByRole('link', { name: 'sidebar.support' });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/suporte');
+    expect(links[0]).toHaveClass('rail-link');
+  });
+
+  it('aparece mesmo para quem não tem nenhuma permissão', () => {
+    montar({ permissoes: [] });
+    expect(screen.getByRole('link', { name: 'sidebar.support' })).toBeInTheDocument();
+  });
+
+  it('marca a tela atual', () => {
+    montar({ rota: '/suporte' });
+    expect(screen.getByRole('link', { name: 'sidebar.support' })).toHaveAttribute('aria-current', 'page');
   });
 });
 

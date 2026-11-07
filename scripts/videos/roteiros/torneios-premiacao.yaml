@@ -1,0 +1,87 @@
+id: torneios-premiacao
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:premiacao
+titulo:
+  pt-BR: "Como configurar e pagar a premiação"
+  en-US: "How to set up and pay prizes"
+  es-ES: "Cómo configurar y pagar la premiación"
+descricao:
+  pt-BR: "Calcular as posições, liberar o prêmio e pagar com o documento do jogador."
+  en-US: "Calculate the positions, release the prize and pay against the player's document."
+  es-ES: "Calcular las posiciones, liberar el premio y pagar con el documento del jugador."
+passos:
+  - fala:
+      pt-BR: "Abra o torneio e clique em Prêmio."
+      en-US: "Open the tournament and click Prize."
+      es-ES: "Abre el torneo y haz clic en Premio."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_premiacao}']"}
+      - clicar: {css: ".header-actions button", t: rankings.prize}
+  - fala:
+      pt-BR: "Aqui você vê o total de entradas, o rake e o prizepool disponível para distribuir."
+      en-US: "Here you see the total entries, the rake and the prizepool available to distribute."
+      es-ES: "Aquí ves el total de entradas, el rake y el prizepool disponible para repartir."
+    acoes:
+      - destacar: {css: ".prize-summary-grid"}
+        segundos: 2.6
+      - destacar: {css: ".pool-info"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Clique em Calcular Automaticamente. O sistema sugere quantas posições premiar e o valor de cada uma."
+      en-US: "Click Calculate Automatically. The system suggests how many places to pay and the amount for each one."
+      es-ES: "Haz clic en Calcular Automáticamente. El sistema sugiere cuántas posiciones premiar y el valor de cada una."
+    acoes:
+      - clicar: {css: ".pool-actions button", n: 0}
+      - destacar: {css: ".auto-calc-summary"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Se quiser, ajuste o percentual ou o valor de cada posição. Depois, clique em Confirmar e Aplicar."
+      en-US: "If you want, adjust the percentage or the amount of each place. Then click Confirm and Apply."
+      es-ES: "Si quieres, ajusta el porcentaje o el valor de cada posición. Después, haz clic en Confirmar y Aplicar."
+    acoes:
+      - destacar: {css: ".auto-calc-table-wrap"}
+        segundos: 3.2
+      - clicar: {papel: button, t: premiacao.confirmAndApply}
+  - fala:
+      pt-BR: "Antes de pagar, o prêmio precisa ser liberado. Na aba Liberação, clique em Liberar."
+      en-US: "Before paying, the prize must be released. On the Release tab, click Release."
+      es-ES: "Antes de pagar, el premio debe liberarse. En la pestaña Liberación, haz clic en Liberar."
+    acoes:
+      - pausa: 1.6
+      - clicar: {css: ".prem-tab", t: premiacao.tabRelease}
+      - clicar: {css: ".prem-toggle.off", n: 0}
+  - fala:
+      pt-BR: "Agora, na aba Pagamentos, clique em Pagar."
+      en-US: "Now, on the Payments tab, click Pay."
+      es-ES: "Ahora, en la pestaña Pagos, haz clic en Pagar."
+    acoes:
+      - clicar: {css: ".prem-tab", t: premiacao.tabPayments}
+      - clicar: {css: ".btn-pay", n: 0}
+  - fala:
+      pt-BR: "Digite o documento de quem vai receber. O sistema acha o jogador do torneio."
+      en-US: "Type the winner's document number. The system finds the tournament player."
+      es-ES: "Escribe el documento de quien va a recibir. El sistema encuentra al jugador del torneo."
+    acoes:
+      - digitar: {css: ".payout-modal form input", n: 0, valor: "{documento}"}
+      - destacar: {css: ".doc-registered-banner"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Confira os saldos e clique em Confirmar Pagamento."
+      en-US: "Check the balances and click Confirm Payment."
+      es-ES: "Revisa los saldos y haz clic en Confirmar Pago."
+    acoes:
+      - destacar: {css: ".payout-balance-info"}
+        segundos: 2.4
+      - clicar: {css: ".payout-modal button[type=submit]"}
+  - fala:
+      pt-BR: "Pronto. O valor sai do Caixa Geral e o comprovante fica pronto para imprimir."
+      en-US: "Done. The amount comes out of General Cash and the voucher is ready to print."
+      es-ES: "Listo. El valor sale de la Caja General y el comprobante queda listo para imprimir."
+    acoes:
+      - pausa: 2.0
+      - destacar: {css: ".modal-body"}
+        segundos: 3.0

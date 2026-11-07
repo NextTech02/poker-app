@@ -1,0 +1,75 @@
+id: torneios-controle-relogio
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:relogio
+titulo:
+  pt-BR: "Como usar o relógio do torneio"
+  en-US: "How to use the tournament clock"
+  es-ES: "Cómo usar el reloj del torneo"
+descricao:
+  pt-BR: "Iniciar, pausar, ajustar o tempo e avançar o nível na tela de Controle."
+  en-US: "Start, pause, adjust the time and advance the level on the Control screen."
+  es-ES: "Iniciar, pausar, ajustar el tiempo y avanzar el nivel en la pantalla de Control."
+passos:
+  - fala:
+      pt-BR: "Abra o torneio e, no dia em andamento, clique em Controle do Torneio."
+      en-US: "Open the tournament and, on the day in progress, click Tournament Control."
+      es-ES: "Abre el torneo y, en el día en curso, haz clic en Control del Torneo."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_relogio}']"}
+      - clicar: {papel: button, t: control.title}
+  - fala:
+      pt-BR: "Esta é a tela do relógio. O que você faz aqui também aparece no telão do salão."
+      en-US: "This is the clock screen. What you do here also shows on the display in the room."
+      es-ES: "Esta es la pantalla del reloj. Lo que hagas aquí también se ve en la pantalla del salón."
+    acoes:
+      - destacar: {css: ".timer-card"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Clique no play para iniciar o nível. O tempo começa a correr."
+      en-US: "Click play to start the level. The time starts running."
+      es-ES: "Haz clic en play para iniciar el nivel. El tiempo empieza a correr."
+    acoes:
+      - clicar: {css: ".timer-controls button", n: 0}
+  - fala:
+      pt-BR: "Para parar, clique no mesmo botão. O relógio congela até você clicar em play de novo."
+      en-US: "To stop it, click the same button. The clock freezes until you click play again."
+      es-ES: "Para detenerlo, haz clic en el mismo botón. El reloj se congela hasta que vuelvas a hacer clic en play."
+    acoes:
+      - pausa: 1.2
+      - clicar: {css: ".timer-controls button", n: 0}
+  - fala:
+      pt-BR: "Para corrigir o tempo, use os botões de menos e mais: trinta segundos, um minuto ou cinco minutos."
+      en-US: "To correct the time, use the minus and plus buttons: thirty seconds, one minute or five minutes."
+      es-ES: "Para corregir el tiempo, usa los botones de menos y más: treinta segundos, un minuto o cinco minutos."
+    acoes:
+      - pausa: 1.5
+      - clicar: {css: ".timer-controls button", texto: "-1m"}
+      - pausa: 1.2
+      - clicar: {css: ".timer-controls button", texto: "+30s"}
+  - fala:
+      pt-BR: "Quando o tempo acaba, o relógio passa sozinho para o próximo nível. Para avançar antes, clique neste botão. O botão ao lado volta um nível."
+      en-US: "When the time runs out, the clock moves to the next level on its own. To advance sooner, click this button. The one next to it goes back one level."
+      es-ES: "Cuando se acaba el tiempo, el reloj pasa solo al siguiente nivel. Para avanzar antes, haz clic en este botón. El de al lado regresa un nivel."
+    acoes:
+      - pausa: 4.0
+      - clicar: {css: ".timer-controls button", n: 2}
+      - pausa: 1.0
+      - passar: {css: ".timer-controls button", n: 1}
+  - fala:
+      pt-BR: "Aqui você confere o nível, os blinds, o próximo nível e quanto falta para o intervalo."
+      en-US: "Here you can check the level, the blinds, the next level and how long until the break."
+      es-ES: "Aquí revisas el nivel, los blinds, el próximo nivel y cuánto falta para el descanso."
+    acoes:
+      - destacar: {css: ".control-stats-grid"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "O botão Zerar volta ao nível um e pausa o relógio. Antes, ele pede confirmação."
+      en-US: "The Reset button goes back to level one and pauses the clock. It asks for confirmation first."
+      es-ES: "El botón Reiniciar vuelve al nivel uno y pausa el reloj. Antes pide confirmación."
+    acoes:
+      - destacar: {css: ".timer-controls button", t: control.reset}
+        segundos: 4.5

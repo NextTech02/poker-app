@@ -1,0 +1,96 @@
+id: torneios-ko-pko-mystery
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_operacao:ko
+titulo:
+  pt-BR: "KO, PKO e Mystery: como funcionam"
+  en-US: "KO, PKO and Mystery: how they work"
+  es-ES: "KO, PKO y Mystery: cómo funcionan"
+descricao:
+  pt-BR: "Os três formatos de prêmio por eliminação e como registrar um KO na mesa."
+  en-US: "The three knockout prize formats and how to record a KO at the table."
+  es-ES: "Los tres formatos de premio por eliminación y cómo registrar un KO en la mesa."
+passos:
+  - fala:
+      pt-BR: "O prêmio por eliminação é escolhido no cadastro do torneio, em Novo Torneio."
+      en-US: "Knockout prizes are chosen when you register the tournament, under New Tournament."
+      es-ES: "El premio por eliminación se elige al registrar el torneo, en Nuevo Torneo."
+    acoes:
+      - clicar: {papel: button, t: tournaments.newTournament}
+      - rolar: {css: "#tr-ko-format"}
+      - passar: {css: "#tr-ko-format"}
+  - fala:
+      pt-BR: "No KO fixo, quem elimina leva o bounty inteiro do jogador."
+      en-US: "With Fixed KO, the eliminator takes the player's whole bounty."
+      es-ES: "En el KO fijo, quien elimina se lleva el bounty completo del jugador."
+    acoes:
+      - escolher: {css: "#tr-ko-format", opcao: ko}
+      - destacar: {css: ".tr-qual-grid + .tr-elim-rule"}
+        segundos: 2.6
+  - fala:
+      pt-BR: "No PKO, quem elimina leva uma parte em dinheiro. O resto soma no bounty dele, e o campeão leva o próprio bounty no fim."
+      en-US: "With PKO, the eliminator gets part of it in cash. The rest is added to their own bounty, and the champion takes their own bounty at the end."
+      es-ES: "En el PKO, quien elimina se lleva una parte en efectivo. El resto se suma a su bounty, y el campeón se lleva su propio bounty al final."
+    acoes:
+      - escolher: {css: "#tr-ko-format", opcao: pko}
+      - destacar: {css: ".tr-qual-grid + .tr-elim-rule"}
+        segundos: 5.0
+  - fala:
+      pt-BR: "No Mystery, o pool vira envelopes quando o floor inicia a fase. A partir daí, cada eliminação sorteia um envelope."
+      en-US: "With Mystery Bounty, the pool becomes envelopes when the floor starts the phase. From then on, each elimination draws an envelope."
+      es-ES: "En el Mystery Bounty, el pozo se convierte en sobres cuando el floor inicia la fase. Desde ahí, cada eliminación sortea un sobre."
+    acoes:
+      - escolher: {css: "#tr-ko-format", opcao: mystery}
+      - destacar: {css: ".tr-qual-grid + .tr-elim-rule"}
+        segundos: 5.0
+  - fala:
+      pt-BR: "Nos três formatos, uma parte de cada entrada vai para esse prêmio, e a eliminação é feita nas mesas."
+      en-US: "In all three formats, part of each entry goes to this prize, and eliminations are made at the tables."
+      es-ES: "En los tres formatos, una parte de cada entrada va a este premio, y la eliminación se hace en las mesas."
+    acoes:
+      - destacar: {css: ".tr-field:has(#tr-ko-pct)"}
+        segundos: 3.6
+      - clicar: {css: ".tr-modal-close"}
+  - fala:
+      pt-BR: "Veja um torneio KO em andamento. Cada assento mostra o bounty do jogador."
+      en-US: "Here is a KO tournament in progress. Each seat shows the player's bounty."
+      es-ES: "Mira un torneo KO en curso. Cada asiento muestra el bounty del jugador."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_ko}']"}
+      - clicar: {css: ".day-card-actions button", t: tables.title}
+      - destacar: {css: ".ko-selo-bounty", n: 0}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Clique no X do jogador que caiu. O sistema pergunta quem eliminou e mostra primeiro quem está na mesma mesa."
+      en-US: "Click the X of the player who busted. The system asks who eliminated them and lists that table first."
+      es-ES: "Haz clic en la X del jugador que cayó. El sistema pregunta quién lo eliminó y muestra primero a los de la misma mesa."
+    acoes:
+      - clicar: {css: ".tm-table:nth-child(1) .tm-btn-elim", n: 0}
+      - destacar: {css: ".ko-candidatos"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Marque quem eliminou e clique em Eliminar."
+      en-US: "Check who eliminated them and click Eliminate."
+      es-ES: "Marca a quien lo eliminó y haz clic en Eliminar."
+    acoes:
+      - clicar: {css: ".ko-candidato", n: 0}
+      - pausa: 0.6
+      - clicar: {css: ".ko-modal .ko-btn-danger"}
+  - fala:
+      pt-BR: "O KO fica registrado com o valor do bounty. Clique em Pagar agora, e o prêmio sai do Caixa Geral."
+      en-US: "The KO is recorded with the bounty amount. Click Pay now, and the prize comes out of General Cash."
+      es-ES: "El KO queda registrado con el valor del bounty. Haz clic en Pagar ahora, y el premio sale de la Caja General."
+    acoes:
+      - destacar: {css: ".ko-modal .ko-hint"}
+        segundos: 2.6
+      - clicar: {css: ".ko-modal .ko-btn-primary"}
+  - fala:
+      pt-BR: "O que não for pago agora fica pendente na aba KO da Premiação."
+      en-US: "Anything not paid now stays pending in the KO tab of Prizes."
+      es-ES: "Lo que no se pague ahora queda pendiente en la pestaña KO de Premiación."
+    acoes:
+      - destacar: {css: ".ko-nota"}
+        segundos: 3.6
