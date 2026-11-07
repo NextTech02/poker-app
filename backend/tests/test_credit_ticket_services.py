@@ -19,6 +19,8 @@ guardados dentro de `notes`), que precisa continuar devolvendo os campos
 certos nas duas situações.
 """
 import pytest
+
+from app.utils.erros import ErroDeNegocio
 from pydantic import ValidationError
 
 from app.models.player_credit import PlayerCreditCreate, CreditSettlementRequest
@@ -810,7 +812,7 @@ class TestResgateDeTicket:
             {"id": "tp-antigo", "tournament_day_id": DIA, "player_id": JOGADOR,
              "status": "eliminated"}])
         r = T.redeem_ticket("t1", None, AUTOR)
-        assert recompras == [{"tp_id": "tp-antigo", "ticket_id": "t1"}]
+        assert recompras == [{"tp_id": "tp-antigo", "ticket_id": "t1", "buy_type_id": None}]
         assert inscricao == {}  # nenhuma inscrição nova
         assert r["reentrada"] is True
         assert r["tournament_player_id"] == "tp-antigo"
@@ -839,6 +841,75 @@ class TestResgateDeTicket:
              "player_id": JOGADOR, "status": "active"}])
         assert T.redeem_ticket("t1", None, AUTOR)["tournament_player_id"] == "tp-novo"
         assert recompras == []
+
+    def _com_meio(self, monkeypatch, **tipo):
+        """O meio de entrada que o Caixa marcou para o ticket pagar."""
+        from app.services import tournament_player_service as tps
+        linha = {"id": "bt", "tournament_id": TOUR, "category": "buy_in", "amount": 300, **tipo}
+        monkeypatch.setattr(tps.TournamentPlayerService, "_get_buy_type",
+                            staticmethod(lambda *a, **k: linha))
+
+    def test_meio_marcado_no_caixa_vai_para_a_inscricao(self, monkeypatch):
+        """Nome, fichas e contagem de entradas da venda vêm do meio marcado."""
+        inscricao = self._com_registro(monkeypatch)
+        self._com_meio(monkeypatch)
+        _monta_ticket(monkeypatch)
+        T.redeem_ticket("t1", None, AUTOR, buy_type_id="bt")
+        assert inscricao["registro"].buy_type_id == "bt"
+
+    def test_reentrada_usa_o_meio_marcado(self, monkeypatch):
+        recompras = self._com_reentrada(monkeypatch)
+        self._com_meio(monkeypatch, category="rebuy")
+        _monta_ticket(monkeypatch, tournament_players=[
+            {"id": "tp-antigo", "tournament_day_id": DIA, "player_id": JOGADOR,
+             "status": "eliminated"}])
+        T.redeem_ticket("t1", None, AUTOR, buy_type_id="bt")
+        assert recompras == [{"tp_id": "tp-antigo", "ticket_id": "t1", "buy_type_id": "bt"}]
+
+    def test_recompra_nao_inscreve_quem_ainda_nao_esta_no_dia(self, monkeypatch):
+        """Recusado antes de gravar: o ticket continua disponível."""
+        inscricao = self._com_registro(monkeypatch)
+        self._com_meio(monkeypatch, category="rebuy")
+        fake = _monta_ticket(monkeypatch)
+        with pytest.raises(ErroDeNegocio) as erro:
+            T.redeem_ticket("t1", None, AUTOR, buy_type_id="bt")
+        assert erro.value.code == "ticket_meio_de_outra_categoria"
+        assert inscricao == {}
+        assert fake.store["satellite_tickets"][0]["status"] == "awarded"
+
+    def test_entrada_nao_serve_para_quem_ja_esta_no_dia(self, monkeypatch):
+        recompras = self._com_reentrada(monkeypatch)
+        self._com_meio(monkeypatch, category="buy_in")
+        _monta_ticket(monkeypatch, tournament_players=[
+            {"id": "tp-antigo", "tournament_day_id": DIA, "player_id": JOGADOR,
+             "status": "eliminated"}])
+        with pytest.raises(ErroDeNegocio) as erro:
+            T.redeem_ticket("t1", None, AUTOR, buy_type_id="bt")
+        assert erro.value.code == "ticket_meio_de_outra_categoria"
+        assert recompras == []
+
+    def test_ticket_nao_paga_entrada_mais_cara_que_ele(self, monkeypatch):
+        """A diferença não seria cobrada de ninguém: o clube perderia o valor."""
+        inscricao = self._com_registro(monkeypatch)
+        self._com_meio(monkeypatch, amount=301)
+        fake = _monta_ticket(monkeypatch)
+        with pytest.raises(ErroDeNegocio) as erro:
+            T.redeem_ticket("t1", None, AUTOR, buy_type_id="bt")
+        assert erro.value.code == "ticket_nao_cobre_a_entrada"
+        assert inscricao == {}
+        assert fake.store["satellite_tickets"][0]["status"] == "awarded"
+
+    def test_entrada_mais_barata_que_o_ticket_passa(self, monkeypatch):
+        self._com_registro(monkeypatch)
+        self._com_meio(monkeypatch, amount=250)
+        _monta_ticket(monkeypatch)
+        assert T.redeem_ticket("t1", None, AUTOR, buy_type_id="bt")["tournament_player_id"] == "tp-novo"
+
+    def test_sem_meio_marcado_segue_como_na_tela_de_tickets(self, monkeypatch):
+        inscricao = self._com_registro(monkeypatch)
+        _monta_ticket(monkeypatch)
+        T.redeem_ticket("t1", None, AUTOR)
+        assert inscricao["registro"].buy_type_id is None
 
     def _dia_do_bilhete(self, **kw):
         return {"id": DIA, "tournament_id": TOUR, "buy_in": 300, "day_name": "Dia Final",

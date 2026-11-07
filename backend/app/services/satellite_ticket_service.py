@@ -376,7 +376,9 @@ class SatelliteTicketService:
     # ================================================
 
     @staticmethod
-    def redeem_ticket(ticket_id: str, funded_by: Optional[str], user_id: str) -> dict:
+    def redeem_ticket(
+        ticket_id: str, funded_by: Optional[str], user_id: str, buy_type_id: Optional[str] = None
+    ) -> dict:
         """Redeem a ticket: registers the bound player on the bound day.
         `funded_by` is sourced from the ticket itself (set at creation). The
         argument is only honored for legacy tickets created before that
@@ -430,6 +432,7 @@ class SatelliteTicketService:
         from app.services.tournament_player_service import TournamentPlayerService
 
         inscricao = SatelliteTicketService._inscricao_no_dia(player_id, day_id)
+        SatelliteTicketService._conferir_meio_de_entrada(buy_type_id, t, bool(inscricao))
         if inscricao:
             # Já inscrito no dia: o ticket paga a REENTRADA (decisão do clube,
             # 2026-11-05). Antes o resgate era recusado ("Jogador já está
@@ -438,7 +441,7 @@ class SatelliteTicketService:
             # eliminado —, com as travas dela: só eliminado volta, nível-limite
             # do dia, caixa aberto, vendas bloqueadas.
             atualizado = TournamentPlayerService.add_rebuy(
-                inscricao["id"], user_id, ticket_id=ticket_id
+                inscricao["id"], user_id, ticket_id=ticket_id, buy_type_id=buy_type_id
             )
             tp_id = atualizado.id
             player_name, tournament_name = SatelliteTicketService._nomes(
@@ -450,6 +453,7 @@ class SatelliteTicketService:
                 tournament_day_id=day_id,
                 player_id=player_id,
                 buy_in_count=1,
+                buy_type_id=buy_type_id,
                 payment_source="ticket",
                 ticket_id=ticket_id,
                 notes=f"Resgate de ticket — financiado por {funded_by_clean}",
@@ -498,6 +502,26 @@ class SatelliteTicketService:
             ),
             **SatelliteTicketService._dados_do_bilhete(ticket_id, day_id),
         }
+
+    @staticmethod
+    def _conferir_meio_de_entrada(buy_type_id: Optional[str], ticket: dict, ja_inscrito: bool) -> None:
+        """Confere o meio que o Caixa marcou ANTES de gravar: se ele não serve, o
+        ticket continua disponível e nada foi vendido."""
+        if not buy_type_id:
+            return
+        from app.services.tournament_player_service import TournamentPlayerService
+
+        tipo = TournamentPlayerService._get_buy_type(buy_type_id, ticket["target_tournament_id"]) or {}
+        if tipo.get("category") != ("rebuy" if ja_inscrito else "buy_in"):
+            raise ErroDeNegocio(
+                "ticket_meio_de_outra_categoria",
+                "Quem já está no dia usa o ticket numa reentrada; quem ainda não está, numa entrada.",
+            )
+        # O ticket paga a entrada inteira: a diferença não seria cobrada de ninguém.
+        if float(tipo.get("amount") or 0) > float(ticket.get("ticket_value") or 0):
+            raise ErroDeNegocio(
+                "ticket_nao_cobre_a_entrada", "Esta entrada custa mais do que o ticket vale."
+            )
 
     @staticmethod
     def _dados_do_bilhete(ticket_id: str, day_id: str) -> dict:

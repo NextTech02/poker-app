@@ -678,6 +678,11 @@
     "tablesUnknownHint": "Without internet the tables cannot be checked. The sale is stored and the seat is assigned on sync.",
     "ticketNoTablesHint": "No table is registered for this day: the player did not enter the alternates queue. Register the tables under Tables and seat the player.",
     "ticketOfflineHint": "Sale stored offline: the seat is assigned on sync.",
+    "payWithTicket": "Pay the entry with a satellite ticket",
+    "ticketNeedsEntry": "Select the entry the ticket pays for.",
+    "whichTicket": "Which ticket",
+    "ticketPaysEntry": "The ticket pays the entry. To charge: {{value}}",
+    "ticketDoesNotCover": "The ticket is worth {{ticket}} and this entry costs {{entry}}: choose another entry or sell without the ticket.",
     "ticketBuyType": "Entry type",
     "buyTypesHint": "Check everything the player is buying: one entry (buy-in or re-entry) plus extras such as add-on and dealer bonus. A single ticket is printed with the chip total.",
     "totalChips": "Chips to deliver",
@@ -1251,6 +1256,8 @@
     "previewElimination": "Test elimination banner"
   },
   "errors": {
+    "ticket_nao_cobre_a_entrada": "This entry costs more than the ticket is worth.",
+    "ticket_meio_de_outra_categoria": "Players already in the day use the ticket on a re-entry; new players, on an entry.",
     "meio_de_entrada_de_outro_torneio": "The chosen entry method does not belong to this tournament.",
     "meio_de_entrada_inativo": "This entry method has been deactivated. Choose another one.",
     "serverError": "Internal server error. Please try again shortly.",

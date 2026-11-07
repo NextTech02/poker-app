@@ -127,6 +127,9 @@ const Caixa = () => {
   // Pagamento dividido da venda: 300 em dinheiro + 200 em transferência. As
   // partes valem para o TOTAL da venda; o envio reparte entre os itens.
   const [dividir, setDividir] = useState(false);
+  // Tickets de satélite do jogador para o dia da venda, e o que paga a entrada.
+  const [ticketsDoJogador, setTicketsDoJogador] = useState([]);
+  const [ticketDaVenda, setTicketDaVenda] = useState('');
   const [partes, setPartes] = useState([]);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -214,6 +217,8 @@ const Caixa = () => {
   const avisarMesasDesconhecidas =
     alocacaoAutomatica && !mesasTravadas && estadoDasMesas === 'sem-conexao';
   const podeCancelar = isAdmin || hasPermission('cashbox.admin');
+  // As permissões da rota de resgate: sem elas, o servidor recusaria a venda.
+  const podeUsarTicket = isAdmin || ['cashier_tickets', 'cashier', 'employees'].some(hasPermission);
 
   // Esc fecha o modal aberto. O caixa do clube trabalha de Tab e Enter, com as
   // duas mãos ocupadas: fechar só clicando no fundo deixava ele preso.
@@ -346,6 +351,32 @@ const Caixa = () => {
     })();
     return () => { cancelado = true; };
   }, [showModal, formData.tournament_id, formData.tournament_day_id, tournamentDays.length, redeOnline]);
+
+  // O ticket vale para um jogador e um dia: trocar qualquer um dos dois tira o
+  // ticket da venda. Sem rede não há resgate, e a venda segue pelo caminho comum.
+  useEffect(() => {
+    setTicketDaVenda('');
+    setTicketsDoJogador([]);
+    const jogador = formData.player_id;
+    const dia = formData.tournament_day_id;
+    if (!showModal || !podeUsarTicket || !redeOnline || !jogador || !dia) return undefined;
+    let cancelado = false;
+    (async () => {
+      try {
+        const res = await api.get('/satellite-tickets/available', {
+          params: { target_tournament_id: formData.tournament_id },
+        });
+        if (cancelado) return;
+        setTicketsDoJogador((res?.data || []).filter(
+          (tk) => tk.player_id === jogador && tk.target_tournament_day_id === dia
+        ));
+      } catch (error) {
+        // Sem a lista, o operador vende como sempre e resgata pela tela de tickets.
+        console.warn('[Caixa] falha ao ler os tickets do jogador:', error);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [showModal, podeUsarTicket, redeOnline, formData.player_id, formData.tournament_id, formData.tournament_day_id]);
 
   // O que a lista e o formulário mostram. A lista de JOGADORES não entra aqui:
   // isto roda a cada venda de qualquer operador do clube, e a lista inteira (e
@@ -520,6 +551,7 @@ const Caixa = () => {
     const itens = itensDaVenda;
     const entrada = itens.find((item) => eEntrada(item.category)) || null;
     const extras = itens.filter((item) => !eEntrada(item.category));
+    const ticket = ticketDaEntrada;
     const tournament = tournaments.find((tr) => tr.id === formData.tournament_id);
     const selectedDay = tournamentDays.find((d) => d.id === formData.tournament_day_id);
     const pagamento = {
@@ -529,7 +561,7 @@ const Caixa = () => {
     // Dividido: o total pago é repartido entre os itens na ordem de envio (a
     // entrada e depois os extras). Cada item leva as SUAS partes — o servidor
     // confere que elas fecham o valor dele.
-    const itensNaOrdem = [...(entrada ? [entrada] : []), ...extras];
+    const itensNaOrdem = [...(entrada && !ticket ? [entrada] : []), ...extras];
     let repartido = null;
     if (dividindo) {
       repartido = repartirPagamento(itensNaOrdem, partes);
@@ -552,8 +584,17 @@ const Caixa = () => {
       let tpId = null;
       let entradaOffline = false;
       let algoOffline = false;
+      let resgate = null;
 
-      if (entrada?.category === 'buy_in') {
+      if (ticket) {
+        // Direto no servidor: é ele que confere e consome o ticket, e se recusar
+        // nada desta venda foi gravado. Decide sozinho entre inscrição e reentrada.
+        const res = await api.post(`/satellite-tickets/${ticket.id}/redeem`, {
+          ...(entrada.buy_type_id ? { buy_type_id: entrada.buy_type_id } : {}),
+        });
+        resgate = res.data;
+        tpId = resgate.tournament_player_id;
+      } else if (entrada?.category === 'buy_in') {
         // Camada offline: online chama o backend; sem rede, aplica na réplica e
         // enfileira (com id gerado no cliente p/ idempotência e p/ o rebuy e o
         // add-on desta mesma venda referenciarem o jogador).
@@ -637,7 +678,7 @@ const Caixa = () => {
       const extrasRecusados = [];
       for (const [indice, item] of extras.entries()) {
         const cmid = uuid();
-        const pagamentoDoExtra = pagamentoDoIndice(indice + (entrada ? 1 : 0));
+        const pagamentoDoExtra = pagamentoDoIndice(indice + (entrada && !ticket ? 1 : 0));
         const adBody = {
           tournament_player_id: tpId,
           ...pagamentoDoExtra.corpo,
@@ -684,7 +725,16 @@ const Caixa = () => {
       }
 
       // UM bilhete para a venda inteira, com cada item e o total de fichas.
-      const itensVendidos = [...(entrada ? [entrada] : []), ...extrasVendidos];
+      // Paga com ticket, a entrada sai no bilhete com o valor dela e dizendo como
+      // foi paga: é assim que o floor confere o total.
+      const entradaVendida = ticket
+        ? {
+          ...entrada,
+          name: `${entrada.name} (${t('satelliteTickets.ticketItem', 'Ticket')})`,
+          chips: resgate.chips ?? entrada.chips,
+        }
+        : entrada;
+      const itensVendidos = [...(entrada ? [entradaVendida] : []), ...extrasVendidos];
       const totais = totaisDosItens(itensVendidos);
       const compra = {
         itens: itensVendidos.map(({ name, amount, chips }) => ({ name, amount, chips })),
@@ -696,7 +746,7 @@ const Caixa = () => {
           entradaOffline,
           tournament,
           selectedDay,
-          avisoDeAlocacao: entrada.category === 'rebuy'
+          avisoDeAlocacao: entrada.category === 'rebuy' || resgate?.reentrada
             ? 'cashRegister.rebuyAllocationManualWarning'
             : 'cashRegister.allocationManualWarning',
         });
@@ -887,14 +937,28 @@ const Caixa = () => {
       (categoria) => valorDaCategoria(categoria, formData.tournament_day_id, formData.tournament_id),
     );
   const totaisDaVenda = totaisDosItens(itensDaVenda);
+  // O ticket paga a ENTRADA: sobra a cobrar o que vier junto (bono dealer, add-on).
+  const entradaDaVenda = itensDaVenda.find((item) => eEntrada(item.category)) || null;
+  const ticketDaEntrada = (entradaDaVenda && ticketsDoJogador.find((tk) => tk.id === ticketDaVenda)) || null;
+  const ticketNaoCobre = !!ticketDaEntrada && entradaDaVenda.amount > Number(ticketDaEntrada.ticket_value || 0);
+  const valorACobrar = ticketDaEntrada
+    ? totaisDosItens(itensDaVenda.filter((item) => item !== entradaDaVenda)).amount
+    : totaisDaVenda.amount;
+  const nadaACobrar = !!ticketDaEntrada && valorACobrar <= 0;
   // Dividir só entre meios de dinheiro de verdade: com crédito de patrocinador
   // a venda segue o caminho dele.
-  const dividindo = dividir && (formData.payment_source || 'cash') === 'cash';
-  const problemaDasPartes = dividindo ? validarPartes(partes, totaisDaVenda.amount) : null;
+  const dividindo = dividir && !nadaACobrar && (formData.payment_source || 'cash') === 'cash';
+  const problemaDasPartes = dividindo ? validarPartes(partes, valorACobrar) : null;
   const rotuloDoMeio = (code) => methodLabel(t, activeMethods.find((m) => m.code === code) || { code });
   const alternarDivisao = (ligar) => {
     setDividir(ligar);
-    setPartes(ligar ? partesIniciais(formData.payment_method || activeMethods[0]?.code || 'cash', totaisDaVenda.amount) : []);
+    setPartes(ligar ? partesIniciais(formData.payment_method || activeMethods[0]?.code || 'cash', valorACobrar) : []);
+  };
+  const alternarTicket = (ligar) => {
+    setTicketDaVenda(ligar ? ticketsDoJogador[0]?.id || '' : '');
+    // O total a fechar mudou: as partes antigas não somariam mais.
+    setDividir(false);
+    setPartes([]);
   };
 
   // Categoria "da venda": a da ENTRADA marcada (buy-in/reentrada) ou, sem
@@ -1719,11 +1783,61 @@ const Caixa = () => {
                   </div>
                 </div>
 
+                {ticketsDoJogador.length > 0 && (
+                  <div className="form-group cx-ticket-option">
+                    <label className="pd-alternar">
+                      <input
+                        type="checkbox"
+                        checked={!!ticketDaEntrada}
+                        disabled={!entradaDaVenda}
+                        onChange={(e) => alternarTicket(e.target.checked)}
+                      />
+                      {t('cashRegister.payWithTicket', 'Pagar a entrada com ticket de satélite')}
+                    </label>
+                    {!entradaDaVenda && (
+                      <small className="cx-field-hint">
+                        {t('cashRegister.ticketNeedsEntry', 'Marque a entrada que o ticket paga.')}
+                      </small>
+                    )}
+                    {ticketDaEntrada && ticketsDoJogador.length > 1 && (
+                      <select
+                        aria-label={t('cashRegister.whichTicket', 'Qual ticket')}
+                        value={ticketDaVenda}
+                        onChange={(e) => setTicketDaVenda(e.target.value)}
+                      >
+                        {ticketsDoJogador.map((tk) => (
+                          <option key={tk.id} value={tk.id}>
+                            {formatCurrency(tk.ticket_value)}{tk.won_at ? ` — ${tk.won_at}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {ticketDaEntrada && !ticketNaoCobre && (
+                      <small className="cx-field-hint">
+                        {t('cashRegister.ticketPaysEntry', {
+                          defaultValue: 'O ticket paga a entrada. A cobrar: {{value}}',
+                          value: formatCurrency(valorACobrar),
+                        })}
+                      </small>
+                    )}
+                    {ticketNaoCobre && (
+                      <p className="cx-credit-warning" role="alert">
+                        {t('cashRegister.ticketDoesNotCover', {
+                          defaultValue: 'O ticket vale {{ticket}} e esta entrada custa {{entry}}: escolha outra entrada ou venda sem o ticket.',
+                          ticket: formatCurrency(ticketDaEntrada.ticket_value),
+                          entry: formatCurrency(entradaDaVenda.amount),
+                        })}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {!nadaACobrar && (
                 <div className="form-group">
                   <label htmlFor={dividindo ? 'cx-pd-meio-0' : 'payment_method'}>{t('cashRegister.paymentMethod')}</label>
                   {dividindo ? (
                     <PagamentoDividido
-                      total={totaisDaVenda.amount}
+                      total={valorACobrar}
                       partes={partes}
                       onChange={setPartes}
                       metodos={activeMethods}
@@ -1755,9 +1869,10 @@ const Caixa = () => {
                     </label>
                   )}
                 </div>
+                )}
 
                 {/* Credit payment option - only visible when player has credit */}
-                {playerCredit > 0 && formData.player_id && (
+                {playerCredit > 0 && formData.player_id && !nadaACobrar && (
                   <div className="form-group cx-credit-option">
                     <label>{t('cashRegister.paymentSource')}</label>
                     <div className="cx-credit-info">
@@ -1772,11 +1887,11 @@ const Caixa = () => {
                     >
                       <option value="cash">{t('cashRegister.paymentSourceCash')}</option>
                       <option value="credit">{t('cashRegister.paymentSourceCredit')}</option>
-                      {totaisDaVenda.amount > playerCredit && (
+                      {valorACobrar > playerCredit && (
                         <option value="mixed">{t('cashRegister.paymentSourceMixed')}</option>
                       )}
                     </select>
-                    {formData.payment_source === 'credit' && totaisDaVenda.amount > playerCredit && (
+                    {formData.payment_source === 'credit' && valorACobrar > playerCredit && (
                       <p className="cx-credit-warning">
                         {t('cashRegister.insufficientCreditWarning')}
                       </p>
@@ -1788,7 +1903,7 @@ const Caixa = () => {
                   <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
                     {t('common.cancel')}
                   </Button>
-                  <Button type="submit" disabled={!!problemaDasPartes}>{t('cashRegister.register')}</Button>
+                  <Button type="submit" disabled={!!problemaDasPartes || ticketNaoCobre}>{t('cashRegister.register')}</Button>
                 </div>
               </form>
             </div>

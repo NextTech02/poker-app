@@ -50,6 +50,10 @@ class TicketRedeem(BaseModel):
     creation time; `funded_by` here is only needed for legacy tickets that
     were created before the funder became a creation-time field."""
     funded_by: Optional[str] = Field(default=None, max_length=120)
+    # O meio de entrada que o Caixa marcou para o ticket pagar: nome, fichas e
+    # contagem de entradas da venda vêm dele. Sem ele, valem os do dia, como no
+    # resgate pela tela de tickets.
+    buy_type_id: Optional[str] = None
 
 
 class TicketSummary(BaseModel):
