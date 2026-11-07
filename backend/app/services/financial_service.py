@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from datetime import datetime
 from app.database import supabase
@@ -15,6 +16,8 @@ from app.services.expense_service import ExpenseService
 from app.services.house_credit_service import HouseCreditService
 from app.services.transaction_filters import entradas_da_venda, sem_canceladas
 from app.utils.paralelo import iniciar
+
+logger = logging.getLogger(__name__)
 
 
 class FinancialService:
@@ -54,17 +57,16 @@ class FinancialService:
         """Crédito de jogador ainda não usado. Falhou? Zero (como antes)."""
         try:
             def montar_creditos():
-                credits_query = supabase.table("player_credits").select("id, amount, used_amount") \
+                credits_query = supabase.table("player_credits").select("id, remaining_amount") \
                     .eq("status", "active")
                 if stage_id:
                     credits_query = credits_query.or_(f"stage_id.eq.{stage_id},stage_id.is.null")
                 return credits_query.order("id")
 
-            return sum(
-                float(c.get("amount") or 0) - float(c.get("used_amount") or 0)
-                for c in todas_as_linhas(montar_creditos)
-            )
+            return sum(float(c.get("remaining_amount") or 0) for c in todas_as_linhas(montar_creditos))
         except Exception:
+            # No log: zero em silêncio escondeu por meses uma coluna errada aqui.
+            logger.warning("Financeiro sem os créditos pendentes da etapa %s", stage_id, exc_info=True)
             return 0.0
 
     @staticmethod

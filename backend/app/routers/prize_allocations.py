@@ -43,7 +43,7 @@ def get_prize_summary(
     - Total entries (buy-ins + rebuys + addons from ALL days)
     - Rake percentage (average from all days)
     - Player pool (80% of entries)
-    - Available prize pool (max of guaranteed and player pool)
+    - Available prize pool (guaranteed + player pool)
     - Total allocated
     - Remaining balance
     - List of all allocations
