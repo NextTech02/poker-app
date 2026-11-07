@@ -5,7 +5,6 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import PlayerSelect from '../components/PlayerSelect';
 import PlayerMultiSelect from '../components/PlayerMultiSelect';
-import BilheteModal from '../components/BilheteModal';
 import EmptyState from '../components/EmptyState';
 import { SkeletonStatCard, SkeletonTableRow } from '../components/SkeletonLoader';
 import api from '../config/api';
@@ -15,7 +14,6 @@ import { usePermissions } from '../contexts/PermissionContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useTranslation } from 'react-i18next';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { pedirAssento } from '../utils/assentoDaEntrada';
 import './SatelliteTickets.css';
 
 const isAwarded = (status) => status === 'awarded' || status === 'available';
@@ -168,7 +166,6 @@ const SatelliteTickets = () => {
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showRedeemModal, setShowRedeemModal] = useState(false);
 
   // Create form — player + target tournament + target day + audit info
   const [createForm, setCreateForm] = useState({
@@ -189,11 +186,6 @@ const SatelliteTickets = () => {
   });
   const [transferHistory, setTransferHistory] = useState([]);
   const [transferring, setTransferring] = useState(false);
-
-  // Redeem form — pick a ticket, then enter funding source
-  const [availableTickets, setAvailableTickets] = useState([]);
-  const [redeemForm, setRedeemForm] = useState({ ticket_id: '', funded_by: '' });
-  const [bilhete, setBilhete] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -258,7 +250,6 @@ const SatelliteTickets = () => {
 
   // Esc fecha os modais — é o equivalente de teclado ao clique no fundo escuro.
   useEscapeKey(showCreateModal, fecharCriacao);
-  useEscapeKey(showRedeemModal, () => setShowRedeemModal(false));
   useEscapeKey(!!transferTicket && !transferring, () => setTransferTicket(null));
 
   const handleCreateTicket = async (e) => {
@@ -336,89 +327,6 @@ const SatelliteTickets = () => {
     }
   };
 
-  // ── Redeem Ticket ──
-  const openRedeemModal = async () => {
-    setShowRedeemModal(true);
-    setRedeemForm({ ticket_id: '', funded_by: '' });
-    try {
-      const res = await api.get('/satellite-tickets/available');
-      setAvailableTickets(res.data || []);
-    } catch (err) {
-      // A tela segue aberta com a lista vazia, mas o erro precisa aparecer em
-      // algum lugar: sem isso, "nenhum ticket disponível" e "a busca falhou"
-      // ficam indistinguíveis para quem está operando.
-      console.error('Erro ao carregar tickets disponíveis para resgate:', err);
-      setAvailableTickets([]);
-    }
-  };
-
-  const selectedRedeemTicket = availableTickets.find(t => t.id === redeemForm.ticket_id);
-
-  // O ticket já virou entrada: é a mesma regra de assento da venda no Caixa, e o
-  // bilhete sai mesmo sem assento, para o floor entregar as fichas. Sem as fichas
-  // (leitura falhou no servidor), a compra fica de fora em vez de imprimir zero.
-  const abrirBilheteDoResgate = async (resgate) => {
-    const { alocacao, falhou, motivo, ...semAssento } = await pedirAssento({
-      playerId: resgate.player_id,
-      tournamentId: resgate.tournament_id,
-      dayId: resgate.tournament_day_id,
-      allocationType: resgate.allocation_type,
-      tablesLocked: resgate.tables_locked,
-    });
-    if (falhou) {
-      toast.warning(t(
-        resgate.reentrada ? 'cashRegister.rebuyAllocationManualWarning' : 'cashRegister.allocationManualWarning',
-        { reason: motivo || t('cashRegister.unknownError') }
-      ));
-    }
-    const compra = resgate.chips == null ? {} : {
-      itens: [{
-        name: t('satelliteTickets.ticketItem', 'Ticket'),
-        amount: resgate.ticket_value,
-        chips: resgate.chips,
-      }],
-      total_amount: resgate.ticket_value,
-      total_chips: resgate.chips,
-    };
-    setBilhete({
-      id: resgate.player_id,
-      player_name: resgate.player_name,
-      tournament_name: resgate.tournament_name,
-      created_at: new Date().toISOString(),
-      ...semAssento,
-      ...alocacao,
-      tournament_id: resgate.tournament_id,
-      day_name: resgate.day_name || alocacao?.day_name || '',
-      via_ticket: true,
-      ...compra,
-    });
-  };
-
-  const handleRedeemTicket = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {};
-      // Only send funded_by when the user actually filled it in (legacy tickets);
-      // for new tickets the funder is already attached and the backend reuses it.
-      if (redeemForm.funded_by.trim()) {
-        payload.funded_by = redeemForm.funded_by.trim();
-      }
-      const result = await api.post(`/satellite-tickets/${redeemForm.ticket_id}/redeem`, payload);
-      // Jogador já inscrito no dia: o ticket pagou uma REENTRADA, não uma
-      // inscrição nova — o operador precisa saber o que aconteceu.
-      toast.success(result.data.reentrada
-        ? t('satelliteTickets.toastRedeemedReentry', 'Ticket resgatado como reentrada.')
-        : (result.data.message || t('satelliteTickets.toastRedeemed')));
-      setShowRedeemModal(false);
-      setRedeemForm({ ticket_id: '', funded_by: '' });
-      setAvailableTickets([]);
-      loadData();
-      await abrirBilheteDoResgate(result.data);
-    } catch (err) {
-      toast.error(err.userMessage || t('satelliteTickets.toastRedeemError'));
-    }
-  };
-
   // ── Cancel ──
   const handleCancelTicket = async (ticketId) => {
     if (!window.confirm(t('satelliteTickets.confirmCancel'))) return;
@@ -447,8 +355,7 @@ const SatelliteTickets = () => {
             </div>
           </div>
           <div className="st-header-actions">
-            <Button variant="secondary" onClick={() => setShowCreateModal(true)}>{t('satelliteTickets.registerTicket')}</Button>
-            <Button onClick={openRedeemModal}>{t('satelliteTickets.redeemTicket')}</Button>
+            <Button onClick={() => setShowCreateModal(true)}>{t('satelliteTickets.registerTicket')}</Button>
           </div>
         </div>
 
@@ -644,93 +551,6 @@ const SatelliteTickets = () => {
               </form>
             </div>
           </div>
-        )}
-
-        {/* Redeem Ticket Modal */}
-        {showRedeemModal && (
-          <div className="modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowRedeemModal(false); }}>
-            <div className="modal" role="dialog" aria-modal="true" aria-label={t('satelliteTickets.redeemModalTitle')}>
-              <div className="modal-header">
-                <h2>{t('satelliteTickets.redeemModalTitle')}</h2>
-                <button type="button" className="close-btn" onClick={() => setShowRedeemModal(false)} aria-label={t('common.close')}><span className="close-icon"></span></button>
-              </div>
-              <form onSubmit={handleRedeemTicket}>
-                {availableTickets.length === 0 ? (
-                  <p className="st-no-tickets-msg">{t('satelliteTickets.noTicketsToRedeem')}</p>
-                ) : (
-                  <>
-                    <div className="form-group">
-                      <label>{t('satelliteTickets.ticketLabel')}</label>
-                      <select
-                        value={redeemForm.ticket_id}
-                        onChange={(e) => setRedeemForm(p => ({ ...p, ticket_id: e.target.value }))}
-                        required
-                      >
-                        <option value="">{t('satelliteTickets.selectTicket')}</option>
-                        {availableTickets.map(at => (
-                          <option key={at.id} value={at.id}>
-                            {at.player_name || t('satelliteTickets.noPlayer')} → {at.target_tournament_name}
-                            {at.target_day_name ? ` (${at.target_day_name})` : ''} — {fmt(at.ticket_value)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {selectedRedeemTicket && (
-                      <div className="st-info-box st-info-box--detail">
-                        <div><span>{t('satelliteTickets.detailPlayer')}</span><strong>{selectedRedeemTicket.player_name || '--'}</strong></div>
-                        <div><span>{t('satelliteTickets.detailTournament')}</span><strong>{selectedRedeemTicket.target_tournament_name}</strong></div>
-                        <div><span>{t('satelliteTickets.detailDay')}</span><strong>{selectedRedeemTicket.target_day_name || '--'}</strong></div>
-                        <div><span>{t('satelliteTickets.detailValue')}</span><strong>{fmt(selectedRedeemTicket.ticket_value)}</strong></div>
-                        <div><span>{t('satelliteTickets.detailOrigin')}</span><strong>{selectedRedeemTicket.won_at || '--'}</strong></div>
-                        <div><span>{t('satelliteTickets.detailFundedBy')}</span><strong>{selectedRedeemTicket.funded_by || '--'}</strong></div>
-                      </div>
-                    )}
-                    {selectedRedeemTicket && (
-                      <small className="form-hint">
-                        {t('satelliteTickets.redeemReentryHint', 'Se o jogador já estiver inscrito neste dia, o ticket vale como reentrada — e ele precisa estar eliminado.')}
-                      </small>
-                    )}
-
-                    {/* Legacy fallback: only ask for funder when the ticket
-                        wasn't created with one (pre-redesign tickets). */}
-                    {selectedRedeemTicket && !selectedRedeemTicket.funded_by && (
-                      <div className="form-group">
-                        <label>{t('satelliteTickets.legacyFundedByLabel')}</label>
-                        <input
-                          type="text"
-                          value={redeemForm.funded_by}
-                          onChange={(e) => setRedeemForm(p => ({ ...p, funded_by: e.target.value }))}
-                          required
-                          placeholder={t('satelliteTickets.legacyFundedByPlaceholder')}
-                          maxLength={120}
-                        />
-                        <small className="form-hint">{t('satelliteTickets.legacyFundedByHint')}</small>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <div className="modal-actions">
-                  <Button type="button" variant="secondary" onClick={() => setShowRedeemModal(false)}>{t('satelliteTickets.cancelAction')}</Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      !redeemForm.ticket_id ||
-                      // legacy ticket without a stored funder still requires the input
-                      (selectedRedeemTicket && !selectedRedeemTicket.funded_by && !redeemForm.funded_by.trim())
-                    }
-                  >
-                    {t('satelliteTickets.submitRedeem')}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {bilhete && (
-          <BilheteModal dados={bilhete} formatarValor={fmt} onFechar={() => setBilhete(null)} />
         )}
 
         {/* Transferir / Vender Ticket */}

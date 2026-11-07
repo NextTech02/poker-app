@@ -25,8 +25,8 @@ const tituloDoBilhete = (dados, t) => {
 };
 
 /**
- * O bilhete que sai depois de uma entrada: a venda do Caixa ou o resgate de um
- * ticket. Imprimir fica no botão do bilhete: `window.open` precisa do clique do
+ * O bilhete que sai depois de uma venda do Caixa, paga ou com ticket. Imprimir
+ * fica no botão do bilhete: `window.open` precisa do clique do
  * operador, e abrir sozinho depois da resposta do servidor seria bloqueado.
  */
 const BilheteModal = ({ dados, formatarValor, onFechar }) => {

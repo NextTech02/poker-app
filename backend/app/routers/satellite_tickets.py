@@ -95,10 +95,12 @@ def get_all_tickets(
 @router.get("/available", response_model=List[TicketResponse])
 def get_available_tickets(
     target_tournament_id: Optional[str] = Query(None),
+    player_id: Optional[str] = Query(None),
     user=Depends(get_current_user),
 ):
     return SatelliteTicketService.get_available_tickets(
         target_tournament_id=target_tournament_id,
+        player_id=player_id,
     )
 
 

@@ -2205,22 +2205,127 @@ describe('entrada paga com ticket de satélite', () => {
 
   const usarTicket = async () => userEvent.click(await screen.findByLabelText(OPCAO));
   const resgates = () => api.post.mock.calls.filter(([url]) => url.endsWith('/redeem'));
+  const saldo = () => document.querySelector('.cx-ticket-saldo');
+  const saldoEm = (total) => waitFor(() => expect(saldo()).toHaveTextContent(`Tickets: ${total}`));
 
-  it('sem ticket para o dia, a opção não aparece', async () => {
+  it('jogador sem ticket vê o saldo zerado, e não há o que marcar', async () => {
     await abrirComTickets([]);
     await preencher({ tipo: 'b6' });
-    await waitFor(() => expect(pedidosDe('/satellite-tickets/available')).toBeGreaterThan(0));
+    await saldoEm(0);
     expect(screen.queryByLabelText(OPCAO)).toBeNull();
   });
 
-  it('ticket de outro jogador ou de outro dia não conta', async () => {
-    await abrirComTickets([
-      { ...TICKET, id: 'tk2', player_id: 'p2' },
-      { ...TICKET, id: 'tk3', target_tournament_day_id: 'd3' },
-    ]);
+  it('o saldo aparece antes de escolher o que vender', async () => {
+    await abrirComTickets([TICKET, { ...TICKET, id: 'tk2' }, { ...TICKET, id: 'tk3' }]);
+    await preencher({ tipo: [] });
+    await saldoEm(3);
+  });
+
+  it('sem jogador escolhido não há saldo nenhum a mostrar', async () => {
+    await abrirComTickets();
+    await preencher({ jogador: '', tipo: [] });
+    expect(saldo()).toBeNull();
+  });
+
+  it('pede ao servidor só os tickets do jogador', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: [] });
+    await saldoEm(1);
+    expect(api.get).toHaveBeenCalledWith('/satellite-tickets/available', { params: { player_id: 'p1' } });
+  });
+
+  it('ticket de outro jogador não conta, mesmo se o servidor mandar', async () => {
+    await abrirComTickets([{ ...TICKET, id: 'tk2', player_id: 'p2' }]);
     await preencher({ tipo: 'b6' });
-    await waitFor(() => expect(pedidosDe('/satellite-tickets/available')).toBeGreaterThan(0));
+    await saldoEm(0);
     expect(screen.queryByLabelText(OPCAO)).toBeNull();
+    expect(document.querySelector('.cx-ticket-option')).not.toHaveTextContent('Main Event');
+  });
+
+  it('ticket de outro dia não entra no saldo, mas a tela diz onde ele vale', async () => {
+    // Sem isso o caixa leria "Tickets: 0" com o jogador dizendo que tem um.
+    await abrirComTickets([{
+      ...TICKET, id: 'tk3', target_tournament_day_id: 'd3',
+      target_tournament_name: 'Main Event', target_day_name: 'Final',
+    }]);
+    await preencher({ tipo: 'b6' });
+    await saldoEm(0);
+    expect(screen.queryByLabelText(OPCAO)).toBeNull();
+    expect(document.querySelector('.cx-ticket-option')).toHaveTextContent('Main Event — Final');
+  });
+
+  it('o saldo cai a cada ticket usado, até zero', async () => {
+    const carteira = [TICKET, { ...TICKET, id: 'tk2' }, { ...TICKET, id: 'tk3' }];
+    await abrirComTickets(carteira);
+    for (const restantes of [3, 2, 1]) {
+      // eslint-disable-next-line no-await-in-loop -- uma venda depois da outra
+      await preencher({ tipo: 'b6' });
+      // eslint-disable-next-line no-await-in-loop
+      await saldoEm(restantes);
+      // eslint-disable-next-line no-await-in-loop
+      await usarTicket();
+      // eslint-disable-next-line no-await-in-loop
+      await enviar();
+      // eslint-disable-next-line no-await-in-loop
+      await screen.findByTestId('bilhete');
+      carteira.shift();
+      // eslint-disable-next-line no-await-in-loop
+      await userEvent.click(screen.getByRole('button', { name: 'imprimir' }));
+      // eslint-disable-next-line no-await-in-loop
+      await abrirModal();
+    }
+    await preencher({ tipo: 'b6' });
+    await saldoEm(0);
+  });
+
+  it('sem resposta do servidor não diz zero: avisa que não leu', async () => {
+    // "Tickets: 0" aqui faria o caixa cobrar em dinheiro quem tem ticket.
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await abrirComTickets();
+    const padrao = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/satellite-tickets/available' ? Promise.reject(new Error('500')) : padrao(url, ...resto)
+    ));
+    await preencher({ tipo: 'b6' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não deu para ler os tickets');
+    expect(saldo()).toBeNull();
+    console.warn.mockRestore();
+  });
+
+  it('sem internet não há saldo: não dá para resgatar', async () => {
+    isOnline.mockReturnValue(false);
+    await abrirComTickets();
+    await preencher({ tipo: 'b6' });
+    expect(pedidosDe('/satellite-tickets/available')).toBe(0);
+    expect(saldo()).toBeNull();
+  });
+
+  it('ticket antigo, sem financiador, pede o nome antes de registrar', async () => {
+    await abrirComTickets([{ ...TICKET, funded_by: null }]);
+    await preencher({ tipo: 'b6' });
+    await usarTicket();
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Financiado por *'), '  Patrocinador X  ');
+    await enviar();
+    await screen.findByTestId('bilhete');
+    expect(resgates()[0][1]).toEqual({ buy_type_id: 'b6', funded_by: 'Patrocinador X' });
+  });
+
+  it('ticket que já tem financiador não pede o campo', async () => {
+    // Mandar em branco por cima apagaria quem bancou a vaga.
+    await abrirComTickets();
+    await preencher({ tipo: 'b6' });
+    await usarTicket();
+    expect(screen.queryByLabelText('Financiado por *')).toBeNull();
+  });
+
+  it('entrada com ticket sem assento: o título do bilhete diz que foi resgate', async () => {
+    await abrirComTickets();
+    await preencher({ tipo: 'b6' });
+    await usarTicket();
+    await enviar();
+    expect(await screen.findByRole('heading', { name: 'Ticket resgatado — o staff define o assento' }))
+      .toBeInTheDocument();
   });
 
   it('operador sem permissão de ticket não vê a opção: o servidor recusaria', async () => {
