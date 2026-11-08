@@ -9,6 +9,7 @@ import EmptyState from '../components/EmptyState';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
+import { useStage } from '../contexts/StageContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { usePresencaDoRelogio } from '../hooks/usePresencaDoRelogio';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
@@ -50,27 +51,121 @@ const CamposNumericos = ({ campos, config, aoMudar, t }) => (
   </div>
 );
 
-const ListaDeDias = ({ t }) => {
+/**
+ * A mesma etapa do resto do app. Fica aqui também porque o login do dealer não
+ * abre a tela de Etapas, e sem isso o tablet dele veria todas misturadas.
+ */
+const SeletorDeEtapa = ({ t }) => {
+  const { selectedStage, selectStage, clearStage } = useStage();
+  const [etapas, setEtapas] = useState([]);
+
+  useEffect(() => {
+    api.get('/stages', { _silentError: true })
+      .then((res) => setEtapas(Array.isArray(res?.data) ? res.data : []))
+      .catch(() => setEtapas([]));
+  }, []);
+
+  if (etapas.length === 0) return null;
+  const escolher = (id) => {
+    const etapa = etapas.find((e) => e.id === id);
+    if (etapa) selectStage(etapa);
+    else clearStage();
+  };
+  return (
+    <div className="form-group rcm-etapa">
+      <label htmlFor="rcm-etapa">{t('tableClock.stage', 'Etapa')}</label>
+      <select id="rcm-etapa" value={selectedStage?.id || ''} onChange={(e) => escolher(e.target.value)}>
+        <option value="">{t('tableClock.allStages', 'Todas as etapas')}</option>
+        {etapas.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+      </select>
+    </div>
+  );
+};
+
+/** Os dias abertos da etapa, juntos por torneio, na ordem em que chegam. */
+const porTorneio = (dias) => {
+  const torneios = new Map();
+  dias.forEach((dia) => {
+    if (!torneios.has(dia.tournament_id)) {
+      torneios.set(dia.tournament_id, { id: dia.tournament_id, nome: dia.tournament_name, dias: [] });
+    }
+    torneios.get(dia.tournament_id).dias.push(dia);
+  });
+  return Array.from(torneios.values());
+};
+
+const situacaoDoDia = (dia, t) => (dia.status === 'active'
+  ? t('tableClock.dayActive', 'Em andamento')
+  : t('tableClock.dayPending', 'Ainda não começou'));
+
+/**
+ * Escolher o torneio e, se ele tiver mais de um dia aberto, o dia. Torneio de
+ * um dia só leva direto às mesas: é o caso mais comum, e um passo a mais ali
+ * não escolheria nada.
+ */
+const EscolhaDoTorneio = ({ tournamentId, t }) => {
+  const { selectedStage } = useStage();
+  const etapaId = selectedStage?.id || '';
   const [dias, setDias] = useState(null);
 
   useEffect(() => {
+    setDias(null);
+    // A API filtra pela etapa do cabeçalho X-Stage-ID, que o app já manda.
     api.get('/table-clock/days')
       .then((res) => setDias(res.data || []))
       .catch(() => setDias([]));
-  }, []);
+  }, [etapaId]);
 
   if (!dias) return <p className="loading">{t('common.loading')}</p>;
-  if (dias.length === 0) {
-    return <EmptyState icon={<Icon name="clock" />} title={t('tableClock.noOpenDays', 'Nenhum dia aberto.')} />;
+
+  if (tournamentId) {
+    const doTorneio = dias
+      .filter((d) => d.tournament_id === tournamentId)
+      .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+    return (
+      <>
+        <Link className="rcm-voltar" to="/relogio-mesa">{t('tableClock.otherTournaments', 'Outros torneios')}</Link>
+        {doTorneio.length === 0 ? (
+          <EmptyState icon={<Icon name="clock" />} title={t('tableClock.noDaysInTournament', 'Nenhum dia aberto neste torneio.')} />
+        ) : (
+          <div className="rcm-lista">
+            {doTorneio.map((dia) => (
+              <Link className="rcm-item" key={dia.id} to={`/relogio-mesa/${dia.id}`}>
+                <strong>{dia.day_name}</strong>
+                <span>{situacaoDoDia(dia, t)}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  const torneios = porTorneio(dias);
+  if (torneios.length === 0) {
+    return <EmptyState icon={<Icon name="clock" />} title={t('tableClock.noOpenTournaments', 'Nenhum torneio com dia aberto nesta etapa.')} />;
   }
   return (
     <div className="rcm-lista">
-      {dias.map((dia) => (
-        <Link className="rcm-item" key={dia.id} to={`/relogio-mesa/${dia.id}`}>
-          <strong>{dia.tournament_name}</strong>
-          <span>{dia.day_name}</span>
-        </Link>
-      ))}
+      {torneios.map((torneio) => {
+        const unico = torneio.dias.length === 1 ? torneio.dias[0] : null;
+        return (
+          <Link
+            className="rcm-item"
+            key={torneio.id}
+            to={unico ? `/relogio-mesa/${unico.id}` : `/relogio-mesa/torneio/${torneio.id}`}
+          >
+            <strong>{torneio.nome}</strong>
+            <span>
+              {/* Dia com o nome do torneio (comum em torneio de um dia só) não repete o nome. */}
+              {unico && (unico.day_name && unico.day_name !== torneio.nome
+                ? `${unico.day_name} · ${situacaoDoDia(unico, t)}`
+                : situacaoDoDia(unico, t))}
+              {!unico && t('tableClock.daysOpen', { defaultValue: '{{total}} dias abertos', total: torneio.dias.length })}
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 };
@@ -387,7 +482,7 @@ const Gestao = ({ dayId, t }) => {
 };
 
 const RelogioDeMesa = () => {
-  const { dayId } = useParams();
+  const { dayId, tournamentId } = useParams();
   const { t } = useTranslation();
   const { hasPermission } = usePermissions();
   const podeGerir = PERMISSOES_DE_GESTAO.some(hasPermission);
@@ -402,9 +497,9 @@ const RelogioDeMesa = () => {
             <div>
               <h1 className="cx-title">{t('tableClock.title', 'Relógio de mesa')}</h1>
               <p className="cx-subtitle">
-                {dayId
-                  ? t('tableClock.chooseTable', 'Escolha a mesa deste tablet.')
-                  : t('tableClock.chooseDay', 'Escolha o dia do torneio.')}
+                {dayId && t('tableClock.chooseTable', 'Escolha a mesa deste tablet.')}
+                {!dayId && tournamentId && t('tableClock.chooseDay', 'Escolha o dia do torneio.')}
+                {!dayId && !tournamentId && t('tableClock.chooseTournament', 'Escolha o torneio.')}
               </p>
             </div>
           </div>
@@ -418,7 +513,8 @@ const RelogioDeMesa = () => {
           )}
         </div>
 
-        {!dayId && <ListaDeDias t={t} />}
+        {!dayId && <SeletorDeEtapa t={t} />}
+        {!dayId && <EscolhaDoTorneio tournamentId={tournamentId} t={t} />}
         {dayId && <ListaDeMesas dayId={dayId} t={t} />}
         {dayId && podeGerir && <Gestao dayId={dayId} t={t} />}
       </main>

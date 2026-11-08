@@ -4,7 +4,9 @@ Relógio de ação que o dealer opera num tablet na mesa, com time bank em cart�
 
 ## Como funciona na mesa
 
-O dealer abre **Relógio de Mesa** no menu, escolhe o dia e a mesa, e deixa o tablet ali.
+O dealer abre **Relógio de Mesa** no menu, escolhe o torneio, o dia (só se o torneio tiver mais de
+um aberto) e a mesa, e deixa o tablet ali. A lista mostra os torneios da etapa selecionada no app; o
+seletor de etapa fica no topo porque o login do dealer não abre a tela de Etapas.
 
 A tela mostra a mesa vista de cima, como o clube pediu no piloto de 07/11. O dealer fica embaixo;
 o assento 1 é o primeiro à esquerda dele e a numeração segue no sentido horário. Cada assento

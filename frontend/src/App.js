@@ -542,6 +542,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/relogio-mesa/torneio/:tournamentId"
+        element={
+          <PrivateRoute module="tournament" anyPermission={PERMISSOES_DO_RELOGIO}>
+            <RelogioDeMesa />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/relogio-mesa/:dayId"
         element={
           <PrivateRoute module="tournament" anyPermission={PERMISSOES_DO_RELOGIO}>

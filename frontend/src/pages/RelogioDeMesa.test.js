@@ -13,6 +13,7 @@ import RelogioDeMesa from './RelogioDeMesa';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { usePermissions } from '../contexts/PermissionContext';
+import { useStage } from '../contexts/StageContext';
 import { usePresencaDoRelogio } from '../hooks/usePresencaDoRelogio';
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 
@@ -24,6 +25,7 @@ jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../hooks/useRealtimeRefresh', () => ({ useRealtimeRefresh: jest.fn() }));
 jest.mock('../hooks/usePresencaDoRelogio', () => ({ usePresencaDoRelogio: jest.fn() }));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
+jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/PermissionContext', () => ({ usePermissions: jest.fn() }));
 jest.mock('react-i18next', () => {
   const t = (chave, segundo) => {
@@ -66,9 +68,14 @@ const EVENTOS = [
 
 let toast;
 
-const responder = ({ painel = PAINEL, dias = DIAS, mesas = MESAS } = {}) => {
+const ETAPAS = [{ id: 'e1', name: 'Etapa Lima' }, { id: 'e2', name: 'Etapa Cusco' }];
+
+const responder = ({ painel = PAINEL, dias = DIAS, mesas = MESAS, etapas = ETAPAS } = {}) => {
   api.get.mockImplementation((url) => {
     if (url === '/table-clock/days') return Promise.resolve({ data: dias });
+    if (url === '/stages') {
+      return etapas instanceof Error ? Promise.reject(etapas) : Promise.resolve({ data: etapas });
+    }
     if (url.startsWith('/tables/day/')) return Promise.resolve({ data: mesas });
     if (url.endsWith('/panel')) return Promise.resolve({ data: painel });
     if (url.endsWith('/events')) return Promise.resolve({ data: EVENTOS });
@@ -82,6 +89,7 @@ const montar = async (caminho = '/relogio-mesa/d1', opcoes) => {
     <MemoryRouter initialEntries={[caminho]}>
       <Routes>
         <Route path="/relogio-mesa" element={<RelogioDeMesa />} />
+        <Route path="/relogio-mesa/torneio/:tournamentId" element={<RelogioDeMesa />} />
         <Route path="/relogio-mesa/:dayId" element={<RelogioDeMesa />} />
         <Route path="/relogio-mesa/:dayId/mesa/:tableId" element={<p>tablet aberto</p>} />
       </Routes>
@@ -89,6 +97,10 @@ const montar = async (caminho = '/relogio-mesa/d1', opcoes) => {
   );
   await waitFor(() => expect(document.querySelector('.loading')).toBeNull());
 };
+
+let selectStage;
+let clearStage;
+const naEtapa = (etapa) => useStage.mockReturnValue({ selectedStage: etapa, selectStage, clearStage });
 
 const comoDealer = () => usePermissions.mockReturnValue({
   isAdmin: false, hasPermission: (chave) => chave === 'table_clock',
@@ -100,6 +112,9 @@ beforeEach(() => {
   usePermissions.mockReturnValue({ isAdmin: false, hasPermission: (chave) => chave === 'tables' });
   useRealtimeRefresh.mockReturnValue(jest.fn());
   usePresencaDoRelogio.mockReturnValue([]);
+  selectStage = jest.fn();
+  clearStage = jest.fn();
+  naEtapa(null);
   api.put.mockImplementation((_, corpo) => Promise.resolve({ data: corpo }));
   api.post.mockResolvedValue({ data: { event_id: 'x', cards: 3 } });
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -107,15 +122,112 @@ beforeEach(() => {
 
 afterEach(() => console.error.mockRestore());
 
-describe('escolher o dia', () => {
-  it('lista os dias abertos com o torneio', async () => {
-    await montar('/relogio-mesa');
-    expect(await screen.findByRole('link', { name: /Main Event/ })).toHaveAttribute('href', '/relogio-mesa/d1');
+describe('escolher o torneio', () => {
+  const VARIOS = [
+    { id: 'd2', day_name: 'Dia 1B', status: 'pending', created_at: '2026-11-08T12:00:00Z', tournament_id: 't1', tournament_name: 'Main Event' },
+    { id: 'd9', day_name: 'Dia 1', status: 'active', created_at: '2026-11-08T11:00:00Z', tournament_id: 't2', tournament_name: 'Turbo' },
+    { id: 'd1', day_name: 'Dia 1A', status: 'active', created_at: '2026-11-07T12:00:00Z', tournament_id: 't1', tournament_name: 'Main Event' },
+  ];
+
+  it('mostra um item por torneio, e não um por dia', async () => {
+    await montar('/relogio-mesa', { dias: VARIOS });
+    const torneios = document.querySelectorAll('.rcm-item');
+    expect(Array.from(torneios).map((el) => el.querySelector('strong').textContent)).toEqual(['Main Event', 'Turbo']);
   });
 
-  it('sem dia aberto, a tela diz isso', async () => {
+  it('torneio de vários dias leva à escolha do dia', async () => {
+    await montar('/relogio-mesa', { dias: VARIOS });
+    const main = screen.getByRole('link', { name: /Main Event/ });
+    expect(main).toHaveAttribute('href', '/relogio-mesa/torneio/t1');
+    expect(main).toHaveTextContent('2 dias abertos');
+  });
+
+  it('torneio de um dia só vai direto para as mesas', async () => {
+    await montar('/relogio-mesa', { dias: VARIOS });
+    expect(screen.getByRole('link', { name: /Turbo/ })).toHaveAttribute('href', '/relogio-mesa/d9');
+    expect(screen.getByRole('link', { name: /Turbo/ })).toHaveTextContent('Dia 1 · Em andamento');
+  });
+
+  it('dia com o mesmo nome do torneio não repete o nome', async () => {
+    await montar('/relogio-mesa', { dias: [{ ...VARIOS[1], day_name: 'Turbo' }] });
+    const item = screen.getByRole('link', { name: /Turbo/ });
+    expect(item.querySelector('span')).toHaveTextContent(/^Em andamento$/);
+  });
+
+  it('no torneio, aparecem só os dias dele, do primeiro ao último', async () => {
+    await montar('/relogio-mesa/torneio/t1', { dias: VARIOS });
+    const dias = Array.from(document.querySelectorAll('.rcm-item'));
+    expect(dias.map((el) => el.getAttribute('href'))).toEqual(['/relogio-mesa/d1', '/relogio-mesa/d2']);
+    expect(screen.queryByText('Turbo')).toBeNull();
+  });
+
+  it('cada dia diz se já começou', async () => {
+    await montar('/relogio-mesa/torneio/t1', { dias: VARIOS });
+    expect(screen.getByRole('link', { name: /Dia 1A/ })).toHaveTextContent('Em andamento');
+    expect(screen.getByRole('link', { name: /Dia 1B/ })).toHaveTextContent('Ainda não começou');
+  });
+
+  it('do torneio dá para voltar à lista', async () => {
+    await montar('/relogio-mesa/torneio/t1', { dias: VARIOS });
+    expect(screen.getByRole('link', { name: 'Outros torneios' })).toHaveAttribute('href', '/relogio-mesa');
+  });
+
+  it('sem torneio com dia aberto, a tela diz isso', async () => {
     await montar('/relogio-mesa', { dias: [] });
-    expect(await screen.findByText('Nenhum dia aberto.')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum torneio com dia aberto nesta etapa.')).toBeInTheDocument();
+  });
+});
+
+describe('etapa', () => {
+  it('mostra a etapa selecionada no app', async () => {
+    naEtapa(ETAPAS[0]);
+    await montar('/relogio-mesa');
+    expect(await screen.findByLabelText('Etapa')).toHaveValue('e1');
+  });
+
+  it('trocar a etapa troca a do app inteiro', async () => {
+    await montar('/relogio-mesa');
+    await userEvent.selectOptions(await screen.findByLabelText('Etapa'), 'e2');
+    expect(selectStage).toHaveBeenCalledWith(ETAPAS[1]);
+  });
+
+  it('"Todas as etapas" tira o filtro', async () => {
+    naEtapa(ETAPAS[0]);
+    await montar('/relogio-mesa');
+    await userEvent.selectOptions(await screen.findByLabelText('Etapa'), '');
+    expect(clearStage).toHaveBeenCalled();
+  });
+
+  it('trocar de etapa recarrega a lista', async () => {
+    naEtapa(ETAPAS[0]);
+    responder();
+    // Uma árvore nova a cada render, como quando o contexto da etapa muda: com o
+    // mesmo elemento o React não redesenha nada.
+    const arvore = () => (
+      <MemoryRouter initialEntries={['/relogio-mesa']}>
+        <Routes><Route path="/relogio-mesa" element={<RelogioDeMesa />} /></Routes>
+      </MemoryRouter>
+    );
+    const { rerender } = render(arvore());
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/table-clock/days'));
+    const antes = api.get.mock.calls.filter(([url]) => url === '/table-clock/days').length;
+    naEtapa(ETAPAS[1]);
+    rerender(arvore());
+    await waitFor(() => expect(
+      api.get.mock.calls.filter(([url]) => url === '/table-clock/days').length,
+    ).toBe(antes + 1));
+  });
+
+  it('sem a lista de etapas, a tela segue sem o seletor', async () => {
+    await montar('/relogio-mesa', { etapas: new Error('500') });
+    await screen.findByRole('link', { name: /Main Event/ });
+    expect(screen.queryByLabelText('Etapa')).toBeNull();
+  });
+
+  it('na escolha da mesa o seletor some: o dia já foi escolhido', async () => {
+    await montar();
+    await screen.findByRole('link', { name: /Mesa 5/ });
+    expect(screen.queryByLabelText('Etapa')).toBeNull();
   });
 });
 

@@ -1,9 +1,10 @@
 """Relógio de mesa e time bank. As regras moram em TableClockService."""
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 
 from app.auth.permissions import require_permission
+from app.dependencies import get_stage_id_optional
 from app.models.table_clock import CartaoUsado, ConfiguracaoDoRelogio, PedidoDeAjuste
 from app.services.table_clock_service import TableClockService
 from app.utils.erros import ErroDeNegocio
@@ -20,8 +21,11 @@ GERIR = ("tables", "tournaments", "employees")
 
 
 @router.get("/days")
-def listar_dias_abertos(user=Depends(require_permission(*OPERAR))) -> List[dict]:
-    return TableClockService.dias_abertos()
+def listar_dias_abertos(
+    stage_id: Optional[str] = Depends(get_stage_id_optional),
+    user=Depends(require_permission(*OPERAR)),
+) -> List[dict]:
+    return TableClockService.dias_abertos(stage_id)
 
 
 @router.get("/day/{day_id}/settings", response_model=ConfiguracaoDoRelogio)
