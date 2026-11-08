@@ -33,7 +33,9 @@ passos:
       es-ES: "En Imagen superior, haz clic en Subir imagen y elige un archivo JPG, PNG o WebP, de hasta 2 MB."
     acoes:
       - destacar: {css: ".bt-modal-campos .bt-campo-imagem"}
-        segundos: 4.0
+        segundos: 1.6
+      - enviar: {css: ".bt-modal-campos .bt-campo-imagem input[type=file]", arquivo: "{imagem}"}
+      - pausa: 1.8
   - fala:
       pt-BR: "Digite a cidade, que sai abaixo da imagem, e a sede. A prévia acompanha."
       en-US: "Enter the city, which goes below the image, and the venue. The preview follows along."

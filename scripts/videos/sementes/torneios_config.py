@@ -10,8 +10,13 @@ Só dois temas vendem de verdade. O telão precisa de gente sentada, e por isso
 guarda o torneio entre uma tomada e outra. `ETAPA_ARQUIVAR` tem uma venda porque
 é o movimento financeiro que faz o sistema oferecer "Arquivar" no lugar de excluir.
 """
+import subprocess
 from datetime import date, timedelta
+from pathlib import Path
 
+import httpx
+
+import clube_demo
 from clube_demo import CLUBES
 from sementes.torneios_operacao import (
     _achar_etapa, _criar_torneio, _meios, _sentar, _torneio_de_um_dia, _vender,
@@ -201,12 +206,42 @@ def telao(idioma: str, api) -> dict:
     }
 
 
+def _imagem_do_bilhete(idioma: str) -> Path:
+    """Cabeçalho fictício com o nome do clube: nada de marca real no vídeo."""
+    destino = Path(__file__).resolve().parents[1] / "cache" / f"bilhete-{idioma}.png"
+    if destino.exists():
+        return destino
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    nome = CLUBES[idioma].nome.upper()
+    filtro = (
+        f"drawtext=fontfile='C\\:/Windows/Fonts/arialbd.ttf':text='{nome}':fontcolor=white:fontsize=96"
+        ":x=(w-text_w)/2:y=(h-text_h)/2-40,"
+        "drawtext=fontfile='C\\:/Windows/Fonts/seguisym.ttf':text='♠   ♥   ♦   ♣':fontcolor=0xb79bfb"
+        ":fontsize=60:x=(w-text_w)/2:y=h/2+60"
+    )
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+                    "-i", "color=c=0x2f1076:s=1200x360", "-vf", filtro, "-frames:v", "1", str(destino)], check=True)
+    return destino
+
+
+def _limpar_bilhete_do_clube(idioma: str) -> None:
+    """A tomada anterior deixou imagem, cidade e sede salvas, e a API do clube
+    não tem rota para app_settings: limpa direto, só na linha deste clube."""
+    org = clube_demo.estado(idioma)["org"]
+    httpx.patch(
+        f"{clube_demo.PROJETO}/rest/v1/app_settings", headers=clube_demo._admin(), timeout=30,
+        params={"organization_id": f"eq.{org}"},
+        json={"ticket_logo_path": None, "ticket_city": None, "ticket_venue": None},
+    ).raise_for_status()
+
+
 def bilhete(idioma: str, api) -> dict:
+    _limpar_bilhete_do_clube(idioma)
     etapa = _etapa(idioma, api)
     _torneio_novo(idioma, api, etapa["id"], "bilhete")
     cidade, sede = BILHETE_CLUBE[idioma]
     cidade_torneio, sede_torneio = BILHETE_TORNEIO[idioma]
     return {
         "etapa_selecionada": etapa, "torneio_bilhete": NOMES["bilhete"][idioma], "cidade": cidade, "sede": sede,
-        "cidade_torneio": cidade_torneio, "sede_torneio": sede_torneio,
+        "cidade_torneio": cidade_torneio, "sede_torneio": sede_torneio, "imagem": str(_imagem_do_bilhete(idioma)),
     }
