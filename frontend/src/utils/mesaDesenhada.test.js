@@ -5,7 +5,7 @@
  * numeração segue no sentido horário, como na mesa de verdade.
  */
 import {
-  assentosDaMesa, formatarTempo, posicaoDoAssento, segundosDoNivel,
+  assentosDaMesa, formatarTempo, nomeCurto, posicaoDoAssento, segundosDoNivel,
 } from './mesaDesenhada';
 
 describe('posição dos assentos', () => {
@@ -99,6 +99,23 @@ describe('tempo do nível', () => {
   it('sem nenhum dos dois não inventa número', () => {
     expect(segundosDoNivel({}, 0, 0)).toBeNull();
     expect(segundosDoNivel(null, 0, 0)).toBeNull();
+  });
+});
+
+describe('nome curto', () => {
+  it('primeiro nome e inicial do último sobrenome', () => {
+    expect(nomeCurto('Carlos Eduardo Montenegro')).toBe('Carlos M.');
+    expect(nomeCurto('Ana Paula')).toBe('Ana P.');
+  });
+
+  it('nome de uma palavra fica inteiro', () => {
+    expect(nomeCurto('Beto')).toBe('Beto');
+  });
+
+  it('espaços sobrando e nome vazio não quebram', () => {
+    expect(nomeCurto('  Davi   souza ')).toBe('Davi S.');
+    expect(nomeCurto('')).toBe('');
+    expect(nomeCurto(null)).toBe('');
   });
 });
 

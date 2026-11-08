@@ -175,6 +175,13 @@ describe('carga', () => {
   });
 });
 
+describe('painel de mesas', () => {
+  it('abre a mesma operação desenhada, para o floor no tablet', async () => {
+    await montar();
+    expect(screen.getByRole('link', { name: 'floorPanel.title' })).toHaveAttribute('href', '/painel-mesas/d1');
+  });
+});
+
 describe('travar as mesas', () => {
   it('mesas abertas: quem não tem lugar é "sem mesa"', async () => {
     await montar();

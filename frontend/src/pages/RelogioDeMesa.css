@@ -41,6 +41,12 @@
   font-weight: 600;
 }
 
+.rcm-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
 .rcm-outro-dia {
   color: var(--text-secondary);
   white-space: nowrap;

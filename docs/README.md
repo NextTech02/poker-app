@@ -15,6 +15,7 @@ desenvolve com o Claude Code, o [CLAUDE.md](../CLAUDE.md).
 | [BROADCAST_TV_LAYOUT_2026-10.md](BROADCAST_TV_LAYOUT_2026-10.md) | Telão: layout de palco 1920x1080 e biblioteca de fundos (out/2026) |
 | [BLINDS_NIVEL_ATUAL_E_REORDENACAO_2026-10.md](BLINDS_NIVEL_ATUAL_E_REORDENACAO_2026-10.md) | Blinds: nível atual sinalizado e reordenar arrastando (out/2026) |
 | [RELOGIO_DE_MESA_2026-11.md](RELOGIO_DE_MESA_2026-11.md) | Relógio de ação no tablet do dealer e time bank por jogador |
+| [PAINEL_DE_MESAS_2026-11.md](PAINEL_DE_MESAS_2026-11.md) | Todas as mesas desenhadas para o floor e o diretor |
 | [MIGRACAO_SUPABASE_SAO_PAULO.md](MIGRACAO_SUPABASE_SAO_PAULO.md) | Migração do banco de Oregon para São Paulo: roteiro, ensaio e virada (nov/2026) |
 
 Outros documentos ficam junto do que descrevem:
