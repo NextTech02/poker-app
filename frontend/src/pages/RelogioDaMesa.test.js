@@ -1,15 +1,19 @@
 /**
- * O tablet do dealer: um toque por ação, e o relógio não depende da rede.
+ * O tablet do dealer: a mesa desenhada, um toque por ação, e o relógio não
+ * depende da rede.
  *
- * A conta do relógio tem teste próprio (relogioDeAcao.test.js). Aqui fica o que
- * só existe na tela:
+ * A conta do relógio tem teste próprio (relogioDeAcao.test.js), e a posição dos
+ * assentos também (mesaDesenhada.test.js). Aqui fica o que só existe na tela:
  *
- * - **O tempo acaba e o dealer diz de quem é o cartão.** O sistema não sabe quem
- *   está agindo: é por isso que a escolha do assento aparece nessa hora.
+ * - **A mesa mostra todos os lugares e o tempo do nível.** É a visão que o clube
+ *   pediu: quem está em cada assento e quanto falta, de relance.
+ * - **O tempo acaba e o dealer toca no assento de quem usa o cartão.** O sistema
+ *   não sabe quem está agindo. Fora dessa hora, tocar no assento não faz nada:
+ *   a mão do dealer passa pela tela o tempo todo.
+ * - **O dealer só usa cartão.** Eliminar e trocar de mesa são do floor.
  * - **A rede cair não perde o cartão nem para o relógio.** O toque fica no
  *   aparelho e reenvia sozinho, com o mesmo id.
- * - **O saldo na tela já desconta o que falta enviar.** Sem isso o dealer daria
- *   de novo um cartão que o jogador não tem mais.
+ * - **O saldo na tela já desconta o que falta enviar.**
  * - **Intervalo e pausa param o relógio.** Quem decide é o relógio de blinds.
  */
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
@@ -43,7 +47,7 @@ jest.mock('react-i18next', () => {
 });
 
 const ESTADO = {
-  table: { id: 'm1', table_number: 5, seats: 9 },
+  table: { id: 'm1', table_number: 5, seats: 9, blocked_seats: [] },
   day: { id: 'd1', day_name: 'Dia 1', tournament_id: 't1', tournament_name: 'Main Event' },
   settings: {
     enabled: true, preflop_seconds: 20, postflop_seconds: 30, called_clock_seconds: 30, start_level: 1,
@@ -52,7 +56,7 @@ const ESTADO = {
   clock_active: true,
   timer: {
     level: 2, display_level: 2, is_break: false, is_paused: false,
-    small_blind: 200, big_blind: 400, ante: 400, level_ends_at: null, server_time: null,
+    small_blind: 200, big_blind: 400, ante: 400, level_ends_at: null, server_time: null, time_remaining: null,
   },
   time_bank: { available: true, reason: null },
   seats: [
@@ -79,6 +83,8 @@ const montar = async (mudancas = {}) => {
 
 const tocar = (nome) => fireEvent.click(screen.getByRole('button', { name: nome }));
 const digitos = () => document.querySelector('.rm-digitos:not(.rm-digitos--invertido)');
+const centro = () => document.querySelector('.rm-oval');
+const pergunta = () => document.querySelector('.rm-pergunta');
 const passar = async (ms) => {
   await act(async () => { jest.advanceTimersByTime(ms); });
 };
@@ -86,7 +92,8 @@ const esgotar = async () => {
   tocar('Nova mão');
   await passar(20500);
 };
-const assento = (nome) => within(screen.getByRole('dialog')).getByRole('button', { name: nome });
+const assento = (nome) => within(document.querySelector('.rm-mesa-area')).getByRole('button', { name: nome });
+const assentos = () => document.querySelectorAll('.rm-assento');
 const envios = () => api.post.mock.calls.filter(([url]) => url.endsWith('/cards'));
 const semRede = () => Object.assign(new Error('rede'), { userMessage: 'Sem conexão' });
 
@@ -150,12 +157,78 @@ describe('carga', () => {
   });
 });
 
-describe('contagem', () => {
-  it('parado não mostra zero: pareceria que o tempo acabou', async () => {
+describe('a mesa desenhada', () => {
+  it('desenha todos os lugares da mesa, vazios inclusive', async () => {
     await montar();
-    expect(digitos()).toHaveTextContent('--');
+    expect(assentos()).toHaveLength(9);
+    expect(assento(/^3/)).toHaveTextContent('Ana');
+    expect(assento(/^1/)).toHaveTextContent('Livre');
   });
 
+  it('o apelido vale mais que o nome', async () => {
+    await montar();
+    expect(assento(/^7/)).toHaveTextContent('Betão');
+  });
+
+  it('cada assento mostra os cartões que restam', async () => {
+    await montar();
+    expect(assento(/Ana/)).toHaveTextContent('Cartões: 2');
+  });
+
+  it('assento bloqueado pelo floor aparece assim', async () => {
+    await montar({ table: { ...ESTADO.table, blocked_seats: [5] } });
+    expect(assento(/^5/)).toHaveTextContent('Bloqueado');
+  });
+
+  it('sem time bank, a mesa mostra os nomes e nenhum cartão', async () => {
+    await montar({ time_bank: { available: false, reason: 'desligado' } });
+    expect(assento(/Ana/)).not.toHaveTextContent('Cartões');
+  });
+
+  it('parado, o centro mostra o tempo do nível e os blinds', async () => {
+    const servidor = Date.now() / 1000 + 100;
+    await montar({ timer: { ...ESTADO.timer, server_time: servidor, level_ends_at: servidor + 578 } });
+    expect(digitos()).toBeNull();
+    expect(centro()).toHaveTextContent('9:38');
+    expect(centro()).toHaveTextContent('Nível 2');
+    expect(centro()).toHaveTextContent('200/400');
+  });
+
+  it('o tempo do nível corre pelo relógio do servidor', async () => {
+    const servidor = Date.now() / 1000 + 100;
+    await montar({ timer: { ...ESTADO.timer, server_time: servidor, level_ends_at: servidor + 578 } });
+    await passar(2000);
+    expect(centro()).toHaveTextContent('9:36');
+  });
+
+  it('pausado, o tempo do nível fica parado no que restava', async () => {
+    await montar({ timer: { ...ESTADO.timer, is_paused: true, time_remaining: 300 } });
+    await passar(3000);
+    expect(centro()).toHaveTextContent('5:00');
+  });
+
+  it('no intervalo o centro diz que é intervalo', async () => {
+    await montar({ timer: { ...ESTADO.timer, is_break: true } });
+    expect(centro()).toHaveTextContent('Intervalo');
+  });
+
+  it('fora da escolha, tocar no assento não gasta cartão', async () => {
+    await montar();
+    tocar('Nova mão');
+    expect(assento(/Ana/)).toBeDisabled();
+    fireEvent.click(assento(/Ana/));
+    await passar(0);
+    expect(envios()).toHaveLength(0);
+  });
+
+  it('o dealer não tem como eliminar nem trocar jogador de mesa', async () => {
+    await montar();
+    await esgotar();
+    expect(screen.queryByRole('button', { name: /Eliminar|Trocar/ })).toBeNull();
+  });
+});
+
+describe('contagem', () => {
   it('nova mão começa no tempo do pré-flop e desce', async () => {
     await montar();
     tocar('Nova mão');
@@ -221,9 +294,8 @@ describe('tempo esgotado', () => {
   it('pede o assento de quem vai usar o cartão', async () => {
     await montar();
     await esgotar();
-    const janela = screen.getByRole('dialog');
-    expect(janela).toHaveTextContent('Ana');
-    expect(janela).toHaveTextContent('Betão');
+    expect(pergunta()).toHaveTextContent('Quem vai usar o cartão?');
+    expect(assento(/Ana/)).toBeEnabled();
   });
 
   it('o cartão soma o tempo, desconta e vai ao servidor', async () => {
@@ -231,7 +303,7 @@ describe('tempo esgotado', () => {
     await esgotar();
     fireEvent.click(assento(/Ana/));
     expect(digitos()).toHaveTextContent('30');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(pergunta()).toBeNull();
     await passar(0);
     expect(envios()).toHaveLength(1);
     expect(envios()[0][0]).toBe('/table-clock/table/m1/cards');
@@ -245,21 +317,27 @@ describe('tempo esgotado', () => {
     expect(assento(/Betão/)).toBeDisabled();
   });
 
+  it('lugar vazio não pode ser escolhido', async () => {
+    await montar();
+    await esgotar();
+    expect(assento(/^1/)).toBeDisabled();
+  });
+
   it('chegou ao máximo da decisão: ninguém mais pode usar', async () => {
     await montar({ settings: { ...ESTADO.settings, max_cards_per_decision: 1 } });
     await esgotar();
     fireEvent.click(assento(/Ana/));
     tocar('Time bank');
     expect(assento(/Ana/)).toBeDisabled();
-    expect(screen.getByRole('dialog')).toHaveTextContent('máximo');
+    expect(pergunta()).toHaveTextContent('máximo');
   });
 
   it('sem usar cartão, o floor decide: a tela não mata a mão', async () => {
     await montar();
     await esgotar();
     tocar('Chamar o floor');
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(digitos()).toHaveTextContent('--');
+    expect(pergunta()).toBeNull();
+    expect(digitos()).toBeNull();
     expect(api.post).not.toHaveBeenCalled();
   });
 
@@ -272,12 +350,12 @@ describe('tempo esgotado', () => {
     expect(digitos()).toHaveTextContent('45');
   });
 
-  it('com o tempo correndo, a escolha mostra a contagem', async () => {
+  it('com o tempo correndo, a contagem continua à vista na escolha', async () => {
     await montar();
     tocar('Nova mão');
     await passar(5000);
     tocar('Time bank');
-    expect(document.querySelector('.rm-escolha-tempo')).toHaveTextContent('15');
+    expect(digitos()).toHaveTextContent('15');
   });
 
   it('fechar a escolha sem usar não gasta nada', async () => {
@@ -285,7 +363,7 @@ describe('tempo esgotado', () => {
     tocar('Nova mão');
     tocar('Time bank');
     tocar('Voltar');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(pergunta()).toBeNull();
     expect(api.post).not.toHaveBeenCalled();
   });
 });
@@ -298,8 +376,7 @@ describe('rede fora', () => {
     fireEvent.click(assento(/Ana/));
     await passar(0);
     expect(lerFila()).toHaveLength(1);
-    tocar('Time bank');
-    expect(assento(/Ana/)).toHaveTextContent('1');
+    expect(assento(/Ana/)).toHaveTextContent('Cartões: 1');
     expect(toast.error).not.toHaveBeenCalled();
   });
 
@@ -358,7 +435,7 @@ describe('rede fora', () => {
 });
 
 describe('desfazer', () => {
-  it('avisa quem usou e quanto sobrou', async () => {
+  it('avisa quem usou', async () => {
     await montar();
     await esgotar();
     fireEvent.click(assento(/Ana/));
@@ -372,7 +449,7 @@ describe('desfazer', () => {
     await passar(0);
     await act(async () => { tocar('Desfazer'); });
     expect(api.post).toHaveBeenCalledWith('/table-clock/events/ev1/undo');
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(pergunta()).not.toBeNull();
   });
 
   it('sem rede, o cartão ainda não enviado só sai da fila', async () => {
@@ -409,7 +486,7 @@ describe('quando o relógio não pode rodar', () => {
     tocar('Nova mão');
     estado = { ...estado, timer: { ...ESTADO.timer, is_break: true } };
     await act(carregar);
-    expect(digitos()).toHaveTextContent('--');
+    expect(digitos()).toBeNull();
     expect(document.querySelector('.rm-tela')).not.toHaveClass('rm-tela--urgente');
   });
 
@@ -440,10 +517,20 @@ describe('torneio sem time bank', () => {
     expect(screen.queryByRole('button', { name: 'Time bank' })).toBeNull();
   });
 
+  it('a mesa continua desenhada, só com os números', async () => {
+    await montar(SEM_BANCO);
+    expect(assentos()).toHaveLength(9);
+  });
+
+  it('não diz que os lugares estão livres: o sistema só não sabe quem está sentado', async () => {
+    await montar(SEM_BANCO);
+    expect(document.querySelector('.rm-mesa-area')).not.toHaveTextContent('Livre');
+  });
+
   it('tempo esgotado só manda chamar o floor', async () => {
     await montar(SEM_BANCO);
     await esgotar();
-    expect(screen.getByRole('dialog')).toHaveTextContent('Chame o floor');
+    expect(pergunta()).toHaveTextContent('Chame o floor');
     expect(screen.getByRole('button', { name: 'Chamar o floor' })).toBeInTheDocument();
   });
 });
@@ -463,11 +550,11 @@ describe('o aparelho', () => {
     expect(screen.getByRole('button', { name: 'Nova mão' })).toBeEnabled();
   });
 
-  it('espelhar mostra os números também para o outro lado da mesa', async () => {
+  it('espelhar mostra a contagem também para o outro lado da mesa', async () => {
     await montar();
-    expect(document.querySelector('.rm-digitos--invertido')).toBeNull();
     fireEvent.click(screen.getByLabelText('Espelhar'));
-    expect(document.querySelector('.rm-digitos--invertido')).not.toBeNull();
+    tocar('Nova mão');
+    expect(document.querySelector('.rm-digitos--invertido')).toHaveTextContent('20');
   });
 
   it('a escolha fica guardada no aparelho', async () => {

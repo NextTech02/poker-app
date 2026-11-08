@@ -194,7 +194,10 @@ class TableClockService:
         banco = TableClockService._banco(config, torneio)
         return {
             "table": {
-                "id": mesa["id"], "table_number": mesa.get("table_number"), "seats": mesa.get("seats"),
+                "id": mesa["id"],
+                "table_number": mesa.get("table_number"),
+                "seats": mesa.get("seats"),
+                "blocked_seats": mesa.get("blocked_seats") or [],
             },
             "day": {
                 "id": day_id,
@@ -214,11 +217,15 @@ class TableClockService:
                 "ante": blind.get("ante"),
                 "level_ends_at": status.get("current_level_ends_at"),
                 "server_time": status.get("server_time"),
+                # Pausado não há fim do nível: é o que o centro da mesa mostra.
+                "time_remaining": status.get("time_remaining_current_level"),
             },
             "time_bank": banco,
+            # A mesa desenhada mostra quem está sentado mesmo sem cartões. Na
+            # eliminação em massa a lista estaria velha, então não sai.
             "seats": TableClockService._assentos(
                 table_id, day_id, config, blinds, status.get("current_level") or 1,
-            ) if banco["available"] else [],
+            ) if banco["reason"] != MOTIVO_ELIMINACAO_EM_MASSA else [],
         }
 
     # ── Cartões ──

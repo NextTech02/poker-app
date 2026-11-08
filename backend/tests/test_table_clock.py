@@ -50,6 +50,7 @@ def _status(nivel=1, exibido=1, intervalo=False, pausado=False):
         "current_blind": {**BLINDS[nivel - 1], "is_break": intervalo},
         "current_level_ends_at": 1000.0,
         "server_time": 900.0,
+        "time_remaining_current_level": 100,
     }
 
 
@@ -244,11 +245,23 @@ class TestEstadoDaMesa:
         assert estado["time_bank"] == {"available": False, "reason": "eliminacao_em_massa"}
         assert estado["seats"] == []
 
-    def test_banco_desligado_nao_lista_assentos(self, cenario):
+    def test_banco_desligado_ainda_mostra_quem_esta_na_mesa(self, cenario):
+        """A mesa desenhada no tablet precisa dos nomes com ou sem cartões."""
         cenario.store["table_clock_settings"][0]["time_bank_enabled"] = False
         estado = S.estado_da_mesa(MESA)
         assert estado["time_bank"] == {"available": False, "reason": "desligado"}
-        assert estado["seats"] == []
+        assert [a["name"] for a in estado["seats"]] == ["Ana"]
+
+    def test_entrega_os_assentos_bloqueados(self, cenario):
+        cenario.store["tournament_tables"][0]["blocked_seats"] = [4, 9]
+        assert S.estado_da_mesa(MESA)["table"]["blocked_seats"] == [4, 9]
+
+    def test_mesa_sem_bloqueio_vem_com_lista_vazia(self, cenario):
+        assert S.estado_da_mesa(MESA)["table"]["blocked_seats"] == []
+
+    def test_entrega_o_tempo_do_nivel_para_o_relogio_pausado(self, cenario):
+        """Pausado não há fim do nível: sem o tempo restante, o centro da mesa ficaria vazio."""
+        assert S.estado_da_mesa(MESA)["timer"]["time_remaining"] == 100
 
     def test_eliminado_ainda_sentado_nao_aparece(self, cenario):
         cenario.store["tournament_players"][0]["status"] = "eliminated"
