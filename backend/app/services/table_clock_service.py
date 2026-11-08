@@ -132,15 +132,25 @@ class TableClockService:
     # ── Tablet do dealer ──
 
     @staticmethod
-    def dias_abertos() -> List[dict]:
-        linhas = supabase.table("tournament_days") \
-            .select("id, day_name, status, tournament_id, tournaments(name)") \
-            .in_("status", ["active", "pending"]).order("created_at", desc=True) \
-            .limit(LIMITE_DE_DIAS_NA_LISTA).execute().data or []
+    def dias_abertos(stage_id: Optional[str] = None) -> List[dict]:
+        """Dias abertos para o tablet. Com a etapa selecionada no app (X-Stage-ID),
+        só os torneios dela: o salão roda várias etapas e a lista misturava todas."""
+        query = supabase.table("tournament_days") \
+            .select("id, day_name, status, tournament_id, created_at, tournaments(name)") \
+            .in_("status", ["active", "pending"])
+        if stage_id:
+            torneios = supabase.table("tournaments").select("id") \
+                .eq("stage_id", stage_id).execute().data or []
+            if not torneios:
+                return []
+            query = query.in_("tournament_id", [t["id"] for t in torneios])
+        linhas = query.order("created_at", desc=True).limit(LIMITE_DE_DIAS_NA_LISTA).execute().data or []
         return [
             {
                 "id": linha["id"],
                 "day_name": linha.get("day_name"),
+                "status": linha.get("status"),
+                "created_at": linha.get("created_at"),
                 "tournament_id": linha.get("tournament_id"),
                 "tournament_name": (linha.get("tournaments") or {}).get("name"),
             }

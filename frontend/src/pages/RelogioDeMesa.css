@@ -41,6 +41,16 @@
   font-weight: 600;
 }
 
+.rcm-etapa {
+  max-width: 320px;
+}
+
+.rcm-voltar {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  color: var(--text-secondary);
+}
+
 .rcm-links {
   display: flex;
   flex-wrap: wrap;

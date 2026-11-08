@@ -76,6 +76,7 @@ def cenario(monkeypatch):
     fake = FakeSupabase({
         "tournaments": [{
             "id": TORNEIO, "name": "Main Event", "organization_id": ORG, "elimination_mode": "table",
+            "stage_id": "etapa-1",
         }],
         "tournament_tables": [{
             "id": MESA, "tournament_day_id": DIA, "table_number": 5, "seats": 9, "status": "active",
@@ -186,6 +187,29 @@ class TestDiasAbertos:
 
     def test_traz_o_nome_do_torneio(self, cenario):
         assert S.dias_abertos()[0]["tournament_name"] == "Main Event"
+
+    def test_diz_se_o_dia_ja_comecou(self, cenario):
+        """O tablet mostra "em andamento" ou "ainda não começou" ao lado do dia."""
+        assert S.dias_abertos()[0]["status"] == "active"
+
+    def _outra_etapa(self, cenario):
+        cenario.store["tournaments"].append({"id": "torneio-2", "name": "Turbo", "stage_id": "etapa-2"})
+        cenario.store["tournament_days"].append({
+            "id": "dia-9", "tournament_id": "torneio-2", "day_name": "Dia 1", "status": "active",
+            "tournaments": {"name": "Turbo"},
+        })
+
+    def test_com_etapa_so_lista_os_dias_dela(self, cenario):
+        self._outra_etapa(cenario)
+        assert [d["id"] for d in S.dias_abertos("etapa-1")] == [DIA]
+        assert [d["id"] for d in S.dias_abertos("etapa-2")] == ["dia-9"]
+
+    def test_sem_etapa_lista_todas(self, cenario):
+        self._outra_etapa(cenario)
+        assert sorted(d["id"] for d in S.dias_abertos()) == sorted([DIA, "dia-9"])
+
+    def test_etapa_sem_torneio_nao_lista_nada(self, cenario):
+        assert S.dias_abertos("etapa-vazia") == []
 
 
 class TestEstadoDaMesa:
@@ -473,6 +497,13 @@ class TestRotas:
             staticmethod(lambda uid: MyPermissions(is_admin=False, permissions=["cashier"])),
         )
         assert client.get(f"/table-clock/table/{MESA}").status_code == 403
+
+    def test_lista_de_dias_usa_a_etapa_do_cabecalho(self, client, stub):
+        pedidos = []
+        stub(S, dias_abertos=lambda stage_id=None: pedidos.append(stage_id) or [])
+        client.get("/table-clock/days", headers={"X-Stage-ID": "etapa-1"})
+        client.get("/table-clock/days")
+        assert pedidos == ["etapa-1", None]
 
     def test_a_chave_nova_esta_na_lista_de_permissoes(self):
         from app.services.staff_service import ALL_PERMISSIONS
