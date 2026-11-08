@@ -3196,7 +3196,8 @@
     "allAreas": "Todos",
     "noResults": "Nenhum vídeo encontrado para essa busca.",
     "close": "Fechar",
-    "subtitles": "Legendas"
+    "subtitles": "Legendas",
+    "chapters": "Capítulos"
   },
   "security": {
     "title": "Segurança da conta",

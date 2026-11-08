@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -83,6 +83,16 @@ const Suporte = () => {
 
   const arquivos = aberto ? arquivosDoVideo(aberto, idioma) : null;
   const idiomaAberto = aberto ? idiomaDoVideo(aberto, idioma) : idioma;
+  // O treinamento passa de uma hora: os capítulos são o índice dele.
+  const capitulos = aberto?.capitulos?.[idiomaAberto] || [];
+  const videoRef = useRef(null);
+  const irPara = (inicio) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = inicio;
+    const tocando = video.play?.();
+    if (tocando?.catch) tocando.catch(() => {});
+  };
 
   return (
     <div className="app-container">
@@ -191,7 +201,8 @@ const Suporte = () => {
                   <source> não faz o navegador recarregar. */}
               <video
                 key={`${aberto.id}-${idiomaAberto}`}
-                className="suporte-video"
+                ref={videoRef}
+                className={`suporte-video${capitulos.length ? ' suporte-video--com-capitulos' : ''}`}
                 controls
                 autoPlay
                 playsInline
@@ -207,6 +218,21 @@ const Suporte = () => {
                   label={t('support.subtitles', 'Legendas')}
                 />
               </video>
+              {capitulos.length > 0 && (
+                <nav className="suporte-capitulos" aria-label={t('support.chapters', 'Capítulos')}>
+                  {capitulos.map((capitulo) => (
+                    <button
+                      key={capitulo.inicio}
+                      type="button"
+                      className="suporte-capitulo"
+                      onClick={() => irPara(capitulo.inicio)}
+                    >
+                      <span className="suporte-capitulo-tempo">{formatarDuracao(capitulo.inicio)}</span>
+                      <span>{capitulo.titulo}</span>
+                    </button>
+                  ))}
+                </nav>
+              )}
             </div>
           </div>
         )}

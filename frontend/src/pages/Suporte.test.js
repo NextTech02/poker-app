@@ -2,7 +2,7 @@
  * SUPORTE: mostra os vídeos do idioma do app, abre pelo link direto e, sem
  * catálogo publicado, avisa que os vídeos estão a caminho em vez de quebrar.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Suporte from './Suporte';
@@ -36,7 +36,10 @@ const CATALOGO = {
     { id: 'bar', titulo: { 'pt-BR': 'Bar', 'en-US': 'Bar' } },
   ],
   videos: [
-    { id: 'treinamento-completo', tipo: 'treinamento', titulo: { 'pt-BR': 'Treinamento do sistema' }, duracao: { 'pt-BR': 2400 } },
+    {
+      id: 'treinamento-completo', tipo: 'treinamento', titulo: { 'pt-BR': 'Treinamento do sistema' }, duracao: { 'pt-BR': 2400 },
+      capitulos: { 'pt-BR': [{ titulo: 'Primeiros passos', inicio: 4.2 }, { titulo: 'Bar', inicio: 1530 }] },
+    },
     { id: 'caixa-venda', area: 'caixa', titulo: { 'pt-BR': 'Registrar venda', 'en-US': 'Record a sale' }, duracao: { 'pt-BR': 92, 'en-US': 88 } },
     { id: 'bar-comanda', area: 'bar', titulo: { 'pt-BR': 'Abrir comanda', 'en-US': 'Open a tab' }, duracao: { 'pt-BR': 70, 'en-US': 66 } },
   ],
@@ -95,6 +98,26 @@ it('abre o player ao clicar e fecha pelo botão', async () => {
 
   await usuario.click(screen.getByRole('button', { name: 'Fechar' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+});
+
+it('o treinamento mostra os capítulos, e cada um leva ao seu ponto do vídeo', async () => {
+  const usuario = userEvent.setup();
+  const tocar = jest.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+  abrirTela('/suporte?video=treinamento-completo');
+  const indice = await screen.findByRole('navigation', { name: 'Capítulos' });
+  expect(indice).toHaveTextContent('0:04');
+  expect(indice).toHaveTextContent('25:30');
+
+  await usuario.click(within(indice).getByRole('button', { name: /Bar/ }));
+  expect(document.querySelector('video').currentTime).toBe(1530);
+  expect(tocar).toHaveBeenCalled();
+  tocar.mockRestore();
+});
+
+it('vídeo curto não mostra índice de capítulos', async () => {
+  abrirTela('/suporte?video=caixa-venda');
+  await screen.findByRole('dialog', { name: 'Registrar venda' });
+  expect(screen.queryByRole('navigation', { name: 'Capítulos' })).not.toBeInTheDocument();
 });
 
 it('link para um vídeo que não existe mais não abre o player', async () => {

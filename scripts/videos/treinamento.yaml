@@ -1,0 +1,42 @@
+# Treinamento completo: os vídeos curtos em capítulos, na ordem em que um clube
+# usa o sistema. `treinamento.py` monta um vídeo por idioma; id ausente em
+# saida/final é pulado com aviso.
+id: treinamento-completo
+tipo: treinamento
+titulo:
+  pt-BR: "Treinamento completo do AceBlind"
+  en-US: "AceBlind complete training"
+  es-ES: "Capacitación completa de AceBlind"
+descricao:
+  pt-BR: "Do primeiro acesso ao fechamento do mês: torneios, caixa, cash game, bar e gestão do clube, em capítulos."
+  en-US: "From your first sign-in to the month-end close: tournaments, cashier, cash game, bar and club management, in chapters."
+  es-ES: "Del primer ingreso al cierre del mes: torneos, caja, cash game, bar y gestión del club, en capítulos."
+abertura:
+  pt-BR: "Bem-vindo ao treinamento do AceBlind. Ele segue a rotina de um clube, do primeiro acesso ao fechamento. Use os capítulos para ir direto ao que precisa."
+  en-US: "Welcome to the AceBlind training. It follows a club's routine, from the first sign-in to the close. Use the chapters to jump to what you need."
+  es-ES: "Bienvenido a la capacitación de AceBlind. Sigue la rutina de un club, desde el primer ingreso hasta el cierre. Usa los capítulos para ir directo a lo que necesitas."
+encerramento:
+  pt-BR: "Fim do treinamento. Cada tema também está nos vídeos curtos da tela de Suporte."
+  en-US: "That's the end of the training. Every topic is also in the short videos on the Support screen."
+  es-ES: "Fin de la capacitación. Cada tema también está en los videos cortos de la pantalla de Soporte."
+capitulos:
+  - titulo: {pt-BR: "Primeiros passos", en-US: "Getting started", es-ES: "Primeros pasos"}
+    videos: [conta-entrar-no-sistema, conta-trocar-modulo-idioma, conta-verificacao-duas-etapas, conta-modo-offline]
+  - titulo: {pt-BR: "Montando um torneio", en-US: "Setting up a tournament", es-ES: "Cómo armar un torneo"}
+    videos: [torneios-criar-etapa, torneios-criar-torneio, torneios-meios-de-entrada, torneios-dias, torneios-blinds, torneios-templates-blinds, torneios-bilhete]
+  - titulo: {pt-BR: "Vendendo no caixa", en-US: "Selling at the cash register", es-ES: "Vender en la caja"}
+    videos: [caixa-abrir-fechar-caixa, caixa-registrar-venda, caixa-pagamento-dividido, caixa-reimprimir-trocar-pagamento, caixa-cancelar-venda, caixa-limite-jogador, caixa-tickets]
+  - titulo: {pt-BR: "Torneio em andamento", en-US: "Running the tournament", es-ES: "Torneo en curso"}
+    videos: [torneios-mesas-alocar, torneios-controle-relogio, torneios-telao, torneios-telao-tv, torneios-eliminar-jogador, torneios-ko-pko-mystery, torneios-fichas-classificados, torneios-equipes, torneios-equipes-pontos-final]
+  - titulo: {pt-BR: "Premiação e fechamento", en-US: "Prizes and closing", es-ES: "Premios y cierre"}
+    videos: [torneios-premiacao, caixa-geral-sangria]
+  - titulo: {pt-BR: "Cash game", en-US: "Cash game", es-ES: "Cash game"}
+    videos: [cash-modalidades, cash-abrir-dia-mesas, cash-sentar-jogador, cash-recompra-levantar, cash-fila-espera, cash-rake-fechar-mesa, cash-jackpot, cash-sangeur, cash-encerrar-dia, cash-relatorios]
+  - titulo: {pt-BR: "Fiado", en-US: "House credit", es-ES: "Fiado"}
+    videos: [fiado-configurar, fiado-vender-abater, fiado-baixa-estorno]
+  - titulo: {pt-BR: "Bar", en-US: "Bar", es-ES: "Bar"}
+    videos: [bar-produtos-estoque, bar-turnos, bar-abrir-comanda, bar-pedidos, bar-receber-comanda, bar-desconto-cortesia-estorno, bar-relatorios]
+  - titulo: {pt-BR: "Jogadores", en-US: "Players", es-ES: "Jugadores"}
+    videos: [jogadores-cadastrar, jogadores-importar, jogadores-detalhe-historico]
+  - titulo: {pt-BR: "Gestão do clube", en-US: "Club management", es-ES: "Gestión del club"}
+    videos: [equipe-convidar, equipe-grupos-permissoes, equipe-acessos-pagamentos, financeiro-dre, financeiro-despesas, financeiro-metodos-pagamento, relatorios-exportar]

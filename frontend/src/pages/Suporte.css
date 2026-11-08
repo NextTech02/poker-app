@@ -187,6 +187,44 @@
   background: #000;
 }
 
+.suporte-video--com-capitulos {
+  max-height: 62vh;
+}
+
+.suporte-capitulos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 20vh;
+  overflow-y: auto;
+  padding: 14px 18px 18px;
+}
+
+.suporte-capitulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--surface-hi-border);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.suporte-capitulo:hover,
+.suporte-capitulo:focus-visible {
+  border-color: var(--accent-hover);
+  background: var(--accent-soft);
+}
+
+.suporte-capitulo-tempo {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 720px) {
   .suporte-cartao--destaque {
     flex-direction: column;

@@ -3196,7 +3196,8 @@
     "allAreas": "Todos",
     "noResults": "No se encontraron videos para esta búsqueda.",
     "close": "Cerrar",
-    "subtitles": "Subtítulos"
+    "subtitles": "Subtítulos",
+    "chapters": "Capítulos"
   },
   "security": {
     "title": "Seguridad de la cuenta",

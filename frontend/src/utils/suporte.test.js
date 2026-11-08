@@ -82,6 +82,7 @@ it('formata a duração em minutos e segundos', () => {
   expect(formatarDuracao(92.4)).toBe('1:32');
   expect(formatarDuracao(5)).toBe('0:05');
   expect(formatarDuracao(2400)).toBe('40:00');
+  expect(formatarDuracao(3725)).toBe('1:02:05');
   expect(formatarDuracao(undefined)).toBe('');
 });
 

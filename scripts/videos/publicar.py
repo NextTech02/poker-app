@@ -44,6 +44,21 @@ def montar_catalogo() -> dict:
                 "descricao": roteiro.get("descricao", {}),
                 "duracao": duracao,
             })
+    # O treinamento não tem roteiro: é montado por treinamento.py a partir dos
+    # curtos, e o JSON dele traz o início de cada capítulo.
+    plano = yaml.safe_load((AQUI / "treinamento.yaml").read_text(encoding="utf-8"))
+    duracao, capitulos = {}, {}
+    for idioma in IDIOMAS:
+        dados = FINAL / idioma / f"{plano['id']}.json"
+        if dados.exists():
+            conteudo = json.loads(dados.read_text(encoding="utf-8"))
+            duracao[idioma] = conteudo["duracao"]
+            capitulos[idioma] = conteudo["capitulos"]
+    if duracao:
+        videos.insert(0, {
+            "id": plano["id"], "tipo": "treinamento", "area": None, "titulo": plano["titulo"],
+            "descricao": plano["descricao"], "duracao": duracao, "capitulos": capitulos,
+        })
     return {"versao": 1, "areas": areas, "videos": videos}
 
 
@@ -74,6 +89,7 @@ def main() -> None:
         for idioma in IDIOMAS
         for arquivo in sorted((FINAL / idioma).glob("*"))
         if arquivo.suffix in (".mp4", ".vtt", ".jpg") and arquivo.stem in publicados
+        and not arquivo.stem.startswith("_")
     ]
     total = sum(a.stat().st_size for a in arquivos)
     print(f"{len(catalogo['videos'])} vídeos, {len(arquivos)} arquivos, {total / 1e6:.1f} MB")
