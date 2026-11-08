@@ -1,0 +1,114 @@
+id: caixa-tickets
+area: caixa
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa/tickets
+preparar: caixa:tickets
+titulo:
+  pt-BR: "Como usar os tickets de torneio"
+  en-US: "How to use tournament tickets"
+  es-ES: "Cómo usar los tickets de torneo"
+descricao:
+  pt-BR: "Cadastrar, transferir, resgatar e pagar a entrada com ticket."
+  en-US: "Register, transfer, redeem and pay an entry with a ticket."
+  es-ES: "Registrar, transferir, canjear y pagar la entrada con ticket."
+passos:
+  - fala:
+      pt-BR: "Um ticket é uma vaga ganha para um torneio. Aqui você vê quantos estão disponíveis e quantos foram resgatados."
+      en-US: "A ticket is a seat won for a tournament. Here you see how many are available and how many were redeemed."
+      es-ES: "Un ticket es una plaza ganada para un torneo. Aquí ves cuántos están disponibles y cuántos se canjearon."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Para registrar um, clique em Cadastrar Ticket."
+      en-US: "To add one, click Register Ticket."
+      es-ES: "Para agregar uno, haz clic en Registrar Ticket."
+    acoes:
+      - clicar: {css: ".st-header-actions button", t: satelliteTickets.registerTicket}
+  - fala:
+      pt-BR: "Escolha o jogador e o torneio alvo. O valor do ticket é o buy-in do dia."
+      en-US: "Choose the player and the target tournament. The ticket value is the day's buy-in."
+      es-ES: "Elige el jugador y el torneo objetivo. El valor del ticket es el buy-in del día."
+    acoes:
+      - digitar: {css: ".modal .player-select-input", valor: "{dono}"}
+      - clicar: {css: ".modal li.player-select-option"}
+      - escolher: {css: ".modal form select", rotulo_opcao: "{nome_torneio}"}
+      - destacar: {css: ".st-info-box"}
+        segundos: 1.4
+  - fala:
+      pt-BR: "Informe onde foi ganho e quem financia. Depois, clique em Cadastrar Ticket."
+      en-US: "Enter where it was won and who funds it. Then click Register Ticket."
+      es-ES: "Indica dónde se ganó y quién lo financia. Luego haz clic en Registrar Ticket."
+    acoes:
+      - digitar: {css: ".modal input[maxlength='200']", valor: "{onde_ganhou}"}
+      - digitar: {css: ".modal input[maxlength='120']", valor: "{financiador}"}
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".toast"}
+  - fala:
+      pt-BR: "Para passar o ticket a outro jogador, clique em Transferir ou Vender."
+      en-US: "To pass the ticket to another player, click Transfer or Sell."
+      es-ES: "Para pasar el ticket a otro jugador, haz clic en Transferir o Vender."
+    acoes:
+      - pausa: 1.8
+      - clicar: {css: ".transactions-table tbody tr:first-child .st-action-btn"}
+  - fala:
+      pt-BR: "Escolha o novo dono. Se houve venda, informe o valor. Se não, deixe em zero."
+      en-US: "Choose the new owner. If it was a sale, enter the amount. If not, leave it at zero."
+      es-ES: "Elige el nuevo dueño. Si hubo venta, indica el valor. Si no, déjalo en cero."
+    acoes:
+      - digitar: {css: ".modal .player-select-input", valor: "{novo_dono}"}
+      - clicar: {css: ".modal li.player-select-option"}
+      - destacar: {css: ".modal input[type=number]"}
+        segundos: 1.6
+  - fala:
+      pt-BR: "Confirme. Quem financia continua o mesmo."
+      en-US: "Confirm. Whoever funds it stays the same."
+      es-ES: "Confirma. Quien lo financia sigue siendo el mismo."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".toast"}
+  - fala:
+      pt-BR: "Para usar um ticket aqui mesmo, clique em Resgatar Ticket e selecione qual."
+      en-US: "To use a ticket right here, click Redeem Ticket and select which one."
+      es-ES: "Para usar un ticket aquí mismo, haz clic en Canjear Ticket y selecciona cuál."
+    acoes:
+      - clicar: {css: ".st-header-actions button", t: satelliteTickets.redeemTicket}
+      - esperar: {css: ".modal form select"}
+      - escolher: {css: ".modal form select", opcao: "{ticket_resgate}"}
+  - fala:
+      pt-BR: "Clique em Resgatar. O jogador entra no torneio, e o bilhete sai com a mesa e o assento."
+      en-US: "Click Redeem. The player enters the tournament, and the ticket comes out with the table and seat."
+      es-ES: "Haz clic en Canjear. El jugador entra al torneo, y el boleto sale con la mesa y el asiento."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".btn-print-ticket"}
+  - fala:
+      pt-BR: "O ticket também paga a entrada direto no Caixa. Na Nova Transação, escolha o torneio, o jogador e o Buy-in."
+      en-US: "A ticket can also pay the entry right at the register. In New Transaction, choose the tournament, the player and the Buy-in."
+      es-ES: "El ticket también paga la entrada directo en la caja. En Nueva Transacción, elige el torneo, el jugador y el Buy-in."
+    acoes:
+      - ir: /caixa
+      - clicar: {papel: button, t: cashRegister.newTransaction}
+      - escolher: {css: "#tournament_id", rotulo_opcao: "{nome_torneio}"}
+      - digitar: {css: ".player-select-input", valor: "{jogador_caixa}"}
+      - clicar: {css: "li.player-select-option"}
+      - clicar: {css: ".cx-buytype-option", texto: "Buy-in"}
+      - esperar: {css: ".cx-ticket-option"}
+  - fala:
+      pt-BR: "Marque Pagar a entrada com ticket de satélite. Não sobra nada a cobrar."
+      en-US: "Check Pay the entry with a satellite ticket. There is nothing left to charge."
+      es-ES: "Marca Pagar la entrada con ticket de satélite. No queda nada por cobrar."
+    acoes:
+      - clicar: {css: ".cx-ticket-option .pd-alternar"}
+      - destacar: {css: ".cx-ticket-option"}
+        segundos: 2.2
+  - fala:
+      pt-BR: "Clique em Registrar. O bilhete mostra que a entrada foi paga com ticket."
+      en-US: "Click Register. The ticket shows the entry was paid with a ticket."
+      es-ES: "Haz clic en Registrar. El boleto muestra que la entrada se pagó con ticket."
+    acoes:
+      - clicar: {css: "form button[type=submit]"}
+      - esperar: {css: ".btn-print-ticket"}
+      - pausa: 1.0

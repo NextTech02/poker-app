@@ -1,0 +1,86 @@
+id: caixa-cancelar-venda
+area: caixa
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa
+preparar: caixa:cancelar
+titulo:
+  pt-BR: "Como cancelar uma venda"
+  en-US: "How to cancel a sale"
+  es-ES: "Cómo cancelar una venta"
+descricao:
+  pt-BR: "O motivo e o que acontece com os valores."
+  en-US: "The reason and what happens to the amounts."
+  es-ES: "El motivo y qué pasa con los montos."
+passos:
+  - fala:
+      pt-BR: "Cancelar uma venda estorna os valores e desfaz o que ela movimentou. Encontre a venda na lista."
+      en-US: "Cancelling a sale reverses the amounts and undoes what it moved. Find the sale in the list."
+      es-ES: "Cancelar una venta revierte los montos y deshace lo que movió. Busca la venta en la lista."
+    acoes:
+      - destacar: {css: ".transactions-table tbody tr:first-child"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Repare no saldo do caixa e nos totais antes de cancelar."
+      en-US: "Note the cashbox balance and the totals before cancelling."
+      es-ES: "Fíjate en el saldo de la caja y en los totales antes de cancelar."
+    acoes:
+      - destacar: {css: ".cashbox-banner__balance"}
+        segundos: 1.4
+      - destacar: {css: ".stats-grid"}
+        segundos: 1.4
+  - fala:
+      pt-BR: "Clique em Cancelar venda. Esse botão só aparece para quem administra o caixa."
+      en-US: "Click Cancel sale. This button only appears for cashbox administrators."
+      es-ES: "Haz clic en Cancelar venta. Este botón solo aparece para quien administra la caja."
+    acoes:
+      - clicar: {css: ".transactions-table tbody tr:first-child .cx-cancel-btn"}
+  - fala:
+      pt-BR: "A tela explica o que acontece: a venda sai do caixa da etapa, do caixa do operador, da premiação e dos pontos de fidelidade."
+      en-US: "The screen explains what happens: the sale leaves the stage cash, the operator's cash, the prize pool and the loyalty points."
+      es-ES: "La pantalla explica qué pasa: la venta sale de la caja de la etapa, de la caja del operador, del prizepool y de los puntos de fidelidad."
+    acoes:
+      - destacar: {css: ".modal-body p"}
+        segundos: 5.0
+  - fala:
+      pt-BR: "Escreva o motivo. Ele é obrigatório."
+      en-US: "Write the reason. It is required."
+      es-ES: "Escribe el motivo. Es obligatorio."
+    acoes:
+      - digitar: {css: "#cancel_reason", valor: "{motivo}"}
+  - fala:
+      pt-BR: "Confirme em Cancelar a venda."
+      en-US: "Confirm with Cancel the sale."
+      es-ES: "Confirma con Cancelar la venta."
+    acoes:
+      - clicar: {papel: button, t: cashRegister.confirmCancelSale}
+      - esperar: {css: ".cx-badge-cancelled"}
+  - fala:
+      pt-BR: "A venda continua na lista, marcada como Cancelada e sem ações. O registro fica para auditoria."
+      en-US: "The sale stays in the list, marked as Cancelled and with no actions. The record is kept for auditing."
+      es-ES: "La venta sigue en la lista, marcada como Cancelada y sin acciones. El registro queda para auditoría."
+    acoes:
+      - destacar: {css: ".transactions-table tbody tr:first-child"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "O valor saiu dos totais e do saldo do caixa, e o assento do jogador foi liberado."
+      en-US: "The amount left the totals and the cashbox balance, and the player's seat was released."
+      es-ES: "El monto salió de los totales y del saldo de la caja, y el asiento del jugador quedó libre."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 1.8
+      - destacar: {css: ".cashbox-banner__balance"}
+        segundos: 1.8
+  - fala:
+      pt-BR: "Venda paga com crédito ou ticket não é cancelada aqui. E um buy-in só é cancelado depois dos rebuys e add-ons do mesmo jogador."
+      en-US: "A sale paid with credit or a ticket cannot be cancelled here. And a buy-in can only be cancelled after the same player's rebuys and add-ons."
+      es-ES: "Una venta pagada con crédito o ticket no se cancela aquí. Y un buy-in solo se cancela después de los rebuys y add-ons del mismo jugador."
+    acoes:
+      - pausa: 0.5
+  - fala:
+      pt-BR: "Se a etapa já teve sangria, a tela lista o que você precisa acertar no Financeiro."
+      en-US: "If the stage already had a sangria, the screen lists what you need to fix under Financial."
+      es-ES: "Si la etapa ya tuvo una sangría, la pantalla lista lo que debes corregir en Financiero."
+    acoes:
+      - pausa: 0.5

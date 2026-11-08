@@ -1,0 +1,75 @@
+id: caixa-reimprimir-trocar-pagamento
+area: caixa
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa
+preparar: caixa:reimprimir
+titulo:
+  pt-BR: "Como reimprimir o bilhete e trocar a forma de pagamento"
+  en-US: "How to reprint a ticket and change the payment method"
+  es-ES: "Cómo reimprimir el boleto y cambiar el método de pago"
+descricao:
+  pt-BR: "As duas correções do dia a dia, direto na lista de vendas."
+  en-US: "The two everyday fixes, right from the sales list."
+  es-ES: "Las dos correcciones del día a día, directo en la lista de ventas."
+passos:
+  - fala:
+      pt-BR: "Cada venda da lista tem as suas ações. Aqui você reimprime o bilhete e troca a forma de pagamento."
+      en-US: "Each sale in the list has its own actions. Here you reprint the ticket and change the payment method."
+      es-ES: "Cada venta de la lista tiene sus acciones. Aquí reimprimes el boleto y cambias el método de pago."
+    acoes:
+      - destacar: {css: ".transactions-table tbody tr:has-text('{jogador_bilhete}')"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Se o jogador perdeu o bilhete ou a impressora falhou, clique em Reimprimir."
+      en-US: "If the player lost the ticket or the printer failed, click Reprint."
+      es-ES: "Si el jugador perdió el boleto o la impresora falló, haz clic en Reimprimir."
+    acoes:
+      - pausa: 2.5
+      - clicar: {css: ".transactions-table tbody tr:has-text('{jogador_bilhete}') .reprint-btn", t: cashRegister.reprint}
+  - fala:
+      pt-BR: "O bilhete abre com a mesa e o assento atuais do jogador."
+      en-US: "The ticket opens with the player's current table and seat."
+      es-ES: "El boleto se abre con la mesa y el asiento actuales del jugador."
+    acoes:
+      - esperar: {css: ".btn-print-ticket"}
+      - destacar: {css: ".seat-ticket"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Agora é só clicar em Imprimir Bilhete."
+      en-US: "Now just click Print Ticket."
+      es-ES: "Ahora solo haz clic en Imprimir Boleto."
+    acoes:
+      - destacar: {css: ".btn-print-ticket"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Se você marcou a forma de pagamento errada, clique em Trocar pagamento."
+      en-US: "If you marked the wrong payment method, click Change payment."
+      es-ES: "Si marcaste el método de pago equivocado, haz clic en Cambiar pago."
+    acoes:
+      - tecla: Escape
+      - pausa: 2.0
+      - clicar: {css: ".transactions-table tbody tr:has-text('{jogador_bilhete}') .reprint-btn", t: cashRegister.changePaymentMethod}
+  - fala:
+      pt-BR: "Escolha a forma certa e clique em Salvar."
+      en-US: "Choose the right method and click Save."
+      es-ES: "Elige el método correcto y haz clic en Guardar."
+    acoes:
+      - escolher: {css: "#new_payment_method", opcao: {pt-BR: "pix", en-US: "card", es-ES: "card"}}
+      - clicar: {papel: button, t: common.save}
+      - esperar: {css: ".toast"}
+  - fala:
+      pt-BR: "Só a forma de pagamento muda. O valor, o caixa e a premiação continuam iguais."
+      en-US: "Only the payment method changes. The amount, the cashbox and the prize pool stay the same."
+      es-ES: "Solo cambia el método de pago. El monto, la caja y el prizepool siguen iguales."
+    acoes:
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Em Caixa Geral, o valor já aparece na forma certa."
+      en-US: "In General Cash, the amount already shows under the right method."
+      es-ES: "En Caja General, el monto ya aparece en el método correcto."
+    acoes:
+      - ir: /caixa-geral
+      - destacar: {css: ".payment-breakdown"}
+        segundos: 3.0

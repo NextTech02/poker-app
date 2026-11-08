@@ -1,0 +1,63 @@
+id: financeiro-metodos-pagamento
+area: financeiro
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /financeiro
+preparar: clube:metodos
+titulo:
+  pt-BR: "Como configurar os métodos de pagamento"
+  en-US: "How to set up payment methods"
+  es-ES: "Cómo configurar los métodos de pago"
+descricao:
+  pt-BR: "Criar, desativar e excluir as formas de pagamento do clube."
+  en-US: "Create, turn off and delete the club's payment methods."
+  es-ES: "Crear, desactivar y eliminar las formas de pago del club."
+passos:
+  - fala:
+      pt-BR: "Em Financeiro, abra a aba Métodos de Pagamento. Os métodos ativos aparecem no Caixa ao registrar transações."
+      en-US: "Under Financial, open the Payment Methods tab. Active methods show up in the Cashier when registering transactions."
+      es-ES: "En Financiero, abre la pestaña Métodos de Pago. Los métodos activos aparecen en la Caja al registrar transacciones."
+    acoes:
+      - clicar: {css: ".fn-tab", t: financial.paymentMethodsTab}
+      - esperar: {css: ".pm-table"}
+      - destacar: {css: ".pm-table"}
+        segundos: 3.6
+  - fala:
+      pt-BR: "Para criar um método, digite o nome e clique em Adicionar."
+      en-US: "To create a method, type the name and click Add."
+      es-ES: "Para crear un método, escribe el nombre y haz clic en Agregar."
+    acoes:
+      - digitar: {css: "#pm-new-name", valor: "{metodo_novo}"}
+      - clicar: {css: ".pm-btn-add"}
+  - fala:
+      pt-BR: "Ele entra na lista já ativo, com um código criado pelo sistema. Para mudar o nome, é só clicar nele."
+      en-US: "It joins the list already active, with a code created by the system. To rename it, just click the name."
+      es-ES: "Entra en la lista ya activo, con un código creado por el sistema. Para cambiar el nombre, solo haz clic en él."
+    acoes:
+      - esperar: {css: ".pm-table tbody tr", texto: "{metodo_novo}"}
+      - destacar: {css: ".pm-table tbody tr", texto: "{metodo_novo}"}
+        segundos: 3.6
+  - fala:
+      pt-BR: "Os métodos marcados como padrão traduzem sozinhos com o idioma."
+      en-US: "Methods marked as default translate automatically with the language."
+      es-ES: "Los métodos marcados como predeterminados se traducen solos con el idioma."
+    acoes:
+      - destacar: {css: ".pm-builtin-tag"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Para parar de oferecer um método, desligue a chave Ativo. Ele some do Caixa, e as transações antigas continuam com o nome certo."
+      en-US: "To stop offering a method, switch Active off. It leaves the Cashier, and old transactions keep the right name."
+      es-ES: "Para dejar de ofrecer un método, apaga el interruptor Activo. Sale de la Caja, y las transacciones antiguas conservan el nombre correcto."
+    acoes:
+      - clicar: {css: ".pm-table tbody tr:has-text('{metodo_novo}') .pm-switch"}
+      - pausa: 1.6
+  - fala:
+      pt-BR: "Para excluir, clique no X e confirme."
+      en-US: "To delete it, click the X and confirm."
+      es-ES: "Para eliminarlo, haz clic en la X y confirma."
+    acoes:
+      - clicar: {css: ".pm-table tbody tr:has-text('{metodo_novo}') .pm-btn-del"}
+      - pausa: 1.0
+      - clicar: {css: ".confirm-btn-danger"}
+      - pausa: 1.2

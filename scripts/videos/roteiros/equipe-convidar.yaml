@@ -1,0 +1,64 @@
+id: equipe-convidar
+area: equipe
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /funcionarios
+preparar: clube:convite
+titulo:
+  pt-BR: "Como convidar um funcionário"
+  en-US: "How to invite an employee"
+  es-ES: "Cómo invitar a un empleado"
+descricao:
+  pt-BR: "O e-mail, o grupo de permissão e o que acontece depois do convite."
+  en-US: "The e-mail, the permission group and what happens after the invite."
+  es-ES: "El correo, el grupo de permisos y lo que pasa después de la invitación."
+passos:
+  - fala:
+      pt-BR: "Em Funcionários, você vê quem faz parte da equipe do clube e o grupo de cada pessoa."
+      en-US: "Under Staff, you see who's on the club's team and each person's group."
+      es-ES: "En Personal, ves quién forma parte del equipo del club y el grupo de cada persona."
+    acoes:
+      - destacar: {css: ".table"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para chamar alguém novo, clique em Novo Funcionário."
+      en-US: "To bring in someone new, click New Employee."
+      es-ES: "Para sumar a alguien nuevo, haz clic en Nuevo Empleado."
+    acoes:
+      - clicar: {css: ".page-header-actions button"}
+  - fala:
+      pt-BR: "Você só informa o e-mail. A pessoa recebe o convite e define o próprio nome e a senha."
+      en-US: "You only enter the e-mail. The person gets the invite and sets their own name and password."
+      es-ES: "Solo escribes el correo. La persona recibe la invitación y define su propio nombre y contraseña."
+    acoes:
+      - digitar: {css: ".func-modal input[type=email]", valor: "{convidado}"}
+      - destacar: {css: ".func-invite-hint"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Escolha o Grupo de Permissão: é ele que define o que a pessoa vê e faz no sistema."
+      en-US: "Choose the Permission Group: it defines what the person sees and does in the system."
+      es-ES: "Elige el Grupo de Permisos: es el que define lo que la persona ve y hace en el sistema."
+    acoes:
+      - escolher: {css: ".func-modal select.form-input", rotulo_opcao: "{grupo_do_convite}"}
+  - fala:
+      pt-BR: "Depois, clique em Enviar convite."
+      en-US: "Then click Send invite."
+      es-ES: "Después, haz clic en Enviar invitación."
+    acoes:
+      - destacar: {css: ".func-modal .modal-footer button", n: 1}
+        segundos: 1.6
+  - fala:
+      pt-BR: "Até definir a senha, a pessoa aparece na lista como Aguarda cadastro. Os links do e-mail expiram: se isso acontecer, clique em Reenviar."
+      en-US: "Until they set a password, the person shows on the list as Awaiting signup. E-mail links expire: if that happens, click Resend."
+      es-ES: "Hasta definir la contraseña, la persona aparece en la lista como Espera registro. Los enlaces del correo caducan: si eso pasa, haz clic en Reenviar."
+    acoes:
+      - clicar: {css: ".func-modal .modal-footer button", n: 0}
+      - destacar: {css: ".table"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Mudou de ideia? Clique em Cancelar convite, e esse e-mail pode ser convidado de novo."
+      en-US: "Changed your mind? Click Cancel invite, and that e-mail can be invited again."
+      es-ES: "¿Cambiaste de idea? Haz clic en Cancelar invitación, y ese correo puede ser invitado de nuevo."
+    acoes:
+      - pausa: 1.0

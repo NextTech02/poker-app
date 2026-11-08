@@ -1,0 +1,103 @@
+id: caixa-abrir-fechar-caixa
+area: caixa
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa
+preparar: caixa:abrir_fechar
+titulo:
+  pt-BR: "Como abrir e fechar o seu caixa"
+  en-US: "How to open and close your cashbox"
+  es-ES: "Cómo abrir y cerrar tu caja"
+descricao:
+  pt-BR: "Do saldo inicial à conferência do fechamento."
+  en-US: "From the initial balance to the closing count."
+  es-ES: "Del saldo inicial al conteo del cierre."
+passos:
+  - fala:
+      pt-BR: "Cada operador tem o próprio caixa em cada etapa. Enquanto ele está fechado, as vendas ficam bloqueadas."
+      en-US: "Each operator has their own cashbox in each stage. While it is closed, sales are blocked."
+      es-ES: "Cada operador tiene su propia caja en cada etapa. Mientras esté cerrada, las ventas quedan bloqueadas."
+    acoes:
+      - destacar: {css: ".cashbox-banner"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para começar, clique em Abrir Caixa."
+      en-US: "To start, click Open Cashbox."
+      es-ES: "Para empezar, haz clic en Abrir Caja."
+    acoes:
+      - clicar: {papel: button, t: cashbox.openCashbox}
+  - fala:
+      pt-BR: "Digite o saldo inicial: o dinheiro que já está na gaveta."
+      en-US: "Type the initial balance: the money already in the drawer."
+      es-ES: "Escribe el saldo inicial: el dinero que ya está en la caja."
+    acoes:
+      - digitar: {css: "#cb-initial", valor: "{saldo_inicial}", limpar: true}
+  - fala:
+      pt-BR: "Confirme em Abrir Caixa."
+      en-US: "Confirm with Open Cashbox."
+      es-ES: "Confirma con Abrir Caja."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".cashbox-banner--open"}
+  - fala:
+      pt-BR: "Pronto. O caixa está aberto, com o saldo na tela, e a Nova Transação foi liberada."
+      en-US: "Done. The cashbox is open, with the balance on screen, and New Transaction is available."
+      es-ES: "Listo. La caja está abierta, con el saldo en pantalla, y Nueva Transacción quedó disponible."
+    acoes:
+      - destacar: {css: ".cashbox-banner"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Durante o turno, você registra as vendas normalmente."
+      en-US: "During your shift, you record sales as usual."
+      es-ES: "Durante el turno, registras las ventas como siempre."
+    acoes:
+      - clicar: {papel: button, t: cashRegister.newTransaction}
+      - escolher: {css: "#tournament_id", rotulo_opcao: "{nome_torneio}"}
+      - digitar: {css: ".player-select-input", valor: "{comprador}"}
+      - clicar: {css: "li.player-select-option"}
+      - clicar: {css: ".cx-buytype-option", texto: "Buy-in"}
+  - fala:
+      pt-BR: "Cada venda soma no saldo, qualquer que seja a forma de pagamento."
+      en-US: "Each sale adds to the balance, whatever the payment method."
+      es-ES: "Cada venta suma al saldo, sea cual sea el método de pago."
+    acoes:
+      - clicar: {css: "form button[type=submit]"}
+      - esperar: {css: ".btn-print-ticket"}
+      - tecla: Escape
+      - destacar: {css: ".cashbox-banner__balance"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "No fim do turno, clique em Fechar Caixa."
+      en-US: "At the end of your shift, click Close Cashbox."
+      es-ES: "Al final del turno, haz clic en Cerrar Caja."
+    acoes:
+      - clicar: {papel: button, t: cashbox.closeCashbox}
+  - fala:
+      pt-BR: "O saldo esperado é o inicial mais as vendas. Confira o que você apurou e digite em Saldo contado."
+      en-US: "The expected balance is the initial one plus sales. Check what you counted and type it in Counted balance."
+      es-ES: "El saldo esperado es el inicial más las ventas. Revisa lo que contaste y escríbelo en Saldo contado."
+    acoes:
+      - destacar: {css: ".cashbox-banner__expected"}
+        segundos: 3.0
+      - digitar: {css: "#cb-actual", valor: "{saldo_contado}", limpar: true}
+  - fala:
+      pt-BR: "Se os valores não baterem, explique na observação."
+      en-US: "If the amounts do not match, explain it in the note."
+      es-ES: "Si los valores no coinciden, explícalo en la nota."
+    acoes:
+      - digitar: {css: "#cb-notes-close", valor: "{obs_fechamento}"}
+  - fala:
+      pt-BR: "Clique em Fechar Caixa. O aviso mostra a falta ou a sobra, e a diferença fica registrada."
+      en-US: "Click Close Cashbox. The message shows the shortage or surplus, and the difference is recorded."
+      es-ES: "Haz clic en Cerrar Caja. El aviso muestra el faltante o el sobrante, y la diferencia queda registrada."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".toast"}
+  - fala:
+      pt-BR: "O caixa volta a ficar fechado, e as vendas só voltam na próxima abertura."
+      en-US: "The cashbox is closed again, and sales only return at the next opening."
+      es-ES: "La caja vuelve a quedar cerrada, y las ventas solo vuelven en la próxima apertura."
+    acoes:
+      - destacar: {css: ".cashbox-banner"}
+        segundos: 3.0

@@ -1,0 +1,70 @@
+id: relatorios-exportar
+area: financeiro
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /relatorios
+preparar: clube:relatorio
+titulo:
+  pt-BR: "Como ler e exportar os relatórios"
+  en-US: "How to read and export reports"
+  es-ES: "Cómo leer y exportar los informes"
+descricao:
+  pt-BR: "As métricas do período e a exportação em Excel, CSV ou PDF."
+  en-US: "The period's metrics and the export to Excel, CSV or PDF."
+  es-ES: "Las métricas del período y la exportación a Excel, CSV o PDF."
+passos:
+  - fala:
+      pt-BR: "Em Relatórios, você acompanha o desempenho dos torneios. Escolha o período, e a tela atualiza sozinha."
+      en-US: "Under Reports, you follow how your tournaments are doing. Choose the period, and the screen updates on its own."
+      es-ES: "En Informes, sigues el rendimiento de los torneos. Elige el período, y la pantalla se actualiza sola."
+    acoes:
+      - preencher: {css: "#end", valor: "{amanha}"}
+      - destacar: {css: ".date-range"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Nas Métricas Gerais, você vê a receita total, os torneios, as entradas e o ticket médio."
+      en-US: "General Metrics show total revenue, tournaments, entries and the average buy-in."
+      es-ES: "En Métricas Generales, ves los ingresos totales, los torneos, las entradas y el ticket promedio."
+    acoes:
+      - destacar: {css: ".stats-grid", n: 0}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Logo abaixo, o total de buy-ins, rebuys e add-ons."
+      en-US: "Right below, the total buy-ins, rebuys and add-ons."
+      es-ES: "Justo abajo, el total de buy-ins, rebuys y add-ons."
+    acoes:
+      - destacar: {css: ".stats-grid", n: 1}
+        segundos: 2.6
+  - fala:
+      pt-BR: "Depois vêm as vendas por meio de entrada e o Relatório de Jogadores, com o total gasto por cada um."
+      en-US: "Then come sales by entry option and the Player Report, with how much each person spent."
+      es-ES: "Después vienen las ventas por medio de entrada y el Informe de Jugadores, con el total gastado por cada uno."
+    acoes:
+      - destacar: {css: ".reports-table--buytypes"}
+        segundos: 2.6
+      - rolar: {css: ".reports-table:not(.reports-table--buytypes)"}
+      - pausa: 2.6
+  - fala:
+      pt-BR: "Para levar os dados, clique em Exportar."
+      en-US: "To take the data with you, click Export."
+      es-ES: "Para llevarte los datos, haz clic en Exportar."
+    acoes:
+      - clicar: {css: ".rex-trigger"}
+  - fala:
+      pt-BR: "Escolha o formato: Excel, CSV ou PDF. E marque o que incluir no arquivo."
+      en-US: "Choose the format: Excel, CSV or PDF. Then check what to include in the file."
+      es-ES: "Elige el formato: Excel, CSV o PDF. Y marca qué incluir en el archivo."
+    acoes:
+      - destacar: {css: ".rex-formats"}
+        segundos: 2.4
+      - destacar: {css: ".rex-sections"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Clique em Exportar, e o arquivo é baixado no seu computador."
+      en-US: "Click Export, and the file downloads to your computer."
+      es-ES: "Haz clic en Exportar, y el archivo se descarga en tu computadora."
+    acoes:
+      - clicar: {css: ".rex-btn.primary"}
+      - esperar: {css: ".toast"}
+      - pausa: 1.0

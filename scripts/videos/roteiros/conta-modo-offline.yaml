@@ -1,0 +1,77 @@
+id: conta-modo-offline
+area: conta
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa
+preparar: clube:offline
+titulo:
+  pt-BR: "O que acontece quando a internet cai"
+  en-US: "What happens when the internet goes down"
+  es-ES: "Qué pasa cuando se cae el internet"
+descricao:
+  pt-BR: "O modo offline, a fila de sincronização e a tela de conflitos."
+  en-US: "Offline mode, the sync queue and the conflicts screen."
+  es-ES: "El modo sin conexión, la cola de sincronización y la pantalla de conflictos."
+passos:
+  - fala:
+      pt-BR: "Você está no Caixa, registrando uma venda: já escolheu o torneio e o jogador."
+      en-US: "You're at the cash register, recording a sale: you've already chosen the tournament and the player."
+      es-ES: "Estás en la caja, registrando una venta: ya elegiste el torneo y el jugador."
+    acoes:
+      - clicar: {papel: button, t: cashRegister.newTransaction}
+      - escolher: {css: "#tournament_id", rotulo_opcao: "{nome_torneio}"}
+      - digitar: {css: ".player-select-input", valor: "{pessoa}"}
+      - clicar: {css: "li.player-select-option"}
+  - fala:
+      pt-BR: "E a internet cai. Continue trabalhando. O sistema avisa nesta barra, no topo da tela: suas ações estão sendo salvas."
+      en-US: "Then the internet goes down. Keep working. The system tells you in this bar at the top of the screen: your actions are being saved."
+      es-ES: "Y se cae el internet. Sigue trabajando. El sistema te avisa en esta barra, arriba de la pantalla: tus acciones se están guardando."
+    acoes:
+      - rede: offline
+      - esperar: {css: ".offline-banner"}
+      - destacar: {css: ".offline-banner"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Marque o que ele está comprando e clique em Registrar. A venda fica guardada neste aparelho, e o bilhete avisa que o assento é definido na sincronização."
+      en-US: "Check what the player is buying and click Register. The sale is stored on this device, and the ticket says the seat is assigned on sync."
+      es-ES: "Marca lo que está comprando y haz clic en Registrar. La venta queda guardada en este aparato, y el boleto avisa que el asiento se define en la sincronización."
+    acoes:
+      - clicar: {css: ".cx-buytype-option", texto: "Buy-in"}
+      - clicar: {css: "form button[type=submit]"}
+      - destacar: {css: ".bilhete-aviso"}
+        segundos: 3.2
+  - fala:
+      pt-BR: "A barra mostra quantas pendências estão na fila."
+      en-US: "The bar shows how many items are pending in the queue."
+      es-ES: "La barra muestra cuántos pendientes hay en la cola."
+    acoes:
+      - clicar: {css: ".modal-actions button"}
+      - destacar: {css: ".offline-banner"}
+        segundos: 2.2
+  - fala:
+      pt-BR: "Quando a internet volta, o sistema envia a fila sozinho. Você não precisa fazer nada."
+      en-US: "When the internet comes back, the system sends the queue on its own. You don't have to do anything."
+      es-ES: "Cuando vuelve el internet, el sistema envía la cola solo. No tienes que hacer nada."
+    acoes:
+      - rede: online
+      - pausa: 3.0
+  - fala:
+      pt-BR: "Se o servidor recusar alguma operação, como uma venda num dia lotado, a barra vira um aviso de conflito. Ele abre esta tela, com o motivo, e aqui você clica em Descartar."
+      en-US: "If the server rejects an operation, like a sale on a full day, the bar turns into a conflict warning. It opens this screen with the reason, and here you click Discard."
+      es-ES: "Si el servidor rechaza alguna operación, como una venta en un día lleno, la barra se vuelve un aviso de conflicto. Abre esta pantalla con el motivo, y aquí haces clic en Descartar."
+    acoes:
+      - ir: /conflitos
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Aqui não há nenhum conflito: tudo foi sincronizado."
+      en-US: "Here there are no conflicts: everything synced."
+      es-ES: "Aquí no hay ningún conflicto: todo se sincronizó."
+    acoes:
+      - pausa: 0.5
+  - fala:
+      pt-BR: "Uma dica: sem internet, só abrem as telas já carregadas. Abra uma vez com internet as telas que você usa."
+      en-US: "One tip: without internet, only screens already loaded will open. Open the screens you use once while you're online."
+      es-ES: "Un consejo: sin internet, solo abren las pantallas ya cargadas. Abre una vez con internet las pantallas que usas."
+    acoes:
+      - pausa: 0.5

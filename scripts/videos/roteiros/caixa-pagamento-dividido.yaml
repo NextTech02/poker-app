@@ -1,0 +1,86 @@
+id: caixa-pagamento-dividido
+area: caixa
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa
+preparar: caixa:dividido
+titulo:
+  pt-BR: "Como dividir o pagamento de uma venda"
+  en-US: "How to split the payment of a sale"
+  es-ES: "Cómo dividir el pago de una venta"
+descricao:
+  pt-BR: "Uma venda paga em duas formas de pagamento."
+  en-US: "One sale paid with two payment methods."
+  es-ES: "Una venta pagada con dos métodos de pago."
+passos:
+  - fala:
+      pt-BR: "Quando o jogador usa duas formas de pagamento na mesma venda, você divide o pagamento. Clique em Nova Transação."
+      en-US: "When a player uses two payment methods on one sale, you split the payment. Click New Transaction."
+      es-ES: "Cuando el jugador usa dos métodos de pago en una venta, divides el pago. Haz clic en Nueva Transacción."
+    acoes:
+      - pausa: 3.5
+      - clicar: {papel: button, t: cashRegister.newTransaction}
+  - fala:
+      pt-BR: "Monte a venda como sempre: torneio, jogador e o que ele está comprando."
+      en-US: "Build the sale as usual: tournament, player and what they are buying."
+      es-ES: "Arma la venta como siempre: torneo, jugador y lo que está comprando."
+    acoes:
+      - escolher: {css: "#tournament_id", rotulo_opcao: "{nome_torneio}"}
+      - digitar: {css: ".player-select-input", valor: "{comprador}"}
+      - clicar: {css: "li.player-select-option"}
+      - clicar: {css: ".cx-buytype-option", texto: "Buy-in"}
+  - fala:
+      pt-BR: "Marque Dividir pagamento. O valor total entra na primeira forma."
+      en-US: "Check Split payment. The full amount goes into the first method."
+      es-ES: "Marca Dividir el pago. El monto total entra en el primer método."
+    acoes:
+      - clicar: {css: ".pd-alternar", t: splitPayment.toggle}
+  - fala:
+      pt-BR: "Digite quanto foi pago nela. O sistema mostra quanto falta."
+      en-US: "Type how much was paid with it. The system shows what is missing."
+      es-ES: "Escribe cuánto se pagó con él. El sistema muestra cuánto falta."
+    acoes:
+      - digitar: {css: "#cx-pd-valor-0", valor: "{parte1}", limpar: true}
+      - destacar: {css: ".pd-rodape"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Clique em Outra forma. A nova linha já vem com o que falta. Escolha a forma de pagamento dela."
+      en-US: "Click Another method. The new line comes with the missing amount. Choose its payment method."
+      es-ES: "Haz clic en Otro medio. La nueva línea ya viene con lo que falta. Elige su método de pago."
+    acoes:
+      - clicar: {css: ".pd-rodape button"}
+      - pausa: 2.0
+      - escolher: {css: "#cx-pd-meio-1", opcao: {pt-BR: "pix", en-US: "card", es-ES: "card"}}
+  - fala:
+      pt-BR: "Quando as partes fecham o total, o botão Registrar fica disponível. Clique nele."
+      en-US: "When the parts add up to the total, the Register button becomes available. Click it."
+      es-ES: "Cuando las partes cierran el total, el botón Registrar queda disponible. Haz clic en él."
+    acoes:
+      - destacar: {css: ".pd-rodape"}
+        segundos: 2.6
+      - clicar: {css: "form button[type=submit]"}
+  - fala:
+      pt-BR: "O bilhete sai como em qualquer venda."
+      en-US: "The ticket comes out like in any sale."
+      es-ES: "El boleto sale como en cualquier venta."
+    acoes:
+      - esperar: {css: ".btn-print-ticket"}
+      - pausa: 1.5
+      - tecla: Escape
+  - fala:
+      pt-BR: "Na lista, a linha da venda mostra quanto entrou em cada forma."
+      en-US: "In the list, the sale's row shows how much came in through each method."
+      es-ES: "En la lista, la fila de la venta muestra cuánto entró por cada método."
+    acoes:
+      - esperar: {css: ".cx-split-hint"}
+      - destacar: {css: ".transactions-table tbody tr:first-child"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "E, em Caixa Geral, cada parte soma na sua forma de pagamento."
+      en-US: "And in General Cash, each part adds up under its own payment method."
+      es-ES: "Y en Caja General, cada parte suma en su propio método de pago."
+    acoes:
+      - ir: /caixa-geral
+      - destacar: {css: ".payment-breakdown"}
+        segundos: 3.0

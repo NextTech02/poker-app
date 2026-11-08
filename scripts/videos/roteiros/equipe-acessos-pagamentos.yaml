@@ -1,0 +1,72 @@
+id: equipe-acessos-pagamentos
+area: equipe
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /funcionarios
+preparar: clube:pagamentos
+titulo:
+  pt-BR: "Pagamentos da equipe e log de acessos"
+  en-US: "Staff payments and the access log"
+  es-ES: "Pagos del personal y registro de accesos"
+descricao:
+  pt-BR: "Pagar quem trabalhou na etapa e ver quem fez o quê no sistema."
+  en-US: "Pay who worked the stage and see who did what in the system."
+  es-ES: "Pagar a quien trabajó en la etapa y ver quién hizo qué en el sistema."
+passos:
+  - fala:
+      pt-BR: "Em Funcionários, a aba Pagamentos controla o que cada pessoa recebe na etapa selecionada."
+      en-US: "Under Staff, the Payments tab tracks what each person gets for the selected stage."
+      es-ES: "En Personal, la pestaña Pagos controla lo que recibe cada persona en la etapa seleccionada."
+    acoes:
+      - clicar: {css: ".func-tab", t: staff.tabPayments}
+      - pausa: 1.2
+  - fala:
+      pt-BR: "No topo, você vê o total atribuído, o total pago e o saldo do Caixa Geral."
+      en-US: "At the top, you see the total assigned, the total paid and the General Cash balance."
+      es-ES: "Arriba, ves el total asignado, el total pagado y el saldo de la Caja General."
+    acoes:
+      - destacar: {css: ".func-pay-summary"}
+        segundos: 3.6
+  - fala:
+      pt-BR: "Digite o valor de cada pessoa. Ele fica salvo como Pendente."
+      en-US: "Type each person's amount. It's saved as Pending."
+      es-ES: "Escribe el monto de cada persona. Queda guardado como Pendiente."
+    acoes:
+      - digitar: {css: ".func-pay-input", valor: "{valor_staff}", limpar: true}
+      - tecla: Tab
+  - fala:
+      pt-BR: "Clique em Pagar. O valor sai do Caixa Geral e o status muda para Pago."
+      en-US: "Click Pay. The amount comes out of General Cash and the status changes to Paid."
+      es-ES: "Haz clic en Pagar. El monto sale de la Caja General y el estado cambia a Pagado."
+    acoes:
+      - clicar: {css: ".func-action-btn--success"}
+      - esperar: {css: ".func-action-btn--danger"}
+      - destacar: {css: ".func-pay-summary"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Errou? Clique em Estornar, e o valor volta para o Caixa Geral."
+      en-US: "Made a mistake? Click Reverse, and the amount goes back to General Cash."
+      es-ES: "¿Te equivocaste? Haz clic en Revertir, y el monto vuelve a la Caja General."
+    acoes:
+      - clicar: {css: ".func-action-btn--danger"}
+      - esperar: {css: ".func-action-btn--success"}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "A aba Acessos mostra quem fez o quê no clube: quando, qual usuário, qual evento e os detalhes."
+      en-US: "The Access log tab shows who did what at the club: when, which user, which event and the details."
+      es-ES: "La pestaña Accesos muestra quién hizo qué en el club: cuándo, qué usuario, qué evento y los detalles."
+    acoes:
+      - clicar: {css: ".func-tab", t: staff.tabAccess}
+      - esperar: {css: ".al-table"}
+      - destacar: {css: ".al-table thead"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para achar algo, filtre por usuário, por evento ou por período. Aqui, só as despesas."
+      en-US: "To find something, filter by user, event or period. Here, just expenses."
+      es-ES: "Para encontrar algo, filtra por usuario, por evento o por período. Aquí, solo los gastos."
+    acoes:
+      - destacar: {css: ".al-filters"}
+        segundos: 2.4
+      - escolher: {css: "#al-event", opcao: "expenses.*"}
+      - pausa: 1.6

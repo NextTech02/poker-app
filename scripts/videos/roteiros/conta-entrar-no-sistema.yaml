@@ -1,0 +1,63 @@
+id: conta-entrar-no-sistema
+area: conta
+tipo: curto
+inicio: /login
+titulo:
+  pt-BR: "Como entrar no sistema e recuperar a senha"
+  en-US: "How to sign in and reset your password"
+  es-ES: "Cómo entrar al sistema y recuperar tu contraseña"
+descricao:
+  pt-BR: "A tela de entrada e o caminho do Esqueci minha senha."
+  en-US: "The sign-in screen and the Forgot my password link."
+  es-ES: "La pantalla de entrada y el enlace Olvidé mi contraseña."
+passos:
+  - fala:
+      pt-BR: "Para entrar, use o e-mail cadastrado pelo administrador do seu clube."
+      en-US: "To sign in, use the e-mail registered by your club's administrator."
+      es-ES: "Para entrar, usa el correo registrado por el administrador de tu club."
+    acoes:
+      - destacar: {css: ".login-header"}
+        segundos: 2.6
+  - fala:
+      pt-BR: "Digite o e-mail e a senha."
+      en-US: "Type your e-mail and password."
+      es-ES: "Escribe tu correo y tu contraseña."
+    acoes:
+      - digitar: {css: "#email", valor: {pt-BR: "operador@clube-demo.local", en-US: "operator@demo-poker-club.local", es-ES: "operador@club-demo.local"}}
+      - digitar: {css: "#password", valor: "demo-1234"}
+  - fala:
+      pt-BR: "Depois, é só clicar em Entrar. Se você trabalha em mais de um clube, o sistema pergunta onde entrar. Se ativou a verificação em duas etapas, ele pede também o código do celular."
+      en-US: "Then click Sign In. If you work at more than one club, the system asks where to go. If you turned on two-step verification, it also asks for the code from your phone."
+      es-ES: "Después, haz clic en Ingresar. Si trabajas en más de un club, el sistema pregunta a cuál entrar. Si activaste la verificación en dos pasos, también pide el código de tu celular."
+    acoes:
+      - destacar: {css: ".login-btn"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Esqueceu a senha? Clique em Esqueci minha senha."
+      en-US: "Forgot your password? Click Forgot my password."
+      es-ES: "¿Olvidaste tu contraseña? Haz clic en Olvidé mi contraseña."
+    acoes:
+      - clicar: {css: ".login-link"}
+  - fala:
+      pt-BR: "Confira o seu e-mail e clique em Enviar link."
+      en-US: "Check your e-mail address and click Send link."
+      es-ES: "Revisa tu correo y haz clic en Enviar enlace."
+    acoes:
+      - destacar: {css: "#forgot-email"}
+        segundos: 1.4
+      - destacar: {css: ".login-btn"}
+        segundos: 1.4
+  - fala:
+      pt-BR: "Você recebe um link para criar uma nova senha. Por segurança, a tela responde igual mesmo que o e-mail não tenha conta."
+      en-US: "You'll get a link to create a new password. For security, the screen answers the same way even if the e-mail has no account."
+      es-ES: "Recibes un enlace para crear una nueva contraseña. Por seguridad, la pantalla responde igual aunque el correo no tenga cuenta."
+    acoes:
+      - destacar: {css: ".login-forgot-hint"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Se o link expirar, é só pedir outro aqui. Para voltar, clique em Voltar para o login."
+      en-US: "If the link expires, just ask for another one here. To go back, click Back to sign in."
+      es-ES: "Si el enlace caduca, pide otro aquí. Para regresar, haz clic en Volver al inicio de sesión."
+    acoes:
+      - pausa: 2.4
+      - clicar: {css: ".login-link"}

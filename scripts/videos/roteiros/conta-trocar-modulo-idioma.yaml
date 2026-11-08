@@ -1,0 +1,77 @@
+id: conta-trocar-modulo-idioma
+area: conta
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /home
+preparar: clube:base
+titulo:
+  pt-BR: "Como trocar de módulo e de idioma"
+  en-US: "How to switch modules and language"
+  es-ES: "Cómo cambiar de módulo y de idioma"
+descricao:
+  pt-BR: "A barra lateral, os módulos do clube e o seletor de idioma."
+  en-US: "The side bar, your club's modules and the language selector."
+  es-ES: "La barra lateral, los módulos del club y el selector de idioma."
+passos:
+  - fala:
+      pt-BR: "Na barra à esquerda ficam os módulos do seu clube: Torneios, Cash Game e Bar. O módulo atual fica marcado."
+      en-US: "The bar on the left holds your club's modules: Tournaments, Cash Game and Bar. The current module is highlighted."
+      es-ES: "En la barra de la izquierda están los módulos de tu club: Torneos, Cash Game y Bar. El módulo actual queda marcado."
+    acoes:
+      - destacar: {css: ".rail-modules"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "O nome dele também aparece no topo do menu."
+      en-US: "Its name also appears at the top of the menu."
+      es-ES: "Su nombre también aparece arriba del menú."
+    acoes:
+      - destacar: {css: ".side-mod"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Para trocar, clique no módulo. O menu muda e você vai para a tela inicial dele. Este é o Cash Game."
+      en-US: "To switch, click the module. The menu changes and you land on its home screen. This is Cash Game."
+      es-ES: "Para cambiar, haz clic en el módulo. El menú cambia y vas a su pantalla inicial. Este es el Cash Game."
+    acoes:
+      - clicar: {css: ".rail-btn.mod-cash"}
+      - esperar: {css: ".side-mod.mod-cash"}
+  - fala:
+      pt-BR: "E este é o Bar."
+      en-US: "And this is the Bar."
+      es-ES: "Y este es el Bar."
+    acoes:
+      - clicar: {css: ".rail-btn.mod-bar"}
+      - esperar: {css: ".side-mod.mod-bar"}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "A seção Clube, com Financeiro, Jogadores e Funcionários, é a mesma em todos os módulos."
+      en-US: "The Club section, with Financial, Players and Staff, is the same in every module."
+      es-ES: "La sección Club, con Financiero, Jugadores y Personal, es la misma en todos los módulos."
+    acoes:
+      - destacar: {css: ".side-sec"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Para mudar o idioma, clique na bandeira no pé do menu e escolha."
+      en-US: "To change the language, click the flag at the bottom of the menu and choose."
+      es-ES: "Para cambiar el idioma, haz clic en la bandera al pie del menú y elige."
+    acoes:
+      - clicar: {css: ".rail-btn.mod-tournament"}
+      - esperar: {css: ".side-mod.mod-tournament"}
+      - clicar: {css: ".sidebar-footer .language-selector-btn"}
+      - pausa: 1.2
+      - clicar: {css: ".language-option", texto: {pt-BR: "English", en-US: "Español", es-ES: "English"}}
+  - fala:
+      pt-BR: "A tela muda na hora. A escolha fica guardada neste navegador e vale mais do que o idioma padrão do clube."
+      en-US: "The screen changes right away. Your choice is kept in this browser and takes priority over the club's default language."
+      es-ES: "La pantalla cambia al instante. Tu elección queda guardada en este navegador y vale más que el idioma predeterminado del club."
+    acoes:
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Para voltar, é só escolher de novo."
+      en-US: "To go back, just choose again."
+      es-ES: "Para regresar, solo elige de nuevo."
+    acoes:
+      - clicar: {css: ".sidebar-footer .language-selector-btn"}
+      - pausa: 0.8
+      - clicar: {css: ".language-option", texto: {pt-BR: "Português", en-US: "English", es-ES: "Español"}}
+      - pausa: 1.0

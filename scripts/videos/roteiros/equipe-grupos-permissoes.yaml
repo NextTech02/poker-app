@@ -1,0 +1,83 @@
+id: equipe-grupos-permissoes
+area: equipe
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /funcionarios
+preparar: clube:grupos
+titulo:
+  pt-BR: "Como criar um grupo de permissão"
+  en-US: "How to create a permission group"
+  es-ES: "Cómo crear un grupo de permisos"
+descricao:
+  pt-BR: "Definir o que cada função pode fazer no sistema."
+  en-US: "Set what each role can do in the system."
+  es-ES: "Definir lo que cada función puede hacer en el sistema."
+passos:
+  - fala:
+      pt-BR: "Em Funcionários, abra a aba Grupos de Permissão. O grupo define o que cada pessoa vê e faz no sistema."
+      en-US: "Under Staff, open the Permission Groups tab. The group defines what each person sees and does in the system."
+      es-ES: "En Personal, abre la pestaña Grupos de Permisos. El grupo define lo que cada persona ve y hace en el sistema."
+    acoes:
+      - clicar: {css: ".func-tab", t: staff.tabGroups}
+      - pausa: 1.0
+      - destacar: {css: ".table"}
+        segundos: 2.6
+  - fala:
+      pt-BR: "Clique em Novo Grupo."
+      en-US: "Click New Group."
+      es-ES: "Haz clic en Nuevo Grupo."
+    acoes:
+      - clicar: {css: ".page-header-actions button"}
+  - fala:
+      pt-BR: "Dê um nome e, se quiser, uma descrição."
+      en-US: "Give it a name and, if you want, a description."
+      es-ES: "Ponle un nombre y, si quieres, una descripción."
+    acoes:
+      - digitar: {css: ".func-modal input.form-input", n: 0, valor: "{grupo_novo}"}
+      - digitar: {css: ".func-modal input.form-input", n: 1, valor: "{grupo_descricao}"}
+  - fala:
+      pt-BR: "As permissões ficam separadas por módulo, e só aparecem os módulos do seu clube."
+      en-US: "Permissions are grouped by module, and only your club's modules show up."
+      es-ES: "Los permisos están separados por módulo, y solo aparecen los módulos de tu club."
+    acoes:
+      - destacar: {css: ".func-perm-section", n: 0}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Marque o que o grupo pode fazer. Aqui, Caixa e Caixa - Jogadores, e depois Jogadores, na seção Clube."
+      en-US: "Check what the group can do. Here, Cashier and Cashier - Players, and then Players, in the Club section."
+      es-ES: "Marca lo que el grupo puede hacer. Aquí, Caja y Caja - Jugadores, y después Jugadores, en la sección Club."
+    acoes:
+      - clicar: {css: ".func-perm-check", t: staff.perm.cashier, n: 0}
+      - clicar: {css: ".func-perm-check", t: staff.perm.cashierPlayers}
+      - clicar: {css: ".func-perm-check", t: staff.perm.players, n: 1}
+      - pausa: 0.6
+  - fala:
+      pt-BR: "Se o grupo precisa de tudo, use Selecionar todas."
+      en-US: "If the group needs everything, use Select all."
+      es-ES: "Si el grupo necesita todo, usa Seleccionar todas."
+    acoes:
+      - destacar: {css: ".func-select-all-btn"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Clique em Criar Grupo."
+      en-US: "Click Create Group."
+      es-ES: "Haz clic en Crear Grupo."
+    acoes:
+      - clicar: {css: ".func-modal .modal-footer button", n: 1}
+  - fala:
+      pt-BR: "Pronto. O grupo aparece na lista com as permissões marcadas. Para mudar depois, clique em Editar."
+      en-US: "Done. The group appears on the list with the permissions you checked. To change it later, click Edit."
+      es-ES: "Listo. El grupo aparece en la lista con los permisos marcados. Para cambiarlo después, haz clic en Editar."
+    acoes:
+      - esperar: {css: ".table tr", texto: "{grupo_novo}"}
+      - destacar: {css: ".table tr", texto: "{grupo_novo}"}
+        segundos: 3.6
+  - fala:
+      pt-BR: "Agora é só escolher o grupo no convite, ou nesta lista, na linha do funcionário."
+      en-US: "Now just pick the group in the invite, or in this list, on the employee's row."
+      es-ES: "Ahora solo elige el grupo en la invitación, o en esta lista, en la fila del empleado."
+    acoes:
+      - clicar: {css: ".func-tab", t: staff.tabStaff}
+      - destacar: {css: ".func-group-select"}
+        segundos: 2.6

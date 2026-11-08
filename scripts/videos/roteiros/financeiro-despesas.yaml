@@ -1,0 +1,87 @@
+id: financeiro-despesas
+area: financeiro
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /financeiro
+preparar: clube:despesa
+titulo:
+  pt-BR: "Como lançar uma despesa"
+  en-US: "How to record an expense"
+  es-ES: "Cómo registrar un gasto"
+descricao:
+  pt-BR: "Os gastos da etapa, do lançamento ao pagamento."
+  en-US: "The stage's costs, from recording to payment."
+  es-ES: "Los gastos de la etapa, del registro al pago."
+passos:
+  - fala:
+      pt-BR: "Em Financeiro, abra a aba Despesas. Lance aqui os gastos da etapa, para o DRE fechar o resultado real."
+      en-US: "Under Financial, open the Expenses tab. Record the stage costs here, so the income statement shows the real result."
+      es-ES: "En Financiero, abre la pestaña Gastos. Registra aquí los gastos de la etapa, para que el resultado sea real."
+    acoes:
+      - clicar: {css: ".fn-tab", t: financial.expensesTab}
+      - esperar: {css: ".exp-table"}
+  - fala:
+      pt-BR: "No topo, você vê o total, o que já foi pago e o que está a pagar."
+      en-US: "At the top, you see the total, what's paid and what's unpaid."
+      es-ES: "Arriba, ves el total, lo pagado y lo que está por pagar."
+    acoes:
+      - destacar: {css: ".exp-totals"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Nova despesa."
+      en-US: "Click New expense."
+      es-ES: "Haz clic en Nuevo gasto."
+    acoes:
+      - clicar: {css: ".exp-toolbar-actions button"}
+  - fala:
+      pt-BR: "Escolha a etapa, descreva o gasto e informe a categoria e o valor."
+      en-US: "Choose the stage, describe the cost and enter the category and the amount."
+      es-ES: "Elige la etapa, describe el gasto e indica la categoría y el importe."
+    acoes:
+      - escolher: {css: ".exp-modal form .exp-field select", n: 0, rotulo_opcao: "{nome_etapa}"}
+      - digitar: {css: ".exp-modal form .exp-field input", n: 0, valor: "{despesa}"}
+      - escolher: {css: ".exp-modal form .exp-row select", n: 0, rotulo_opcao: "{categoria_despesa}"}
+      - digitar: {css: ".exp-modal form input[type=number]", valor: "{valor_despesa}"}
+  - fala:
+      pt-BR: "Se quiser, informe o fornecedor e o vencimento."
+      en-US: "If you want, add the supplier and the due date."
+      es-ES: "Si quieres, indica el proveedor y el vencimiento."
+    acoes:
+      - digitar: {css: ".exp-modal form .exp-row input", n: 1, valor: "{fornecedor}"}
+      - preencher: {css: ".exp-modal form input[type=date]", valor: "{vencimento}"}
+  - fala:
+      pt-BR: "Marque Pago por fora só quando o dinheiro não sair do Caixa Geral. E, para reaproveitar nas próximas etapas, marque Salvar como modelo."
+      en-US: "Check Paid externally only when the money won't come out of General Cash. And to reuse it in the next stages, check Save as template."
+      es-ES: "Marca Pagado por fuera solo cuando el dinero no salga de la Caja General. Y para reutilizarlo en las próximas etapas, marca Guardar como plantilla."
+    acoes:
+      - destacar: {css: ".exp-check", n: 0}
+        segundos: 3.2
+      - destacar: {css: ".exp-check", n: 1}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Salvar. A despesa entra na lista como A pagar."
+      en-US: "Click Save. The expense goes on the list as Unpaid."
+      es-ES: "Haz clic en Guardar. El gasto entra en la lista como Por pagar."
+    acoes:
+      - clicar: {css: ".exp-modal button[type=submit]"}
+      - esperar: {css: ".exp-table tbody tr", texto: "{despesa}"}
+      - destacar: {css: ".exp-table tbody tr", texto: "{despesa}"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Quando pagar, clique no status. Ele muda para Pago, e o valor sai do Caixa Geral."
+      en-US: "When you pay it, click the status. It changes to Paid, and the amount comes out of General Cash."
+      es-ES: "Cuando lo pagues, haz clic en el estado. Cambia a Pagado, y el importe sale de la Caja General."
+    acoes:
+      - clicar: {css: ".exp-table tbody tr:has-text('{despesa}') .exp-status"}
+      - esperar: {css: ".exp-table tbody tr:has-text('{despesa}') .exp-status--pago"}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Para guardar a nota ou o recibo, clique no clipe e anexe uma imagem ou um PDF de até 10 MB."
+      en-US: "To keep the invoice or receipt, click the paperclip and attach an image or a PDF of up to 10 MB."
+      es-ES: "Para guardar la factura o el recibo, haz clic en el clip y adjunta una imagen o un PDF de hasta 10 MB."
+    acoes:
+      - clicar: {css: ".exp-table tbody tr:has-text('{despesa}') .exp-actions button", n: 0}
+      - destacar: {css: ".exp-upload"}
+        segundos: 3.0
+      - tecla: Escape
