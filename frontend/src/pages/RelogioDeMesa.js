@@ -409,7 +409,12 @@ const RelogioDeMesa = () => {
             </div>
           </div>
           {dayId && (
-            <Link className="rcm-outro-dia" to="/relogio-mesa">{t('tableClock.otherDay', 'Trocar de dia')}</Link>
+            <div className="rcm-links">
+              {podeGerir && (
+                <Link className="rcm-outro-dia" to={`/painel-mesas/${dayId}`}>{t('floorPanel.title', 'Painel de mesas')}</Link>
+              )}
+              <Link className="rcm-outro-dia" to="/relogio-mesa">{t('tableClock.otherDay', 'Trocar de dia')}</Link>
+            </div>
           )}
         </div>
 

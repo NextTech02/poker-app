@@ -154,11 +154,24 @@ describe('dealer', () => {
     expect(screen.queryByText('Ana')).toBeNull();
   });
 
+  it('não vê o atalho para o painel de mesas: é do floor', async () => {
+    await montar();
+    await screen.findByRole('link', { name: /Mesa 5/ });
+    expect(screen.queryByRole('link', { name: 'Painel de mesas' })).toBeNull();
+  });
+
   it('nem pede o painel: o servidor recusaria', async () => {
     await montar();
     await screen.findByRole('link', { name: /Mesa 5/ });
     expect(api.get).not.toHaveBeenCalledWith('/table-clock/day/d1/panel');
     expect(api.get).not.toHaveBeenCalledWith('/table-clock/day/d1/events');
+  });
+});
+
+describe('atalho do floor', () => {
+  it('quem gere as mesas tem o atalho para o painel do dia', async () => {
+    await montar();
+    expect(await screen.findByRole('link', { name: 'Painel de mesas' })).toHaveAttribute('href', '/painel-mesas/d1');
   });
 });
 

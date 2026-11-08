@@ -60,6 +60,7 @@ const CaixaJogadores = lazy(() => import('./pages/CaixaJogadores'));
 const SatelliteTickets = lazy(() => import('./pages/SatelliteTickets'));
 const RelogioDeMesa = lazy(() => import('./pages/RelogioDeMesa'));
 const RelogioDaMesa = lazy(() => import('./pages/RelogioDaMesa'));
+const PainelDeMesas = lazy(() => import('./pages/PainelDeMesas'));
 const CaixaGeral = lazy(() => import('./pages/CaixaGeral'));
 const Relatorios = lazy(() => import('./pages/Relatorios'));
 const RelatorioTorneio = lazy(() => import('./pages/RelatorioTorneio'));
@@ -521,6 +522,14 @@ function AppRoutes() {
         element={
           <PrivateRoute module="tournament" permission="cashier_tickets">
             <SatelliteTickets />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/painel-mesas/:dayId"
+        element={
+          <PrivateRoute module="tournament" permission="tables">
+            <PainelDeMesas />
           </PrivateRoute>
         }
       />

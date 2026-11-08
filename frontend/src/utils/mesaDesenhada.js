@@ -46,6 +46,14 @@ export const segundosDoNivel = (timer, diferenca, agoraMs) => {
   return null;
 };
 
+/** Primeiro nome e inicial do último sobrenome: o que cabe no assento de uma
+ *  mesa pequena e ainda distingue dois "Carlos". O nome inteiro fica nas ações. */
+export const nomeCurto = (nome) => {
+  const partes = String(nome || '').trim().split(/\s+/).filter(Boolean);
+  if (partes.length < 2) return partes[0] || '';
+  return `${partes[0]} ${partes[partes.length - 1][0].toUpperCase()}.`;
+};
+
 export const formatarTempo = (segundos) => {
   if (segundos == null) return '--:--';
   const horas = Math.floor(segundos / 3600);
