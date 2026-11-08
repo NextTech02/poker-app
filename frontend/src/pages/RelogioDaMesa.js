@@ -8,12 +8,17 @@ import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useTelaAcesa } from '../hooks/useTelaAcesa';
 import { pendentesDoJogador } from '../utils/filaDeCartoes';
 import {
+  assentosDaMesa, formatarTempo, posicaoDoAssento, segundosDoNivel,
+} from '../utils/mesaDesenhada';
+import {
   FASE, RUA, estadoInicial, nivelDeAlerta, relogioReducer, segundosRestantes,
 } from '../utils/relogioDeAcao';
 import './RelogioDaMesa.css';
 
-// Mais rápido que o segundo, para o número não pular dois de uma vez.
-const TIQUE_MS = 200;
+// Contando, mais rápido que o segundo, para o número não pular dois de uma vez.
+// Parado, basta o segundo do relógio do nível.
+const TIQUE_CONTANDO_MS = 200;
+const TIQUE_PARADO_MS = 1000;
 const ULTIMOS_SEGUNDOS_COM_BIPE = 3;
 // Folga para o servidor já estar no nível novo quando a tela reler.
 const FOLGA_DA_VIRADA_MS = 1500;
@@ -54,6 +59,8 @@ const RelogioDaMesa = () => {
   usePresencaDoRelogio(dayId, tableId);
 
   const [mesa, setMesa] = useState(null);
+  // Quanto o servidor está à frente do aparelho: o tempo do nível conta pelo dele.
+  const [diferenca, setDiferenca] = useState(0);
   const [falha, setFalha] = useState('');
   const [relogio, despachar] = useReducer(relogioReducer, estadoInicial);
   const [agora, setAgora] = useState(() => Date.now());
@@ -68,6 +75,8 @@ const RelogioDaMesa = () => {
     try {
       const res = await api.get(`/table-clock/table/${tableId}`);
       setMesa(res.data);
+      const horaDoServidor = res.data?.timer?.server_time;
+      if (horaDoServidor) setDiferenca(horaDoServidor - Date.now() / 1000);
       setFalha('');
     } catch (erro) {
       // Com a mesa já na tela, a rede fora não atrapalha: o relógio é local.
@@ -121,12 +130,11 @@ const RelogioDaMesa = () => {
 
   const contando = relogio.fase === FASE.CONTANDO;
   useEffect(() => {
-    if (!contando) return undefined;
     const tique = setInterval(() => {
       const instante = Date.now();
       setAgora(instante);
       despachar({ tipo: 'TIQUE', agora: instante });
-    }, TIQUE_MS);
+    }, contando ? TIQUE_CONTANDO_MS : TIQUE_PARADO_MS);
     return () => clearInterval(tique);
   }, [contando]);
 
@@ -200,6 +208,8 @@ const RelogioDaMesa = () => {
   const noLimite = relogio.cartoesNaDecisao >= config.max_cards_per_decision;
   const esgotado = relogio.fase === FASE.ESGOTADO;
   const pausado = relogio.fase === FASE.PAUSADO;
+  const assentos = assentosDaMesa(mesa.table.seats, mesa.seats, mesa.table.blocked_seats || []);
+  const semListaDaMesa = mesa.time_bank?.reason === 'eliminacao_em_massa';
 
   const motivoDoAviso = () => {
     if (timer.is_break) return t('tableClock.onBreak', 'Intervalo');
@@ -217,17 +227,43 @@ const RelogioDaMesa = () => {
   const rotulo = () => {
     if (esgotado) return t('tableClock.timeUp', 'Tempo!');
     if (pausado) return t('tableClock.paused', 'Pausado');
-    if (relogio.fase === FASE.PARADO) return t('tableClock.waiting', 'Aguardando');
     if (relogio.chamado) return t('tableClock.calledClock', 'Relógio chamado');
     return relogio.rua === RUA.POS
       ? t('tableClock.postflop', 'Pós-flop')
       : t('tableClock.preflop', 'Pré-flop');
   };
 
+  const nivelEBlinds = () => {
+    const nivel = t('tableClock.level', { defaultValue: 'Nível {{level}}', level: timer.display_level });
+    if (timer.is_break || !timer.big_blind) return nivel;
+    return `${nivel} · ${timer.small_blind}/${timer.big_blind}${timer.ante ? ` (${timer.ante})` : ''}`;
+  };
+
   const aviso = motivoDoAviso();
   const alerta = nivelDeAlerta(relogio.fase, segundos);
-  // Parado não é "acabou o tempo": um zero enorme na mesa diria isso ao jogador.
-  const numero = relogio.fase === FASE.PARADO ? '--' : segundos;
+  const comContagem = relogio.fase !== FASE.PARADO;
+
+  const conteudoDoAssento = ({ numero, jogador, bloqueado }) => {
+    if (jogador) {
+      return (
+        <>
+          <span className="rm-assento-nome">{nomeDoJogador(jogador)}</span>
+          {comBanco && (
+            <span className="rm-assento-cartoes">
+              {t('tableClock.cardsLeft', { defaultValue: 'Cartões: {{cards}}', cards: saldoDe(jogador) })}
+            </span>
+          )}
+        </>
+      );
+    }
+    // Na eliminação em massa a lista não vem: "Livre" diria que a mesa está vazia.
+    if (!bloqueado && semListaDaMesa) return null;
+    return (
+      <span className="rm-assento-nome rm-assento-nome--vazio">
+        {bloqueado ? t('tableClock.blockedSeat', 'Bloqueado') : t('tableClock.emptySeat', 'Livre')}
+      </span>
+    );
+  };
 
   return (
     <div className={`rm-tela${alerta ? ` rm-tela--${alerta}` : ''}`}>
@@ -236,11 +272,7 @@ const RelogioDaMesa = () => {
         <strong className="rm-mesa">
           {t('tableClock.table', { defaultValue: 'Mesa {{number}}', number: mesa.table.table_number })}
         </strong>
-        <span className="rm-nivel">
-          {t('tableClock.level', { defaultValue: 'Nível {{level}}', level: timer.display_level })}
-          {!timer.is_break && timer.big_blind ? ` · ${timer.small_blind}/${timer.big_blind}` : ''}
-          {!timer.is_break && timer.ante ? ` (${timer.ante})` : ''}
-        </span>
+        <span className="rm-nivel">{nivelEBlinds()}</span>
         {fila.length > 0 && (
           <span className="rm-pendentes">
             {t('tableClock.pendingCards', { defaultValue: 'Cartões a enviar: {{total}}', total: fila.length })}
@@ -260,10 +292,72 @@ const RelogioDaMesa = () => {
 
       {aviso && <p className="rm-aviso">{aviso}</p>}
 
-      <main className="rm-centro">
-        {espelhar && <div className="rm-digitos rm-digitos--invertido" aria-hidden="true">{numero}</div>}
-        <div className="rm-digitos" role="timer" aria-live="off">{numero}</div>
-        <p className="rm-rotulo">{rotulo()}</p>
+      <main className={`rm-mesa-area${escolhendo ? ' rm-mesa-area--escolhendo' : ''}`}>
+        <div className={`rm-oval${espelhar && comContagem ? ' rm-oval--espelho' : ''}`}>
+          {comContagem ? (
+            <>
+              {espelhar && <div className="rm-digitos rm-digitos--invertido" aria-hidden="true">{segundos}</div>}
+              <div className="rm-digitos" role="timer" aria-live="off">{segundos}</div>
+              <p className="rm-rotulo">{rotulo()}</p>
+            </>
+          ) : (
+            <div className="rm-nivel-relogio">
+              <span className="rm-nivel-tempo">
+                {formatarTempo(segundosDoNivel(timer, diferenca, agora))}
+              </span>
+              <span className="rm-nivel-blinds">
+                {timer.is_break ? t('tableClock.onBreak', 'Intervalo') : nivelEBlinds()}
+              </span>
+            </div>
+          )}
+
+          {escolhendo && (
+            <div className="rm-pergunta">
+              <strong>
+                {comBanco
+                  ? t('tableClock.whoUsesCard', 'Quem vai usar o cartão?')
+                  : t('tableClock.callFloorHint', 'Tempo esgotado. Chame o floor.')}
+              </strong>
+              {comBanco && (
+                <small className={noLimite ? 'rm-limite' : undefined}>
+                  {noLimite
+                    ? t('tableClock.maxReached', {
+                      defaultValue: 'Chegou ao máximo de {{max}} cartões nesta decisão.',
+                      max: config.max_cards_per_decision,
+                    })
+                    : t('tableClock.whoUsesCardHint', 'Toque no assento de quem usa o cartão.')}
+                </small>
+              )}
+              <button type="button" className="rm-fechar" onClick={fecharEscolha}>
+                {esgotado ? t('tableClock.callFloor', 'Chamar o floor') : t('tableClock.back', 'Voltar')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {assentos.map((lugar, indice) => {
+          const { x, y } = posicaoDoAssento(indice, assentos.length);
+          // O dealer só usa cartão, e só na hora da escolha: fora dela a mão
+          // dele passa pela tela o tempo todo.
+          const disponivel = escolhendo && comBanco && !!lugar.jogador && saldoDe(lugar.jogador) > 0 && !noLimite;
+          const classes = ['rm-assento'];
+          if (!lugar.jogador) classes.push('rm-assento--vazio');
+          if (lugar.bloqueado) classes.push('rm-assento--bloqueado');
+          if (disponivel) classes.push('rm-assento--disponivel');
+          return (
+            <button
+              key={lugar.numero}
+              type="button"
+              className={classes.join(' ')}
+              style={{ left: `${x}%`, top: `${y}%` }}
+              disabled={!disponivel}
+              onClick={() => usarCartao(lugar.jogador)}
+            >
+              <span className="rm-assento-numero">{lugar.numero}</span>
+              {conteudoDoAssento(lugar)}
+            </button>
+          );
+        })}
       </main>
 
       {ultimoCartao && (
@@ -305,49 +399,6 @@ const RelogioDaMesa = () => {
           {t('tableClock.calledClock', 'Relógio chamado')}
         </button>
       </nav>
-
-      {escolhendo && (
-        <div className="rm-escolha" role="dialog" aria-modal="true" aria-label={t('tableClock.whoUsesCard', 'Quem vai usar o cartão?')}>
-          {contando && <p className="rm-escolha-tempo" aria-hidden="true">{segundos}</p>}
-          <h2>
-            {comBanco
-              ? t('tableClock.whoUsesCard', 'Quem vai usar o cartão?')
-              : t('tableClock.callFloorHint', 'Tempo esgotado. Chame o floor.')}
-          </h2>
-          {comBanco && noLimite && (
-            <p className="rm-limite">
-              {t('tableClock.maxReached', {
-                defaultValue: 'Chegou ao máximo de {{max}} cartões nesta decisão.',
-                max: config.max_cards_per_decision,
-              })}
-            </p>
-          )}
-          {comBanco && (
-            <div className="rm-assentos">
-              {mesa.seats.map((assento) => {
-                const saldo = saldoDe(assento);
-                return (
-                  <button
-                    key={assento.tournament_player_id}
-                    type="button"
-                    disabled={saldo <= 0 || noLimite}
-                    onClick={() => usarCartao(assento)}
-                  >
-                    <span className="rm-assento-numero">{assento.seat_number}</span>
-                    <span className="rm-assento-nome">{nomeDoJogador(assento)}</span>
-                    <span className="rm-assento-cartoes">
-                      {t('tableClock.cardsLeft', { defaultValue: 'Cartões: {{cards}}', cards: saldo })}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <button type="button" className="rm-fechar" onClick={fecharEscolha}>
-            {esgotado ? t('tableClock.callFloor', 'Chamar o floor') : t('tableClock.back', 'Voltar')}
-          </button>
-        </div>
-      )}
     </div>
   );
 };

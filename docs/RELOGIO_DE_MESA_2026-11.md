@@ -6,6 +6,14 @@ Relógio de ação que o dealer opera num tablet na mesa, com time bank em cart�
 
 O dealer abre **Relógio de Mesa** no menu, escolhe o dia e a mesa, e deixa o tablet ali.
 
+A tela mostra a mesa vista de cima, como o clube pediu no piloto de 07/11. O dealer fica embaixo;
+o assento 1 é o primeiro à esquerda dele e a numeração segue no sentido horário. Cada assento
+mostra o jogador e os cartões que restam; lugar vazio diz "Livre" e o bloqueado pelo floor, "Bloqueado".
+Com o relógio parado, o centro mostra o tempo do nível e os blinds, contados pelo relógio do servidor.
+Quando o relógio de ação corre, a contagem toma o centro.
+
+Na eliminação em massa a lista da mesa não vem, porque estaria velha: os assentos mostram só o número.
+
 | Toque | Quando |
 |---|---|
 | Nova mão | Depois de dar as cartas. Conta o tempo do pré-flop. |
@@ -14,7 +22,9 @@ O dealer abre **Relógio de Mesa** no menu, escolhe o dia e a mesa, e deixa o ta
 | Time bank | O jogador pede o cartão antes de o tempo acabar. |
 | Relógio chamado | Alguém pediu o relógio. Funciona mesmo com o relógio desligado no dia. |
 
-Quando o tempo acaba, a tela pede o assento de quem vai usar o cartão. O sistema não acompanha a
+Quando o tempo acaba, os assentos que podem usar cartão acendem e o dealer toca no de quem vai usar.
+Fora dessa hora, ou do botão Time bank, tocar no assento não faz nada: a mão do dealer passa pela tela
+o tempo todo. O dealer só usa cartão; eliminar e trocar jogador de mesa são do floor. O sistema não acompanha a
 mão nem sabe quem está agindo: é isso que mantém o trabalho do dealer em um toque por ação. Sem
 cartão, a tela manda chamar o floor. Mão morta é decisão do floor, nunca do sistema.
 
