@@ -84,4 +84,5 @@ passos:
       - clicar: {css: ".exp-table tbody tr:has-text('{despesa}') .exp-actions button", n: 0}
       - destacar: {css: ".exp-upload"}
         segundos: 3.0
+      - pausa: 0.6
       - tecla: Escape

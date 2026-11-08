@@ -182,26 +182,21 @@ def limite(idioma: str, api) -> dict:
 
 
 def tickets(idioma: str, api) -> dict:
-    """Dois tickets prontos, para o resgate na tela e para a venda no Caixa.
-    O terceiro nasce no vídeo. Os que sobraram da gravação anterior saem da lista."""
+    """Um ticket pronto para ser resgatado na venda do Caixa; o outro nasce no
+    vídeo. Os que sobraram da gravação anterior saem da lista."""
     etapa, torneio, dia, _ = _palco(idioma, api)
     eid = etapa["id"]
     for sobra in api("GET", "/satellite-tickets/available", target_tournament_id=torneio["id"]):
         api("POST", f"/satellite-tickets/{sobra['id']}/cancel", etapa=eid)
-    resgate, caixa, dono, novo_dono = _livres(idioma, api, eid, dia)[:4]
-    ids = _ids_dos_jogadores(api)
-
-    def emitir(nome: str) -> dict:
-        return api("POST", "/satellite-tickets", {
-            "player_id": ids[nome], "target_tournament_id": torneio["id"], "target_tournament_day_id": dia["id"],
-            "won_at": ONDE_GANHOU[idioma], "funded_by": CLUBES[idioma].nome, "stage_id": eid,
-        }, etapa=eid)
-
-    emitir(caixa)
+    caixa, dono, novo_dono = _livres(idioma, api, eid, dia)[:3]
+    api("POST", "/satellite-tickets", {
+        "player_id": _ids_dos_jogadores(api)[caixa], "target_tournament_id": torneio["id"],
+        "target_tournament_day_id": dia["id"], "won_at": ONDE_GANHOU[idioma], "funded_by": CLUBES[idioma].nome,
+        "stage_id": eid,
+    }, etapa=eid)
     return {
-        "etapa_selecionada": etapa, "nome_torneio": torneio["name"], "ticket_resgate": emitir(resgate)["id"],
-        "jogador_caixa": caixa, "dono": dono, "novo_dono": novo_dono, "onde_ganhou": ONDE_GANHOU[idioma],
-        "financiador": CLUBES[idioma].nome,
+        "etapa_selecionada": etapa, "nome_torneio": torneio["name"], "jogador_caixa": caixa, "dono": dono,
+        "novo_dono": novo_dono, "onde_ganhou": ONDE_GANHOU[idioma], "financiador": CLUBES[idioma].nome,
     }
 
 

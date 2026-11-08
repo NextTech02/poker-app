@@ -37,15 +37,6 @@ passos:
       - destacar: {css: ".stats-grid", n: 1}
         segundos: 2.6
   - fala:
-      pt-BR: "Depois vêm as vendas por meio de entrada e o Relatório de Jogadores, com o total gasto por cada um."
-      en-US: "Then come sales by entry option and the Player Report, with how much each person spent."
-      es-ES: "Después vienen las ventas por medio de entrada y el Informe de Jugadores, con el total gastado por cada uno."
-    acoes:
-      - destacar: {css: ".reports-table--buytypes"}
-        segundos: 2.6
-      - rolar: {css: ".reports-table:not(.reports-table--buytypes)"}
-      - pausa: 2.6
-  - fala:
       pt-BR: "Para levar os dados, clique em Exportar."
       en-US: "To take the data with you, click Export."
       es-ES: "Para llevarte los datos, haz clic en Exportar."

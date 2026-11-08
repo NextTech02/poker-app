@@ -57,20 +57,45 @@ def _arquivo_de_uso() -> Path:
     return CACHE / f"caracteres-{date.today():%Y-%m}.txt"
 
 
+def _ler_numero(arquivo: Path) -> float:
+    """No Windows, ler enquanto outro processo troca o arquivo dá erro de acesso:
+    tenta de novo em vez de tratar a falha como zero."""
+    for _ in range(20):
+        try:
+            return float(arquivo.read_text().strip() or 0) if arquivo.exists() else 0.0
+        except (OSError, ValueError):
+            time.sleep(0.05)
+    raise RuntimeError(f"não consegui ler {arquivo.name}")
+
+
+def _gravar_numero(arquivo: Path, valor: float) -> None:
+    """Grava num temporário e troca de uma vez: quem ler nunca vê meio número.
+    Sem isso, o contador chegou a ser lido como 1 milhão com 110 mil usados."""
+    temporario = arquivo.with_name(f"{arquivo.name}.{os.getpid()}.tmp")
+    temporario.write_text(repr(valor))
+    for _ in range(20):
+        try:
+            os.replace(temporario, arquivo)
+            return
+        except PermissionError:
+            time.sleep(0.05)
+    raise RuntimeError(f"não consegui gravar {arquivo.name}")
+
+
 def caracteres_do_mes() -> int:
-    arquivo = _arquivo_de_uso()
-    return int(arquivo.read_text() or 0) if arquivo.exists() else 0
+    return int(_ler_numero(_arquivo_de_uso()))
 
 
 def _com_trava(acao):
     """O limite do F0 vale por recurso, não por processo: quem grava em paralelo
-    precisa dividir a mesma fila."""
+    precisa dividir a mesma fila. No Windows, o arquivo da trava sendo apagado por
+    outro processo dá PermissionError, que aqui conta como "ocupado"."""
     trava = CACHE / ".trava"
     while True:
         try:
             descritor = os.open(trava, os.O_CREAT | os.O_EXCL)
             break
-        except FileExistsError:
+        except (FileExistsError, PermissionError):
             try:
                 if time.time() - trava.stat().st_mtime > 30:  # sobra de processo morto
                     trava.unlink(missing_ok=True)
@@ -81,24 +106,26 @@ def _com_trava(acao):
         return acao()
     finally:
         os.close(descritor)
-        trava.unlink(missing_ok=True)
+        try:
+            trava.unlink(missing_ok=True)
+        except OSError:
+            pass  # quem vier depois apaga pela regra dos 30 segundos
 
 
 def _esperar_a_vez() -> None:
     marca = CACHE / ".ultimo-pedido"
 
     def agendar():
-        ultimo = float(marca.read_text() or 0) if marca.exists() else 0.0
-        espera = ultimo + INTERVALO_AZURE - time.time()
+        espera = _ler_numero(marca) + INTERVALO_AZURE - time.time()
         if espera > 0:
             time.sleep(espera)
-        marca.write_text(str(time.time()))
+        _gravar_numero(marca, time.time())
 
     _com_trava(agendar)
 
 
 def _somar_caracteres(quantidade: int) -> None:
-    _com_trava(lambda: _arquivo_de_uso().write_text(str(caracteres_do_mes() + quantidade)))
+    _com_trava(lambda: _gravar_numero(_arquivo_de_uso(), caracteres_do_mes() + quantidade))
 
 
 def _azure(texto: str, idioma: str, destino: Path) -> None:
