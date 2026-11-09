@@ -222,6 +222,9 @@ class TableClockService:
                 "display_level": status.get("display_level"),
                 "is_break": bool(blind.get("is_break")),
                 "is_paused": bool(status.get("is_paused")),
+                # Pausado e ainda não começado travam igual, mas pedem coisas
+                # diferentes ao floor: o tablet diz qual dos dois é.
+                "started": bool(status.get("timer_started_at")),
                 "small_blind": blind.get("small_blind"),
                 "big_blind": blind.get("big_blind"),
                 "ante": blind.get("ante"),

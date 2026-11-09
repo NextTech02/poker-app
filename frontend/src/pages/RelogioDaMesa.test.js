@@ -55,7 +55,7 @@ const ESTADO = {
   },
   clock_active: true,
   timer: {
-    level: 2, display_level: 2, is_break: false, is_paused: false,
+    level: 2, display_level: 2, is_break: false, is_paused: false, started: true,
     small_blind: 200, big_blind: 400, ante: 400, level_ends_at: null, server_time: null, time_remaining: null,
   },
   time_bank: { available: true, reason: null },
@@ -503,9 +503,40 @@ describe('quando o relógio não pode rodar', () => {
     expect(document.querySelector('.rm-aviso')).toHaveTextContent('nível 8');
   });
 
-  it('desligado no dia diz isso', async () => {
+  it('desligado no dia diz isso e onde ligar', async () => {
     await montar({ clock_active: false, settings: { ...ESTADO.settings, enabled: false } });
     expect(document.querySelector('.rm-aviso')).toHaveTextContent('desligado');
+    expect(document.querySelector('.rm-aviso')).toHaveTextContent('Configuração do dia');
+  });
+
+  it('o motivo aparece no centro da mesa, onde o dealer está olhando', async () => {
+    await montar({ clock_active: false, settings: { ...ESTADO.settings, enabled: false } });
+    expect(document.querySelector('.rm-oval .rm-aviso')).not.toBeNull();
+  });
+
+  it('torneio que ainda não começou diz para iniciar no Controle', async () => {
+    await montar({ timer: { ...ESTADO.timer, is_paused: true, started: false } });
+    const aviso = document.querySelector('.rm-aviso');
+    expect(aviso).toHaveTextContent('ainda não começou');
+    expect(aviso).toHaveTextContent('Controle');
+    expect(screen.getByRole('button', { name: 'Próxima ação' })).toBeDisabled();
+  });
+
+  it('pausado de verdade diz que volta quando o Controle retomar', async () => {
+    await montar({ timer: { ...ESTADO.timer, is_paused: true } });
+    expect(document.querySelector('.rm-aviso')).toHaveTextContent('Torneio pausado');
+    expect(document.querySelector('.rm-aviso')).toHaveTextContent('retomar');
+  });
+
+  it('servidor antigo, sem dizer se começou: trata como pausado', async () => {
+    const { started, ...semInicio } = ESTADO.timer;
+    await montar({ timer: { ...semInicio, is_paused: true } });
+    expect(document.querySelector('.rm-aviso')).toHaveTextContent('Torneio pausado');
+  });
+
+  it('com o relógio liberado, nenhum aviso', async () => {
+    await montar();
+    expect(document.querySelector('.rm-aviso')).toBeNull();
   });
 });
 

@@ -211,17 +211,38 @@ const RelogioDaMesa = () => {
   const assentos = assentosDaMesa(mesa.table.seats, mesa.seats, mesa.table.blocked_seats || []);
   const semListaDaMesa = mesa.time_bank?.reason === 'eliminacao_em_massa';
 
-  const motivoDoAviso = () => {
-    if (timer.is_break) return t('tableClock.onBreak', 'Intervalo');
-    if (timer.is_paused) return t('tableClock.tournamentPaused', 'Torneio pausado');
-    if (!config.enabled) return t('tableClock.turnedOff', 'Relógio desligado neste dia. Só o relógio chamado funciona.');
-    if (!mesa.clock_active) {
-      return t('tableClock.startsAtLevel', {
-        defaultValue: 'O relógio começa no nível {{level}}. Até lá, só o relógio chamado funciona.',
-        level: config.start_level,
-      });
+  // Por que os botões estão travados, e o que fazer. Fica no centro da mesa: na
+  // faixa do topo o dealer não via, e achava que o botão estava quebrado.
+  const motivoDoBloqueio = () => {
+    if (timer.is_break) return { texto: t('tableClock.onBreak', 'Intervalo') };
+    // `started` falso, e não ausente: servidor antigo não manda, e aí vale pausado.
+    if (timer.is_paused && timer.started === false) {
+      return {
+        texto: t('tableClock.notStarted', 'O torneio ainda não começou.'),
+        dica: t('tableClock.notStartedHint', 'O relógio libera quando o nível 1 começar no Controle do torneio.'),
+      };
     }
-    return '';
+    if (timer.is_paused) {
+      return {
+        texto: t('tableClock.tournamentPaused', 'Torneio pausado'),
+        dica: t('tableClock.pausedHint', 'O relógio volta quando o Controle retomar o nível.'),
+      };
+    }
+    if (!config.enabled) {
+      return {
+        texto: t('tableClock.turnedOff', 'Relógio desligado neste dia. Só o relógio chamado funciona.'),
+        dica: t('tableClock.turnedOffHint', 'Para ligar: Relógio de Mesa, Configuração do dia.'),
+      };
+    }
+    if (!mesa.clock_active) {
+      return {
+        texto: t('tableClock.startsAtLevel', {
+          defaultValue: 'O relógio começa no nível {{level}}. Até lá, só o relógio chamado funciona.',
+          level: config.start_level,
+        }),
+      };
+    }
+    return null;
   };
 
   const rotulo = () => {
@@ -239,7 +260,7 @@ const RelogioDaMesa = () => {
     return `${nivel} · ${timer.small_blind}/${timer.big_blind}${timer.ante ? ` (${timer.ante})` : ''}`;
   };
 
-  const aviso = motivoDoAviso();
+  const aviso = motivoDoBloqueio();
   const alerta = nivelDeAlerta(relogio.fase, segundos);
   const comContagem = relogio.fase !== FASE.PARADO;
 
@@ -290,8 +311,6 @@ const RelogioDaMesa = () => {
         </div>
       </header>
 
-      {aviso && <p className="rm-aviso">{aviso}</p>}
-
       <main className={`rm-mesa-area${escolhendo ? ' rm-mesa-area--escolhendo' : ''}`}>
         <div className={`rm-oval${espelhar && comContagem ? ' rm-oval--espelho' : ''}`}>
           {comContagem ? (
@@ -305,9 +324,13 @@ const RelogioDaMesa = () => {
               <span className="rm-nivel-tempo">
                 {formatarTempo(segundosDoNivel(timer, diferenca, agora))}
               </span>
-              <span className="rm-nivel-blinds">
-                {timer.is_break ? t('tableClock.onBreak', 'Intervalo') : nivelEBlinds()}
-              </span>
+              {!timer.is_break && <span className="rm-nivel-blinds">{nivelEBlinds()}</span>}
+              {aviso && (
+                <p className="rm-aviso">
+                  {aviso.texto}
+                  {aviso.dica && <small>{aviso.dica}</small>}
+                </p>
+              )}
             </div>
           )}
 

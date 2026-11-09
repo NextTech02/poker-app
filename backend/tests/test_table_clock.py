@@ -42,8 +42,9 @@ BLINDS = [
 ]
 
 
-def _status(nivel=1, exibido=1, intervalo=False, pausado=False):
+def _status(nivel=1, exibido=1, intervalo=False, pausado=False, iniciado=True):
     return {
+        "timer_started_at": "2026-11-08T19:51:43+00:00" if iniciado else None,
         "current_level": nivel,
         "display_level": exibido,
         "is_paused": pausado,
@@ -138,10 +139,13 @@ class TestSaldo:
 
 
 class TestConfiguracao:
-    def test_dia_sem_configuracao_vem_desligado_com_os_padroes(self, cenario):
+    def test_dia_sem_configuracao_vem_ligado_com_os_padroes(self, cenario):
+        """Quem abre o tablet quer o relógio: exigir ligar dia a dia travava o
+        dealer sem ele entender por quê. O relógio só existe no tablet, então para
+        quem não usa nada muda."""
         cenario.store["table_clock_settings"].clear()
         config = S.obter_configuracao(DIA)
-        assert config.enabled is False
+        assert config.enabled is True
         assert (config.preflop_seconds, config.postflop_seconds) == (20, 30)
         assert (config.card_seconds, config.initial_cards, config.cards_per_break) == (30, 2, 1)
         assert config.max_cards_per_decision == 6
@@ -230,6 +234,16 @@ class TestEstadoDaMesa:
         timer = S.estado_da_mesa(MESA)["timer"]
         assert (timer["level"], timer["big_blind"], timer["ante"]) == (2, 400, 400)
         assert (timer["level_ends_at"], timer["server_time"]) == (1000.0, 900.0)
+
+    def test_dia_sem_configuracao_ja_libera_o_relogio(self, cenario):
+        cenario.store["table_clock_settings"].clear()
+        assert S.estado_da_mesa(MESA)["clock_active"] is True
+
+    def test_diz_se_o_relogio_de_blinds_ja_comecou(self, cenario):
+        """Pausado e ainda não começado travam igual, mas pedem coisas diferentes ao floor."""
+        assert S.estado_da_mesa(MESA)["timer"]["started"] is True
+        cenario.status = _status(pausado=True, iniciado=False)
+        assert S.estado_da_mesa(MESA)["timer"]["started"] is False
 
     def test_intervalo_chega_ao_tablet(self, cenario):
         cenario.status = _status(nivel=3, exibido=2, intervalo=True)

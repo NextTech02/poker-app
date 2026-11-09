@@ -97,15 +97,26 @@
   height: 1.25rem;
 }
 
+/* No centro da mesa, onde o dealer está olhando: na faixa do topo ninguém via. */
 .rm-aviso {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  background: var(--rm-painel);
+  max-width: 85%;
+  margin: 0.5rem auto 0;
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
   color: var(--rm-aviso);
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: clamp(1rem, 2.8vmin, 1.4rem);
+  font-weight: 700;
+  line-height: 1.25;
   text-align: center;
+}
+
+.rm-aviso small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #d1fae5;
+  font-size: clamp(0.8rem, 2vmin, 1rem);
+  font-weight: 500;
 }
 
 /* ── A mesa ── */
