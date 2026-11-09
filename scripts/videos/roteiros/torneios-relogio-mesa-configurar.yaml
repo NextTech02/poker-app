@@ -1,0 +1,107 @@
+id: torneios-relogio-mesa-configurar
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /relogio-mesa
+preparar: relogio_painel:configurar
+titulo:
+  pt-BR: "Como configurar o relógio de mesa e os cartões"
+  en-US: "How to set up the table clock and the cards"
+  es-ES: "Cómo configurar el reloj de mesa y las tarjetas"
+descricao:
+  pt-BR: "Tempos e time bank do dia, ajuste de saldo e o login do dealer."
+  en-US: "The day's times and time bank, balance adjustments and the dealer login."
+  es-ES: "Tiempos y time bank del día, ajuste de saldo y el usuario del dealer."
+passos:
+  - fala:
+      pt-BR: "Em Relógio de Mesa, escolha o torneio e o dia. Abaixo das mesas fica a Configuração do dia."
+      en-US: "In Table Clock, choose the tournament and the day. Below the tables are the Day settings."
+      es-ES: "En Reloj de Mesa, elige el torneo y el día. Debajo de las mesas está la Configuración del día."
+    acoes:
+      - clicar: {css: ".rcm-item", texto: "{nome_torneio}"}
+      - pausa: 1.2
+      - clicar: {css: ".rcm-item", texto: "{nome_dia_1}"}
+      - esperar: {css: "#rcm-preflop_seconds"}
+      - destacar: {css: ".rcm-tela .card", n: 0}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Ligar o relógio neste dia libera o relógio nos tablets. Desligado, só o relógio chamado funciona."
+      en-US: "Turn the clock on for this day enables the clock on the tablets. When it's off, only the called clock works."
+      es-ES: "Encender el reloj este día activa el reloj en las tablets. Apagado, solo funciona el reloj pedido."
+    acoes:
+      - destacar: {css: ".rcm-caixa", n: 0}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Aqui ficam os segundos do pré-flop, do pós-flop e do relógio chamado."
+      en-US: "Here you set the seconds for preflop, postflop and the called clock."
+      es-ES: "Aquí van los segundos del preflop, del postflop y del reloj pedido."
+    acoes:
+      - destacar: {css: ".rcm-campos", n: 0}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Começa no nível diz a partir de qual nível o relógio roda. Use o número que a TV mostra, sem contar os intervalos."
+      en-US: "Starts at level sets the level from which the clock runs. Use the number the TV shows, not counting breaks."
+      es-ES: "Empieza en el nivel indica desde qué nivel corre el reloj. Usa el número que muestra la TV, sin contar los descansos."
+    acoes:
+      - destacar: {css: ".rcm-campos .form-group", n: 3}
+        segundos: 3.6
+  - fala:
+      pt-BR: "Com Usar time bank marcado, você define os segundos por cartão, os cartões iniciais, os cartões ganhos a cada intervalo e o máximo por decisão."
+      en-US: "With Use time bank checked, you set the seconds per card, the starting cards, the cards earned at each break and the maximum per decision."
+      es-ES: "Con Usar time bank marcado, defines los segundos por tarjeta, las tarjetas iniciales, las que se ganan en cada descanso y el máximo por decisión."
+    acoes:
+      - destacar: {css: ".rcm-caixa", n: 1}
+        segundos: 1.6
+      - destacar: {css: ".rcm-campos", n: 1}
+        segundos: 4.5
+  - fala:
+      pt-BR: "Mude o que precisar, mesmo com o torneio em andamento, e clique em Salvar. Aqui, voltamos aos padrões: 20 segundos no pré-flop, 30 no pós-flop e 30 por cartão."
+      en-US: "Change what you need, even with the tournament running, and click Save. Here, we go back to the defaults: 20 seconds preflop, 30 postflop and 30 per card."
+      es-ES: "Cambia lo que necesites, incluso con el torneo en curso, y haz clic en Guardar. Aquí volvemos a los valores predeterminados: 20 segundos en el preflop, 30 en el postflop y 30 por tarjeta."
+    acoes:
+      - digitar: {css: "#rcm-preflop_seconds", valor: "20", limpar: true}
+      - digitar: {css: "#rcm-postflop_seconds", valor: "30", limpar: true}
+      - digitar: {css: "#rcm-card_seconds", valor: "30", limpar: true}
+      - pausa: 0.6
+      - clicar: {css: ".rcm-tela form button[type=submit]", n: 0}
+  - fala:
+      pt-BR: "Em Cartões dos jogadores, você vê o saldo de cada um e quantos cartões já usou."
+      en-US: "Under Player cards, you see each player's balance and how many cards they've used."
+      es-ES: "En Tarjetas de los jugadores, ves el saldo de cada uno y cuántas tarjetas ya usó."
+    acoes:
+      - destacar: {css: ".rcm-direito", n: 0}
+        segundos: 1.8
+      - destacar: {css: ".rcm-tabela tbody tr", n: 2}
+        segundos: 2.6
+  - fala:
+      pt-BR: "Para dar ou tirar cartões, clique em Ajustar. Informe a quantidade, negativa para tirar, e o motivo."
+      en-US: "To give or take away cards, click Adjust. Enter the amount, negative to take away, and the reason."
+      es-ES: "Para dar o quitar tarjetas, haz clic en Ajustar. Indica la cantidad, negativa para quitar, y el motivo."
+    acoes:
+      - clicar: {css: ".rcm-tabela tbody tr:has-text('{ganha_cartao}') button"}
+      - pausa: 0.6
+      - passar: {css: "#rcm-ajuste-cartoes"}
+      - pausa: 1.2
+      - digitar: {css: "#rcm-ajuste-motivo", valor: "{motivo}"}
+  - fala:
+      pt-BR: "Confirme. O saldo do jogador muda, e o ajuste entra no Histórico de cartões, junto com cada cartão usado."
+      en-US: "Confirm. The player's balance changes, and the adjustment goes into the Card history, along with every card used."
+      es-ES: "Confirma. El saldo del jugador cambia, y el ajuste queda en el Historial de tarjetas, junto con cada tarjeta usada."
+    acoes:
+      - clicar: {css: ".modal .modal-actions button", n: 1}
+      - pausa: 1.2
+      - destacar: {css: ".rcm-tabela tbody tr:has-text('{ganha_cartao}')", n: 0}
+        segundos: 2.0
+      - destacar: {css: ".rcm-tabela", n: 1}
+        segundos: 3.0
+  - fala:
+      pt-BR: "No tablet, use o login de um grupo Dealer, criado em Funcionários só com a permissão Relógio de mesa. Ele opera o relógio, mas não muda a configuração nem os saldos."
+      en-US: "On the tablet, use a login from a Dealer group, created under Staff with only the Table clock permission. It runs the clock, but can't change the settings or the balances."
+      es-ES: "En la tablet, usa el usuario de un grupo Dealer, creado en Personal solo con el permiso Reloj de mesa. Opera el reloj, pero no cambia la configuración ni los saldos."
+    acoes:
+      - clicar: {css: "a.nav-item[href='/funcionarios']"}
+      - clicar: {css: ".func-tab", t: staff.tabGroups}
+      - pausa: 0.8
+      - destacar: {css: ".table tr:has(td strong:text-is('{grupo}'))"}
+        segundos: 4.0

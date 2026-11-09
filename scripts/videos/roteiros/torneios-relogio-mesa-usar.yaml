@@ -1,0 +1,99 @@
+id: torneios-relogio-mesa-usar
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /relogio-mesa/{dia_1}/mesa/{mesa_1}
+preparar: relogio_painel:usar
+titulo:
+  pt-BR: "Como usar o relógio de mesa e o time bank"
+  en-US: "How to use the table clock and the time bank"
+  es-ES: "Cómo usar el reloj de mesa y el time bank"
+descricao:
+  pt-BR: "Nova mão, próxima ação, flop, cartão de time bank e relógio chamado."
+  en-US: "New hand, next action, flop, time bank card and called clock."
+  es-ES: "Nueva mano, siguiente acción, flop, tarjeta de time bank y reloj pedido."
+passos:
+  - fala:
+      pt-BR: "Com a mesa aberta no tablet, o dealer usa os botões de baixo. Um toque por ação."
+      en-US: "With the table open on the tablet, the dealer uses the buttons at the bottom. One tap per action."
+      es-ES: "Con la mesa abierta en la tablet, el dealer usa los botones de abajo. Un toque por acción."
+    acoes:
+      - esperar: {css: ".rm-assento"}
+      - destacar: {css: ".rm-comandos"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Depois de dar as cartas, toque em Nova mão. Começa a contagem do pré-flop."
+      en-US: "After dealing the cards, tap New hand. The preflop countdown starts."
+      es-ES: "Después de repartir las cartas, toca Nueva mano. Empieza la cuenta del preflop."
+    acoes:
+      - clicar: {css: ".rm-comandos button", t: tableClock.newHand}
+  - fala:
+      pt-BR: "A cada ação de um jogador, toque em Próxima ação. A contagem recomeça."
+      en-US: "Each time a player acts, tap Next action. The countdown starts over."
+      es-ES: "Cada vez que un jugador actúa, toca Siguiente acción. La cuenta vuelve a empezar."
+    acoes:
+      - pausa: 0.8
+      - clicar: {css: ".rm-comandos .rm-principal"}
+      - pausa: 1.6
+      - clicar: {css: ".rm-comandos .rm-principal"}
+  - fala:
+      pt-BR: "Quando abrir o flop, toque em Flop. Daí até o fim da mão, vale o tempo do pós-flop."
+      en-US: "When the flop comes, tap Flop. From then until the end of the hand, the postflop time applies."
+      es-ES: "Cuando salga el flop, toca Flop. Desde ahí hasta el final de la mano, vale el tiempo del postflop."
+    acoes:
+      - clicar: {css: ".rm-comandos button", t: tableClock.flop}
+  - fala:
+      pt-BR: "Os segundos de cada contagem vêm da configuração do dia. Neste vídeo, estão curtos de propósito."
+      en-US: "The seconds for each countdown come from the day settings. In this video, they're short on purpose."
+      es-ES: "Los segundos de cada cuenta vienen de la configuración del día. En este video, están cortos a propósito."
+    acoes:
+      - destacar: {css: ".rm-oval"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Quando o tempo acaba, a tela avisa e acendem os assentos de quem ainda tem cartão. Se ninguém vai usar, toque em Chamar o floor."
+      en-US: "When time runs out, the screen alerts you and the seats of players who still have cards light up. If nobody is using one, tap Call the floor."
+      es-ES: "Cuando se acaba el tiempo, la pantalla avisa y se encienden los asientos de quien todavía tiene tarjetas. Si nadie la va a usar, toca Llamar al floor."
+    acoes:
+      - esperar: {css: ".rm-assento--disponivel"}
+      - pausa: 2.6
+      - destacar: {css: ".rm-fechar"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Toque no jogador que vai usar o cartão. A contagem ganha os segundos do cartão, e o saldo dele cai."
+      en-US: "Tap the player who is using the card. The countdown gets the card's seconds, and their balance goes down."
+      es-ES: "Toca al jugador que va a usar la tarjeta. La cuenta suma los segundos de la tarjeta, y su saldo baja."
+    acoes:
+      - clicar: {css: ".rm-assento", n: 2}
+      - pausa: 1.0
+      - destacar: {css: ".rm-assento", n: 2}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Errou o jogador? Toque em Desfazer, e o cartão volta."
+      en-US: "Wrong player? Tap Undo, and the card comes back."
+      es-ES: "¿Te equivocaste de jugador? Toca Deshacer, y la tarjeta vuelve."
+    acoes:
+      - destacar: {css: ".rm-ultimo"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Se o jogador pedir o cartão antes de o tempo acabar, toque em Time bank e no assento dele."
+      en-US: "If the player asks for a card before time runs out, tap Time bank and then their seat."
+      es-ES: "Si el jugador pide la tarjeta antes de que se acabe el tiempo, toca Time bank y luego su asiento."
+    acoes:
+      - clicar: {css: ".rm-comandos button", t: tableClock.timeBank}
+      - pausa: 0.8
+      - clicar: {css: ".rm-assento", n: 5}
+  - fala:
+      pt-BR: "Se alguém pedir o relógio, toque em Relógio chamado. Começa a contagem do relógio chamado."
+      en-US: "If someone calls the clock, tap Called clock. The called clock countdown starts."
+      es-ES: "Si alguien pide el reloj, toca Reloj pedido. Empieza la cuenta del reloj pedido."
+    acoes:
+      - pausa: 1.0
+      - clicar: {css: ".rm-comandos button", t: tableClock.calledClock}
+  - fala:
+      pt-BR: "Intervalo e pausa no relógio do torneio param o relógio da mesa."
+      en-US: "Breaks and pauses on the tournament clock stop the table clock."
+      es-ES: "El descanso y la pausa del reloj del torneo detienen el reloj de mesa."
+    acoes:
+      - destacar: {css: ".rm-topo .rm-nivel"}
+        segundos: 2.4

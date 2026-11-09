@@ -27,7 +27,7 @@ capitulos:
   - titulo: {pt-BR: "Vendendo no caixa", en-US: "Selling at the cash register", es-ES: "Vender en la caja"}
     videos: [caixa-abrir-fechar-caixa, caixa-registrar-venda, caixa-pagamento-dividido, caixa-reimprimir-trocar-pagamento, caixa-cancelar-venda, caixa-limite-jogador, caixa-tickets]
   - titulo: {pt-BR: "Torneio em andamento", en-US: "Running the tournament", es-ES: "Torneo en curso"}
-    videos: [torneios-mesas-alocar, torneios-controle-relogio, torneios-telao, torneios-telao-tv, torneios-eliminar-jogador, torneios-ko-pko-mystery, torneios-fichas-classificados, torneios-equipes, torneios-equipes-pontos-final]
+    videos: [torneios-mesas-alocar, torneios-controle-relogio, torneios-telao, torneios-telao-tv, torneios-relogio-mesa-abrir, torneios-relogio-mesa-usar, torneios-relogio-mesa-configurar, torneios-eliminar-jogador, torneios-painel-mesas-visao, torneios-painel-mesas-acoes, torneios-ko-pko-mystery, torneios-fichas-classificados, torneios-equipes, torneios-equipes-pontos-final]
   - titulo: {pt-BR: "Premiação e fechamento", en-US: "Prizes and closing", es-ES: "Premios y cierre"}
     videos: [torneios-premiacao, caixa-geral-sangria]
   - titulo: {pt-BR: "Cash game", en-US: "Cash game", es-ES: "Cash game"}

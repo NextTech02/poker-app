@@ -85,6 +85,7 @@ def main() -> None:
     args = argparse.ArgumentParser()
     args.add_argument("--enviar", action="store_true")
     args.add_argument("--so-catalogo", action="store_true", help="reenvia só o catálogo")
+    args.add_argument("--ids", nargs="+", help="envia só estes vídeos (e o catálogo inteiro)")
     opcoes = args.parse_args()
 
     catalogo = montar_catalogo()
@@ -95,7 +96,10 @@ def main() -> None:
         for arquivo in sorted((FINAL / idioma).glob("*"))
         if arquivo.suffix in (".mp4", ".vtt", ".jpg") and arquivo.stem in publicados
         and not arquivo.stem.startswith("_")
+        and (not opcoes.ids or arquivo.stem in opcoes.ids)
     ]
+    if opcoes.ids and (desconhecidos := set(opcoes.ids) - publicados):
+        raise SystemExit(f"sem vídeo pronto para: {', '.join(sorted(desconhecidos))}")
     total = sum(a.stat().st_size for a in arquivos)
     print(f"{len(catalogo['videos'])} vídeos, {len(arquivos)} arquivos, {total / 1e6:.1f} MB")
     if not opcoes.enviar:

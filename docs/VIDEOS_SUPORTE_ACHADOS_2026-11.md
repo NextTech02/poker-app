@@ -22,6 +22,7 @@ Corrigir os textos da seção 2 e regravar os vídeos afetados não gasta cota d
 | Equipes > Fase 1 | A prévia conta só os vivos: "4 jogadores → 4 mesas (4×1)". |
 | Cadastro de torneio | Escolher um formato de KO e voltar para Nenhuma mantém "Por posição nas mesas". |
 | Dia criado pelo formulário | O card mostra Rake 0% enquanto os meios de entrada têm 20% e 10%. |
+| Troca de mesa (Painel de Mesas e Gestão de Mesas) | O bilhete do lugar novo mostra a hora em que o jogador sentou pela primeira vez: `SeatTicket` usa `created_at`, e `PATCH /allocations/{id}` só muda `updated_at`. |
 
 ## 2. Português nos clubes em inglês e espanhol
 

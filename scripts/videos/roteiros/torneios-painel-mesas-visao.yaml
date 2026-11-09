@@ -1,0 +1,94 @@
+id: torneios-painel-mesas-visao
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: relogio_painel:painel_visao
+titulo:
+  pt-BR: "Painel de mesas: o salão numa tela"
+  en-US: "Table panel: the whole room on one screen"
+  es-ES: "Panel de mesas: el salón en una pantalla"
+descricao:
+  pt-BR: "Mesas, ocupação, relógios abertos, equilíbrio, sem mesa e eliminados."
+  en-US: "Tables, occupancy, open clocks, balancing, no table and eliminated players."
+  es-ES: "Mesas, ocupación, relojes abiertos, equilibrio, sin mesa y eliminados."
+passos:
+  - fala:
+      pt-BR: "Abra o torneio e, no dia, clique em Mesas."
+      en-US: "Open the tournament and, on the day, click Tables."
+      es-ES: "Abre el torneo y, en el día, haz clic en Mesas."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{nome_torneio}']"}
+      - clicar: {css: ".day-card-actions button", t: tables.title, n: 0}
+  - fala:
+      pt-BR: "Na Gestão de Mesas, clique em Painel de mesas. Ele foi feito para o floor e o diretor usarem no tablet ou no celular."
+      en-US: "In Table Management, click Table panel. It's made for the floor and the director to use on a tablet or a phone."
+      es-ES: "En Gestión de Mesas, haz clic en Panel de mesas. Está hecho para que el floor y el director lo usen en la tablet o en el celular."
+    acoes:
+      - clicar: {css: "a.tm-btn-outline"}
+  - fala:
+      pt-BR: "O painel desenha todas as mesas do dia, como o tablet do dealer: o assento 1 fica à esquerda do dealer, e a numeração segue no sentido horário."
+      en-US: "The panel draws every table of the day, like the dealer's tablet: seat 1 is to the dealer's left, and the numbers go clockwise."
+      es-ES: "El panel dibuja todas las mesas del día, como la tablet del dealer: el asiento 1 está a la izquierda del dealer, y la numeración sigue en el sentido de las agujas del reloj."
+    acoes:
+      - esperar: {css: ".pm-mesa"}
+      - destacar: {css: ".pm-mesas"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Cada assento mostra o primeiro nome, a inicial do sobrenome e os cartões de time bank que restam."
+      en-US: "Each seat shows the first name, the last name's initial and the time bank cards left."
+      es-ES: "Cada asiento muestra el primer nombre, la inicial del apellido y las tarjetas de time bank que quedan."
+    acoes:
+      - destacar: {css: ".pm-mesa .pm-assento", n: 0}
+        segundos: 3.0
+  - fala:
+      pt-BR: "No título, a ocupação: quantos estão sentados e quantos lugares a mesa tem, sem contar os bloqueados."
+      en-US: "In the title, the occupancy: how many are seated and how many seats the table has, not counting blocked ones."
+      es-ES: "En el título, la ocupación: cuántos están sentados y cuántos lugares tiene la mesa, sin contar los bloqueados."
+    acoes:
+      - destacar: {css: ".pm-mesa-titulo", n: 0}
+        segundos: 3.0
+  - fala:
+      pt-BR: "A marca Relógio mostra que um tablet está com o relógio aberto naquela mesa."
+      en-US: "The Clock tag shows that a tablet has the clock open at that table."
+      es-ES: "La marca Reloj indica que una tablet tiene el reloj abierto en esa mesa."
+    acoes:
+      - destacar: {css: ".pm-relogio"}
+        segundos: 2.6
+  - fala:
+      pt-BR: "No alto, o resumo: quantos estão jogando, quantas mesas e quantos estão sem mesa."
+      en-US: "At the top, the summary: how many are playing, how many tables and how many have no table."
+      es-ES: "Arriba, el resumen: cuántos están jugando, cuántas mesas y cuántos están sin mesa."
+    acoes:
+      - destacar: {css: ".pm-resumo"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Quando uma mesa tem dois jogadores a mais que outra, o painel sugere passar um da mais cheia para a mais vazia. Se todos cabem nas outras mesas, sugere quebrar a mais vazia. Quem decide e move é o floor."
+      en-US: "When one table has two more players than another, the panel suggests moving one from the fullest to the emptiest. If everyone fits at the other tables, it suggests breaking the emptiest one. The floor decides and makes the move."
+      es-ES: "Cuando una mesa tiene dos jugadores más que otra, el panel sugiere pasar uno de la más llena a la más vacía. Si todos caben en las otras mesas, sugiere romper la más vacía. El floor decide y hace el cambio."
+    acoes:
+      - destacar: {css: ".pm-alertas"}
+        segundos: 5.0
+  - fala:
+      pt-BR: "Sem mesa lista quem comprou a entrada e ainda não foi sentado."
+      en-US: "No table lists who bought in and hasn't been seated yet."
+      es-ES: "Sin mesa muestra a quien compró la entrada y todavía no fue sentado."
+    acoes:
+      - destacar: {css: ".pm-sem-mesa"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Embaixo, os eliminados agora há pouco, com Desfazer para corrigir um engano."
+      en-US: "At the bottom, the recently eliminated players, with Undo to fix a mistake."
+      es-ES: "Abajo, los eliminados hace poco, con Deshacer para corregir un error."
+    acoes:
+      - rolar: {css: ".pm-eliminados"}
+      - destacar: {css: ".pm-eliminados"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "O painel se atualiza sozinho: quando alguém senta, sai ou troca de mesa, a tela muda na hora."
+      en-US: "The panel updates by itself: when someone sits down, busts out or changes tables, the screen changes right away."
+      es-ES: "El panel se actualiza solo: cuando alguien se sienta, sale o cambia de mesa, la pantalla cambia al instante."
+    acoes:
+      - rolar: {css: ".pm-resumo"}
+      - pausa: 0.5
