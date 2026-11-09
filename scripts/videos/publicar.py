@@ -44,9 +44,13 @@ def montar_catalogo() -> dict:
                 "descricao": roteiro.get("descricao", {}),
                 "duracao": duracao,
             })
+    # Os curtos seguem a ordem do treinamento, que é a da rotina do clube: em
+    # ordem alfabética, "Todos" abria pelo bar em vez de "entrar no sistema".
+    plano = yaml.safe_load((AQUI / "treinamento.yaml").read_text(encoding="utf-8"))
+    ordem = [video for capitulo in plano["capitulos"] for video in capitulo["videos"]]
+    videos.sort(key=lambda v: ordem.index(v["id"]) if v["id"] in ordem else len(ordem))
     # O treinamento não tem roteiro: é montado por treinamento.py a partir dos
     # curtos, e o JSON dele traz o início de cada capítulo.
-    plano = yaml.safe_load((AQUI / "treinamento.yaml").read_text(encoding="utf-8"))
     duracao, capitulos = {}, {}
     for idioma in IDIOMAS:
         dados = FINAL / idioma / f"{plano['id']}.json"
@@ -80,6 +84,7 @@ def main() -> None:
     carregar_env()
     args = argparse.ArgumentParser()
     args.add_argument("--enviar", action="store_true")
+    args.add_argument("--so-catalogo", action="store_true", help="reenvia só o catálogo")
     opcoes = args.parse_args()
 
     catalogo = montar_catalogo()
@@ -95,7 +100,7 @@ def main() -> None:
     print(f"{len(catalogo['videos'])} vídeos, {len(arquivos)} arquivos, {total / 1e6:.1f} MB")
     if not opcoes.enviar:
         return
-    for arquivo in arquivos:
+    for arquivo in ([] if opcoes.so_catalogo else arquivos):
         caminho = f"{arquivo.parent.name}/{arquivo.name}"
         enviar(caminho, arquivo.read_bytes(), TIPOS[arquivo.suffix], "3600")
         print("ok", caminho)
