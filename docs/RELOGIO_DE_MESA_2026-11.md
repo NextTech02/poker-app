@@ -34,6 +34,10 @@ Intervalo e pausa do relógio de blinds param o relógio da mesa.
 
 ## Regras
 
+- **O relógio vem ligado.** Quem abre o tablet quer usar; exigir ligar dia a dia travava o dealer sem
+  ele entender por quê. Desligado num dia, continua desligado. Quando o relógio não pode rodar
+  (intervalo, torneio pausado ou ainda não começado, relógio desligado, nível de início), o motivo e o
+  que fazer aparecem no centro da mesa.
 - **Configuração por dia**, em Relógio de Mesa, por quem tem `tables`, `tournaments` ou `employees`.
   Padrões: 20 s no pré-flop, 30 s no pós-flop, 30 s por cartão, 2 cartões iniciais, +1 por intervalo,
   até 6 por decisão. Pode mudar com o torneio rodando.
