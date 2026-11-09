@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useStage } from '../contexts/StageContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useModule, MODULO_TORNEIO, MODULO_CASH, MODULO_BAR } from '../contexts/ModuleContext';
-import { MENUS_POR_MODULO, MENU_COMUM } from './menus';
+import { MENUS_POR_MODULO, MENU_COMUM, podeAbrir } from './menus';
 import OrgSwitcher from './OrgSwitcher';
 import LanguageSelector from './LanguageSelector';
 import TopBar from './TopBar';
@@ -147,7 +147,7 @@ const Sidebar = () => {
     // Suppress an item that would otherwise duplicate one already reachable
     // through a group (e.g. the standalone Sangi entry for cashier/admin users).
     if (item.hideIfPermission && hasPermission(item.hideIfPermission)) return false;
-    return hasPermission(item.permission);
+    return podeAbrir(item, hasPermission);
   }).map((item) => {
     if (item.type === 'group') {
       return {

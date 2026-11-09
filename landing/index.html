@@ -24,14 +24,20 @@
 <meta property="og:locale" content="pt_BR">
 <meta property="og:title" content="AceBlind — Seu torneio não pode parar. Seu sistema também não.">
 <meta property="og:description" content="Torneio, caixa e ranking numa ferramenta só — e que continua rodando quando a internet cai.">
-<meta property="og:image" content="https://aceblind.net/og.png">
+<meta property="og:image" content="https://aceblind.net/og-pt.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AceBlind">
 <meta name="twitter:card" content="summary_large_image">
 
-<!-- SVG inline: o mesmo ás da marca, sem um arquivo a mais para carregar. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%2314052E'/%3E%3Cpath d='M20 6 L33 34 H26.5 L20 19 L13.5 34 H7 Z' fill='%23fff'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Arquivos de verdade, e não um data-URI: é daqui que o Google tira o ícone
+     que aparece ao lado do site no resultado da busca. -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- Fontes servidas pelo próprio site. Vindas do Google Fonts, elas seguravam a
+     primeira pintura da página por ~1 s no celular: era o maior item do LCP. -->
+<link rel="preload" href="/fonts/montserrat-v1.woff2" as="font" type="font/woff2" crossorigin>
+<noscript><style>.rv{opacity:1;transform:none}.faq__a{max-height:none}</style></noscript>
 <style>
 /* ============================================================
    TIPOGRAFIA — GOTHAM
@@ -55,6 +61,13 @@
    resultado fica visivelmente torto.
    ============================================================ */
 
+@font-face{font-family:'Montserrat';src:url('/fonts/montserrat-v1.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'Montserrat';src:url('/fonts/montserrat-italic-v1.woff2') format('woff2');font-weight:100 900;font-style:italic;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url('/fonts/jetbrains-mono-v1.woff2') format('woff2');font-weight:100 800;font-style:normal;font-display:swap}
+/* Arial ajustada às medidas da Montserrat: enquanto a fonte chega, o texto já
+   ocupa o espaço final, e a troca não empurra a página. */
+@font-face{font-family:'Montserrat Fallback';src:local('Arial');size-adjust:112.83%;ascent-override:85.79%;descent-override:22.25%;line-gap-override:0%}
+
 :root{
   --feltro:#14052E;
   --mesa:#2B0A6B;
@@ -65,7 +78,7 @@
   --ambar:#FFB020;
   --tinta:#1A1030;
   --tinta-fraca:#5B5470;
-  --display:'Gotham','Gotham HTF','Montserrat','Helvetica Neue',Arial,sans-serif;
+  --display:'Gotham','Gotham HTF','Montserrat','Montserrat Fallback','Helvetica Neue',Arial,sans-serif;
   --mono:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
   --container:1240px;
 }
@@ -365,6 +378,13 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 .role span{font-size:14.5px;line-height:1.45;color:var(--tinta-fraca)}
 .role__n{font-family:var(--mono);font-size:11px;color:var(--violeta);display:block;margin-bottom:12px}
 
+/* ---------- recursos ---------- */
+.recursos{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.recurso{display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid rgba(26,16,48,.1);border-radius:12px;padding:22px;transition:border-color .15s,transform .15s}
+.recurso:hover{border-color:var(--violeta);transform:translateY(-1px)}
+.recurso b{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--tinta)}
+.recurso span{font-size:14.5px;line-height:1.45;color:var(--tinta-fraca)}
+
 /* ---------- migração ---------- */
 .migra{max-width:900px;margin:0 auto;background:#fff;border:1px solid rgba(26,16,48,.1);border-left:3px solid var(--violeta);border-radius:12px;padding:48px}
 .migra p + p{margin-top:18px}
@@ -424,6 +444,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 .faq__item.is-open .faq__q::after{transform:translateY(-50%) rotate(45deg)}
 .faq__a{max-height:0;overflow:hidden;transition:max-height .28s ease}
 .faq__a p{padding:0 40px 26px 0}
+.faq__a a{color:#4F22D9;border-bottom:1px solid rgba(79,34,217,.35)}
 
 /* ---------- cta final ---------- */
 .close{
@@ -462,9 +483,15 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
    cobre o "© 2026 AceBlind" de quem chega ao fim da pagina. Vale em toda
    largura — no desktop o copyright fica encostado a direita, que e justamente
    o canto onde o botao mora. */
-.foot{background:#0A0119;color:#8E85B4;padding:44px 0 80px;font-size:14px}
+.foot{background:#0A0119;color:#A79ECB;padding:44px 0 80px;font-size:14px}
 .foot__inner{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
-.foot__links{display:flex;gap:22px}
+.foot__mapa{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:32px;padding-bottom:36px;margin-bottom:36px;border-bottom:1px solid rgba(183,156,255,.14)}
+.foot__mapa:empty{display:none}
+.foot__col h2{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;color:#B7AED6;margin-bottom:14px}
+.foot__col ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+.foot__col a{color:#C9C2DE;font-size:14.5px;line-height:1.35}
+.foot__col a:hover{color:#fff}
+.foot__links{display:flex;flex-wrap:wrap;gap:12px 22px}
 .foot__links a:hover{color:#fff}
 .foot__tag{font-style:italic;color:var(--lavanda)}
 
@@ -511,6 +538,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   .hero__art{margin-right:-28vw;padding-bottom:70px}
   .app{transform:perspective(1600px) rotateY(-8deg)}
   .grid3{grid-template-columns:1fr}
+  .recursos{grid-template-columns:repeat(2,1fr)}
   .roles{grid-template-columns:repeat(2,1fr)}
   .plans{grid-template-columns:repeat(2,1fr)}
   .plan__fine{min-height:0}
@@ -528,6 +556,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   .tv__col--r{text-align:center}
   .tv__col{flex-direction:row;justify-content:space-around}
   .roles{grid-template-columns:1fr}
+  .recursos{grid-template-columns:1fr}
   .plans{grid-template-columns:1fr;max-width:420px;margin:0 auto}
   .migra{padding:32px 24px}
   .form__grid{grid-template-columns:1fr}
@@ -591,6 +620,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   </div>
 </header>
 
+<main id="conteudo">
 <!-- ================= HERO ================= -->
 <section class="hero band--dark" id="top">
   <div class="wrap hero__grid">
@@ -616,7 +646,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
           <i class="dot"></i><i class="dot"></i><i class="dot"></i>
           <span class="app__url">app.aceblind.net/home</span>
         </div>
-        <aside class="app__side">
+        <div class="app__side">
           <div class="app__brand">
             <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L36 37 H28.5 L20 18 L11.5 37 H4 Z" fill="#fff"/><path d="M20 24 L24 30 L20 36 L16 30 Z" fill="#fff"/></svg>
             <span><b style="font-weight:700">Ace</b><span style="font-weight:300">Blind</span></span>
@@ -642,8 +672,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
             <li data-i18n="menu.funcionarios">Funcionários</li>
             <li data-i18n="menu.relatorios">Relatórios</li>
           </ul>
-        </aside>
-        <main class="app__main">
+        </div>
+        <div class="app__main">
           <div class="app__h">
             <div>
               <b>Dashboard</b>
@@ -673,7 +703,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
               <div class="row"><span data-i18n="app.sangria">Sangria</span><b>R$ 9.250</b></div>
             </div>
           </div>
-        </main>
+        </div>
       </div>
     </div>
   </div>
@@ -694,7 +724,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   <div class="wrap">
     <div class="offline__head rv">
       <span class="eyebrow" data-i18n="off.eyebrow">O diferencial</span>
-      <h2 data-i18n="off.titulo">O único sistema da categoria<span class="italic">que continua de pé quando a internet cai.</span></h2>
+      <h2 data-i18n="off.titulo">Um sistema online<span class="italic">que continua de pé quando a internet cai.</span></h2>
     </div>
 
     <!-- MOCKUP: tela de TV do timer -->
@@ -723,7 +753,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
     </div>
 
     <div class="offline__note rv">
-      <p data-i18n="off.p1">Se a conexão cair no meio da operação, o AceBlind não trava e não perde dado. Caixa, registro de jogadores e timer continuam rodando normalmente. Quando a internet volta, tudo sincroniza sozinho.</p>
+      <p data-i18n="off.p1">Se a conexão cair no meio da operação, o AceBlind não trava. Na tela que já estava aberta, buy-in, rebuy, add-on, sangria, cadastro de jogador, eliminação e timer continuam funcionando, e o que foi lançado fica guardado no aparelho. Quando a internet volta, tudo sincroniza sozinho.</p>
       <p style="margin-top:16px" data-i18n="off.p2"><strong style="color:#fff;font-weight:500">Isso não é um recurso a mais.</strong> É a diferença entre terminar o evento no horário e explicar para o jogador por que o timer sumiu.</p>
     </div>
   </div>
@@ -766,8 +796,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
         <span class="card__label" data-i18n="card3.label">Jogadores</span>
         <h3 data-i18n="card3.titulo">O que sustenta a operação depois do evento</h3>
         <ul class="list">
-          <li data-i18n="card3.i1">Cadastro e check-in ágil, sem gargalo na porta</li>
-          <li data-i18n="card3.i2">Histórico do jogador por etapa e por temporada</li>
+          <li data-i18n="card3.i1">Cadastro ágil, sem gargalo na porta</li>
+          <li data-i18n="card3.i2">Histórico do jogador por torneio e por dia</li>
           <li data-i18n="card3.i3">Permissões por função para toda a equipe</li>
           <li data-i18n="card3.i4">Relatórios de operação e financeiro sem montagem manual</li>
         </ul>
@@ -789,8 +819,22 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
       <div class="role"><span class="role__n" data-i18n="papel2.n">GERENTE</span><b data-i18n="papel2.t">Equipe sob controle</b><span data-i18n="papel2.d">Permissões e acompanhamento de time num painel só.</span></div>
       <div class="role"><span class="role__n" data-i18n="papel3.n">DIRETOR DE TORNEIO</span><b data-i18n="papel3.t">Estrutura na mão</b><span data-i18n="papel3.d">Timer, blinds e estrutura sob controle total, mesmo sob pressão do evento ao vivo.</span></div>
       <div class="role"><span class="role__n" data-i18n="papel4.n">CAIXA</span><b data-i18n="papel4.t">Tela rápida</b><span data-i18n="papel4.d">Pensada para operar em movimento, e que não trava se a conexão cair no meio do turno.</span></div>
-      <div class="role"><span class="role__n" data-i18n="papel5.n">RECEPÇÃO</span><b data-i18n="papel5.t">Entrada sem fila</b><span data-i18n="papel5.d">Check-in e cadastro ágil, sem gargalo na porta do evento.</span></div>
+      <div class="role"><span class="role__n" data-i18n="papel5.n">RECEPÇÃO</span><b data-i18n="papel5.t">Entrada sem fila</b><span data-i18n="papel5.d">Cadastro e inscrição ágeis, sem gargalo na porta do evento.</span></div>
     </div>
+  </div>
+</section>
+
+<!-- ================= RECURSOS ================= -->
+<!-- Os cartões são preenchidos pelo build.mjs, a partir das páginas de
+     conteudo/. Sem estes links, as páginas internas não recebem nada da força
+     da home. -->
+<section class="band band--light" id="recursos" style="padding-top:0">
+  <div class="wrap">
+    <div class="rv" style="max-width:760px;margin-bottom:44px">
+      <span class="eyebrow" data-i18n="recursos.eyebrow">Por dentro do sistema</span>
+      <h2 data-i18n="recursos.titulo">Veja como cada parte funciona<span class="italic">no dia do evento.</span></h2>
+    </div>
+    <div class="recursos rv" id="recursosGrade"></div>
   </div>
 </section>
 
@@ -816,7 +860,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
     <div class="toggle rv" role="group" data-i18n-aria="planos.ciclo">
       <button class="toggle__btn is-on" id="tgAnual" aria-pressed="true" data-i18n="planos.anual">Anual</button>
       <button class="toggle__btn" id="tgMensal" aria-pressed="false" data-i18n="planos.mensal">Mensal</button>
-      <span class="toggle__save" id="tgSave" data-i18n="planos.economize">economize 30%</span>
+      <span class="toggle__save" id="tgSave" data-i18n="planos.economize">economize até 29%</span>
     </div>
 
     <div class="plans rv">
@@ -874,7 +918,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
         <ul class="list">
           <li data-i18n="prem.i1">Tudo do Pro, sem limite</li>
           <li data-i18n="prem.i2">Sistema personalizado para a sua operação</li>
-          <li data-i18n="prem.i3">Múltiplas unidades numa só visão</li>
+          <li data-i18n="prem.i3">Várias unidades no mesmo login</li>
           <li data-i18n="prem.i4">Migração conduzida pela nossa equipe</li>
           <li data-i18n="prem.i5">Suporte dedicado durante o evento</li>
         </ul>
@@ -893,22 +937,22 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
     <div class="faq rv">
       <div style="margin-bottom:36px">
         <span class="eyebrow" data-i18n="nav.duvidas">Dúvidas</span>
-        <h2 data-i18n="faq.titulo">Antes de você perguntar.</h2>
+        <h2 data-i18n="faq.titulo">Perguntas frequentes sobre o AceBlind</h2>
       </div>
 
       <div class="faq__item">
         <button class="faq__q" aria-expanded="false" data-i18n="faq.q1">Como funciona quando a internet cai mesmo?</button>
-        <div class="faq__a"><p data-i18n="faq.a1">O sistema roda localmente na máquina. Caixa, registro e timer continuam operando normalmente durante a queda, e o que foi lançado sobe automaticamente quando a conexão volta. Nada é digitado duas vezes.</p></div>
+        <div class="faq__a"><p data-i18n="faq.a1">O sistema guarda no próprio aparelho o que precisa para seguir. Com a tela já aberta, buy-in, rebuy, add-on, sangria, cadastro, eliminação e timer continuam funcionando durante a queda, e o que foi lançado sobe sozinho quando a conexão volta. Login, alocação de assentos, pagamento de prêmio e abertura de caixa precisam de internet: <a href="/sistema-de-poker-offline/">veja a lista completa</a>.</p></div>
       </div>
 
       <div class="faq__item">
         <button class="faq__q" aria-expanded="false" data-i18n="faq.q2">Preciso instalar alguma coisa?</button>
-        <div class="faq__a"><p data-i18n="faq.a2">Não. O AceBlind roda no navegador — abre o endereço e usa, no computador do caixa, no notebook ou no tablet. Se quiser, dá para instalar como aplicativo e ele ganha ícone na área de trabalho, mas é opcional: é o mesmo sistema, e é o que permite continuar operando sem internet.</p></div>
+        <div class="faq__a"><p data-i18n="faq.a2">Não. O AceBlind roda no navegador — abre o endereço e usa, no computador do caixa, no notebook ou no tablet. Se quiser, dá para instalar como aplicativo e ele ganha ícone na área de trabalho, mas é opcional: é o mesmo sistema.</p></div>
       </div>
 
       <div class="faq__item">
         <button class="faq__q" aria-expanded="false" data-i18n="faq.q3">Consigo trazer meus jogadores do sistema atual?</button>
-        <div class="faq__a"><p data-i18n="faq.a3">Sim. O cadastro dos seus jogadores entra por planilha exportada do sistema atual, e a migração é conduzida pela nossa equipe — você não carrega esse arquivo sozinho. O histórico é preservado, e o que já entrou não duplica se for preciso reimportar.</p></div>
+        <div class="faq__a"><p data-i18n="faq.a3">Sim. O cadastro dos seus jogadores entra por planilha exportada do sistema atual, e a migração é conduzida pela nossa equipe — você não carrega esse arquivo sozinho. O que já entrou não duplica se for preciso reimportar.</p></div>
       </div>
 
       <div class="faq__item">
@@ -939,7 +983,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   <div class="wrap">
     <div class="rv">
       <h2 data-i18n="cta.titulo">Sua operação já é profissional.<span class="italic">Seu sistema também precisa ser.</span></h2>
-      <p data-i18n="cta.p">Crie a conta e rode seu próximo evento no AceBlind, do primeiro buy-in ao pagamento da premiação. O plano Free vai até 4 torneios por mês, por 60 dias.</p>
+      <p data-i18n="cta.p">Peça sua conta e rode seu próximo evento no AceBlind, do primeiro buy-in ao pagamento da premiação. O plano Free vai até 4 torneios por mês, por 60 dias.</p>
     </div>
 
     <form class="form" id="form" novalidate>
@@ -953,8 +997,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
       <div class="form__grid">
         <div class="field"><label for="f1" data-i18n="form.nome">Nome</label><input id="f1" type="text" data-i18n-ph="form.nomePh" placeholder="Seu nome" required></div>
         <div class="field"><label for="f2" data-i18n="form.clube">Clube</label><input id="f2" type="text" data-i18n-ph="form.clubePh" placeholder="Nome do clube" required></div>
-        <div class="field"><label for="f3">WhatsApp</label><input id="f3" type="tel" placeholder="(00) 00000-0000" required></div>
-        <div class="field"><label for="f4" data-i18n="form.email">E-mail</label><input id="f4" type="email" placeholder="voce@clube.com" required></div>
+        <div class="field"><label for="f3">WhatsApp</label><input id="f3" type="tel" data-i18n-ph="form.whatsPh" placeholder="(00) 00000-0000" required></div>
+        <div class="field"><label for="f4" data-i18n="form.email">E-mail</label><input id="f4" type="email" data-i18n-ph="form.emailPh" placeholder="voce@clube.com" required></div>
         <div class="field"><label for="f5" data-i18n="form.cidade">Cidade</label><input id="f5" type="text" data-i18n-ph="form.cidadePh" placeholder="Cidade / UF"></div>
         <div class="field"><label for="f6" data-i18n="form.eventos">Eventos por mês</label>
           <select id="f6">
@@ -978,8 +1022,13 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   </div>
 </section>
 
+</main>
+
 <!-- ================= RODAPÉ ================= -->
 <footer class="foot">
+  <!-- Preenchido pelo build.mjs: um link para cada página, no idioma da página.
+       É assim que o Google chega às páginas internas a partir da home. -->
+  <div class="wrap foot__mapa" id="mapaDoSite"></div>
   <div class="wrap foot__inner">
     <div>
       <div class="brand" style="margin-bottom:6px">
@@ -1031,7 +1080,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 window.ACEBLIND_API = 'https://api.aceblind.net';
 window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
 </script>
-<script>
+<!-- Roda em todas as páginas do site: idioma, menu, formulário, WhatsApp. -->
+<script id="js-comum">
 (function(){
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1053,6 +1103,7 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
      ========================================================================== */
   var T = window.ACEBLIND_T || {};
   function t(chave, padrao){ return T[chave] || padrao; }
+  window.ACEBLIND_TXT = t;
 
   /* Menu do seletor: só abre e fecha. Os itens são links normais. */
   var lang = document.getElementById('lang');
@@ -1087,6 +1138,138 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
   } else {
     rvs.forEach(function(el){ el.classList.add('is-in'); });
   }
+
+  /* ---- origem do lead -------------------------------------------------- */
+  /* De onde a pessoa veio na PRIMEIRA visita: é isso que responde "quantos
+     clientes o orgânico trouxe". Quem acha o site no Google e volta dois dias
+     depois digitando o endereço continua contando como orgânico.
+
+     Vai no campo `source`, e não em campos novos, porque o backend descarta o
+     que não conhece e `source` já existe. O limite dele é 60 caracteres: passou
+     disso, a API recusa o lead inteiro. Por isso o slice no final.
+
+     Formato: landing|<canal>|<página de entrada>
+       landing|org:google|/ferramentas/timer-de-poker/
+       landing|utm:instagram|/
+       landing|ref:cbth.org.br|/es/
+       landing|direto|/ */
+  var CHAVE_ORIGEM = 'aceblind.origem';
+  var VALIDADE_ORIGEM = 90 * 24 * 3600 * 1000;
+  var BUSCADORES = /(^|\.)(google|bing|yahoo|duckduckgo|ecosia|brave|yandex|baidu)\./;
+
+  function canalDaVisita(){
+    var utm = new URLSearchParams(window.location.search).get('utm_source');
+    if(utm) return 'utm:' + utm.replace(/[|\s]/g, '').slice(0, 24);
+    var host = '';
+    try { host = new URL(document.referrer).hostname.replace(/^www\./, ''); } catch(e){ /* sem referrer */ }
+    if(!host || host === window.location.hostname) return 'direto';
+    var buscador = host.match(BUSCADORES);
+    return buscador ? 'org:' + buscador[2] : 'ref:' + host.slice(0, 30);
+  }
+
+  function lerOrigem(){
+    var agora = Date.now();
+    var atual = { canal: canalDaVisita(), pagina: window.location.pathname, em: agora };
+    /* Armazenamento bloqueado não pode custar o lead: cai na visita atual. */
+    try {
+      var salva = JSON.parse(localStorage.getItem(CHAVE_ORIGEM));
+      if(salva && salva.canal && agora - salva.em < VALIDADE_ORIGEM) return salva;
+      localStorage.setItem(CHAVE_ORIGEM, JSON.stringify(atual));
+    } catch(e){ /* segue com a visita atual */ }
+    return atual;
+  }
+  var origem = lerOrigem();
+
+  function fonteDoLead(){
+    return ('landing|' + origem.canal + '|' + origem.pagina).slice(0, 60);
+  }
+
+  /* ---- formulário ----------------------------------------------------- */
+  /* Configuração da página, num lugar só. `API` aponta para o backend; trocar
+     de ambiente é trocar esta linha. */
+  var API = window.ACEBLIND_API || 'https://api.aceblind.net';
+  var WHATSAPP = window.ACEBLIND_WHATSAPP || '';   /* só dígitos, com DDI */
+
+  var form = document.getElementById('form');
+  var ok = document.getElementById('ok');
+  var err = document.getElementById('err');
+  var send = document.getElementById('send');
+
+  function val(id){ var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+  /* O rótulo do botão é lido da própria página, que já está no idioma certo:
+     antes ele voltava sempre para "Comece o teste grátis", em português. */
+  var textoEnviar = send.textContent;
+
+  function falhar(msg){
+    err.textContent = msg;
+    err.hidden = false;
+    send.removeAttribute('aria-busy');
+    send.textContent = textoEnviar;
+  }
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    err.hidden = true;
+
+    /* Validação na tela antes de gastar uma ida ao servidor. O backend valida
+       de novo — cliente nunca é fonte confiável —, mas quem preencheu merece
+       saber na hora qual campo está faltando. */
+    if(!val('f1') || !val('f2') || !val('f3') || !val('f4')){
+      return falhar(t('form.erroCampos', 'Preencha nome, clube, WhatsApp e e-mail.'));
+    }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f4'))){
+      return falhar(t('form.erroEmail', 'Confira o e-mail: parece que falta alguma coisa.'));
+    }
+
+    send.setAttribute('aria-busy','true');
+    send.textContent = t('form.enviando', 'Enviando…');
+
+    fetch(API + '/public/leads', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        name: val('f1'), club: val('f2'), whatsapp: val('f3'), email: val('f4'),
+        city: val('f5'), events_per_month: val('f6'),
+        website: val('fw'),          /* armadilha anti-robô */
+        source: fonteDoLead()
+      })
+    }).then(function(r){
+      if(!r.ok) throw new Error('http ' + r.status);
+      form.style.display = 'none';
+      ok.style.display = 'block';
+      ok.scrollIntoView({block:'center', behavior: reduce ? 'auto' : 'smooth'});
+    }).catch(function(){
+      /* Nunca engolir a falha: sem isto a pessoa vê "recebemos" e ninguém
+         recebeu nada. O WhatsApp fica como saída imediata. */
+      falhar(t('form.erroEnvio', 'Não consegui enviar agora. Tente de novo em instantes — ou chame no WhatsApp, que a gente responde por lá.'));
+    });
+  });
+
+  /* WhatsApp: um número só (ACEBLIND_WHATSAPP), e a conversa já abre com a
+     mensagem escrita NO IDIOMA DA PÁGINA — quem leu em espanhol não deve ter
+     que redigir em português para pedir informação.
+
+     O build já grava o link wa.me no HTML de cada idioma (é o que o buscador
+     e quem está sem JavaScript enxergam). Isto aqui refaz o mesmo link para
+     quem abre o index.html direto, sem build, e para quando o número mudar
+     na configuração sem um build novo. */
+  function ligarWhatsApp(){
+    if(!WHATSAPP) return;   /* sem número, os botões seguem para o formulário */
+    var texto = t('wa.texto', 'Olá, gostaria de saber mais informações sobre o AceBlind');
+    var href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(texto);
+    document.querySelectorAll('.wa-link').forEach(function(a){
+      a.href = href; a.target = '_blank'; a.rel = 'noopener';
+    });
+  }
+  ligarWhatsApp();
+})();
+</script>
+<!-- Só a home: animação da TV, perguntas e alternador de planos. -->
+<script id="js-home">
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var t = window.ACEBLIND_TXT;
 
   /* timer ao vivo */
   var clock = document.getElementById('clock');
@@ -1156,86 +1339,6 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
   }
   tgA.addEventListener('click', function(){ setCiclo('anual'); });
   tgM.addEventListener('click', function(){ setCiclo('mensal'); });
-
-  /* ---- formulário ----------------------------------------------------- */
-  /* Configuração da página, num lugar só. `API` aponta para o backend; trocar
-     de ambiente é trocar esta linha. */
-  var API = window.ACEBLIND_API || 'https://api.aceblind.net';
-  var WHATSAPP = window.ACEBLIND_WHATSAPP || '';   /* só dígitos, com DDI */
-
-  var form = document.getElementById('form');
-  var ok = document.getElementById('ok');
-  var err = document.getElementById('err');
-  var send = document.getElementById('send');
-
-  function val(id){ var el = document.getElementById(id); return el ? el.value.trim() : ''; }
-
-  /* O rótulo do botão é lido da própria página, que já está no idioma certo:
-     antes ele voltava sempre para "Comece o teste grátis", em português. */
-  var textoEnviar = send.textContent;
-
-  function falhar(msg){
-    err.textContent = msg;
-    err.hidden = false;
-    send.removeAttribute('aria-busy');
-    send.textContent = textoEnviar;
-  }
-
-  form.addEventListener('submit', function(e){
-    e.preventDefault();
-    err.hidden = true;
-
-    /* Validação na tela antes de gastar uma ida ao servidor. O backend valida
-       de novo — cliente nunca é fonte confiável —, mas quem preencheu merece
-       saber na hora qual campo está faltando. */
-    if(!val('f1') || !val('f2') || !val('f3') || !val('f4')){
-      return falhar(t('form.erroCampos', 'Preencha nome, clube, WhatsApp e e-mail.'));
-    }
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val('f4'))){
-      return falhar(t('form.erroEmail', 'Confira o e-mail: parece que falta alguma coisa.'));
-    }
-
-    send.setAttribute('aria-busy','true');
-    send.textContent = t('form.enviando', 'Enviando…');
-
-    fetch(API + '/public/leads', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        name: val('f1'), club: val('f2'), whatsapp: val('f3'), email: val('f4'),
-        city: val('f5'), events_per_month: val('f6'),
-        website: val('fw'),          /* armadilha anti-robô */
-        source: 'landing'
-      })
-    }).then(function(r){
-      if(!r.ok) throw new Error('http ' + r.status);
-      form.style.display = 'none';
-      ok.style.display = 'block';
-      ok.scrollIntoView({block:'center', behavior: reduce ? 'auto' : 'smooth'});
-    }).catch(function(){
-      /* Nunca engolir a falha: sem isto a pessoa vê "recebemos" e ninguém
-         recebeu nada. O WhatsApp fica como saída imediata. */
-      falhar(t('form.erroEnvio', 'Não consegui enviar agora. Tente de novo em instantes — ou chame no WhatsApp, que a gente responde por lá.'));
-    });
-  });
-
-  /* WhatsApp: um número só (ACEBLIND_WHATSAPP), e a conversa já abre com a
-     mensagem escrita NO IDIOMA DA PÁGINA — quem leu em espanhol não deve ter
-     que redigir em português para pedir informação.
-
-     O build já grava o link wa.me no HTML de cada idioma (é o que o buscador
-     e quem está sem JavaScript enxergam). Isto aqui refaz o mesmo link para
-     quem abre o index.html direto, sem build, e para quando o número mudar
-     na configuração sem um build novo. */
-  function ligarWhatsApp(){
-    if(!WHATSAPP) return;   /* sem número, os botões seguem para o formulário */
-    var texto = t('wa.texto', 'Olá, gostaria de saber mais informações sobre o AceBlind');
-    var href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(texto);
-    document.querySelectorAll('.wa-link').forEach(function(a){
-      a.href = href; a.target = '_blank'; a.rel = 'noopener';
-    });
-  }
-  ligarWhatsApp();
 })();
 </script>
 </body>

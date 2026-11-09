@@ -1,0 +1,334 @@
+/* Painel de mesas: todas as mesas à vista, tocadas pelo tablet ou pelo celular. */
+.pm-tela {
+  --pm-feltro: #14532d;
+  --pm-feltro-claro: #1c6b3a;
+  --pm-trilho: #3b2a1e;
+  --pm-borda: var(--border-color, rgba(255, 255, 255, 0.14));
+  --pm-painel: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  --pm-aviso: var(--warning-color, #f59e0b);
+  --pm-perigo: #dc2626;
+}
+
+.pm-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.pm-links a {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pm-falha {
+  color: var(--pm-perigo);
+  font-weight: 600;
+}
+
+.pm-resumo {
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.pm-resumo strong {
+  color: var(--pm-aviso);
+}
+
+.pm-alertas {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--pm-aviso);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.pm-alertas p {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.pm-alertas p + p {
+  margin-top: 0.35rem;
+}
+
+/* ── Faixas: sem mesa e eliminados ── */
+.pm-faixa {
+  margin-bottom: 1rem;
+}
+
+.pm-faixa h2 {
+  margin: 0 0 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pm-faixa-itens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pm-chip {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--pm-aviso);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.pm-eliminado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 0.35rem 0 0.9rem;
+  border: 1px solid var(--pm-borda);
+  border-radius: 999px;
+  color: var(--text-secondary);
+}
+
+.pm-eliminado button {
+  min-height: 34px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--pm-borda);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.pm-vazio {
+  color: var(--text-secondary);
+}
+
+/* ── Mesas ── */
+.pm-mesas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.pm-mesa {
+  padding: 0.75rem;
+  border: 1px solid var(--pm-borda);
+  border-radius: 10px;
+  background: var(--pm-painel);
+}
+
+.pm-mesa-titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.25rem;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.pm-ocupacao {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.pm-relogio {
+  margin-left: auto;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.18);
+  color: #4ade80;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* A margem lateral é onde os assentos das pontas cabem sem passar da borda do
+   cartão e invadir a mesa vizinha. */
+.pm-desenho {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  margin: 0 9%;
+}
+
+.pm-feltro {
+  position: absolute;
+  inset: 22% 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 5px solid var(--pm-trilho);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--pm-feltro-claro), var(--pm-feltro) 75%);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.pm-assento {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 26%;
+  min-height: 40px;
+  padding: 0.2rem 0.35rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--pm-borda);
+  border-radius: 8px;
+  background: var(--bg-primary, #0f141b);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.pm-assento:not(:disabled):hover {
+  border-color: var(--brand-green, #16a34a);
+}
+
+.pm-assento:disabled {
+  cursor: default;
+}
+
+.pm-assento--vazio {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.pm-assento--bloqueado {
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+.pm-assento-numero {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.pm-assento-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pm-assento-nome {
+  overflow: hidden;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-assento--vazio .pm-assento-nome {
+  font-weight: 500;
+}
+
+.pm-cartoes {
+  align-self: flex-start;
+  min-width: 1.2rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.18);
+  color: #4ade80;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+/* ── Janelas de ação ── */
+.pm-janela {
+  max-width: 440px;
+  padding: 1.25rem;
+}
+
+/* Sem o recuo do título do modal global: aqui ele alinha com o resto. */
+.pm-janela h2 {
+  margin: 0 0 0.25rem;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+}
+
+.pm-janela-sub {
+  margin: 0 0 0.5rem;
+  color: var(--text-secondary);
+}
+
+.pm-janela-nota {
+  margin: 0 0 0.75rem;
+  color: var(--pm-aviso);
+  font-size: 0.9rem;
+}
+
+.pm-janela-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.pm-janela-lista--assentos {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+
+.pm-janela-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pm-acao {
+  flex: 1 1 auto;
+  min-height: 48px;
+  padding: 0 1rem;
+  border: 1px solid var(--brand-green, #16a34a);
+  border-radius: 8px;
+  background: var(--brand-green, #16a34a);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.pm-acao:disabled {
+  opacity: 0.4;
+}
+
+.pm-acao--perigo {
+  border-color: var(--pm-perigo);
+  background: var(--pm-perigo);
+}
+
+.pm-acao--neutra {
+  border-color: var(--pm-borda);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.pm-acao--mesa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.pm-acao--mesa > span:first-child {
+  white-space: nowrap;
+}
+
+.pm-sugerida {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 0.72rem;
+}

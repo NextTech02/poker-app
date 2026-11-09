@@ -50,6 +50,8 @@ const ALL_PERMISSIONS = [
   { key: 'rankings', label: 'staff.perm.rankings', modulo: 'tournament' },
   { key: 'blinds', label: 'staff.perm.blinds', modulo: 'tournament' },
   { key: 'tables', label: 'staff.perm.tables', modulo: 'tournament' },
+  // Tablet do dealer: abre o relógio da mesa e nada além dele.
+  { key: 'table_clock', label: 'staff.perm.tableClock', fallback: 'Relógio de mesa (tablet do dealer)', modulo: 'tournament' },
   { key: 'broadcast', label: 'staff.perm.broadcast', modulo: 'tournament' },
   { key: 'employees', label: 'staff.perm.employees', modulo: 'club' },
   // Log de acessos e atividade: quem entrou e quem fez o quê. Separado de

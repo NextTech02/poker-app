@@ -1,18 +1,22 @@
-# Landing page — aceblind.net
+# Site público — aceblind.net
 
-Página única, HTML estático, em três idiomas — cada um com a sua URL:
-`aceblind.net/` (português), `/es/` e `/en/`. Baseada no protótipo do
-marketing (`aceblind-landing.html`), com os números conferidos contra o banco e
-os textos que não podiam ir ao ar como estavam.
+HTML estático em três idiomas: a home (`aceblind.net/`, `/es/` e `/en/`), as
+páginas de funcionalidade, as ferramentas grátis e os guias. A home nasceu do
+protótipo do marketing (`aceblind-landing.html`), com os números conferidos
+contra o banco e os textos que não podiam ir ao ar como estavam.
 
 ```
 landing/
-├── index.html      a página (HTML + CSS + JS), em português — a fonte do markup
-├── i18n.js         as traduções para inglês e espanhol, e título/descrição de cada idioma
-├── build.mjs       gera dist/: uma página por idioma, sitemap e dados estruturados
+├── index.html      a home (HTML + CSS + JS), em português — a fonte do markup
+├── i18n.js         a home em inglês e espanhol, e título/descrição de cada idioma
+├── conteudo/       as páginas internas: pt/, es/, en/, a moldura e o CSS delas
+├── ferramentas/    o JavaScript do timer, do gerador de blinds e da premiação
+├── testes/         os testes dos cálculos das ferramentas (npm test)
+├── build.mjs       gera dist/: todas as páginas, sitemap e dados estruturados
 ├── nginx.conf      como é servida (+ seguranca.conf, os cabeçalhos)
 ├── Dockerfile      build em Node, serve com nginx:alpine (~10 MB)
-└── public/         robots.txt, 404.html — e og.png, quando existir
+├── scripts/        gerar-og.mjs, que refaz as imagens de compartilhamento
+└── public/         robots.txt, 404.html, ícones, fontes e imagens
 ```
 
 ## Idiomas e SEO
@@ -38,7 +42,7 @@ manda (301) para `/es/` ou `/en/`.
 
 O build também gera:
 
-- `sitemap.xml` com as três URLs ligadas por `hreflang`;
+- `sitemap.xml` com todas as URLs, ligadas por `hreflang` onde há tradução;
 - os **dados estruturados** (JSON-LD) de cada página — `Organization`,
   `SoftwareApplication` com os planos e `FAQPage` com as perguntas —, lidos do
   próprio texto já traduzido. Mudou uma pergunta ou um preço no HTML, o JSON-LD
@@ -58,11 +62,107 @@ idiomas de `i18n.js`:
 Chave faltando não quebra a página — o trecho fica em português — e o build
 avisa no log quais faltaram.
 
+## Páginas internas
+
+Cada página é um arquivo em `conteudo/<pt|es|en>/`, com um cabeçalho e o HTML do
+corpo. O build põe a moldura em volta: menu, migalhas, formulário, rodapé e dados
+estruturados. Página nova **não** exige mexer no nginx nem no sitemap.
+
+```html
+---
+id: timer                       # o mesmo id em pt/, es/ e en/ liga o hreflang
+secao: ferramentas              # produto | ferramentas | guias
+slug: ferramentas/timer-de-poker
+ferramenta: timer               # só nas ferramentas: inclui ferramentas/timer.js
+titulo: Timer de Poker Online Grátis para Torneio | AceBlind
+descricao: até ~155 caracteres
+h1: Timer de poker online grátis
+lead: frase abaixo do título (opcional)
+rotulo: Timer de poker          # nome curto: rodapé, cartões e migalhas
+resumo: uma linha para os cartões
+atualizado: 2026-11-06          # vai para o sitemap: mude quando mudar o texto
+ordem: 10
+relacionados: blinds, premiacao # ids das páginas sugeridas no fim
+---
+<h2>...</h2>
+```
+
+Cada idioma tem o seu `slug`, porque quem busca em espanhol digita "reloj de
+póker". Uma página pode existir em um idioma só: sem tradução, ela não declara
+`hreflang`, e o seletor leva à home do outro idioma.
+
+Perguntas frequentes em `<details class="pergunta"><summary>…</summary><div><p>…</p></div></details>`
+viram `FAQPage` nos dados estruturados. O Google hoje quase não mostra esse
+resultado para sites comerciais; ele fica por ajudar buscadores e respostas de IA.
+
+**O build para com erro** em link interno quebrado, âncora inexistente, slug,
+título ou descrição repetidos, campo faltando e página sem exatamente um `<h1>`.
+Título ou descrição longos só avisam.
+
+**Antes de publicar uma afirmação sobre o produto, confira no código.** A home já
+teve "roda localmente na máquina", "check-in" e "o único sistema da categoria".
+Nenhuma se sustentava. O que funciona sem internet está em `conteudo/pt/offline.html`,
+e essa lista precisa acompanhar o código.
+
+## Espanhol
+
+O público é a América Latina hispânica. Espanhol neutro, com "tú": sem voseo e
+sem "planilla". O negócio é "club" ou "sala" ("poker room" no México), nunca
+"casa de póker". A retirada de caixa é "retiro de caja", como na tela do sistema,
+e não "sangría". Um teste reprova esses termos nas páginas `/es/`.
+
+## Ferramentas grátis
+
+`calculos.js` tem as contas, sem nenhum acesso à tela; `comum.js`, o que as três
+fazem igual; `timer.js`, `blinds.js` e `premiacao.js`, a parte visual, nos três
+idiomas. Tudo roda no navegador, sem backend e sem cadastro, e o JavaScript vai
+dentro da página.
+
+A **premiação usa a mesma tabela do sistema**, copiada de
+`frontend/src/utils/payoutStructure.js` até 2.000 entradas, e soma o garantido ao
+prêmio dos jogadores, como faz `prize_allocation_service.py`. Mudou a tabela lá,
+mude em `calculos.js`: o `npm test` reprova se as duas divergirem.
+
+```bash
+npm test
+```
+
+## De onde vêm os leads
+
+O formulário guarda a **primeira** origem da pessoa (90 dias, no navegador) e a
+envia no campo `source` do lead:
+
+```
+landing|org:google|/ferramentas/timer-de-poker/    busca orgânica
+landing|utm:instagram|/                            link com utm_source
+landing|ref:cbth.org.br|/es/                       outro site
+landing|direto|/                                   endereço digitado ou sem origem
+```
+
+O limite do campo é **60 caracteres**, e acima disso a API recusa o lead inteiro;
+o JavaScript corta antes de enviar. Campo novo no corpo do POST não adianta: o
+backend descarta o que não conhece.
+
+```sql
+-- leads por canal
+SELECT split_part(source, '|', 2) AS canal, count(*)
+  FROM leads WHERE created_at > now() - interval '90 days'
+ GROUP BY 1 ORDER BY 2 DESC;
+
+-- as páginas de entrada que mais trazem lead do orgânico
+SELECT split_part(source, '|', 3) AS pagina, count(*)
+  FROM leads WHERE source LIKE 'landing|org:%'
+ GROUP BY 1 ORDER BY 2 DESC;
+```
+
+Clique no WhatsApp **não** passa por aqui: quem chama direto não tem origem
+registrada.
+
 ## Editar o texto
 
 `index.html` (português) e `i18n.js` (inglês e espanhol). Título e descrição
 de cada idioma, para o Google e para o link compartilhado, ficam em
-`ACEBLIND_META`, no fim de `i18n.js`.
+`ACEBLIND_META`, no fim de `i18n.js`. As páginas internas ficam em `conteudo/`.
 
 Para ver o resultado antes de subir:
 
@@ -181,8 +281,6 @@ quebra o convite por e-mail se for esquecido.
 
 ## O que ainda falta (não dá para eu resolver sozinho)
 
-- **`public/og.png`** — imagem 1200×630 para o link no WhatsApp/Instagram. A
-  meta tag já aponta para ela; sem o arquivo, o link aparece sem imagem.
 - **FAQ "a equipe precisa de treinamento?"** — a pergunta foi removida porque
   eu não tenho como saber se existe onboarding, se é incluso e quantas horas.
   Me diga e eu devolvo a pergunta com a resposta certa.

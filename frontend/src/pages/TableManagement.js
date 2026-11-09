@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRealtimeRefresh } from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useTranslation } from 'react-i18next';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import SeatTicket from '../components/SeatTicket';
 import api from '../config/api';
@@ -11,12 +11,8 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { MODO_MESA, modoDoTorneio } from '../hooks/useModoDeEliminacao';
 import { useTorneioKo } from '../hooks/useTorneioKo';
 import { useHistoricoDoJogador } from '../hooks/useHistoricoDoJogador';
-import EliminadorModal from '../components/ko/EliminadorModal';
-import KoResultadoModal from '../components/ko/KoResultadoModal';
-import { candidatosAEliminador, codigoDaRecusa, corpoDaEliminacao } from '../utils/ko';
-import { offlineWrite } from '../offline/apiOffline';
-import { applyEliminate, applyUneliminate } from '../offline/domainRules';
-import { uuid } from '../offline/db';
+import ModaisDaEliminacao from '../components/ko/ModaisDaEliminacao';
+import { useEliminacaoNoAssento } from '../hooks/useEliminacaoNoAssento';
 import './TableManagement.css';
 
 // Fecha só quando o clique caiu no próprio fundo, não em um filho. Substitui o
@@ -128,9 +124,6 @@ const TableManagement = () => {
     return () => { vivo = false; };
   }, [porEquipes, day?.tournament_id]);
   const porMesa = !!ko.torneio && modoDoTorneio(ko.torneio) === MODO_MESA;
-  const [eliminando, setEliminando] = useState(null); // { inscrito, nome, mesa }
-  const [enviandoElim, setEnviandoElim] = useState(false);
-  const [resultadoKo, setResultadoKo] = useState(null);
   const [bounties, setBounties] = useState(() => new Map());
   const inscritoPorJogador = useMemo(
     () => new Map(inscritos.map((i) => [i.player_id, i])),
@@ -144,14 +137,6 @@ const TableManagement = () => {
       a.player_id, { mesa: numeroDaMesa.get(a.table_id) ?? null, assento: a.seat_number },
     ]));
   }, [allocations, tables]);
-  const candidatos = useMemo(() => {
-    if (!eliminando) return [];
-    const mesas = new Map(inscritos.map((i) => [i.id, assentoPorJogador.get(i.player_id)?.mesa ?? null]));
-    return candidatosAEliminador(
-      inscritos.map((i) => ({ ...i, nome: i.player_name })),
-      eliminando.inscrito.id, mesas, eliminando.mesa,
-    );
-  }, [eliminando, inscritos, assentoPorJogador]);
   const eliminados = useMemo(
     () => inscritos
       .filter((i) => i.status === 'eliminated')
@@ -428,94 +413,15 @@ const TableManagement = () => {
   };
 
   // ── Eliminação no assento (modo "por mesa") ───────────────────────────────
-  // Elimina, libera a cadeira e soma no contador que a TV lê — tudo no
-  // servidor, numa chamada só. Pela fila offline, como as outras operações do
-  // salão: sem rede a eliminação entra na fila e a tela já reflete.
-  //
-  // Torneio KO: o ✕ abre "Quem eliminou?" (que já é a confirmação) e, online,
-  // o quadro do KO com o pagamento na hora. Offline o KO nasce no sync e o
-  // pagamento fica pendente na aba KO da Premiação.
-  const handleEliminate = async (allocation) => {
-    const nome = allocation.players?.name || t('tableManagement.defaultPlayer');
-    const inscrito = inscritoPorJogador.get(allocation.player_id);
-    if (!inscrito) {
-      toast.error(t('tableManagement.errorEliminate', { detail: t('tableManagement.playerNotInDay') }));
-      return;
-    }
-    const mesa = assentoPorJogador.get(allocation.player_id)?.mesa ?? null;
-    if (ko.exige) {
-      setEliminando({ inscrito, nome, mesa });
-      return;
-    }
-    const ok = await confirm(
-      t('tableManagement.confirmEliminate', { name: nome }),
-      { variant: 'danger', confirmText: t('tableManagement.eliminatePlayer') }
-    );
-    if (!ok) return;
-    await eliminar(inscrito, nome, mesa);
-  };
-
-  const eliminar = async (inscrito, nome, mesa, quem = null) => {
-    const cmid = uuid();
-    const body = corpoDaEliminacao(inscrito.id, cmid, quem);
-    setEnviandoElim(true);
-    try {
-      const r = await offlineWrite({
-        kind: 'eliminate', method: 'post',
-        url: `/tournament-players/${inscrito.id}/eliminate`,
-        body, clientMutationId: cmid, meta: { kind: 'eliminate', name: nome },
-        synthetic: { ok: true }, applyLocal: () => applyEliminate(body),
-      });
-      setEliminando(null);
-      setInscritos((prev) => prev.map((i) => (
-        i.id === inscrito.id ? { ...i, status: 'eliminated', eliminated_at: new Date().toISOString() } : i
-      )));
-      toast.success(t('tableManagement.eliminatedSuccess', { name: nome }));
-      if (r?.offline) {
-        if (quem) {
-          toast.info(ko.formato === 'mystery'
-            ? t('ko.offlinePendingMystery', 'Sem conexão: o envelope será sorteado ao sincronizar e o pagamento fica pendente na aba Mystery da Premiação.')
-            : t('ko.offlinePending', 'Sem conexão: o KO será registrado ao sincronizar e o pagamento fica pendente na aba KO da Premiação.'));
-        }
-      } else {
-        if (r?.data?.knockout) setResultadoKo(r.data.knockout);
-        await loadData();
-      }
-    } catch (err) {
-      // A fase Mystery pode ter começado depois que esta tela abriu: o
-      // servidor pede o eliminador e a tela pergunta, em vez de só recusar.
-      if (!quem && codigoDaRecusa(err) === 'eliminador_obrigatorio') {
-        await ko.recarregar();
-        setEliminando({ inscrito, nome, mesa });
-        return;
-      }
-      toast.error(err.userMessage || t('tableManagement.errorEliminate', { detail: err.response?.data?.detail || err.message }));
-    } finally {
-      setEnviandoElim(false);
-    }
-  };
-
-  // Desfazer: eliminação lançada no jogador errado. Não é reentrada (não há
-  // venda); o jogador volta à lista de "sem mesa" para ser sentado de novo.
-  const handleUneliminate = async (inscrito) => {
-    const nome = inscrito.player_name || t('tableManagement.defaultPlayer');
-    const body = { tournament_player_id: inscrito.id };
-    try {
-      const r = await offlineWrite({
-        kind: 'restore', method: 'post',
-        url: `/tournament-players/${inscrito.id}/uneliminate`,
-        body, clientMutationId: uuid(), meta: { kind: 'restore', name: nome },
-        synthetic: { ok: true }, applyLocal: () => applyUneliminate(body),
-      });
-      setInscritos((prev) => prev.map((i) => (
-        i.id === inscrito.id ? { ...i, status: 'active', eliminated_at: null } : i
-      )));
-      toast.success(t('tableManagement.uneliminatedSuccess', { name: nome }));
-      if (!r?.offline) await loadData();
-    } catch (err) {
-      toast.error(err.userMessage || t('tableManagement.errorUneliminate', { detail: err.response?.data?.detail || err.message }));
-    }
-  };
+  // O mesmo caminho do Painel de Mesas: fila offline, "Quem eliminou?" no KO e
+  // desfazer (ver useEliminacaoNoAssento).
+  const eliminacao = useEliminacaoNoAssento({
+    ko, inscritos, setInscritos, assentoPorJogador, aoMudar: loadData,
+  });
+  const handleEliminate = (allocation) => eliminacao.pedirEliminacao({
+    playerId: allocation.player_id, nome: allocation.players?.name,
+  });
+  const handleUneliminate = (inscrito) => eliminacao.desfazerEliminacao(inscrito);
 
   // ── Alternate Ticket ──────────────────────────────────────────────────────
   const handleShowAlternateTicket = (player) => {
@@ -729,6 +635,10 @@ const TableManagement = () => {
             </p>
           </div>
           <div className="tm-header-actions">
+            {/* A mesma operação desenhada, para o floor no tablet ou no celular. */}
+            <Link className="tm-btn-outline" to={`/painel-mesas/${dayId}`}>
+              {t('floorPanel.title', 'Painel de mesas')}
+            </Link>
             <button
               type="button"
               className={`tm-btn-lock ${tablesLocked ? 'locked' : 'unlocked'}`}
@@ -1004,28 +914,14 @@ const TableManagement = () => {
           </div>
         )}
 
-        {eliminando && (
-          <EliminadorModal
-            vitima={eliminando.nome}
-            formato={ko.formato}
-            candidatos={candidatos}
-            mesaDaVitima={eliminando.mesa}
-            enviando={enviandoElim}
-            onFechar={() => { if (!enviandoElim) setEliminando(null); }}
-            onConfirmar={(quem) => eliminar(eliminando.inscrito, eliminando.nome, eliminando.mesa, quem)}
-          />
-        )}
-
-        {resultadoKo && (
-          <KoResultadoModal
-            tournamentId={day?.tournament_id}
-            knockout={resultadoKo}
-            torneioNome={tournamentName}
-            assentoDoJogador={(playerId) => assentoPorJogador.get(playerId) || null}
-            onFechar={() => setResultadoKo(null)}
-            onPago={() => carregarBounties()}
-          />
-        )}
+        <ModaisDaEliminacao
+          eliminacao={eliminacao}
+          ko={ko}
+          tournamentId={day?.tournament_id}
+          torneioNome={tournamentName}
+          assentoPorJogador={assentoPorJogador}
+          onPago={() => carregarBounties()}
+        />
 
       </main>
     </div>

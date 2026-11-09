@@ -10,6 +10,15 @@ const MODULO_TORNEIO = 'tournament';
 const MODULO_CASH = 'cash';
 const MODULO_BAR = 'bar';
 
+/** Quem abre o relógio de mesa. Mesma lista de `OPERAR` no backend
+ *  (routers/table_clock.py): a chave do dealer, mais quem já administra o clube. */
+export const PERMISSOES_DO_RELOGIO = ['table_clock', 'tables', 'tournaments', 'employees'];
+
+/** Um item pede uma permissão (`permission`) ou aceita várias (`anyPermission`). */
+export const podeAbrir = (item, hasPermission) => (
+  item.anyPermission ? item.anyPermission.some((chave) => hasPermission(chave)) : hasPermission(item.permission)
+);
+
 /** Onde cada módulo começa quando o cargo pode abrir a home padrão. */
 export const HOME_PADRAO = {
   [MODULO_TORNEIO]: '/home',
@@ -57,6 +66,7 @@ export const MENUS_POR_MODULO = {
         { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
       ],
     },
+    { path: '/relogio-mesa', labelKey: 'sidebar.tableClock', icon: 'clock', anyPermission: PERMISSOES_DO_RELOGIO },
   ],
   [MODULO_CASH]: [
     { path: '/cash', labelKey: 'cash.floor', icon: 'chips', permission: 'cash.operate' },
@@ -137,7 +147,7 @@ export const MENU_COMUM = [
  *  se cai na home padrão (e mostra a recusa) ou se escolhe outro módulo. */
 export function primeiraTelaDoModulo(module, hasPermission, isPlatformAdmin = false) {
   const pode = typeof hasPermission === 'function' ? hasPermission : () => true;
-  const permitido = (item) => (item.platformAdminOnly ? !!isPlatformAdmin : pode(item.permission));
+  const permitido = (item) => (item.platformAdminOnly ? !!isPlatformAdmin : podeAbrir(item, pode));
   const candidatos = [
     ...(MENUS_POR_MODULO[module] || []),
     ...MENU_COMUM.filter((item) => item.permission || item.platformAdminOnly),

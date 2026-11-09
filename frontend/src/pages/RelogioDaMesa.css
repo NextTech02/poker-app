@@ -1,0 +1,410 @@
+/* Tablet do dealer: a mesa vista de cima, lida de longe e tocada sem olhar muito. */
+.rm-tela {
+  --rm-fundo: #0b0f14;
+  --rm-painel: #161c24;
+  --rm-borda: #2a3340;
+  --rm-texto: #f8fafc;
+  --rm-suave: #a7b1bf;
+  --rm-verde: #16a34a;
+  --rm-feltro: #14532d;
+  --rm-feltro-claro: #1c6b3a;
+  --rm-trilho: #3b2a1e;
+  --rm-aviso: #f59e0b;
+  --rm-urgente: #ef4444;
+
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  /* Flex, e não grade: aviso e "usou um cartão" aparecem e somem, e a mesa
+     ocupa sempre o que sobra. */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  background: var(--rm-fundo);
+  color: var(--rm-texto);
+  transition: background-color 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.rm-tela--carregando {
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.rm-tela--urgente {
+  background: #3b0d0d;
+}
+
+.rm-tela--aviso .rm-digitos {
+  color: var(--rm-aviso);
+}
+
+.rm-tela--urgente .rm-digitos {
+  color: var(--rm-urgente);
+}
+
+/* ── Topo ── */
+.rm-topo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.rm-voltar {
+  padding: 0 0.5rem;
+  color: var(--rm-suave);
+  font-size: 2rem;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.rm-mesa {
+  font-size: 1.5rem;
+}
+
+.rm-nivel {
+  color: var(--rm-suave);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rm-pendentes {
+  color: var(--rm-aviso);
+  font-weight: 600;
+}
+
+.rm-opcoes {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+.rm-opcoes label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  color: var(--rm-suave);
+}
+
+.rm-opcoes input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* No centro da mesa, onde o dealer está olhando: na faixa do topo ninguém via. */
+.rm-aviso {
+  max-width: 85%;
+  margin: 0.5rem auto 0;
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--rm-aviso);
+  font-size: clamp(1rem, 2.8vmin, 1.4rem);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.rm-aviso small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #d1fae5;
+  font-size: clamp(0.8rem, 2vmin, 1rem);
+  font-weight: 500;
+}
+
+/* ── A mesa ── */
+.rm-mesa-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rm-oval {
+  position: absolute;
+  inset: 16% 17%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  overflow: hidden;
+  border: clamp(6px, 1.4vmin, 14px) solid var(--rm-trilho);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--rm-feltro-claro), var(--rm-feltro) 75%);
+  text-align: center;
+}
+
+.rm-digitos {
+  font-size: clamp(4rem, 24vmin, 15rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Quem senta do outro lado da mesa lê de cabeça para baixo sem isto. */
+.rm-oval--espelho .rm-digitos {
+  font-size: clamp(2.5rem, 12vmin, 8rem);
+}
+
+.rm-digitos--invertido {
+  transform: rotate(180deg);
+}
+
+.rm-rotulo {
+  margin: 0;
+  color: #d1fae5;
+  font-size: clamp(1rem, 3vmin, 1.5rem);
+  font-weight: 600;
+}
+
+.rm-nivel-relogio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.rm-nivel-tempo {
+  font-size: clamp(3rem, 15vmin, 9rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.rm-nivel-blinds {
+  color: #d1fae5;
+  font-size: clamp(1rem, 3vmin, 1.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Na escolha a pergunta divide o centro com a contagem. */
+.rm-mesa-area--escolhendo .rm-digitos {
+  font-size: clamp(3rem, 13vmin, 8rem);
+}
+
+.rm-pergunta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 90%;
+}
+
+.rm-pergunta strong {
+  font-size: clamp(1rem, 3vmin, 1.5rem);
+}
+
+.rm-pergunta small {
+  color: #d1fae5;
+  font-size: clamp(0.85rem, 2.2vmin, 1.1rem);
+}
+
+.rm-pergunta .rm-limite {
+  color: var(--rm-aviso);
+  font-weight: 600;
+}
+
+.rm-fechar {
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--rm-texto);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* ── Assentos ── */
+.rm-assento {
+  position: absolute;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.5rem;
+  width: clamp(96px, 15vw, 180px);
+  min-height: 60px;
+  padding: 0.35rem 0.6rem;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--rm-borda);
+  border-radius: 10px;
+  background: var(--rm-painel);
+  color: var(--rm-texto);
+  text-align: left;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+/* Fora da escolha o assento só mostra: desabilitado não pode parecer apagado. */
+.rm-assento:disabled {
+  opacity: 1;
+}
+
+.rm-assento--vazio {
+  border-style: dashed;
+  background: transparent;
+}
+
+.rm-assento--bloqueado {
+  border-color: #7f1d1d;
+}
+
+.rm-mesa-area--escolhendo .rm-assento:disabled {
+  opacity: 0.35;
+}
+
+.rm-assento--disponivel {
+  border-color: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.35);
+}
+
+.rm-assento-numero {
+  grid-row: span 2;
+  font-size: clamp(1.25rem, 3.5vmin, 2rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Até duas linhas: alargar o assento faria os das laterais saírem da tela com
+   o tablet em pé, e cortar na primeira linha deixava "Ana P…". */
+.rm-assento-nome {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: clamp(0.85rem, 2.2vmin, 1.1rem);
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: break-word;
+}
+
+/* Sem a linha dos cartões, o texto fica no meio do assento, não no topo. Menor,
+   para "Bloqueado" caber inteiro com o tablet em pé. */
+.rm-assento-nome--vazio {
+  grid-row: span 2;
+  align-self: center;
+  color: var(--rm-suave);
+  font-size: clamp(0.7rem, 1.6vmin, 0.95rem);
+  font-weight: 500;
+}
+
+.rm-assento-cartoes {
+  color: var(--rm-suave);
+  font-size: clamp(0.75rem, 1.9vmin, 0.95rem);
+}
+
+/* ── Rodapé ── */
+.rm-ultimo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rm-borda);
+  border-radius: 8px;
+  background: var(--rm-painel);
+  font-size: 1.125rem;
+}
+
+.rm-ultimo button {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--rm-borda);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--rm-texto);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Flex, e não grade: a quantidade de botões muda com o time bank, e a última
+   linha sempre preenche a largura. */
+.rm-comandos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rm-comandos button {
+  flex: 1 1 28%;
+  min-height: 64px;
+  padding: 0.5rem;
+  border: 1px solid var(--rm-borda);
+  border-radius: 10px;
+  background: var(--rm-painel);
+  color: var(--rm-texto);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.rm-comandos button:active:not(:disabled) {
+  background: var(--rm-borda);
+}
+
+.rm-comandos button:disabled {
+  opacity: 0.35;
+}
+
+/* É o toque de quase toda ação: o maior alvo da tela. */
+.rm-comandos .rm-principal {
+  flex-basis: 100%;
+  order: -1;
+  min-height: 80px;
+  border-color: var(--rm-verde);
+  background: var(--rm-verde);
+  font-size: 1.5rem;
+}
+
+.rm-comandos .rm-principal:active:not(:disabled) {
+  background: #15803d;
+}
+
+/* Tablet deitado: a mesa precisa da altura, e os botões vão para uma linha só. */
+@media (orientation: landscape) {
+  .rm-comandos {
+    flex-wrap: nowrap;
+  }
+
+  .rm-comandos button {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 1rem;
+  }
+
+  .rm-comandos .rm-principal {
+    flex: 2 1 0;
+    order: 0;
+    min-height: 64px;
+    font-size: 1.25rem;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .rm-assento {
+    min-height: 44px;
+    padding: 0.2rem 0.4rem;
+  }
+
+  .rm-assento-cartoes {
+    display: none;
+  }
+
+  .rm-assento-nome {
+    grid-row: span 2;
+    align-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-tela,
+  .rm-assento {
+    transition: none;
+  }
+}

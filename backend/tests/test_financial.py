@@ -193,6 +193,56 @@ class TestDescricaoNoExtrato:
         assert por_id[antiga["id"]].buy_type_name is None and por_id[antiga["id"]].is_fee is False
 
 
+class TestCreditosPendentes:
+    """O que os patrocinadores ainda devem cobrir: é dinheiro comprometido, e o
+    Financeiro mostrava sempre zero. A consulta citava uma coluna que não existe,
+    e a falha virava zero sem avisar."""
+
+    def _credito(self, id_, restante, status="active", etapa=STAGE, usado=0.0):
+        return {"id": id_, "original_amount": restante + usado, "remaining_amount": restante,
+                "used_amount": usado, "status": status, "stage_id": etapa}
+
+    def test_soma_o_que_ainda_resta_de_cada_credito(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        fake.store["player_credits"] = [self._credito("c1", 300.0, usado=200.0), self._credito("c2", 50.0)]
+        assert FinancialService._creditos_pendentes(STAGE) == 350.0
+
+    def test_credito_encerrado_nao_conta(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        fake.store["player_credits"] = [self._credito("c1", 300.0, status="settled")]
+        assert FinancialService._creditos_pendentes(STAGE) == 0
+
+    def test_pede_ao_banco_o_da_etapa_e_o_sem_etapa(self, monkeypatch):
+        """O `or_` do FakeSupabase não filtra: confere o filtro que vai ao banco."""
+        from tests.conftest import FakeQuery
+        pedidos = []
+        monkeypatch.setattr(FakeQuery, "or_", lambda self, filtro: pedidos.append(filtro) or self)
+        _monta(monkeypatch)
+        FinancialService._creditos_pendentes(STAGE)
+        assert pedidos == [f"stage_id.eq.{STAGE},stage_id.is.null"]
+
+    def test_chega_ao_resumo_financeiro(self, monkeypatch):
+        fake = _monta(monkeypatch)
+        fake.store["player_credits"] = [self._credito("c1", 300.0)]
+        resumo = FinancialService.get_financial_summary(stage_id=STAGE, organization_id=ORG)
+        assert resumo.pending_credits == 300.0
+
+    def test_falha_de_leitura_vale_zero_mas_fica_no_log(self, monkeypatch, caplog):
+        """Zero sem aviso foi o que escondeu o erro da coluna por meses."""
+        fake = _monta(monkeypatch)
+        original = fake.table
+
+        def _tabela(nome):
+            if nome == "player_credits":
+                raise RuntimeError("coluna inexistente")
+            return original(nome)
+
+        monkeypatch.setattr(fake, "table", _tabela)
+        with caplog.at_level("WARNING"):
+            assert FinancialService._creditos_pendentes(STAGE) == 0.0
+        assert "créditos pendentes" in caplog.text
+
+
 class TestMeiosDeEntradaPorTorneio:
     """Pedido do NSOP: a exportação dos relatórios só trazia Buy-ins, Rebuys e
     Add-ons por torneio — sem a "Tasa", o "Doble" e os demais itens cobrados.
