@@ -12,7 +12,6 @@ As categorias de despesa nascem em português em todo clube (a trigger da migra�
 não olha o idioma). Aqui elas são renomeadas: o vídeo em inglês não pode mostrar
 "Aluguel do espaço".
 """
-import sys
 import uuid
 from datetime import date, timedelta
 
@@ -243,28 +242,8 @@ def relatorio(idioma: str, api) -> dict:
     return {"etapa_selecionada": etapa, "amanha": (date.today() + timedelta(days=1)).isoformat()}
 
 
-def _acao_de_rede() -> None:
-    """`rede: offline` e `rede: online` no roteiro: corta a rede do navegador de
-    verdade. O gravador não tem essa ação, e estes arquivos não são desta área,
-    então ela entra aqui, só no processo que grava este vídeo."""
-    principal = sys.modules["__main__"]
-    if getattr(principal, "acao_de_rede", False):
-        return
-    original = principal.executar
-
-    async def executar(g, acao, idioma, base_url, variaveis):
-        if "rede" in acao:
-            await g.contexto.set_offline(acao["rede"] == "offline")
-        else:
-            await original(g, acao, idioma, base_url, variaveis)
-
-    principal.executar = executar
-    principal.acao_de_rede = True
-
-
 def offline(idioma: str, api) -> dict:
     etapa, torneio, dia, _ = _cenario(idioma, api)
-    _acao_de_rede()
     inscritos = {r["player_id"] for r in api("GET", f"/tournament-players/day/{dia['id']}", etapa=etapa["id"])}
     ids = {p["name"]: p["id"] for p in api("GET", "/players")}
     pessoa = next(n for n in CLUBES[idioma].jogadores if ids[n] not in inscritos)

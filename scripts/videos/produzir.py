@@ -119,6 +119,9 @@ async def executar(g: Gravador, acao: dict, idioma: str, base: str, variaveis: d
         await g.escolher(achar(d), valor(d.get("opcao")), valor(d.get("rotulo_opcao")))
     elif "destacar" in acao:
         await g.destacar(achar(acao["destacar"]), acao.get("segundos", 1.6))
+    elif "rede" in acao:
+        # Corta a rede do navegador de verdade, para mostrar o modo offline.
+        await g.contexto.set_offline(acao["rede"] == "offline")
     elif "enviar" in acao:
         d = acao["enviar"]
         await achar(d).set_input_files(str(valor(d["arquivo"])))

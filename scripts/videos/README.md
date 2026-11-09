@@ -58,6 +58,7 @@ passo dura o tempo da fala, ou mais, se os gestos demorarem.
 | `passar` | `passar: {css: ".linha"}` (cursor sobre o item) |
 | `rolar` | `rolar: {css: ".rodape"}` |
 | `tecla` | `tecla: Escape` |
+| `rede` | `rede: offline` e depois `rede: online` |
 | `esperar` | `esperar: {t: cashRegister.title}` |
 | `pausa` | `pausa: 1.5` |
 
