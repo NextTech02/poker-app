@@ -752,7 +752,7 @@ const CashTableDetail = () => {
                 <>
                   <h2>{t('cash.countRakeTitle', 'Apurar a caixa da mesa')}</h2>
                   <form onSubmit={apurar}>
-                    {ApuracaoCampos({ t, form, setForm, table })}
+                    {ApuracaoCampos({ t, form, setForm, table, formatCurrency })}
                     {Acoes({ t, submitting, setModal, rotulo: t('cash.countRake', 'Apurar') })}
                   </form>
                 </>
@@ -767,7 +767,7 @@ const CashTableDetail = () => {
                         parcial: formatCurrency(table?.rake_partial || 0),
                       })}
                     </p>
-                    {ApuracaoCampos({ t, form, setForm, table })}
+                    {ApuracaoCampos({ t, form, setForm, table, formatCurrency })}
                     {Acoes({ t, submitting, setModal, rotulo: t('cash.closeTable', 'Fechar mesa') })}
                   </form>
                 </>
@@ -905,7 +905,7 @@ function MetodoDePagamento({ t, form, setForm, activeMethods, fiado = null, form
   );
 }
 
-function ApuracaoCampos({ t, form, setForm, table }) {
+function ApuracaoCampos({ t, form, setForm, table, formatCurrency }) {
   return (
     <>
       <div className="form-group">
@@ -929,7 +929,8 @@ function ApuracaoCampos({ t, form, setForm, table }) {
             vai devolver. */}
         <small className="form-hint">
           {t('cash.jackpotHint', 'O jackpot não é receita do clube: acumula em fundo próprio até ser pago.')}
-          {table?.jackpot_per_pot > 0 && ` (${t('cash.jackpotPerPot', 'configurado: {{v}} por pote', { v: table.jackpot_per_pot })})`}
+          {/* Com a moeda do clube: "1 por pote" não dizia se era 1 real ou 1.000 pesos. */}
+          {table?.jackpot_per_pot > 0 && ` (${t('cash.jackpotPerPot', 'configurado: {{v}} por pote', { v: formatCurrency(table.jackpot_per_pot) })})`}
         </small>
       </div>
       <div className="form-group">

@@ -266,6 +266,19 @@ describe('vendedor', () => {
     await montar({ minha: { ...CONSIGNACAO, sales: [] } });
     expect(screen.getByText('sangi.noSalesYet')).toBeInTheDocument();
   });
+
+  it('a hora da venda segue o idioma do app, não o pt-BR fixo', async () => {
+    // Em pt-BR, 08/06/2026 é 8 de junho; um clube em inglês lia como 6 de agosto.
+    const { i18n } = require('react-i18next').useTranslation();
+    i18n.language = 'en-US';
+    try {
+      await montar();
+      const esperado = new Date(CONSIGNACAO.sales[0].created_at).toLocaleString('en-US');
+      expect(screen.getByText(esperado)).toBeInTheDocument();
+    } finally {
+      i18n.language = 'pt-BR';
+    }
+  });
 });
 
 describe('gerente — liberação de fichas', () => {
