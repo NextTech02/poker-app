@@ -20,6 +20,10 @@ jest.mock('./BarPaymentModal', () => ({ tab }) => <div data-testid="payment-moda
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
 jest.mock('../utils/eventosDoCaixa', () => ({ avisarQueOCaixaMudou: jest.fn() }));
+// Um meio próprio do clube, já desativado: a comanda antiga não perde o nome.
+jest.mock('../contexts/PaymentMethodsContext', () => ({
+  usePaymentMethods: () => ({ methods: [{ code: 'nequi', label: 'Nequi', active: false }] }),
+}));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (chave, padrao, vars) => {
@@ -64,6 +68,21 @@ it('mostra itens, totais e o saldo', () => {
   expect(screen.getByText('Entregue')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Receber R$ 30.00' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Fechar comanda' })).toBeNull();
+});
+
+it('os recebimentos mostram o nome do meio, não o código', () => {
+  montar({
+    detail: {
+      ...DETALHE,
+      payments: [
+        ...PAGAMENTOS,
+        { id: 'p3', amount: 10, payment_method: 'nequi', payment_source: 'cash', status: 'active' },
+      ],
+    },
+  });
+  expect(screen.getByText('financial.paymentPix')).toBeInTheDocument();
+  expect(screen.getByText('Nequi')).toBeInTheDocument();
+  expect(screen.queryByText('pix')).toBeNull();
 });
 
 it('operador entrega o pendente e cancela só o pendente', async () => {

@@ -7,7 +7,9 @@ import EmptyState from '../components/EmptyState';
 import { SkeletonBlock } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { exportSections } from '../utils/reportExport';
+import { rotuloDoMeioDoBar } from '../utils/barRotulos';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 import './CashFloor.css';
 import './CashRelatorios.css';
@@ -26,6 +28,8 @@ const BarRelatorios = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
+  const { methods: meios = [] } = usePaymentMethods() || {};
+  const rotuloDoMeio = (codigo) => rotuloDoMeioDoBar(t, codigo, meios);
 
   const [range, setRange] = useState({ from: primeiroDiaDoMes(), to: hojeLocal() });
   const [summary, setSummary] = useState(null);
@@ -108,7 +112,7 @@ const BarRelatorios = () => {
             { key: 'amount', label: t('bar.amount', 'Valor'), type: 'currency' },
             { key: 'count', label: t('barReports.payments', 'Pagamentos'), type: 'int' },
           ],
-          rows: summary.by_method || [],
+          rows: (summary.by_method || []).map((m) => ({ ...m, payment_method: rotuloDoMeio(m.payment_method) })),
         },
         {
           kind: 'table',
@@ -299,7 +303,7 @@ const BarRelatorios = () => {
               <ul className="bar-kpi-list">
                 {(summary.by_method || []).map((m) => (
                   <li key={m.payment_method}>
-                    <span className="bar-muted">{m.payment_method}</span>
+                    <span className="bar-muted">{rotuloDoMeio(m.payment_method)}</span>
                     <strong>{formatCurrency(m.amount)}</strong>
                     <span className="bar-muted"> · {m.count}</span>
                   </li>
