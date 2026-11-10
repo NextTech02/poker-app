@@ -43,6 +43,7 @@ const EntryTypesEditor = ({
   const avisar = (mensagem) => (onErro ? onErro(mensagem) : setErroLocal(mensagem));
   const mensagem = onErro ? erro : erro || erroLocal;
   const hintId = `${idPrefix}_category_hint`;
+  const entriesHintId = `${idPrefix}_entries_hint`;
 
   const alterar = (chave, campo, valor) => {
     avisar('');
@@ -179,15 +180,9 @@ const EntryTypesEditor = ({
                     step="1"
                     value={meio.entry_count}
                     onChange={(e) => alterar(meio.key, 'entry_count', e.target.value)}
-                    aria-describedby={`${idPrefix}_entries_hint_${meio.key}`}
+                    aria-describedby={entriesHintId}
                     disabled={disabled}
                   />
-                  <small className="form-hint" id={`${idPrefix}_entries_hint_${meio.key}`}>
-                    {t(
-                      'tournamentDayForm.entryMethodEntriesHint',
-                      'Quantas entradas esta venda conta no telão e nos relatórios. Valor e fichas continuam os desta linha.'
-                    )}
-                  </small>
                 </div>
               )}
             </div>
@@ -217,6 +212,17 @@ const EntryTypesEditor = ({
           {t(
             'tournamentDayForm.entryMethodCategoryHint',
             'A categoria decide o efeito da venda: Entrada soma um jogador novo, Recompra devolve alguém à mesa, Add-on só entrega fichas a quem já joga, Taxa cobra à parte (ex.: Bono Dealer) e não conta como add-on.'
+          )}
+        </small>
+      )}
+      {/* Mesma razão da dica da categoria: repetida em cada linha, a dica do
+          "Vale por" virava uma tira estreita e deixava toda linha com Entrada
+          ou Recompra três vezes mais alta que as outras. */}
+      {linhas.some(valeEntradas) && (
+        <small className="form-hint entry-methods-category-hint" id={entriesHintId}>
+          {t(
+            'tournamentDayForm.entryMethodEntriesHint',
+            'Quantas entradas esta venda conta no telão e nos relatórios. Valor e fichas continuam os desta linha.'
           )}
         </small>
       )}
