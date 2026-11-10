@@ -2,15 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { methodLabel } from '../utils/paymentMethodLabels';
 import './CashboxNonCash.css';
-
-// Meios que o app conhece de fábrica; os do clube (Yape, Zelle...) vêm do
-// cadastro de meios de pagamento.
-const ROTULOS_PADRAO = {
-  card: 'financial.paymentCard',
-  pix: 'financial.paymentPix',
-  transfer: 'financial.paymentTransfer',
-};
 
 /**
  * O que entrou na gaveta do operador por cartão, PIX e afins. Não está na
@@ -22,8 +15,8 @@ const CashboxNonCash = ({ items }) => {
   const { formatCurrency } = useCurrency();
   const { labelFor } = usePaymentMethods() || {};
   if (!items || items.length === 0) return null;
-  const rotulo = (codigo) =>
-    (labelFor && labelFor(codigo)) || (ROTULOS_PADRAO[codigo] ? t(ROTULOS_PADRAO[codigo]) : codigo);
+  // Embutidos (cartão, PIX) traduzem; os do clube (Yape, Zelle) vêm do cadastro.
+  const rotulo = (codigo) => methodLabel(t, { code: codigo, label: labelFor ? labelFor(codigo) : null });
   return (
     <div className="cashbox-non-cash">
       <div className="cashbox-non-cash__title">{t('cashbox.nonCashTitle')}</div>
