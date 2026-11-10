@@ -1660,6 +1660,7 @@
     "alreadyPaid": "Já pago neste torneio:",
     "availableInPool": "Disponível no prize pool:",
     "generalCashBalance": "Saldo caixa geral:",
+    "sponsorCreditDeducted": "Crédito de patrocinador usado (descontado)",
     "documentNumberRequired": "Número do Documento *",
     "docNumberPlaceholder": "000.000.000-00",
     "playerResolved": "Jogador: {{name}}",

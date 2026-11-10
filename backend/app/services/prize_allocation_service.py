@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from uuid import UUID
 from typing import Optional
@@ -18,6 +19,8 @@ from app.services.transaction_filters import ler_transacoes_ativas
 # lendo esta mensagem, e ela nao pode chegar em portugues. A tela escolhe a
 # frase pelo `code` e usa `message` como reserva (ver app/utils/erros.py).
 from app.utils.erros import da_excecao, nao_encontrado, recusado
+
+logger = logging.getLogger(__name__)
 
 
 class PrizeAllocationService:
@@ -48,6 +51,8 @@ class PrizeAllocationService:
             vaga_target_tournament_id=item.get("vaga_target_tournament_id"),
             vaga_target_day_id=item.get("vaga_target_day_id"),
             generated_ticket_id=item.get("generated_ticket_id"),
+            debt_offset=item.get("debt_offset"),
+            net_paid=item.get("net_paid"),
             created_at=item["created_at"],
             updated_at=item["updated_at"],
         )
@@ -731,6 +736,20 @@ class PrizeAllocationService:
         )
         liquido = prize_amount - Decimal(str(abatido))
 
+        # ── Crédito de patrocinador usado pelo ganhador ──
+        # Quem jogou com crédito devolve o que usou com o próprio prêmio: o
+        # patrocinador passa a dever menos. ORDEM: o fiado sai primeiro e o
+        # crédito desconta do que sobra. O que o prêmio não cobre do crédito
+        # continua com o patrocinador; o fiado não tem outro pagador. E o
+        # abatimento do fiado segue proposto sobre o prêmio bruto, como as
+        # telas já mandam.
+        from app.services.player_credit_service import PlayerCreditService
+        credito = min(
+            Decimal(str(PlayerCreditService.outstanding_for_prize(str(payout.player_id)))),
+            liquido,
+        )
+        liquido -= credito
+
         # ── Validate general cash balance (sai só o líquido) ──
         from app.services.cash_register_service import CashRegisterService
         general_cash = CashRegisterService.get_general_cash()
@@ -847,7 +866,9 @@ class PrizeAllocationService:
                 "updated_at": agora,
             }
             if proposto is not None:
-                update_data.update({"debt_offset": abatido, "net_paid": float(liquido)})
+                update_data.update({"debt_offset": abatido})
+            if proposto is not None or credito > 0:
+                update_data["net_paid"] = float(liquido)
             supabase.table("prize_allocations")\
                 .update(update_data)\
                 .eq("id", str(allocation_id))\
@@ -863,13 +884,30 @@ class PrizeAllocationService:
             }).eq("id", str(allocation_id)).execute()
             raise
 
+        # ── 5. Baixa do crédito de patrocinador ──
+        # Depois do pagamento gravado: o dinheiro já saiu pelo líquido, e
+        # desfazer o prêmio aqui deixaria a transação sem pagamento. Uma falha
+        # agora não desfaz nada; fica no log para acertar o crédito à mão.
+        if credito > 0:
+            try:
+                PlayerCreditService.deduct_from_prize(
+                    str(payout.player_id), float(credito), str(tournament_id), user_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Prêmio %s pago com %.2f de crédito descontado, mas a baixa do crédito falhou",
+                    allocation_id, float(credito),
+                )
+
         # Return updated allocation with player name
         result = supabase.table("prize_allocations")\
             .select("*, players(name)")\
             .eq("id", str(allocation_id))\
             .execute()
 
-        return PrizeAllocationService._to_response(result.data[0])
+        resposta = PrizeAllocationService._to_response(result.data[0])
+        resposta.credit_deduction = credito if credito > 0 else None
+        return resposta
 
     @staticmethod
     def delete_allocation(tournament_id: UUID, allocation_id: UUID) -> None:

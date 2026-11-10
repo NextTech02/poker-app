@@ -264,20 +264,50 @@ class PlayerCreditService:
     # ================================================
 
     @staticmethod
-    def deduct_from_prize(player_id: str, prize_amount: float, tournament_id: str, user_id: str) -> dict:
+    def _patrocinadores_da_fidelidade() -> set:
+        """Ids do patrocinador de sistema "Fidelidade" (vazio sem o programa)."""
+        try:
+            linhas = supabase.table("loyalty_settings").select("system_sponsor_id").execute().data or []
+        except Exception:
+            return set()
+        return {l["system_sponsor_id"] for l in linhas if l.get("system_sponsor_id")}
+
+    @staticmethod
+    def _creditos_que_voltam_pelo_premio(player_id: str) -> List[dict]:
+        """Créditos com uso ainda não descontado de prêmio, do mais antigo ao mais novo.
+
+        O crédito da Fidelidade (cashback, recompensa, aniversário, cupom) fica
+        de fora: é brinde do clube, não adiantamento de patrocinador, e
+        descontá-lo do prêmio tomaria de volta o presente de quem ganhou.
         """
-        Deduct outstanding credits from a prize payout.
-        Returns breakdown of original prize, deduction, and net payout.
-        """
-        # Find credits with outstanding usage (used > prize_deduction)
         response = supabase.table("player_credits").select("*")\
             .eq("player_id", player_id)\
             .in_("status", ["active", "fully_used"])\
             .order("created_at")\
             .execute()
+        fidelidade = PlayerCreditService._patrocinadores_da_fidelidade()
+        return [c for c in (response.data or []) if c.get("sponsor_id") not in fidelidade]
 
+    @staticmethod
+    def outstanding_for_prize(player_id: str) -> float:
+        """Quanto do próximo prêmio volta para cobrir o crédito já usado.
+
+        Só leitura: a tela do pagamento mostra o desconto ANTES de confirmar,
+        e o pagamento confere o caixa geral pelo líquido antes de reservar.
+        """
+        total = 0.0
+        for credit in PlayerCreditService._creditos_que_voltam_pelo_premio(player_id):
+            total += max(float(credit["used_amount"]) - float(credit["prize_deduction_amount"]), 0)
+        return round(total, 2)
+
+    @staticmethod
+    def deduct_from_prize(player_id: str, prize_amount: float, tournament_id: str, user_id: str) -> dict:
+        """
+        Deduct outstanding credits from a prize payout.
+        Returns breakdown of original prize, deduction, and net payout.
+        """
         total_deduction = 0
-        for credit in (response.data or []):
+        for credit in PlayerCreditService._creditos_que_voltam_pelo_premio(player_id):
             outstanding = float(credit["used_amount"]) - float(credit["prize_deduction_amount"])
             if outstanding <= 0:
                 continue
