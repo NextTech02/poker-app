@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useBrandingDoBilhete } from '../hooks/useBrandingDoBilhete';
-import { htmlDoBilhete } from '../utils/bilhete';
+import { horaDoAssento, htmlDoBilhete } from '../utils/bilhete';
 import './SeatTicket.css';
 
 const LANGS = {
@@ -252,7 +252,7 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
 
           <div className="ticket-preview-row">
             <span className="label">{t.preview_hour}</span>
-            <span className="value">{formatDate(allocation.created_at)}</span>
+            <span className="value">{formatDate(horaDoAssento(allocation))}</span>
           </div>
         </div>
       </div>
