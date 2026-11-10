@@ -247,52 +247,31 @@ const Funcionarios = () => {
     }
     setPayBusy(staffId);
     try {
-      const existing = payments[staffId];
-      if (existing) {
-        await supabase
-          .from('staff_payments')
-          .update({ amount, status: 'paid', paid_at: new Date().toISOString() })
-          .eq('id', existing.id);
-      } else {
-        await supabase
-          .from('staff_payments')
-          .insert({ stage_id: stageId, staff_id: staffId, amount, status: 'paid', paid_at: new Date().toISOString() });
-      }
-      // Debit the general cash register (mirrors prize payout)
-      await supabase
-        .from('general_cash_register')
-        .update({ current_balance: String(balance - amount) })
-        .eq('id', generalCash.id);
+      // O servidor marca o pagamento e debita o caixa geral de forma atômica.
+      // Feito daqui, com o saldo lido antes, duas operações juntas perdiam uma
+      // e um erro no meio deixava o funcionário pago sem o dinheiro sair.
+      await api.post(`/staff/payments/${staffId}/pay`, { amount });
       notify(t('staff.paymentRegistered'), 'success');
-      loadPayments();
     } catch (err) {
-      notify(t('staff.errRegisterPayment'));
+      notify(err.userMessage || t('staff.errRegisterPayment'));
     } finally {
       setPayBusy(null);
+      loadPayments();
     }
   };
 
   const handleReverse = async (staffId) => {
     const p = payments[staffId];
-    if (!p || p.status !== 'paid' || !generalCash) return;
-    const amount = parseFloat(p.amount) || 0;
+    if (!p || p.status !== 'paid') return;
     setPayBusy(staffId);
     try {
-      await supabase
-        .from('staff_payments')
-        .update({ status: 'pending', paid_at: null })
-        .eq('id', p.id);
-      // Refund the general cash
-      await supabase
-        .from('general_cash_register')
-        .update({ current_balance: String((parseFloat(generalCash.current_balance) || 0) + amount) })
-        .eq('id', generalCash.id);
+      await api.post(`/staff/payments/${p.id}/reverse`);
       notify(t('staff.paymentReversed'), 'success');
-      loadPayments();
     } catch (err) {
-      notify(t('staff.errReversePayment'));
+      notify(err.userMessage || t('staff.errReversePayment'));
     } finally {
       setPayBusy(null);
+      loadPayments();
     }
   };
 

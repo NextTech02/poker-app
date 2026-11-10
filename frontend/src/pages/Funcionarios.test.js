@@ -804,33 +804,30 @@ describe('pagamentos da equipe', () => {
     expect(mockBase.chamadas.some((c) => c.op === 'update' && c.tabela === 'general_cash_register')).toBe(false);
   });
 
-  it('pagar DEBITA o caixa geral pelo valor exato', async () => {
+  it('pagar vai ao servidor, que debita o caixa geral de forma atômica', async () => {
+    // Gravar `saldo lido − valor` do navegador perdia um de dois pagamentos
+    // simultâneos; o navegador não escreve mais no caixa geral.
     mockBase.dados.staff_payments = [{ id: 'sp1', staff_id: 's1', amount: 500, status: 'pending' }];
     await montar();
     await irPagamentos();
     await waitFor(() => expect(linhaDe('Ana')).toBeDefined());
     await userEvent.click(within(linhaDe('Ana')).getByText('staff.pay'));
-    await waitFor(() => {
-      const debito = mockBase.chamadas.find(
-        (c) => c.tabela === 'general_cash_register' && c.op === 'update'
-      );
-      expect(debito.payload.current_balance).toBe('19500');
-    });
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/staff/payments/s1/pay', { amount: 500 })
+    );
     expect(toast.success).toHaveBeenCalledWith('staff.paymentRegistered');
+    expect(mockBase.chamadas.some((c) => c.tabela === 'general_cash_register' && c.op === 'update')).toBe(false);
+    expect(mockBase.chamadas.some((c) => c.tabela === 'staff_payments' && c.op !== 'select')).toBe(false);
   });
 
-  it('pagamento marca a linha como paga', async () => {
+  it('recusa do servidor aparece com a frase dele', async () => {
     mockBase.dados.staff_payments = [{ id: 'sp1', staff_id: 's1', amount: 500, status: 'pending' }];
+    api.post.mockRejectedValue({ userMessage: 'Este pagamento já foi registrado.' });
     await montar();
     await irPagamentos();
     await waitFor(() => expect(linhaDe('Ana')).toBeDefined());
     await userEvent.click(within(linhaDe('Ana')).getByText('staff.pay'));
-    await waitFor(() => {
-      const marcacao = mockBase.chamadas.find(
-        (c) => c.tabela === 'staff_payments' && c.op === 'update' && c.payload.status === 'paid'
-      );
-      expect(marcacao).toBeTruthy();
-    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Este pagamento já foi registrado.'));
   });
 
   it('valor já pago não pode mais ser editado', async () => {
@@ -843,7 +840,7 @@ describe('pagamentos da equipe', () => {
     expect(within(linhaDe('Ana')).getByText('staff.reverse')).toBeInTheDocument();
   });
 
-  it('estornar DEVOLVE o valor ao caixa geral', async () => {
+  it('estornar vai ao servidor, que devolve o valor ao caixa geral', async () => {
     // Pagamento errado precisa de caminho de volta; sem isso o caixa fica
     // furado até alguém corrigir na mão.
     mockBase.dados.staff_payments = [
@@ -853,13 +850,9 @@ describe('pagamentos da equipe', () => {
     await irPagamentos();
     await waitFor(() => expect(linhaDe('Ana')).toBeDefined());
     await userEvent.click(within(linhaDe('Ana')).getByText('staff.reverse'));
-    await waitFor(() => {
-      const credito = mockBase.chamadas.find(
-        (c) => c.tabela === 'general_cash_register' && c.op === 'update'
-      );
-      expect(credito.payload.current_balance).toBe('20500');
-    });
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/staff/payments/sp1/reverse'));
     expect(toast.success).toHaveBeenCalledWith('staff.paymentReversed');
+    expect(mockBase.chamadas.some((c) => c.tabela === 'general_cash_register' && c.op === 'update')).toBe(false);
   });
 
   it('o total pago soma só o que foi de fato pago', async () => {
