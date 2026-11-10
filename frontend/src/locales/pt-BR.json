@@ -1852,6 +1852,7 @@
     "selectPlayerEmptyHint": "Escolha um jogador acima para ver seu extrato financeiro e créditos",
     "grantCreditTitle": "Conceder Crédito",
     "sponsorLabel": "Patrocinador",
+    "loyaltySponsor": "Fidelidade",
     "selectSponsorOption": "Selecione um patrocinador",
     "newSponsorTitle": "Cadastrar novo patrocinador",
     "creditAmountLabel": "Valor do Crédito",
@@ -2905,6 +2906,15 @@
   "expenses": {
     "new": "Nova despesa",
     "editTitle": "Editar despesa",
+    "defaultCategories": {
+      "rent": "Aluguel do espaço",
+      "supportStaff": "Equipe de apoio",
+      "food": "Alimentação",
+      "supplies": "Material",
+      "setup": "Estrutura",
+      "feesTaxes": "Taxas e impostos",
+      "other": "Outros"
+    },
     "total": "Total",
     "paid": "Pago",
     "pending": "A pagar",

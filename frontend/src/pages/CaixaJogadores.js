@@ -23,6 +23,12 @@ const CaixaJogadores = () => {
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   const { t, i18n } = useTranslation();
+  // O patrocinador de sistema do programa de fidelidade nasce "Fidelidade"
+  // em todo clube (database_migration_loyalty_phase2.sql): o nome padrão
+  // conhecido aparece no idioma do app; os que o clube cadastrou, como estão.
+  const nomeDoPatrocinador = (nome) => (
+    nome === 'Fidelidade' ? t('playerCash.loyaltySponsor', 'Fidelidade') : nome
+  );
 
   // Player selection
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
@@ -318,7 +324,7 @@ const CaixaJogadores = () => {
                     <tbody>
                       {credits.map((c) => (
                         <tr key={c.id}>
-                          <td>{c.sponsor_name}</td>
+                          <td>{nomeDoPatrocinador(c.sponsor_name)}</td>
                           <td>{formatCurrency(c.original_amount)}</td>
                           <td className="cj-amount-positive">{formatCurrency(c.remaining_amount)}</td>
                           <td>{formatCurrency(c.used_amount)}</td>
@@ -431,7 +437,7 @@ const CaixaJogadores = () => {
                           </td>
                           <td>{getTypeBadge(entry.type)}</td>
                           <td>{entry.tournament_name || '—'}</td>
-                          <td>{entry.sponsor_name || '—'}</td>
+                          <td>{nomeDoPatrocinador(entry.sponsor_name) || '—'}</td>
                           <td className={`amount ${isIncoming(entry.type) ? 'cj-amount-positive' : 'cj-amount-negative'}`}>
                             {isIncoming(entry.type) ? '+' : '-'} {formatCurrency(entry.amount)}
                           </td>
@@ -474,7 +480,7 @@ const CaixaJogadores = () => {
                     >
                       <option value="">{t('playerCash.selectSponsorOption')}</option>
                       {sponsors.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                        <option key={s.id} value={s.id}>{nomeDoPatrocinador(s.name)}</option>
                       ))}
                     </select>
                     <button

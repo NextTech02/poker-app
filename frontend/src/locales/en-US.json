@@ -1852,6 +1852,7 @@
     "selectPlayerEmptyHint": "Choose a player above to view their financial statement and credits",
     "grantCreditTitle": "Grant Credit",
     "sponsorLabel": "Sponsor",
+    "loyaltySponsor": "Loyalty",
     "selectSponsorOption": "Select a sponsor",
     "newSponsorTitle": "Register new sponsor",
     "creditAmountLabel": "Credit Amount",
@@ -2905,6 +2906,15 @@
   "expenses": {
     "new": "New expense",
     "editTitle": "Edit expense",
+    "defaultCategories": {
+      "rent": "Venue rent",
+      "supportStaff": "Support staff",
+      "food": "Food and drinks",
+      "supplies": "Supplies",
+      "setup": "Setup",
+      "feesTaxes": "Fees and taxes",
+      "other": "Other"
+    },
     "total": "Total",
     "paid": "Paid",
     "pending": "Unpaid",

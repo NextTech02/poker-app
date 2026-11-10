@@ -184,6 +184,17 @@ describe('lista de créditos', () => {
     expect(within(linhaDoCredito('Loja Y')).getByText('playerCash.statusSettledByPrize')).toBeInTheDocument();
   });
 
+  it('o patrocinador de sistema "Fidelidade" aparece no idioma do app', async () => {
+    // Ele nasce com o nome em português em todo clube.
+    await montar({
+      creditos: [{ id: 'c8', sponsor_name: 'Fidelidade', original_amount: 25, remaining_amount: 25,
+        used_amount: 0, prize_deduction_amount: 0, sponsor_owes: 0, status: 'active' }],
+    });
+    await escolherJogador();
+    expect(await screen.findByText('playerCash.loyaltySponsor')).toBeInTheDocument();
+    expect(screen.queryByText('Fidelidade')).toBeNull();
+  });
+
   it('situação desconhecida não some da tela', async () => {
     await montar({
       creditos: [{ id: 'c9', sponsor_name: 'Z', original_amount: 1, remaining_amount: 1,
