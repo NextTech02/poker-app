@@ -2971,7 +2971,7 @@
     "already": "already registered",
     "pending": "incomplete",
     "imported": "imported",
-    "pendingExplain": "Incomplete records are missing an email, phone or document — fields this system requires. Download the list, complete them in the old system and import again: anyone already added will not be duplicated.",
+    "pendingExplain": "Incomplete records are missing a name or document, have an invalid document or email, or appear more than once in the file. A blank email or phone does not block the import. Download the list with the reason for each one, fix them in the old system and import again: anyone already added will not be duplicated.",
     "pendingAfter": "Complete the pending records in the old system and import the file again — those already created will be skipped.",
     "downloadPending": "Download pending list",
     "overLimit": "Your plan allows {{limite}} players. This organization already has {{atual}} and the import would add {{novos}}.",

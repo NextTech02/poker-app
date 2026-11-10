@@ -2971,7 +2971,7 @@
     "already": "ya registrados",
     "pending": "incompletos",
     "imported": "importados",
-    "pendingExplain": "A los incompletos les falta correo, teléfono o documento — campos que el sistema exige. Descarga la lista, complétalos en el sistema anterior e importa de nuevo: quien ya entró no se duplicará.",
+    "pendingExplain": "A los incompletos les falta el nombre o el documento, tienen un documento o correo inválido, o aparecen repetidos en el archivo. El correo y el teléfono en blanco no impiden la importación. Descarga la lista con el motivo de cada uno, corrígelos en el sistema anterior e importa de nuevo: quien ya entró no se duplicará.",
     "pendingAfter": "Completa los pendientes en el sistema anterior e importa el archivo otra vez — los ya creados se omitirán.",
     "downloadPending": "Descargar lista de pendientes",
     "overLimit": "El plan permite {{limite}} jugadores. La organización ya tiene {{atual}} y la importación añadiría {{novos}}.",
