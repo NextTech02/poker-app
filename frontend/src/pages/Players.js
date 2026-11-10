@@ -7,6 +7,7 @@ import { SkeletonPlayersTable } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { offlineWrite } from '../offline/apiOffline';
 import { applyPlayerCreate } from '../offline/domainRules';
 import { uuid, getEntity, putEntity } from '../offline/db';
@@ -45,16 +46,34 @@ const primeiroNome = (nome = '') => limparNome(nome).split(' ')[0] || '';
 const sobrenomeDe = (nome = '') => limparNome(nome).split(' ').slice(1).join(' ');
 const nomeCompleto = (primeiro, ultimo) => limparNome(`${primeiro || ''} ${ultimo || ''}`);
 
-// O formulário abre em 'cpf' (é a maioria do balcão). Isso é seguro mesmo se
-// esta tela subir ANTES da migração dos tipos de documento: quando o CHECK
-// antigo do banco recusa o tipo novo, o backend regrava o cadastro com o tipo
-// legado em vez de derrubar a venda (backend/app/utils/documentos.py:
-// tipo_para_banco_antigo). Não troque este padrão por uma consulta ao servidor:
-// seria uma ida a mais no caminho quente e não protegeria a importação nem o
-// replay da fila offline, que não passam por esta tela.
+// O formulário abre no documento do país do clube (ver documentoPadraoDoClube).
+// Isso é seguro mesmo se esta tela subir ANTES da migração dos tipos de
+// documento: quando o CHECK antigo do banco recusa o tipo novo, o backend
+// regrava o cadastro com o tipo legado em vez de derrubar a venda
+// (backend/app/utils/documentos.py: tipo_para_banco_antigo). Não troque este
+// padrão por uma consulta ao servidor: seria uma ida a mais no caminho quente e
+// não protegeria a importação nem o replay da fila offline, que não passam por
+// esta tela. A moeda e o idioma do clube já estão carregados no CurrencyContext.
 const EMPTY_FORM = {
   first_name: '', last_name: '', email: '', phone: '', nationality: '',
   document_type: 'cpf', document_number: '', nickname: '', birth_date: '', notes: '',
+};
+
+/**
+ * Tipo de documento com que o cadastro novo abre.
+ *
+ * A moeda diz o país do balcão: BRL → CPF, PEN → DNI, COP → cédula. Moeda de
+ * vários países (USD, EUR...) abre em passaporte, que vale em qualquer lugar;
+ * abrir em CPF obrigava o operador de um clube no Panamá a trocar o tipo a
+ * cada jogador. Clube em português sem moeda que diga o país continua em CPF,
+ * como sempre foi, e sem moeda nem idioma (contexto ainda vazio) também.
+ */
+export const documentoPadraoDoClube = (moeda, idioma) => {
+  if (moeda === 'PEN') return 'dni';
+  if (moeda === 'COP') return 'cedula';
+  if (moeda === 'BRL') return 'cpf';
+  if (!idioma || String(idioma).startsWith('pt')) return 'cpf';
+  return 'passport';
 };
 
 /** O que mostrar quando o cadastro não grava.
@@ -94,6 +113,7 @@ export const mensagemDoErro = (error, t) => {
 const Players = () => {
   const { toast, confirm } = useToast();
   const { t } = useTranslation();
+  const { currency: moedaDoClube, language: idiomaDoClube } = useCurrency() || {};
   const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -270,7 +290,7 @@ const Players = () => {
 
   const openNewModal = () => {
     setEditingPlayer(null);
-    setFormData(EMPTY_FORM);
+    setFormData({ ...EMPTY_FORM, document_type: documentoPadraoDoClube(moedaDoClube, idiomaDoClube) });
     setFormError('');
     setShowModal(true);
   };
