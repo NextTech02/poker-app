@@ -43,7 +43,9 @@
     "home": "Home",
     "eliminate": "Eliminate",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "all": "All",
+    "allFeminine": "All"
   },
   "sidebar": {
     "organizations": "Organizations",

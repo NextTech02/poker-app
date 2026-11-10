@@ -337,7 +337,7 @@ const BarProducts = () => {
               <div className="form-group">
                 <label htmlFor="bp-cat">{t('bar.category', 'Categoria')}</label>
                 <select id="bp-cat" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                  <option value="">{t('common.all', 'Todas')}</option>
+                  <option value="">{t('common.allFeminine', 'Todas')}</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
