@@ -1466,7 +1466,7 @@ const Caixa = () => {
                         estornoIncompleto(transaction) ? 'cx-row-cancelling' : '',
                       ].filter(Boolean).join(' ') || undefined}
                     >
-                      <td>{new Date(transaction.created_at).toLocaleString('pt-BR')}</td>
+                      <td>{new Date(transaction.created_at).toLocaleString(i18n?.language)}</td>
                       <td>
                         {transaction.player_name}
                         {transaction.player_nickname && (

@@ -100,7 +100,7 @@ const ehConvite = (s) => s.invite_status === 'pending' || s.invite_status === 'a
 const fetchActivityLogs = (params) => api.get('/activity-logs', { params }).then((r) => r.data);
 
 const Funcionarios = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast, confirm } = useToast();
   const notify = (msg, type = 'error') => toast[type](msg);
   const { selectedStage } = useStage();
@@ -856,7 +856,7 @@ const Funcionarios = () => {
                                   {isPaid ? t('staff.paid') : t('staff.pending')}
                                 </span>
                                 {isPaid && p?.paid_at && (
-                                  <span className="func-pay-date">{new Date(p.paid_at).toLocaleDateString('pt-BR')}</span>
+                                  <span className="func-pay-date">{new Date(p.paid_at).toLocaleDateString(i18n?.language)}</span>
                                 )}
                               </td>
                               <td>

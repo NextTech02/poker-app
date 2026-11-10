@@ -22,7 +22,7 @@ const TIPOS_DE_ENTRADA = new Set(['credit_granted', 'prize', 'credit_refund']);
 const CaixaJogadores = () => {
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // Player selection
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
@@ -423,7 +423,7 @@ const CaixaJogadores = () => {
                     <tbody>
                       {statement.map((entry) => (
                         <tr key={entry.id}>
-                          <td>{new Date(entry.date).toLocaleString('pt-BR')}</td>
+                          <td>{new Date(entry.date).toLocaleString(i18n?.language)}</td>
                           <td>
                             <span className={`badge ${entry.category === 'credit' ? 'badge-credit' : 'badge-default'}`}>
                               {entry.category === 'credit' ? t('playerCash.categoryCredit') : t('playerCash.categoryTransaction')}

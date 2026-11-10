@@ -17,7 +17,7 @@ import { uuid, putEntity } from '../offline/db';
 import './CaixaGeral.css';
 
 const CaixaGeral = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
@@ -228,12 +228,14 @@ const CaixaGeral = () => {
       console.error('Erro ao realizar sangria:', error);
       // `userMessage` já vem traduzido pelo código da recusa (saldo da etapa
       // etc.); o `detail` cru seria a frase em português do servidor.
-      toast.error(error.userMessage || t('generalCash.sangriaError'));
+      const detalhe = error.response?.data?.detail;
+      toast.error(error.userMessage || (typeof detalhe === 'string' ? detalhe : null)
+        || t('generalCash.sangriaError'));
     }
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('pt-BR', {
+    return new Date(dateString).toLocaleString(i18n?.language, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
