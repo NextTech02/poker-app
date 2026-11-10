@@ -10,6 +10,7 @@ import { SkeletonTableRow } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import { nomeDaCategoria } from '../utils/barRotulos';
 import './CashFloor.css';
 import './Bar.css';
 
@@ -338,7 +339,7 @@ const BarProducts = () => {
                 <label htmlFor="bp-cat">{t('bar.category', 'Categoria')}</label>
                 <select id="bp-cat" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
                   <option value="">{t('common.all', 'Todas')}</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {categories.map((c) => <option key={c.id} value={c.id}>{nomeDaCategoria(t, c.name)}</option>)}
                 </select>
               </div>
             </div>
@@ -378,7 +379,7 @@ const BarProducts = () => {
                           <strong>{p.name}</strong>
                           {p.sku && <div className="bar-muted">{p.sku}</div>}
                         </td>
-                        <td>{p.category_name || '—'}</td>
+                        <td>{p.category_name ? nomeDaCategoria(t, p.category_name) : '—'}</td>
                         <td className="bar-num">{formatCurrency(p.price)}</td>
                         <td className="bar-num">{formatCurrency(p.cost_price || 0)}</td>
                         <td>{estoqueCelula(p)}</td>
@@ -435,7 +436,7 @@ const BarProducts = () => {
                 <tbody>
                   {categories.map((c) => (
                     <tr key={c.id} className={c.active ? '' : 'bar-inactive'}>
-                      <td><strong>{c.name}</strong></td>
+                      <td><strong>{nomeDaCategoria(t, c.name)}</strong></td>
                       <td className="bar-num">{c.sort_order}</td>
                       <td className="bar-num">{c.products_count}</td>
                       <td>{statusBadge(c.active, t('common.active', 'Ativa'), t('common.inactive', 'Inativa'))}</td>
@@ -476,7 +477,7 @@ const BarProducts = () => {
                     <select id="bp-category" value={form.category_id}
                             onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
                       <option value="">—</option>
-                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {categories.map((c) => <option key={c.id} value={c.id}>{nomeDaCategoria(t, c.name)}</option>)}
                     </select>
                   </div>
                   <div className="form-group">

@@ -19,3 +19,26 @@ export const rotuloDoMeioDoBar = (t, codigo, metodos = []) => {
   const cadastrado = (metodos || []).find((m) => m.code === codigo);
   return methodLabel(t, cadastrado || { code: codigo });
 };
+
+/*
+ * Categorias que o banco criou em português para clubes de qualquer idioma: o
+ * módulo era ligado na criação do clube antes de o idioma ser gravado, e a
+ * semente caía no pt-BR. Traduzidas só na EXIBIÇÃO — o dado do clube não muda,
+ * e quem renomeou a categoria vê o nome que digitou.
+ *
+ * "Drinks" fica de fora de propósito: não é português, e no clube em inglês é
+ * o nome da PRIMEIRA categoria padrão (bebidas em geral); traduzi-lo juntaria
+ * duas categorias com o mesmo nome. Pelo mesmo motivo "Bebidas" vira
+ * "Beverages" em inglês, e não "Drinks".
+ */
+const CATEGORIAS_PADRAO_PT = {
+  Bebidas: ['bar.defaultCategory.beverages', 'Bebidas'],
+  Cervejas: ['bar.defaultCategory.beers', 'Cervejas'],
+  Comidas: ['bar.defaultCategory.food', 'Comidas'],
+  Petiscos: ['bar.defaultCategory.snacks', 'Petiscos'],
+};
+
+export const nomeDaCategoria = (t, nome) => {
+  const padrao = CATEGORIAS_PADRAO_PT[nome];
+  return padrao ? t(padrao[0], padrao[1]) : nome;
+};

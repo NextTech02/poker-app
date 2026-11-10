@@ -9,7 +9,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { exportSections } from '../utils/reportExport';
-import { rotuloDoMeioDoBar } from '../utils/barRotulos';
+import { nomeDaCategoria, rotuloDoMeioDoBar } from '../utils/barRotulos';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 import './CashFloor.css';
 import './CashRelatorios.css';
@@ -102,7 +102,9 @@ const BarRelatorios = () => {
             { key: 'cogs', label: t('barReports.cogsShort', 'CMV'), type: 'currency' },
             { key: 'margin', label: t('bar.margin', 'Margem'), type: 'currency' },
           ],
-          rows: summary.top_products || [],
+          rows: (summary.top_products || []).map((p) => ({
+            ...p, category_name: p.category_name ? nomeDaCategoria(t, p.category_name) : p.category_name,
+          })),
         },
         {
           kind: 'table',
@@ -286,7 +288,7 @@ const BarRelatorios = () => {
                     {(summary.top_products || []).map((p) => (
                       <tr key={p.product_id}>
                         <td><strong>{p.product_name}</strong></td>
-                        <td>{p.category_name || '—'}</td>
+                        <td>{p.category_name ? nomeDaCategoria(t, p.category_name) : '—'}</td>
                         <td className="bar-num">{p.quantity}</td>
                         <td className="bar-num">{p.courtesy_quantity || 0}</td>
                         <td className="bar-num">{formatCurrency(p.revenue)}</td>

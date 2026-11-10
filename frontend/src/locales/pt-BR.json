@@ -386,6 +386,12 @@
     "points": "pontos",
     "toNext": "Faltam {{n}} pts para {{tier}}",
     "maxTier": "Nível máximo alcançado",
+    "defaultTier": {
+      "bronze": "Bronze",
+      "silver": "Prata",
+      "gold": "Ouro",
+      "diamond": "Diamante"
+    },
     "lifetime": "{{n}} pts acumulados no total",
     "recent": "Movimentações recentes",
     "reasonBuyIn": "Buy-in",
@@ -400,6 +406,7 @@
     "cashbackBalance": "Cashback disponível",
     "convertCashback": "Converter em crédito",
     "rewards": "Recompensas",
+    "defaultRewardName": "{{value}} em crédito",
     "redeem": "Resgatar",
     "notEnough": "Pontos insuficientes",
     "redeemed": "Recompensa resgatada! Crédito adicionado ao caixa do jogador.",
@@ -3479,6 +3486,12 @@
     "newCategory": "Nova categoria",
     "editCategory": "Editar categoria",
     "categoryName": "Nome",
+    "defaultCategory": {
+      "beverages": "Bebidas",
+      "beers": "Cervejas",
+      "food": "Comidas",
+      "snacks": "Petiscos"
+    },
     "price": "Preço",
     "cost": "Custo",
     "sku": "Código",
