@@ -17,6 +17,21 @@ from app.services import pagamento_dividido
 
 logger = logging.getLogger(__name__)
 
+
+class Aviso(str):
+    """Aviso do estorno: continua sendo a frase (a reserva, em português, para
+    telas antigas), mas leva o código e os valores como número. Era só a frase,
+    com "R$" fixo: o clube do Peru lia português e a moeda errada."""
+
+    def __new__(cls, code: str, texto: str, **dados):
+        obj = super().__new__(cls, texto)
+        obj.code = code
+        obj.dados = dados
+        return obj
+
+    def como_dado(self) -> dict:
+        return {"code": self.code, **self.dados}
+
 # Só entradas podem ser estornadas por aqui. Prêmio pago é saída de caixa e tem
 # fluxo próprio (prize_allocations); desfazê-lo aqui devolveria fichas a quem já
 # recebeu o dinheiro.
@@ -205,7 +220,8 @@ class TransactionService:
             .execute()
         )
         detalhe = TransactionService._detalhar((final.data or [linha])[0])
-        detalhe.cancel_warnings = avisos
+        detalhe.cancel_warnings = [str(a) for a in avisos]
+        detalhe.cancel_notices = [a.como_dado() for a in avisos if isinstance(a, Aviso)]
         return detalhe
 
     @staticmethod
@@ -642,17 +658,21 @@ class TransactionService:
         rake = float(tx.get("rake_amount") or 0)
         sangrado = float(atual.get("total_sangrias") or 0)
         if saldo is not None and saldo < 0:
-            avisos.append(
-                f"O caixa da etapa ficou negativo em R$ {abs(saldo):.2f}: este dinheiro já "
+            avisos.append(Aviso(
+                "caixa_da_etapa_negativo",
+                f"O caixa da etapa ficou negativo em {abs(saldo):.2f}: este dinheiro já "
                 f"tinha sido sangrado. O caixa geral e o rake acumulado NÃO foram corrigidos "
-                f"automaticamente — ajuste-os no Financeiro antes de fechar a noite."
-            )
+                f"automaticamente — ajuste-os no Financeiro antes de fechar a noite.",
+                valor=round(abs(saldo), 2),
+            ))
         elif sangrado > 0 and rake > 0:
-            avisos.append(
-                f"Esta etapa já teve sangria. Se o rake de R$ {rake:.2f} desta venda já foi "
+            avisos.append(Aviso(
+                "etapa_ja_teve_sangria",
+                f"Esta etapa já teve sangria. Se o rake de {rake:.2f} desta venda já foi "
                 f"extraído, o caixa geral e o rake acumulado seguem contando esse valor — "
-                f"confira no Financeiro."
-            )
+                f"confira no Financeiro.",
+                rake=round(rake, 2),
+            ))
         return avisos
 
     @staticmethod
@@ -789,11 +809,13 @@ class TransactionService:
             # O lançamento cai na de hoje porque é a única em que ele ainda pode
             # entrar — mas o operador de hoje fecharia a noite devendo um
             # dinheiro que o ADMIN entregou ao jogador, sem nada explicando.
-            avisos.append(
+            avisos.append(Aviso(
+                "devolucao_em_outra_sessao",
                 f"A venda foi registrada em outra sessão do caixa deste operador. A devolução de "
-                f"R$ {valor:.2f} entra na sessão ABERTA agora e vai aparecer como diferença no "
-                f"fechamento de hoje. O dinheiro sai do caixa geral, não da gaveta do operador."
-            )
+                f"{valor:.2f} entra na sessão ABERTA agora e vai aparecer como diferença no "
+                f"fechamento de hoje. O dinheiro sai do caixa geral, não da gaveta do operador.",
+                valor=round(valor, 2),
+            ))
         if not aberta:
             # Caso mais comum de todos: o admin cancela no dia seguinte, com o
             # caixa do operador já fechado. Deixar `session_id` nulo faz o
@@ -803,17 +825,21 @@ class TransactionService:
             # sem a devolução: o operador aparecia devendo o dinheiro que o
             # ADMIN entregou ao jogador.
             if sessao:
-                avisos.append(
-                    f"O caixa do operador já estava fechado: a devolução de R$ {valor:.2f} entrou "
+                avisos.append(Aviso(
+                    "devolucao_em_sessao_fechada",
+                    f"O caixa do operador já estava fechado: a devolução de {valor:.2f} entrou "
                     f"na sessão em que a venda foi registrada e vai aparecer como diferença no "
-                    f"relatório daquela sessão. O dinheiro sai do caixa geral, não da gaveta do operador."
-                )
+                    f"relatório daquela sessão. O dinheiro sai do caixa geral, não da gaveta do operador.",
+                    valor=round(valor, 2),
+                ))
             else:
-                avisos.append(
-                    f"A devolução de R$ {valor:.2f} não pôde ser amarrada a nenhuma sessão do caixa "
+                avisos.append(Aviso(
+                    "devolucao_sem_sessao",
+                    f"A devolução de {valor:.2f} não pôde ser amarrada a nenhuma sessão do caixa "
                     f"do operador — ela NÃO vai aparecer no relatório de sessões. Registre o "
-                    f"pagamento ao jogador no Financeiro."
-                )
+                    f"pagamento ao jogador no Financeiro.",
+                    valor=round(valor, 2),
+                ))
 
         linha = {
             "cashbox_id": cashbox_id,
@@ -950,10 +976,12 @@ class TransactionService:
                 # Piso em zero: nunca tirar do jogador mais do que ele tem.
                 dados["cashback_balance"] = round(max(disponivel - cashback, 0), 2)
                 if disponivel < cashback:
-                    avisos.append(
-                        f"O cashback de R$ {cashback:.2f} desta venda já tinha virado crédito do "
-                        f"jogador: só R$ {disponivel:.2f} voltou. Ajuste o crédito dele manualmente."
-                    )
+                    avisos.append(Aviso(
+                        "cashback_ja_virou_credito",
+                        f"O cashback de {cashback:.2f} desta venda já tinha virado crédito do "
+                        f"jogador: só {disponivel:.2f} voltou. Ajuste o crédito dele manualmente.",
+                        cashback=round(cashback, 2), devolvido=round(disponivel, 2),
+                    ))
 
             supabase.table("loyalty_accounts").update(dados).eq(
                 "player_id", tx["player_id"]
@@ -992,10 +1020,11 @@ class TransactionService:
                 "Falha ao estornar a fidelidade da venda %s (jogador %s)",
                 tx.get("id"), tx.get("player_id"),
             )
-            avisos.append(
+            avisos.append(Aviso(
+                "fidelidade_nao_estornada",
                 "Não foi possível estornar os pontos/cashback de fidelidade desta venda — "
-                "confira o programa de fidelidade do jogador."
-            )
+                "confira o programa de fidelidade do jogador.",
+            ))
         return avisos
 
     @staticmethod
@@ -1038,11 +1067,12 @@ class TransactionService:
             # acumulou em outras compras.
             return 0.0, []
         if ganhou is None:
-            return 0.0, [
+            return 0.0, [Aviso(
+                "cashback_nao_confirmado",
                 "Não foi possível confirmar se esta venda gerou cashback (programa de "
                 "fidelidade indisponível): nada foi debitado do saldo do jogador. "
-                "Confira o cashback dele antes de fechar a noite."
-            ]
+                "Confira o cashback dele antes de fechar a noite.",
+            )]
 
         pct = None
         tier_id = conta.get("tier_id")
@@ -1060,11 +1090,13 @@ class TransactionService:
         estimado = round(valor * float(pct or 0) / 100.0, 2)
         if estimado <= 0:
             return 0.0, []
-        return 0.0, [
+        return 0.0, [Aviso(
+            "cashback_antigo_nao_registrado",
             f"O cashback desta venda não foi registrado na época (venda antiga): NADA foi "
             f"debitado do saldo do jogador. Pelo nível ATUAL dele seriam cerca de "
-            f"R$ {estimado:.2f} — se quiser retirar, ajuste o cashback dele no perfil."
-        ]
+            f"{estimado:.2f} — se quiser retirar, ajuste o cashback dele no perfil.",
+            estimado=round(estimado, 2),
+        )]
 
     @staticmethod
     def _venda_gerou_cashback(tx: dict, org: Optional[str], extrato: List[dict]) -> Optional[bool]:

@@ -100,7 +100,7 @@ const ehConvite = (s) => s.invite_status === 'pending' || s.invite_status === 'a
 const fetchActivityLogs = (params) => api.get('/activity-logs', { params }).then((r) => r.data);
 
 const Funcionarios = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast, confirm } = useToast();
   const notify = (msg, type = 'error') => toast[type](msg);
   const { selectedStage } = useStage();
@@ -247,52 +247,31 @@ const Funcionarios = () => {
     }
     setPayBusy(staffId);
     try {
-      const existing = payments[staffId];
-      if (existing) {
-        await supabase
-          .from('staff_payments')
-          .update({ amount, status: 'paid', paid_at: new Date().toISOString() })
-          .eq('id', existing.id);
-      } else {
-        await supabase
-          .from('staff_payments')
-          .insert({ stage_id: stageId, staff_id: staffId, amount, status: 'paid', paid_at: new Date().toISOString() });
-      }
-      // Debit the general cash register (mirrors prize payout)
-      await supabase
-        .from('general_cash_register')
-        .update({ current_balance: String(balance - amount) })
-        .eq('id', generalCash.id);
+      // O servidor marca o pagamento e debita o caixa geral de forma atômica.
+      // Feito daqui, com o saldo lido antes, duas operações juntas perdiam uma
+      // e um erro no meio deixava o funcionário pago sem o dinheiro sair.
+      await api.post(`/staff/payments/${staffId}/pay`, { amount });
       notify(t('staff.paymentRegistered'), 'success');
-      loadPayments();
     } catch (err) {
-      notify(t('staff.errRegisterPayment'));
+      notify(err.userMessage || t('staff.errRegisterPayment'));
     } finally {
       setPayBusy(null);
+      loadPayments();
     }
   };
 
   const handleReverse = async (staffId) => {
     const p = payments[staffId];
-    if (!p || p.status !== 'paid' || !generalCash) return;
-    const amount = parseFloat(p.amount) || 0;
+    if (!p || p.status !== 'paid') return;
     setPayBusy(staffId);
     try {
-      await supabase
-        .from('staff_payments')
-        .update({ status: 'pending', paid_at: null })
-        .eq('id', p.id);
-      // Refund the general cash
-      await supabase
-        .from('general_cash_register')
-        .update({ current_balance: String((parseFloat(generalCash.current_balance) || 0) + amount) })
-        .eq('id', generalCash.id);
+      await api.post(`/staff/payments/${p.id}/reverse`);
       notify(t('staff.paymentReversed'), 'success');
-      loadPayments();
     } catch (err) {
-      notify(t('staff.errReversePayment'));
+      notify(err.userMessage || t('staff.errReversePayment'));
     } finally {
       setPayBusy(null);
+      loadPayments();
     }
   };
 
@@ -684,9 +663,12 @@ const Funcionarios = () => {
         <div className="page-header">
           <h1>{t('staff.title')}</h1>
           <div className="page-header-actions">
-            {activeTab === 'staff' ? (
+            {/* Cada aba com o seu botão: "+ Novo Grupo" aparecia também em
+                Pagamentos, onde não há grupo nenhum para criar. */}
+            {activeTab === 'staff' && (
               <Button onClick={openCreateStaff}>+ {t('staff.newEmployee')}</Button>
-            ) : activeTab === 'acessos' ? null : (
+            )}
+            {activeTab === 'groups' && (
               <Button onClick={openCreateGroup}>+ {t('staff.newGroup')}</Button>
             )}
           </div>
@@ -877,7 +859,7 @@ const Funcionarios = () => {
                                   {isPaid ? t('staff.paid') : t('staff.pending')}
                                 </span>
                                 {isPaid && p?.paid_at && (
-                                  <span className="func-pay-date">{new Date(p.paid_at).toLocaleDateString('pt-BR')}</span>
+                                  <span className="func-pay-date">{new Date(p.paid_at).toLocaleDateString(i18n?.language)}</span>
                                 )}
                               </td>
                               <td>
@@ -927,27 +909,35 @@ const Funcionarios = () => {
                         <td><strong>{g.name}</strong></td>
                         <td>{g.description || '—'}</td>
                         <td>
-                          <div className="func-perm-tags">
-                            {permissoesDisponiveis.every((p) => g.permissions.includes(p.key)) ? (
-                              <span className="func-perm-tag func-perm-tag--all">{t('staff.allPermissions')}</span>
-                            ) : g.permissions.length === 0 ? (
-                              <span className="func-perm-tag func-perm-tag--none">{t('staff.noPermissions')}</span>
-                            ) : (
-                              g.permissions.slice(0, 4).map((p) => {
-                                const found = PERMISSAO_POR_CHAVE.get(p);
-                                return (
-                                  <span key={p} className="func-perm-tag">
-                                    {found ? t(found.label, found.fallback) : p}
+                          {(() => {
+                            // "Todas" já diz tudo: o "+N" só conta o que sobra
+                            // das 4 etiquetas mostradas, e ao lado de "Todas"
+                            // (grupo Admin) aparecia "Todas +29".
+                            const todas = permissoesDisponiveis.every((p) => g.permissions.includes(p.key));
+                            return (
+                              <div className="func-perm-tags">
+                                {todas ? (
+                                  <span className="func-perm-tag func-perm-tag--all">{t('staff.allPermissions')}</span>
+                                ) : g.permissions.length === 0 ? (
+                                  <span className="func-perm-tag func-perm-tag--none">{t('staff.noPermissions')}</span>
+                                ) : (
+                                  g.permissions.slice(0, 4).map((p) => {
+                                    const found = PERMISSAO_POR_CHAVE.get(p);
+                                    return (
+                                      <span key={p} className="func-perm-tag">
+                                        {found ? t(found.label, found.fallback) : p}
+                                      </span>
+                                    );
+                                  })
+                                )}
+                                {!todas && g.permissions.length > 4 && (
+                                  <span className="func-perm-tag func-perm-tag--more">
+                                    +{g.permissions.length - 4}
                                   </span>
-                                );
-                              })
-                            )}
-                            {g.permissions.length > 4 && (
-                              <span className="func-perm-tag func-perm-tag--more">
-                                +{g.permissions.length - 4}
-                              </span>
-                            )}
-                          </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td>
                           <div className="func-actions">
@@ -991,7 +981,7 @@ const Funcionarios = () => {
                     className="form-input"
                     value={staffForm.email}
                     onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
-                    placeholder="email@exemplo.com"
+                    placeholder={t('staff.emailPlaceholder', 'email@exemplo.com')}
                     autoFocus
                   />
                 </div>

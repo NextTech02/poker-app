@@ -159,6 +159,9 @@ const Premiacao = () => {
   // O padrão é abater tudo o que der; abater menos exige motivo.
   const [payoutFiado, setPayoutFiado] = useState(null);
   const [payoutAbatimento, setPayoutAbatimento] = useState({ editado: false, valor: '', motivo: '' });
+  // Crédito de patrocinador que o ganhador usou: o servidor desconta do prêmio
+  // (depois do fiado). A tela mostra antes, senão o operador entrega o bruto.
+  const [payoutCreditoUsado, setPayoutCreditoUsado] = useState(0);
 
   // Voucher after payout
   const [showVoucherModal, setShowVoucherModal] = useState(false);
@@ -501,6 +504,7 @@ const Premiacao = () => {
     setGeneralCashBalance(null);
     setPayoutFiado(null);
     setPayoutAbatimento({ editado: false, valor: '', motivo: '' });
+    setPayoutCreditoUsado(0);
     setShowPayoutModal(true);
 
     // Load prize pool, general cash, and the docs for every eligible player so
@@ -618,6 +622,7 @@ const Premiacao = () => {
         paid_at: response.data.paid_at || new Date().toISOString(),
         paid_by: payoutPaidBy || null,
         debt_offset: response.data.debt_offset ?? (fiadoDoPremio.abatido || null),
+        credit_deduction: response.data.credit_deduction ?? null,
         net_paid: response.data.net_paid ?? null,
       });
       setShowVoucherModal(true);
@@ -646,9 +651,12 @@ const Premiacao = () => {
     const abatido = divida > 0
       ? Math.round((payoutAbatimento.editado ? (parseFloat(payoutAbatimento.valor || 0) || 0) : proposto) * 100) / 100
       : 0;
+    // O crédito de patrocinador desconta do que sobra depois do fiado (a
+    // mesma ordem do servidor).
+    const credito = Math.round(Math.min(payoutCreditoUsado, Math.max(bruto - abatido, 0)) * 100) / 100;
     return {
-      bruto, divida, proposto, abatido,
-      liquido: Math.max(bruto - abatido, 0),
+      bruto, divida, proposto, abatido, credito,
+      liquido: Math.max(bruto - abatido - credito, 0),
       invalido: abatido > proposto + 0.004,
       faltaMotivo: divida > 0 && abatido + 0.004 < proposto && !payoutAbatimento.motivo.trim(),
     };
@@ -1375,12 +1383,17 @@ const Premiacao = () => {
                           setPayoutFiado(null);
                           setPayoutAbatimento({ editado: false, valor: '', motivo: '' });
                           buscarContaFiado(match.player_id).then(setPayoutFiado);
+                          setPayoutCreditoUsado(0);
+                          api.get(`/player-credits/player/${match.player_id}/prize-deduction`)
+                            .then((r) => setPayoutCreditoUsado(Number(r.data?.outstanding || 0)))
+                            .catch(() => setPayoutCreditoUsado(0));
                         }
                       } else {
                         setPayoutResolvedPlayer(null);
                         setPayoutPlayerId('');
                         setPayoutDocWarning('');
                         setPayoutFiado(null);
+                        setPayoutCreditoUsado(0);
                       }
                     }}
                     required
@@ -1438,12 +1451,13 @@ const Premiacao = () => {
                   <output className="payout-warning-msg">{payoutDocWarning}</output>
                 )}
 
-                {payoutResolvedPlayer && fiadoDoPremio.divida > 0 && (
+                {payoutResolvedPlayer && (fiadoDoPremio.divida > 0 || fiadoDoPremio.credito > 0) && (
                   <div className="payout-balance-info payout-fiado" role="group" aria-label={t('fiado.title', 'Fiado')}>
                     <div className="payout-balance-row">
                       <span>{t('fiado.prizeGross', 'Prêmio (bruto)')}</span>
                       <span>{formatCurrency(fiadoDoPremio.bruto)}</span>
                     </div>
+                    {fiadoDoPremio.divida > 0 && (<>
                     <div className="payout-balance-row">
                       <span>{t('fiado.openDebt', 'Fiado em aberto')}</span>
                       <span className="payout-warn">{formatCurrency(fiadoDoPremio.divida)}</span>
@@ -1469,6 +1483,13 @@ const Premiacao = () => {
                           value={payoutAbatimento.motivo}
                           onChange={(e) => setPayoutAbatimento({ ...payoutAbatimento, motivo: e.target.value })}
                         />
+                      </div>
+                    )}
+                    </>)}
+                    {fiadoDoPremio.credito > 0 && (
+                      <div className="payout-balance-row">
+                        <span>{t('premiacao.sponsorCreditDeducted', 'Crédito de patrocinador usado (descontado)')}</span>
+                        <span className="payout-warn">− {formatCurrency(fiadoDoPremio.credito)}</span>
                       </div>
                     )}
                     <div className="payout-balance-row payout-balance-row--highlight">

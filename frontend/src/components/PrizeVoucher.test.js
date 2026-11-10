@@ -70,6 +70,21 @@ describe('conteúdo', () => {
     expect(screen.getByText('R$ 12500.00')).toBeInTheDocument();
   });
 
+  it('crédito de patrocinador descontado aparece com o valor pago', () => {
+    render(<PrizeVoucher payout={{ ...PAGAMENTO, credit_deduction: 500, net_paid: 12000 }} />);
+    expect(screen.getByText('Crédito de patrocinador descontado')).toBeInTheDocument();
+    expect(screen.getByText('− R$ 500.00')).toBeInTheDocument();
+    expect(screen.getByText('R$ 12000.00')).toBeInTheDocument();
+  });
+
+  it('na reimpressão o crédito sai da diferença entre bruto, fiado e líquido', () => {
+    // O crédito não é coluna: a linha paga guarda só o fiado e o líquido.
+    render(<PrizeVoucher payout={{ ...PAGAMENTO, debt_offset: 1000, net_paid: 11000 }} />);
+    expect(screen.getByText('− R$ 1000.00')).toBeInTheDocument();     // fiado
+    expect(screen.getByText('− R$ 500.00')).toBeInTheDocument();      // crédito
+    expect(screen.getByText('R$ 11000.00')).toBeInTheDocument();
+  });
+
   it('mostra torneio e dia', () => {
     render(<PrizeVoucher payout={PAGAMENTO} />);
     expect(screen.getByText('Main Event')).toBeInTheDocument();

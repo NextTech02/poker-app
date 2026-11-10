@@ -23,6 +23,7 @@ import userEvent from '@testing-library/user-event';
 import Caixa from './Caixa';
 import api from '../config/api';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
+import { getAllByTable } from '../offline/db';
 import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -1644,6 +1645,21 @@ describe('cancelar venda', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
+  it('aviso com código sai no idioma e na moeda do clube, não na frase do servidor', async () => {
+    // A frase vem em português e com "R$": o clube do Peru lia as duas coisas.
+    api.post.mockResolvedValue({ data: {
+      cancel_warnings: ['O caixa da etapa ficou negativo em 50.00: ...'],
+      cancel_notices: [{ code: 'caixa_da_etapa_negativo', valor: 50 }],
+    } });
+    await montar();
+    await abrirCancelamento();
+    await userEvent.type(screen.getByLabelText('Motivo do cancelamento'), 'cobrei duas vezes');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar a venda' }));
+    const painel = await screen.findByRole('alertdialog');
+    expect(painel).toHaveTextContent('cashRegister.cancelNotices.caixa_da_etapa_negativo');
+    expect(painel).toHaveTextContent('R$ 50.00');   // formatado pela moeda do clube
+  });
+
   it('estorno limpo continua avisando com o toast de sempre', async () => {
     api.post.mockResolvedValue({ data: { cancel_warnings: [] } });
     await montar();
@@ -1877,6 +1893,32 @@ describe('mesas do dia', () => {
 
     expect(await screen.findByText('Sem conexão')).toBeInTheDocument();
     expect(avisoSemMesa()).toBeNull();
+  });
+});
+
+describe('dias do torneio sem rede', () => {
+  it('torneio escolhido depois de a internet cair traz os dias da réplica', async () => {
+    // O GET dos dias daquele torneio nunca foi ao cache: sem a réplica, a venda
+    // offline ficava sem dia nenhum.
+    const semRede = Object.assign(new Error('Network Error'), { response: undefined });
+    getAllByTable.mockImplementation(async (tabela) => (
+      tabela === 'tournament_days'
+        ? [...DOIS_DIAS.map((d) => ({ ...d, tournament_id: 't1' })),
+          { ...DIA, id: 'outro', day_name: 'Dia outro', tournament_id: 't9' }]
+        : []
+    ));
+    await montar({ dias: semRede });
+    await abrirModal();
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+    const seletor = await screen.findByLabelText('cashRegister.day');
+    expect(within(seletor).getByRole('option', { name: /Dia 1B/ })).toBeInTheDocument();
+    expect(within(seletor).queryByRole('option', { name: /outro/ })).toBeNull();
+    getAllByTable.mockImplementation(async () => []);
+  });
+
+  it('a tela hidrata a réplica com os dias da etapa ao abrir', async () => {
+    await montar();
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/tournament-days'));
   });
 });
 
