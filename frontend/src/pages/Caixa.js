@@ -1358,7 +1358,7 @@ const Caixa = () => {
         )}
 
         {/* B1: Skeleton nos KPI cards enquanto carrega */}
-        <div className="stats-grid">
+        <div className="stats-grid cx-stats">
           {loading ? (
             <>
               <SkeletonStatCard />
