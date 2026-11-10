@@ -274,6 +274,13 @@ describe('rake', () => {
     ));
   });
 
+  it('o jackpot por pote aparece com a moeda do clube', async () => {
+    // "configurado: 1 por pote" não dizia se era 1 real ou 1.000 pesos.
+    montar({ mesa: { ...MESA, jackpot_per_pot: 1 } });
+    await userEvent.click(await screen.findByRole('button', { name: 'Apurar' }));
+    expect(screen.getByText(/configurado: R\$ 1\.00 por pote/)).toBeInTheDocument();
+  });
+
   it('lista as apurações separando parcial de fechamento', async () => {
     montar({ rakes: [
       { id: 'r1', kind: 'partial', rake_amount: 40, jackpot_amount: 8, counted_at: 'x' },
