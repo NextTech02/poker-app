@@ -41,7 +41,7 @@ const LANGS = {
     label_debt_offset: 'Fiado descontado',
     label_credit: 'Crédito de patrocinador descontado',
     label_net: 'Pagado en efectivo',
-    footer: '¡Felicitaciones! Conserve este comprobante.',
+    footer: '¡Felicitaciones! Guarda este comprobante.',
     btn_print: 'Imprimir Comprobante',
     position: (p) => `${p}° Lugar`,
   },
