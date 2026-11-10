@@ -20,6 +20,8 @@ O que estes testes travam:
    Lançá-lo contaria o mesmo dinheiro duas vezes.
 5. **Diminuir a mesa não derruba quem está sentado.**
 """
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from app.models.cash_game import (
@@ -314,3 +316,30 @@ def test_lista_agrega_ocupacao_e_dinheiro(monkeypatch):
     assert mesa.rake_partial == 40
     assert mesa.jackpot_partial == 8
     assert mesa.game_type_name == "NLH 1/2"
+
+
+def _cadeira(numero, status="free", reservada_ate=None):
+    return {"id": f"c{numero}", "organization_id": ORG, "table_id": MESA,
+            "seat_number": numero, "status": status, "player_session_id": None,
+            "reserved_for": "p9" if status == "reserved" else None,
+            "reserved_until": reservada_ate}
+
+
+def test_cadeira_reservada_nao_conta_como_livre(monkeypatch):
+    """A cadeira guardada para quem foi chamado da fila tem dono a caminho do
+    balcão. Contada como livre, o operador chamava o próximo para o mesmo lugar."""
+    daqui_a_pouco = (datetime.now(timezone.utc) + timedelta(minutes=8)).isoformat()
+    _banco(monkeypatch, cash_tables=[_mesa()],
+           cash_seats=[_cadeira(1, "reserved", daqui_a_pouco), _cadeira(2)])
+    mesa = CTS.list_tables(cash_day_id=DIA)[0]
+    assert mesa.free_seats == 8
+
+
+def test_reserva_vencida_volta_a_contar_como_livre(monkeypatch):
+    """Vencida, a reserva é devolvida à sala na próxima leitura da fila; até lá
+    a cadeira já está disponível de fato."""
+    passou = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    _banco(monkeypatch, cash_tables=[_mesa()],
+           cash_seats=[_cadeira(1, "reserved", passou)])
+    mesa = CTS.list_tables(cash_day_id=DIA)[0]
+    assert mesa.free_seats == 9
