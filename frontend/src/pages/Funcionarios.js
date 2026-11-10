@@ -663,9 +663,12 @@ const Funcionarios = () => {
         <div className="page-header">
           <h1>{t('staff.title')}</h1>
           <div className="page-header-actions">
-            {activeTab === 'staff' ? (
+            {/* Cada aba com o seu botão: "+ Novo Grupo" aparecia também em
+                Pagamentos, onde não há grupo nenhum para criar. */}
+            {activeTab === 'staff' && (
               <Button onClick={openCreateStaff}>+ {t('staff.newEmployee')}</Button>
-            ) : activeTab === 'acessos' ? null : (
+            )}
+            {activeTab === 'groups' && (
               <Button onClick={openCreateGroup}>+ {t('staff.newGroup')}</Button>
             )}
           </div>
@@ -906,27 +909,35 @@ const Funcionarios = () => {
                         <td><strong>{g.name}</strong></td>
                         <td>{g.description || '—'}</td>
                         <td>
-                          <div className="func-perm-tags">
-                            {permissoesDisponiveis.every((p) => g.permissions.includes(p.key)) ? (
-                              <span className="func-perm-tag func-perm-tag--all">{t('staff.allPermissions')}</span>
-                            ) : g.permissions.length === 0 ? (
-                              <span className="func-perm-tag func-perm-tag--none">{t('staff.noPermissions')}</span>
-                            ) : (
-                              g.permissions.slice(0, 4).map((p) => {
-                                const found = PERMISSAO_POR_CHAVE.get(p);
-                                return (
-                                  <span key={p} className="func-perm-tag">
-                                    {found ? t(found.label, found.fallback) : p}
+                          {(() => {
+                            // "Todas" já diz tudo: o "+N" só conta o que sobra
+                            // das 4 etiquetas mostradas, e ao lado de "Todas"
+                            // (grupo Admin) aparecia "Todas +29".
+                            const todas = permissoesDisponiveis.every((p) => g.permissions.includes(p.key));
+                            return (
+                              <div className="func-perm-tags">
+                                {todas ? (
+                                  <span className="func-perm-tag func-perm-tag--all">{t('staff.allPermissions')}</span>
+                                ) : g.permissions.length === 0 ? (
+                                  <span className="func-perm-tag func-perm-tag--none">{t('staff.noPermissions')}</span>
+                                ) : (
+                                  g.permissions.slice(0, 4).map((p) => {
+                                    const found = PERMISSAO_POR_CHAVE.get(p);
+                                    return (
+                                      <span key={p} className="func-perm-tag">
+                                        {found ? t(found.label, found.fallback) : p}
+                                      </span>
+                                    );
+                                  })
+                                )}
+                                {!todas && g.permissions.length > 4 && (
+                                  <span className="func-perm-tag func-perm-tag--more">
+                                    +{g.permissions.length - 4}
                                   </span>
-                                );
-                              })
-                            )}
-                            {g.permissions.length > 4 && (
-                              <span className="func-perm-tag func-perm-tag--more">
-                                +{g.permissions.length - 4}
-                              </span>
-                            )}
-                          </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td>
                           <div className="func-actions">

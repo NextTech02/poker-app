@@ -550,6 +550,8 @@ describe('grupos de permissão', () => {
     });
     await irGrupos();
     expect(screen.getByText('staff.allPermissions')).toBeInTheDocument();
+    // "Todas" já resume: o contador ao lado dizia "Todas +19".
+    expect(document.querySelector('.func-perm-tag--more')).toBeNull();
   });
 
   it('muitas permissões são resumidas com um contador', async () => {
@@ -736,6 +738,12 @@ describe('pagamentos da equipe', () => {
     await waitFor(() =>
       expect(document.querySelector('.func-pay-stat')).toHaveTextContent('R$ 0.00')
     );
+  });
+
+  it('a aba de pagamentos não oferece criar grupo', async () => {
+    await montar();
+    await irPagamentos();
+    expect(screen.queryByRole('button', { name: /staff.newGroup/ })).toBeNull();
   });
 
   it('mostra o saldo do caixa geral, que é de onde sai o dinheiro', async () => {
