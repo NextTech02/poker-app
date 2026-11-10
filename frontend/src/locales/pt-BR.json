@@ -719,6 +719,7 @@
     "initialBalance": "Saldo inicial",
     "countedBalance": "Saldo contado",
     "expectedBalance": "Saldo esperado",
+    "nonCashTitle": "Outros meios (não são dinheiro e não entram no esperado)",
     "notes": "Observação",
     "notesPlaceholder": "Opcional",
     "blockedHint": "Abra seu caixa para registrar transações.",

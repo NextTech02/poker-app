@@ -719,6 +719,7 @@
     "initialBalance": "Initial balance",
     "countedBalance": "Counted balance",
     "expectedBalance": "Expected balance",
+    "nonCashTitle": "Other methods (not cash, not in the expected balance)",
     "notes": "Note",
     "notesPlaceholder": "Optional",
     "blockedHint": "Open your cashbox to register transactions.",

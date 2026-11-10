@@ -1,9 +1,10 @@
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 from app.database import supabase
 from app.database.paginacao import todas_as_linhas
 from app.utils.erros import ErroDeNegocio
 from app.models.cashbox import (
+    MeioForaDaGaveta,
     CashboxResponse,
     CashboxSessionResponse,
     CashboxTransactionResponse,
@@ -75,6 +76,93 @@ def _eh_estorno(tx: dict) -> bool:
         or tx.get("bar_payment_id") is not None
         or tx.get("house_credit_entry_id") is not None
     )
+
+
+def _dinheiro_vivo(metodo: Optional[str]) -> bool:
+    """Só dinheiro vivo está na gaveta para contar. Linha sem meio (antiga) é
+    dinheiro, como sempre foi tratada."""
+    return not metodo or metodo == "cash"
+
+
+_VINCULOS_DE_VENDA = (
+    # (coluna no movimento, tabela da venda, colunas lidas)
+    ("transaction_id", "transactions", "id, amount, payment_method, payment_split"),
+    ("bar_payment_id", "bar_tab_payments", "id, amount, payment_method"),
+    ("house_credit_entry_id", "house_credit_entries", "id, amount, payment_method"),
+)
+
+
+def _ler_vendas(tabela: str, colunas: str, ids: List[str]) -> List[dict]:
+    linhas: List[dict] = []
+    for i in range(0, len(ids), 200):
+        lote = ids[i:i + 200]
+        try:
+            linhas += supabase.table(tabela).select(colunas).in_("id", lote).execute().data or []
+        except Exception:
+            # Banco sem a coluna do pagamento dividido (ou sem a tabela do
+            # módulo): sem o meio, a linha conta como dinheiro, como antes.
+            if "payment_split" not in colunas:
+                continue
+            try:
+                linhas += supabase.table(tabela).select(colunas.replace(", payment_split", "")) \
+                    .in_("id", lote).execute().data or []
+            except Exception:
+                continue
+    return linhas
+
+
+def _fora_da_gaveta(movimentos: List[dict]) -> Dict[str, Dict[str, float]]:
+    """{id do movimento: {meio: parte assinada}} do que NÃO é dinheiro vivo.
+
+    O trigger espelha na gaveta a venda inteira, seja qual for o meio (cartão,
+    PIX, Yape...), e o esperado somava tudo: quem conta só as notas fechava a
+    noite com "falta". A venda dividida conta só a parte em dinheiro, e o
+    estorno segue o meio da venda que ele devolve (cancelar uma venda no
+    cartão não tira nota da gaveta). Cash game não tem meio: é sempre dinheiro.
+    """
+    from app.services.pagamento_dividido import pernas_da_linha
+
+    pernas: Dict[Tuple[str, str], list] = {}
+    for coluna, tabela, colunas in _VINCULOS_DE_VENDA:
+        ids = sorted({m[coluna] for m in movimentos if m.get(coluna)})
+        if not ids:
+            continue
+        for venda in _ler_vendas(tabela, colunas, ids):
+            pernas[(coluna, venda["id"])] = pernas_da_linha(venda)
+
+    fora: Dict[str, Dict[str, float]] = {}
+    for m in movimentos:
+        partes = next(
+            (pernas.get((coluna, m[coluna])) for coluna, _, _ in _VINCULOS_DE_VENDA if m.get(coluna)),
+            None,
+        )
+        if not partes:
+            continue
+        total = float(sum(valor for _, valor in partes))
+        if total <= 0:
+            continue
+        assinado = float(m.get("signed_amount") or 0)
+        for metodo, valor in partes:
+            if _dinheiro_vivo(metodo):
+                continue
+            por_meio = fora.setdefault(m["id"], {})
+            por_meio[metodo] = por_meio.get(metodo, 0.0) + assinado * float(valor) / total
+    return fora
+
+
+def _somar_por_meio(fora: Dict[str, Dict[str, float]], ids=None) -> List[MeioForaDaGaveta]:
+    """Os meios fora da gaveta somados (só os movimentos de `ids`, se vier)."""
+    somas: Dict[str, float] = {}
+    for mov_id, por_meio in fora.items():
+        if ids is not None and mov_id not in ids:
+            continue
+        for metodo, valor in por_meio.items():
+            somas[metodo] = somas.get(metodo, 0.0) + valor
+    return [
+        MeioForaDaGaveta(method=metodo, amount=round(valor, 2))
+        for metodo, valor in sorted(somas.items(), key=lambda item: -item[1])
+        if round(valor, 2) != 0
+    ]
 
 
 def _rotulo_de_dia(linha: dict) -> str:
@@ -462,7 +550,34 @@ class CashboxService:
             r = supabase.table("bar_shifts").select("id, business_date, label").in_("id", list(shift_ids)).execute()
             anchor_map.update({d["id"]: _rotulo_de_dia(d) for d in (r.data or [])})
 
-        return [CashboxService._enrich(i, staff_map, stage_map, anchor_map) for i in items]
+        return CashboxService._com_saldo_em_dinheiro(
+            [CashboxService._enrich(i, staff_map, stage_map, anchor_map) for i in items]
+        )
+
+    @staticmethod
+    def _movimentos_das_sessoes(session_ids: List[str]) -> List[dict]:
+        return todas_as_linhas(lambda: supabase.table("cashbox_transactions").select(
+            "id, session_id, signed_amount, transaction_id, bar_payment_id, house_credit_entry_id"
+        ).in_("session_id", session_ids).order("id"))
+
+    @staticmethod
+    def _com_saldo_em_dinheiro(caixas: List[CashboxResponse]) -> List[CashboxResponse]:
+        """Gaveta aberta: o dinheiro vivo que deve estar nela (o esperado do
+        fechamento) e, à parte, o que entrou por cartão, PIX e afins."""
+        abertas = {
+            c.current_session_id: c for c in caixas
+            if c.status == CashboxStatus.open and c.current_session_id
+        }
+        if not abertas:
+            return caixas
+        movimentos = CashboxService._movimentos_das_sessoes(list(abertas))
+        fora = _fora_da_gaveta(movimentos)
+        for sessao, caixa in abertas.items():
+            da_sessao = {m["id"] for m in movimentos if m.get("session_id") == sessao}
+            meios = _somar_por_meio(fora, da_sessao)
+            caixa.non_cash = meios
+            caixa.cash_balance = round(float(caixa.current_balance) - sum(m.amount for m in meios), 2)
+        return caixas
 
     @staticmethod
     def _enrich(
@@ -587,14 +702,14 @@ class CashboxService:
             # Auto-create on-demand for staff that gained permission after migration
             row = CashboxService._get_or_create(staff_id, **{coluna: valor})
             return CashboxService._enrich(row)
-        return CashboxService._enrich(resp.data[0])
+        return CashboxService._com_saldo_em_dinheiro([CashboxService._enrich(resp.data[0])])[0]
 
     @staticmethod
     def get_cashbox(cashbox_id: str) -> Optional[CashboxResponse]:
         resp = supabase.table("cashboxes").select("*").eq("id", cashbox_id).execute()
         if not resp.data:
             return None
-        return CashboxService._enrich(resp.data[0])
+        return CashboxService._com_saldo_em_dinheiro([CashboxService._enrich(resp.data[0])])[0]
 
     # ============================================================
     # Sessions: open & close
@@ -701,7 +816,12 @@ class CashboxService:
                 "Caixa aberto sem sessão registrada — contate o admin",
             )
 
-        expected = float(cb_row["current_balance"])
+        # O esperado é o dinheiro vivo: o operador conta as notas, e o cartão,
+        # o PIX e afins que o razão da gaveta também soma não estão nela.
+        fora = _fora_da_gaveta(CashboxService._movimentos_das_sessoes([session_id]))
+        expected = round(
+            float(cb_row["current_balance"]) - sum(m.amount for m in _somar_por_meio(fora)), 2
+        )
         diff = round(actual_final_balance - expected, 2)
         now = datetime.now(timezone.utc).isoformat()
 
@@ -937,7 +1057,11 @@ class CashboxService:
             # anteriores daria um número que nunca bate com o que está lá.
             movimentos = [t for t in txs if t.get("session_id") == sessao_atual]
 
+        # Cartão, PIX e afins entram no razão, mas não estão na gaveta: saem
+        # do esperado e aparecem à parte.
+        agg.non_cash = _somar_por_meio(_fora_da_gaveta(movimentos))
         agg.expected_balance = round(
+            -sum(m.amount for m in agg.non_cash) +
             sum(
                 float(t["signed_amount"])
                 for t in movimentos
@@ -1089,6 +1213,7 @@ class CashboxService:
             shift_labels = {r["id"]: _rotulo_de_dia(r) for r in srows2}
 
         # 5. Build per-session rows
+        fora = _fora_da_gaveta(txs)
         for s in sessions:
             cb = cb_by_id.get(s["cashbox_id"], {})
             report = CashboxService._compute_session_report(
@@ -1099,6 +1224,7 @@ class CashboxService:
                 stage_name=stage_names.get(cb.get("stage_id")),
                 cash_day_label=day_labels.get(cb.get("cash_day_id")),
                 bar_shift_label=shift_labels.get(cb.get("bar_shift_id")),
+                fora=fora,
             )
             out.sessions.append(report)
 
@@ -1141,6 +1267,7 @@ class CashboxService:
         stage_name: Optional[str] = None,
         cash_day_label: Optional[str] = None,
         bar_shift_label: Optional[str] = None,
+        fora: Optional[Dict[str, Dict[str, float]]] = None,
     ) -> CashboxSessionReport:
         """Pure reconciliation of one session from its transactions. No DB access.
 
@@ -1221,9 +1348,19 @@ class CashboxService:
         if extra_supply < 0:
             extra_supply = 0.0
 
-        expected = round(signed_total - adjustments, 2)
+        # Cartão, PIX e afins (`fora`, lido por quem chama): estão no razão,
+        # não na gaveta. Saem do esperado e do saldo vivo, e aparecem à parte.
+        # Estorno posterior ao fechamento já ficou fora de signed_total.
+        contados = {
+            tx.get("id") for tx in transactions
+            if not (_eh_estorno(tx) and _estorno_apos_fechamento(tx, fechada_em))
+        }
+        non_cash = _somar_por_meio(fora or {}, contados)
+        fora_total = sum(m.amount for m in non_cash)
+
+        expected = round(signed_total - adjustments - fora_total, 2)
         if is_open:
-            actual = float(cashbox.get("current_balance") or 0)
+            actual = round(float(cashbox.get("current_balance") or 0) - fora_total, 2)
             difference = round(actual - expected, 2)
         else:
             # O esperado do fechamento é o que ficou gravado na sessão — é o
@@ -1279,4 +1416,5 @@ class CashboxService:
             expected_balance=expected,
             actual_balance=actual,
             difference=difference,
+            non_cash=non_cash,
         )

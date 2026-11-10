@@ -50,6 +50,13 @@ class CashboxTransactionType(str, Enum):
 # Cashbox
 # ────────────────────────────────────────────────
 
+class MeioForaDaGaveta(BaseModel):
+    """Venda que entrou no caixa do operador por um meio que não é dinheiro
+    vivo (cartão, PIX, Yape...): não está na gaveta para contar."""
+    method: str
+    amount: float
+
+
 class CashboxResponse(BaseModel):
     id: str
     staff_id: str
@@ -74,6 +81,11 @@ class CashboxResponse(BaseModel):
     stage_name: Optional[str] = None
     cash_day_label: Optional[str] = None
     bar_shift_label: Optional[str] = None
+    # Gaveta aberta: o dinheiro vivo que deve estar nela (o esperado do
+    # fechamento) e o que entrou por outros meios, à parte. `current_balance`
+    # segue a soma do razão, com todos os meios.
+    cash_balance: Optional[float] = None
+    non_cash: List[MeioForaDaGaveta] = []
 
     class Config:
         from_attributes = True
@@ -207,6 +219,8 @@ class CashboxSummary(BaseModel):
     total_adjustments: float = 0.0
     expected_balance: float = 0.0
     current_balance: float = 0.0
+    # Vendas por cartão, PIX etc.: fora do esperado (só dinheiro vivo).
+    non_cash: List[MeioForaDaGaveta] = []
 
 
 class CashboxAggregatedSummary(BaseModel):
@@ -280,6 +294,8 @@ class CashboxSessionReport(BaseModel):
     expected_balance: float = 0.0
     actual_balance: Optional[float] = None   # counted (closed) or live balance (open)
     difference: Optional[float] = None        # actual - expected (None while no count)
+    # Vendas por cartão, PIX etc. na sessão: fora do esperado (só dinheiro vivo).
+    non_cash: List[MeioForaDaGaveta] = []
 
 
 class CashboxDemonstrativo(BaseModel):

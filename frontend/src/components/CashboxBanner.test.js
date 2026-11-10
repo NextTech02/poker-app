@@ -257,6 +257,21 @@ describe('fechamento', () => {
     expect(screen.getByLabelText('cashbox.countedBalance')).toHaveValue(500);
   });
 
+  it('o esperado é o dinheiro vivo; cartão e PIX aparecem à parte', async () => {
+    // Quem conta só as notas fechava com "falta" do que entrou no cartão.
+    await montar({
+      ...CAIXA, status: 'open', current_balance: 900, cash_balance: 600,
+      non_cash: [{ method: 'card', amount: 200 }, { method: 'yape', amount: 100 }],
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'cashbox.closeCashbox' }));
+    expect(document.querySelector('.cashbox-banner__expected')).toHaveTextContent('R$ 600.00');
+    expect(screen.getByLabelText('cashbox.countedBalance')).toHaveValue(600);
+    const outros = document.querySelector('.cashbox-non-cash');
+    expect(outros).toHaveTextContent('financial.paymentCard');
+    expect(outros).toHaveTextContent('R$ 200.00');
+    expect(outros).toHaveTextContent('yape');
+  });
+
   it('caixa que bate dá aviso de sucesso', async () => {
     await fechar(0);
     await confirmar();
