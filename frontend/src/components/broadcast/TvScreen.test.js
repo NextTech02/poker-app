@@ -513,7 +513,8 @@ describe('meios de entrada (linha abaixo dos blinds)', () => {
 
   it('contagem grande vem com separador de milhar; sem lista a linha some', () => {
     montar({ model: { buyTypes: [{ name: 'Buy-in', count: 1500, amount: 50, category: 'buy_in' }] } }, { broadcast_show_buy_types: true });
-    expect(document.querySelector('.tv-buytype-amount')).toHaveTextContent('1.500');
+    // Vírgula de milhar, como blinds e fichas (pedido do cliente).
+    expect(document.querySelector('.tv-buytype-amount')).toHaveTextContent('1,500');
     document.body.innerHTML = '';
     montar({ model: { buyTypes: [] } }, { broadcast_show_buy_types: true });
     expect(document.querySelector('.tv-buytypes')).toBeNull();
