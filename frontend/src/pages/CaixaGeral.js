@@ -200,7 +200,14 @@ const CaixaGeral = () => {
         applyLocal: () => applySangria(body),
       });
 
-      toast.success(response.data.message);
+      // A frase do servidor vem em português e com os números crus; a tela
+      // monta a sua, no idioma e na moeda do clube.
+      const feita = response.data?.sangria_transaction;
+      toast.success(!response.offline && feita
+        ? t('generalCash.sangriaDone', {
+          net: formatCurrency(feita.net_amount), rake: formatCurrency(feita.rake_amount),
+        })
+        : response.data?.message);
 
       // Reset form and close modal
       setSangriaFormData({
@@ -219,8 +226,9 @@ const CaixaGeral = () => {
 
     } catch (error) {
       console.error('Erro ao realizar sangria:', error);
-      const errorMsg = error.response?.data?.detail || t('generalCash.sangriaError');
-      toast.error(typeof errorMsg === 'string' ? errorMsg : t('generalCash.sangriaError'));
+      // `userMessage` já vem traduzido pelo código da recusa (saldo da etapa
+      // etc.); o `detail` cru seria a frase em português do servidor.
+      toast.error(error.userMessage || t('generalCash.sangriaError'));
     }
   };
 
