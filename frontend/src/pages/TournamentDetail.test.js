@@ -468,6 +468,15 @@ describe('torneio com classificatórios', () => {
     expect(confirmar.mock.calls[0][0]).toContain(Number(60000).toLocaleString());
   });
 
+  it('a confirmação é uma frase traduzida inteira, com o dia de destino', async () => {
+    // Colar o rótulo do botão ao nome do dia dava "Advance Qualifiers Final
+    // Day?" em inglês.
+    await montar({ torneio: COM_QUALI, dias: DIAS_QUALI });
+    await userEvent.click(acao('Classificatório 1', 'tournamentDays.advanceQualifiers'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(confirmar.mock.calls[0][0]).toMatch(/^tournamentDays\.confirmAdvanceQualifiers:Dia Final/);
+  });
+
   it('avança mesmo se a prévia de sobreviventes falhar', async () => {
     // A prévia é informação extra; bloquear o avanço por causa dela deixaria o
     // torneio parado por um detalhe cosmético.

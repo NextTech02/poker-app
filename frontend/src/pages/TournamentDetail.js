@@ -363,7 +363,11 @@ const TournamentDetail = () => {
       console.error('Error loading survivors preview:', e);
     }
 
-    const ok = await confirm(`${t('tournamentDays.advanceQualifiers')} ${linkedDayName}?${previa}`);
+    // Frase inteira numa chave só: colar o rótulo do botão ao nome do dia dava
+    // "Advance Qualifiers Final Day?" em inglês.
+    const ok = await confirm(
+      `${t('tournamentDays.confirmAdvanceQualifiers', 'Avançar os classificados para {{day}}?', { day: linkedDayName })}${previa}`
+    );
     if (!ok) return;
 
     try {
