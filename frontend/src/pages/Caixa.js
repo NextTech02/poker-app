@@ -1219,9 +1219,18 @@ const Caixa = () => {
       // O que o estorno NÃO conseguiu desfazer sozinho vem aqui. Descartar esta
       // resposta (como se fazia antes) escondia do admin tarefas manuais de
       // dinheiro: acertar o caixa geral, o rake acumulado ou o crédito do jogador.
-      const avisos = Array.isArray(resposta?.data?.cancel_warnings)
-        ? resposta.data.cancel_warnings.filter(Boolean)
-        : [];
+      // A frase do servidor é em português e com "R$"; com o código, a tela
+      // monta a sua no idioma e na moeda do clube (a frase fica de reserva).
+      const frases = Array.isArray(resposta?.data?.cancel_warnings) ? resposta.data.cancel_warnings : [];
+      const codigos = Array.isArray(resposta?.data?.cancel_notices) ? resposta.data.cancel_notices : [];
+      const emDinheiro = (v) => (typeof v === 'number' ? formatCurrency(v) : v);
+      const avisos = (codigos.length && codigos.length === frases.length
+        ? codigos.map(({ code, ...dados }, i) => t(`cashRegister.cancelNotices.${code}`, {
+          defaultValue: frases[i],
+          ...Object.fromEntries(Object.entries(dados).map(([k, v]) => [k, emDinheiro(v)])),
+        }))
+        : frases
+      ).filter(Boolean);
       setCancelling(null);
       if (avisos.length) {
         setAvisosDoEstorno(avisos);

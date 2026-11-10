@@ -582,7 +582,9 @@ class TestCaixaDaEtapaNoEstorno:
         r = TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
 
         assert float(fake.store["stage_cash_register"][0]["current_balance"]) == -50.0
-        assert any("negativo" in a and "R$ 50.00" in a for a in r.cancel_warnings)
+        assert any("negativo" in a and "50.00" in a for a in r.cancel_warnings)
+        # O valor vai como número, com código: a tela formata na moeda do clube.
+        assert {"code": "caixa_da_etapa_negativo", "valor": 50.0} in r.cancel_notices
         assert any("caixa geral" in a for a in r.cancel_warnings)
 
     def test_avisa_o_rake_quando_a_etapa_ja_teve_sangria(self, monkeypatch):
@@ -640,7 +642,8 @@ class TestFidelidadeNoEstorno:
         )
         r = TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert float(fake.store["loyalty_accounts"][0]["cashback_balance"]) == 30.0
-        assert any("R$ 10.00" in a for a in r.cancel_warnings)
+        assert any("10.00" in a for a in r.cancel_warnings)
+        assert {"code": "cashback_antigo_nao_registrado", "estimado": 10.0} in r.cancel_notices
 
     def test_avisa_quando_o_cashback_ja_virou_credito(self, monkeypatch):
         """loyalty_convert_cashback ja transformou o saldo em credito gastavel:
@@ -1368,7 +1371,7 @@ class TestCashbackSoQuandoAVendaGerou:
         fake = self._sem_extrato(monkeypatch)
         r = TransactionService.cancel_transaction("tx-1", "admin-9", "erro")
         assert float(fake.store["loyalty_accounts"][0]["cashback_balance"]) == 30.0
-        assert any("NADA foi debitado" in a and "R$ 5.00" in a
+        assert any("NADA foi debitado" in a and "5.00" in a and "R$" not in a
                    for a in r.cancel_warnings)
 
     def test_fidelidade_indisponivel_nao_tira_dinheiro_do_jogador(self, monkeypatch):

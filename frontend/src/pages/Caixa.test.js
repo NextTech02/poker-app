@@ -1645,6 +1645,21 @@ describe('cancelar venda', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
+  it('aviso com código sai no idioma e na moeda do clube, não na frase do servidor', async () => {
+    // A frase vem em português e com "R$": o clube do Peru lia as duas coisas.
+    api.post.mockResolvedValue({ data: {
+      cancel_warnings: ['O caixa da etapa ficou negativo em 50.00: ...'],
+      cancel_notices: [{ code: 'caixa_da_etapa_negativo', valor: 50 }],
+    } });
+    await montar();
+    await abrirCancelamento();
+    await userEvent.type(screen.getByLabelText('Motivo do cancelamento'), 'cobrei duas vezes');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar a venda' }));
+    const painel = await screen.findByRole('alertdialog');
+    expect(painel).toHaveTextContent('cashRegister.cancelNotices.caixa_da_etapa_negativo');
+    expect(painel).toHaveTextContent('R$ 50.00');   // formatado pela moeda do clube
+  });
+
   it('estorno limpo continua avisando com o toast de sempre', async () => {
     api.post.mockResolvedValue({ data: { cancel_warnings: [] } });
     await montar();
