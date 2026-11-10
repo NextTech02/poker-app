@@ -126,8 +126,15 @@ const PrizeVoucher = ({ payout }) => {
   // quanto abateu a dívida e quanto saiu em dinheiro.
   // O crédito de patrocinador usado também volta pelo prêmio (depois do fiado).
   const abatido = Number(payout.debt_offset || 0);
-  const credito = Number(payout.credit_deduction || 0);
-  const liquido = payout.net_paid !== null && payout.net_paid !== undefined
+  const temLiquido = payout.net_paid !== null && payout.net_paid !== undefined;
+  // Na reimpressão o crédito não vem à parte (não é coluna): é o que falta
+  // entre o bruto, o fiado abatido e o líquido gravado.
+  const credito = payout.credit_deduction !== null && payout.credit_deduction !== undefined
+    ? Number(payout.credit_deduction)
+    : temLiquido
+      ? Math.max(Math.round((Number(payout.prize_amount || 0) - abatido - Number(payout.net_paid)) * 100) / 100, 0)
+      : 0;
+  const liquido = temLiquido
     ? Number(payout.net_paid)
     : Number(payout.prize_amount || 0) - abatido - credito;
   const temDesconto = abatido > 0 || credito > 0;
