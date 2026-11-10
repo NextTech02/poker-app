@@ -68,6 +68,26 @@ describe('o que a tabela mostra', () => {
     expect(within(linha).queryByText('max_players:')).toBeNull();
   });
 
+  it('detalhes saem legíveis: sem UUID, data no idioma e status traduzido', async () => {
+    // O pagamento de funcionário mostrava "stage_id: 1f3a…", "paid_at:
+    // 2026-11-10T20:00:00+00:00" e "status: pending → paid".
+    const PAGAMENTO = {
+      id: 'p1', event_type: 'staff_payments.update', user_email: 'dono@clube.com',
+      created_at: '2026-11-10T21:00:00Z', entity_label: 'Ana',
+      changes: {
+        stage_id: { old: '11111111-1111-1111-1111-111111111111', new: '22222222-2222-2222-2222-222222222222' },
+        status: { old: 'pending', new: 'paid' },
+        paid_at: { old: null, new: '2026-11-10T20:00:00+00:00' },
+      },
+    };
+    await montar({ items: [PAGAMENTO] });
+    const linha = screen.getByText('dono@clube.com').closest('tr');
+    expect(linha).not.toHaveTextContent('1111');
+    expect(within(linha).queryByText('stage_id:')).toBeNull();
+    expect(linha).not.toHaveTextContent('2026-11-10T20');
+    expect(within(linha).getByText('paid')).toHaveClass('al-new');
+  });
+
   it('evento sem usuário é do sistema', async () => {
     await montar();
     const linha = screen.getByText('Carla').closest('tr');

@@ -25,10 +25,24 @@ import './ActivityLogTable.css';
 const TAMANHO_PAGINA = 50;
 const MAX_CAMPOS_NO_DIFF = 4;
 
-function valorCurto(v) {
-  if (v === null || v === undefined) return '—';
-  if (typeof v === 'object') return JSON.stringify(v).slice(0, 40);
-  const s = String(v);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const SO_DATA = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+const ehUuid = (v) => typeof v === 'string' && UUID.test(v);
+
+/** Campo que só guarda ids internos (etapa, funcionário, grupo): o UUID não
+ *  diz nada a quem lê o log, e ocupava as linhas do diff. */
+const soIds = (mudanca) => {
+  if (ehUuid(mudanca)) return true;
+  if (mudanca && typeof mudanca === 'object' && 'new' in mudanca) {
+    const valores = [mudanca.old, mudanca.new].filter((v) => v !== null && v !== undefined);
+    return valores.length > 0 && valores.every(ehUuid);
+  }
+  return false;
+};
+
+function cortar(s) {
   return s.length > 40 ? `${s.slice(0, 37)}…` : s;
 }
 
@@ -88,6 +102,24 @@ const ActivityLogTable = ({ fetchPage, users, pageSize = TAMANHO_PAGINA }) => {
     [i18n.language],
   );
 
+  // O valor como gente lê: data e hora no idioma do app (não o ISO), sim/não,
+  // e os códigos de status ("paid", "pending") traduzidos.
+  const fmtDia = useMemo(
+    () => new Intl.DateTimeFormat(i18n.language || 'pt-BR', { dateStyle: 'short' }),
+    [i18n.language],
+  );
+  const valorCurto = (v) => {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'boolean') return v ? t('common.yes', 'Sim') : t('common.no', 'Não');
+    if (typeof v === 'object') return cortar(JSON.stringify(v));
+    const s = String(v);
+    const dia = SO_DATA.exec(s);
+    if (dia) return fmtDia.format(new Date(Number(dia[1]), Number(dia[2]) - 1, Number(dia[3])));
+    if (INSTANTE.test(s) && !Number.isNaN(new Date(s).getTime())) return fmtData.format(new Date(s));
+    if (/^[a-z_]+$/.test(s)) return t(`activityLog.values.${s}`, s);
+    return cortar(s);
+  };
+
   const totalPaginas = Math.max(1, Math.ceil(data.total / pageSize));
   const inicio = data.total === 0 ? 0 : (page - 1) * pageSize + 1;
   const fim = Math.min(page * pageSize, data.total);
@@ -99,7 +131,7 @@ const ActivityLogTable = ({ fetchPage, users, pageSize = TAMANHO_PAGINA }) => {
       return partes.length ? <span className="al-muted">{partes.join(' · ')}</span> : null;
     }
     const changes = row.changes || {};
-    const chaves = Object.keys(changes);
+    const chaves = Object.keys(changes).filter((k) => !soIds(changes[k]));
     const visiveis = chaves.slice(0, MAX_CAMPOS_NO_DIFF);
     const isUpdate = row.event_type.endsWith('.update');
     return (
