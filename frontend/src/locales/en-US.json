@@ -1865,7 +1865,7 @@
     "emailLabel": "Email",
     "emailPlaceholder": "email@example.com",
     "phoneLabel": "Phone",
-    "phonePlaceholder": "(00) 00000-0000"
+    "phonePlaceholder": "+1 (555) 999-9999"
   },
   "financial": {
     "loadDataError": "Error loading financial data",
@@ -2383,6 +2383,7 @@
     "tabGroups": "Permission Groups",
     "tabPayments": "Payments",
     "email": "Email",
+    "emailPlaceholder": "email@example.com",
     "group": "Group",
     "noGroup": "No group",
     "active": "Active",
@@ -2456,6 +2457,7 @@
       "cashier": "Cashier",
       "cashierPlayers": "Cashier - Players",
       "cashierTickets": "Cashier - Tickets",
+      "cashierTicketsMaster": "Cashier - Bulk tickets (master)",
       "sangi": "Sangeur",
       "prizes": "Prizes",
       "prizesRelease": "Prizes - Release",

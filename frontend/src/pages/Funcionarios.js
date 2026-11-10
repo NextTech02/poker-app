@@ -970,7 +970,7 @@ const Funcionarios = () => {
                     className="form-input"
                     value={staffForm.email}
                     onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
-                    placeholder="email@exemplo.com"
+                    placeholder={t('staff.emailPlaceholder', 'email@exemplo.com')}
                     autoFocus
                   />
                 </div>
