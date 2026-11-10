@@ -59,9 +59,17 @@ const TopBar = () => {
   const [chaveModulo, reservaModulo] = ROTULO_DO_MODULO[moduloAtual] || ROTULO_DO_MODULO[MODULO_TORNEIO];
   const alvo = useMemo(() => localizarNoMenu(location.pathname, moduloAtual), [location.pathname, moduloAtual]);
 
+  // O grupo do menu pode ter o mesmo nome do módulo: no torneio os dois são
+  // "Torneios", e a barra dizia "Torneios › Torneios › Lista" na lista, no
+  // detalhe, no formulário do dia e no telão. Migalha igual à anterior não
+  // diz nada a mais; a comparação é do texto traduzido porque é ele que a
+  // pessoa lê, em qualquer idioma.
   const migalhas = [t(chaveModulo, reservaModulo)];
-  if (alvo?.grupo) migalhas.push(t(alvo.grupo.labelKey));
-  if (alvo?.item) migalhas.push(t(alvo.item.labelKey));
+  const empilhar = (rotulo) => {
+    if (rotulo && rotulo !== migalhas[migalhas.length - 1]) migalhas.push(rotulo);
+  };
+  if (alvo?.grupo) empilhar(t(alvo.grupo.labelKey));
+  if (alvo?.item) empilhar(t(alvo.item.labelKey));
 
   let contexto = null;
   if (moduloAtual === MODULO_TORNEIO) {
