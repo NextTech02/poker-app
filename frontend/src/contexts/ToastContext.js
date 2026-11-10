@@ -136,10 +136,12 @@ export const ToastProvider = ({ children }) => {
   const confirm = useCallback((message, options = {}) => {
     return new Promise((resolve) => {
       setConfirmDialog({
-        title: options.title || i18n.t('common.confirm'),
+        // O português é só reserva: antes de o i18n iniciar, `t` devolve
+        // undefined, e um botão de confirmação sem texto não pode existir.
+        title: options.title || i18n.t('common.confirm') || 'Confirmar',
         message,
-        confirmText: options.confirmText || i18n.t('common.confirm'),
-        cancelText: options.cancelText || i18n.t('common.cancel'),
+        confirmText: options.confirmText || i18n.t('common.confirm') || 'Confirmar',
+        cancelText: options.cancelText || i18n.t('common.cancel') || 'Cancelar',
         variant: options.variant || 'default', // 'default' | 'danger'
         onConfirm: () => {
           setConfirmDialog(null);
