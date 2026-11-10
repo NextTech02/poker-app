@@ -1303,7 +1303,7 @@
     "email_duplicado": "Este correo ya está registrado para {{name}}.",
     "documento_duplicado": "Este documento ya está registrado para {{name}}.",
     "jogador_nao_encontrado": "Jugador no encontrado.",
-    "consignacao_aberta_existente": "Este sangeur ya tiene una consignación abierta en esta etapa. Hacé el corte antes de liberar otra.",
+    "consignacao_aberta_existente": "Este sangeur ya tiene una consignación abierta hoy. Haz el corte antes de liberar otra.",
     "consignacao_ja_reconciliada": "Esta consignación ya fue reconciliada.",
     "funcionario_nao_e_sangeur": "Este empleado no está clasificado como Sangeur.",
     "venda_excede_o_liberado": "La venta supera lo liberado: {{liberado}} liberado, {{vendido}} vendido.",
@@ -2713,7 +2713,7 @@
     "errorRelease": "Error al liberar",
     "errorLoadConsignments": "Error al cargar las consignaciones",
     "consignmentsSection": "Consignaciones",
-    "noConsignmentsInStage": "Ninguna consignación registrada en esta etapa.",
+    "noConsignmentsInStage": "Ninguna consignación registrada todavía.",
     "colSangi": "Sangeur",
     "colReleased": "Liberado",
     "colSold": "Vendido",
@@ -2736,8 +2736,8 @@
     "colValue": "Valor",
     "colWhen": "Cuándo",
     "tableLabel": "Mesa",
-    "pickTable": "Elija la mesa",
-    "noDayOpen": "Ningún día de operación abierto. Abre el día en el Salón para liberar fichas."
+    "pickTable": "Elige la mesa",
+    "noDayOpen": "Ningún día de operación abierto. Abre el día en la Sala para liberar fichas."
   },
   "manualAllocation": {
     "eliminatePlayer": "Eliminar jugador",
