@@ -2,13 +2,18 @@
   max-width: 520px;
 }
 
+/* Três caixas lado a lado enquanto o valor cabe; quando não cabe (COP na casa
+   do milhão), a última desce para a linha de baixo e ocupa a largura toda. Com
+   três colunas fixas o valor quebrava no meio ("COP$ 1.250.000,0 / 0"). */
 .bpm-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   margin-bottom: 1rem;
 }
 .bpm-summary > div {
+  flex: 1 1 0;
+  min-width: max-content;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -19,6 +24,8 @@
 }
 .bpm-summary strong {
   font-size: 1.05rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .bpm-summary__due strong {
   color: var(--text-success);
@@ -77,7 +84,7 @@
 
 @media (max-width: 560px) {
   .bpm-summary {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
   .bpm-leg {
     grid-template-columns: 1fr;

@@ -41,22 +41,37 @@ def ler_vendas_com_taxa(monta_query, colunas: str) -> list:
     return ler_transacoes_ativas(monta_query, colunas)
 
 
-def agrupar_vendas_por_meio(linhas, ordem_por_id=None) -> list:
+def nome_do_meio(linha: dict) -> str:
+    """Nome do meio gravado na venda; venda antiga sem meio, o da categoria."""
+    tipo = categoria_da_venda(linha)
+    return (linha.get("buy_type_name") or "").strip() or ROTULO_DA_CATEGORIA.get(tipo, tipo)
+
+
+def agrupar_vendas_por_meio(linhas, ordem_por_id=None, por_nome=False) -> list:
     """Agrupa vendas (`type, amount, buy_type_id, buy_type_name`) por MEIO de
     entrada — o cadastrado pelo diretor ("Buy-in", "Doble", "Tasa"…), não só
     a categoria fixa. A chave é o `buy_type_id`; o nome é o gravado na venda
     (o da época, mesmo que o meio tenha sido renomeado ou desativado). Venda
     antiga sem meio cai no rótulo da categoria. Ordem: categoria, depois a
-    ordem do Caixa (`sort_order`), depois o nome."""
+    ordem do Caixa (`sort_order`), depois o nome.
+
+    `por_nome`: o meio é cadastrado POR TORNEIO, então num relatório de
+    vários torneios cada um tem o seu "Buy-in" com id próprio. Agrupar pelo id
+    repetia uma linha "Buy-in" por torneio (e uma coluna por torneio no
+    relatório de jogadores, que lê as colunas daqui); ali a chave é a
+    categoria com o nome."""
     grupos: dict = {}
     ordem = ordem_por_id or {}
     for linha in linhas or []:
         tipo = categoria_da_venda(linha)
         bid = linha.get("buy_type_id")
-        chave = str(bid) if bid else f"cat:{tipo}"
+        nome = nome_do_meio(linha)
+        if por_nome:
+            chave = f"{tipo}:{nome.lower()}"
+        else:
+            chave = str(bid) if bid else f"cat:{tipo}"
         grupo = grupos.get(chave)
         if grupo is None:
-            nome = (linha.get("buy_type_name") or "").strip() or ROTULO_DA_CATEGORIA.get(tipo, tipo)
             grupo = grupos[chave] = {
                 "name": nome, "category": tipo, "count": 0, "amount": 0.0,
                 "_ordem": ordem.get(chave, 10 ** 6),
@@ -315,7 +330,9 @@ class ReportService:
         # Fim do período inclui o dia inteiro.
         end_param = None
         if end_date:
-            end_datetime = datetime.fromisoformat(end_date).replace(hour=23, minute=59, second=59)
+            end_datetime = datetime.fromisoformat(end_date).replace(
+                hour=23, minute=59, second=59, microsecond=999999
+            )
             end_param = end_datetime.isoformat()
 
         # Totais de transações agregados NO BANCO (1 round-trip) em vez de buscar
@@ -369,22 +386,24 @@ class ReportService:
             vendas = ler_vendas_com_taxa(_monta_meios, "type, amount, buy_type_id, buy_type_name, player_id")
         except Exception:
             vendas = []
-        by_buy_type = agrupar_vendas_por_meio(vendas)
+        by_buy_type = agrupar_vendas_por_meio(vendas, por_nome=True)
         meios_por_jogador: dict = {}
         for v in vendas:
             pid = str(v.get("player_id") or "")
             if not pid:
                 continue
-            nome = (v.get("buy_type_name") or "").strip() or ROTULO_DA_CATEGORIA.get(categoria_da_venda(v), categoria_da_venda(v))
+            nome = nome_do_meio(v)
             por_meio = meios_por_jogador.setdefault(pid, {})
             por_meio[nome] = por_meio.get(nome, 0) + entradas_da_venda(v)
 
         # Get tournament count
+        # O fim do período é o fim do DIA (end_param): com `end_date` cru, a
+        # Data Final = hoje parava na meia-noite e os torneios de hoje sumiam.
         tournament_query = supabase.table("tournaments").select("id", count="exact")
         if start_date:
             tournament_query = tournament_query.gte("created_at", start_date)
-        if end_date:
-            tournament_query = tournament_query.lte("created_at", end_date)
+        if end_param:
+            tournament_query = tournament_query.lte("created_at", end_param)
 
         tournament_count = tournament_query.execute().count or 0
 
@@ -405,8 +424,8 @@ class ReportService:
             date_query = supabase.table("tournaments").select("id")
             if start_date:
                 date_query = date_query.gte("created_at", start_date)
-            if end_date:
-                date_query = date_query.lte("created_at", end_date)
+            if end_param:
+                date_query = date_query.lte("created_at", end_param)
             tournament_ids = [t["id"] for t in (date_query.execute().data or [])]
             if tournament_ids:
                 player_data = _inscricoes(tournament_ids)

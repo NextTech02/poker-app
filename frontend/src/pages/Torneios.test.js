@@ -900,6 +900,29 @@ describe('premiação por eliminação (KO)', () => {
     );
   });
 
+  it('voltar para "Nenhuma" devolve o modo de eliminação de antes do KO', async () => {
+    // O KO força "por mesa"; desistir dele mantinha "por mesa", que o
+    // diretor não tinha escolhido.
+    await montar();
+    await abrirNovo();
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeBulk/ })).toBeChecked();
+    await userEvent.selectOptions(formatoKo(), 'ko');
+    await userEvent.selectOptions(formatoKo(), 'pko');
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeTable/ })).toBeChecked();
+    await userEvent.selectOptions(formatoKo(), 'none');
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeBulk/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeBulk/ })).toBeEnabled();
+  });
+
+  it('quem escolheu "por mesa" antes do KO continua com "por mesa" ao tirar o KO', async () => {
+    await montar();
+    await abrirNovo();
+    await userEvent.click(screen.getByRole('radio', { name: /tournaments.eliminationModeTable/ }));
+    await userEvent.selectOptions(formatoKo(), 'ko');
+    await userEvent.selectOptions(formatoKo(), 'none');
+    expect(screen.getByRole('radio', { name: /tournaments.eliminationModeTable/ })).toBeChecked();
+  });
+
   it('no Mystery o campo se chama "% do buy-in para Mystery"', async () => {
     await montar();
     await abrirNovo();

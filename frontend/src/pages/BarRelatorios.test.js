@@ -65,6 +65,25 @@ it('o melhor dia vem primeiro, pelas vendas', async () => {
   expect(itens[0]).toHaveTextContent('R$ 70.00');
 });
 
+it('a forma de pagamento aparece pelo nome, não pelo código', async () => {
+  // "pix"/"cash" crus apareciam até no clube em português.
+  render(<BarRelatorios />);
+  await screen.findAllByText('R$ 75.00');
+  expect(screen.getByText('financial.paymentPix')).toBeInTheDocument();
+  expect(screen.getByText('financial.paymentCash')).toBeInTheDocument();
+  expect(screen.queryByText('pix')).toBeNull();
+  expect(screen.queryByText('cash')).toBeNull();
+});
+
+it('exporta a forma de pagamento pelo nome', async () => {
+  render(<BarRelatorios />);
+  await screen.findAllByText('R$ 75.00');
+  await userEvent.click(screen.getByRole('button', { name: 'CSV' }));
+  await waitFor(() => expect(exportSections).toHaveBeenCalled());
+  const porMeio = exportSections.mock.calls[0][0][3];
+  expect(porMeio.rows.map((r) => r.payment_method)).toEqual(['financial.paymentPix', 'financial.paymentCash']);
+});
+
 it('exporta as seções com o período no nome do arquivo', async () => {
   render(<BarRelatorios />);
   await screen.findAllByText('R$ 75.00');

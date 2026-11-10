@@ -255,8 +255,10 @@
   font-weight: 600;
 }
 
+/* Fundo do tema, não #f8f9fa: o texto do quadro usa as cores do tema escuro
+   (claras) e ficava claro sobre claro, ilegível. */
 .sangria-calculation {
-  background: #f8f9fa;
+  background: var(--surface-elevated, #1b1a26);
   padding: 1.5rem;
   border-radius: 8px;
   margin-top: 1.5rem;

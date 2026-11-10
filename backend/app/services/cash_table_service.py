@@ -41,6 +41,19 @@ def _agora() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _instante(valor) -> Optional[datetime]:
+    """`reserved_until` como datetime com fuso (o banco devolve texto ISO)."""
+    if not valor:
+        return None
+    if isinstance(valor, datetime):
+        return valor if valor.tzinfo else valor.replace(tzinfo=timezone.utc)
+    try:
+        dt = datetime.fromisoformat(str(valor).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 class CashTableService:
 
     # ============================================================
@@ -74,7 +87,7 @@ class CashTableService:
 
     @staticmethod
     def _enriquecer(mesas: List[dict]) -> List[CashTableResponse]:
-        """Agrega ocupação, dinheiro e rake das mesas em TRÊS consultas.
+        """Agrega ocupação, dinheiro e rake das mesas em QUATRO consultas.
 
         A tela do salão recarrega a cada 5s com várias mesas abertas; uma
         consulta por mesa (o N+1 clássico deste projeto) multiplicaria isso
@@ -89,6 +102,21 @@ class CashTableService:
         rakes = supabase.table("cash_rake_entries").select(
             "table_id, rake_amount, jackpot_amount"
         ).in_("table_id", ids).execute().data or []
+
+        # A cadeira reservada para quem foi chamado da fila não está livre:
+        # contá-la como livre fazia o operador chamar o próximo da fila para um
+        # lugar que já tem dono a caminho do balcão. A reserva vencida volta a
+        # contar como livre — é o que `release_expired` fará na próxima leitura
+        # da fila, e até lá a cadeira está, de fato, disponível.
+        agora = datetime.now(timezone.utc)
+        reservas = supabase.table("cash_seats").select(
+            "table_id, reserved_until"
+        ).in_("table_id", ids).eq("status", "reserved").execute().data or []
+        reservadas: dict = {}
+        for r in reservas:
+            vence = _instante(r.get("reserved_until"))
+            if vence is None or vence > agora:
+                reservadas[r["table_id"]] = reservadas.get(r["table_id"], 0) + 1
 
         tipos_ids = list({m["game_type_id"] for m in mesas if m.get("game_type_id")})
         nomes = {}
@@ -121,7 +149,9 @@ class CashTableService:
                 **m,
                 game_type_name=nomes.get(m.get("game_type_id")),
                 occupied_seats=agg["ocupados"],
-                free_seats=max(0, int(m["seats"]) - agg["ocupados"]),
+                free_seats=max(
+                    0, int(m["seats"]) - agg["ocupados"] - reservadas.get(m["id"], 0)
+                ),
                 total_buy_ins=round(agg["entradas"], 2),
                 total_cash_outs=round(agg["saidas"], 2),
                 rake_partial=round(agg["rake"], 2),
@@ -266,7 +296,11 @@ class CashTableService:
                 "A mesa já foi fechada; a apuração dela está encerrada.",
                 status=409,
             )
-        if data.rake_amount <= 0 and data.jackpot_amount <= 0:
+        # Só o FECHAMENTO pode vir zerado. A parcial vazia não registraria nada;
+        # o fechamento com a caixa vazia é legítimo (mesa que não rodou, ou tudo
+        # já lançado nas parciais) e precisa existir mesmo assim — é o documento
+        # que encerra a contagem da mesa. Recusá-lo deixava a mesa sem como fechar.
+        if kind != "closing" and data.rake_amount <= 0 and data.jackpot_amount <= 0:
             raise ErroDeNegocio(
                 "apuracao_vazia",
                 "Informe o rake ou o jackpot contado.",

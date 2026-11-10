@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { nomeDaCategoria } from '../utils/barRotulos';
 import './BarProductGrid.css';
 
 /**
@@ -42,7 +43,7 @@ const BarProductGrid = ({ products = [], categories = [], onPick, disabled = fal
           {categoriasComProduto.map((c) => (
             <button key={c.id} type="button" role="tab" aria-selected={category === c.id}
                     className={category === c.id ? 'active' : ''} onClick={() => setCategory(c.id)}>
-              {c.name}
+              {nomeDaCategoria(t, c.name)}
             </button>
           ))}
         </div>

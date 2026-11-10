@@ -163,8 +163,16 @@ describe('montagem embutida × rota própria', () => {
   it('sem dia configurado explica em vez de mostrar zeros', async () => {
     // Zeros dariam a impressão de que o torneio faturou nada; o problema é
     // que ele nem foi montado.
-    await montar({ dias: [] });
+    await montar({ dias: [] }, { embutido: false });
     expect(screen.getByText('tournamentDashboard.noDaysConfigured')).toBeInTheDocument();
+  });
+
+  it('embutido no detalhe, sem dia não repete o aviso da lista de dias', async () => {
+    // O detalhe do torneio já mostra "Nenhum dia configurado" com o botão de
+    // criar; o painel embutido repetia o bloco logo abaixo.
+    await montar({ dias: [] });
+    expect(screen.queryByText('tournamentDashboard.noDaysConfigured')).toBeNull();
+    expect(screen.queryByText('tournamentDashboard.noDaysHint')).toBeNull();
   });
 });
 

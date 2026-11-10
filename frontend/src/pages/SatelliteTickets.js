@@ -70,7 +70,7 @@ const ResumoDeTickets = ({ loading, summary, t }) => {
 };
 
 // A lista de tickets: esqueleto enquanto carrega, explicação quando não há nenhum.
-const TabelaDeTickets = ({ loading, tickets, t, fmt, onTransferir, onCancelar }) => {
+const TabelaDeTickets = ({ loading, tickets, t, idioma, fmt, onTransferir, onCancelar }) => {
   if (loading) {
     return (
       <table className="transactions-table">
@@ -112,7 +112,7 @@ const TabelaDeTickets = ({ loading, tickets, t, fmt, onTransferir, onCancelar })
               <td>
                 {ticket.funded_by || <span className="st-unassigned">--</span>}
               </td>
-              <td>{new Date(ticket.created_at).toLocaleDateString('pt-BR')}</td>
+              <td>{new Date(ticket.created_at).toLocaleDateString(idioma)}</td>
               <td>
                 {isAwarded(ticket.status) && (
                   <>
@@ -138,7 +138,7 @@ const SatelliteTickets = () => {
   const { formatCurrency } = useCurrency();
   const { isAdmin, hasPermission } = usePermissions();
   const { activeMethods } = usePaymentMethods();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // Emitir em lote é decisão de dono: um erro multiplica por dezenas de
   // entradas já pagas. O backend também exige a permissão — aqui é só para
@@ -398,6 +398,7 @@ const SatelliteTickets = () => {
             loading={loading}
             tickets={tickets}
             t={t}
+            idioma={i18n?.language}
             fmt={fmt}
             onTransferir={openTransferModal}
             onCancelar={handleCancelTicket}
@@ -649,7 +650,7 @@ const SatelliteTickets = () => {
                         <li key={h.id}>
                           {h.from_player_name || '--'} → {h.to_player_name || '--'}
                           {h.kind === 'sale' ? ` — ${fmt(h.amount)}` : ''}
-                          {' '}({new Date(h.created_at).toLocaleDateString('pt-BR')})
+                          {' '}({new Date(h.created_at).toLocaleDateString(i18n?.language)})
                         </li>
                       ))}
                     </ul>

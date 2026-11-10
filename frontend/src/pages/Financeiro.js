@@ -35,7 +35,7 @@ const ROTULO_DO_MODULO = {
 
 const Financeiro = () => {
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { currency, setCurrency, currencies, formatCurrency } = useCurrency();
   const { labelFor: paymentLabelFor } = usePaymentMethods();
   // O DRE é POR MÓDULO: cada um tem o seu, independente. O seletor oferece
@@ -802,7 +802,7 @@ const Financeiro = () => {
                   <tbody>
                     {filteredTransactions.map((tx) => (
                       <tr key={tx.id}>
-                        <td>{new Date(tx.created_at).toLocaleDateString('pt-BR')}</td>
+                        <td>{new Date(tx.created_at).toLocaleDateString(i18n?.language)}</td>
                         <td>{tx.tournament_name || '--'}</td>
                         <td>{tx.player_name || '--'}</td>
                         <td>

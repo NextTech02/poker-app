@@ -72,6 +72,26 @@ class TestCalculoDeNivel:
             r = TournamentDayService._calculate_current_level(self.ESTRUTURA, t)
             assert r["time_remaining"] >= 0
 
+    def test_tempo_a_mais_no_comeco_do_nivel_fica_no_nivel_atual(self):
+        """+30s aos 10s do nivel 2 recua o decorrido para 580s, dentro do
+        nivel 1. O relogio voltava para o blind anterior; com o nivel gravado
+        como piso, o nivel 2 ganha os 30s (restante maior que a duracao)."""
+        r = TournamentDayService._calculate_current_level(self.ESTRUTURA, 580, nivel_atual=2)
+        assert r["level"] == 2
+        assert r["time_remaining"] == 620
+
+    def test_o_piso_nao_segura_o_relogio_quando_o_tempo_passa(self):
+        """O nivel gravado pode estar atrasado (tela sem atualizar): o tempo
+        continua levando o relogio adiante."""
+        r = TournamentDayService._calculate_current_level(self.ESTRUTURA, 1500, nivel_atual=1)
+        assert r["level"] == 3
+        assert r["time_remaining"] == 600
+
+    def test_nivel_gravado_fora_da_estrutura_e_ignorado(self):
+        r = TournamentDayService._calculate_current_level(self.ESTRUTURA, 300, nivel_atual=9)
+        assert r["level"] == 1
+        assert r["time_remaining"] == 300
+
 
 class TestFuncoesDeBlind:
     ESTRUTURA = [_blind(1, 10), _blind(2, 10), _blind(3, 15, intervalo=True), _blind(4, 10)]

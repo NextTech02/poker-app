@@ -28,6 +28,7 @@
   border: 1px solid var(--border-primary);
   background: var(--card-bg);
   min-width: 0;
+  container-type: inline-size;
 }
 
 .stat-card .stat-label {
@@ -36,17 +37,20 @@
   color: var(--text-secondary);
 }
 
+/* Em COP ("COP$ 40.450.000,00") o valor não cabia e saía cortado com "…" nos
+   indicadores do cash e do bar. Como nos cartões do Caixa, o número encolhe com
+   a largura do cartão e, no limite, quebra em vez de sumir: o total tem de ser
+   lido inteiro. */
 .stat-card .stat-value {
   font-family: var(--font-display);
   font-size: 1.625rem;
+  font-size: clamp(1rem, 9.5cqi, 1.625rem);
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-primary);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .stat-card .stat-hint {

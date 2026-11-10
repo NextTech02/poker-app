@@ -1148,6 +1148,25 @@ describe('pagamento', () => {
     expect(screen.getByText('(Aninha)')).toBeInTheDocument();
   });
 
+  it('crédito de patrocinador usado aparece descontado antes de pagar', async () => {
+    // O servidor desconta o crédito usado do prêmio; sem a linha na tela, o
+    // operador entregaria o bruto e o caixa geral sairia só pelo líquido.
+    await montar();
+    const base = api.get.getMockImplementation();
+    api.get.mockImplementation((url, ...resto) => (
+      url === '/player-credits/player/p1/prize-deduction'
+        ? Promise.resolve({ data: { outstanding: 1500 } })
+        : base(url, ...resto)
+    ));
+    await abrirPagamento();
+    await userEvent.type(screen.getByPlaceholderText('premiacao.docNumberPlaceholder'), '12345678-9');
+    await esperarResolvido();
+    const quadro = await screen.findByText('premiacao.sponsorCreditDeducted');
+    const grupo = quadro.closest('.payout-fiado');
+    expect(grupo).toHaveTextContent('− R$ 1500.00');
+    expect(grupo).toHaveTextContent('R$ 18500.00');   // 20000 − 1500
+  });
+
   it('pontuação e traços do documento são ignorados', async () => {
     // O documento no cadastro tem pontos; o operador digita como vem no papel.
     await montar();
@@ -1174,6 +1193,19 @@ describe('pagamento', () => {
     await waitFor(() =>
       expect(document.querySelector('.doc-registered-banner')).toBeNull()
     );
+  });
+
+  it('a máscara do campo é a do tipo de documento, não a do CPF fixa', async () => {
+    // Era "000.000.000-00" em qualquer clube, inclusive de DNI e cédula.
+    await montar();
+    await abrirPagamento();
+    // Sem tipo escolhido: o texto genérico, sem máscara.
+    const campo = screen.getByPlaceholderText('premiacao.docNumberPlaceholder');
+    await userEvent.type(campo, 'xy9090');
+    await esperarResolvido();
+    await userEvent.clear(campo);
+    // Com o tipo conhecido (passaporte do Beto), o exemplo é o dele.
+    expect(campo).toHaveAttribute('placeholder', 'AB123456');
   });
 
   it('confirmar envia o pagamento com documento e atendente', async () => {

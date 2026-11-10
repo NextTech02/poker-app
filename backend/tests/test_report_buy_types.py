@@ -217,3 +217,36 @@ def test_kos_que_falham_nao_derrubam_o_relatorio(monkeypatch, stub):
     stub(KnockoutService, resumo=explode)
     r = ReportService.get_tournament_report(TOUR)
     assert r.ko_format == "ko" and r.ko_pool == 30.0 and r.ko_paid == 0
+
+
+def test_resumo_do_periodo_junta_o_buy_in_de_torneios_diferentes(monkeypatch):
+    """O meio é cadastrado por torneio: cada torneio tem o seu "Buy-in" com id
+    próprio. Agrupado pelo id, o período listava uma linha (e uma coluna no
+    relatório de jogadores) "Buy-in" por torneio."""
+    tabelas = _tabelas()
+    tabelas["transactions"].append(
+        {**_venda("y1", "tp2", "buy_in", "bt-buyin-outro-torneio", "Buy-in", 50, player="p2"),
+         "tournament_id": "outro"}
+    )
+    fake = FakeSupabase(tabelas)
+    fake.rpcs["get_reports_totals"] = [{"total_revenue": 175, "total_buy_ins": 3, "total_rebuys": 1,
+                                        "total_addons": 1, "avg_buy_in": 40}]
+    monkeypatch.setattr(mod, "supabase", fake)
+    r = ReportService.get_reports()
+    nomes = [b.name for b in r.byBuyType]
+    assert nomes.count("Buy-in") == 1
+    assert [(b.count, b.amount) for b in r.byBuyType if b.name == "Buy-in"] == [(2, 100.0)]
+
+
+def test_data_final_inclui_o_dia_inteiro(monkeypatch):
+    """Data Final = hoje: o torneio criado hoje à tarde e os jogadores dele
+    entram no período (antes paravam na meia-noite de hoje)."""
+    tabelas = _tabelas()
+    tabelas["tournaments"][0]["created_at"] = "2026-10-08T18:30:00"
+    fake = FakeSupabase(tabelas)
+    fake.rpcs["get_reports_totals"] = [{"total_revenue": 125, "total_buy_ins": 2, "total_rebuys": 1,
+                                        "total_addons": 1, "avg_buy_in": 40}]
+    monkeypatch.setattr(mod, "supabase", fake)
+    r = ReportService.get_reports(start_date="2026-10-08", end_date="2026-10-08")
+    assert r.totalTournaments == 1
+    assert {p.player_name for p in r.playerReports} == {"Ana", "Beto"}

@@ -47,7 +47,7 @@ const PlayerDetail = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currency } = useCurrency();
 
   const [player, setPlayer] = useState(null);
   const [stats, setStats] = useState(null);
@@ -381,6 +381,7 @@ const PlayerDetail = () => {
                 t={t}
                 locale={i18n.language}
                 formatCurrency={formatCurrency}
+                currency={currency}
                 onRedeem={handleRedeem}
                 onConvertCashback={handleConvertCashback}
                 onRedeemCoupon={handleRedeemCoupon}

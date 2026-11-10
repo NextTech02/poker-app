@@ -270,6 +270,11 @@ const TournamentDashboard = ({ tournamentId: propTournamentId }) => {
   }
 
   if (days.length === 0) {
+    // Embutido no detalhe do torneio, quem explica a falta de dias é a lista
+    // de dias logo acima (com o botão de criar). Repetir aqui punha dois
+    // "Nenhum dia configurado" seguidos na tela.
+    if (!isStandalone) return null;
+
     const content = (
       <div className="empty-days-professional">
         <div className="empty-days-line" />

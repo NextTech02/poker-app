@@ -365,13 +365,13 @@ const TvPrizes = ({ model, settings, L, currency, forceScroll }) => {
  * tiles "Entradas" e "Reentradas" (é a mesma conta, aberta por meio). Vem dos
  * extras públicos.
  */
-const TvBuyTypes = ({ model }) => (
+const TvBuyTypes = ({ model, L }) => (
   <div className="tv-buytypes" role="list">
     {model.buyTypes.map((b, i) => (
       <span key={`${b.name}-${i}`} className={`tv-buytype tv-buytype--${b.category || 'buy_in'}`} role="listitem">
         <span className="tv-buytype-name">{b.name}</span>
         <span className="tv-buytype-colon">:</span>
-        <span className="tv-buytype-amount">{formatBuyAmount(b.count)}</span>
+        <span className="tv-buytype-amount">{formatBuyAmount(b.count, L?.numberLocale)}</span>
       </span>
     ))}
   </div>
@@ -642,9 +642,9 @@ const TvScreen = ({
       {hasRelay ? (
         <div className="tv-strips">
           <TvRelay model={model} L={L} />
-          {hasBuyTypes && <TvBuyTypes model={model} />}
+          {hasBuyTypes && <TvBuyTypes model={model} L={L} />}
         </div>
-      ) : hasBuyTypes && <TvBuyTypes model={model} />}
+      ) : hasBuyTypes && <TvBuyTypes model={model} L={L} />}
       {bottomPrizes && (
         <TvPrizes model={model} settings={s} L={L} currency={currency} forceScroll={forceScroll} />
       )}

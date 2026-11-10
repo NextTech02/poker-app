@@ -7,7 +7,9 @@ import EmptyState from '../components/EmptyState';
 import { SkeletonBlock } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { exportSections } from '../utils/reportExport';
+import { nomeDaCategoria, rotuloDoMeioDoBar } from '../utils/barRotulos';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 import './CashFloor.css';
 import './CashRelatorios.css';
@@ -26,6 +28,8 @@ const BarRelatorios = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
+  const { methods: meios = [] } = usePaymentMethods() || {};
+  const rotuloDoMeio = (codigo) => rotuloDoMeioDoBar(t, codigo, meios);
 
   const [range, setRange] = useState({ from: primeiroDiaDoMes(), to: hojeLocal() });
   const [summary, setSummary] = useState(null);
@@ -98,7 +102,9 @@ const BarRelatorios = () => {
             { key: 'cogs', label: t('barReports.cogsShort', 'CMV'), type: 'currency' },
             { key: 'margin', label: t('bar.margin', 'Margem'), type: 'currency' },
           ],
-          rows: summary.top_products || [],
+          rows: (summary.top_products || []).map((p) => ({
+            ...p, category_name: p.category_name ? nomeDaCategoria(t, p.category_name) : p.category_name,
+          })),
         },
         {
           kind: 'table',
@@ -108,7 +114,7 @@ const BarRelatorios = () => {
             { key: 'amount', label: t('bar.amount', 'Valor'), type: 'currency' },
             { key: 'count', label: t('barReports.payments', 'Pagamentos'), type: 'int' },
           ],
-          rows: summary.by_method || [],
+          rows: (summary.by_method || []).map((m) => ({ ...m, payment_method: rotuloDoMeio(m.payment_method) })),
         },
         {
           kind: 'table',
@@ -282,7 +288,7 @@ const BarRelatorios = () => {
                     {(summary.top_products || []).map((p) => (
                       <tr key={p.product_id}>
                         <td><strong>{p.product_name}</strong></td>
-                        <td>{p.category_name || '—'}</td>
+                        <td>{p.category_name ? nomeDaCategoria(t, p.category_name) : '—'}</td>
                         <td className="bar-num">{p.quantity}</td>
                         <td className="bar-num">{p.courtesy_quantity || 0}</td>
                         <td className="bar-num">{formatCurrency(p.revenue)}</td>
@@ -299,7 +305,7 @@ const BarRelatorios = () => {
               <ul className="bar-kpi-list">
                 {(summary.by_method || []).map((m) => (
                   <li key={m.payment_method}>
-                    <span className="bar-muted">{m.payment_method}</span>
+                    <span className="bar-muted">{rotuloDoMeio(m.payment_method)}</span>
                     <strong>{formatCurrency(m.amount)}</strong>
                     <span className="bar-muted"> · {m.count}</span>
                   </li>
