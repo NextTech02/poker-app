@@ -296,7 +296,11 @@ class CashTableService:
                 "A mesa já foi fechada; a apuração dela está encerrada.",
                 status=409,
             )
-        if data.rake_amount <= 0 and data.jackpot_amount <= 0:
+        # Só o FECHAMENTO pode vir zerado. A parcial vazia não registraria nada;
+        # o fechamento com a caixa vazia é legítimo (mesa que não rodou, ou tudo
+        # já lançado nas parciais) e precisa existir mesmo assim — é o documento
+        # que encerra a contagem da mesa. Recusá-lo deixava a mesa sem como fechar.
+        if kind != "closing" and data.rake_amount <= 0 and data.jackpot_amount <= 0:
             raise ErroDeNegocio(
                 "apuracao_vazia",
                 "Informe o rake ou o jackpot contado.",

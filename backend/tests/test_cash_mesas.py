@@ -268,6 +268,20 @@ def test_recusa_fechar_com_jogador_sentado(monkeypatch):
     assert d["quantidade"] == 1
 
 
+def test_fecha_mesa_sem_rake(monkeypatch):
+    """Mesa que não rodou (ou com tudo já lançado nas parciais) fecha com a
+    caixa zerada. Antes o fechamento passava pela recusa da apuração vazia e a
+    mesa ficava aberta sem ter como fechar."""
+    fake = _banco(monkeypatch, cash_tables=[_mesa()])
+    mesa = CTS.close_table(MESA, CashTableClose(rake_amount=0, jackpot_amount=0), AUTH)
+    assert mesa.status == "closed"
+    assert mesa.rake_counted == 0 and mesa.jackpot_counted == 0
+    # O documento do fechamento existe mesmo zerado: é ele que impede fechar
+    # a mesma mesa duas vezes (índice único por mesa).
+    fechamentos = [r for r in fake.store["cash_rake_entries"] if r["kind"] == "closing"]
+    assert len(fechamentos) == 1
+
+
 def test_nao_fecha_duas_vezes(monkeypatch):
     _banco(monkeypatch, cash_tables=[_mesa(status="closed")])
     with pytest.raises(ErroDeNegocio) as exc:
