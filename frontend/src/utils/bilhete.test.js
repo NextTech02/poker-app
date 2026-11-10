@@ -77,6 +77,17 @@ describe('htmlDoBilhete', () => {
     expect(html).not.toContain('bt-grande">');
   });
 
+  it('depois da troca de mesa, a hora é a do lugar novo', () => {
+    // A troca move a mesma linha e grava só updated_at: com created_at, o
+    // bilhete do lugar novo saía com a hora do primeiro assento.
+    const html = htmlDoBilhete({
+      allocation: { ...ALOCACAO, created_at: '2026-10-16T21:30:00', updated_at: '2026-10-16T23:05:00' },
+      idioma: 'pt',
+    });
+    expect(html).toContain('23:05');
+    expect(html).not.toContain('21:30');
+  });
+
   it('nome com HTML é escapado e a prévia não manda imprimir', () => {
     const html = htmlDoBilhete({ allocation: { ...ALOCACAO, player_name: '<b>Ana</b>' }, imprimir: false });
     expect(html).toContain('&lt;b&gt;Ana&lt;/b&gt;');

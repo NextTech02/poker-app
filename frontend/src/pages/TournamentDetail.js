@@ -96,6 +96,19 @@ const TournamentDetail = () => {
     .filter((m) => m.active !== false)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
+  // Rake mostrado no cartão do dia. Quem cobra o rake é o meio de entrada da
+  // venda; o rake do dia é só a reserva de quando não há meio, e todo dia novo
+  // nasce com 0. O cartão mostrava "Rake 0%" com meios de 20% e 10%. Taxa
+  // (Bono Dealer...) não é entrada, fica de fora.
+  const rakesDosMeios = [...new Set(
+    meiosAtivos
+      .filter((m) => m.category !== 'fee')
+      .map((m) => Number(m.rake_percentage || 0))
+  )].sort((a, b) => a - b);
+  const rakeDoDia = (day) => (rakesDosMeios.length
+    ? rakesDosMeios.map((r) => `${r}%`).join(' / ')
+    : `${Number(day.rake_percentage || 0)}%`);
+
   const rotuloDaCategoria = (categoria) => ({
     buy_in: t('tournamentDayForm.categoryBuyIn', 'Entrada'),
     rebuy: t('tournamentDayForm.categoryRebuy', 'Recompra'),
@@ -363,7 +376,11 @@ const TournamentDetail = () => {
       console.error('Error loading survivors preview:', e);
     }
 
-    const ok = await confirm(`${t('tournamentDays.advanceQualifiers')} ${linkedDayName}?${previa}`);
+    // Frase inteira numa chave só: colar o rótulo do botão ao nome do dia dava
+    // "Advance Qualifiers Final Day?" em inglês.
+    const ok = await confirm(
+      `${t('tournamentDays.confirmAdvanceQualifiers', 'Avançar os classificados para {{day}}?', { day: linkedDayName })}${previa}`
+    );
     if (!ok) return;
 
     try {
@@ -615,7 +632,7 @@ const TournamentDetail = () => {
             </div>
             <div className="day-info-item">
               <span className="day-info-label">{t('cashRegister.rake')}</span>
-              <span className="day-info-value">{day.rake_percentage}%</span>
+              <span className="day-info-value">{rakeDoDia(day)}</span>
             </div>
           </>
         )}

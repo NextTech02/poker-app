@@ -172,6 +172,18 @@ describe('fase 1', () => {
     expect(screen.getByText('jogadores_sem_equipe')).toBeInTheDocument();
   });
 
+  it('a prévia das mesas conta o campo inteiro, não só quem segue vivo', async () => {
+    // Contar só os vivos encolhia a prévia a cada eliminação.
+    const [equipe] = LISTA.teams;
+    const comEliminado = {
+      ...LISTA,
+      teams: [{ ...equipe, members: equipe.members.map((m) => (m.player_id === 'a4' ? { ...m, status: 'eliminated' } : m)) }],
+    };
+    responder({ lista: comEliminado });
+    await montar('/torneios/t1/equipes?aba=fase1');
+    expect(await screen.findByText(/3 jogadores → 3 mesas/)).toBeInTheDocument();
+  });
+
   it('sorteia as mesas', async () => {
     api.post.mockResolvedValue({ data: { allocated: 12 } });
     await montar('/torneios/t1/equipes?aba=fase1');

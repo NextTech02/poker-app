@@ -1385,7 +1385,13 @@ const Premiacao = () => {
                     }}
                     required
                     autoFocus
-                    placeholder={t('premiacao.docNumberPlaceholder')}
+                    // Exemplo do tipo de documento em uso; sem tipo (ou tipo
+                    // antigo), nenhuma máscara. Era o do CPF fixo, também em
+                    // clube de DNI e cédula.
+                    placeholder={
+                      TIPOS_DOCUMENTO.find((d) => d.valor === payoutDocType)?.exemplo
+                      || t('premiacao.docNumberPlaceholder')
+                    }
                     style={
                       payoutDocError
                         ? { borderColor: '#ef4444' }

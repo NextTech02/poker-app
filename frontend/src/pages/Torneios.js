@@ -52,6 +52,9 @@ const FORM_INICIAL = {
   // no PKO, quanto do bounty é pago em dinheiro (o resto soma no de quem
   // eliminou). Não muda depois da primeira venda — o servidor recusa.
   ko_format: 'none',
+  // Só da tela (não vai para a API): o modo de eliminação de antes de o KO
+  // forçar "por mesa", devolvido se o formato voltar para "Nenhuma".
+  modo_antes_do_ko: null,
   ko_percentage: '',
   ko_cash_share: '50',
   // Mystery: garantido do fundo e nível em que a fase começa.
@@ -380,8 +383,21 @@ const Torneios = () => {
     const { name, value } = e.target;
     setFormData((atual) => {
       const novo = { ...atual, [name]: value };
-      // KO exige eliminação por mesa: é nela que o floor diz quem eliminou.
-      if (name === 'ko_format' && value !== 'none') novo.elimination_mode = 'table';
+      if (name === 'ko_format') {
+        const tinhaKo = (atual.ko_format || 'none') !== 'none';
+        if (value !== 'none') {
+          // KO exige eliminação por mesa: é nela que o floor diz quem eliminou.
+          // Guarda o modo escolhido antes, para devolvê-lo se o KO sair.
+          if (!tinhaKo) novo.modo_antes_do_ko = atual.elimination_mode;
+          novo.elimination_mode = 'table';
+        } else if (tinhaKo && atual.modo_antes_do_ko) {
+          // Voltar para "Nenhuma" mantinha "Por posição nas mesas", que o
+          // diretor não tinha escolhido. Sem modo guardado (torneio que já
+          // veio com KO), fica o que está gravado.
+          novo.elimination_mode = atual.modo_antes_do_ko;
+          novo.modo_antes_do_ko = null;
+        }
+      }
       return novo;
     });
   };

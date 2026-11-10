@@ -669,6 +669,23 @@ describe('a data mostrada é a data cadastrada', () => {
     expect(linha).toHaveTextContent('20/08/2026');
   });
 
+  it('a data segue o idioma do app, não o pt-BR fixo', async () => {
+    // Em inglês, "10/08/2026" se lê 8 de outubro.
+    const { i18n } = require('react-i18next').useTranslation();
+    i18n.language = 'en-US';
+    try {
+      await montar({
+        etapas: [{ id: 'e9', name: 'Etapa Fuso', location: 'Bogotá', status: 'upcoming',
+          start_date: '2026-08-10', end_date: '2026-08-20' }],
+      });
+      const linha = linhaDe('Etapa Fuso');
+      expect(linha).toHaveTextContent('8/10/2026');
+      expect(linha).toHaveTextContent('8/20/2026');
+    } finally {
+      i18n.language = 'pt-BR';
+    }
+  });
+
   it('no último dia a etapa ainda está EM ANDAMENTO', async () => {
     // É o dia do evento: sumir das ativas justamente hoje é o pior momento.
     await montar({

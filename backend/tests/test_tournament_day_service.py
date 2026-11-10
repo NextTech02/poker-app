@@ -1153,6 +1153,20 @@ class TestStatusEnriquecido:
         assert r["current_level"] == 2
         assert fake.store["tournament_days"][0]["current_level"] == 2
 
+    def test_mais_tempo_no_comeco_do_nivel_nao_volta_ao_anterior(self, monkeypatch):
+        """Reproduzido pela API: +30s nos primeiros segundos do nível 2 jogava
+        o relógio de volta para o nível 1 (e gravava o nível 1 no dia)."""
+        inicio = datetime.now(timezone.utc)
+        fake = _monta(monkeypatch, tournament_days=[_dia(
+            D1, is_paused=False, timer_started_at=inicio.isoformat(),
+            elapsed_time=610, current_level=2)], blinds=self._blinds())
+        S.adjust_timer(D1, 30)
+        r = S.get_enriched_timer_status(D1)
+        assert r["current_level"] == 2
+        assert r["time_remaining_current_level"] == pytest.approx(620, abs=2)
+        assert r["current_level_ends_at"] == pytest.approx(inicio.timestamp() + 620, abs=2)
+        assert fake.store["tournament_days"][0]["current_level"] == 2
+
     def test_pausado_nao_se_auto_corrige(self, monkeypatch):
         fake = _monta(monkeypatch, tournament_days=[_dia(
             D1, is_paused=True, elapsed_time=700, current_level=1)],

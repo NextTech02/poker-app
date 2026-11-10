@@ -456,7 +456,9 @@ def reorder_blinds_for_day(
             elapsed += _segundos_desde(day["timer_started_at"])
         # O mesmo cálculo do relógio enriquecido (a coluna current_level pode
         # estar atrasada em relação ao tempo corrido).
-        nivel_atual = TournamentDayService._calculate_current_level(atuais, elapsed)["level"]
+        nivel_atual = TournamentDayService._calculate_current_level(
+            atuais, elapsed, day.get("current_level")
+        )["level"]
         travados = [str(b["id"]) for b in atuais if b["level"] <= nivel_atual]
         if ids_novos[:len(travados)] != travados:
             raise conflito(

@@ -76,7 +76,7 @@ const EntryTypesEditor = ({
       )}
 
       <div className="entry-methods-list">
-        {linhas.map((meio, indice) => (
+        {linhas.map((meio) => (
           <div className="entry-method-row" key={meio.key}>
             <div className="form-group entry-method-name">
               <label htmlFor={`${idPrefix}_name_${meio.key}`}>
@@ -190,14 +190,6 @@ const EntryTypesEditor = ({
                   </small>
                 </div>
               )}
-              {indice === 0 && (
-                <small className="form-hint" id={hintId}>
-                  {t(
-                    'tournamentDayForm.entryMethodCategoryHint',
-                    'A categoria decide o efeito da venda: Entrada soma um jogador novo, Recompra devolve alguém à mesa, Add-on só entrega fichas a quem já joga, Taxa cobra à parte (ex.: Bono Dealer) e não conta como add-on.'
-                  )}
-                </small>
-              )}
             </div>
             <div className="entry-method-actions">
               <Button
@@ -216,6 +208,18 @@ const EntryTypesEditor = ({
           </div>
         ))}
       </div>
+
+      {/* A dica da categoria fica abaixo da lista, na largura inteira. Dentro
+          da coluna Categoria da primeira linha, o texto longo virava uma tira
+          estreita e esticava essa linha muito além das outras. */}
+      {linhas.length > 0 && (
+        <small className="form-hint entry-methods-category-hint" id={hintId}>
+          {t(
+            'tournamentDayForm.entryMethodCategoryHint',
+            'A categoria decide o efeito da venda: Entrada soma um jogador novo, Recompra devolve alguém à mesa, Add-on só entrega fichas a quem já joga, Taxa cobra à parte (ex.: Bono Dealer) e não conta como add-on.'
+          )}
+        </small>
+      )}
 
       <Button type="button" variant="secondary" onClick={adicionar} disabled={disabled}>
         {t('tournamentDayForm.addEntryMethod', 'Adicionar entrada')}
