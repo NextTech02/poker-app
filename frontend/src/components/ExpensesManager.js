@@ -31,9 +31,17 @@ const EMPTY = {
   paid_from_cash: true,
 };
 
+// O vencimento é uma DATA, sem hora ("2026-11-10"). `new Date` lê esse
+// formato como meia-noite UTC, e no fuso das Américas isso ainda é o dia
+// anterior: o vencimento aparecia um dia antes. A data vai como dia local.
 const fmtDate = (v, locale) => {
   if (!v) return '—';
-  try { return new Date(v).toLocaleDateString(locale); } catch { return '—'; }
+  const soData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
+  try {
+    const d = soData ? new Date(Number(soData[1]), Number(soData[2]) - 1, Number(soData[3])) : new Date(v);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(locale);
+  } catch { return '—'; }
 };
 
 export default function ExpensesManager() {

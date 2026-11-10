@@ -161,6 +161,14 @@ describe('listagem e totais', () => {
     expect(document.querySelector('.exp-muted').textContent).toBe('—');
   });
 
+  it('o vencimento sai no dia gravado, não no dia anterior', async () => {
+    // "2026-06-15" lido como meia-noite UTC ainda é dia 14 nas Américas.
+    await montar();
+    await esperarLinhas();
+    expect(screen.getByText('15/06/2026')).toBeInTheDocument();
+    expect(screen.queryByText('14/06/2026')).toBeNull();
+  });
+
   it('despesa sem vencimento mostra travessão', async () => {
     await montar({ despesas: [{ ...DESPESAS[0], due_date: null }] });
     await esperarLinhas();
