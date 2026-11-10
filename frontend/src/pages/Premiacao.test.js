@@ -1176,6 +1176,19 @@ describe('pagamento', () => {
     );
   });
 
+  it('a máscara do campo é a do tipo de documento, não a do CPF fixa', async () => {
+    // Era "000.000.000-00" em qualquer clube, inclusive de DNI e cédula.
+    await montar();
+    await abrirPagamento();
+    // Sem tipo escolhido: o texto genérico, sem máscara.
+    const campo = screen.getByPlaceholderText('premiacao.docNumberPlaceholder');
+    await userEvent.type(campo, 'xy9090');
+    await esperarResolvido();
+    await userEvent.clear(campo);
+    // Com o tipo conhecido (passaporte do Beto), o exemplo é o dele.
+    expect(campo).toHaveAttribute('placeholder', 'AB123456');
+  });
+
   it('confirmar envia o pagamento com documento e atendente', async () => {
     api.post.mockResolvedValue({ data: { player_name: 'Ana', paid_at: '2026-06-09T03:00:00Z' } });
     await montar();

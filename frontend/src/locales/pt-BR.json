@@ -1673,7 +1673,7 @@
     "availableInPool": "Disponível no prize pool:",
     "generalCashBalance": "Saldo caixa geral:",
     "documentNumberRequired": "Número do Documento *",
-    "docNumberPlaceholder": "000.000.000-00",
+    "docNumberPlaceholder": "Número do documento",
     "playerResolved": "Jogador: {{name}}",
     "attendantOptional": "Atendente (opcional)",
     "staffNamePlaceholder": "Nome do funcionário",
