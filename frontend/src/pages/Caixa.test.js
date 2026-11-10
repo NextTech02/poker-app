@@ -23,6 +23,7 @@ import userEvent from '@testing-library/user-event';
 import Caixa from './Caixa';
 import api from '../config/api';
 import { offlineWrite, offlineRead } from '../offline/apiOffline';
+import { getAllByTable } from '../offline/db';
 import { isOnline, subscribe as assinarConectividade } from '../offline/connectivity';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -1877,6 +1878,32 @@ describe('mesas do dia', () => {
 
     expect(await screen.findByText('Sem conexão')).toBeInTheDocument();
     expect(avisoSemMesa()).toBeNull();
+  });
+});
+
+describe('dias do torneio sem rede', () => {
+  it('torneio escolhido depois de a internet cair traz os dias da réplica', async () => {
+    // O GET dos dias daquele torneio nunca foi ao cache: sem a réplica, a venda
+    // offline ficava sem dia nenhum.
+    const semRede = Object.assign(new Error('Network Error'), { response: undefined });
+    getAllByTable.mockImplementation(async (tabela) => (
+      tabela === 'tournament_days'
+        ? [...DOIS_DIAS.map((d) => ({ ...d, tournament_id: 't1' })),
+          { ...DIA, id: 'outro', day_name: 'Dia outro', tournament_id: 't9' }]
+        : []
+    ));
+    await montar({ dias: semRede });
+    await abrirModal();
+    await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
+    const seletor = await screen.findByLabelText('cashRegister.day');
+    expect(within(seletor).getByRole('option', { name: /Dia 1B/ })).toBeInTheDocument();
+    expect(within(seletor).queryByRole('option', { name: /outro/ })).toBeNull();
+    getAllByTable.mockImplementation(async () => []);
+  });
+
+  it('a tela hidrata a réplica com os dias da etapa ao abrir', async () => {
+    await montar();
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/tournament-days'));
   });
 });
 

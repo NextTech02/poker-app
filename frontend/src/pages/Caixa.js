@@ -241,6 +241,15 @@ const Caixa = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Réplica offline dos dias da etapa, uma vez por etapa: sem ela, o torneio
+  // escolhido depois de a internet cair não tinha dia nenhum para vender.
+  useEffect(() => {
+    if (!selectedStage?.id) return;
+    api.get('/tournament-days')
+      .then((res) => { if (res?.data?.length) putEntities('tournament_days', res.data); })
+      .catch(() => {});
+  }, [selectedStage?.id]);
+
   // O banco avisa quando muda, em vez de esta tela perguntar de 5 em 5
   // segundos. Perguntando, ela refazia `/transactions` + `/tournaments` +
   // `/players` (a lista inteira de jogadores) doze vezes por minuto, por
@@ -417,9 +426,20 @@ const Caixa = () => {
       return;
     }
     try {
-      const response = await api.get(`/tournament-days/tournament/${tournamentId}`);
+      // Online, do servidor; sem rede, da réplica (hidratada ao abrir a tela e
+      // a cada torneio consultado). Antes a venda offline ficava sem dia quando
+      // o torneio era escolhido depois de a internet cair e o GET dele nunca
+      // tinha ido ao cache.
+      let dias;
+      try {
+        dias = (await api.get(`/tournament-days/tournament/${tournamentId}`)).data || [];
+      } catch (erro) {
+        if (erro?.response) throw erro; // o servidor respondeu: não é falta de rede
+        dias = (await getAllByTable('tournament_days'))
+          .filter((d) => d.tournament_id === tournamentId);
+      }
       // Filter only active/pending days and exclude final days (no buy-ins for finals)
-      const activeDays = response.data.filter(day =>
+      const activeDays = dias.filter(day =>
         (day.status === 'active' || day.status === 'pending') && day.day_type !== 'final'
       );
       setTournamentDays(activeDays);
@@ -435,7 +455,7 @@ const Caixa = () => {
           : prev));
       }
       // Hidrata os dias na réplica (buy_in/rake/chips/registered_players offline)
-      if (response.data?.length) putEntities('tournament_days', response.data);
+      if (dias.length) putEntities('tournament_days', dias);
     } catch (error) {
       console.error('Erro ao carregar dias do torneio:', error);
       setTournamentDays([]);
