@@ -1936,6 +1936,8 @@
     "colBuyIns": "Buy-ins",
     "colRebuys": "Rebuys",
     "colAddons": "Add-ons",
+    "colFees": "Taxas",
+    "byEntryMethod": "Por meio de entrada",
     "colRevenue": "Receita",
     "colPrize": "Premiação",
     "colNet": "Líquido",

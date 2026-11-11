@@ -151,11 +151,18 @@ function computeColWidths(aoa) {
 
 // ── PDF — cabeçalho de marca + tabela por seção ─────────────────────────────
 
+// Acima disso, as colunas não cabem legíveis numa A4 em pé.
+const COLUNAS_NA_FOLHA_EM_PE = 9;
+
 async function exportPdf(sections, filename, meta, fmtCurrency) {
   const { jsPDF } = await import('jspdf');
   const autoTable = (await import('jspdf-autotable')).default;
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  // Uma coluna por meio de entrada deixa "Torneios" e "Jogadores" largas
+  // demais para a folha em pé: com tabela larga, o documento sai deitado.
+  const larga = (section) => section.kind !== 'keyvalue' && (section.columns || []).length > COLUNAS_NA_FOLHA_EM_PE;
+  const orientation = sections.some(larga) ? 'landscape' : 'portrait';
+  const doc = new jsPDF({ orientation, unit: 'pt', format: 'a4' });
   const brand = meta?.brandRgb || [114, 51, 248];
   const pageW = doc.internal.pageSize.getWidth();
 
@@ -199,7 +206,9 @@ async function exportPdf(sections, filename, meta, fmtCurrency) {
       body,
       startY: cursorY,
       margin: { left: 40, right: 40 },
-      styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
+      styles: larga(section)
+        ? { fontSize: 7, cellPadding: 3, overflow: 'linebreak' }
+        : { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
       headStyles: { fillColor: brand, textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [244, 242, 250] },
       theme: 'grid',

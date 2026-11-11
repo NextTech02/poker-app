@@ -776,24 +776,45 @@ const Financeiro = () => {
                     <th>{t('financial.colBuyIns')}</th>
                     <th>{t('financial.colRebuys')}</th>
                     <th>{t('financial.colAddons')}</th>
+                    <th>{t('financial.colFees', 'Taxas')}</th>
                     <th>{t('financial.colRevenue')}</th>
                     <th>{t('financial.colPrize')}</th>
                     <th>{t('financial.colNet')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(data.by_tournament || []).map((t) => (
-                    <tr key={t.tournament_id}>
-                      <td>{t.tournament_name}</td>
-                      <td>{t.players}</td>
-                      <td>{t.buy_ins_count}</td>
-                      <td>{t.rebuys_count}</td>
-                      <td>{t.addons_count}</td>
-                      <td>{fmt(t.revenue)}</td>
-                      <td>{fmt(t.prizes)}</td>
-                      <td className={t.net >= 0 ? 'fn-positive' : 'fn-negative'}>{fmt(t.net)}</td>
-                    </tr>
-                  ))}
+                  {(data.by_tournament || []).map((bt) => {
+                    // Abaixo de cada torneio, o que foi vendido de cada meio
+                    // de entrada (Buy-in Promoción, Doble, Bono Dealer…).
+                    const meios = (bt.by_buy_type || []).filter((m) => (m.name || '').trim());
+                    return (
+                      <React.Fragment key={bt.tournament_id}>
+                        <tr className={meios.length > 0 ? 'fn-bt-row--com-meios' : ''}>
+                          <td>{bt.tournament_name}</td>
+                          <td>{bt.players}</td>
+                          <td>{bt.buy_ins_count}</td>
+                          <td>{bt.rebuys_count}</td>
+                          <td>{bt.addons_count}</td>
+                          <td>{bt.fees_count ?? 0}</td>
+                          <td>{fmt(bt.revenue)}</td>
+                          <td>{fmt(bt.prizes)}</td>
+                          <td className={bt.net >= 0 ? 'fn-positive' : 'fn-negative'}>{fmt(bt.net)}</td>
+                        </tr>
+                        {meios.length > 0 && (
+                          <tr className="fn-bt-meios">
+                            <td colSpan={9}>
+                              <span className="fn-bt-meios__label">{t('financial.byEntryMethod', 'Por meio de entrada')}:</span>
+                              {meios.map((m) => (
+                                <span className="fn-bt-meio" key={`${m.category}:${m.name}`}>
+                                  {m.name.trim()} <b>× {m.count}</b>
+                                </span>
+                              ))}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -1936,6 +1936,8 @@
     "colBuyIns": "Buy-ins",
     "colRebuys": "Rebuys",
     "colAddons": "Add-ons",
+    "colFees": "Fees",
+    "byEntryMethod": "By entry method",
     "colRevenue": "Revenue",
     "colPrize": "Prize",
     "colNet": "Net",
