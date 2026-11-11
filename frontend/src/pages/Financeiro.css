@@ -160,6 +160,80 @@
   flex: 0 1 200px;
 }
 
+/* Quadro de totais do extrato: o que o clube confere com o caixa. */
+.fn-tx-summary {
+  max-width: 560px;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fn-tx-summary__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.fn-tx-summary__title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.fn-tx-summary__scope {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.fn-tx-summary .fn-dre {
+  gap: 1rem;
+}
+
+.fn-tx-summary .fn-dre-section {
+  gap: 0.15rem;
+}
+
+.fn-tx-summary .fn-dre-row {
+  padding: 0.35rem 0;
+  gap: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fn-tx-summary .fn-dre-row > span:last-child {
+  white-space: nowrap;
+}
+
+.fn-tx-summary__sub {
+  padding-left: 1rem !important;
+  font-size: 0.85rem;
+}
+
+.fn-tx-summary__count {
+  margin-left: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+/* "S/ 300,00 de S/ 500,00": a parte da venda dividida que entra no filtro. */
+.fn-tx-of {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 768px) {
+  .fn-tx-summary {
+    max-width: none;
+    padding: 0.85rem 1rem;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .fn-filters {
@@ -181,6 +255,8 @@
 
   .fn-tx-filters .form-group {
     min-width: 100%;
+    /* Em coluna, a base de 200px virava ALTURA: um vão enorme entre os filtros. */
+    flex: 0 0 auto;
   }
 }
 
