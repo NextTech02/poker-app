@@ -20,6 +20,9 @@ import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
 import { eDividido, rotuloDoPagamento } from '../utils/pagamentoDividido';
+import {
+  ORIGENS, filtroDeMeio, filtroDeOrigem, lerFiltro, centavosNoFiltro, meiosDoFiltro, resumirExtrato,
+} from '../utils/extratoGeral';
 
 // Os mesmos ids de MODULO_* do ModuleContext, repetidos aqui de propósito: os
 // testes desta tela substituem o contexto inteiro e as constantes sumiriam.
@@ -37,7 +40,7 @@ const Financeiro = () => {
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
   const { currency, setCurrency, currencies, formatCurrency } = useCurrency();
-  const { labelFor: paymentLabelFor } = usePaymentMethods();
+  const { labelFor: paymentLabelFor, methods: meiosDoClube } = usePaymentMethods();
   // O DRE é POR MÓDULO: cada um tem o seu, independente. O seletor oferece
   // só os módulos contratados e abre no módulo em que a pessoa está.
   // `modules`/`module` podem não existir fora do provider (testes antigos):
@@ -67,8 +70,9 @@ const Financeiro = () => {
     end: hojeLocal(),
   });
 
-  // Extract filters
-  const [txFilter, setTxFilter] = useState({ type: '', payment_source: '' });
+  // Filtros do extrato. `payment` é um meio ('meio:cash', 'meio:yape') ou uma
+  // origem ('origem:credit') — ver utils/extratoGeral.js.
+  const [txFilter, setTxFilter] = useState({ type: '', payment: '' });
 
   useEffect(() => {
     loadStages();
@@ -176,16 +180,57 @@ const Financeiro = () => {
     return map[type] || '';
   };
 
-  // Filter transactions
-  const filteredTransactions = (data?.transactions || []).filter(tx => {
+  // O filtro de forma de pagamento é pelo meio REAL: "Dinheiro" traz só o que
+  // entrou em dinheiro, e a venda dividida entra só com a parte desse meio.
+  const filtroDePagamento = lerFiltro(txFilter.payment);
+  const meiosOferecidos = meiosDoFiltro(meiosDoClube, data?.transactions);
+
+  // Cada linha que passa no filtro, com o quanto dela conta (em centavos).
+  const linhasDoExtrato = (data?.transactions || []).reduce((linhas, tx) => {
     if (txFilter.type === 'fee') {
-      if (!(tx.type === 'addon' && tx.is_fee)) return false;
+      if (!(tx.type === 'addon' && tx.is_fee)) return linhas;
     } else if (txFilter.type === 'addon') {
-      if (tx.type !== 'addon' || tx.is_fee) return false;
-    } else if (txFilter.type && tx.type !== txFilter.type) return false;
-    if (txFilter.payment_source && tx.payment_source !== txFilter.payment_source) return false;
-    return true;
-  });
+      if (tx.type !== 'addon' || tx.is_fee) return linhas;
+    } else if (txFilter.type && tx.type !== txFilter.type) return linhas;
+    const centavos = centavosNoFiltro(tx, filtroDePagamento);
+    if (centavos === null) return linhas;
+    linhas.push({ tx, centavos });
+    return linhas;
+  }, []);
+
+  // Subgrupo do quadro: o meio de entrada vendido; no prêmio, o KO.
+  const rotuloDoSubgrupo = (tx) => {
+    if (tx.buy_type_name) return tx.buy_type_name;
+    if (tx.type === 'prize' && tx.prize_kind === 'knockout') return t('financial.descKnockout', 'Prêmio por eliminação (KO)');
+    return null;
+  };
+  const resumo = resumirExtrato(linhasDoExtrato, rotuloDoSubgrupo);
+  const rotuloSemSubgrupo = (tipo) => (tipo === 'prize'
+    ? t('financial.summaryPositionPrize', 'Por posição')
+    : t('financial.summaryNoEntryMethod', 'Sem meio de entrada'));
+  const rotuloDoTipo = (tipo) => (tipo === 'fee' ? getTypeLabel('addon', { is_fee: true }) : getTypeLabel(tipo));
+  const quantas = (n) => <span className="fn-tx-summary__count">× {n}</span>;
+
+  // Um tipo do quadro ("Rebuy × 129") e, abaixo, cada meio de entrada dele.
+  const linhasDoGrupo = (g, classeDoValor) => (
+    <React.Fragment key={g.tipo}>
+      <div className="fn-dre-row" data-tipo={g.tipo}>
+        <span>{rotuloDoTipo(g.tipo)} {quantas(g.quantidade)}</span>
+        <span className={classeDoValor}>{fmt(g.total)}</span>
+      </div>
+      {g.meios.map((m) => (
+        <div className="fn-dre-row fn-dre-row--muted fn-tx-summary__sub" key={m.nome ?? '--'}>
+          <span>{m.nome ?? rotuloSemSubgrupo(g.tipo)} {quantas(m.quantidade)}</span>
+          <span>{fmt(m.total)}</span>
+        </div>
+      ))}
+    </React.Fragment>
+  );
+  const nomeDoFiltroDePagamento = filtroDePagamento?.meio
+    ? resolveLabel(filtroDePagamento.meio)
+    : filtroDePagamento?.origem
+      ? getPaymentLabel(filtroDePagamento.origem)
+      : t('financial.summaryAllPayments', 'Todas as formas de pagamento');
 
   return (
     <div className="app-container">
@@ -773,17 +818,63 @@ const Financeiro = () => {
               </div>
               <div className="form-group">
                 <label>{t('financial.filterPaymentLabel')}</label>
-                <select value={txFilter.payment_source} onChange={(e) => setTxFilter(p => ({ ...p, payment_source: e.target.value }))}>
+                <select value={txFilter.payment} onChange={(e) => setTxFilter(p => ({ ...p, payment: e.target.value }))}>
                   <option value="">{t('financial.filterAllPayments')}</option>
-                  <option value="cash">{t('financial.payCash')}</option>
-                  <option value="credit">{t('financial.payCredit')}</option>
-                  <option value="mixed">{t('financial.payMixed')}</option>
-                  <option value="ticket">{t('financial.payTicket')}</option>
+                  <optgroup label={t('financial.filterGroupMethods', 'Meio de pagamento')}>
+                    {meiosOferecidos.map((codigo) => (
+                      <option key={codigo} value={filtroDeMeio(codigo)}>{resolveLabel(codigo)}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label={t('financial.filterGroupSources', 'Outras origens')}>
+                    {ORIGENS.map((codigo) => (
+                      <option key={codigo} value={filtroDeOrigem(codigo)}>{getPaymentLabel(codigo)}</option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
             </div>
 
-            {filteredTransactions.length === 0 ? (
+            {/* Totais do que está filtrado: é o que o clube confere com o
+                caixa, sem somar linha a linha. Entrada por tipo de venda (e
+                por meio de entrada), prêmio como saída, e o saldo. */}
+            {linhasDoExtrato.length > 0 && (
+              <section className="fn-tx-summary" aria-label={t('financial.summaryTitle', 'Totais do filtro')}>
+                <header className="fn-tx-summary__head">
+                  <span className="fn-tx-summary__title">{t('financial.summaryTitle', 'Totais do filtro')}</span>
+                  <span className="fn-tx-summary__scope">
+                    {nomeDoFiltroDePagamento}
+                    {' · '}
+                    {t('financial.summaryCount', '{{count}} movimento(s)', { count: resumo.quantidade })}
+                  </span>
+                </header>
+                <div className="fn-dre">
+                  {resumo.entradas.length > 0 && (
+                    <div className="fn-dre-section">
+                      <div className="fn-dre-title">{t('financial.summaryReceived', 'Recebido')}</div>
+                      {resumo.entradas.map((g) => linhasDoGrupo(g, ''))}
+                      <div className="fn-dre-row fn-dre-row--total">
+                        <span>{t('financial.summaryReceivedTotal', '= Total recebido')}</span>
+                        <span className="fn-dre-positive">{fmt(resumo.recebido)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {resumo.saidas.length > 0 && (
+                    <div className="fn-dre-section">
+                      <div className="fn-dre-title">{t('financial.summaryPaid', 'Pago')}</div>
+                      {resumo.saidas.map((g) => linhasDoGrupo(g, 'fn-dre-negative'))}
+                    </div>
+                  )}
+                  {resumo.entradas.length > 0 && resumo.saidas.length > 0 && (
+                    <div className="fn-dre-row fn-dre-row--highlight">
+                      <span>{t('financial.summaryBalance', '= Saldo (recebido − pago)')}</span>
+                      <span className={resumo.saldo >= 0 ? 'fn-dre-positive' : 'fn-dre-negative'}>{fmt(resumo.saldo)}</span>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {linhasDoExtrato.length === 0 ? (
               <EmptyState icon={null} title={t('financial.noTransactions')} subtitle={t('financial.noTransactionsHint')} />
             ) : (
               <div className="table-container">
@@ -800,7 +891,7 @@ const Financeiro = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTransactions.map((tx) => (
+                    {linhasDoExtrato.map(({ tx, centavos }) => (
                       <tr key={tx.id}>
                         <td>{new Date(tx.created_at).toLocaleDateString(i18n?.language)}</td>
                         <td>{tx.tournament_name || '--'}</td>
@@ -812,7 +903,16 @@ const Financeiro = () => {
                         </td>
                         <td>{getDescription(tx)}</td>
                         <td>{getPaymentDisplay(tx)}</td>
-                        <td className={tx.type === 'prize' ? 'fn-negative' : ''}>{fmt(tx.amount)}</td>
+                        <td className={tx.type === 'prize' ? 'fn-negative' : ''}>
+                          {/* Venda dividida no filtro de um meio: vale só a parte
+                              desse meio, para a coluna fechar com o quadro. */}
+                          {centavos !== Math.round((Number(tx.amount) || 0) * 100) ? (
+                            <>
+                              {fmt(centavos / 100)}
+                              <span className="fn-tx-of">{t('financial.summaryOfTotal', 'de {{total}}', { total: fmt(tx.amount) })}</span>
+                            </>
+                          ) : fmt(tx.amount)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

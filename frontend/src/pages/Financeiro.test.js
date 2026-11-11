@@ -104,6 +104,11 @@ const linhaDaTransacao = (texto) =>
 
 const aba = (chave) => screen.getByRole('button', { name: chave });
 
+// O <select> de forma de pagamento do extrato (o único com a origem crédito).
+const filtroDePagamento = () => Array.from(document.querySelectorAll('select')).find((s) =>
+  Array.from(s.options).some((o) => o.value === 'origem:credit')
+);
+
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
   trocarMoeda = jest.fn();
@@ -351,7 +356,9 @@ describe('forma de pagamento nas transações', () => {
         transactions: [{ id: 'x9', type: 'buy_in', amount: 10, payment_method: 'boleto' }] },
     });
     await gerar();
-    expect(await screen.findByText('boleto')).toBeInTheDocument();
+    // Na linha do extrato (e também vira opção do filtro, para dar para filtrar).
+    await waitFor(() => expect(linhaDaTransacao('financial.typeBuyIn')).toHaveTextContent('boleto'));
+    expect(Array.from(filtroDePagamento().options).map((o) => o.value)).toContain('meio:boleto');
   });
 
   it('transação sem método nem origem mostra travessão', async () => {
@@ -368,7 +375,8 @@ describe('forma de pagamento nas transações', () => {
       relatorio: { ...RELATORIO, transactions: [{ id: 'x9', type: 'tipo_novo', amount: 10 }] },
     });
     await gerar();
-    expect(await screen.findByText('tipo_novo')).toBeInTheDocument();
+    // Na linha do extrato (o quadro de totais também o mostra, como veio).
+    await waitFor(() => expect(linhaDaTransacao('tipo_novo')).toBeDefined());
   });
 });
 
@@ -390,13 +398,118 @@ describe('filtros das transações', () => {
     await montar();
     await gerar();
     await waitFor(() => expect(linhaDaTransacao('financial.typeRebuy')).toBeDefined());
-    const seletores = Array.from(document.querySelectorAll('select'));
-    const porOrigem = seletores.find((s) =>
-      Array.from(s.options).some((o) => o.value === 'credit')
-    );
-    await userEvent.selectOptions(porOrigem, 'credit');
+    await userEvent.selectOptions(filtroDePagamento(), 'origem:credit');
     expect(linhaDaTransacao('financial.typeRebuy')).toBeDefined();
     expect(linhaDaTransacao('financial.typeBuyIn')).toBeUndefined();
+  });
+});
+
+describe('totais do extrato (conferir o caixa)', () => {
+  // O pedido do clube: filtrar "Efectivo" e ver o total recebido em dinheiro,
+  // separado por tipo de venda, sem somar linha a linha.
+  const MOVIMENTOS = [
+    { id: 'm1', type: 'buy_in', amount: 400, payment_source: 'cash', payment_method: 'cash', buy_type_name: 'Buy-in' },
+    { id: 'm2', type: 'buy_in', amount: 400, payment_source: 'cash', payment_method: 'cash', buy_type_name: 'Buy-in Promocion' },
+    { id: 'm3', type: 'buy_in', amount: 400, payment_source: 'cash', payment_method: 'yape', buy_type_name: 'Buy-in' },
+    { id: 'm4', type: 'rebuy', amount: 1000, payment_source: 'cash', payment_method: 'cash', buy_type_name: 'Doble' },
+    { id: 'm5', type: 'addon', is_fee: true, amount: 40, payment_source: 'cash', payment_method: 'cash', buy_type_name: 'Bono Dealer' },
+    {
+      id: 'm6', type: 'rebuy', amount: 500, payment_source: 'cash', payment_method: 'split', buy_type_name: 'Doble',
+      payment_split: [{ payment_method: 'cash', amount: 300 }, { payment_method: 'transfer', amount: 200 }],
+    },
+    { id: 'm7', type: 'prize', amount: 900, payment_source: 'cash', player_name: 'Ganhador' },
+    { id: 'm8', type: 'buy_in', amount: 400, payment_source: 'credit', payment_method: 'cash', player_name: 'Do crédito' },
+  ];
+
+  const quadro = () => document.querySelector('.fn-tx-summary');
+  // As linhas do extrato (a última tabela; antes dela vem a "por torneio").
+  const linhasNaTabela = () => {
+    const tabelas = document.querySelectorAll('.transactions-table');
+    return tabelas[tabelas.length - 1].querySelectorAll('tbody tr');
+  };
+  const linhaDoTipo = (tipo) => quadro().querySelector(`[data-tipo="${tipo}"]`);
+
+  const montarComMovimentos = async () => {
+    usePaymentMethods.mockReturnValue({
+      labelFor: (c) => ({ yape: 'YAPE' }[c] || null),
+      methods: [
+        { code: 'cash', label: 'Efectivo', active: true },
+        { code: 'yape', label: 'YAPE', active: true },
+      ],
+    });
+    await montar({ relatorio: { ...RELATORIO, transactions: MOVIMENTOS } });
+    await gerar();
+    await waitFor(() => expect(quadro()).not.toBeNull());
+  };
+
+  it('o filtro oferece os meios reais do clube e, à parte, as origens', async () => {
+    await montarComMovimentos();
+    const valores = Array.from(filtroDePagamento().options).map((o) => o.value);
+    expect(valores).toEqual([
+      '', 'meio:cash', 'meio:yape', 'meio:transfer', 'origem:credit', 'origem:mixed', 'origem:ticket',
+    ]);
+  });
+
+  it('"Dinheiro" deixa o Yape, o crédito e a parte em transferência de fora', async () => {
+    await montarComMovimentos();
+    await userEvent.selectOptions(filtroDePagamento(), 'meio:cash');
+    expect(linhasNaTabela()).toHaveLength(6); // m1, m2, m4, m5, m6, m7
+    expect(linhaDaTransacao('Do crédito')).toBeUndefined();
+    // Buy-in: só os dois em dinheiro (o de Yape fica de fora).
+    expect(linhaDoTipo('buy_in')).toHaveTextContent('× 2');
+    expect(linhaDoTipo('buy_in')).toHaveTextContent('R$ 800.00');
+    // Rebuy: 1000 em dinheiro + só os 300 da dividida.
+    expect(linhaDoTipo('rebuy')).toHaveTextContent('R$ 1300.00');
+    expect(linhaDoTipo('fee')).toHaveTextContent('R$ 40.00');
+    expect(quadro()).toHaveTextContent('= Total recebido');
+    expect(quadro()).toHaveTextContent('R$ 2140.00');
+    // Prêmio é saída, e o saldo é o que deveria sobrar em dinheiro.
+    expect(linhaDoTipo('prize')).toHaveTextContent('R$ 900.00');
+    expect(quadro()).toHaveTextContent('R$ 1240.00');
+  });
+
+  it('dentro do tipo, abre por meio de entrada', async () => {
+    await montarComMovimentos();
+    await userEvent.selectOptions(filtroDePagamento(), 'meio:cash');
+    const subs = Array.from(quadro().querySelectorAll('.fn-tx-summary__sub')).map((el) => el.textContent);
+    expect(subs).toEqual(expect.arrayContaining([
+      expect.stringContaining('Buy-in Promocion'),
+    ]));
+    // Rebuy só tem "Doble": sem detalhe repetindo o tipo.
+    expect(subs.some((s) => s.includes('Doble'))).toBe(false);
+  });
+
+  it('na venda dividida, a coluna Valor mostra só a parte do meio filtrado', async () => {
+    // Senão a soma das linhas na tela não fecharia com o quadro.
+    await montarComMovimentos();
+    await userEvent.selectOptions(filtroDePagamento(), 'meio:cash');
+    const linha = Array.from(linhasNaTabela()).find((tr) => tr.textContent.includes('R$ 300.00'));
+    expect(linha).toBeDefined();
+    expect(linha.querySelector('.fn-tx-of')).not.toBeNull();
+  });
+
+  it('o filtro por tipo também vale para o quadro', async () => {
+    await montarComMovimentos();
+    await userEvent.selectOptions(filtroDePagamento(), 'meio:cash');
+    await userEvent.selectOptions(screen.getByDisplayValue('financial.filterAllTypes'), 'buy_in');
+    expect(linhaDoTipo('buy_in')).toHaveTextContent('R$ 800.00');
+    expect(linhaDoTipo('rebuy')).toBeNull();
+    expect(linhaDoTipo('prize')).toBeNull();
+  });
+
+  it('o meio personalizado tem o seu total', async () => {
+    await montarComMovimentos();
+    await userEvent.selectOptions(filtroDePagamento(), 'meio:yape');
+    expect(linhasNaTabela()).toHaveLength(1);
+    expect(quadro()).toHaveTextContent('YAPE');
+    expect(linhaDoTipo('buy_in')).toHaveTextContent('R$ 400.00');
+  });
+
+  it('sem nada no filtro, nem quadro nem tabela', async () => {
+    await montarComMovimentos();
+    await userEvent.selectOptions(filtroDePagamento(), 'origem:ticket');
+    expect(quadro()).toBeNull();
+    expect(screen.getByText('financial.noTransactions')).toBeInTheDocument();
   });
 });
 
