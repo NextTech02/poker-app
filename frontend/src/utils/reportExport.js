@@ -50,12 +50,26 @@ function displayValue(value, type, fmtCurrency) {
   }
 }
 
+// "06/11/2026 18:04": sem a vírgula e os segundos do toLocaleString(), que
+// faziam a data quebrar em duas linhas no PDF.
 function formatDate(value) {
   if (!value) return '';
   const d = new Date(value);
   if (isNaN(d.getTime())) return String(value);
-  return d.toLocaleString();
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
+
+const NUMERICOS = new Set(['int', 'number', 'currency', 'percent']);
+
+// Formato de número das células do Excel: o valor continua NÚMERO (soma,
+// filtra, vai para o BI), só a exibição ganha separador de milhar.
+const FORMATO_EXCEL = {
+  int: '#,##0',
+  number: '#,##0.##',
+  currency: '#,##0.00',
+  // O valor já vem em pontos percentuais (46.5, não 0.465).
+  percent: '0.0"%"',
+};
 
 function sectionColumns(section) {
   if (section.kind === 'keyvalue') {
@@ -121,16 +135,22 @@ async function exportXlsx(sections, filename, meta) {
 
   sections.forEach((section) => {
     let aoa;
+    // Tipo de cada célula, para o formato de número: por coluna na tabela,
+    // por linha no chave-valor (cada linha é uma métrica diferente).
+    let tipoDaCelula;
     if (section.kind === 'keyvalue') {
       aoa = [[section.keyLabel || 'Item', section.valueLabel || 'Valor']];
       section.rows.forEach((r) => aoa.push([r.label, rawValue(r.value, r.type)]));
+      tipoDaCelula = (linha, coluna) => (coluna === 1 ? section.rows[linha - 1]?.type : 'text');
     } else {
       const cols = section.columns;
       aoa = [cols.map((c) => c.label)];
       section.rows.forEach((row) => aoa.push(cols.map((c) => rawValue(row[c.key], c.type))));
+      tipoDaCelula = (linha, coluna) => cols[coluna]?.type;
     }
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws['!cols'] = computeColWidths(aoa);
+    formatarCelulasDoExcel(XLSX, ws, aoa, tipoDaCelula, section.kind !== 'keyvalue');
     XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(section.title, used));
   });
 
@@ -138,11 +158,32 @@ async function exportXlsx(sections, filename, meta) {
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
+// Separador de milhar nos números e, nas tabelas, filtro no cabeçalho (no
+// chave-valor de duas colunas o filtro só atrapalha).
+function formatarCelulasDoExcel(XLSX, ws, aoa, tipoDaCelula, comFiltro) {
+  const { encode_cell: celula, encode_range: intervalo } = XLSX.utils;
+  if (typeof celula !== 'function') return;
+  for (let r = 1; r < aoa.length; r++) {
+    aoa[r].forEach((valor, c) => {
+      const formato = FORMATO_EXCEL[tipoDaCelula(r, c)];
+      const ref = celula({ r, c });
+      if (formato && typeof valor === 'number' && ws[ref]) ws[ref].z = formato;
+    });
+  }
+  const colunas = aoa[0]?.length || 0;
+  if (comFiltro && aoa.length > 1 && colunas > 0 && typeof intervalo === 'function') {
+    ws['!autofilter'] = { ref: intervalo({ s: { r: 0, c: 0 }, e: { r: aoa.length - 1, c: colunas - 1 } }) };
+  }
+}
+
 function computeColWidths(aoa) {
   const widths = [];
   aoa.forEach((row) => {
     row.forEach((cell, i) => {
-      const len = String(cell ?? '').length;
+      // Número aparece com milhar e centavos ("139,100.00"): mais largo que o cru.
+      const len = typeof cell === 'number'
+        ? String(Math.round(Math.abs(cell))).length + 5
+        : String(cell ?? '').length;
       widths[i] = Math.max(widths[i] || 8, Math.min(len + 2, 48));
     });
   });
@@ -153,6 +194,32 @@ function computeColWidths(aoa) {
 
 // Acima disso, as colunas não cabem legíveis numa A4 em pé.
 const COLUNAS_NA_FOLHA_EM_PE = 9;
+
+// Espaço que um título precisa abaixo dele (o título + cabeçalho + 3 linhas):
+// sem isso o título ficava sozinho no pé da página e a tabela, na outra.
+const ESPACO_MINIMO_DA_SECAO = 120;
+
+// Largura de uma tabela chave-valor: esticada na folha inteira, o valor
+// ficava longe do rótulo.
+const LARGURA_DO_CHAVE_VALOR = 380;
+
+/**
+ * Estilo por coluna: número alinhado à direita (como numa planilha) e
+ * largura mínima do maior valor, para "S/ 30,000.00" e a data não quebrarem
+ * em duas linhas. O cabeçalho continua podendo quebrar entre palavras.
+ */
+function estilosDasColunas(doc, tipos, corpo, estilo) {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(estilo.fontSize);
+  const colunas = {};
+  tipos.forEach((tipo, i) => {
+    if (!NUMERICOS.has(tipo) && tipo !== 'date') return;
+    const maior = corpo.reduce((mx, linha) => Math.max(mx, doc.getTextWidth(String(linha[i] ?? ''))), 0);
+    colunas[i] = { minCellWidth: Math.ceil(maior + estilo.cellPadding * 2 + 2) };
+    if (NUMERICOS.has(tipo)) colunas[i].halign = 'right';
+  });
+  return colunas;
+}
 
 async function exportPdf(sections, filename, meta, fmtCurrency) {
   const { jsPDF } = await import('jspdf');
@@ -180,38 +247,54 @@ async function exportPdf(sections, filename, meta, fmtCurrency) {
   let cursorY = 92;
 
   sections.forEach((section) => {
-    doc.setTextColor(30, 25, 40);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    if (cursorY > doc.internal.pageSize.getHeight() - 80) {
+    if (cursorY > doc.internal.pageSize.getHeight() - ESPACO_MINIMO_DA_SECAO) {
       doc.addPage();
       cursorY = 48;
     }
+    doc.setTextColor(30, 25, 40);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
     doc.text(section.title, 40, cursorY);
     cursorY += 8;
 
+    const chaveValor = section.kind === 'keyvalue';
     let head;
     let body;
-    if (section.kind === 'keyvalue') {
+    let tipos;
+    if (chaveValor) {
       head = [[section.keyLabel || 'Item', section.valueLabel || 'Valor']];
       body = section.rows.map((r) => [r.label, displayValue(r.value, r.type, fmtCurrency)]);
+      // O valor é sempre a 2ª coluna; à direita, como os números da planilha.
+      tipos = ['text', 'number'];
     } else {
       const cols = section.columns;
       head = [cols.map((c) => c.label)];
       body = section.rows.map((row) => cols.map((c) => displayValue(row[c.key], c.type, fmtCurrency)));
+      tipos = cols.map((c) => c.type);
     }
+
+    const estilo = larga(section)
+      ? { fontSize: 7, cellPadding: 3, overflow: 'linebreak' }
+      : { fontSize: 8, cellPadding: 4, overflow: 'linebreak' };
+    const columnStyles = estilosDasColunas(doc, tipos, body, estilo);
 
     autoTable(doc, {
       head,
       body,
       startY: cursorY,
       margin: { left: 40, right: 40 },
-      styles: larga(section)
-        ? { fontSize: 7, cellPadding: 3, overflow: 'linebreak' }
-        : { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
-      headStyles: { fillColor: brand, textColor: 255, fontStyle: 'bold' },
+      tableWidth: chaveValor ? Math.min(LARGURA_DO_CHAVE_VALOR, pageW - 80) : 'auto',
+      styles: estilo,
+      columnStyles,
+      headStyles: { fillColor: brand, textColor: 255, fontStyle: 'bold', valign: 'bottom' },
       alternateRowStyles: { fillColor: [244, 242, 250] },
       theme: 'grid',
+      // O cabeçalho de uma coluna de número também vai para a direita.
+      didParseCell: (data) => {
+        if (data.section === 'head' && columnStyles[data.column.index]?.halign) {
+          data.cell.styles.halign = columnStyles[data.column.index].halign;
+        }
+      },
     });
     cursorY = doc.lastAutoTable.finalY + 24;
   });

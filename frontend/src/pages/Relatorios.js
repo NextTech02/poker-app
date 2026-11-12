@@ -11,6 +11,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './Relatorios.css';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { agruparMeiosDoPeriodo, colunasDosJogadores, entradasDoJogador } from '../utils/meiosDoPeriodo';
 
 const Relatorios = () => {
   const { t } = useTranslation();
@@ -59,12 +60,11 @@ const Relatorios = () => {
 
   const rebuyRate = ((reports.totalRebuys + reports.totalAddons) / (reports.totalBuyIns || 1) * 100).toFixed(1);
 
-  // Meios de entrada cadastrados pelo diretor que tiveram venda no período
-  // (viram as colunas da tabela de jogadores). Vazio com backend antigo.
-  const meios = useMemo(
-    () => (reports.byBuyType || []).map((b) => b.name).filter(Boolean),
-    [reports.byBuyType]
-  );
+  // Meios de entrada cadastrados pelo diretor que tiveram venda no período,
+  // um por nome (o servidor antigo mandava um "Buy-in" por torneio). Viram as
+  // colunas da tabela de jogadores. Vazio com backend antigo.
+  const meiosDoPeriodo = useMemo(() => agruparMeiosDoPeriodo(reports.byBuyType), [reports.byBuyType]);
+  const meios = useMemo(() => colunasDosJogadores(meiosDoPeriodo), [meiosDoPeriodo]);
   const rotuloCategoria = (c) => ({
     buy_in: t('reports.buyIns', 'Buy-ins'),
     rebuy: t('reports.rebuys', 'Rebuys'),
@@ -259,7 +259,7 @@ const Relatorios = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {reports.byBuyType.map((b, i) => (
+                      {meiosDoPeriodo.map((b, i) => (
                         <tr key={`${b.name}-${i}`}>
                           <td>{b.name}</td>
                           <td>{rotuloCategoria(b.category)}</td>
@@ -285,7 +285,7 @@ const Relatorios = () => {
                             ela repetiria a coluna ao lado numero por numero.
                             Com meios cadastrados, uma coluna por MEIO; sem
                             (backend antigo), as três categorias. */}
-                        {meios.length > 0 ? meios.map((nome) => <th key={nome}>{nome}</th>) : (
+                        {meios.length > 0 ? meios.map((m) => <th key={m.chave}>{m.nome}</th>) : (
                           <>
                             <th>{t('reports.buyIns', 'Buy-ins')}</th>
                             <th>{t('reports.rebuys', 'Rebuys')}</th>
@@ -299,8 +299,8 @@ const Relatorios = () => {
                       {reports.playerReports.map((player, index) => (
                         <tr key={index}>
                           <td className="player-name">{player.player_name}</td>
-                          {meios.length > 0 ? meios.map((nome) => (
-                            <td key={nome}>{player.by_buy_type?.[nome] ?? 0}</td>
+                          {meios.length > 0 ? meios.map((m) => (
+                            <td key={m.chave}>{entradasDoJogador(player, m.chave)}</td>
                           )) : (
                             <>
                               <td>{player.buy_ins}</td>
