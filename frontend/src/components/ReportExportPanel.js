@@ -6,6 +6,9 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { exportSections } from '../utils/reportExport';
 import { eDividido, rotuloDoPagamento } from '../utils/pagamentoDividido';
 import { meiosDosTorneios, entradasPorMeio } from '../utils/meiosDosTorneios';
+import { agruparMeiosDoPeriodo, colunasDosJogadores, entradasDoJogador } from '../utils/meiosDoPeriodo';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { BUILTIN_PAYMENT_CODES, isBuiltinMethod } from '../utils/paymentMethodLabels';
 import './ReportExportPanel.css';
 
 // Painel "Exportar" da aba Relatórios.
@@ -40,10 +43,44 @@ const typeLabelMap = (t) => ({
   prize: t('financial.typePrize', 'Prêmio'),
 });
 
+// Origens que não são meio de pagamento (a venda paga com crédito, misto ou ticket).
+const ROTULO_DA_ORIGEM = {
+  credit: ['financial.paymentCredit', 'Crédito'],
+  mixed: ['financial.paymentMixed', 'Misto'],
+  ticket: ['financial.paymentTicket', 'Ticket'],
+};
+
+// "2026-10-01" → "01/10/2026" no idioma do app. Lido como data LOCAL: com
+// new Date("2026-10-01") o fuso de -3h mostraria 30/09.
+const dataDoPeriodo = (iso, idioma) => {
+  const [ano, mes, dia] = String(iso || '').split('-').map(Number);
+  if (!ano || !mes || !dia) return iso || '';
+  return new Date(ano, mes - 1, dia).toLocaleDateString(idioma);
+};
+
 const ReportExportPanel = ({ summary, dateRange }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
+  // `labelFor` pode não existir fora do provider (testes): fica o código.
+  const { labelFor } = usePaymentMethods() || {};
+
+  // Nome do meio de pagamento como o clube vê ("Efectivo", "YAPE"), não o
+  // código gravado ("cash", "yape").
+  const rotuloDoMeio = (codigo) => {
+    if (!codigo) return '—';
+    if (isBuiltinMethod(codigo)) return t(BUILTIN_PAYMENT_CODES[codigo]);
+    if (ROTULO_DA_ORIGEM[codigo]) return t(...ROTULO_DA_ORIGEM[codigo]);
+    return (typeof labelFor === 'function' && labelFor(codigo)) || codigo;
+  };
+  // A forma real vence a origem; dinheiro (ou nada) cai para a origem — a
+  // mesma regra do extrato do Financeiro.
+  const formaDePagamento = (tx) => {
+    if (eDividido(tx)) return rotuloDoPagamento(tx, rotuloDoMeio, formatCurrency);
+    if (tx.payment_method && tx.payment_method !== 'cash') return rotuloDoMeio(tx.payment_method);
+    return rotuloDoMeio(tx.payment_source || tx.payment_method);
+  };
+  const periodo = `${dataDoPeriodo(dateRange.start, i18n?.language)} — ${dataDoPeriodo(dateRange.end, i18n?.language)}`;
 
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState('xlsx');
@@ -87,8 +124,10 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     const sections = [];
     const s = summary || {};
     const categorias = typeLabelMap(t);
-    // Meios de entrada cadastrados pelo diretor ("Buy-in", "Doble", "Tasa"…).
-    const meios = (s.byBuyType || []).map((b) => b.name).filter(Boolean);
+    // Meios de entrada cadastrados pelo diretor ("Buy-in", "Doble", "Tasa"…),
+    // um por nome mesmo que o servidor mande um por torneio.
+    const meiosDoPeriodo = agruparMeiosDoPeriodo(s.byBuyType);
+    const colunasDeMeio = colunasDosJogadores(meiosDoPeriodo);
 
     if (selected.summary) {
       const totalBuyIns = s.totalBuyIns || 0;
@@ -101,7 +140,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
         keyLabel: t('reports.export.metric', 'Métrica'),
         valueLabel: t('reports.export.value', 'Valor'),
         rows: [
-          { label: t('reports.period', 'Período'), value: `${dateRange.start} — ${dateRange.end}`, type: 'text' },
+          { label: t('reports.period', 'Período'), value: periodo, type: 'text' },
           { label: t('reports.totalRevenue', 'Receita Total'), value: s.totalRevenue, type: 'currency' },
           { label: t('reports.totalTournaments', 'Total de Torneios'), value: s.totalTournaments, type: 'int' },
           { label: t('reports.totalEntries', 'Total de Entradas'), value: s.totalPlayers, type: 'int' },
@@ -117,7 +156,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
 
     // Vendas do período por MEIO de entrada — a Tasa, o Doble e cada item
     // cobrado, com quantidade e valor. Antes só saía junto de "Jogadores".
-    if ((selected.summary || selected.players) && meios.length > 0) {
+    if ((selected.summary || selected.players) && meiosDoPeriodo.length > 0) {
       sections.push({
         kind: 'table',
         title: t('reports.byBuyType', 'Por meio de entrada'),
@@ -127,7 +166,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { key: 'count', label: t('reports.buyTypeCount', 'Quantidade'), type: 'int' },
           { key: 'amount', label: t('reports.buyTypeAmount', 'Valor'), type: 'currency' },
         ],
-        rows: (s.byBuyType || []).map((b) => ({ ...b, category: categorias[b.category] || b.category })),
+        rows: meiosDoPeriodo.map((b) => ({ ...b, category: categorias[b.category] || b.category })),
       });
     }
 
@@ -158,8 +197,8 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     if (selected.players) {
       // Com meios cadastrados pelo diretor, uma coluna por MEIO (o que ele
       // vê na tela); sem (backend antigo), as três categorias fixas.
-      const colunasPorMeio = meios.length > 0
-        ? meios.map((nome) => ({ key: `meio:${nome}`, label: nome, type: 'int' }))
+      const colunasPorMeio = colunasDeMeio.length > 0
+        ? colunasDeMeio.map((m) => ({ key: `meio:${m.chave}`, label: m.nome, type: 'int' }))
         : [
           { key: 'buy_ins', label: t('reports.buyIns', 'Buy-ins'), type: 'int' },
           { key: 'rebuys', label: t('reports.rebuys', 'Rebuys'), type: 'int' },
@@ -176,7 +215,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
         ],
         rows: (s.playerReports || []).map((p) => ({
           ...p,
-          ...Object.fromEntries(meios.map((nome) => [`meio:${nome}`, p.by_buy_type?.[nome] ?? 0])),
+          ...Object.fromEntries(colunasDeMeio.map((m) => [`meio:${m.chave}`, entradasDoJogador(p, m.chave)])),
         })),
       });
     }
@@ -258,9 +297,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           description: tx.buy_type_name
             || (tx.type === 'prize' && tx.prize_kind === 'knockout'
               ? t('financial.descKnockout', 'Prêmio por eliminação (KO)') : '—'),
-          payment_method: eDividido(tx)
-            ? rotuloDoPagamento(tx, (code) => code || '—', formatCurrency)
-            : (tx.payment_method || tx.payment_source || '—'),
+          payment_method: formaDePagamento(tx),
         })),
       });
     }
@@ -326,7 +363,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     }
 
     return sections;
-  }, [summary, selected, dateRange, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [summary, selected, dateRange, t, labelFor, formatCurrency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExport = async () => {
     const chosen = SECTION_DEFS.filter((d) => selected[d.id]);
@@ -363,8 +400,10 @@ const ReportExportPanel = ({ summary, dateRange }) => {
                 : t('tournamentReport.cashPrize', 'Dinheiro'),
               player_name: p.player_name || '—',
               prize_amount: p.prize_amount,
-              released: p.released ? '✓' : '—',
-              paid: p.paid ? '✓' : '—',
+              // Texto, não "✓": a fonte do PDF não tem o símbolo e ele saía
+              // como um apóstrofo.
+              released: p.released ? t('common.yes', 'Sim') : t('common.no', 'Não'),
+              paid: p.paid ? t('common.yes', 'Sim') : t('common.no', 'Não'),
             });
           });
         });
@@ -388,7 +427,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
         formatCurrency,
         meta: {
           title: t('reports.export.docTitle', 'Relatório de Torneios'),
-          subtitle: `${t('reports.period', 'Período')}: ${dateRange.start} — ${dateRange.end}`,
+          subtitle: `${t('reports.period', 'Período')}: ${periodo}`,
           footer: t('reports.export.docTitle', 'Relatório de Torneios'),
           brandRgb: [114, 51, 248],
         },

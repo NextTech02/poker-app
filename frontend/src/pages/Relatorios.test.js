@@ -203,6 +203,32 @@ describe('por meio de entrada', () => {
     expect(tabela).toHaveTextContent('R$ 50000.00');
   });
 
+  it('servidor que manda um meio por torneio: uma coluna e uma linha por nome', async () => {
+    // Cada torneio tem o seu "Buy-in"; repetido, ele virava uma coluna por
+    // torneio, todas com o mesmo número.
+    await montar({
+      relatorio: {
+        ...COM_MEIOS,
+        byBuyType: [
+          { name: 'Buy-in', category: 'buy_in', count: 100, amount: 50000 },
+          { name: 'Buy-in', category: 'buy_in', count: 50, amount: 25000 },
+          { name: 'Tasa', category: 'addon', count: 20, amount: 2000 },
+        ],
+        playerReports: [
+          { player_id: 'p1', player_name: 'Ana', total_spent: 3000, buy_ins: 2, rebuys: 0, addons: 1, by_buy_type: { 'Buy-in': 2, TASA: 1 } },
+        ],
+      },
+    });
+    const cabecalhos = Array.from(document.querySelectorAll('.reports-table:not(.reports-table--buytypes) thead th')).map((th) => th.textContent);
+    expect(cabecalhos).toEqual(['Jogador', 'Buy-in', 'Tasa', 'Total Gasto']);
+    const ana = Array.from(document.querySelectorAll('.reports-table:not(.reports-table--buytypes) tbody tr')).find((tr) => tr.textContent.includes('Ana'));
+    // "TASA" da venda cai na coluna "Tasa".
+    expect(Array.from(ana.querySelectorAll('td')).map((td) => td.textContent)).toEqual(['Ana', '2', '1', 'R$ 3000.00']);
+    const linhasDoCard = document.querySelectorAll('.reports-table--buytypes tbody tr');
+    expect(linhasDoCard).toHaveLength(2);
+    expect(linhasDoCard[0]).toHaveTextContent('150');
+  });
+
   it('sem a lista (backend antigo) as três categorias continuam', async () => {
     await montar();
     const cabecalhos = Array.from(document.querySelectorAll('.reports-table thead th')).map((th) => th.textContent);
