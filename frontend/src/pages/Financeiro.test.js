@@ -312,6 +312,45 @@ describe('outras receitas e despesas no DRE', () => {
     expect(quadro).toBeTruthy();
   });
 
+  it('o quadro por torneio mostra as taxas e, abaixo, cada meio de entrada vendido', async () => {
+    // Pedido do NSOP: o Doble e o Buy-in Promocional sumiam dentro de
+    // Rebuys e Buy-ins.
+    await montar({
+      relatorio: {
+        ...RELATORIO,
+        by_tournament: [{
+          ...RELATORIO.by_tournament[0],
+          fees_count: 217,
+          by_buy_type: [
+            { name: 'Buy-in', category: 'buy_in', count: 127, amount: 0 },
+            { name: 'Buy-in Promocion', category: 'buy_in', count: 32, amount: 0 },
+            { name: 'Doble', category: 'rebuy', count: 33, amount: 0 },
+            { name: 'Bono Dealer', category: 'fee', count: 217, amount: 0 },
+          ],
+        }],
+      },
+    });
+    await gerar();
+    const quadro = await waitFor(() => {
+      const tabela = Array.from(document.querySelectorAll('table')).find((tab) => tab.textContent.includes('Main Event'));
+      expect(tabela).toBeTruthy();
+      return tabela;
+    });
+    expect(Array.from(quadro.querySelectorAll('th')).map((th) => th.textContent)).toContain('Taxas');
+    expect(quadro.querySelector('tbody tr')).toHaveTextContent('217');
+    const meios = Array.from(quadro.querySelectorAll('.fn-bt-meio')).map((el) => el.textContent);
+    expect(meios).toEqual(['Buy-in × 127', 'Buy-in Promocion × 32', 'Doble × 33', 'Bono Dealer × 217']);
+  });
+
+  it('torneio sem meios (servidor antigo) fica sem a linha de baixo', async () => {
+    await montar();
+    await gerar();
+    await waitFor(() => expect(linhaDaTransacao('Main Event')).toBeDefined());
+    expect(document.querySelector('.fn-bt-meios')).toBeNull();
+    // A coluna de taxas não fica vazia: zero.
+    expect(linhaDaTransacao('Main Event').children[5]).toHaveTextContent('0');
+  });
+
   it('relatório SEM o quadro por torneio não derruba a tela', async () => {
     // Era o defeito: `data.by_tournament.length` sem proteção quebrava tudo.
     await montar({ relatorio: { ...RELATORIO, by_tournament: undefined } });
@@ -605,17 +644,20 @@ describe('premiação por eliminação no DRE', () => {
 });
 
 describe('taxas no DRE', () => {
+  // Só o DRE: o quadro por torneio também tem a coluna "Taxas".
+  const dre = () => document.querySelector('.fn-dre-card .fn-dre');
+
   it('linha própria de Taxas na receita', async () => {
     await montar({ relatorio: { ...RELATORIO, revenue: { ...RELATORIO.revenue, fees: 350 } } });
     await gerar();
-    expect(await screen.findByText('Taxas')).toBeInTheDocument();
+    await waitFor(() => expect(within(dre()).getByText('Taxas')).toBeInTheDocument());
   });
 
   it('sem taxas a linha não aparece', async () => {
     await montar();
     await gerar();
     await screen.findByText('financial.dreAddons');
-    expect(screen.queryByText('Taxas')).toBeNull();
+    expect(within(dre()).queryByText('Taxas')).toBeNull();
   });
 });
 

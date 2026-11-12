@@ -29,10 +29,11 @@ jest.mock('xlsx', () => ({
   writeFile: jest.fn(),
 }));
 
-const espiaoPdf = { tabelas: [], salvo: null };
+const espiaoPdf = { tabelas: [], salvo: null, opcoes: null };
 jest.mock('jspdf', () => ({
   jsPDF: class {
-    constructor() {
+    constructor(opcoes) {
+      espiaoPdf.opcoes = opcoes;
       this.internal = {
         pageSize: { getWidth: () => 595, getHeight: () => 842 },
         getNumberOfPages: () => 1,
@@ -452,6 +453,25 @@ describe('PDF', () => {
     });
     expect(espiaoPdf.tabelas[0].head).toEqual([['Nome', 'Entradas', 'Gasto']]);
     expect(espiaoPdf.tabelas[0].body[0]).toEqual(['Fulano', '3', 'R$ 900.00']);
+  });
+
+  it('tabela estreita: folha em pé, como sempre', async () => {
+    await exportSections([SECAO_TABELA, SECAO_RESUMO], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
+    expect(espiaoPdf.opcoes.orientation).toBe('portrait');
+    expect(espiaoPdf.tabelas[0].styles.fontSize).toBe(8);
+  });
+
+  it('tabela larga (uma coluna por meio de entrada) deita a folha e aperta a letra', async () => {
+    // "Torneios" com Buy-in, Promoción, Doble, Bono Dealer… não cabe em pé.
+    const larga = {
+      kind: 'table',
+      title: 'Torneios',
+      columns: Array.from({ length: 14 }, (_, i) => ({ key: `c${i}`, label: `C${i}`, type: 'int' })),
+      rows: [{ c0: 1 }],
+    };
+    await exportSections([SECAO_RESUMO, larga, SECAO_TABELA], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
+    expect(espiaoPdf.opcoes.orientation).toBe('landscape');
+    expect(espiaoPdf.tabelas.map((tab) => tab.styles.fontSize)).toEqual([8, 7, 8]);
   });
 
   it('muitas seções continuam gerando uma tabela cada', async () => {

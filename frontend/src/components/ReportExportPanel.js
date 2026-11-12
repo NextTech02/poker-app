@@ -5,6 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { exportSections } from '../utils/reportExport';
 import { eDividido, rotuloDoPagamento } from '../utils/pagamentoDividido';
+import { meiosDosTorneios, entradasPorMeio } from '../utils/meiosDosTorneios';
 import './ReportExportPanel.css';
 
 // Painel "Exportar" da aba Relatórios.
@@ -181,6 +182,9 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     }
 
     if (selected.tournaments && financial) {
+      // Depois das categorias, uma coluna por MEIO de entrada ("Buy-in
+      // Promoción", "Doble", "Bono Dealer"…): é o que o clube audita.
+      const meiosDoPeriodo = meiosDosTorneios(financial.by_tournament);
       sections.push({
         kind: 'table',
         title: secTitle('tournaments'),
@@ -191,11 +195,22 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { key: 'rebuys_count', label: t('reports.rebuys', 'Rebuys'), type: 'int' },
           { key: 'addons_count', label: t('reports.addons', 'Add-ons'), type: 'int' },
           { key: 'fees_count', label: t('reports.fees', 'Taxas'), type: 'int' },
+          ...meiosDoPeriodo.map((m) => ({
+            key: `meio:${m.chave}`,
+            label: m.repetido ? `${m.nome} (${categorias[m.categoria] || m.categoria})` : m.nome,
+            type: 'int',
+          })),
           { key: 'revenue', label: t('tournamentReport.revenue', 'Receita'), type: 'currency' },
           { key: 'prizes', label: t('financial.prizes', 'Prêmios'), type: 'currency' },
           { key: 'net', label: t('financial.net', 'Líquido'), type: 'currency' },
         ],
-        rows: financial.by_tournament || [],
+        rows: (financial.by_tournament || []).map((bt) => {
+          const entradas = entradasPorMeio(bt);
+          return {
+            ...bt,
+            ...Object.fromEntries(meiosDoPeriodo.map((m) => [`meio:${m.chave}`, entradas[m.chave] ?? 0])),
+          };
+        }),
       });
 
       // Cada torneio aberto por meio de entrada: uma linha por (torneio, meio).

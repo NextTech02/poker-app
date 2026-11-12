@@ -392,6 +392,65 @@ describe('detalhe por meio de entrada (pedido do NSOP)', () => {
     ]);
   });
 
+  it('a aba Torneios ganha uma coluna por meio, depois das categorias', async () => {
+    // "Assim como a Tasa, agregar o Doble" — e o Buy-in Promocional.
+    responder({
+      financeiro: {
+        ...FIN,
+        by_tournament: [
+          {
+            tournament_id: 't1', tournament_name: 'Main Event', buy_ins_count: 159, rebuys_count: 68, fees_count: 217,
+            by_buy_type: [
+              { name: 'Buy-in', category: 'buy_in', count: 127, amount: 0 },
+              { name: 'Buy-in Promocion', category: 'buy_in', count: 32, amount: 0 },
+              { name: 'Doble', category: 'rebuy', count: 33, amount: 0 },
+              { name: 'Rebuy', category: 'rebuy', count: 35, amount: 0 },
+              { name: 'Bono Dealer', category: 'fee', count: 217, amount: 0 },
+            ],
+          },
+          {
+            tournament_id: 't2', tournament_name: 'Sat', buy_ins_count: 7,
+            by_buy_type: [{ name: 'Buy-in', category: 'buy_in', count: 7, amount: 0 }],
+          },
+        ],
+      },
+    });
+    await abrir({ summary: COM_MEIOS });
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    const torneios = secao('Torneios');
+    expect(torneios.columns.map((c) => c.label)).toEqual([
+      'Torneio', 'Jogadores', 'Buy-ins', 'Rebuys', 'Add-ons', 'Taxas',
+      'Buy-in', 'Buy-in Promocion', 'Doble', 'Rebuy', 'Bono Dealer',
+      'Receita', 'Prêmios', 'Líquido',
+    ]);
+    const valores = (linha) => torneios.columns.slice(6, 11).map((c) => linha[c.key]);
+    expect(valores(torneios.rows[0])).toEqual([127, 32, 33, 35, 217]);
+    // O torneio que não vendeu o meio fica com zero, não com a célula vazia.
+    expect(valores(torneios.rows[1])).toEqual([7, 0, 0, 0, 0]);
+  });
+
+  it('nome repetido em duas categorias diz a categoria no cabeçalho', async () => {
+    responder({
+      financeiro: {
+        ...FIN,
+        by_tournament: [{
+          tournament_id: 't1', tournament_name: 'Main Event',
+          by_buy_type: [
+            { name: 'Doble', category: 'buy_in', count: 2, amount: 0 },
+            { name: 'Doble', category: 'rebuy', count: 5, amount: 0 },
+          ],
+        }],
+      },
+    });
+    await abrir({ summary: COM_MEIOS });
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    const rotulos = secao('Torneios').columns.map((c) => c.label);
+    expect(rotulos).toContain('Doble (Buy-ins)');
+    expect(rotulos).toContain('Doble (Rebuys)');
+  });
+
   it('transações dizem o que foi vendido e marcam a taxa', async () => {
     await exportarTudo();
     const linhas = secao('Transações').rows.map((r) => [r.type, r.description]);

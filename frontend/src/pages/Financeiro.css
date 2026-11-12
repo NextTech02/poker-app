@@ -160,6 +160,35 @@
   flex: 0 1 200px;
 }
 
+/* Resumo por torneio: abaixo de cada torneio, os meios de entrada vendidos.
+   As duas linhas leem como uma só — sem a borda entre elas. */
+.transactions-table tr.fn-bt-row--com-meios td {
+  border-bottom: none;
+}
+
+.transactions-table tr.fn-bt-meios td {
+  padding-top: 0;
+  white-space: normal;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.fn-bt-meios__label {
+  margin-right: 0.5rem;
+}
+
+.fn-bt-meio {
+  display: inline-block;
+  margin-right: 0.9rem;
+  white-space: nowrap;
+}
+
+.fn-bt-meio b {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Quadro de totais do extrato: o que o clube confere com o caixa. */
 .fn-tx-summary {
   max-width: 560px;
