@@ -25,6 +25,10 @@ jest.mock('../config/api', () => ({ __esModule: true, default: { get: jest.fn() 
 jest.mock('../utils/reportExport', () => ({ exportSections: jest.fn() }));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+// Os meios personalizados do clube (Yape) têm o rótulo do cadastro.
+jest.mock('../contexts/PaymentMethodsContext', () => ({
+  usePaymentMethods: () => ({ labelFor: (c) => ({ yape: 'YAPE' }[c] || null) }),
+}));
 jest.mock('react-i18next', () => {
   const t = (chave, padrao) => (typeof padrao === 'string' ? padrao : chave);
   const traducao = { t, i18n: { language: 'pt-BR' } };
@@ -260,7 +264,10 @@ describe('conteúdo exportado', () => {
     const opcoes = exportSections.mock.calls[0][1];
     expect(opcoes.filename).toContain('2026-06-01');
     expect(opcoes.filename).toContain('2026-06-30');
-    expect(opcoes.meta.subtitle).toContain('2026-06-01');
+    // No documento, a data como se lê no idioma do app — e no dia certo: lida
+    // como UTC, "2026-06-01" viraria 31/05 no fuso de -3h.
+    expect(opcoes.meta.subtitle).toContain('01/06/2026');
+    expect(opcoes.meta.subtitle).toContain('30/06/2026');
   });
 
   it('o formato escolhido é repassado', async () => {
@@ -449,6 +456,81 @@ describe('detalhe por meio de entrada (pedido do NSOP)', () => {
     const rotulos = secao('Torneios').columns.map((c) => c.label);
     expect(rotulos).toContain('Doble (Buy-ins)');
     expect(rotulos).toContain('Doble (Rebuys)');
+  });
+
+  it('a forma de pagamento sai pelo nome, não pelo código gravado', async () => {
+    // O PDF de 10/11 dizia "cash".
+    responder({
+      financeiro: {
+        ...FIN,
+        transactions: [
+          { created_at: '2026-06-02T20:00:00Z', type: 'buy_in', amount: 400, payment_method: 'cash', payment_source: 'cash' },
+          { created_at: '2026-06-02T20:01:00Z', type: 'buy_in', amount: 400, payment_method: 'yape', payment_source: 'cash' },
+          { created_at: '2026-06-02T20:02:00Z', type: 'rebuy', amount: 400, payment_method: 'cash', payment_source: 'credit' },
+          { created_at: '2026-06-02T20:03:00Z', type: 'prize', amount: 900, payment_source: 'cash' },
+          {
+            created_at: '2026-06-02T20:04:00Z', type: 'rebuy', amount: 500, payment_method: 'split', payment_source: 'cash',
+            payment_split: [{ payment_method: 'cash', amount: 300 }, { payment_method: 'yape', amount: 200 }],
+          },
+        ],
+      },
+    });
+    await abrir({ summary: COM_MEIOS });
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    expect(secao('Transações').rows.map((r) => r.payment_method)).toEqual([
+      'financial.paymentCash', 'YAPE', 'Crédito', 'financial.paymentCash',
+      'financial.paymentCash R$ 300 · YAPE R$ 200',
+    ]);
+  });
+
+  it('servidor que manda um meio por torneio: uma linha e uma coluna por nome', async () => {
+    // O PDF de 10/11: 15 linhas "Buy-in" e o quadro de jogadores com 45
+    // colunas, espremido até o cabeçalho quebrar letra por letra.
+    const ANTIGO = {
+      ...COM_MEIOS,
+      byBuyType: [
+        { name: 'Buy-in', category: 'buy_in', count: 127, amount: 63500 },
+        { name: 'Bono Dealer', category: 'fee', count: 188, amount: 9400 },
+        { name: 'Buy-in', category: 'buy_in', count: 18, amount: 9000 },
+        { name: 'Rebuy', category: 'rebuy', count: 35, amount: 17500 },
+        { name: 'BONO DEALER', category: 'fee', count: 19, amount: 380 },
+      ],
+      playerReports: [
+        { player_name: 'Ana', total_entries: 3, total_spent: 900, by_buy_type: { 'Buy-in': 2, 'Bono Dealer': 1, 'BONO DEALER': 2 } },
+      ],
+    };
+    responder({ financeiro: FIN });
+    await abrir({ summary: ANTIGO });
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    // Uma linha por meio, somada, na ordem Buy-in → Rebuy → Taxa.
+    expect(secao('Por meio de entrada').rows.map((r) => [r.name, r.count, r.amount])).toEqual([
+      ['Buy-in', 145, 72500], ['Rebuy', 35, 17500], ['Bono Dealer', 207, 9780],
+    ]);
+    const jogadores = secao('Jogadores');
+    expect(jogadores.columns.map((c) => c.label)).toEqual([
+      'Jogador', 'Entradas', 'Buy-in', 'Rebuy', 'Bono Dealer', 'Total Gasto',
+    ]);
+    // "Bono Dealer" e "BONO DEALER" do jogador caem na mesma coluna.
+    const ana = jogadores.rows[0];
+    expect(jogadores.columns.slice(2, 5).map((c) => ana[c.key])).toEqual([2, 0, 3]);
+  });
+
+  it('a premiação diz Sim/Não, não "✓" (a fonte do PDF não tem o símbolo)', async () => {
+    responder({
+      financeiro: FIN,
+      premios: {
+        t1: () => Promise.resolve({ data: { prizes: [
+          { position: 1, player_name: 'Ana', prize_amount: 900, released: true, paid: false },
+        ] } }),
+      },
+    });
+    await abrir({ summary: COM_MEIOS });
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    const [premio] = secao('Premiação').rows;
+    expect([premio.released, premio.paid]).toEqual(['Sim', 'Não']);
   });
 
   it('transações dizem o que foi vendido e marcam a taxa', async () => {

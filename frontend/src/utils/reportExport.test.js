@@ -22,9 +22,16 @@ const espiaoXlsx = { abas: [] };
 jest.mock('xlsx', () => ({
   utils: {
     book_new: () => ({ SheetNames: [], Sheets: {} }),
-    aoa_to_sheet: (aoa) => ({ aoa }),
+    // Uma célula por posição, como o SheetJS faz, para o formato de número.
+    aoa_to_sheet: (aoa) => {
+      const ws = { aoa };
+      aoa.forEach((linha, r) => linha.forEach((v, c) => { ws[`${c}:${r}`] = { v }; }));
+      return ws;
+    },
+    encode_cell: ({ r, c }) => `${c}:${r}`,
+    encode_range: ({ s, e }) => `${s.c}:${s.r}-${e.c}:${e.r}`,
     book_append_sheet: (wb, ws, nome) =>
-      espiaoXlsx.abas.push({ nome, aoa: ws.aoa, larguras: ws['!cols'] }),
+      espiaoXlsx.abas.push({ nome, aoa: ws.aoa, larguras: ws['!cols'], ws }),
   },
   writeFile: jest.fn(),
 }));
@@ -48,6 +55,8 @@ jest.mock('jspdf', () => ({
     setTextColor = () => this;
     setFont = () => this;
     setFontSize = () => this;
+    // Largura "medida": 4pt por caractere basta para conferir a conta.
+    getTextWidth = (texto) => String(texto).length * 4;
     text = () => this;
     addPage = () => this;
     setPage = () => this;
@@ -249,6 +258,23 @@ describe('CSV', () => {
     expect(baixado.conteudo).toMatch(/2026/);
   });
 
+  it('data e hora sem vírgula nem segundos (no PDF quebrava em duas linhas)', async () => {
+    await exportSections(
+      [
+        {
+          kind: 'table',
+          title: 'Datas',
+          columns: [{ key: 'quando', label: 'Quando', type: 'date' }],
+          rows: [{ quando: '2026-06-08T12:34:56Z' }],
+        },
+      ],
+      { format: 'csv', filename: 'rel' }
+    );
+    const valor = baixado.conteudo.replace('﻿', '').split('\r\n')[2];
+    expect(valor).not.toMatch(/,/);
+    expect(valor).not.toMatch(/\d{1,2}:\d{2}:\d{2}/);
+  });
+
   it('data inválida sai como veio, sem "Invalid Date"', async () => {
     await exportSections(
       [
@@ -351,6 +377,38 @@ describe('Excel', () => {
     const nome = espiaoXlsx.abas[0].nome;
     expect(nome.length).toBeLessThanOrEqual(31);
     expect(nome).not.toMatch(/[:/?*[\]]/);
+  });
+
+  it('número ganha separador de milhar sem deixar de ser número', async () => {
+    await exportSections([SECAO_TABELA], { format: 'xlsx', filename: 'rel' });
+    const { ws } = espiaoXlsx.abas[0];
+    expect(ws['2:1']).toEqual({ v: 900, z: '#,##0.00' }); // moeda
+    expect(ws['1:1']).toEqual({ v: 3, z: '#,##0' }); // inteiro
+    expect(ws['0:1'].z).toBeUndefined(); // texto
+    expect(ws['2:0'].z).toBeUndefined(); // cabeçalho
+  });
+
+  it('no chave-valor, o formato segue o tipo de cada linha', async () => {
+    await exportSections([SECAO_RESUMO], { format: 'xlsx', filename: 'rel' });
+    const { ws } = espiaoXlsx.abas[0];
+    expect(ws['1:1'].z).toBe('#,##0.00'); // Receita (moeda)
+    expect(ws['1:2'].z).toBe('0.0"%"'); // Rake (percentual em pontos)
+    expect(ws['1:3'].z).toBeUndefined(); // Etapa (texto)
+  });
+
+  it('tabela tem filtro no cabeçalho; chave-valor não', async () => {
+    await exportSections([SECAO_TABELA, SECAO_RESUMO], { format: 'xlsx', filename: 'rel' });
+    expect(espiaoXlsx.abas[0].ws['!autofilter']).toEqual({ ref: '0:0-2:2' });
+    expect(espiaoXlsx.abas[1].ws['!autofilter']).toBeUndefined();
+  });
+
+  it('a coluna de número tem espaço para o milhar e os centavos', async () => {
+    // "139100" cru tem 6 caracteres; exibido, "139,100.00" tem 10 — sem a
+    // folga o Excel mostraria "####".
+    await exportSections([{
+      kind: 'table', title: 'X', columns: [{ key: 'v', label: 'V', type: 'currency' }], rows: [{ v: 139100 }],
+    }], { format: 'xlsx', filename: 'rel' });
+    expect(espiaoXlsx.abas[0].larguras[0].wch).toBeGreaterThanOrEqual(11);
   });
 
   it('seção sem título ainda vira uma aba nomeada', async () => {
@@ -472,6 +530,53 @@ describe('PDF', () => {
     await exportSections([SECAO_RESUMO, larga, SECAO_TABELA], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
     expect(espiaoPdf.opcoes.orientation).toBe('landscape');
     expect(espiaoPdf.tabelas.map((tab) => tab.styles.fontSize)).toEqual([8, 7, 8]);
+  });
+
+  it('número à direita e com a largura do maior valor, para não quebrar', async () => {
+    // O PDF de 10/11 tinha "S/" numa linha e "30,000.00" na outra.
+    await exportSections([SECAO_TABELA], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
+    const { columnStyles } = espiaoPdf.tabelas[0];
+    expect(columnStyles[0]).toBeUndefined(); // texto: livre para quebrar
+    expect(columnStyles[1]).toEqual({ halign: 'right', minCellWidth: 1 * 4 + 4 * 2 + 2 });
+    // "R$ 900.00" e "R$ 300.50": 9 caracteres
+    expect(columnStyles[2]).toEqual({ halign: 'right', minCellWidth: 9 * 4 + 4 * 2 + 2 });
+  });
+
+  it('o cabeçalho de uma coluna de número também vai para a direita', async () => {
+    await exportSections([SECAO_TABELA], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
+    const { didParseCell } = espiaoPdf.tabelas[0];
+    const celula = (section, index) => {
+      const data = { section, column: { index }, cell: { styles: {} } };
+      didParseCell(data);
+      return data.cell.styles.halign;
+    };
+    expect(celula('head', 2)).toBe('right');
+    expect(celula('head', 0)).toBeUndefined();
+  });
+
+  it('a data não quebra, mas fica à esquerda', async () => {
+    await exportSections([{
+      kind: 'table',
+      title: 'Transações',
+      columns: [{ key: 'quando', label: 'Data', type: 'date' }, { key: 'v', label: 'Valor', type: 'currency' }],
+      rows: [{ quando: '2026-10-19T23:59:00Z', v: 400 }],
+    }], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
+    const estilo = espiaoPdf.tabelas[0].columnStyles[0];
+    expect(estilo.minCellWidth).toBeGreaterThan(0);
+    expect(estilo.halign).toBeUndefined();
+  });
+
+  it('chave-valor fica estreito, com o valor à direita', async () => {
+    // Esticado na folha inteira, o valor ficava longe do rótulo.
+    await exportSections([SECAO_RESUMO], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
+    const tabela = espiaoPdf.tabelas[0];
+    expect(tabela.tableWidth).toBe(380);
+    expect(tabela.columnStyles[1].halign).toBe('right');
+  });
+
+  it('tabela comum usa a largura da folha', async () => {
+    await exportSections([SECAO_TABELA], { format: 'pdf', filename: 'rel', formatCurrency: moeda });
+    expect(espiaoPdf.tabelas[0].tableWidth).toBe('auto');
   });
 
   it('muitas seções continuam gerando uma tabela cada', async () => {
