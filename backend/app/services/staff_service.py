@@ -44,6 +44,10 @@ ALL_PERMISSIONS = [
     # Fiado da casa: habilitar jogador, limite, baixa, estorno de recebimento,
     # devedores e configuração. Vender até o limite é `cash.operate`.
     'fiado.manage',
+    # Ranking de pontos (Manual NSOP): parâmetros, torneios pontuáveis,
+    # oficializar/reabrir resultados, etapas e temporadas. Distinta de
+    # `rankings` (a classificação por eliminação de um torneio).
+    'points_ranking',
 ]
 
 # Permissions that imply the staff member can have their own cashbox
