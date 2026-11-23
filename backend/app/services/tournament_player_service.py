@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from app.database import supabase
 from app.services.tournament_day_service import _chipcount_cache
@@ -25,11 +26,20 @@ from app.models.tournament_player import (
     TournamentPlayerDetail
 )
 
+logger = logging.getLogger(__name__)
+
 _EMBED_DO_DIA = "tournament_days!tournament_players_tournament_day_id_fkey"
 # Colunas da trava lidas JUNTO do dia. Recompra e add-on já leem o dia embutido
 # no inscrito; trazer a trava no mesmo join poupa UMA ida ao banco em cada uma —
 # e recompra é o que mais roda no balcão numa noite de torneio.
 _COLUNAS_DA_TRAVA = "sales_blocked, sales_blocked_reason"
+
+
+def _ja_inscrito() -> ErroDeNegocio:
+    # 404 por compatibilidade: é o status com que a rota sempre respondeu.
+    return ErroDeNegocio(
+        "jogador_ja_inscrito_no_dia", "Jogador já está registrado neste dia do torneio", status=404,
+    )
 
 
 def _ler_inscrito_com_o_dia(tournament_player_id: str, colunas_do_dia: str):
@@ -278,7 +288,9 @@ class TournamentPlayerService:
         """Lê o dia da inscrição e recusa a venda se o diretor tiver bloqueado."""
         # tournament_day_id is required for registration
         if not registration_data.tournament_day_id:
-            raise ValueError("É necessário selecionar um dia do torneio para inscrição")
+            raise ErroDeNegocio(
+                "venda_sem_dia", "É necessário selecionar um dia do torneio para inscrição", status=404,
+            )
 
         # Get day-specific settings
         day = supabase.table("tournament_days").select("*").eq("id", registration_data.tournament_day_id).execute()
@@ -298,19 +310,69 @@ class TournamentPlayerService:
         return day_info
 
     @staticmethod
-    def _conferir_lotacao_e_duplicidade(registration_data: TournamentPlayerCreate, day_info: dict) -> None:
-        """Dia cheio ou jogador já inscrito nele barram a inscrição."""
+    def _conferir_lotacao_e_duplicidade(registration_data: TournamentPlayerCreate, day_info: dict) -> Optional[dict]:
+        """Dia cheio ou jogador já inscrito nele barram a inscrição.
+
+        Devolve a inscrição ESTORNADA do jogador neste dia, se houver: é UMA linha
+        por (dia, jogador) no banco, então a nova venda a retoma em vez de criar
+        outra. Sem isso, cancelar uma venda errada deixava o jogador sem poder
+        comprar de novo no mesmo dia."""
         max_players = day_info["max_players"]
         registered_players = day_info.get("registered_players", 0)
 
         # Check if day is full
         if max_players and registered_players >= max_players:
-            raise ValueError(f"Este dia do torneio está cheio ({registered_players}/{max_players} jogadores)")
+            raise ErroDeNegocio(
+                "dia_do_torneio_cheio",
+                f"Este dia do torneio está cheio ({registered_players}/{max_players} jogadores)",
+                status=404, inscritos=registered_players, maximo=max_players,
+            )
 
         # Check for duplicate registration in this day
-        existing = supabase.table("tournament_players").select("id").eq("tournament_day_id", registration_data.tournament_day_id).eq("player_id", registration_data.player_id).execute()
-        if existing.data:
-            raise ValueError("Jogador já está registrado neste dia do torneio")
+        existing = supabase.table("tournament_players").select("id, status, total_chips").eq("tournament_day_id", registration_data.tournament_day_id).eq("player_id", registration_data.player_id).execute()
+        if not existing.data:
+            return None
+        if existing.data[0].get("status") != "cancelled":
+            raise _ja_inscrito()
+        return existing.data[0]
+
+    @staticmethod
+    def _retomar_inscricao_estornada(estornada: dict, data: dict) -> dict:
+        """Grava a nova entrada na inscrição que tinha sido estornada.
+
+        `status = cancelled` na condição é a trava: de duas caixas vendendo ao
+        mesmo tempo, uma grava e a outra é recusada antes de cobrar. O id da linha
+        não muda (as vendas antigas apontam para ele); o `client_id` novo é o que
+        torna a repetição desta venda segura."""
+        novos = {k: v for k, v in data.items() if k not in ("id", "tournament_id", "tournament_day_id", "player_id")}
+        novos.update({
+            "status": "registered",
+            "extra_entries": data.get("extra_entries", 0),
+            # Um add-on que não foi estornado junto continua pago e na pilha dele.
+            "total_chips": int(estornada.get("total_chips") or 0) + int(data.get("total_chips") or 0),
+            "eliminated_at": None,
+            "final_position": None,
+        })
+        gravada = (
+            supabase.table("tournament_players").update(novos)
+            .eq("id", estornada["id"]).eq("status", "cancelled").execute()
+        )
+        if not gravada.data:
+            raise _ja_inscrito()
+
+        # O trigger de contagem só dispara em INSERT/DELETE; o estorno descontou o
+        # inscrito na mão, e a volta dele é somada do mesmo jeito. Falhar aqui não
+        # pode derrubar a venda: o pior caso é o contador um a menos.
+        dia_id = data["tournament_day_id"]
+        try:
+            dia = supabase.table("tournament_days").select("registered_players").eq("id", dia_id).execute().data
+            if dia:
+                supabase.table("tournament_days").update(
+                    {"registered_players": int(dia[0].get("registered_players") or 0) + 1}
+                ).eq("id", dia_id).execute()
+        except Exception:
+            logger.warning("não consegui somar o inscrito de volta no dia %s", dia_id, exc_info=True)
+        return gravada.data[0]
 
     @staticmethod
     def _aplicar_forma_de_pagamento(registration_data: TournamentPlayerCreate, buy_in_amount: float, user_id: str):
@@ -330,7 +392,9 @@ class TournamentPlayerService:
 
             available = PlayerCreditService.get_player_available_credit(registration_data.player_id)
             if available <= 0:
-                raise ValueError("Jogador não possui crédito disponível")
+                raise ErroDeNegocio(
+                    "sem_credito_disponivel", "Jogador não possui crédito disponível", status=404,
+                )
 
             credit_result = PlayerCreditService.use_credit(
                 player_id=registration_data.player_id,
@@ -376,7 +440,9 @@ class TournamentPlayerService:
 
             available = PlayerCreditService.get_player_available_credit(tp["player_id"])
             if available <= 0:
-                raise ValueError("Jogador não possui crédito disponível")
+                raise ErroDeNegocio(
+                    "sem_credito_disponivel", "Jogador não possui crédito disponível", status=404,
+                )
 
             credit_result = PlayerCreditService.use_credit(
                 player_id=tp["player_id"],
@@ -419,7 +485,11 @@ class TournamentPlayerService:
         if current_blind_level is None:
             current_blind_level = TournamentPlayerService._nivel_de_blind_pelo_relogio(day_info)
         if current_blind_level is not None and current_blind_level > rebuy_level_limit:
-            raise ValueError(f"Rebuys não são mais permitidos. Limite: nível {rebuy_level_limit}, Atual: nível {current_blind_level}")
+            raise ErroDeNegocio(
+                "rebuy_fora_do_nivel",
+                f"Rebuys não são mais permitidos. Limite: nível {rebuy_level_limit}, Atual: nível {current_blind_level}",
+                status=404, limite=rebuy_level_limit, atual=current_blind_level,
+            )
 
     @staticmethod
     def register_player(registration_data: TournamentPlayerCreate, user_id: str, skip_sales_block: bool = False, permitir_meio_inativo: bool = False, via_resgate_de_ticket: bool = False) -> TournamentPlayerDetail:
@@ -463,7 +533,7 @@ class TournamentPlayerService:
 
         day_info = TournamentPlayerService._carregar_dia_da_inscricao(registration_data, skip_sales_block)
 
-        TournamentPlayerService._conferir_lotacao_e_duplicidade(registration_data, day_info)
+        estornada = TournamentPlayerService._conferir_lotacao_e_duplicidade(registration_data, day_info)
 
         # O MEIO DE ENTRADA manda em tudo: valor, rake e fichas. É ele que faz
         # um "buy-in duplo" ser uma venda própria, e não o buy-in simples vezes
@@ -529,8 +599,11 @@ class TournamentPlayerService:
             data["id"] = client_id
             data["client_id"] = client_id
 
-        response = supabase.table("tournament_players").insert(data).execute()
-        tp = response.data[0]
+        if estornada:
+            tp = TournamentPlayerService._retomar_inscricao_estornada(estornada, data)
+        else:
+            response = supabase.table("tournament_players").insert(data).execute()
+            tp = response.data[0]
 
         # Invalidate chipcount cache for this day
         _chipcount_cache.pop(registration_data.tournament_day_id, None)

@@ -81,12 +81,14 @@ class TeamChargeService:
             raise ErroDeNegocio("meio_de_entrada_inativo", "Este meio de entrada foi desativado. Escolha outro.")
 
         ids = [str(m["player_id"]) for m in membros]
-        ja = {
-            str(t["player_id"]) for t in (
-                supabase.table("tournament_players").select("player_id, status")
-                .eq("tournament_day_id", str(fase1["id"])).in_("player_id", ids).execute().data or []
-            ) if t.get("status") != "cancelled"
-        }
+        no_dia = (
+            supabase.table("tournament_players").select("id, player_id, status, total_chips")
+            .eq("tournament_day_id", str(fase1["id"])).in_("player_id", ids).execute().data or []
+        )
+        ja = {str(t["player_id"]) for t in no_dia if t.get("status") != "cancelled"}
+        # Estornado (ou desfeito por uma cobrança que falhou no meio): o banco só
+        # aceita UMA linha por (dia, jogador), então a cobrança retoma a dele.
+        estornados = {str(t["player_id"]): t for t in no_dia if t.get("status") == "cancelled"}
         a_cobrar = [m for m in membros if str(m["player_id"]) not in ja]
         if not a_cobrar:
             raise ErroDeNegocio(
@@ -116,7 +118,15 @@ class TeamChargeService:
             "total_chips": fichas,
             "notes": f"Equipe {equipe.get('name')}",
         } for m in a_cobrar]
-        supabase.table("tournament_players").insert(inscricoes).execute()
+        novas = []
+        for inscricao in inscricoes:
+            estornada = estornados.get(inscricao["player_id"])
+            if estornada:
+                inscricao["id"] = TournamentPlayerService._retomar_inscricao_estornada(estornada, inscricao)["id"]
+            else:
+                novas.append(inscricao)
+        if novas:
+            supabase.table("tournament_players").insert(novas).execute()
 
         vendas = []
         for i, (m, inscricao) in enumerate(zip(a_cobrar, inscricoes)):

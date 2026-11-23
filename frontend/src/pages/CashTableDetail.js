@@ -19,7 +19,7 @@ import { useHistoricoDoJogador } from '../hooks/useHistoricoDoJogador';
 import { usePermissions } from '../contexts/PermissionContext';
 import ReceberFiadoModal from '../components/fiado/ReceberFiadoModal';
 import PagamentoDividido from '../components/PagamentoDividido';
-import { pagamentoDoItem, partesIniciais, validarPartes } from '../utils/pagamentoDividido';
+import { acompanharTotal, pagamentoDoItem, partesIniciais, validarPartes } from '../utils/pagamentoDividido';
 import {
   FIADO, buscarContaFiado, detalheDoErro, imprimirCupomDeFiado, novoIdDeOperacao,
 } from '../utils/fiado';
@@ -574,7 +574,7 @@ const CashTableDetail = () => {
                         id="ctd-amount" type="number" step="0.01"
                         min={table?.min_buy_in} max={table?.max_buy_in || undefined}
                         value={form.amount}
-                        onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                        onChange={(e) => setForm(comNovoValor(form, e.target.value, activeMethods))}
                         required
                       />
                       <small className="form-hint">
@@ -602,7 +602,7 @@ const CashTableDetail = () => {
                       <input
                         id="ctd-rebuy" type="number" step="0.01" min="0.01"
                         value={form.amount}
-                        onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                        onChange={(e) => setForm(comNovoValor(form, e.target.value, activeMethods))}
                         required autoFocus
                       />
                       {/* O teto da mesa vale para SENTAR; a recompra repõe
@@ -823,6 +823,18 @@ function FiadoAcimaDoDisponivel(form, fiado) {
     && (parseFloat(form.amount || 0) || 0) > Number(fiado?.available || 0) + 0.004;
 }
 
+/* O valor mudou: as partes que o operador ainda não mexeu acompanham. */
+function comNovoValor(form, texto, activeMethods) {
+  if (!form.partes) return { ...form, amount: texto };
+  const antes = parseFloat(form.amount || 0) || 0;
+  const agora = parseFloat(texto || 0) || 0;
+  return {
+    ...form,
+    amount: texto,
+    partes: acompanharTotal(form.partes, antes, agora, activeMethods[0]?.code || 'cash', activeMethods),
+  };
+}
+
 /* Pagamento dividido cujas partes ainda não fecham o valor digitado. */
 function PartesNaoFecham(form) {
   return !!form.partes && validarPartes(form.partes, parseFloat(form.amount || 0) || 0) !== null;
@@ -890,7 +902,9 @@ function MetodoDePagamento({ t, form, setForm, activeMethods, fiado = null, form
             checked={dividindo}
             onChange={(e) => setForm({
               ...form,
-              partes: e.target.checked ? partesIniciais(form.payment_method || activeMethods[0]?.code || 'cash', valor) : null,
+              partes: e.target.checked
+                ? partesIniciais(form.payment_method || activeMethods[0]?.code || 'cash', valor, activeMethods)
+                : null,
             })}
           />
           {t('splitPayment.toggle', 'Dividir pagamento')}

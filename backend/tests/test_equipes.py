@@ -464,6 +464,22 @@ class TestCobranca:
         dados = TeamChargeService.cobrar(TOUR, "team-A", "bt-eq", "cash", None, USER)
         assert dados["charged"] == 3 and dados["amount"] == 750.0
 
+    def test_integrante_estornado_volta_na_mesma_inscricao(self, cenario):
+        """O banco aceita uma linha por (dia, jogador): inserir outra dava erro 500."""
+        fake = cenario(tabelas={
+            "tournament_players": [{**_tp("a3"), "status": "cancelled", "buy_in_count": 0, "total_chips": 0}],
+            "buy_types": [_meio(valor=1000)],
+        })
+        antiga = fake.store["tournament_players"][0]["id"]
+        dados = TeamChargeService.cobrar(TOUR, "team-A", "bt-eq", "cash", None, USER)
+        assert dados["charged"] == 4 and dados["amount"] == 1000.0
+        linhas = fake.store["tournament_players"]
+        assert len(linhas) == 4
+        assert [t["id"] for t in linhas if t["player_id"] == "a3"] == [antiga]
+        assert all(t.get("status") != "cancelled" for t in linhas)
+        venda = next(v for v in fake.store["transactions"] if v["player_id"] == "a3")
+        assert venda["tournament_player_id"] == antiga
+
     def test_meio_que_nao_e_por_equipe_e_recusado(self, cenario):
         cenario(tabelas={"tournament_players": [], "buy_types": [_meio(por_equipe=False)]})
         with pytest.raises(ErroDeNegocio) as e:
