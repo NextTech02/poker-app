@@ -268,3 +268,15 @@ it('mostra o total de taxas quando houver', async () => {
   await montar({ relatorio: { ...RELATORIO, total_fees: 7 } });
   expect(screen.getByText('tournamentReport.fees')).toBeInTheDocument();
 });
+
+it('mostra quanto entrou por meio de pagamento, quando o servidor manda', async () => {
+  api.get.mockResolvedValue({ data: {
+    ...RELATORIO,
+    by_payment_method: [{ method: 'cash', count: 3, amount: 900 }, { source: 'ticket', count: 1, amount: 0 }],
+  } });
+  useCurrency.mockReturnValue({ formatCurrency: (v) => `R$ ${v}` });
+  render(<MemoryRouter><RelatorioTorneio /></MemoryRouter>);
+  expect(await screen.findByText('financial.paymentCash')).toBeInTheDocument();
+  expect(screen.getByText('R$ 900')).toBeInTheDocument();
+  expect(screen.getByText(/financial\.paymentTicket/)).toBeInTheDocument();
+});

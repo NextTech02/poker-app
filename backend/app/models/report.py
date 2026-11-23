@@ -12,6 +12,17 @@ class BuyTypeReportRow(BaseModel):
     amount: float = 0.0
 
 
+class PaymentMethodReportRow(BaseModel):
+    """Quanto entrou por MEIO de pagamento. `method` é o código do meio do clube
+    (dinheiro, Yape...); `source` vem preenchida quando a venda foi paga com
+    crédito, misto ou ticket, que são origens e não meios. Uma venda dividida
+    entra em cada meio com a parte dela (e conta como venda em cada um)."""
+    method: Optional[str] = None
+    source: Optional[str] = None
+    count: int = 0
+    amount: float = 0.0
+
+
 class PlayerReport(BaseModel):
     player_name: str
     # ENTRADA = buy-in. Recompra e add-on tem campo proprio logo abaixo.
@@ -40,6 +51,11 @@ class ReportSummary(BaseModel):
     playerReports: List[PlayerReport]
     # Vendas do período por MEIO de entrada (o cadastrado pelo diretor).
     byBuyType: List[BuyTypeReportRow] = []
+    # Vendas do período por MEIO de pagamento, sempre de TODAS elas: é também a
+    # lista do que dá para filtrar.
+    byPaymentMethod: List[PaymentMethodReportRow] = []
+    # Devolve o filtro aplicado. A tela só diz "filtrado" se o servidor aplicou.
+    paymentFilter: Optional[str] = None
 
 
 class TournamentDayReport(BaseModel):
@@ -112,3 +128,5 @@ class TournamentReport(BaseModel):
     prizes: List[TournamentPrizeRow] = []
     # Vendas do torneio por MEIO de entrada (o cadastrado pelo diretor).
     by_buy_type: List[BuyTypeReportRow] = []
+    # Vendas do torneio por MEIO de pagamento.
+    by_payment_method: List[PaymentMethodReportRow] = []

@@ -539,3 +539,45 @@ describe('detalhe por meio de entrada (pedido do NSOP)', () => {
     expect(linhas).toEqual([['Taxas', 'Bono Dealer'], ['Rebuys', 'Doble'], ['Prêmio', '—']]);
   });
 });
+
+describe('relatório filtrado por meio de pagamento', () => {
+  const VENDAS = [
+    { id: 1, type: 'buy_in', amount: 500, payment_method: 'yape', payment_source: 'cash' },
+    { id: 2, type: 'buy_in', amount: 500, payment_method: 'cash', payment_source: 'cash' },
+    { id: 3, type: 'buy_in', amount: 500, payment_method: 'split', payment_source: 'cash',
+      payment_split: [{ payment_method: 'cash', amount: 300 }, { payment_method: 'yape', amount: 200 }] },
+  ];
+  const secoes = () => exportSections.mock.calls[0][0];
+
+  it('só deixa as seções que se separam por meio', async () => {
+    responder({ financeiro: { ...FINANCEIRO, transactions: VENDAS } });
+    await abrir({ pagamento: 'meio:yape', summary: { ...RESUMO, byPaymentMethod: [{ method: 'yape', count: 2, amount: 700 }] } });
+    expect(screen.getByRole('checkbox', { name: 'Financeiro (DRE)' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Transações' })).toBeEnabled();
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+
+    const titulos = secoes().map((x) => x.title);
+    expect(titulos).toEqual(['Resumo geral', 'Por meio de pagamento', 'Jogadores', 'Transações']);
+    expect(api.get.mock.calls.some(([url]) => url === '/expenses' || url.startsWith('/reports/tournament/'))).toBe(false);
+    expect(exportSections.mock.calls[0][1].filename).toMatch(/_yape$/);
+    expect(exportSections.mock.calls[0][1].meta.subtitle).toContain('YAPE');
+  });
+
+  it('a venda dividida sai só com a parte paga no meio', async () => {
+    responder({ financeiro: { ...FINANCEIRO, transactions: VENDAS } });
+    await abrir({ pagamento: 'meio:yape' });
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    const transacoes = secoes().find((x) => x.title === 'Transações').rows;
+    expect(transacoes.map((x) => [x.id, x.amount])).toEqual([[1, 500], [3, 200]]);
+  });
+
+  it('sem filtro, as transações saem inteiras', async () => {
+    responder({ financeiro: { ...FINANCEIRO, transactions: VENDAS } });
+    await abrir();
+    await exportar();
+    await waitFor(() => expect(exportSections).toHaveBeenCalled());
+    expect(secoes().find((x) => x.title === 'Transações').rows.map((x) => x.amount)).toEqual([500, 500, 500]);
+  });
+});

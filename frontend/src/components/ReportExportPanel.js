@@ -8,6 +8,8 @@ import { eDividido, rotuloDoPagamento } from '../utils/pagamentoDividido';
 import { meiosDosTorneios, entradasPorMeio } from '../utils/meiosDosTorneios';
 import { agruparMeiosDoPeriodo, colunasDosJogadores, entradasDoJogador } from '../utils/meiosDoPeriodo';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { centavosNoFiltro, lerFiltro } from '../utils/extratoGeral';
+import { chaveDoMeio, rotuloDoFiltro } from '../utils/meiosDePagamento';
 import { BUILTIN_PAYMENT_CODES, isBuiltinMethod } from '../utils/paymentMethodLabels';
 import './ReportExportPanel.css';
 
@@ -35,6 +37,11 @@ const SECTION_DEFS = [
   { id: 'revenues', needsRevenues: true },
 ];
 
+// Com o relatório filtrado por meio de pagamento, só estas seções existem: o DRE,
+// os totais por torneio, a premiação e os lançamentos não se repartem por meio, e
+// sairiam inteiros ao lado de números filtrados.
+const ACEITA_FILTRO = ['summary', 'players', 'transactions'];
+
 const typeLabelMap = (t) => ({
   buy_in: t('reports.buyIns', 'Buy-ins'),
   rebuy: t('reports.rebuys', 'Rebuys'),
@@ -58,7 +65,7 @@ const dataDoPeriodo = (iso, idioma) => {
   return new Date(ano, mes - 1, dia).toLocaleDateString(idioma);
 };
 
-const ReportExportPanel = ({ summary, dateRange }) => {
+const ReportExportPanel = ({ summary, dateRange, pagamento = '' }) => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
@@ -81,6 +88,9 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     return rotuloDoMeio(tx.payment_source || tx.payment_method);
   };
   const periodo = `${dataDoPeriodo(dateRange.start, i18n?.language)} — ${dataDoPeriodo(dateRange.end, i18n?.language)}`;
+
+  const nomeDoFiltro = pagamento ? rotuloDoFiltro(pagamento, t, labelFor) : '';
+  const cabe = (id) => !pagamento || ACEITA_FILTRO.includes(id);
 
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState('xlsx');
@@ -141,6 +151,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
         valueLabel: t('reports.export.value', 'Valor'),
         rows: [
           { label: t('reports.period', 'Período'), value: periodo, type: 'text' },
+          ...(pagamento ? [{ label: t('reports.paymentMethod', 'Meio de pagamento'), value: nomeDoFiltro, type: 'text' }] : []),
           { label: t('reports.totalRevenue', 'Receita Total'), value: s.totalRevenue, type: 'currency' },
           { label: t('reports.totalTournaments', 'Total de Torneios'), value: s.totalTournaments, type: 'int' },
           { label: t('reports.totalEntries', 'Total de Entradas'), value: s.totalPlayers, type: 'int' },
@@ -151,6 +162,19 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { label: t('reports.totalFees', 'Total Taxas'), value: s.totalFees || 0, type: 'int' },
           { label: t('reports.rebuyRate', 'Taxa de Rebuy/Add-on'), value: rebuyRate, type: 'percent' },
         ],
+      });
+    }
+
+    if (selected.summary && s.byPaymentMethod?.length > 0) {
+      sections.push({
+        kind: 'table',
+        title: t('reports.byPaymentMethod', 'Por meio de pagamento'),
+        columns: [
+          { key: 'name', label: t('reports.paymentMethod', 'Meio de pagamento'), type: 'text' },
+          { key: 'count', label: t('reports.salesCount', 'Vendas'), type: 'int' },
+          { key: 'amount', label: t('reports.buyTypeAmount', 'Valor'), type: 'currency' },
+        ],
+        rows: s.byPaymentMethod.map((l) => ({ ...l, name: rotuloDoFiltro(chaveDoMeio(l), t, labelFor) })),
       });
     }
 
@@ -170,7 +194,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
       });
     }
 
-    if (selected.financial && financial) {
+    if (selected.financial && cabe('financial') && financial) {
       const rev = financial.revenue || {};
       sections.push({
         kind: 'keyvalue',
@@ -220,7 +244,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
       });
     }
 
-    if (selected.tournaments && financial) {
+    if (selected.tournaments && cabe('tournaments') && financial) {
       // Depois das categorias, uma coluna por MEIO de entrada ("Buy-in
       // Promoción", "Doble", "Bono Dealer"…): é o que o clube audita.
       const meiosDoPeriodo = meiosDosTorneios(financial.by_tournament);
@@ -289,7 +313,10 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           { key: 'payment_method', label: t('financial.paymentMethod', 'Forma de Pgto'), type: 'text' },
           { key: 'amount', label: t('financial.amount', 'Valor'), type: 'currency' },
         ],
-        rows: (financial.transactions || []).map((tx) => ({
+        rows: (financial.transactions || []).map((tx) => {
+          const centavos = centavosNoFiltro(tx, lerFiltro(pagamento));
+          return centavos === null ? null : { ...tx, amount: pagamento ? centavos / 100 : tx.amount };
+        }).filter(Boolean).map((tx) => ({
           ...tx,
           // Taxa (Bono Dealer, Tasa) é gravada como add-on com a marca is_fee.
           type: tx.type === 'addon' && tx.is_fee ? categorias.fee : (categorias[tx.type] || tx.type),
@@ -297,7 +324,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
           description: tx.buy_type_name
             || (tx.type === 'prize' && tx.prize_kind === 'knockout'
               ? t('financial.descKnockout', 'Prêmio por eliminação (KO)') : '—'),
-          payment_method: formaDePagamento(tx),
+          payment_method: pagamento ? nomeDoFiltro : formaDePagamento(tx),
         })),
       });
     }
@@ -363,10 +390,10 @@ const ReportExportPanel = ({ summary, dateRange }) => {
     }
 
     return sections;
-  }, [summary, selected, dateRange, t, labelFor, formatCurrency]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [summary, selected, dateRange, pagamento, t, labelFor, formatCurrency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExport = async () => {
-    const chosen = SECTION_DEFS.filter((d) => selected[d.id]);
+    const chosen = SECTION_DEFS.filter((d) => selected[d.id] && cabe(d.id));
     if (!chosen.length) {
       toast.error(t('reports.export.noneSelected', 'Selecione pelo menos uma seção'));
       return;
@@ -382,7 +409,7 @@ const ReportExportPanel = ({ summary, dateRange }) => {
 
       // Premiação: 1 chamada por torneio do período (resiliente a falhas).
       let prizesByTournament = [];
-      if (selected.prizes && financial && (financial.by_tournament || []).length) {
+      if (selected.prizes && cabe('prizes') && financial && (financial.by_tournament || []).length) {
         const results = await Promise.allSettled(
           financial.by_tournament.map((bt) =>
             api.get(`/reports/tournament/${bt.tournament_id}`).then((r) => ({ bt, data: r.data }))
@@ -420,14 +447,15 @@ const ReportExportPanel = ({ summary, dateRange }) => {
       }
 
       const sections = buildSections(financial, prizesByTournament, expenses, revenues);
-      const filename = `relatorio_${dateRange.start}_a_${dateRange.end}`;
+      const sufixo = pagamento ? `_${pagamento.split(':')[1]}` : '';
+      const filename = `relatorio_${dateRange.start}_a_${dateRange.end}${sufixo}`;
       await exportSections(sections, {
         format,
         filename,
         formatCurrency,
         meta: {
           title: t('reports.export.docTitle', 'Relatório de Torneios'),
-          subtitle: `${t('reports.period', 'Período')}: ${periodo}`,
+          subtitle: `${t('reports.period', 'Período')}: ${periodo}${pagamento ? ` · ${t('reports.paymentMethod', 'Meio de pagamento')}: ${nomeDoFiltro}` : ''}`,
           footer: t('reports.export.docTitle', 'Relatório de Torneios'),
           brandRgb: [114, 51, 248],
         },
@@ -496,12 +524,25 @@ const ReportExportPanel = ({ summary, dateRange }) => {
                 <label className="rex-label">{t('reports.export.include', 'Incluir no arquivo')}</label>
                 <div className="rex-sections">
                   {SECTION_DEFS.map((d) => (
-                    <label key={d.id} className={`rex-check ${selected[d.id] ? 'on' : ''}`}>
-                      <input type="checkbox" checked={!!selected[d.id]} onChange={() => toggle(d.id)} />
+                    <label key={d.id} className={`rex-check ${selected[d.id] && cabe(d.id) ? 'on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={!!selected[d.id] && cabe(d.id)}
+                        disabled={!cabe(d.id)}
+                        onChange={() => toggle(d.id)}
+                      />
                       <span>{secTitle(d.id)}</span>
                     </label>
                   ))}
                 </div>
+                {pagamento && (
+                  <p className="rex-hint">
+                    {t('reports.export.filteredHint', {
+                      defaultValue: 'Filtrado por {{method}}: saem só as seções que se separam por meio de pagamento.',
+                      method: nomeDoFiltro,
+                    })}
+                  </p>
+                )}
               </div>
             </div>
 
