@@ -406,7 +406,7 @@ const AbaRegras = () => {
         <p className="rk-muted">{t('pointsRanking.rulesDefault', 'Valores sugeridos. Ajuste e anuncie antes da temporada.')}</p>
       )}
       {referenciaEmOutraMoeda(regras.personalizadas, currency) && (
-        <p className="rk-aviso" role="status">
+        <p className="rk-card rk-aviso" role="status">
           {t('pointsRanking.currencyRulesWarning', 'O buy-in de referência padrão ({{ref}}) está em soles e o clube usa {{moeda}}. Troque pelo buy-in típico do clube e salve: é ele que vale fator 1.', {
             ref: regras.buy_in_referencia, moeda: currency,
           })}

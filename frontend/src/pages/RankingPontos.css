@@ -57,7 +57,9 @@
   color: var(--text-danger, #f87171);
 }
 
-.rk-check {
+/* A regra global `.form-group label` é bloco e venceria a classe sozinha. */
+.rk-check,
+.form-group label.rk-check {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -250,7 +252,7 @@
   gap: 0 1rem;
 }
 
-.rk-etapas .rk-check {
+.rk-etapas label.rk-check {
   margin: 0.2rem 0;
 }
 

@@ -197,7 +197,7 @@ const RankingTab = ({ tournamentId }) => {
 
         {!oficial && situacao.rules_customized === false
           && referenciaEmOutraMoeda(situacao.rules_customized, currency) && (
-          <p className="rk-aviso" role="status">
+          <p className="rk-card rk-aviso" role="status">
             {t('pointsRanking.currencyWarning', 'O buy-in de referência ainda é o padrão ({{ref}} soles) e o clube usa {{moeda}}. Ajuste em Ranking → Regras antes de oficializar: os pontos ficam congelados.', {
               ref: situacao.buy_in_reference, moeda: currency,
             })}
