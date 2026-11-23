@@ -20,6 +20,13 @@ FB = máx(0,75 ; mín(1,40 ; (B ÷ 350)^0,16))    B = buy-in oficial, sem a taxa
 - Só o resultado final é arredondado (meio para cima, como o Excel).
 - Os números (100, 50, 0,17, 0,75...) são os sugeridos pelo manual; o clube
   ajusta em **Ranking → Regras** antes da temporada (`ranking_rules`).
+- O buy-in de referência (350) está em **soles**. Clube de outra moeda que não
+  salvou as próprias regras vê um aviso na aba Regras e na aba Ranking do torneio:
+  em pesos colombianos todo torneio bateria no teto do fator, e os pontos congelam.
+
+Vale para qualquer clube com o módulo Torneio: entra no menu de quem tem a
+permissão `points_ranking` (o grupo do dono, em todos os clubes) e só conta
+torneio marcado como pontuável, que nasce desmarcado.
 
 Conferido contra o manual: com 50 jogadores e S/350, 1º = 100, 2º = 71,
 3º = 58...; Main Event (180, S/700) = 139/98/80; Turbo (40, S/120) = 81/57/47

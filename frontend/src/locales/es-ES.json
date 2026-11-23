@@ -4344,7 +4344,9 @@
     "noSeasonsHint": "Una temporada reúne etapas y suma los mejores resultados de cada jugador.",
     "formula": "Puntos = ({{base}} ÷ √puesto) × FJ × FB — solo puntúan los puestos premiados.",
     "formulaFactors": "FJ = (jugadores únicos ÷ {{nRef}})^{{nExp}}, entre {{nMin}} y {{nMax}} · FB = (buy-in ÷ {{bRef}})^{{bExp}}, entre {{bMin}} y {{bMax}}",
-    "rulesDefault": "Valores sugeridos por el Manual de Ranking NSOP. Ajústalos y anúncialos antes de la temporada.",
+    "rulesDefault": "Valores sugeridos. Ajústalos y anúncialos antes de la temporada.",
+    "currencyWarning": "El buy-in de referencia sigue siendo el predeterminado ({{ref}} soles) y el club usa {{moeda}}. Ajústalo en Ranking → Reglas antes de oficializar: los puntos quedan congelados.",
+    "currencyRulesWarning": "El buy-in de referencia predeterminado ({{ref}}) está en soles y el club usa {{moeda}}. Cámbialo por el buy-in típico del club y guarda: ese es el que vale factor 1.",
     "rulesFrozen": "Los torneos ya oficializados conservan los puntos que recibieron.",
     "rulesSaved": "Reglas guardadas. Valen para los próximos torneos oficializados.",
     "rule": {

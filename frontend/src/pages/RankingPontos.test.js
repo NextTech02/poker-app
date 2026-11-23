@@ -22,6 +22,8 @@ jest.mock('../config/api', () => ({
 jest.mock('../components/Sidebar', () => () => <nav data-testid="sidebar" />);
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/StageContext', () => ({ useStage: () => ({ selectedStage: { id: 's1' } }) }));
+let mockMoeda = 'PEN';
+jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: () => ({ currency: mockMoeda }) }));
 jest.mock('../utils/reportExport', () => ({ exportSections: jest.fn() }));
 jest.mock('react-i18next', () => {
   const interpolar = (texto, vars = {}) => String(texto).replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] ?? ''));
@@ -181,4 +183,32 @@ it('migração pendente: um aviso só, no lugar das abas', async () => {
   await montar({ regras: pendente });
   expect(await screen.findByText(/ainda não está ativo neste servidor/)).toBeInTheDocument();
   expect(screen.queryByRole('tab')).toBeNull();
+});
+
+describe('regras em outra moeda', () => {
+  afterEach(() => { mockMoeda = 'PEN'; });
+
+  it('o clube que não é em soles é avisado do buy-in de referência', async () => {
+    mockMoeda = 'USD';
+    await montar();
+    await aba('Regras');
+    expect(await screen.findByRole('status')).toHaveTextContent('padrão (350) está em soles e o clube usa USD');
+  });
+
+  it.each([
+    ['em soles', 'PEN', REGRAS],
+    ['com regras próprias', 'USD', { ...REGRAS, personalizadas: true }],
+  ])('clube %s não vê o aviso', async (_, moeda, regras) => {
+    mockMoeda = moeda;
+    await montar({ regras });
+    await aba('Regras');
+    expect(await screen.findByLabelText('Buy-in de referência')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('a tela não cita o manual de um clube para os outros', async () => {
+    await montar({ regras: REGRAS });
+    await aba('Regras');
+    expect(await screen.findByText('Valores sugeridos. Ajuste e anuncie antes da temporada.')).toBeInTheDocument();
+  });
 });

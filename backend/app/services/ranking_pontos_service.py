@@ -196,7 +196,8 @@ class RankingPontosService:
         pontos, a proposta de posições (ou o resultado oficial) e os avisos."""
         RankingPontosService._exigir_migracao()
         torneio = RankingPontosService._torneio(tournament_id)
-        regras = RankingPontosService.regras(org_id)
+        linha_de_regras = RankingPontosService._linha_de_regras(org_id)
+        regras = RegrasDoRanking.da_linha(linha_de_regras)
         inscritos = RankingPontosService._inscritos(tournament_id)
         premiacao = RankingPontosService._premiacao(tournament_id)
         unicos = len({str(i["player_id"]) for i in inscritos})
@@ -247,6 +248,10 @@ class RankingPontosService:
             "unique_players": unicos,
             "paid_places": premiados,
             "min_unique_players": regras.minimo_de_jogadores,
+            # Sem regras próprias, o buy-in de referência é o padrão, em soles:
+            # a tela avisa o clube de outra moeda antes de congelar os pontos.
+            "rules_customized": linha_de_regras is not None,
+            "buy_in_reference": regras.buy_in_referencia,
             "players_factor": round(fator_jogadores(unicos, regras), 5),
             "buy_in_factor": round(fator_buy_in(buy_in or 0, regras), 5) if buy_in else None,
             "official_at": torneio.get("ranking_official_at"),

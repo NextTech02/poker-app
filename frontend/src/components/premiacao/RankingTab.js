@@ -4,6 +4,7 @@ import api from '../../config/api';
 import Button from '../Button';
 import { useToast } from '../../contexts/ToastContext';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import { referenciaEmOutraMoeda } from '../../utils/rankingPontos';
 import '../../pages/RankingPontos.css';
 
 /**
@@ -23,7 +24,7 @@ const codigoDoErro = (err) => err?.response?.data?.detail?.code;
 const RankingTab = ({ tournamentId }) => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currency } = useCurrency();
 
   const [situacao, setSituacao] = useState(null);
   const [pendente, setPendente] = useState(false);
@@ -193,6 +194,15 @@ const RankingTab = ({ tournamentId }) => {
               : t('pointsRanking.buyInMissingHint', 'O torneio não tem meio de entrada de buy-in: informe o valor.')}
           </span>
         </div>
+
+        {!oficial && situacao.rules_customized === false
+          && referenciaEmOutraMoeda(situacao.rules_customized, currency) && (
+          <p className="rk-aviso" role="status">
+            {t('pointsRanking.currencyWarning', 'O buy-in de referência ainda é o padrão ({{ref}} soles) e o clube usa {{moeda}}. Ajuste em Ranking → Regras antes de oficializar: os pontos ficam congelados.', {
+              ref: situacao.buy_in_reference, moeda: currency,
+            })}
+          </p>
+        )}
 
         {(situacao.warnings || []).length > 0 && (
           <ul className="rk-avisos">

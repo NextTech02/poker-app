@@ -9,6 +9,8 @@ import EmptyState from '../components/EmptyState';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useStage } from '../contexts/StageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { referenciaEmOutraMoeda } from '../utils/rankingPontos';
 import { exportSections } from '../utils/reportExport';
 import './RankingPontos.css';
 
@@ -359,6 +361,7 @@ const AbaTemporadas = ({ etapas }) => {
 const AbaRegras = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { currency } = useCurrency();
   const [regras, setRegras] = useState(null);
   const [form, setForm] = useState({});
 
@@ -400,7 +403,14 @@ const AbaRegras = () => {
         </span>
       </p>
       {!regras.personalizadas && (
-        <p className="rk-muted">{t('pointsRanking.rulesDefault', 'Valores sugeridos pelo Manual de Ranking NSOP. Ajuste e anuncie antes da temporada.')}</p>
+        <p className="rk-muted">{t('pointsRanking.rulesDefault', 'Valores sugeridos. Ajuste e anuncie antes da temporada.')}</p>
+      )}
+      {referenciaEmOutraMoeda(regras.personalizadas, currency) && (
+        <p className="rk-aviso" role="status">
+          {t('pointsRanking.currencyRulesWarning', 'O buy-in de referência padrão ({{ref}}) está em soles e o clube usa {{moeda}}. Troque pelo buy-in típico do clube e salve: é ele que vale fator 1.', {
+            ref: regras.buy_in_referencia, moeda: currency,
+          })}
+        </p>
       )}
       <div className="rk-regras">
         {CAMPOS_DAS_REGRAS.map(([campo, padrao]) => (

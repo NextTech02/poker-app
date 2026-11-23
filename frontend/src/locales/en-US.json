@@ -4344,7 +4344,9 @@
     "noSeasonsHint": "A season groups stages and adds up each player's best results.",
     "formula": "Points = ({{base}} ÷ √place) × FJ × FB — only paid places score.",
     "formulaFactors": "FJ = (unique players ÷ {{nRef}})^{{nExp}}, between {{nMin}} and {{nMax}} · FB = (buy-in ÷ {{bRef}})^{{bExp}}, between {{bMin}} and {{bMax}}",
-    "rulesDefault": "Values suggested by the NSOP Ranking Manual. Adjust and announce them before the season.",
+    "rulesDefault": "Suggested values. Adjust and announce them before the season.",
+    "currencyWarning": "The reference buy-in is still the default ({{ref}} soles) and the club uses {{moeda}}. Change it in Ranking → Rules before making results official: the points are frozen.",
+    "currencyRulesWarning": "The default reference buy-in ({{ref}}) is in soles and the club uses {{moeda}}. Replace it with the club's typical buy-in and save: that is the one worth factor 1.",
     "rulesFrozen": "Tournaments already made official keep the points they received.",
     "rulesSaved": "Rules saved. They apply to the next tournaments made official.",
     "rule": {

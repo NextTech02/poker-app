@@ -19,8 +19,9 @@ jest.mock('../../config/api', () => ({
   default: { get: jest.fn(), put: jest.fn(), post: jest.fn() },
 }));
 jest.mock('../../contexts/ToastContext', () => ({ useToast: jest.fn() }));
+let mockMoeda = 'PEN';
 jest.mock('../../contexts/CurrencyContext', () => ({
-  useCurrency: () => ({ formatCurrency: (v) => `S/ ${Number(v).toFixed(2)}` }),
+  useCurrency: () => ({ formatCurrency: (v) => `S/ ${Number(v).toFixed(2)}`, currency: mockMoeda }),
 }));
 jest.mock('react-i18next', () => {
   const interpolar = (texto, vars = {}) => String(texto).replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] ?? ''));
@@ -179,4 +180,26 @@ it('migração pendente vira aviso, não erro', async () => {
   expect(await screen.findByText(/ainda não está ativo neste servidor/)).toBeInTheDocument();
   expect(toast.error).not.toHaveBeenCalled();
   expect(api.get).toHaveBeenCalledWith('/points-ranking/tournaments/t1', { _silentError: true });
+});
+
+describe('buy-in de referência em outra moeda', () => {
+  afterEach(() => { mockMoeda = 'PEN'; });
+  const semRegras = { ...SITUACAO, rules_customized: false, buy_in_reference: 350 };
+
+  it('avisa antes de congelar os pontos', async () => {
+    mockMoeda = 'COP';
+    await montar(semRegras);
+    expect(screen.getByRole('status')).toHaveTextContent('padrão (350 soles) e o clube usa COP');
+  });
+
+  it.each([
+    ['o clube é em soles', 'PEN', semRegras],
+    ['o clube já salvou as regras', 'COP', { ...semRegras, rules_customized: true }],
+    ['o torneio já está oficializado', 'COP', { ...OFICIAL, rules_customized: false, buy_in_reference: 350 }],
+    ['o servidor ainda não informa', 'COP', SITUACAO],
+  ])('não avisa quando %s', async (_, moeda, situacao) => {
+    mockMoeda = moeda;
+    await montar(situacao);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
 });

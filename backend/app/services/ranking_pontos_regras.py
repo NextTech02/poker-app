@@ -25,6 +25,8 @@ from typing import Dict, Iterable, List, Optional
 POSICAO_DA_MESA_FINAL = 9
 
 # Campo da regra → coluna de `ranking_rules` (o banco é em inglês, como o resto).
+# O buy-in de referência (350) está em soles, a moeda do manual. Clube de outra
+# moeda precisa trocá-lo: com 350 pesos colombianos, todo torneio bate no teto.
 COLUNA_DO_CAMPO = {
     "pontos_base": "base_points",
     "jogadores_referencia": "players_reference",

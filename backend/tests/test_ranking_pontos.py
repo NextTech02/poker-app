@@ -118,6 +118,15 @@ class TestSituacaoDoTorneio:
         ids = [p["id"] for p in RPS.situacao("t1", ORG)["players"]]
         assert sorted(ids) == sorted(JOGADORES)
 
+    def test_diz_se_o_clube_ja_salvou_as_regras(self, banco):
+        """A tela avisa o clube de outra moeda enquanto o buy-in de referência
+        for o padrão (em soles); depois de salvar, não."""
+        s = RPS.situacao("t1", ORG)
+        assert s["rules_customized"] is False and s["buy_in_reference"] == 350
+        RPS.salvar_regras(ORG, {"buy_in_referencia": 100000}, USUARIO)
+        s = RPS.situacao("t1", ORG)
+        assert s["rules_customized"] is True and s["buy_in_reference"] == 100000
+
     def test_avisos(self, banco):
         banco.table("tournaments").update({"team_mode": True}).eq("id", "t2").execute()
         avisos = RPS.situacao("t2", ORG)["warnings"]
