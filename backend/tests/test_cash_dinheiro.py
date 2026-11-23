@@ -337,6 +337,43 @@ def test_cash_out_acima_do_saldo_da_gaveta_e_recusado(monkeypatch):
     assert fake.store["cash_player_sessions"][0]["status"] == "active"
 
 
+def _gaveta_com_yape(monkeypatch):
+    """500 no razão: 200 em notas e 300 que entraram por Yape."""
+    return _banco(
+        monkeypatch, cash_player_sessions=[_sessao()],
+        cash_transactions=[{"id": "venda-yape", "type": "buy_in", "amount": 300, "payment_method": "yape",
+                            "payment_split": None, "payment_source": "cash", "status": "active"}],
+        cashbox_transactions=[
+            {"id": "m1", "session_id": "cs1", "cashbox_id": CAIXA, "signed_amount": 200, "type": "supply"},
+            {"id": "m2", "session_id": "cs1", "cashbox_id": CAIXA, "signed_amount": 300, "type": "cash_buy_in",
+             "cash_transaction_id": "venda-yape"},
+        ],
+    )
+
+
+def test_cash_out_em_dinheiro_nao_passa_das_notas(monkeypatch):
+    """O que entrou por Yape não está na gaveta para pagar o cash-out."""
+    fake = _gaveta_com_yape(monkeypatch)
+    with pytest.raises(ErroDeNegocio) as exc:
+        CTS.stand("s1", StandPlayer(cash_out_amount=250), AUTH, ORG)
+    d = recusa(exc)
+    assert d["code"] == "saldo_insuficiente_no_caixa"
+    assert d["disponivel"] == 200 and d["solicitado"] == 250
+    assert len(fake.store["cash_transactions"]) == 1
+
+
+def test_cash_out_em_dinheiro_ate_o_que_ha_em_notas_passa(monkeypatch):
+    fake = _gaveta_com_yape(monkeypatch)
+    CTS.stand("s1", StandPlayer(cash_out_amount=200), AUTH, ORG)
+    assert fake.store["cash_transactions"][-1]["amount"] == 200
+
+
+def test_cash_out_por_yape_nao_depende_das_notas(monkeypatch):
+    fake = _gaveta_com_yape(monkeypatch)
+    CTS.stand("s1", StandPlayer(cash_out_amount=400, payment_method="yape"), AUTH, ORG)
+    assert fake.store["cash_transactions"][-1]["amount"] == 400
+
+
 def test_cash_out_igual_ao_saldo_passa(monkeypatch):
     fake = _banco(monkeypatch, cash_player_sessions=[_sessao()])
     CTS.stand("s1", StandPlayer(cash_out_amount=500), AUTH, ORG)

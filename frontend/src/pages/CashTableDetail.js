@@ -69,11 +69,13 @@ const CashTableDetail = () => {
 
   const bloqueado = myCashbox !== undefined && myCashbox !== null && myCashbox.status !== 'open';
   const fechada = table?.status === 'closed';
-  // O cash-out sai da gaveta em dinheiro vivo: não pode passar do que ela tem.
-  // O backend recusa do mesmo jeito; aqui o operador vê antes de tentar.
-  // Super-admin não tem gaveta (null) — sem limite na tela.
+  // Pago em dinheiro, o cash-out não pode passar das notas que a gaveta tem (o
+  // que entrou por Yape ou transferência não está nela); em outro meio, vale o
+  // saldo todo. O backend recusa do mesmo jeito; aqui o operador vê antes de
+  // tentar. Super-admin não tem gaveta (null) — sem limite na tela.
+  const pagaEmDinheiro = (form.payment_method || 'cash') === 'cash';
   const saldoDaGaveta = myCashbox && myCashbox.status === 'open'
-    ? Number(myCashbox.current_balance ?? 0)
+    ? Number((pagaEmDinheiro ? myCashbox.cash_balance : null) ?? myCashbox.current_balance ?? 0)
     : null;
 
   // Cash-out de quem deve: a dívida é abatida das fichas PRIMEIRO e a gaveta
