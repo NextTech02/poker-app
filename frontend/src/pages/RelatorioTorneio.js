@@ -5,6 +5,8 @@ import Sidebar from '../components/Sidebar';
 import Breadcrumb from '../components/Breadcrumb';
 import api from '../config/api';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { chaveDoMeio, rotuloDoFiltro } from '../utils/meiosDePagamento';
 import './RelatorioTorneio.css';
 
 const Stat = ({ label, value, hint }) => (
@@ -19,6 +21,7 @@ const RelatorioTorneio = () => {
   const { tournamentId } = useParams();
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
+  const { labelFor } = usePaymentMethods();
   // Categoria fixa de um meio de entrada ("Doble" é um buy-in; "Tasa" um add-on…).
   const rotuloCategoria = (c) => ({
     buy_in: t('tournamentReport.buyIns'),
@@ -99,6 +102,30 @@ const RelatorioTorneio = () => {
                         <td>{rotuloCategoria(b.category)}</td>
                         <td>{b.count}</td>
                         <td>{formatCurrency(b.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+
+            {report.by_payment_method?.length > 0 && (
+              <>
+                <h3 className="rt-section-title">{t('tournamentReport.byPaymentMethod', 'Por meio de pagamento')}</h3>
+                <table className="rt-table rt-table--buytypes">
+                  <thead>
+                    <tr>
+                      <th>{t('tournamentReport.paymentMethod', 'Meio de pagamento')}</th>
+                      <th>{t('tournamentReport.salesCount', 'Vendas')}</th>
+                      <th>{t('tournamentReport.amount')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.by_payment_method.map((linha) => (
+                      <tr key={chaveDoMeio(linha)}>
+                        <td>{rotuloDoFiltro(chaveDoMeio(linha), t, labelFor)}</td>
+                        <td>{linha.count}</td>
+                        <td>{formatCurrency(linha.amount)}</td>
                       </tr>
                     ))}
                   </tbody>

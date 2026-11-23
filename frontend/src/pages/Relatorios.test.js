@@ -23,6 +23,12 @@ jest.mock('../components/ReportExportPanel', () => ({ summary }) => (
 ));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
 jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
+jest.mock('../contexts/PaymentMethodsContext', () => ({
+  usePaymentMethods: () => ({
+    activeMethods: [{ code: 'cash', label: 'Efectivo' }, { code: 'yape', label: 'YAPE' }],
+    labelFor: (c) => ({ yape: 'YAPE', plin: 'PLIN' }[c] || null),
+  }),
+}));
 jest.mock('react-i18next', () => {
   const t = (chave, segundo) => (typeof segundo === 'string' ? segundo : chave);
   const traducao = { t, i18n: { language: 'pt-BR' } };
@@ -234,5 +240,60 @@ describe('por meio de entrada', () => {
     const cabecalhos = Array.from(document.querySelectorAll('.reports-table thead th')).map((th) => th.textContent);
     expect(cabecalhos).toEqual(['Jogador', 'Buy-ins', 'Rebuys', 'Add-ons', 'Total Gasto']);
     expect(document.querySelector('.reports-table--buytypes')).toBeNull();
+  });
+});
+
+describe('filtro por meio de pagamento', () => {
+  const COM_PAGAMENTOS = {
+    ...RELATORIO,
+    byPaymentMethod: [
+      { method: 'cash', source: null, count: 60, amount: 90000 },
+      { method: 'yape', source: null, count: 30, amount: 30000 },
+      { method: 'plin', source: null, count: 1, amount: 0 },
+      { method: null, source: 'ticket', count: 4, amount: 0 },
+    ],
+  };
+  const ultima = () => api.get.mock.calls[api.get.mock.calls.length - 1][1].params;
+
+  it('oferece os meios do clube, os que não estão mais ativos e as origens', async () => {
+    await montar({ relatorio: COM_PAGAMENTOS });
+    const campo = await screen.findByLabelText('Meio de pagamento');
+    expect(within(campo).getAllByRole('option').map((o) => o.value)).toEqual([
+      '', 'meio:cash', 'meio:yape', 'meio:plin', 'origem:ticket',
+    ]);
+    expect(within(campo).getByText('YAPE')).toBeInTheDocument();
+  });
+
+  it('escolher um meio pede só ele ao servidor; "Todos" volta ao relatório inteiro', async () => {
+    await montar({ relatorio: COM_PAGAMENTOS });
+    expect(ultima()).not.toHaveProperty('payment');
+    await userEvent.selectOptions(await screen.findByLabelText('Meio de pagamento'), 'meio:yape');
+    await waitFor(() => expect(ultima().payment).toBe('meio:yape'));
+    await userEvent.selectOptions(await screen.findByLabelText('Meio de pagamento'), '');
+    await waitFor(() => expect(ultima()).not.toHaveProperty('payment'));
+  });
+
+  it('o quadro soma por meio, com a fatia de cada um, e clicar nele filtra', async () => {
+    await montar({ relatorio: COM_PAGAMENTOS });
+    const linhas = await waitFor(() => {
+      const achadas = document.querySelectorAll('.reports-table--pagamentos tbody tr');
+      expect(achadas).toHaveLength(4);
+      return achadas;
+    });
+    expect(Array.from(linhas[1].querySelectorAll('td')).map((td) => td.textContent)).toEqual(['YAPE', '30', 'R$ 30000.00', '25%']);
+    await userEvent.click(within(linhas[1]).getByRole('button', { name: 'YAPE' }));
+    await waitFor(() => expect(ultima().payment).toBe('meio:yape'));
+  });
+
+  it('avisa que está filtrado só quando o servidor filtrou', async () => {
+    await montar({ relatorio: { ...COM_PAGAMENTOS, paymentFilter: 'meio:yape' } });
+    expect(await screen.findByText('reports.paymentFilterNote')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'YAPE' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('servidor que ainda não filtra: o campo não aparece', async () => {
+    await montar();
+    await screen.findByText('Métricas Gerais');
+    expect(screen.queryByLabelText('Meio de pagamento')).not.toBeInTheDocument();
   });
 });

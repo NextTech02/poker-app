@@ -440,15 +440,18 @@ class TestRelatoriosEDashboard:
     def test_relatorio_por_periodo(self, client, stub):
         recebidos = {}
 
-        def _relatorio(ini, fim):
-            recebidos.update(ini=ini, fim=fim)
+        def _relatorio(ini, fim, pagamento):
+            recebidos.update(ini=ini, fim=fim, pagamento=pagamento)
             return ReportSummary(totalRevenue=0, totalTournaments=0, totalPlayers=0,
                                  avgBuyIn=0, totalBuyIns=0, totalRebuys=0,
                                  totalAddons=0, playerReports=[])
 
         stub(RepS, get_reports=_relatorio)
         client.get("/reports?start=2026-06-01&end=2026-06-30")
-        assert recebidos == {"ini": "2026-06-01", "fim": "2026-06-30"}
+        assert recebidos == {"ini": "2026-06-01", "fim": "2026-06-30", "pagamento": None}
+
+        client.get("/reports?start=2026-06-01&end=2026-06-30&payment=meio:yape")
+        assert recebidos["pagamento"] == "meio:yape"
 
     def test_resumo_financeiro_recebe_a_organizacao_do_claim(self, client, stub):
         """O DRE soma dinheiro; consultar sem o filtro de org misturaria o

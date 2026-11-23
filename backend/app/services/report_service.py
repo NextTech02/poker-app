@@ -5,6 +5,7 @@ from decimal import Decimal
 from app.database import supabase
 from app.database.paginacao import todas_as_linhas
 from app.models.report import (
+    PaymentMethodReportRow,
     ReportSummary,
     PlayerReport,
     TournamentReport,
@@ -12,6 +13,7 @@ from app.models.report import (
     TournamentPrizeRow,
     BuyTypeReportRow,
 )
+from app.services.pagamento_dividido import pernas_da_linha
 from app.services.transaction_filters import entradas_da_venda, ler_transacoes_ativas
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,62 @@ def categoria_da_venda(linha: dict) -> str:
     if linha.get("is_fee"):
         return "fee"
     return linha.get("type") or "buy_in"
+
+
+# Crédito de patrocinador, misto e ticket não são meio de pagamento: são ORIGENS,
+# sempre pelo valor inteiro (a mesma regra do Extrato Geral do Financeiro).
+ORIGENS = ("credit", "mixed", "ticket")
+MEIO_DINHEIRO = "cash"
+PREFIXO_MEIO = "meio:"
+PREFIXO_ORIGEM = "origem:"
+
+
+def partes_por_meio(linha: dict) -> list:
+    """[(chave, valor)] do que a venda pagou em cada meio. Chave `meio:<codigo>`
+    ou `origem:<origem>`. Linha sem meio gravado é dinheiro, como na gaveta."""
+    if linha.get("payment_source") in ORIGENS:
+        return [(f"{PREFIXO_ORIGEM}{linha['payment_source']}", Decimal(str(linha.get("amount") or 0)))]
+    somas: dict = {}
+    for metodo, valor in pernas_da_linha(linha):
+        chave = f"{PREFIXO_MEIO}{metodo or MEIO_DINHEIRO}"
+        somas[chave] = somas.get(chave, Decimal("0")) + valor
+    return list(somas.items())
+
+
+def agrupar_por_meio_de_pagamento(linhas) -> list:
+    """O quadro "por meio de pagamento", do maior para o menor."""
+    grupos: dict = {}
+    for linha in linhas or []:
+        for chave, valor in partes_por_meio(linha):
+            g = grupos.setdefault(chave, {"count": 0, "amount": Decimal("0")})
+            g["count"] += 1
+            g["amount"] += valor
+    saida = []
+    for chave, g in sorted(grupos.items(), key=lambda kv: (-kv[1]["amount"], kv[0])):
+        campo = "method" if chave.startswith(PREFIXO_MEIO) else "source"
+        saida.append(PaymentMethodReportRow(
+            **{campo: chave.split(":", 1)[1]}, count=g["count"], amount=round(float(g["amount"]), 2),
+        ))
+    return saida
+
+
+def filtrar_por_pagamento(linhas, filtro: str) -> list:
+    """As vendas que entram no filtro, com `amount` = só a parte paga nele."""
+    saida = []
+    for linha in linhas or []:
+        valor = dict(partes_por_meio(linha)).get(filtro)
+        if valor is not None:
+            saida.append({**linha, "amount": float(valor)})
+    return saida
+
+
+def ler_vendas_com_pagamento(monta_query, colunas: str) -> list:
+    """As vendas com o meio de pagamento. Banco sem `payment_split` (migração
+    pendente): nenhuma venda é dividida, e vale o meio da linha."""
+    try:
+        return ler_vendas_com_taxa(monta_query, f"{colunas}, payment_method, payment_source, payment_split")
+    except Exception:
+        return ler_vendas_com_taxa(monta_query, f"{colunas}, payment_method, payment_source")
 
 
 def ler_vendas_com_taxa(monta_query, colunas: str) -> list:
@@ -154,7 +212,7 @@ class ReportService:
         # ── Vendas por MEIO de entrada (o cadastrado pelo diretor) ──
         # Lidas antes do laço dos dias para rachar por dia pela inscrição.
         # Entrada cancelada não é receita do torneio.
-        linhas_tx = ler_vendas_com_taxa(
+        linhas_tx = ler_vendas_com_pagamento(
             lambda cols: (
                 supabase.table("transactions")
                 .select(cols)
@@ -287,6 +345,7 @@ class ReportService:
             days=day_reports,
             prizes=prize_rows,
             by_buy_type=agrupar_vendas_por_meio(linhas_tx, ordem_dos_meios),
+            by_payment_method=agrupar_por_meio_de_pagamento(linhas_tx),
         )
 
     @staticmethod
@@ -324,8 +383,18 @@ class ReportService:
         return {str(r["id"]): int(r.get("sort_order") or 0) for r in (resp.data or []) if r.get("id")}
 
     @staticmethod
-    def get_reports(start_date: Optional[str] = None, end_date: Optional[str] = None) -> ReportSummary:
-        """Generate comprehensive reports for a date range"""
+    def get_reports(
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        payment: Optional[str] = None,
+    ) -> ReportSummary:
+        """Generate comprehensive reports for a date range.
+
+        `payment` (`meio:yape`, `origem:ticket`) deixa só o que foi pago naquele
+        meio; a venda dividida entra com a parte dela. O relatório filtrado sai
+        das VENDAS do período, e não das inscrições dos torneios criados nele."""
+        if payment and not payment.startswith((PREFIXO_MEIO, PREFIXO_ORIGEM)):
+            payment = None
 
         # Fim do período inclui o dia inteiro.
         end_param = None
@@ -383,9 +452,20 @@ class ReportService:
             return q
 
         try:
-            vendas = ler_vendas_com_taxa(_monta_meios, "type, amount, buy_type_id, buy_type_name, player_id")
+            vendas = ler_vendas_com_pagamento(
+                _monta_meios, "type, amount, buy_type_id, buy_type_name, player_id, tournament_id",
+            )
         except Exception:
+            # Filtrado, o relatório inteiro sai destas vendas: zero calado seria
+            # um total errado na conferência do caixa.
+            if payment:
+                raise
             vendas = []
+        by_payment_method = agrupar_por_meio_de_pagamento(vendas)
+        if payment:
+            return ReportService._relatorio_filtrado(
+                filtrar_por_pagamento(vendas, payment), by_payment_method, payment,
+            )
         by_buy_type = agrupar_vendas_por_meio(vendas, por_nome=True)
         meios_por_jogador: dict = {}
         for v in vendas:
@@ -478,4 +558,66 @@ class ReportService:
             totalFees=sum(1 for v in vendas if categoria_da_venda(v) == "fee"),
             playerReports=player_reports,
             byBuyType=by_buy_type,
+            byPaymentMethod=by_payment_method,
         )
+
+    @staticmethod
+    def _relatorio_filtrado(vendas: list, by_payment_method: list, payment: str) -> ReportSummary:
+        """O relatório do período só com o que foi pago num meio."""
+        por_categoria = {"buy_in": 0, "rebuy": 0, "addon": 0, "fee": 0}
+        receita = Decimal("0")
+        valor_dos_buyins = Decimal("0")
+        n_buyins = 0
+        jogadores: dict = {}
+        for v in vendas:
+            categoria = categoria_da_venda(v)
+            valor = Decimal(str(v["amount"]))
+            receita += valor
+            entradas = entradas_da_venda(v)
+            por_categoria[categoria] = por_categoria.get(categoria, 0) + entradas
+            if categoria == "buy_in":
+                valor_dos_buyins += valor
+                n_buyins += 1
+            pid = str(v.get("player_id") or "")
+            if not pid:
+                continue
+            j = jogadores.setdefault(pid, {"buy_in": 0, "rebuy": 0, "addon": 0, "gasto": Decimal("0"), "meios": {}})
+            if categoria in j:
+                j[categoria] += entradas
+            j["gasto"] += valor
+            nome = nome_do_meio(v)
+            j["meios"][nome] = j["meios"].get(nome, 0) + entradas
+
+        nomes = ReportService._nomes_dos_jogadores(list(jogadores))
+        player_reports = [
+            PlayerReport(
+                player_name=nomes.get(pid, "Unknown"),
+                total_entries=j["buy_in"], buy_ins=j["buy_in"], rebuys=j["rebuy"], addons=j["addon"],
+                total_spent=round(float(j["gasto"]), 2), by_buy_type=j["meios"],
+            )
+            for pid, j in jogadores.items()
+        ]
+        player_reports.sort(key=lambda p: (-p.total_spent, p.player_name.lower()))
+        return ReportSummary(
+            totalRevenue=round(float(receita), 2),
+            totalTournaments=len({v.get("tournament_id") for v in vendas if v.get("tournament_id")}),
+            totalPlayers=por_categoria["buy_in"],
+            avgBuyIn=round(float(valor_dos_buyins / n_buyins), 2) if n_buyins else 0.0,
+            totalBuyIns=por_categoria["buy_in"],
+            totalRebuys=por_categoria["rebuy"],
+            totalAddons=por_categoria["addon"],
+            totalFees=por_categoria["fee"],
+            playerReports=player_reports,
+            byBuyType=agrupar_vendas_por_meio(vendas, por_nome=True),
+            byPaymentMethod=by_payment_method,
+            paymentFilter=payment,
+        )
+
+    @staticmethod
+    def _nomes_dos_jogadores(ids: list) -> dict:
+        """{id: nome}, de 200 em 200: a lista vai na URL da consulta."""
+        nomes: dict = {}
+        for i in range(0, len(ids), 200):
+            linhas = supabase.table("players").select("id, name").in_("id", ids[i:i + 200]).execute().data or []
+            nomes.update({str(x["id"]): x.get("name") or "Unknown" for x in linhas})
+        return nomes

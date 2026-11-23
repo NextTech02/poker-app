@@ -111,6 +111,48 @@
   transition: all 0.3s ease;
 }
 
+.date-range select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.75rem 2.4rem 0.75rem 1rem;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.rl-filtro-aviso {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+/* O nome do meio liga e desliga o filtro. */
+.rl-filtrar {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--border-light);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rl-filtrar:hover,
+.rl-filtrar[aria-pressed="true"] {
+  color: var(--accent-hover);
+  text-decoration-color: currentColor;
+}
+
+.rl-linha-filtrada td {
+  background: var(--accent-soft);
+}
+
 .date-range input[type="date"]:focus {
   outline: none;
   border-color: var(--accent-color);

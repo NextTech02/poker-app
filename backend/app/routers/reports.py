@@ -22,10 +22,14 @@ def get_tournament_report(
 def get_reports(
     start: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    payment: Optional[str] = Query(
+        None, max_length=80,
+        description="Só o que foi pago neste meio: `meio:<codigo>` (ex.: meio:yape) ou `origem:<credit|mixed|ticket>`.",
+    ),
     current_user: dict = Depends(get_current_user)
 ):
     """Get comprehensive reports for a date range"""
-    return ReportService.get_reports(start, end)
+    return ReportService.get_reports(start, end, payment)
 
 
 @router.get("/financial", response_model=FinancialSummary)

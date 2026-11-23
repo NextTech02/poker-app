@@ -9,12 +9,14 @@ import { SkeletonStatCard } from '../components/SkeletonLoader';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import './Relatorios.css';
 import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA } from '../utils/datasLocais';
 import { agruparMeiosDoPeriodo, colunasDosJogadores, entradasDoJogador } from '../utils/meiosDoPeriodo';
+import { chaveDoMeio, opcoesDoFiltro, rotuloDoFiltro } from '../utils/meiosDePagamento';
 
 const Relatorios = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   // A4 + B: formatação de moeda consistente com a configuração global de moeda
@@ -35,24 +37,33 @@ const Relatorios = () => {
     end: hojeLocal(),
   });
 
-  useEffect(() => {
-    loadReports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange]);
+  // Meio de pagamento: `meio:yape`, `origem:ticket` ou vazio (todos).
+  const [pagamento, setPagamento] = useState('');
+  const { activeMethods, labelFor } = usePaymentMethods();
 
-  const loadReports = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/reports', { params: dateRange });
-      setReports(response.data);
-    } catch (error) {
-      // B5: toast de erro em vez de console.error silencioso
-      const msg = error.userMessage || t('reports.loadingError', 'Erro ao carregar relatórios. Verifique a conexão e tente novamente.');
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    // Trocar de filtro depressa não pode deixar a resposta antiga por cima da nova.
+    let ativo = true;
+    const loadReports = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/reports', {
+          params: { ...dateRange, ...(pagamento ? { payment: pagamento } : {}) },
+        });
+        if (ativo) setReports(response.data);
+      } catch (error) {
+        if (!ativo) return;
+        // B5: toast de erro em vez de console.error silencioso
+        const msg = error.userMessage || t('reports.loadingError', 'Erro ao carregar relatórios. Verifique a conexão e tente novamente.');
+        toast.error(msg);
+      } finally {
+        if (ativo) setLoading(false);
+      }
+    };
+    loadReports();
+    return () => { ativo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange, pagamento]);
 
   const handleDateChange = (e) => {
     setDateRange({ ...dateRange, [e.target.name]: e.target.value });
@@ -65,6 +76,17 @@ const Relatorios = () => {
   // colunas da tabela de jogadores. Vazio com backend antigo.
   const meiosDoPeriodo = useMemo(() => agruparMeiosDoPeriodo(reports.byBuyType), [reports.byBuyType]);
   const meios = useMemo(() => colunasDosJogadores(meiosDoPeriodo), [meiosDoPeriodo]);
+  // Só um servidor que sabe filtrar manda o quadro: sem ele o campo não aparece,
+  // para ninguém ler como filtrado um número que não é.
+  const porPagamento = reports.byPaymentMethod;
+  const podeFiltrar = Array.isArray(porPagamento);
+  const opcoesDePagamento = useMemo(
+    () => opcoesDoFiltro(activeMethods, porPagamento),
+    [activeMethods, porPagamento],
+  );
+  const nomeDoMeio = (chave) => rotuloDoFiltro(chave, t, labelFor);
+  const totalPorPagamento = (porPagamento || []).reduce((soma, l) => soma + (Number(l.amount) || 0), 0);
+
   const rotuloCategoria = (c) => ({
     buy_in: t('reports.buyIns', 'Buy-ins'),
     rebuy: t('reports.rebuys', 'Rebuys'),
@@ -95,7 +117,11 @@ const Relatorios = () => {
             </div>
           </div>
           <div className="rl-header-actions">
-            <ReportExportPanel summary={reports} dateRange={dateRange} />
+            <ReportExportPanel
+              summary={reports}
+              dateRange={dateRange}
+              pagamento={reports.paymentFilter || ''}
+            />
           </div>
         </div>
 
@@ -122,7 +148,26 @@ const Relatorios = () => {
                 onChange={handleDateChange}
               />
             </div>
+            {(podeFiltrar || pagamento) && (
+              <div className="form-group">
+                <label htmlFor="pagamento">{t('reports.paymentMethod', 'Meio de pagamento')}</label>
+                <select id="pagamento" value={pagamento} onChange={(e) => setPagamento(e.target.value)}>
+                  <option value="">{t('reports.allPaymentMethods', 'Todos')}</option>
+                  {opcoesDePagamento.map((chave) => (
+                    <option key={chave} value={chave}>{nomeDoMeio(chave)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
+          {reports.paymentFilter && (
+            <p className="rl-filtro-aviso">
+              {t('reports.paymentFilterNote', {
+                defaultValue: 'Só o que foi pago em {{method}}. A venda dividida entra com a parte paga nesse meio.',
+                method: nomeDoMeio(reports.paymentFilter),
+              })}
+            </p>
+          )}
         </Card>
 
         {/* B2: Skeleton durante carregamento */}
@@ -243,6 +288,50 @@ const Relatorios = () => {
                 </div>
               </Card>
             </div>
+
+            {porPagamento?.length > 0 && (
+              <Card title={t('reports.byPaymentMethod', 'Por meio de pagamento')}>
+                <div className="table-container">
+                  <table className="reports-table reports-table--pagamentos">
+                    <thead>
+                      <tr>
+                        <th>{t('reports.paymentMethod', 'Meio de pagamento')}</th>
+                        <th>{t('reports.salesCount', 'Vendas')}</th>
+                        <th>{t('reports.buyTypeAmount', 'Valor')}</th>
+                        <th>{t('reports.share', '% do total')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {porPagamento.map((linha) => {
+                        const chave = chaveDoMeio(linha);
+                        const ligado = reports.paymentFilter === chave;
+                        return (
+                          <tr key={chave} className={ligado ? 'rl-linha-filtrada' : undefined}>
+                            <td>
+                              <button
+                                type="button"
+                                className="rl-filtrar"
+                                aria-pressed={ligado}
+                                onClick={() => setPagamento(ligado ? '' : chave)}
+                              >
+                                {nomeDoMeio(chave)}
+                              </button>
+                            </td>
+                            <td>{linha.count}</td>
+                            <td className="amount">{fmt(linha.amount)}</td>
+                            <td>
+                              {totalPorPagamento > 0
+                                ? `${((linha.amount / totalPorPagamento) * 100).toLocaleString(i18n?.language, { maximumFractionDigits: 1 })}%`
+                                : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
 
             {/* Por MEIO de entrada — o cadastrado pelo diretor ("Doble",
                 "Tasa"…), não só as três categorias fixas. */}
