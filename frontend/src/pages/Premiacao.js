@@ -20,6 +20,8 @@ import {
 import { validarDocumento, TIPOS_DOCUMENTO, TIPOS_LEGADO } from '../utils/documentos';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import KoTab from '../components/premiacao/KoTab';
+import RankingTab from '../components/premiacao/RankingTab';
+import { usePermissions } from '../contexts/PermissionContext';
 import { ehTorneioKo, formatoKo } from '../utils/ko';
 import { buscarContaFiado, detalheDoErro } from '../utils/fiado';
 import './Premiacao.css';
@@ -100,7 +102,12 @@ const Premiacao = () => {
   const [error, setError] = useState(null);
   // ?aba=ko abre direto na aba KO/Mystery (o aviso de nível do Controle usa).
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('aba') === 'ko' ? 'ko' : 'config'); // 'config' | 'pagamentos'
+  const [activeTab, setActiveTab] = useState(
+    ['ko', 'ranking'].includes(searchParams.get('aba')) ? searchParams.get('aba') : 'config',
+  ); // 'config' | 'reservada' | 'pagamentos' | 'liberacao' | 'ko' | 'ranking'
+  // Aba do ranking de pontos: só para quem oficializa resultados.
+  const { hasPermission } = usePermissions();
+  const comRanking = typeof hasPermission === 'function' && hasPermission('points_ranking');
 
   const [tournament, setTournament] = useState(null);
   const [prizeSummary, setPrizeSummary] = useState(null);
@@ -811,7 +818,19 @@ const Premiacao = () => {
               {t(`ko.tab_${formatoDoKo}`, NOME_DA_ABA[formatoDoKo] || 'KO')}
             </button>
           )}
+          {comRanking && (
+            <button
+              type="button"
+              className={`prem-tab ${activeTab === 'ranking' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ranking')}
+            >
+              {t('pointsRanking.tab', 'Ranking')}
+            </button>
+          )}
         </div>
+
+        {/* ── TAB: RANKING DE PONTOS (oficializar resultados) ────────────── */}
+        {activeTab === 'ranking' && comRanking && <RankingTab tournamentId={tournamentId} />}
 
         {/* ── TAB: KO (premiação por eliminação) ─────────────────────────── */}
         {activeTab === 'ko' && comKo && (

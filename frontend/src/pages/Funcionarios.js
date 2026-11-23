@@ -48,6 +48,8 @@ const ALL_PERMISSIONS = [
   { key: 'cashbox.operate', label: 'staff.perm.cashboxOperate', modulo: 'club' },
   { key: 'cashbox.admin', label: 'staff.perm.cashboxAdmin', modulo: 'club' },
   { key: 'rankings', label: 'staff.perm.rankings', modulo: 'tournament' },
+  // Ranking de pontos (Manual NSOP): oficializar resultados, etapas e temporadas.
+  { key: 'points_ranking', label: 'staff.perm.pointsRanking', fallback: 'Ranking de pontos (etapas e temporadas)', modulo: 'tournament' },
   { key: 'blinds', label: 'staff.perm.blinds', modulo: 'tournament' },
   { key: 'tables', label: 'staff.perm.tables', modulo: 'tournament' },
   // Tablet do dealer: abre o relógio da mesa e nada além dele.

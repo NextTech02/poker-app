@@ -64,6 +64,8 @@ export const MENUS_POR_MODULO = {
         { path: '/torneios', labelKey: 'sidebar.tournamentsList', icon: 'trophy', permission: 'tournaments' },
         { path: '/blinds-templates', labelKey: 'sidebar.blindTemplates', icon: 'clock', permission: 'tournaments' },
         { path: '/premiacao', labelKey: 'sidebar.registerPrize', icon: 'award', permission: 'prizes' },
+        // Ranking de pontos (Manual NSOP): etapa, temporadas e regras.
+        { path: '/ranking', labelKey: 'sidebar.pointsRanking', icon: 'award', permission: 'points_ranking' },
       ],
     },
     { path: '/relogio-mesa', labelKey: 'sidebar.tableClock', icon: 'clock', anyPermission: PERMISSOES_DO_RELOGIO },

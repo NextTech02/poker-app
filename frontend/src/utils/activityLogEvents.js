@@ -31,6 +31,11 @@ export const AUDITED_TABLES = [
   'house_credit_accounts',
   'house_credit_entries',
   'house_credit_settings',
+  // Ranking de pontos (database_migration_ranking_pontos.sql).
+  'ranking_rules',
+  'tournament_ranking_results',
+  'ranking_seasons',
+  'ranking_season_stages',
 ];
 
 /** Opções do select de evento: acessos + "tudo de uma tabela" (prefixo). */
