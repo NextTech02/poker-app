@@ -58,9 +58,9 @@ passos:
       - clicar: {css: "li.player-select-option"}
       - clicar: {css: ".cx-buytype-option", texto: "Buy-in"}
   - fala:
-      pt-BR: "Cada venda soma no saldo, qualquer que seja a forma de pagamento."
-      en-US: "Each sale adds to the balance, whatever the payment method."
-      es-ES: "Cada venta suma al saldo, sea cual sea el método de pago."
+      pt-BR: "Cada venda em dinheiro soma no saldo. Cartão e transferência não entram na gaveta."
+      en-US: "Each cash sale adds to the balance. Card and transfer do not go into the drawer."
+      es-ES: "Cada venta en efectivo suma al saldo. Tarjeta y transferencia no entran en la caja."
     acoes:
       - clicar: {css: "form button[type=submit]"}
       - esperar: {css: ".btn-print-ticket"}
@@ -74,9 +74,9 @@ passos:
     acoes:
       - clicar: {papel: button, t: cashbox.closeCashbox}
   - fala:
-      pt-BR: "O saldo esperado é o inicial mais as vendas. Confira o que você apurou e digite em Saldo contado."
-      en-US: "The expected balance is the initial one plus sales. Check what you counted and type it in Counted balance."
-      es-ES: "El saldo esperado es el inicial más las ventas. Revisa lo que contaste y escríbelo en Saldo contado."
+      pt-BR: "O saldo esperado é o inicial mais as vendas em dinheiro. Conte o dinheiro da gaveta e digite em Saldo contado."
+      en-US: "The expected balance is the initial one plus cash sales. Count the money in the drawer and type it in Counted balance."
+      es-ES: "El saldo esperado es el inicial más las ventas en efectivo. Cuenta el dinero de la caja y escríbelo en Saldo contado."
     acoes:
       - destacar: {css: ".cashbox-banner__expected"}
         segundos: 3.0

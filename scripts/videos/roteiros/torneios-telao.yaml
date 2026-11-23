@@ -67,7 +67,7 @@ passos:
   - fala:
       pt-BR: "Ligue Meios de entrada para mostrar, abaixo dos blinds, quantas vendas teve cada meio. Ele substitui a contagem de entradas e reentradas."
       en-US: "Turn on Entry options to show, below the blinds, how many sales each option had. It replaces the entries and re-entries count."
-      es-ES: "Activa Medios de entrada para mostrar, debajo de las ciegas, cuántas ventas tuvo cada medio. Reemplaza el conteo de entradas y reentradas."
+      es-ES: "Activa Medios de entrada para mostrar, debajo de los blinds, cuántas ventas tuvo cada medio. Reemplaza el conteo de entradas y reentradas."
     acoes:
       - clicar: {css: "label.bs-toggle", t: broadcastSettings.visBuyTypes}
       - pausa: 1.0

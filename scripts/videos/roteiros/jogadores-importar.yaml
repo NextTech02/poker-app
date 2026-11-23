@@ -8,7 +8,7 @@ inicio: /jogadores
 titulo:
   pt-BR: "Como importar jogadores por planilha"
   en-US: "How to import players from a spreadsheet"
-  es-ES: "Cómo importar jugadores desde una planilla"
+  es-ES: "Cómo importar jugadores desde Excel"
 descricao:
   pt-BR: "Traga a base do sistema antigo sem digitar um por um."
   en-US: "Bring in your old system's base without typing one by one."
@@ -24,7 +24,7 @@ passos:
   - fala:
       pt-BR: "Exporte a planilha do seu sistema atual, em xls ou xlsx, e clique em Escolher arquivo."
       en-US: "Export the spreadsheet from your current system, as xls or xlsx, and click Choose file."
-      es-ES: "Exporta la planilla de tu sistema actual, en xls o xlsx, y haz clic en Elegir archivo."
+      es-ES: "Exporta la lista de tu sistema actual, en xls o xlsx, y haz clic en Elegir archivo."
     acoes:
       - destacar: {css: ".pim-hint"}
         segundos: 3.0
@@ -54,7 +54,7 @@ passos:
   - fala:
       pt-BR: "Atenção: quem vier com e-mail na planilha recebe um pedido de autorização para contatos do clube."
       en-US: "Keep in mind: anyone with an email in the spreadsheet gets a request to allow contact from the club."
-      es-ES: "Atención: quien venga con correo en la planilla recibe una solicitud de autorización para contactos del club."
+      es-ES: "Atención: quien venga con correo en el archivo recibe una solicitud de autorización para contactos del club."
     acoes:
       - pausa: 1.0
   - fala:

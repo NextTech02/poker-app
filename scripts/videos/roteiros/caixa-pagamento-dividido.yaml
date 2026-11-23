@@ -31,27 +31,27 @@ passos:
       - clicar: {css: "li.player-select-option"}
       - clicar: {css: ".cx-buytype-option", texto: "Buy-in"}
   - fala:
-      pt-BR: "Marque Dividir pagamento. O valor total entra na primeira forma."
-      en-US: "Check Split payment. The full amount goes into the first method."
-      es-ES: "Marca Dividir el pago. El monto total entra en el primer método."
+      pt-BR: "Marque Dividir pagamento. A tela abre com duas formas, e o valor total na primeira."
+      en-US: "Check Split payment. It opens with two methods, and the full amount in the first one."
+      es-ES: "Marca Dividir el pago. Se abren dos métodos, con el monto total en el primero."
     acoes:
       - clicar: {css: ".pd-alternar", t: splitPayment.toggle}
   - fala:
-      pt-BR: "Digite quanto foi pago nela. O sistema mostra quanto falta."
-      en-US: "Type how much was paid with it. The system shows what is missing."
-      es-ES: "Escribe cuánto se pagó con él. El sistema muestra cuánto falta."
+      pt-BR: "Digite quanto foi pago nela. A outra já recebe o que falta."
+      en-US: "Type how much was paid with it. The other one gets what is missing."
+      es-ES: "Escribe cuánto se pagó con él. El otro recibe lo que falta."
     acoes:
       - digitar: {css: "#cx-pd-valor-0", valor: "{parte1}", limpar: true}
       - destacar: {css: ".pd-rodape"}
         segundos: 2.0
   - fala:
-      pt-BR: "Clique em Outra forma. A nova linha já vem com o que falta. Escolha a forma de pagamento dela."
-      en-US: "Click Another method. The new line comes with the missing amount. Choose its payment method."
-      es-ES: "Haz clic en Otro medio. La nueva línea ya viene con lo que falta. Elige su método de pago."
+      pt-BR: "Confira a segunda forma de pagamento. Se foram três, clique em Outra forma."
+      en-US: "Check the second payment method. If there were three, click Another method."
+      es-ES: "Revisa el segundo método de pago. Si fueron tres, haz clic en Otro medio."
     acoes:
-      - clicar: {css: ".pd-rodape button"}
-      - pausa: 2.0
       - escolher: {css: "#cx-pd-meio-1", opcao: {pt-BR: "pix", en-US: "card", es-ES: "card"}}
+      - destacar: {css: ".pd-rodape button"}
+        segundos: 2.0
   - fala:
       pt-BR: "Quando as partes fecham o total, o botão Registrar fica disponível. Clique nele."
       en-US: "When the parts add up to the total, the Register button becomes available. Click it."

@@ -1,0 +1,80 @@
+{
+  "final": {
+    "es-ES": { "frase": "El sistema de gestión para clubes y salas de póker.", "botao": "60 días gratis" },
+    "pt-BR": { "frase": "O sistema de gestão para clubes de poker.", "botao": "60 dias grátis" }
+  },
+  "videos": [
+    {
+      "id": "offline",
+      "gancho": {
+        "es-ES": ["Se cayó el internet en pleno torneo.", "Y la fila sigue creciendo."],
+        "pt-BR": ["A internet caiu no meio do torneio.", "E a fila não para."]
+      },
+      "cenas": [
+        {
+          "video": "conta-modo-offline", "corte": [420, 0, 696, 696], "duracao": 4.2,
+          "trecho": { "es-ES": 11.4, "pt-BR": 10.6 },
+          "titulo": { "es-ES": "La caja avisa y **sigue vendiendo.**", "pt-BR": "O caixa avisa e **continua vendendo.**" }
+        },
+        {
+          "video": "conta-modo-offline", "corte": [420, 0, 696, 696], "duracao": 4.2,
+          "trecho": { "es-ES": 25.6, "pt-BR": 23.4 },
+          "titulo": { "es-ES": "La venta queda **guardada en el equipo.**", "pt-BR": "A venda fica **salva no aparelho.**" }
+        },
+        {
+          "video": "conta-modo-offline", "corte": [290, 0, 1246, 864], "duracao": 4.4,
+          "trecho": { "es-ES": 33.6, "pt-BR": 31.2 },
+          "titulo": { "es-ES": "Vuelve la conexión y **todo se sincroniza solo.**", "pt-BR": "A conexão volta e **tudo sincroniza sozinho.**" }
+        }
+      ]
+    },
+    {
+      "id": "relogio-de-mesa",
+      "gancho": {
+        "es-ES": ["¿Quién pidió reloj?", "Reloj de acción en cada mesa, en una tablet."],
+        "pt-BR": ["Quem pediu relógio?", "Relógio de ação em cada mesa, num tablet."]
+      },
+      "cenas": [
+        {
+          "video": "torneios-relogio-mesa-usar", "corte": [0, 40, 1536, 824], "duracao": 4.4,
+          "trecho": { "es-ES": 15.4, "pt-BR": 12.8 },
+          "titulo": { "es-ES": "El dealer marca con **un toque por acción.**", "pt-BR": "O dealer marca com **um toque por ação.**" }
+        },
+        {
+          "video": "torneios-relogio-mesa-usar", "corte": [0, 40, 1536, 824], "duracao": 5.0,
+          "trecho": { "es-ES": 36.0, "pt-BR": 32.2 },
+          "titulo": { "es-ES": "Se acaba el tiempo y **la pantalla avisa.**", "pt-BR": "O tempo acaba e **a tela avisa.**" }
+        },
+        {
+          "video": "torneios-relogio-mesa-usar", "corte": [0, 40, 1536, 824], "duracao": 4.4,
+          "trecho": { "es-ES": 54.2, "pt-BR": 47.2 },
+          "titulo": { "es-ES": "El saldo de time bank **baja solo.**", "pt-BR": "O saldo de time bank **baixa sozinho.**" }
+        }
+      ]
+    },
+    {
+      "id": "salao-na-tela",
+      "gancho": {
+        "es-ES": ["Salón lleno y la misma pregunta:", "¿en qué mesa estoy?"],
+        "pt-BR": ["Salão cheio e a mesma pergunta:", "em que mesa eu estou?"]
+      },
+      "cenas": [
+        {
+          "video": "torneios-telao-tv", "corte": [0, 0, 1536, 864], "duracao": 4.0,
+          "trecho": { "es-ES": 32.2, "pt-BR": 28.4 },
+          "titulo": { "es-ES": "El reloj en **cualquier TV,** con un código.", "pt-BR": "O relógio em **qualquer TV,** com um código." }
+        },
+        {
+          "video": "torneios-telao-tv", "corte": [230, 150, 1080, 640], "duracao": 4.2,
+          "trecho": { "es-ES": 49.0, "pt-BR": 43.0 },
+          "titulo": { "es-ES": "Mesa y asiento de **cada jugador.**", "pt-BR": "Mesa e assento de **cada jogador.**" }
+        },
+        {
+          "video": "torneios-painel-mesas-visao", "corte": [300, 0, 1236, 864], "duracao": 4.6,
+          "trecho": { "es-ES": 18.2, "pt-BR": 16.0 },
+          "titulo": { "es-ES": "Y el floor ve **todas las mesas** desde el celular.", "pt-BR": "E o floor vê **todas as mesas** no celular." }
+        }
+      ]
+    }
+  ]
+}

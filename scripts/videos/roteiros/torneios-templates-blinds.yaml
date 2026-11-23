@@ -8,7 +8,7 @@ preparar: torneios_config:templates
 titulo:
   pt-BR: "Como usar templates de blinds"
   en-US: "How to use blind templates"
-  es-ES: "Cómo usar plantillas de ciegas"
+  es-ES: "Cómo usar plantillas de blinds"
 descricao:
   pt-BR: "Monte a estrutura uma vez e carregue em qualquer dia de torneio."
   en-US: "Build the structure once and load it into any tournament day."
@@ -17,7 +17,7 @@ passos:
   - fala:
       pt-BR: "O template guarda uma estrutura de blinds para reaproveitar. No menu Torneios, abra Templates de Blinds."
       en-US: "A template stores a blind structure so you can reuse it. In the Tournaments menu, open Blind Templates."
-      es-ES: "La plantilla guarda una estructura de ciegas para reutilizarla. En el menú Torneos, abre Plantillas de Ciegas."
+      es-ES: "La plantilla guarda una estructura de blinds para reutilizarla. En el menú Torneos, abre Plantillas de Blinds."
     acoes:
       - clicar: {papel: link, t: sidebar.blindTemplates}
   - fala:

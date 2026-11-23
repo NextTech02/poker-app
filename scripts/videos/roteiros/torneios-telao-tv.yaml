@@ -12,7 +12,7 @@ titulo:
 descricao:
   pt-BR: "O código do dia abre o relógio de blinds e o quadro de mesas, sem login."
   en-US: "The day's code opens the blinds clock and the seating board, with no login."
-  es-ES: "El código del día abre el reloj de ciegas y el cuadro de mesas, sin iniciar sesión."
+  es-ES: "El código del día abre el reloj de blinds y el cuadro de mesas, sin iniciar sesión."
 passos:
   - fala:
       pt-BR: "Cada dia do torneio tem um código para a TV. Abra o torneio e, no dia, clique em Código TV."
@@ -31,7 +31,7 @@ passos:
   - fala:
       pt-BR: "Esta é a tela que aparece na TV. Ela não pede login: o código é a credencial. Deixe em Blinds, digite o código e clique em Entrar."
       en-US: "This is the screen on the TV. It doesn't ask for a login: the code is the credential. Leave it on Blinds, type the code and click Enter."
-      es-ES: "Esta es la pantalla que aparece en la TV. No pide iniciar sesión: el código es la credencial. Déjala en Ciegas, escribe el código y haz clic en Entrar."
+      es-ES: "Esta es la pantalla que aparece en la TV. No pide iniciar sesión: el código es la credencial. Déjala en Blinds, escribe el código y haz clic en Entrar."
     acoes:
       - ir: /tv
       - digitar: {css: ".tv-code__input", valor: "{codigo_tv}"}
@@ -39,7 +39,7 @@ passos:
   - fala:
       pt-BR: "O telão abre com o relógio, os blinds, os jogadores e tudo o que você ligou em Elementos Visíveis. Ele acompanha o Controle do Torneio."
       en-US: "The display opens with the clock, the blinds, the players and everything you turned on under Visible Elements. It follows Tournament Control."
-      es-ES: "La pantalla abre con el reloj, las ciegas, los jugadores y todo lo que activaste en Elementos Visibles. Sigue el Control del Torneo."
+      es-ES: "La pantalla abre con el reloj, los blinds, los jugadores y todo lo que activaste en Elementos Visibles. Sigue el Control del Torneo."
     acoes:
       - pausa: 6.0
   - fala:

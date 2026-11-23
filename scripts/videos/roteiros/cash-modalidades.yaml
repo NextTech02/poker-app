@@ -12,12 +12,12 @@ titulo:
 descricao:
   pt-BR: "Stakes, buy-in e rake de cada mesa."
   en-US: "Stakes, buy-in and rake for each table."
-  es-ES: "Ciegas, buy-in y rake de cada mesa."
+  es-ES: "Blinds, buy-in y rake de cada mesa."
 passos:
   - fala:
       pt-BR: "Modalidades são os stakes que o clube oferece, com blinds, buy-in e rake. Você cadastra uma vez e usa todas as noites."
       en-US: "Game types are the stakes your club offers, with blinds, buy-in and rake. You set them up once and use them every night."
-      es-ES: "Las modalidades son los niveles que ofrece el club, con ciegas, buy-in y rake. Las registras una vez y las usas todas las noches."
+      es-ES: "Las modalidades son los niveles que ofrece el club, con blinds, buy-in y rake. Las registras una vez y las usas todas las noches."
     acoes:
       - destacar: {css: ".table-container"}
         segundos: 3.0
