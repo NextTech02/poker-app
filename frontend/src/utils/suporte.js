@@ -65,8 +65,10 @@ export const filtrarVideos = (videos, { area, busca }, idioma) => {
 export const formatarDuracao = (segundos) => {
   const total = Math.round(Number(segundos) || 0);
   if (total <= 0) return '';
-  const minutos = Math.floor(total / 60);
-  return `${minutos}:${String(total % 60).padStart(2, '0')}`;
+  const horas = Math.floor(total / 3600);
+  const minutos = Math.floor((total % 3600) / 60);
+  const resto = String(total % 60).padStart(2, '0');
+  return horas ? `${horas}:${String(minutos).padStart(2, '0')}:${resto}` : `${minutos}:${resto}`;
 };
 
 /**

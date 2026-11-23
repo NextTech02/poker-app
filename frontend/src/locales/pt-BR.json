@@ -3399,7 +3399,15 @@
     "allAreas": "Todos",
     "noResults": "Nenhum vídeo encontrado para essa busca.",
     "close": "Fechar",
-    "subtitles": "Legendas"
+    "subtitles": "Legendas",
+    "chapters": "Capítulos",
+    "continueWatching": "Continuar assistindo",
+    "stoppedAt": "Você parou em {{time}}",
+    "watched": "Assistido",
+    "resumedFrom": "Continuando de {{time}}",
+    "startOver": "Começar do início",
+    "loadError": "Não foi possível carregar o vídeo. Confira a internet e tente de novo.",
+    "retry": "Tentar de novo"
   },
   "security": {
     "title": "Segurança da conta",

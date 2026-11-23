@@ -3399,7 +3399,15 @@
     "allAreas": "Todos",
     "noResults": "No se encontraron videos para esta búsqueda.",
     "close": "Cerrar",
-    "subtitles": "Subtítulos"
+    "subtitles": "Subtítulos",
+    "chapters": "Capítulos",
+    "continueWatching": "Continuar viendo",
+    "stoppedAt": "Te quedaste en {{time}}",
+    "watched": "Visto",
+    "resumedFrom": "Continuando desde {{time}}",
+    "startOver": "Empezar desde el inicio",
+    "loadError": "No se pudo cargar el video. Revisa tu conexión e inténtalo de nuevo.",
+    "retry": "Intentar de nuevo"
   },
   "security": {
     "title": "Seguridad de la cuenta",
