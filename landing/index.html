@@ -1124,15 +1124,29 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
      Formato: landing|<canal>|<página de entrada>
        landing|org:google|/ferramentas/timer-de-poker/
        landing|utm:instagram|/
+       landing|utm:meta/offline-pe|/es/
        landing|ref:cbth.org.br|/es/
-       landing|direto|/ */
+       landing|direto|/
+
+     ANÚNCIO é a exceção à primeira visita: o clique pago (utm_medium=cpc, ou o
+     gclid do Google) passa por cima do que estava guardado, para a campanha que
+     trouxe a pessoa de volta não aparecer como visita direta. */
   var CHAVE_ORIGEM = 'aceblind.origem';
   var VALIDADE_ORIGEM = 90 * 24 * 3600 * 1000;
   var BUSCADORES = /(^|\.)(google|bing|yahoo|duckduckgo|ecosia|brave|yandex|baidu)\./;
 
+  var PAGO = /^(cpc|ppc|paid|paid[-_]?social|ads?)$/i;
+  var parametros = new URLSearchParams(window.location.search);
+  function parametro(nome, limite){
+    return (parametros.get(nome) || '').replace(/[|\/\s]/g, '').slice(0, limite);
+  }
+  var cliquePago = PAGO.test(parametro('utm_medium', 20)) || parametros.has('gclid');
+
   function canalDaVisita(){
-    var utm = new URLSearchParams(window.location.search).get('utm_source');
-    if(utm) return 'utm:' + utm.replace(/[|\s]/g, '').slice(0, 24);
+    var utm = parametro('utm_source', 24);
+    var campanha = parametro('utm_campaign', 18);
+    if(utm) return campanha ? 'utm:' + utm.slice(0, 10) + '/' + campanha : 'utm:' + utm;
+    if(parametros.has('gclid')) return 'utm:google/' + (campanha || 'ads');
     var host = '';
     try { host = new URL(document.referrer).hostname.replace(/^www\./, ''); } catch(e){ /* sem referrer */ }
     if(!host || host === window.location.hostname) return 'direto';
@@ -1146,7 +1160,7 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
     /* Armazenamento bloqueado não pode custar o lead: cai na visita atual. */
     try {
       var salva = JSON.parse(localStorage.getItem(CHAVE_ORIGEM));
-      if(salva && salva.canal && agora - salva.em < VALIDADE_ORIGEM) return salva;
+      if(!cliquePago && salva && salva.canal && agora - salva.em < VALIDADE_ORIGEM) return salva;
       localStorage.setItem(CHAVE_ORIGEM, JSON.stringify(atual));
     } catch(e){ /* segue com a visita atual */ }
     return atual;
@@ -1230,6 +1244,9 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
   function ligarWhatsApp(){
     if(!WHATSAPP) return;   /* sem número, os botões seguem para o formulário */
     var texto = t('wa.texto', 'Olá, gostaria de saber mais informações sobre o AceBlind');
+    /* Quem chama no WhatsApp não passa pelo formulário: sem esta referência o
+       lead da campanha chega sem dizer de qual anúncio veio. */
+    if(/^utm:.+\//.test(origem.canal)) texto += ' (ref: ' + origem.canal.slice(4) + ')';
     var href = 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(texto);
     document.querySelectorAll('.wa-link').forEach(function(a){
       a.href = href; a.target = '_blank'; a.rel = 'noopener';
