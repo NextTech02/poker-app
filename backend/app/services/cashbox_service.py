@@ -1,3 +1,5 @@
+import logging
+from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 from app.database import supabase
@@ -78,6 +80,9 @@ def _eh_estorno(tx: dict) -> bool:
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 def _dinheiro_vivo(metodo: Optional[str]) -> bool:
     """Só dinheiro vivo está na gaveta para contar. Linha sem meio (antiga) é
     dinheiro, como sempre foi tratada."""
@@ -86,7 +91,9 @@ def _dinheiro_vivo(metodo: Optional[str]) -> bool:
 
 _VINCULOS_DE_VENDA = (
     # (coluna no movimento, tabela da venda, colunas lidas)
-    ("transaction_id", "transactions", "id, amount, payment_method, payment_split"),
+    ("transaction_id", "transactions",
+     "id, amount, payment_method, payment_source, player_id, tournament_id, type, created_at, payment_split"),
+    ("cash_transaction_id", "cash_transactions", "id, amount, payment_method, payment_split"),
     ("bar_payment_id", "bar_tab_payments", "id, amount, payment_method"),
     ("house_credit_entry_id", "house_credit_entries", "id, amount, payment_method"),
 )
@@ -111,24 +118,98 @@ def _ler_vendas(tabela: str, colunas: str, ids: List[str]) -> List[dict]:
     return linhas
 
 
+# O crédito de patrocinador aparece entre os meios fora da gaveta com este código.
+MEIO_CREDITO = "credit"
+
+
+def _credito_das_vendas_mistas(vendas: List[dict]) -> Dict[str, Decimal]:
+    """{id da venda: quanto dela o crédito de patrocinador pagou}.
+
+    A venda mista (crédito + dinheiro) grava só o total. O consumo do crédito é
+    lançado na mesma operação, ANTES da venda: os lançamentos do jogador naquele
+    torneio e tipo, desde a venda anterior com crédito até esta, são os dela.
+    Sem conseguir ler, a venda conta inteira no meio dela, como antes.
+    """
+    mistas = [v for v in vendas if v.get("payment_source") == "mixed" and v.get("player_id")]
+    if not mistas:
+        return {}
+    tipo_do_credito = {
+        "buy_in": "credit_used_buyin", "rebuy": "credit_used_rebuy", "addon": "credit_used_addon",
+    }
+    try:
+        jogadores = sorted({str(v["player_id"]) for v in mistas})
+        consumos = todas_as_linhas(lambda: supabase.table("credit_transactions")
+                                   .select("id, player_id, tournament_id, type, amount, created_at")
+                                   .in_("player_id", jogadores).order("id"))
+        # A venda paga SÓ com crédito também consome, e separa uma mista da outra.
+        com_credito = todas_as_linhas(lambda: supabase.table("transactions")
+                                      .select("id, player_id, tournament_id, type, created_at, payment_source")
+                                      .in_("player_id", jogadores)
+                                      .in_("payment_source", ["credit", "mixed"]).order("id"))
+    except Exception:
+        logger.warning("crédito das vendas mistas não lido: elas contam inteiras na gaveta", exc_info=True)
+        return {}
+
+    def chave(linha, tipo):
+        return (str(linha.get("player_id")), str(linha.get("tournament_id")), tipo)
+
+    saida: Dict[str, Decimal] = {}
+    for venda in mistas:
+        tipo = tipo_do_credito.get(venda.get("type"))
+        ate = _instante(venda.get("created_at"))
+        if not tipo or ate is None:
+            continue
+        anteriores = [
+            quando for x in com_credito
+            if x.get("id") != venda["id"] and chave(x, x.get("type")) == chave(venda, venda.get("type"))
+            and (quando := _instante(x.get("created_at"))) is not None and quando < ate
+        ]
+        desde = max(anteriores, default=None)
+        total = sum((
+            Decimal(str(c.get("amount") or 0)) for c in consumos
+            if c.get("type") == tipo and chave(c, tipo) == chave(venda, tipo)
+            and (quando := _instante(c.get("created_at"))) is not None
+            and quando <= ate and (desde is None or quando > desde)
+        ), Decimal("0"))
+        saida[venda["id"]] = min(total, Decimal(str(venda.get("amount") or 0)))
+    return saida
+
+
+def _pernas_na_gaveta(venda: dict, credito_da_mista: Dict[str, Decimal]) -> list:
+    """(meio, valor) da venda, com o crédito de patrocinador à parte: ele não traz
+    nota nenhuma, e o `payment_method` da linha é o do que foi pago em dinheiro."""
+    from app.services.pagamento_dividido import pernas_da_linha
+
+    origem = venda.get("payment_source")
+    total = Decimal(str(venda.get("amount") or 0))
+    if origem == "credit":
+        return [(MEIO_CREDITO, total)]
+    if origem == "mixed":
+        credito = credito_da_mista.get(venda.get("id"), Decimal("0"))
+        return [(MEIO_CREDITO, credito), (venda.get("payment_method"), total - credito)]
+    return pernas_da_linha(venda)
+
+
 def _fora_da_gaveta(movimentos: List[dict]) -> Dict[str, Dict[str, float]]:
     """{id do movimento: {meio: parte assinada}} do que NÃO é dinheiro vivo.
 
     O trigger espelha na gaveta a venda inteira, seja qual for o meio (cartão,
     PIX, Yape...), e o esperado somava tudo: quem conta só as notas fechava a
-    noite com "falta". A venda dividida conta só a parte em dinheiro, e o
-    estorno segue o meio da venda que ele devolve (cancelar uma venda no
-    cartão não tira nota da gaveta). Cash game não tem meio: é sempre dinheiro.
+    noite com "falta". A venda dividida conta só a parte em dinheiro, o crédito
+    de patrocinador não conta, e o estorno segue o meio da venda que ele devolve
+    (cancelar uma venda no cartão não tira nota da gaveta). Vale para torneio,
+    bar, fiado e cash game: sentar e recomprar por Yape não põe nota na gaveta, e
+    levantar por transferência não tira.
     """
-    from app.services.pagamento_dividido import pernas_da_linha
-
     pernas: Dict[Tuple[str, str], list] = {}
     for coluna, tabela, colunas in _VINCULOS_DE_VENDA:
         ids = sorted({m[coluna] for m in movimentos if m.get(coluna)})
         if not ids:
             continue
-        for venda in _ler_vendas(tabela, colunas, ids):
-            pernas[(coluna, venda["id"])] = pernas_da_linha(venda)
+        vendas = _ler_vendas(tabela, colunas, ids)
+        credito = _credito_das_vendas_mistas(vendas) if coluna == "transaction_id" else {}
+        for venda in vendas:
+            pernas[(coluna, venda["id"])] = _pernas_na_gaveta(venda, credito)
 
     fora: Dict[str, Dict[str, float]] = {}
     for m in movimentos:
@@ -143,7 +224,7 @@ def _fora_da_gaveta(movimentos: List[dict]) -> Dict[str, Dict[str, float]]:
             continue
         assinado = float(m.get("signed_amount") or 0)
         for metodo, valor in partes:
-            if _dinheiro_vivo(metodo):
+            if _dinheiro_vivo(metodo) or not valor:
                 continue
             por_meio = fora.setdefault(m["id"], {})
             por_meio[metodo] = por_meio.get(metodo, 0.0) + assinado * float(valor) / total
@@ -557,8 +638,20 @@ class CashboxService:
     @staticmethod
     def _movimentos_das_sessoes(session_ids: List[str]) -> List[dict]:
         return todas_as_linhas(lambda: supabase.table("cashbox_transactions").select(
-            "id, session_id, signed_amount, transaction_id, bar_payment_id, house_credit_entry_id"
+            "id, session_id, signed_amount, transaction_id, cash_transaction_id, "
+            "bar_payment_id, house_credit_entry_id"
         ).in_("session_id", session_ids).order("id"))
+
+    @staticmethod
+    def dinheiro_na_gaveta(caixa: dict) -> float:
+        """O dinheiro vivo que deve estar na gaveta aberta: o saldo do razão sem o
+        que entrou por cartão, PIX, crédito e afins."""
+        saldo = float(caixa.get("current_balance") or 0)
+        sessao = caixa.get("current_session_id")
+        if not sessao:
+            return round(saldo, 2)
+        fora = _fora_da_gaveta(CashboxService._movimentos_das_sessoes([sessao]))
+        return round(saldo - sum(m.amount for m in _somar_por_meio(fora)), 2)
 
     @staticmethod
     def _com_saldo_em_dinheiro(caixas: List[CashboxResponse]) -> List[CashboxResponse]:
@@ -818,10 +911,7 @@ class CashboxService:
 
         # O esperado é o dinheiro vivo: o operador conta as notas, e o cartão,
         # o PIX e afins que o razão da gaveta também soma não estão nela.
-        fora = _fora_da_gaveta(CashboxService._movimentos_das_sessoes([session_id]))
-        expected = round(
-            float(cb_row["current_balance"]) - sum(m.amount for m in _somar_por_meio(fora)), 2
-        )
+        expected = CashboxService.dinheiro_na_gaveta(cb_row)
         diff = round(actual_final_balance - expected, 2)
         now = datetime.now(timezone.utc).isoformat()
 

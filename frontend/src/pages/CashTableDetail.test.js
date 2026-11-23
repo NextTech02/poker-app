@@ -231,6 +231,22 @@ describe('levantar', () => {
   });
 });
 
+it('o limite do levantar é o dinheiro da gaveta, não o que entrou por outro meio', async () => {
+  usePaymentMethods.mockReturnValue({
+    activeMethods: [{ code: 'cash', label: 'Dinheiro' }, { code: 'transfer', label: 'Transferência' }],
+  });
+  montar({ caixa: { status: 'open', current_balance: 500, cash_balance: 200 } });
+  await userEvent.click(await screen.findByRole('button', { name: 'Levantar' }));
+  const dialogo = screen.getByRole('dialog');
+  expect(within(dialogo).getByText('Saldo do seu caixa: R$ 200.00')).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText('Cash-out'), '250');
+  expect(within(dialogo).getByRole('button', { name: 'Levantar' })).toBeDisabled();
+
+  // Pago por transferência, não sai nota da gaveta.
+  await userEvent.selectOptions(screen.getByLabelText('Meio de pagamento'), 'transfer');
+  expect(within(dialogo).getByRole('button', { name: 'Levantar' })).toBeEnabled();
+});
+
 describe('recompra', () => {
   it('envia o valor', async () => {
     montar();

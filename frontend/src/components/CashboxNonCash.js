@@ -16,7 +16,10 @@ const CashboxNonCash = ({ items }) => {
   const { labelFor } = usePaymentMethods() || {};
   if (!items || items.length === 0) return null;
   // Embutidos (cartão, PIX) traduzem; os do clube (Yape, Zelle) vêm do cadastro.
-  const rotulo = (codigo) => methodLabel(t, { code: codigo, label: labelFor ? labelFor(codigo) : null });
+  // "credit" não é um meio: é a parte paga com crédito de patrocinador.
+  const rotulo = (codigo) => (codigo === 'credit'
+    ? t('financial.paymentCredit', 'Crédito')
+    : methodLabel(t, { code: codigo, label: labelFor ? labelFor(codigo) : null }));
   return (
     <div className="cashbox-non-cash">
       <div className="cashbox-non-cash__title">{t('cashbox.nonCashTitle')}</div>

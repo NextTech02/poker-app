@@ -75,6 +75,7 @@ def _traduzir_erro_do_banco(exc: Exception) -> None:
         ) from exc
     raise exc
 
+MEIO_DINHEIRO = "cash"
 PASSO_CAIXA = "caixa_operador"
 PASSO_MARCAR = "marcar_cancelada"
 
@@ -376,14 +377,18 @@ class CashTransactionService:
                 sessao["player_id"], data, org
             )
             liquido = round(data.cash_out_amount - abatido, 2)
-            # A gaveta paga o cash-out em dinheiro vivo: não sai mais do que
-            # entrou. Esta checagem dá a recusa com nome e os números; a trava
-            # que resiste a dois levantes simultâneos é a do banco
-            # (mirror_cash_transaction_to_cashbox, com FOR UPDATE na gaveta).
-            # Com fiado, a gaveta só paga o LÍQUIDO: a parte abatida fica no
-            # clube como quitação da dívida.
+            # Pago em dinheiro, o cash-out não tira mais notas do que a gaveta
+            # tem: o que entrou por Yape ou transferência não está nela. Pago em
+            # outro meio, vale o saldo do razão, que é também a trava do banco
+            # contra dois levantes simultâneos (mirror_cash_transaction_to_cashbox,
+            # com FOR UPDATE na gaveta). Com fiado, só se paga o LÍQUIDO: a parte
+            # abatida fica no clube como quitação da dívida.
             if caixa is not None and liquido > 0:
-                disponivel = float(caixa.get("current_balance") or 0)
+                em_dinheiro = (data.payment_method or MEIO_DINHEIRO) == MEIO_DINHEIRO
+                disponivel = (
+                    CashboxService.dinheiro_na_gaveta(caixa) if em_dinheiro
+                    else float(caixa.get("current_balance") or 0)
+                )
                 if liquido > disponivel:
                     raise _saldo_insuficiente(disponivel, liquido)
             # Colunas do fiado só quando há fiado: sem a migração aplicada elas
