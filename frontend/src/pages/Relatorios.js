@@ -12,8 +12,8 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import './Relatorios.css';
 import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
-import { chaveDoMeio, opcoesDoFiltro, rotuloDoFiltro } from '../utils/meiosDePagamento';
 import { agruparMeiosDoPeriodo, colunasDosJogadores, entradasDoJogador } from '../utils/meiosDoPeriodo';
+import { chaveDoMeio, opcoesDoFiltro, rotuloDoFiltro } from '../utils/meiosDePagamento';
 
 const Relatorios = () => {
   const { t, i18n } = useTranslation();
