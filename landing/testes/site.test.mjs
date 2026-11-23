@@ -98,6 +98,19 @@ test('nenhuma afirmação retirada voltou ao site', pular, () => {
   }
 });
 
+/* O site não mostra preço: o valor vai na proposta. A prévia do sistema e os
+   guias continuam usando dinheiro nos exemplos, então a conferência olha a seção
+   de planos, as mensalidades que já foram publicadas e o JSON-LD. */
+test('nenhuma página mostra o preço dos planos', pular, () => {
+  for(const [url, $] of paginas){
+    assert.doesNotMatch($('#planos').text(), /[$€]\s?\d|S\/\s?\d/, `preço nos planos de ${url}`);
+    assert.doesNotMatch($('main').text(), /(US)?\$\s?(49|69|99|129)(?![\d.,])/, `mensalidade em ${url}`);
+    const { '@graph': grafo } = JSON.parse($('script[type="application/ld+json"]').first().text());
+    const software = grafo.find(n => n['@type'] === 'SoftwareApplication');
+    assert.equal(software?.offers, undefined, `oferta com preço no JSON-LD de ${url}`);
+  }
+});
+
 /* Espanhol neutro para a LatAm: nada de voseo, nem de "planilla", que no Peru é
    folha de pagamento. "Sangría" só retorna vinho na busca, e "casa de póker"
    só retorna cidade brasileira: os termos são "retiro de caja" e "club o sala". */
