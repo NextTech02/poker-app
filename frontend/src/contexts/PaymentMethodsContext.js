@@ -6,6 +6,8 @@ const PaymentMethodsContext = createContext({});
 
 export const usePaymentMethods = () => useContext(PaymentMethodsContext);
 
+const CODIGOS_RESERVADOS = ['split', 'credit', 'mixed', 'ticket', 'house_credit', 'house-credit'];
+
 // Gera um código estável a partir do rótulo (ex.: "Yape Perú" -> "yape-peru").
 const slugify = (s) =>
   (s || '')
@@ -75,9 +77,10 @@ export const PaymentMethodsProvider = ({ children }) => {
       if (!name) throw new Error('empty-label');
       const base = slugify(name);
       const existing = new Set(methods.map((m) => m.code));
-      // 'split' é o código RESERVADO do pagamento dividido (o banco recusa):
-      // um meio chamado "Split" vira 'split-2'.
-      existing.add('split');
+      // Códigos RESERVADOS: 'split' é o pagamento dividido (o banco recusa) e os
+      // outros são ORIGENS de pagamento, recusadas como parte de uma divisão.
+      // Um meio chamado "Ticket" vira 'ticket-2'.
+      CODIGOS_RESERVADOS.forEach((c) => existing.add(c));
       let code = base;
       let i = 2;
       while (existing.has(code)) code = `${base}-${i++}`;

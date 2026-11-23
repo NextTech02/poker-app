@@ -2623,7 +2623,7 @@ describe('pagamento dividido', () => {
 
     await userEvent.clear(valorDaParte(0));
     await userEvent.type(valorDaParte(0), '150');
-    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
+    // A segunda forma já está lá e recebe o que falta.
     expect(valorDaParte(1)).toHaveValue(70);
     await enviar();
 
@@ -2653,7 +2653,6 @@ describe('pagamento dividido', () => {
     await userEvent.click(screen.getByLabelText('Dividir pagamento'));
     await userEvent.clear(valorDaParte(0));
     await userEvent.type(valorDaParte(0), '200');
-    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
     await enviar();
 
     await waitFor(() => expect(chamada('/rebuy')).toBeTruthy());
@@ -2672,11 +2671,60 @@ describe('pagamento dividido', () => {
     await abrirModal();
     await preencher({ tipo: 'b6' });
     await userEvent.click(screen.getByLabelText('Dividir pagamento'));
-    await userEvent.clear(valorDaParte(0));
-    await userEvent.type(valorDaParte(0), '150');
+    // Ligar a divisão e não dizer quanto entrou em cada forma não é dividir: a
+    // segunda sumia em silêncio e a venda saía inteira em dinheiro.
     expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeDisabled();
-    expect(screen.getByText('Falta {{value}}')).toBeInTheDocument();
+    expect(screen.getByText('Informe o valor de cada forma ou remova a que sobrou.')).toBeInTheDocument();
+
+    await userEvent.clear(valorDaParte(0));
+    await userEvent.type(valorDaParte(0), '350');
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeDisabled();
+    expect(screen.getByText('Passa {{value}}')).toBeInTheDocument();
     expect(offlineWrite).not.toHaveBeenCalled();
+  });
+
+  it('marcar outro item com a divisão aberta atualiza o total ainda não dividido', async () => {
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b6' });
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    expect(valorDaParte(0)).toHaveValue(200);
+    await marcarMeio('b5');
+    expect(valorDaParte(0)).toHaveValue(220);
+  });
+
+  it('a divisão ligada sem nada escolhido não esconde o aviso do que falta', async () => {
+    await montar();
+    await abrirModal();
+    await userEvent.click(screen.getByLabelText('Dividir pagamento'));
+    expect(screen.getByRole('button', { name: 'cashRegister.register' })).toBeEnabled();
+  });
+
+  it('o add-on leva o id da operação nos parâmetros: reenviar não cobra de novo', async () => {
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: ['b6', 'b5'] });
+    await enviar();
+    await waitFor(() => expect(chamada('/addon')).toBeTruthy());
+    const [op] = chamada('/addon');
+    expect(op.params.client_mutation_id).toBe(op.body.client_mutation_id);
+    expect(op.params.client_mutation_id).toBeTruthy();
+  });
+
+  it('clicar duas vezes em registrar vende uma vez só', async () => {
+    let concluir;
+    offlineWrite.mockImplementation(() => new Promise((ok) => { concluir = () => ok({ data: { id: 'tp1' } }); }));
+    await montar();
+    await abrirModal();
+    await preencher({ tipo: 'b6' });
+    const botao = screen.getByRole('button', { name: 'cashRegister.register' });
+    const formulario = botao.closest('form');
+    fireEvent.submit(formulario);
+    fireEvent.submit(formulario);
+    await waitFor(() => expect(offlineWrite).toHaveBeenCalledTimes(1));
+    expect(botao).toBeDisabled();
+    await act(async () => { concluir(); });
+    expect(offlineWrite).toHaveBeenCalledTimes(1);
   });
 
   it('desligar a divisão volta ao meio único', async () => {
@@ -2696,7 +2744,6 @@ describe('pagamento dividido', () => {
     await userEvent.click(screen.getByLabelText('Dividir pagamento'));
     await userEvent.clear(valorDaParte(0));
     await userEvent.type(valorDaParte(0), '600');
-    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/transactions/x1/payment-method', {

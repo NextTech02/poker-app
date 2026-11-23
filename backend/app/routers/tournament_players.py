@@ -81,16 +81,18 @@ def add_addon(
     payment_source: Optional[str] = Query("cash"),
     payment_method: Optional[str] = Query("cash"),
     buy_type_id: Optional[str] = Query(None),
+    client_mutation_id: Optional[str] = Query(None, description="Identificador gerado no cliente; torna a chamada repetível sem duplicar a venda."),
     body: Optional[PagamentoDaVenda] = Body(None),
     current_user: dict = Depends(get_current_user),
 ):
     """Add an add-on for a tournament player.
 
     O corpo é opcional e só traz as partes do pagamento dividido; o resto
-    continua vindo pelos parâmetros."""
+    continua vindo pelos parâmetros. Com `client_mutation_id`, a resposta que se
+    perde no caminho não vira um segundo add-on quando a venda é reenviada."""
     user_id = current_user.get("sub")
     try:
-        return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id, payment_split=(body.payment_split if body else None))
+        return TournamentPlayerService.add_addon(tournament_player_id, user_id, payment_source=payment_source, payment_method=payment_method, buy_type_id=buy_type_id, client_mutation_id=client_mutation_id, payment_split=(body.payment_split if body else None))
     except ValueError as e:
         raise da_excecao(e, status=404)
 

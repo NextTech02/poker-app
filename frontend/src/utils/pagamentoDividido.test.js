@@ -1,8 +1,11 @@
 import {
+  acompanharTotal,
   eDividido,
   fundirPartes,
+  mudarValorDaParte,
   pagamentoDoItem,
   partesDaLinha,
+  partesIniciais,
   repartirPagamento,
   restanteDasPartes,
   rotuloDoPagamento,
@@ -72,6 +75,32 @@ describe('as partes do formulário', () => {
     expect(validarPartes([P('cash', '600')], 500)).toBe('sobra');
     expect(validarPartes([P('cash', '')], 500)).toBe('vazio');
     expect(restanteDasPartes([P('cash', '300')], 500)).toBe(200);
+  });
+
+  it('forma em branco não fecha, mesmo com o total inteiro na outra', () => {
+    expect(validarPartes([P('cash', '500'), P('pix', '')], 500)).toBe('incompleta');
+    expect(validarPartes([P('cash', '500'), P('pix', '0')], 500)).toBe('incompleta');
+  });
+
+  it('nasce com o total no meio escolhido e a segunda forma em branco', () => {
+    const metodos = [{ code: 'cash' }, { code: 'pix' }];
+    expect(partesIniciais('pix', 500, metodos)).toEqual([P('pix', '500'), P('cash', '')]);
+    expect(partesIniciais('cash', 500, [{ code: 'cash' }])).toEqual([P('cash', '500')]);
+    expect(partesIniciais('cash', 0, metodos)).toEqual([P('cash', ''), P('pix', '')]);
+  });
+
+  it('com duas formas, mudar uma ajusta a outra, em centavos', () => {
+    expect(mudarValorDaParte([P('cash', '0.3'), P('pix', '')], 1, '0.1', 0.3)).toEqual([P('cash', '0.2'), P('pix', '0.1')]);
+    // Passou do total: não há o que ajustar, e o rodapé diz quanto passa.
+    expect(mudarValorDaParte([P('cash', '300'), P('pix', '200')], 1, '600', 500)).toEqual([P('cash', '300'), P('pix', '600')]);
+    // Apagar o campo para digitar de novo não mexe na outra.
+    expect(mudarValorDaParte([P('cash', '300'), P('pix', '200')], 0, '', 500)).toEqual([P('cash', ''), P('pix', '200')]);
+  });
+
+  it('o total mudou: partes intactas acompanham, partes digitadas ficam', () => {
+    const metodos = [{ code: 'cash' }, { code: 'pix' }];
+    expect(acompanharTotal([P('cash', '500'), P('pix', '')], 500, 550, 'cash', metodos)).toEqual([P('cash', '550'), P('pix', '')]);
+    expect(acompanharTotal([P('cash', '300'), P('pix', '200')], 500, 550, 'cash', metodos)).toEqual([P('cash', '300'), P('pix', '200')]);
   });
 
   it('um meio só não é divisão; vários levam a maior parte como reserva', () => {

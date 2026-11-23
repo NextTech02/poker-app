@@ -388,13 +388,12 @@ describe('pagamento dividido', () => {
     await userEvent.click(screen.getByLabelText('Dividir pagamento'));
     const parte1 = screen.getByLabelText('Valor da parte 1');
     expect(parte1).toHaveValue(400);
-    await userEvent.clear(parte1);
-    await userEvent.type(parte1, '250');
     const dialogo = screen.getByRole('dialog');
-    // Enquanto as partes não fecham o buy-in, não senta.
+    // Enquanto a segunda forma está em branco, não senta.
     expect(within(dialogo).getByRole('button', { name: 'Sentar' })).toBeDisabled();
 
-    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
+    await userEvent.clear(parte1);
+    await userEvent.type(parte1, '250');
     expect(screen.getByLabelText('Valor da parte 2')).toHaveValue(150);
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Sentar' }));
 
@@ -420,7 +419,6 @@ describe('pagamento dividido', () => {
     const parte1 = screen.getByLabelText('Valor da parte 1');
     await userEvent.clear(parte1);
     await userEvent.type(parte1, '30');
-    await userEvent.click(screen.getByRole('button', { name: '+ Outra forma' }));
     const dialogo = screen.getByRole('dialog');
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Recompra' }));
 

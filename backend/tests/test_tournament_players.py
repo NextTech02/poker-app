@@ -109,6 +109,41 @@ class TestInscricao:
         with pytest.raises(ValueError, match="já está registrado"):
             TournamentPlayerService.register_player(arg, "u1")
 
+    def _estornada(self, **kw):
+        return {
+            "id": TP, "tournament_id": TOUR, "tournament_day_id": DIA, "player_id": PLAYER,
+            "status": "cancelled", "buy_in_count": 0, "total_buy_in_amount": 0, "total_chips": 0,
+            "rebuy_count": 0, "addon_count": 0, "total_rebuy_amount": 0, "total_addon_amount": 0,
+            "total_spent": 0, "registered_at": "2026-06-08T00:00:00Z", **kw,
+        }
+
+    def test_venda_estornada_pode_ser_refeita_no_mesmo_dia(self, monkeypatch):
+        """A venda saiu com o pagamento errado, o caixa estornou e vende de novo:
+        o banco só aceita uma linha por (dia, jogador), entao ela e retomada."""
+        fake = _monta(monkeypatch, dia=_dia(buy_in=100, chips=10000, registrados=4),
+                      jogadores=[self._estornada(extra_entries=1, final_position=9)])
+        resultado = TournamentPlayerService.register_player(_inscricao(client_id="c-novo"), "u1")
+
+        linhas = fake.store["tournament_players"]
+        assert len(linhas) == 1
+        assert linhas[0]["id"] == TP == str(resultado.id)
+        assert linhas[0]["status"] == "registered"
+        assert linhas[0]["buy_in_count"] == 1
+        assert float(linhas[0]["total_buy_in_amount"]) == 100
+        assert linhas[0]["total_chips"] == 10000
+        assert linhas[0]["extra_entries"] == 0
+        assert linhas[0]["final_position"] is None
+        # Repetir a MESMA venda acha a linha pelo id novo do cliente.
+        assert linhas[0]["client_id"] == "c-novo"
+        # A venda nova aponta para a inscricao retomada, e o inscrito volta a contar.
+        assert fake.store["transactions"][0]["tournament_player_id"] == TP
+        assert fake.store["tournament_days"][0]["registered_players"] == 5
+
+    def test_addon_que_nao_foi_estornado_continua_na_pilha(self, monkeypatch):
+        fake = _monta(monkeypatch, jogadores=[self._estornada(total_chips=3000, total_addon_amount=20)])
+        TournamentPlayerService.register_player(_inscricao(), "u1")
+        assert fake.store["tournament_players"][0]["total_chips"] == 13000
+
     def test_dia_cheio_recusa_novo_jogador(self, monkeypatch):
         """Aceitar acima do limite deixaria alguem sem assento."""
         _monta(monkeypatch, dia=_dia(max_players=10, registrados=10))

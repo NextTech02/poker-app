@@ -35,7 +35,11 @@ export const fundirPartes = (partes) => {
 
 /**
  * `null` quando as partes fecham o total; senão o problema, para a tela dizer:
- * `vazio` (nenhuma parte com valor), `falta` ou `sobra`.
+ * `vazio` (nenhuma parte com valor), `falta`, `sobra` ou `incompleta` (o total
+ * fecha, mas há uma forma em branco).
+ *
+ * A forma em branco NÃO pode passar: ela era descartada em silêncio e a venda
+ * saía inteira num meio só, com a tela dizendo que fechava.
  */
 export const validarPartes = (partes, total) => {
   const validas = partesComValor(partes);
@@ -43,7 +47,29 @@ export const validarPartes = (partes, total) => {
   const diferenca = centavos(somaPernas(validas)) - centavos(total);
   if (diferenca < 0) return 'falta';
   if (diferenca > 0) return 'sobra';
-  return null;
+  return validas.length < (partes || []).length ? 'incompleta' : null;
+};
+
+/**
+ * Muda o valor de uma parte. Com DUAS formas, a outra passa a ser o que falta
+ * para o total: o operador digita só quanto entrou numa delas. Com três ou mais
+ * não dá para adivinhar de onde tirar, e o rodapé diz quanto falta ou sobra.
+ */
+export const mudarValorDaParte = (partes, indice, texto, total) => {
+  const novas = partes.map((p, i) => (i === indice ? { ...p, amount: texto } : p));
+  if (novas.length !== 2 || texto === '') return novas;
+  const resto = centavos(total) - centavos(texto);
+  if (resto < 0) return novas;
+  const outra = 1 - indice;
+  novas[outra] = { ...novas[outra], amount: resto > 0 ? String(resto / 100) : '' };
+  return novas;
+};
+
+/** O operador ainda não mexeu nas partes: o total inteiro está numa só (ou em nenhuma). */
+export const partesIntactas = (partes, total) => {
+  const validas = partesComValor(partes);
+  if (validas.length === 0) return true;
+  return validas.length === 1 && centavos(validas[0].amount) === centavos(total);
 };
 
 /** Quanto falta (positivo) ou sobra (negativo) para fechar o total. */
@@ -134,7 +160,25 @@ export const rotuloDoPagamento = (tx, rotuloDoMeio, formatCurrency) => {
   return partes.map((p) => `${rotuloDoMeio(p.payment_method)} ${formatCurrency(p.amount)}`).join(' · ');
 };
 
-/** Partes iniciais do editor: o total inteiro no meio que já estava escolhido. */
-export const partesIniciais = (metodo, total) => [
-  { payment_method: metodo, amount: total ? String(round2(total)) : '' },
-];
+/**
+ * Partes iniciais do editor: o total inteiro no meio que já estava escolhido e,
+ * havendo outro meio, a segunda forma em branco à espera do valor dela.
+ */
+export const partesIniciais = (metodo, total, metodos = []) => {
+  const outro = metodos.find((m) => m.code !== metodo);
+  return [
+    { payment_method: metodo, amount: total ? String(round2(total)) : '' },
+    ...(outro ? [{ payment_method: outro.code, amount: '' }] : []),
+  ];
+};
+
+/**
+ * O total da venda mudou com a divisão aberta. Intactas, as partes acompanham o
+ * total novo. Já preenchidas, ficam como o operador digitou: quanto entrou em
+ * cada meio é o que o jogador entregou, e a tela diz quanto falta ou sobra.
+ */
+export const acompanharTotal = (partes, totalAnterior, totalNovo, metodoPadrao, metodos = []) => (
+  partesIntactas(partes, totalAnterior)
+    ? partesIniciais(partes[0]?.payment_method || metodoPadrao, totalNovo, metodos)
+    : partes
+);

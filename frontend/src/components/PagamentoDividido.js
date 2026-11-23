@@ -2,7 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { methodLabel } from '../utils/paymentMethodLabels';
-import { restanteDasPartes, validarPartes } from '../utils/pagamentoDividido';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
+import { mudarValorDaParte, restanteDasPartes, validarPartes } from '../utils/pagamentoDividido';
 import './PagamentoDividido.css';
 
 /**
@@ -22,13 +23,14 @@ import './PagamentoDividido.css';
 const PagamentoDividido = ({ total, partes, onChange, metodos = [], idPrefix = 'pd' }) => {
   const { t } = useTranslation();
   const { formatCurrency } = useCurrency();
+  const { labelFor } = usePaymentMethods();
 
   const metodoPadrao = metodos[0]?.code || 'cash';
   const restante = restanteDasPartes(partes, total);
   const problema = validarPartes(partes, total);
 
-  const mudar = (i, campo, valor) => {
-    onChange(partes.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)));
+  const mudarMeio = (i, codigo) => {
+    onChange(partes.map((p, idx) => (idx === i ? { ...p, payment_method: codigo } : p)));
   };
   const remover = (i) => onChange(partes.filter((_, idx) => idx !== i));
   const adicionar = () => {
@@ -48,9 +50,16 @@ const PagamentoDividido = ({ total, partes, onChange, metodos = [], idPrefix = '
               className="pd-parte__meio"
               aria-label={t('splitPayment.method', 'Meio da parte {{n}}', { n: i + 1 })}
               value={parte.payment_method}
-              onChange={(e) => mudar(i, 'payment_method', e.target.value)}
+              onChange={(e) => mudarMeio(i, e.target.value)}
             >
               {metodos.length === 0 && <option value="cash">{t('cashRegister.cash', 'Dinheiro')}</option>}
+              {/* Meio desativado numa venda antiga: sem esta opção a tela mostraria
+                  o primeiro da lista e gravaria outro. */}
+              {metodos.length > 0 && !metodos.some((m) => m.code === parte.payment_method) && (
+                <option value={parte.payment_method}>
+                  {labelFor?.(parte.payment_method) || methodLabel(t, { code: parte.payment_method })}
+                </option>
+              )}
               {metodos.map((m) => (
                 <option key={m.code} value={m.code}>{methodLabel(t, m)}</option>
               ))}
@@ -61,7 +70,7 @@ const PagamentoDividido = ({ total, partes, onChange, metodos = [], idPrefix = '
               className="pd-parte__valor"
               aria-label={t('splitPayment.amount', 'Valor da parte {{n}}', { n: i + 1 })}
               value={parte.amount}
-              onChange={(e) => mudar(i, 'amount', e.target.value)}
+              onChange={(e) => onChange(mudarValorDaParte(partes, i, e.target.value, total))}
             />
             {partes.length > 1 && (
               <button
@@ -87,6 +96,7 @@ const PagamentoDividido = ({ total, partes, onChange, metodos = [], idPrefix = '
         >
           {problema === 'falta' && t('splitPayment.missing', 'Falta {{value}}', { value: formatCurrency(restante) })}
           {problema === 'sobra' && t('splitPayment.over', 'Passa {{value}}', { value: formatCurrency(-restante) })}
+          {problema === 'incompleta' && t('splitPayment.incomplete', 'Informe o valor de cada forma ou remova a que sobrou.')}
           {problema === 'vazio' && t('splitPayment.empty', 'Informe quanto foi pago em cada meio.')}
           {!problema && t('splitPayment.closes', 'Fecha {{value}}', { value: formatCurrency(total) })}
         </span>
