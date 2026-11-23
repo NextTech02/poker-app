@@ -1,0 +1,279 @@
+/* Ranking de pontos: a página (/ranking) e a aba Ranking da Premiação. */
+
+.rk-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.rk-card {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-primary, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 1rem;
+}
+
+.rk-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.rk-card__head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.rk-status {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.rk-status--ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--brand-green, #22c55e);
+}
+
+.rk-aviso {
+  border-color: rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.08);
+  font-size: 0.9rem;
+}
+
+.rk-muted {
+  font-size: 0.82rem;
+  color: var(--text-tertiary, #8aa0b0);
+}
+
+.rk-erro {
+  font-size: 0.85rem;
+  color: var(--text-danger, #f87171);
+}
+
+/* A regra global `.form-group label` é bloco e venceria a classe sozinha. */
+.rk-check,
+.form-group label.rk-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.rk-fatos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.rk-fato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rk-fato__rotulo {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.rk-fato strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rk-buyin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 420px;
+}
+
+.rk-buyin label,
+.rk-form label,
+.rk-rotulo,
+.rk-filtros label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.rk-buyin__linha {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.rk-buyin__linha input {
+  flex: 1;
+  min-width: 0;
+}
+
+.rk-avisos {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: #facc15;
+}
+
+.rk-avisos li + li {
+  margin-top: 0.25rem;
+}
+
+.rk-tabela {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rk-tabela th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+  vertical-align: bottom;
+}
+
+.rk-tabela td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-primary);
+  font-size: 13px;
+}
+
+.rk-tabela select {
+  width: 100%;
+  max-width: 360px;
+}
+
+.rk-num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rk-tabela--classificacao td:nth-child(2) {
+  white-space: nowrap;
+}
+
+.rk-col-torneio {
+  display: inline-block;
+  max-width: 110px;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.rk-descartado {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.rk-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.rk-reabrir {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.rk-reabrir textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.rk-abas {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-primary, rgba(255, 255, 255, 0.1));
+}
+
+.rk-aba {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rk-aba--ativa {
+  color: var(--text-primary);
+  border-bottom-color: var(--brand-primary, #7233f8);
+}
+
+.rk-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.rk-filtros select {
+  min-width: 220px;
+}
+
+.rk-exportar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.rk-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 560px;
+}
+
+.rk-etapas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0 1rem;
+}
+
+.rk-etapas label.rk-check {
+  margin: 0.2rem 0;
+}
+
+.rk-formula {
+  margin: 0 0 0.75rem;
+  line-height: 1.6;
+}
+
+.rk-regras {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+@media (max-width: 768px) {
+  .rk-filtros select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .rk-buyin {
+    max-width: none;
+  }
+}

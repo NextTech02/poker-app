@@ -45,6 +45,7 @@ const TournamentRankings = lazy(() => import('./pages/TournamentRankings'));
 const BlindManagement = lazy(() => import('./pages/BlindManagement'));
 const Premiacao = lazy(() => import('./pages/Premiacao'));
 const PremiacaoSelector = lazy(() => import('./pages/PremiacaoSelector'));
+const RankingPontos = lazy(() => import('./pages/RankingPontos'));
 const TournamentDayForm = lazy(() => import('./pages/TournamentDayForm'));
 const BlindTemplates = lazy(() => import('./pages/BlindTemplates'));
 const BroadcastSettings = lazy(() => import('./pages/BroadcastSettings'));
@@ -684,6 +685,14 @@ function AppRoutes() {
         element={
           <PrivateRoute module="tournament" permission="prizes">
             <Premiacao />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/ranking"
+        element={
+          <PrivateRoute module="tournament" permission="points_ranking">
+            <RankingPontos />
           </PrivateRoute>
         }
       />
