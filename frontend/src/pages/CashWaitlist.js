@@ -332,12 +332,12 @@ const CashWaitlist = () => {
                 </div>
                 <div className="cw-actions">
                   {e.status === 'waiting' && (
-                    <button type="button" className="btn btn-secondary btn-sm"
+                    <button type="button" className="btn btn-secondary btn-small"
                             onClick={() => chamar(e)} disabled={submitting}>
                       {t('cashWaitlist.call', 'Chamar')}
                     </button>
                   )}
-                  <button type="button" className="btn btn-secondary btn-sm"
+                  <button type="button" className="btn btn-secondary btn-small"
                           onClick={() => abrirReserva(e)}
                           disabled={submitting || !e.player_id || tables.length === 0}
                           title={!e.player_id
@@ -345,17 +345,17 @@ const CashWaitlist = () => {
                             : undefined}>
                     {t('cashWaitlist.reserve', 'Reservar lugar')}
                   </button>
-                  <button type="button" className="btn btn-primary btn-sm"
+                  <button type="button" className="btn btn-primary btn-small"
                           onClick={() => sentou(e)} disabled={submitting}>
                     {t('cashWaitlist.seated', 'Sentou')}
                   </button>
                   {e.status === 'called' && (
-                    <button type="button" className="btn btn-secondary btn-sm"
+                    <button type="button" className="btn btn-secondary btn-small"
                             onClick={() => naoApareceu(e)} disabled={submitting}>
                       {t('cashWaitlist.noShow', 'Não veio')}
                     </button>
                   )}
-                  <button type="button" className="btn btn-danger btn-sm"
+                  <button type="button" className="btn btn-danger btn-small"
                           onClick={() => desistir(e)} disabled={submitting}>
                     {t('cashWaitlist.giveUp', 'Saiu')}
                   </button>

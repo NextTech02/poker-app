@@ -162,7 +162,7 @@ const FiadoCard = ({ playerId, playerName }) => {
       <div className="fiado-actions">
         {deve > 0 && (
           <button
-            type="button" className="btn btn-primary btn-sm"
+            type="button" className="btn btn-primary btn-small"
             onClick={() => setModal('receber')} disabled={!ancora}
             title={!ancora ? t('fiado.noDrawerHere', 'Para receber, abra o dia do cash (ou o turno do bar) e a sua gaveta.') : undefined}
           >
@@ -170,12 +170,12 @@ const FiadoCard = ({ playerId, playerName }) => {
           </button>
         )}
         {gerente && (
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrir('limite')}>
+          <button type="button" className="btn btn-secondary btn-small" onClick={() => abrir('limite')}>
             {conta.exists ? t('fiado.editLimit', 'Liberar / limite') : t('fiado.enable', 'Liberar fiado')}
           </button>
         )}
         {gerente && deve > 0 && (
-          <button type="button" className="btn btn-danger btn-sm" onClick={() => abrir('baixa')}>
+          <button type="button" className="btn btn-danger btn-small" onClick={() => abrir('baixa')}>
             {t('fiado.writeOff', 'Dar baixa')}
           </button>
         )}
@@ -212,7 +212,7 @@ const FiadoCard = ({ playerId, playerName }) => {
                     <td>
                       {gerente && l.type === 'payment' && !l.reversed && (
                         <button
-                          type="button" className="btn btn-secondary btn-sm"
+                          type="button" className="btn btn-secondary btn-small"
                           onClick={() => { setForm({ reason: '' }); setModal({ estornar: l }); }}
                         >
                           {t('fiado.reverse', 'Estornar')}

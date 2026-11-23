@@ -11,6 +11,7 @@ import EmptyState from './EmptyState';
 // biblioteca de fundos do telão).
 import { currentOrgId } from '../utils/orgFromToken';
 import './ExpensesManager.css';
+import { DATA_MAXIMA } from '../utils/datasLocais';
 
 const BUCKET = 'comprovantes';
 
@@ -571,7 +572,7 @@ export default function ExpensesManager() {
                 </div>
                 <div className="exp-field">
                   <label>{t('expenses.colDue', 'Vencimento')}</label>
-                  <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                  <input type="date" max={DATA_MAXIMA} value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
                 </div>
               </div>
 

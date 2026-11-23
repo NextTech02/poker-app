@@ -20,6 +20,7 @@ import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
 import { rotuloDoMeioDoBar } from '../utils/barRotulos';
 import './CashFloor.css';
 import './Bar.css';
+import { dataPorExtenso } from '../utils/datasLocais';
 
 /**
  * Um TURNO por dentro: os números (ao vivo ou congelados), o que ainda segura
@@ -28,7 +29,7 @@ import './Bar.css';
  */
 const BarShiftDetail = () => {
   const { id } = useParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   const { methods: meios = [] } = usePaymentMethods() || {};
@@ -108,13 +109,13 @@ const BarShiftDetail = () => {
         <Breadcrumb items={[
           { label: t('bar.title', 'Bar'), to: '/bar' },
           { label: t('bar.shifts', 'Turnos'), to: '/bar/turnos' },
-          { label: shift ? shift.business_date : '…' },
+          { label: shift ? dataPorExtenso(shift.business_date, i18n?.language) : '…' },
         ]} />
 
         <div className="page-header">
           <div>
             <h1>
-              {t('bar.shiftTitle', 'Turno de {{date}}', { date: shift?.business_date || '' })}
+              {t('bar.shiftTitle', 'Turno de {{date}}', { date: dataPorExtenso(shift?.business_date, i18n?.language) })}
               {shift?.label ? ` · ${shift.label}` : ''}
             </h1>
             <p>
@@ -252,7 +253,7 @@ const BarShiftDetail = () => {
           <div className="modal-overlay"
                onClick={(e) => { if (e.target === e.currentTarget && !submitting) setClosing(false); }}>
             <div className="modal" role="dialog" aria-modal="true">
-              <h2>{t('bar.closeShiftTitle', 'Encerrar o turno de {{date}}', { date: shift?.business_date })}</h2>
+              <h2>{t('bar.closeShiftTitle', 'Encerrar o turno de {{date}}', { date: dataPorExtenso(shift?.business_date, i18n?.language) })}</h2>
               <form onSubmit={fechar}>
                 <p className="bar-note">
                   {t('bar.closeShiftHint', 'As vendas do turno serão CONGELADAS. Toda comanda precisa estar quitada e toda gaveta do turno, fechada.')}

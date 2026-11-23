@@ -518,7 +518,7 @@
     "fullNamePlaceholder": "Nombre completo del jugador",
     "nicknamePlaceholder": "Apodo o alias (opcional)",
     "emailPlaceholder": "email@ejemplo.com",
-    "phonePlaceholder": "+1 (555) 999-9999",
+    "phonePlaceholder": "+51 987 654 321",
     "nationality": "Nacionalidad",
     "selectCountry": "Selecciona el país",
     "documentType": "Tipo de Documento",
@@ -1887,7 +1887,7 @@
     "emailLabel": "Email",
     "emailPlaceholder": "email@ejemplo.com",
     "phoneLabel": "Teléfono",
-    "phonePlaceholder": "+1 (555) 999-9999"
+    "phonePlaceholder": "+51 987 654 321"
   },
   "financial": {
     "loadDataError": "Error al cargar los datos financieros",

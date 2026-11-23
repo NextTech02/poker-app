@@ -967,7 +967,7 @@ const Funcionarios = () => {
             <div className="modal func-modal" role="dialog" aria-modal="true" aria-label={t('staff.inviteEmployee', 'Convidar funcionário')}>
               <div className="modal-header">
                 <h2>{t('staff.inviteEmployee', 'Convidar funcionário')}</h2>
-                <button type="button" className="modal-close" onClick={() => setShowStaffModal(false)} aria-label={t('common.close', 'Fechar')}>×</button>
+                <button type="button" className="close-btn" onClick={() => setShowStaffModal(false)} aria-label={t('common.close', 'Fechar')}><span className="close-icon" /></button>
               </div>
               <div className="modal-body">
                 <p className="func-invite-hint">
@@ -978,7 +978,7 @@ const Funcionarios = () => {
                   <label>{t('staff.email')}</label>
                   <input
                     type="email"
-                    className="form-input"
+                   
                     value={staffForm.email}
                     onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
                     placeholder={t('staff.emailPlaceholder', 'email@exemplo.com')}
@@ -988,7 +988,7 @@ const Funcionarios = () => {
                 <div className="form-group">
                   <label>{t('staff.permissionGroup')}</label>
                   <select
-                    className="form-input"
+                   
                     value={staffForm.permission_group_id}
                     onChange={(e) => setStaffForm({ ...staffForm, permission_group_id: e.target.value })}
                   >
@@ -1015,14 +1015,14 @@ const Funcionarios = () => {
             <div className="modal func-modal func-modal--wide" role="dialog" aria-modal="true" aria-label={editingGroup ? t('staff.editGroup') : t('staff.newGroup')}>
               <div className="modal-header">
                 <h2>{editingGroup ? t('staff.editGroup') : t('staff.newGroup')}</h2>
-                <button type="button" className="modal-close" onClick={() => setShowGroupModal(false)} aria-label={t('common.close', 'Fechar')}>×</button>
+                <button type="button" className="close-btn" onClick={() => setShowGroupModal(false)} aria-label={t('common.close', 'Fechar')}><span className="close-icon" /></button>
               </div>
               <div className="modal-body">
                 <div className="form-group">
                   <label>{t('staff.groupName')}</label>
                   <input
                     type="text"
-                    className="form-input"
+                   
                     value={groupForm.name}
                     onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
                     placeholder={t('staff.groupNamePlaceholder')}
@@ -1032,7 +1032,7 @@ const Funcionarios = () => {
                   <label>{t('staff.description')}</label>
                   <input
                     type="text"
-                    className="form-input"
+                   
                     value={groupForm.description}
                     onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
                     placeholder={t('staff.groupDescriptionPlaceholder')}

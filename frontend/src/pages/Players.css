@@ -556,11 +556,12 @@
 
 .pl-field input,
 .pl-textarea {
-  background: #071018;
-  border: 1px solid var(--surface);
-  border-radius: 8px;
+  background: var(--card-bg-hover);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
   padding: 0.7rem 0.9rem;
-  color: var(--text);
+  color: var(--text-primary);
+  font-family: var(--font-body);
   font-size: 0.9rem;
   transition: border-color 0.2s, box-shadow 0.2s;
   width: 100%;
@@ -568,7 +569,7 @@
 }
 
 .pl-field input::placeholder,
-.pl-textarea::placeholder { color: var(--border-light); }
+.pl-textarea::placeholder { color: var(--text-tertiary); }
 
 .pl-field input:focus,
 .pl-textarea:focus {

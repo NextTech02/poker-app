@@ -263,7 +263,8 @@
   overflow-y: auto;
 }
 
-.func-perm-check {
+.func-perm-check,
+.form-group label.func-perm-check {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -294,7 +295,8 @@
 }
 
 /* Custom checkbox — inline before the text */
-.func-perm-check input[type="checkbox"] {
+.func-perm-check input[type="checkbox"],
+.form-group .func-perm-check input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   width: 20px;

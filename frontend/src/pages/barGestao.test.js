@@ -243,7 +243,7 @@ describe('turnos', () => {
 
   it('mostra as vendas do turno fechado e a margem', async () => {
     montar();
-    expect(await screen.findByText('2026-09-15')).toBeInTheDocument();
+    expect(await screen.findByText('15/09/2026')).toBeInTheDocument();
     // 75 aparece em Vendas e em Recebido (turno fechado = tudo quitado).
     expect(screen.getAllByText('R$ 75.00')).toHaveLength(2);
     expect(screen.getByText('R$ 44.00')).toBeInTheDocument();    // 75 − 31 de CMV
@@ -251,7 +251,7 @@ describe('turnos', () => {
 
   it('o turno aberto aparece sem totais e explica por quê', async () => {
     montar();
-    await screen.findByText('2026-09-16');
+    await screen.findByText('16/09/2026');
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.getByText(/Os totais aparecem quando o turno é encerrado/)).toBeInTheDocument();
   });
@@ -263,7 +263,7 @@ describe('turnos', () => {
 
   it('com turno aberto o botão de abrir some', async () => {
     montar();
-    await screen.findByText('2026-09-16');
+    await screen.findByText('16/09/2026');
     expect(screen.queryByRole('button', { name: 'Abrir turno' })).toBeNull();
   });
 

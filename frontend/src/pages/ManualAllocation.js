@@ -368,7 +368,7 @@ const ManualAllocation = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="button" className="btn-secondary" onClick={() => setShowTableModal(true)}>
+            <button type="button" className="btn btn-secondary btn-medium" onClick={() => setShowTableModal(true)}>
               {t('manualAllocation.manageTables')}
             </button>
             <button type="button" className="btn-back" onClick={() => navigate('/torneios')}>
@@ -462,7 +462,7 @@ const ManualAllocation = () => {
                     />
                     <button
                       type="button"
-                      className="btn-primary"
+                      className="btn btn-primary btn-medium"
                       onClick={handleAddTable}
                       style={{ padding: '8px 16px' }}
                     >
@@ -525,7 +525,7 @@ const ManualAllocation = () => {
                 </div>
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowTableModal(false)}>
+                <button type="button" className="btn btn-secondary btn-medium" onClick={() => setShowTableModal(false)}>
                   {t('common.close')}
                 </button>
               </div>

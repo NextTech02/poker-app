@@ -61,7 +61,7 @@ it('o melhor dia vem primeiro, pelas vendas', async () => {
   render(<BarRelatorios />);
   await screen.findAllByText('R$ 75.00');
   const itens = document.querySelectorAll('.cr-rank li');
-  expect(itens[0]).toHaveTextContent('2026-09-18');
+  expect(itens[0]).toHaveTextContent('18/09/2026');
   expect(itens[0]).toHaveTextContent('R$ 70.00');
 });
 

@@ -247,9 +247,11 @@
   padding: 7px 10px;
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--border-primary);
-  background: var(--secondary-bg);
+  background-color: var(--secondary-bg); /* o shorthand apagaria a seta do select */
   color: var(--text-primary);
+  font-family: var(--font-body);
 }
+.ko-config-campo select { padding-right: 2.4rem; }
 
 .ko-manual-excede {
   color: var(--text-danger);
@@ -286,10 +288,10 @@
 }
 
 .ko-linha-acoes select {
-  padding: 6px 8px;
+  padding: 6px 2.4rem 6px 8px;
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--border-primary);
-  background: var(--secondary-bg);
+  background-color: var(--secondary-bg);
   color: var(--text-primary);
 }
 
@@ -445,10 +447,10 @@
 }
 
 .ko-encerrar select {
-  padding: 7px 10px;
+  padding: 7px 2.4rem 7px 10px;
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--border-primary);
-  background: var(--secondary-bg);
+  background-color: var(--secondary-bg);
   color: var(--text-primary);
 }
 

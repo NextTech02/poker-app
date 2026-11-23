@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import EmptyState from './EmptyState';
 import { SkeletonTableRow } from './SkeletonLoader';
-import { diasAtras, hojeLocal } from '../utils/datasLocais';
+import { diasAtras, hojeLocal, DATA_MAXIMA } from '../utils/datasLocais';
 import { formatUserAgent } from '../utils/userAgent';
 import { EVENT_FILTER_OPTIONS, eventLabel, fieldLabel, splitEvent } from '../utils/activityLogEvents';
 import './ActivityLogTable.css';
@@ -207,12 +207,12 @@ const ActivityLogTable = ({ fetchPage, users, pageSize = TAMANHO_PAGINA }) => {
         </div>
         <div className="form-group">
           <label htmlFor="al-from">{t('common.from', 'De')}</label>
-          <input id="al-from" type="date" value={filters.from}
+          <input id="al-from" type="date" max={DATA_MAXIMA} value={filters.from}
                  onChange={(e) => mudarFiltro('from', e.target.value)} />
         </div>
         <div className="form-group">
           <label htmlFor="al-to">{t('common.to', 'Até')}</label>
-          <input id="al-to" type="date" value={filters.to}
+          <input id="al-to" type="date" max={DATA_MAXIMA} value={filters.to}
                  onChange={(e) => mudarFiltro('to', e.target.value)} />
         </div>
       </div>
@@ -271,11 +271,11 @@ const ActivityLogTable = ({ fetchPage, users, pageSize = TAMANHO_PAGINA }) => {
               {t('activityLog.range', '{{from}}–{{to}} de {{total}}', { from: inicio, to: fim, total: data.total })}
             </span>
             <div className="al-pagination-buttons">
-              <button type="button" className="btn btn-secondary btn-sm"
+              <button type="button" className="btn btn-secondary btn-small"
                       disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                 {t('activityLog.prev', 'Anterior')}
               </button>
-              <button type="button" className="btn btn-secondary btn-sm"
+              <button type="button" className="btn btn-secondary btn-small"
                       disabled={page >= totalPaginas} onClick={() => setPage((p) => p + 1)}>
                 {t('activityLog.next', 'Próxima')}
               </button>

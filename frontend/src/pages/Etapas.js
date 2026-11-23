@@ -16,6 +16,7 @@ import { usePermissions } from '../contexts/PermissionContext';
 // re-renderizar quando a moeda global mudar.
 import { formatCurrency } from '../utils/currencyUtils';
 import './Etapas.css';
+import { DATA_MAXIMA } from '../utils/datasLocais';
 
 /**
  * Converte "AAAA-MM-DD" (como o banco guarda) numa data do fuso LOCAL.
@@ -707,7 +708,7 @@ const Etapas = () => {
                     <input
                       id="start_date"
                       name="start_date"
-                      type="date"
+                      type="date" max={DATA_MAXIMA}
                       value={formData.start_date}
                       onChange={handleChange}
                       required
@@ -720,7 +721,7 @@ const Etapas = () => {
                     <input
                       id="end_date"
                       name="end_date"
-                      type="date"
+                      type="date" max={DATA_MAXIMA}
                       value={formData.end_date}
                       onChange={handleChange}
                       /* O navegador já barra o fim antes do início; a

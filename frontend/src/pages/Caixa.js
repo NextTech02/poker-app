@@ -1809,11 +1809,9 @@ const Caixa = () => {
                     <input
                       id="amount"
                       name="amount"
-                      type="number"
-                      step="0.01"
-                      value={totaisDaVenda.amount}
+                      type="text"
+                      value={formatCurrency(totaisDaVenda.amount)}
                       readOnly
-                      placeholder="0.00"
                     />
                   </div>
                   <div className="form-group">

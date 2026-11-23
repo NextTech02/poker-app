@@ -10,6 +10,7 @@
 }
 
 .cj-player-selector .form-group {
+  margin: 0;
   max-width: 500px;
 }
 
@@ -114,6 +115,7 @@
 }
 
 .cj-filters .form-group {
+  margin: 0;
   flex: 1;
   min-width: 140px;
 }

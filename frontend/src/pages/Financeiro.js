@@ -18,7 +18,7 @@ import PaymentMethodsManager from '../components/PaymentMethodsManager';
 import ExpensesManager from '../components/ExpensesManager';
 import RevenuesManager from '../components/RevenuesManager';
 import './Financeiro.css';
-import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA } from '../utils/datasLocais';
 import { eDividido, rotuloDoPagamento } from '../utils/pagamentoDividido';
 import {
   ORIGENS, filtroDeMeio, filtroDeOrigem, lerFiltro, centavosNoFiltro, meiosDoFiltro, resumirExtrato,
@@ -369,11 +369,11 @@ const Financeiro = () => {
             )}
             <div className="form-group">
               <label>{t('financial.filterStart')}</label>
-              <input type="date" value={filters.start} onChange={(e) => setFilters(p => ({ ...p, start: e.target.value }))} />
+              <input type="date" max={DATA_MAXIMA} value={filters.start} onChange={(e) => setFilters(p => ({ ...p, start: e.target.value }))} />
             </div>
             <div className="form-group">
               <label>{t('financial.filterEnd')}</label>
-              <input type="date" value={filters.end} onChange={(e) => setFilters(p => ({ ...p, end: e.target.value }))} />
+              <input type="date" max={DATA_MAXIMA} value={filters.end} onChange={(e) => setFilters(p => ({ ...p, end: e.target.value }))} />
             </div>
             <div className="fn-filter-actions">
               <Button onClick={handleFilter}>{t('common.generate')}</Button>

@@ -392,6 +392,28 @@ code {
   padding-right: 0;
 }
 
+/* O .modal não tem padding próprio: título e textos soltos, sem .modal-header
+   nem .modal-body, colavam na borda. */
+.modal > h2 {
+  margin: 0;
+  padding: var(--spacing-lg) var(--spacing-xl) 0;
+  font-size: 1.15rem;
+}
+:where(.modal) > p,
+:where(.modal) > ul {
+  margin: 0;
+  padding: var(--spacing-md) var(--spacing-xl);
+}
+/* Form que já traz .modal-body dentro: o espaço é o do .modal-body. */
+.modal > form:has(> .modal-body) {
+  padding: 0;
+}
+.modal > form:has(> .modal-body) > .modal-actions,
+.modal > form:has(> .modal-body) > .modal-footer {
+  padding-left: var(--spacing-xl);
+  padding-right: var(--spacing-xl);
+}
+
 /* Professional Form Styles */
 .form-group {
   margin-bottom: var(--spacing-lg);
@@ -422,6 +444,33 @@ code {
   border-radius: 10px;
   color: var(--text-primary);
   transition: border-color var(--transition-base), background-color var(--transition-base);
+}
+
+/* Caixa de seleção não é campo de texto: com a regra acima ela virava um quadrado
+   de 40px esticado, com o texto na linha de baixo. `:where` mantém a força da
+   regra igual à de cima, para as telas poderem ajustar o seu. */
+.form-group input:where([type="checkbox"], [type="radio"]) {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
+  flex: none;
+  accent-color: var(--accent-color);
+}
+
+/* Texto de ajuda do campo. `:where` para qualquer classe própria vencer. */
+:where(.form-group) small,
+.form-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+/* Aviso que impede o envio (ex.: cash-out acima do saldo da gaveta). */
+.form-hint--danger {
+  color: var(--text-danger);
+  font-weight: 600;
 }
 
 /* O shorthand `padding` acima zeraria o espaço reservado ao chevron do select
@@ -652,6 +701,14 @@ tbody tr:last-child td {
     padding: var(--spacing-lg);
   }
 
+  .modal > form,
+  .modal > h2,
+  .modal > p,
+  .modal > ul {
+    padding-left: var(--spacing-lg);
+    padding-right: var(--spacing-lg);
+  }
+
   .modal-footer,
   .modal-actions {
     padding: var(--spacing-md) var(--spacing-lg);
@@ -744,6 +801,10 @@ tbody tr:last-child td {
 
   .modal-header,
   .modal-body,
+  .modal > form,
+  .modal > h2,
+  .modal > p,
+  .modal > ul,
   .modal-footer,
   .modal-actions {
     padding-left: var(--spacing-md);

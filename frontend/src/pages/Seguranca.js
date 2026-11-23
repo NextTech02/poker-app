@@ -253,7 +253,7 @@ const Seguranca = () => {
                   {status.factors.map((f) => (
                     <li key={f.id}>
                       <span>{f.friendly_name || t('security.device', 'Aparelho')}</span>
-                      <button type="button" className="btn btn-danger btn-sm"
+                      <button type="button" className="btn btn-danger btn-small"
                               onClick={() => desativar(f.id)}>
                         {t('security.disable', 'Desativar')}
                       </button>
@@ -270,7 +270,7 @@ const Seguranca = () => {
                     {poucosCodigos && t('security.codesLow',
                        'Gere uma lista nova enquanto ainda consegue entrar.')}
                   </p>
-                  <button type="button" className="btn btn-secondary btn-sm"
+                  <button type="button" className="btn btn-secondary btn-small"
                           onClick={gerarNovosCodigos}>
                     {t('security.newCodes', 'Gerar novos códigos')}
                   </button>

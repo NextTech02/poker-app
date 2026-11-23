@@ -537,7 +537,7 @@ const Organizacoes = () => {
                         <div className="org-logs">
                           <button
                             type="button"
-                            className="btn btn-secondary btn-sm"
+                            className="btn btn-secondary btn-small"
                             aria-expanded={logsOrg === o.id}
                             onClick={() => setLogsOrg(logsOrg === o.id ? null : o.id)}
                           >

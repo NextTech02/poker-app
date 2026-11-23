@@ -11,7 +11,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { useBarShift } from '../contexts/BarShiftContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA, dataPorExtenso } from '../utils/datasLocais';
 import './CashFloor.css';
 import './Bar.css';
 
@@ -24,7 +24,7 @@ import './Bar.css';
  * fechamento, para o gerente resolver no balcão.
  */
 const BarShifts = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   const { shift: aberto, reload: reloadShift } = useBarShift();
@@ -124,12 +124,12 @@ const BarShifts = () => {
         <div className="bar-filters">
           <div className="form-group">
             <label htmlFor="bs-from">{t('common.from', 'De')}</label>
-            <input id="bs-from" type="date" value={range.from}
+            <input id="bs-from" type="date" max={DATA_MAXIMA} value={range.from}
                    onChange={(e) => setRange({ ...range, from: e.target.value })} />
           </div>
           <div className="form-group">
             <label htmlFor="bs-to">{t('common.to', 'Até')}</label>
-            <input id="bs-to" type="date" value={range.to}
+            <input id="bs-to" type="date" max={DATA_MAXIMA} value={range.to}
                    onChange={(e) => setRange({ ...range, to: e.target.value })} />
           </div>
         </div>
@@ -168,7 +168,7 @@ const BarShifts = () => {
                 {shifts.map((s) => (
                   <tr key={s.id} className={s.status === 'open' ? 'bar-open' : ''}>
                     <td>
-                      <strong>{s.business_date}</strong>
+                      <strong>{dataPorExtenso(s.business_date, i18n?.language)}</strong>
                       {s.label && <div className="bar-muted">{s.label}</div>}
                     </td>
                     <td>
@@ -213,7 +213,7 @@ const BarShifts = () => {
               <form onSubmit={abrir}>
                 <div className="form-group">
                   <label htmlFor="bo-date">{t('bar.businessDate', 'Data')}</label>
-                  <input id="bo-date" type="date" required value={openForm.business_date}
+                  <input id="bo-date" type="date" max={DATA_MAXIMA} required value={openForm.business_date}
                          onChange={(e) => setOpenForm({ ...openForm, business_date: e.target.value })} />
                   <small className="form-hint">
                     {t('bar.businessDateHint', 'A data do turno. A noite que vira meia-noite é um turno só.')}
@@ -242,7 +242,7 @@ const BarShifts = () => {
           <div className="modal-overlay"
                onClick={(e) => { if (e.target === e.currentTarget && !submitting) setClosing(null); }}>
             <div className="modal" role="dialog" aria-modal="true">
-              <h2>{t('bar.closeShiftTitle', 'Encerrar o turno de {{date}}', { date: closing.business_date })}</h2>
+              <h2>{t('bar.closeShiftTitle', 'Encerrar o turno de {{date}}', { date: dataPorExtenso(closing.business_date, i18n?.language) })}</h2>
               <form onSubmit={fechar}>
                 <p className="bar-note">
                   {t('bar.closeShiftHint', 'As vendas do turno serão CONGELADAS. Toda comanda precisa estar quitada e toda gaveta do turno, fechada.')}

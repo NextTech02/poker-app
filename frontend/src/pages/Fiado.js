@@ -99,7 +99,7 @@ const Fiado = () => {
           ].map(([chave, rotulo]) => (
             <button
               key={chave} type="button" role="tab" aria-selected={aba === chave}
-              className={`btn btn-sm ${aba === chave ? 'btn-primary' : 'btn-secondary'}`}
+              className={`btn btn-small ${aba === chave ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setAba(chave)}
             >
               {rotulo}
@@ -169,7 +169,7 @@ const Fiado = () => {
                         </td>
                         <td>
                           <button
-                            type="button" className="btn btn-primary btn-sm"
+                            type="button" className="btn btn-primary btn-small"
                             onClick={() => setRecebendo(d)} disabled={!ancora}
                             title={!ancora ? t('fiado.noDrawerHere', 'Para receber, abra o dia do cash (ou o turno do bar) e a sua gaveta.') : undefined}
                           >
