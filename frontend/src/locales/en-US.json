@@ -3383,7 +3383,15 @@
     "allAreas": "All",
     "noResults": "No videos found for this search.",
     "close": "Close",
-    "subtitles": "Subtitles"
+    "subtitles": "Subtitles",
+    "chapters": "Chapters",
+    "continueWatching": "Continue watching",
+    "stoppedAt": "You stopped at {{time}}",
+    "watched": "Watched",
+    "resumedFrom": "Resuming from {{time}}",
+    "startOver": "Start over",
+    "loadError": "The video could not be loaded. Check your connection and try again.",
+    "retry": "Try again"
   },
   "security": {
     "title": "Account security",
