@@ -160,3 +160,33 @@ test('o envio do lead corta a origem em 60 caracteres', pular, () => {
     assert.match($('script#js-comum').text(), /\.slice\(0, 60\)/, url);
   }
 });
+
+/* A origem do lead e a referência do WhatsApp rodam no navegador; aqui, o script
+   publicado é executado com um navegador de mentira. */
+function origemEm(busca, { referrer = '', guardado = null } = {}){
+  const $ = paginas.get(`${SITE}/`);
+  const codigo = $('script#js-comum').text();
+  const trecho = codigo.slice(codigo.indexOf("var CHAVE_ORIGEM"), codigo.indexOf('/* ---- formulário'));
+  const memoria = { v: guardado ? JSON.stringify(guardado) : null };
+  const rodar = new Function('window', 'document', 'localStorage', 'URLSearchParams', 'URL',
+    `${trecho}; return { origem, fonte: fonteDoLead() };`);
+  return rodar(
+    { location: { search: busca, hostname: 'aceblind.net', pathname: '/es/' } }, { referrer },
+    { getItem: () => memoria.v, setItem: (_, v) => { memoria.v = v; } }, URLSearchParams, URL,
+  );
+}
+
+test('a campanha entra na origem do lead, dentro do limite', pular, () => {
+  assert.equal(origemEm('?utm_source=meta&utm_medium=cpc&utm_campaign=offline-pe').fonte, 'landing|utm:meta/offline-pe|/es/');
+  assert.equal(origemEm('?utm_source=instagram').fonte, 'landing|utm:instagram|/es/');
+  assert.equal(origemEm('?gclid=abc').fonte, 'landing|utm:google/ads|/es/');
+  const longa = origemEm(`?utm_source=${'a'.repeat(80)}&utm_campaign=${'b'.repeat(80)}`).fonte;
+  assert.ok(longa.length <= 60 && longa.endsWith('|/es/'), longa);
+});
+
+test('o clique pago passa por cima da visita guardada; o resto mantém a primeira', pular, () => {
+  const guardado = { canal: 'org:google', pagina: '/', em: Date.now() };
+  assert.equal(origemEm('?utm_source=meta&utm_medium=cpc&utm_campaign=x', { guardado }).origem.canal, 'utm:meta/x');
+  assert.equal(origemEm('', { guardado }).origem.canal, 'org:google');
+  assert.equal(origemEm('?utm_source=newsletter', { guardado }).origem.canal, 'org:google');
+});
