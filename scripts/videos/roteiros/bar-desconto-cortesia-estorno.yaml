@@ -1,0 +1,82 @@
+id: bar-desconto-cortesia-estorno
+area: bar
+tipo: curto
+sessao: true
+modulo: bar
+preparar: bar:ajustes
+inicio: /bar
+titulo:
+  pt-BR: "Como dar desconto, cortesia e estornar no bar"
+  en-US: "How to give discounts, courtesies and refunds at the bar"
+  es-ES: "Cómo dar descuento, cortesía y devolver en el bar"
+descricao:
+  pt-BR: "Os ajustes de gerente dentro da comanda."
+  en-US: "Manager adjustments inside the tab."
+  es-ES: "Los ajustes de gerente dentro de la comanda."
+passos:
+  - fala:
+      pt-BR: "Desconto, cortesia e estorno ficam dentro da comanda, e só aparecem para quem tem permissão de administrar o bar."
+      en-US: "Discounts, courtesies and refunds are inside the tab, and only show up for people with permission to manage the bar."
+      es-ES: "Descuento, cortesía y devolución están dentro de la comanda, y solo aparecen para quien tiene permiso de administrar el bar."
+    acoes:
+      - clicar: {css: ".pos-tab", texto: "{cliente}"}
+      - pausa: 0.8
+      - destacar: {css: ".btp"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Para dar um item de cortesia, clique em Cortesia na linha dele, escreva o motivo e confirme."
+      en-US: "To make an item a courtesy, click Courtesy on its line, write the reason and confirm."
+      es-ES: "Para dar un ítem de cortesía, haz clic en Cortesía en su línea, escribe el motivo y confirma."
+    acoes:
+      - clicar: {css: '.btp-item:has-text("{agua}") button', t: bar.courtesy}
+      - digitar: {css: "#btp-reason", valor: "{motivo_cortesia}"}
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "O item sai da conta, mas continua contando como saída do estoque."
+      en-US: "The item leaves the bill, but it still counts as stock used."
+      es-ES: "El ítem sale de la cuenta, pero sigue contando como salida del stock."
+    acoes:
+      - pausa: 0.6
+      - destacar: {css: '.btp-item:has-text("{agua}")'}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para dar desconto na comanda inteira, clique em Desconto, digite o valor e o motivo, e confirme."
+      en-US: "To discount the whole tab, click Discount, enter the amount and the reason, and confirm."
+      es-ES: "Para dar descuento en toda la comanda, haz clic en Descuento, escribe el valor y el motivo, y confirma."
+    acoes:
+      - clicar: {css: ".btp-actions button", t: bar.discount}
+      - digitar: {css: "#btp-discount", valor: "{desconto}", limpar: true}
+      - digitar: {css: "#btp-reason", valor: "{motivo_desconto}", limpar: true}
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "O desconto aparece nos totais, junto com o motivo."
+      en-US: "The discount shows in the totals, along with the reason."
+      es-ES: "El descuento aparece en los totales, junto con el motivo."
+    acoes:
+      - pausa: 0.6
+      - destacar: {css: ".btp-totals"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Recebeu errado? Na lista de pagamentos, clique em Estornar, escreva o motivo e confirme."
+      en-US: "Received it wrong? In the payment list, click Refund, write the reason and confirm."
+      es-ES: "¿Cobraste mal? En la lista de pagos, haz clic en Devolver, escribe el motivo y confirma."
+    acoes:
+      - clicar: {css: ".btp-payments button"}
+      - digitar: {css: "#btp-reason", valor: "{motivo_estorno}"}
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "O pagamento fica marcado como estornado, o valor volta ao saldo da comanda e sai do seu caixa."
+      en-US: "The payment is marked as refunded, the amount goes back to the tab's balance and leaves your cashbox."
+      es-ES: "El pago queda marcado como devuelto, el valor vuelve al saldo de la comanda y sale de tu caja."
+    acoes:
+      - pausa: 0.8
+      - destacar: {css: ".btp-payments"}
+        segundos: 2.5
+      - destacar: {css: ".btp-totals"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Pagamento com crédito do jogador não pode ser estornado. E, se a comanda já foi fechada, reabra antes de estornar."
+      en-US: "Payments with player credit can't be refunded. And if the tab is already closed, reopen it before refunding."
+      es-ES: "El pago con crédito del jugador no se puede devolver. Y si la comanda ya se cerró, reábrela antes de devolver."
+    acoes:
+      - pausa: 1.0

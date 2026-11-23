@@ -1,0 +1,99 @@
+id: torneios-relogio-mesa-abrir
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: relogio_painel:abrir
+titulo:
+  pt-BR: "Como abrir o relógio de mesa no tablet"
+  en-US: "How to open the table clock on the tablet"
+  es-ES: "Cómo abrir el reloj de mesa en la tablet"
+descricao:
+  pt-BR: "Etapa, torneio, dia e mesa, e o que a mesa desenhada mostra."
+  en-US: "Stage, tournament, day and table, and what the table drawing shows."
+  es-ES: "Etapa, torneo, día y mesa, y lo que muestra el dibujo de la mesa."
+passos:
+  - fala:
+      pt-BR: "No menu, clique em Relógio de Mesa. É a tela do tablet que o dealer deixa na mesa."
+      en-US: "In the menu, click Table Clock. It's the tablet screen the dealer keeps at the table."
+      es-ES: "En el menú, haz clic en Reloj de Mesa. Es la pantalla de la tablet que el dealer deja en la mesa."
+    acoes:
+      - clicar: {css: "a.nav-item[href='/relogio-mesa']"}
+  - fala:
+      pt-BR: "No alto, escolha a etapa. A lista mostra os torneios dela com dia aberto."
+      en-US: "At the top, choose the stage. The list shows its tournaments with an open day."
+      es-ES: "Arriba, elige la etapa. La lista muestra sus torneos con un día abierto."
+    acoes:
+      - escolher: {css: "#rcm-etapa", rotulo_opcao: "{etapa_da_area}"}
+      - pausa: 1.0
+      - destacar: {css: ".rcm-lista"}
+        segundos: 1.8
+  - fala:
+      pt-BR: "Escolha o torneio. Se ele tiver mais de um dia aberto, escolha também o dia."
+      en-US: "Choose the tournament. If it has more than one open day, choose the day as well."
+      es-ES: "Elige el torneo. Si tiene más de un día abierto, elige también el día."
+    acoes:
+      - clicar: {css: ".rcm-item", texto: "{nome_torneio}"}
+      - pausa: 1.4
+      - clicar: {css: ".rcm-item", texto: "{nome_dia_1}"}
+  - fala:
+      pt-BR: "Depois, a mesa deste tablet."
+      en-US: "Then, this tablet's table."
+      es-ES: "Después, la mesa de esta tablet."
+    acoes:
+      - clicar: {css: ".rcm-lista--mesas .rcm-item", n: 0}
+  - fala:
+      pt-BR: "A tela mostra a mesa vista de cima. O dealer fica embaixo, no meio."
+      en-US: "The screen shows the table from above. The dealer sits at the bottom, in the middle."
+      es-ES: "La pantalla muestra la mesa vista desde arriba. El dealer está abajo, en el centro."
+    acoes:
+      - esperar: {css: ".rm-assento"}
+      - destacar: {css: ".rm-mesa-area"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "O assento 1 é o primeiro à esquerda do dealer, e a numeração segue no sentido horário."
+      en-US: "Seat 1 is the first one to the dealer's left, and the numbers go clockwise."
+      es-ES: "El asiento 1 es el primero a la izquierda del dealer, y la numeración sigue en el sentido de las agujas del reloj."
+    acoes:
+      - passar: {css: ".rm-assento", n: 0}
+      - pausa: 0.6
+      - passar: {css: ".rm-assento", n: 2}
+      - passar: {css: ".rm-assento", n: 4}
+      - passar: {css: ".rm-assento", n: 6}
+      - passar: {css: ".rm-assento", n: 8}
+  - fala:
+      pt-BR: "Cada assento mostra o jogador e quantos cartões de time bank ele ainda tem. Lugar vazio diz Livre, e o bloqueado pelo floor diz Bloqueado."
+      en-US: "Each seat shows the player and how many time bank cards they have left. An empty seat says Open, and one blocked by the floor says Blocked."
+      es-ES: "Cada asiento muestra al jugador y cuántas tarjetas de time bank le quedan. Un lugar vacío dice Libre, y el bloqueado por el floor dice Bloqueado."
+    acoes:
+      - destacar: {css: ".rm-assento", n: 0}
+        segundos: 3.2
+      - destacar: {css: ".rm-assento", n: 4}
+        segundos: 1.8
+      - destacar: {css: ".rm-assento", n: 8}
+        segundos: 1.8
+  - fala:
+      pt-BR: "No centro, o tempo que falta no nível e os blinds, os mesmos do relógio do torneio."
+      en-US: "In the center, the time left in the level and the blinds, the same as on the tournament clock."
+      es-ES: "En el centro, el tiempo que falta en el nivel y los blinds, los mismos del reloj del torneo."
+    acoes:
+      - destacar: {css: ".rm-nivel-relogio"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Quando o relógio não pode rodar, a tela avisa e os botões travam. Aqui, o Dia 2, que ainda não começou."
+      en-US: "When the clock can't run, the screen tells you and the buttons lock. Here, Day 2, which hasn't started yet."
+      es-ES: "Cuando el reloj no puede correr, la pantalla avisa y los botones se bloquean. Aquí, el Día 2, que todavía no empezó."
+    acoes:
+      - ir: /relogio-mesa/{dia_2}/mesa/{mesa_dia_2}
+      - esperar: {css: ".rm-aviso"}
+      - destacar: {css: ".rm-aviso"}
+        segundos: 2.4
+      - destacar: {css: ".rm-comandos"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "A tela também avisa no intervalo, com o torneio pausado e com o relógio desligado no dia."
+      en-US: "The screen also tells you during a break, when the tournament is paused and when the clock is off for the day."
+      es-ES: "La pantalla también avisa en el descanso, con el torneo pausado y con el reloj apagado ese día."
+    acoes:
+      - pausa: 0.5

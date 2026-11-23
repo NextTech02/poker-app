@@ -1,0 +1,73 @@
+id: bar-abrir-comanda
+area: bar
+tipo: curto
+sessao: true
+modulo: bar
+preparar: bar:abrir_comanda
+inicio: /bar
+titulo:
+  pt-BR: "Como abrir a comanda e lançar itens no bar"
+  en-US: "How to open a tab and add items at the bar"
+  es-ES: "Cómo abrir la comanda y agregar ítems en el bar"
+descricao:
+  pt-BR: "Do jogador ao pedido lançado."
+  en-US: "From the player to the order placed."
+  es-ES: "Del jugador al pedido agregado."
+passos:
+  - fala:
+      pt-BR: "Comandas é a tela do balcão. À esquerda ficam as comandas abertas. No meio, os produtos. À direita, a comanda selecionada."
+      en-US: "Tabs is the counter screen. Open tabs are on the left. The products are in the middle. The selected tab is on the right."
+      es-ES: "Comandas es la pantalla del mostrador. A la izquierda están las comandas abiertas. En el centro, los productos. A la derecha, la comanda seleccionada."
+    acoes:
+      - destacar: {css: ".pos-side"}
+        segundos: 2.6
+      - destacar: {css: ".pos-main"}
+        segundos: 1.8
+      - destacar: {css: ".pos-detail"}
+        segundos: 1.8
+  - fala:
+      pt-BR: "Para abrir, digite o nome do jogador, selecione na lista e clique em Abrir comanda."
+      en-US: "To open one, type the player's name, select it from the list and click Open tab."
+      es-ES: "Para abrir una, escribe el nombre del jugador, selecciónalo en la lista y haz clic en Abrir comanda."
+    acoes:
+      - digitar: {css: ".player-select-input", valor: "{cliente}"}
+      - clicar: {css: "li.player-select-option"}
+      - clicar: {css: ".pos-open button[type=submit]"}
+  - fala:
+      pt-BR: "Cada jogador tem uma comanda aberta por vez. Se você abrir de novo, o sistema traz a mesma."
+      en-US: "Each player has one open tab at a time. If you open it again, the system brings up the same one."
+      es-ES: "Cada jugador tiene una comanda abierta a la vez. Si la abres de nuevo, el sistema trae la misma."
+    acoes:
+      - destacar: {css: ".pos-open__hint"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Agora lance os itens. Escolha a categoria e toque no produto. Cada toque lança uma unidade."
+      en-US: "Now add the items. Choose the category and tap the product. Each tap adds one unit."
+      es-ES: "Ahora agrega los ítems. Elige la categoría y toca el producto. Cada toque agrega una unidad."
+    acoes:
+      - clicar: {css: ".bpg-tabs button", texto: "{categoria_cerveja}"}
+      - clicar: {css: ".bpg-tile", texto: "{cerveja}"}
+      - pausa: 0.8
+      - clicar: {css: ".bpg-tile", texto: "{cerveja}"}
+  - fala:
+      pt-BR: "Troque de categoria para lançar o que falta."
+      en-US: "Switch categories to add the rest."
+      es-ES: "Cambia de categoría para agregar lo que falta."
+    acoes:
+      - clicar: {css: ".bpg-tabs button", texto: "{categoria_petisco}"}
+      - clicar: {css: ".bpg-tile", texto: "{fritas}"}
+  - fala:
+      pt-BR: "A comanda mostra os itens e o saldo a receber."
+      en-US: "The tab shows the items and the balance to receive."
+      es-ES: "La comanda muestra los ítems y el saldo por cobrar."
+    acoes:
+      - pausa: 0.6
+      - destacar: {css: ".btp-totals"}
+        segundos: 2.2
+  - fala:
+      pt-BR: "Cada item fica pendente até ser entregue. Ele já está na fila de Pedidos, e a entrega também pode ser marcada aqui, em Entregar."
+      en-US: "Each item stays pending until it's delivered. It's already in the Orders queue, and you can also mark delivery here, with Deliver."
+      es-ES: "Cada ítem queda pendiente hasta que se entrega. Ya está en la fila de Pedidos, y la entrega también se puede marcar aquí, en Entregar."
+    acoes:
+      - destacar: {css: ".btp-items"}
+        segundos: 5.5

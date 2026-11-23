@@ -23,9 +23,10 @@ def main() -> None:
     args.add_argument("id")
     args.add_argument("--idioma", default="pt-BR")
     args.add_argument("--quadros", type=int, default=8)
+    args.add_argument("--pasta", choices=("final", "rascunho"), default="final")
     opcoes = args.parse_args()
 
-    video = AQUI / "saida" / "final" / opcoes.idioma / f"{opcoes.id}.mp4"
+    video = AQUI / "saida" / opcoes.pasta / opcoes.idioma / f"{opcoes.id}.mp4"
     pasta = AQUI / "cache" / "revisao"
     pasta.mkdir(parents=True, exist_ok=True)
     total = duracao(video)

@@ -1,0 +1,85 @@
+id: torneios-blinds
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:blinds
+titulo:
+  pt-BR: "Como montar a estrutura de blinds"
+  en-US: "How to build the blind structure"
+  es-ES: "Cómo armar la estructura de blinds"
+descricao:
+  pt-BR: "Níveis, intervalos, ordem e duração de cada dia do torneio."
+  en-US: "Levels, breaks, order and duration for each tournament day."
+  es-ES: "Niveles, descansos, orden y duración de cada día del torneo."
+passos:
+  - fala:
+      pt-BR: "A estrutura de blinds é de cada dia. Abra o torneio e, no dia, clique em Estrutura de Blinds."
+      en-US: "Each day has its own blind structure. Open the tournament and, on the day, click Blind Structure."
+      es-ES: "Cada día tiene su estructura de blinds. Abre el torneo y, en el día, haz clic en Estructura de Blinds."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{torneio_blinds}']"}
+      - clicar: {css: ".day-card-actions button", t: blinds.title}
+  - fala:
+      pt-BR: "Cada linha é um nível, com small blind, big blind, ante e duração."
+      en-US: "Each line is a level, with small blind, big blind, ante and duration."
+      es-ES: "Cada línea es un nivel, con small blind, big blind, ante y duración."
+    acoes:
+      - destacar: {css: ".blinds-table"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Adicionar Blind. O sistema sugere o próximo nível, com os blinds dobrados. Ajuste se precisar e confirme."
+      en-US: "Click Add Blind. The system suggests the next level, with the blinds doubled. Adjust it if needed and confirm."
+      es-ES: "Haz clic en Agregar Blind. El sistema sugiere el siguiente nivel, con los blinds duplicados. Ajusta si hace falta y confirma."
+    acoes:
+      - clicar: {css: ".header-actions button", t: blinds.addBlind}
+      - destacar: {css: ".modal form .form-row"}
+        segundos: 3.5
+      - clicar: {css: ".modal-actions button[type=submit]"}
+  - fala:
+      pt-BR: "Para o intervalo, clique em Adicionar Break e informe a duração."
+      en-US: "For a break, click Add Break and enter the duration."
+      es-ES: "Para el descanso, haz clic en Agregar Descanso e indica la duración."
+    acoes:
+      - clicar: {css: ".header-actions button", t: blinds.addBreak}
+      - digitar: {css: "#duration", valor: "15", limpar: true}
+      - clicar: {css: ".modal-actions button[type=submit]"}
+  - fala:
+      pt-BR: "Ele entra no fim. Arraste a linha pela alça até o lugar certo. O intervalo não consome número de nível."
+      en-US: "It goes to the end. Drag the row by its handle to the right place. A break doesn't use up a level number."
+      es-ES: "Entra al final. Arrastra la fila por el asa hasta el lugar correcto. El descanso no consume número de nivel."
+    acoes:
+      - esperar: {css: ".blind-row.break-row"}
+      - arrastar:
+          de: {css: ".blind-row.break-row .drag-handle"}
+          para: {css: ".blind-row", n: 3}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Para corrigir um valor, clique nele, digite e aperte Enter."
+      en-US: "To fix a value, click it, type and press Enter."
+      es-ES: "Para corregir un valor, haz clic en él, escribe y presiona Enter."
+    acoes:
+      - clicar: {css: ".blind-row td:nth-child(5) .inline-editable", n: 0}
+      - digitar: {css: ".inline-edit-input", valor: "15", limpar: true}
+      - tecla: Enter
+  - fala:
+      pt-BR: "Mudou a duração? A seta ao lado aplica o mesmo tempo aos níveis seguintes. Os intervalos ficam como estão."
+      en-US: "Changed the duration? The arrow next to it applies the same time to the following levels. Breaks stay as they are."
+      es-ES: "¿Cambiaste la duración? La flecha de al lado aplica el mismo tiempo a los niveles siguientes. Los descansos quedan como están."
+    acoes:
+      - clicar: {css: ".replicate-next"}
+      - pausa: 1.5
+  - fala:
+      pt-BR: "Aqui embaixo você confere os níveis, os breaks e a duração total."
+      en-US: "Down here you can check the levels, the breaks and the total duration."
+      es-ES: "Aquí abajo revisas los niveles, los descansos y la duración total."
+    acoes:
+      - destacar: {css: ".blinds-summary"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Com o dia em andamento, só dá para reordenar o que vem depois do nível atual."
+      en-US: "While the day is running, you can only reorder what comes after the current level."
+      es-ES: "Con el día en curso, solo se puede reordenar lo que viene después del nivel actual."
+    acoes:
+      - pausa: 1.0

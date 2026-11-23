@@ -1,0 +1,62 @@
+id: conta-verificacao-duas-etapas
+area: conta
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /seguranca
+preparar: clube:base
+titulo:
+  pt-BR: "Verificação em duas etapas: o que é e como ativar"
+  en-US: "Two-step verification: what it is and how to turn it on"
+  es-ES: "Verificación en dos pasos: qué es y cómo activarla"
+descricao:
+  pt-BR: "Uma proteção a mais para a sua conta, com um código do celular."
+  en-US: "An extra layer for your account, with a code from your phone."
+  es-ES: "Una protección más para tu cuenta, con un código de tu celular."
+passos:
+  - fala:
+      pt-BR: "Em Segurança, você protege a sua conta."
+      en-US: "Under Security, you protect your own account."
+      es-ES: "En Seguridad, proteges tu cuenta."
+    acoes:
+      - destacar: {css: "a.nav-item[href='/seguranca']"}
+        segundos: 1.8
+  - fala:
+      pt-BR: "A verificação em duas etapas pede um código do seu celular além da senha. Assim, quem descobrir a sua senha ainda não entra sem o seu celular."
+      en-US: "Two-step verification asks for a code from your phone on top of your password. So someone who learns your password still cannot get in without your phone."
+      es-ES: "La verificación en dos pasos pide un código de tu celular además de la contraseña. Así, quien descubra tu contraseña todavía no entra sin tu celular."
+    acoes:
+      - destacar: {css: ".sec-card"}
+        segundos: 4.5
+  - fala:
+      pt-BR: "Ela é opcional e vale só para a sua conta. Este selo mostra se está ativa."
+      en-US: "It's optional and applies only to your account. This badge shows whether it's on."
+      es-ES: "Es opcional y vale solo para tu cuenta. Esta etiqueta muestra si está activa."
+    acoes:
+      - destacar: {css: ".sec-badge"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Para ligar, clique em Ativar."
+      en-US: "To turn it on, click Turn on."
+      es-ES: "Para activarla, haz clic en Activar."
+    acoes:
+      - destacar: {css: ".sec-card .btn-primary"}
+        segundos: 1.6
+  - fala:
+      pt-BR: "O sistema mostra um QR code. Leia com o aplicativo autenticador do celular, digite o número de 6 dígitos e clique em Confirmar e ativar."
+      en-US: "The system shows a QR code. Scan it with the authenticator app on your phone, type the 6-digit number and click Confirm and turn on."
+      es-ES: "El sistema muestra un código QR. Léelo con la aplicación de autenticación de tu celular, escribe el número de 6 dígitos y haz clic en Confirmar y activar."
+    acoes:
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Em seguida aparecem os códigos de recuperação. Anote e guarde fora do celular: eles não são mostrados de novo, e cada um serve uma vez."
+      en-US: "Next you see your recovery codes. Write them down and keep them off your phone: they won't be shown again, and each one works once."
+      es-ES: "Después aparecen los códigos de recuperación. Anótalos y guárdalos fuera del celular: no se muestran de nuevo, y cada uno sirve una vez."
+    acoes:
+      - pausa: 1.0
+  - fala:
+      pt-BR: "A partir daí, o sistema pede o código do aplicativo depois da senha. Se perder o celular, clique em Perdi o celular e use um código de recuperação. Ele desliga a verificação, e você cadastra um aparelho novo."
+      en-US: "From then on, the system asks for the app code after your password. If you lose your phone, click I lost my phone and use a recovery code. It turns verification off, and you can set up a new device."
+      es-ES: "A partir de ahí, el sistema pide el código de la aplicación después de la contraseña. Si pierdes el celular, haz clic en Perdí el celular y usa un código de recuperación. Eso apaga la verificación, y registras un aparato nuevo."
+    acoes:
+      - pausa: 1.0

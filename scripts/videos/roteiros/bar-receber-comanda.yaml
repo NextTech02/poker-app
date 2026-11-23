@@ -1,0 +1,84 @@
+id: bar-receber-comanda
+area: bar
+tipo: curto
+sessao: true
+modulo: bar
+preparar: bar:receber
+inicio: /bar
+titulo:
+  pt-BR: "Como receber uma comanda em partes, dividida ou com crédito"
+  en-US: "How to receive a tab in parts, split or with credit"
+  es-ES: "Cómo cobrar una comanda por partes, dividida o con crédito"
+descricao:
+  pt-BR: "Pagamento parcial, várias formas e crédito do jogador."
+  en-US: "Partial payment, several methods and player credit."
+  es-ES: "Pago parcial, varias formas y crédito del jugador."
+passos:
+  - fala:
+      pt-BR: "Para receber, selecione a comanda e clique em Receber."
+      en-US: "To receive a payment, select the tab and click Receive."
+      es-ES: "Para cobrar, selecciona la comanda y haz clic en Cobrar."
+    acoes:
+      - clicar: {css: ".pos-tab", texto: "{cliente}"}
+      - clicar: {css: ".btp-actions .btn-primary"}
+  - fala:
+      pt-BR: "Se o jogador vai pagar só uma parte, troque o valor. A tela mostra quanto vai restar."
+      en-US: "If the player is paying only part of it, change the amount. The screen shows what will remain."
+      es-ES: "Si el jugador va a pagar solo una parte, cambia el valor. La pantalla muestra cuánto va a quedar."
+    acoes:
+      - digitar: {css: ".bpm-leg__amount", valor: "{parcial}", limpar: true}
+      - destacar: {css: ".bpm-footer"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Clique em Receber. A comanda continua aberta, com o saldo atualizado."
+      en-US: "Click Receive. The tab stays open, with the balance updated."
+      es-ES: "Haz clic en Cobrar. La comanda sigue abierta, con el saldo actualizado."
+    acoes:
+      - clicar: {css: ".bpm button[type=submit]"}
+      - pausa: 0.8
+      - destacar: {css: ".btp-totals"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Para dividir o saldo, clique em Receber de novo, ajuste o valor e clique em Outra forma."
+      en-US: "To split the balance, click Receive again, adjust the amount and click Another method."
+      es-ES: "Para dividir el saldo, haz clic en Cobrar de nuevo, ajusta el valor y haz clic en Otra forma."
+    acoes:
+      - clicar: {css: ".btp-actions .btn-primary"}
+      - digitar: {css: ".bpm-leg__amount", valor: "{perna}", limpar: true}
+      - clicar: {css: ".bpm-add button", n: 0}
+  - fala:
+      pt-BR: "Cada linha tem a sua forma de pagamento e o seu valor."
+      en-US: "Each line has its own payment method and amount."
+      es-ES: "Cada línea tiene su forma de pago y su valor."
+    acoes:
+      - escolher: {css: ".bpm-leg select", n: 1, opcao: "{meio_digital}"}
+      - digitar: {css: ".bpm-leg__amount", n: 1, valor: "{perna}", limpar: true}
+  - fala:
+      pt-BR: "Quando o jogador tem crédito, aparece o botão Usar crédito. O crédito é do patrocinador: usá-lo aqui cobra o patrocinador pela comanda."
+      en-US: "When the player has credit, the Use credit button appears. The credit belongs to the sponsor: using it here charges the sponsor for the tab."
+      es-ES: "Cuando el jugador tiene crédito, aparece el botón Usar crédito. El crédito es del patrocinador: usarlo aquí le cobra la comanda al patrocinador."
+    acoes:
+      - passar: {css: ".bpm-add button", n: 1}
+      - pausa: 1.5
+      - clicar: {css: ".bpm-add button", n: 1}
+      - pausa: 0.6
+      - destacar: {css: ".bpm-legs"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Com a soma igual ao saldo, clique em Receber."
+      en-US: "Once the total matches the balance, click Receive."
+      es-ES: "Cuando la suma sea igual al saldo, haz clic en Cobrar."
+    acoes:
+      - destacar: {css: ".bpm-footer"}
+        segundos: 1.4
+      - clicar: {css: ".bpm button[type=submit]"}
+  - fala:
+      pt-BR: "A comanda está quitada. Clique em Fechar comanda, e ela sai da lista de abertas."
+      en-US: "The tab is settled. Click Close tab, and it leaves the open list."
+      es-ES: "La comanda está pagada. Haz clic en Cerrar comanda, y sale de la lista de abiertas."
+    acoes:
+      - pausa: 1.5
+      - clicar: {css: ".bpm-done .btn-primary"}
+      - pausa: 1.0
+      - destacar: {css: ".pos-tabs"}
+        segundos: 2.0

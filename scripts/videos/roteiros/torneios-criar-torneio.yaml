@@ -1,0 +1,92 @@
+id: torneios-criar-torneio
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:torneio
+titulo:
+  pt-BR: "Como criar e editar um torneio"
+  en-US: "How to create and edit a tournament"
+  es-ES: "Cómo crear y editar un torneo"
+descricao:
+  pt-BR: "Nome, eliminação, formato de KO, meios de entrada e dias classificatórios."
+  en-US: "Name, eliminations, KO format, entry methods and qualifying days."
+  es-ES: "Nombre, eliminación, formato de KO, medios de entrada y días clasificatorios."
+passos:
+  - fala:
+      pt-BR: "Com a etapa selecionada, clique em Novo Torneio e dê um nome."
+      en-US: "With the stage selected, click New Tournament and give it a name."
+      es-ES: "Con la etapa seleccionada, haz clic en Nuevo Torneo y ponle un nombre."
+    acoes:
+      - clicar: {css: ".tr-btn-new"}
+      - digitar: {css: "#tr-name", valor: "{torneio_novo}"}
+  - fala:
+      pt-BR: "Escolha como eliminar jogadores. Por posição nas mesas, o diretor elimina cada jogador no assento. Em massa, ele só soma eliminações no Controle, sem dizer quem saiu."
+      en-US: "Choose how players are eliminated. By table seat, the director eliminates each player at their seat. In bulk, the director just adds eliminations in the Control screen, without saying who left."
+      es-ES: "Elige cómo eliminar jugadores. Por posición en las mesas, el director elimina a cada jugador en su asiento. En masa, solo suma eliminaciones en el Control, sin indicar quién salió."
+    acoes:
+      - passar: {css: ".tr-elim-option", n: 0}
+      - pausa: 3.5
+      - passar: {css: ".tr-elim-option", n: 1}
+  - fala:
+      pt-BR: "Em Formato, defina a premiação por eliminação: KO fixo, PKO ou Mystery Bounty. Esses formatos exigem eliminação pelas mesas. Sem bounty, deixe Nenhuma."
+      en-US: "Under Format, set the knockout prizes: Fixed KO, PKO or Mystery Bounty. These formats require eliminating at the tables. With no bounty, leave it on None."
+      es-ES: "En Formato, define la premiación por eliminación: KO fijo, PKO o Mystery Bounty. Estos formatos exigen eliminación por mesas. Sin bounty, déjalo en Ninguna."
+    acoes:
+      - escolher: {css: "#tr-ko-format", opcao: "pko"}
+      - pausa: 5.0
+      - escolher: {css: "#tr-ko-format", opcao: "none"}
+  - fala:
+      pt-BR: "Em Meios de entrada, digite o valor de cada um. Buy-in, Rebuy e Add-on já vêm na lista."
+      en-US: "Under Entry methods, enter the amount of each one. Buy-in, Rebuy and Add-on are already on the list."
+      es-ES: "En Medios de entrada, escribe el importe de cada uno. Buy-in, Rebuy y Add-on ya vienen en la lista."
+    acoes:
+      - preencher: {css: "input[id^='tr-entry_amount_']", n: 0, valor: "{valor_buyin}"}
+      - preencher: {css: "input[id^='tr-entry_amount_']", n: 1, valor: "{valor_rebuy}"}
+      - preencher: {css: "input[id^='tr-entry_amount_']", n: 2, valor: "{valor_addon}"}
+  - fala:
+      pt-BR: "Para um torneio de vários dias, ligue Com Dias Classificatórios. Nesse caso, a premiação por eliminação fica desligada."
+      en-US: "For a multi-day tournament, turn on With Qualifying Days. Knockout prizes are then turned off."
+      es-ES: "Para un torneo de varios días, activa Con Días Clasificatorios. En ese caso, la premiación por eliminación queda desactivada."
+    acoes:
+      - clicar: {css: ".tr-toggle-card", t: tournaments.qualifyingToggle}
+  - fala:
+      pt-BR: "Informe quantos dias classificatórios. O sistema cria esses dias e mais o dia final, já vinculados."
+      en-US: "Enter how many qualifying days. The system creates them plus the final day, already linked."
+      es-ES: "Indica cuántos días clasificatorios. El sistema crea esos días y el día final, ya vinculados."
+    acoes:
+      - digitar: {css: "#tr-qdays", valor: "3", limpar: true}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "O máximo de jogadores e o limite de rebuy valem para todos os classificatórios. Clique em Criar Torneio."
+      en-US: "Max players and the rebuy limit apply to all qualifying days. Click Create Tournament."
+      es-ES: "El máximo de jugadores y el límite de rebuy valen para todos los clasificatorios. Haz clic en Crear Torneo."
+    acoes:
+      - destacar: {css: ".tr-qual-grid:has(#tr-qmax)"}
+        segundos: 1.5
+      - clicar: {css: ".tr-btn-submit"}
+  - fala:
+      pt-BR: "Abra o torneio. Os dias classificatórios e o Dia Final já estão prontos."
+      en-US: "Open the tournament. The qualifying days and the Final Day are ready."
+      es-ES: "Abre el torneo. Los días clasificatorios y el Día Final ya están listos."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{torneio_novo}']"}
+      - destacar: {css: ".days-list-section-final"}
+        segundos: 1.5
+  - fala:
+      pt-BR: "Para mudar algo depois, volte à lista e clique em Editar. O formato de KO só muda antes da primeira venda."
+      en-US: "To change something later, go back to the list and click Edit. The KO format can only change before the first sale."
+      es-ES: "Para cambiar algo después, vuelve a la lista y haz clic en Editar. El formato de KO solo cambia antes de la primera venta."
+    acoes:
+      - clicar: {css: ".header-actions button", t: common.back}
+      - clicar: {css: ".tr-card:has(a.tr-card-cta[aria-label*='{torneio_novo}']) .tr-btn-edit"}
+  - fala:
+      pt-BR: "Troque o que precisar e clique em Salvar Alterações."
+      en-US: "Change what you need and click Save Changes."
+      es-ES: "Cambia lo que necesites y haz clic en Guardar Cambios."
+    acoes:
+      - preencher: {css: "#tr-name", valor: "{torneio_editado}"}
+      - clicar: {css: ".tr-btn-submit"}
+      - destacar: {css: ".tr-card:has(a.tr-card-cta[aria-label*='{torneio_editado}'])"}
+        segundos: 1.0

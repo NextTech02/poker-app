@@ -1,0 +1,79 @@
+id: torneios-meios-de-entrada
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /torneios
+preparar: torneios_config:meios
+titulo:
+  pt-BR: "Como cadastrar os meios de entrada"
+  en-US: "How to set up entry methods"
+  es-ES: "Cómo configurar los medios de entrada"
+descricao:
+  pt-BR: "Buy-in, rebuy, add-on, taxa e um Buy-in Duplo que vale por duas entradas."
+  en-US: "Buy-in, rebuy, add-on, fee and a Double Buy-in that counts as two entries."
+  es-ES: "Buy-in, rebuy, add-on, tasa y un Buy-in Doble que vale por dos entradas."
+passos:
+  - fala:
+      pt-BR: "Os meios de entrada são o que o Caixa vende no torneio. A lista é do torneio e vale para todos os dias. Para mexer nela, clique em Editar."
+      en-US: "Entry methods are what the Cashier sells for the tournament. The list belongs to the tournament and applies to every day. To change it, click Edit."
+      es-ES: "Los medios de entrada son lo que la Caja vende en el torneo. La lista es del torneo y vale para todos los días. Para cambiarla, haz clic en Editar."
+    acoes:
+      - clicar: {css: ".tr-card:has(a.tr-card-cta[aria-label*='{torneio_meios}']) .tr-btn-edit"}
+  - fala:
+      pt-BR: "Cada linha tem nome, valor, rake, fichas e categoria."
+      en-US: "Each line has a name, amount, rake, chips and category."
+      es-ES: "Cada línea tiene nombre, importe, rake, fichas y categoría."
+    acoes:
+      - esperar: {css: "input[id^='tr-entry_name_']"}
+      - destacar: {css: ".entry-method-row", n: 0}
+        segundos: 2.5
+  - fala:
+      pt-BR: "A categoria decide o efeito da venda. Entrada soma um jogador novo. Recompra devolve alguém à mesa. Add-on só entrega fichas a quem já joga. Taxa cobra à parte."
+      en-US: "The category decides what the sale does. Entry adds a new player. Rebuy brings someone back to the table. Add-on only gives chips to someone already playing. Fee is charged separately."
+      es-ES: "La categoría decide el efecto de la venta. Entrada suma un jugador nuevo. Recompra devuelve a alguien a la mesa. Add-on solo entrega fichas a quien ya juega. Tasa cobra aparte."
+    acoes:
+      - destacar: {css: "select[id^='tr-entry_category_']", n: 0}
+        segundos: 8.0
+  - fala:
+      pt-BR: "Para vender um Buy-in Duplo, clique em Adicionar entrada."
+      en-US: "To sell a Double Buy-in, click Add entry."
+      es-ES: "Para vender un Buy-in Doble, haz clic en Añadir entrada."
+    acoes:
+      - clicar: {papel: button, t: tournamentDayForm.addEntryMethod}
+  - fala:
+      pt-BR: "Digite o nome, o valor e as fichas. Cada meio tem valores próprios: não é o buy-in vezes dois."
+      en-US: "Enter the name, the amount and the chips. Each method has its own values: it isn't the buy-in times two."
+      es-ES: "Escribe el nombre, el importe y las fichas. Cada medio tiene valores propios: no es el buy-in por dos."
+    acoes:
+      - digitar: {css: "input[id^='tr-entry_name_']", n: 3, valor: "{meio_duplo}"}
+      - digitar: {css: "input[id^='tr-entry_amount_']", n: 3, valor: "{valor_duplo}"}
+      - digitar: {css: "input[id^='tr-entry_chips_']", n: 3, valor: "60000", limpar: true}
+  - fala:
+      pt-BR: "Em Vale por, coloque dois. Essa venda conta duas entradas no telão e nos relatórios."
+      en-US: "In Counts as, enter two. This sale counts as two entries on the TV and in reports."
+      es-ES: "En Vale por, pon dos. Esta venta cuenta dos entradas en la pantalla y en los informes."
+    acoes:
+      - digitar: {css: "input[id^='tr-entry_entries_']", n: 2, valor: "2", limpar: true}
+      - pausa: 1.0
+  - fala:
+      pt-BR: "Para tirar um meio, use Remover. Sempre precisa ficar um da categoria Entrada."
+      en-US: "To take one out, use Remove. At least one in the Entry category must stay."
+      es-ES: "Para quitar uno, usa Eliminar. Siempre debe quedar uno de la categoría Entrada."
+    acoes:
+      - destacar: {css: ".entry-method-actions button", n: 3}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Clique em Salvar Alterações."
+      en-US: "Click Save Changes."
+      es-ES: "Haz clic en Guardar Cambios."
+    acoes:
+      - clicar: {css: ".tr-btn-submit"}
+  - fala:
+      pt-BR: "Abra o torneio. A lista aparece aqui, e dá para editar por aqui também. É dela que o Caixa vende."
+      en-US: "Open the tournament. The list shows here, and you can edit it here too. This is what the Cashier sells."
+      es-ES: "Abre el torneo. La lista aparece aquí, y también se puede editar desde aquí. De ella vende la Caja."
+    acoes:
+      - clicar: {css: "a.tr-card-cta[aria-label*='{torneio_meios}']"}
+      - destacar: {css: ".entry-types-card"}
+        segundos: 3.0

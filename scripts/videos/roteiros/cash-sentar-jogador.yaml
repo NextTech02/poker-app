@@ -1,0 +1,69 @@
+id: cash-sentar-jogador
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash
+preparar: cash:mesa_com_jogadores
+titulo:
+  pt-BR: "Como sentar um jogador e receber o buy-in"
+  en-US: "How to seat a player and take the buy-in"
+  es-ES: "Cómo sentar a un jugador y cobrar el buy-in"
+descricao:
+  pt-BR: "Cadeira e buy-in num passo só."
+  en-US: "Seat and buy-in in a single step."
+  es-ES: "Puesto y buy-in en un solo paso."
+passos:
+  - fala:
+      pt-BR: "Para sentar um jogador, entre na mesa pelo Salão."
+      en-US: "To seat a player, go into the table from the Floor."
+      es-ES: "Para sentar a un jugador, entra a la mesa desde la Sala."
+    acoes:
+      - clicar: {css: "a[href='/cash/mesas/{mesa}']"}
+      - esperar: {css: ".ctd-seat"}
+  - fala:
+      pt-BR: "Cada cadeira mostra quem está lá e quanto já comprou. Em um lugar livre, clique em Sentar."
+      en-US: "Each seat shows who is there and how much they have bought. On a free seat, click Seat."
+      es-ES: "Cada puesto muestra quién está y cuánto ha comprado. En un puesto libre, haz clic en Sentar."
+    acoes:
+      - destacar: {css: ".ctd-seat.occupied"}
+        segundos: 2.0
+      - clicar: {css: ".ctd-seat.free button"}
+  - fala:
+      pt-BR: "Digite o nome do jogador e selecione na lista."
+      en-US: "Type the player's name and select it from the list."
+      es-ES: "Escribe el nombre del jugador y selecciónalo en la lista."
+    acoes:
+      - digitar: {css: ".player-select-input", valor: "{pessoa}"}
+      - clicar: {css: "li.player-select-option"}
+  - fala:
+      pt-BR: "O buy-in já vem com o mínimo da mesa. Se ele comprar mais, troque o valor, dentro do limite mostrado aqui."
+      en-US: "The buy-in comes filled in with the table minimum. If the player buys more, change the amount, within the range shown here."
+      es-ES: "El buy-in ya viene con el mínimo de la mesa. Si compra más, cambia el monto, dentro del límite que se muestra aquí."
+    acoes:
+      - digitar: {css: "#ctd-amount", valor: "{buyin}", limpar: true}
+      - destacar: {css: ".modal .form-group:has(#ctd-amount)"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Escolha o meio de pagamento. Se ele pagar com dois meios, marque Dividir pagamento."
+      en-US: "Choose the payment method. If the player pays with two methods, check Split payment."
+      es-ES: "Elige el medio de pago. Si paga con dos medios, marca Dividir el pago."
+    acoes:
+      - escolher: {css: "#ctd-method", opcao: "cash"}
+      - passar: {css: ".pd-alternar"}
+  - fala:
+      pt-BR: "Clique em Sentar. Sentar e pagar são um passo só: o jogador aparece na cadeira com a compra registrada."
+      en-US: "Click Seat. Seating and paying are a single step: the player shows up in the seat with the purchase recorded."
+      es-ES: "Haz clic en Sentar. Sentar y pagar son un solo paso: el jugador aparece en el puesto con la compra registrada."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".ctd-seat.occupied", texto: "{pessoa}"}
+      - destacar: {css: ".ctd-seat.occupied", texto: "{pessoa}"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "O saldo do seu caixa, no alto da tela, já inclui a venda."
+      en-US: "Your cashbox balance, at the top of the screen, already includes the sale."
+      es-ES: "El saldo de tu caja, arriba en la pantalla, ya incluye la venta."
+    acoes:
+      - destacar: {css: ".cashbox-banner"}
+        segundos: 2.0

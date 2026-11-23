@@ -76,7 +76,7 @@ dogfood-output/
 # Vídeos de suporte: gravações, áudio em cache e as chaves ficam fora do git.
 scripts/videos/cache/
 scripts/videos/saida/
-scripts/videos/__pycache__/
+scripts/videos/**/__pycache__/
 **/videos.env
 
 # ── Preview visual local (backend/scripts/ui_preview_session.py, frontend/scripts/ui_shot.py) ──

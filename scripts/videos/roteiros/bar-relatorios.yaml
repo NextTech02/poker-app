@@ -1,0 +1,76 @@
+id: bar-relatorios
+area: bar
+tipo: curto
+sessao: true
+modulo: bar
+preparar: bar:relatorios
+inicio: /bar/relatorios
+titulo:
+  pt-BR: "Como ler o faturamento do bar"
+  en-US: "How to read the bar revenue report"
+  es-ES: "Cómo leer la facturación del bar"
+descricao:
+  pt-BR: "Vendas, margem e formas de recebimento por período."
+  en-US: "Sales, margin and payment methods by period."
+  es-ES: "Ventas, margen y formas de pago por período."
+passos:
+  - fala:
+      pt-BR: "O Faturamento do bar mostra como o bar foi em um período. Escolha as datas em De e Até."
+      en-US: "Bar revenue shows how the bar did over a period. Pick the dates under From and To."
+      es-ES: "La Facturación del bar muestra cómo le fue al bar en un período. Elige las fechas en Desde y Hasta."
+    acoes:
+      - destacar: {css: ".bar-filters"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Vendas é a soma das comandas fechadas, depois do desconto. Aqui também aparecem o ticket médio e o número de comandas."
+      en-US: "Sales is the sum of closed tabs, after discounts. You also see the average tab and the number of tabs here."
+      es-ES: "Ventas es la suma de las comandas cerradas, después del descuento. Aquí también ves el ticket promedio y el número de comandas."
+    acoes:
+      - destacar: {css: ".stat-card", n: 0}
+        segundos: 6.0
+  - fala:
+      pt-BR: "Margem é o que sobra das vendas depois do custo das mercadorias. A cortesia entra nesse custo, porque saiu do estoque."
+      en-US: "Margin is what's left of sales after the cost of goods. Courtesies count in that cost, because they left the stock."
+      es-ES: "Margen es lo que queda de las ventas después del costo de la mercancía. La cortesía entra en ese costo, porque salió del stock."
+    acoes:
+      - destacar: {css: ".stat-card", n: 1}
+        segundos: 6.0
+  - fala:
+      pt-BR: "Os dois cartões seguintes mostram quanto foi dado em descontos e cortesias, e quanto foi recebido, separando dinheiro e crédito do jogador."
+      en-US: "The next two cards show how much went to discounts and courtesies, and how much was received, split between money and credit."
+      es-ES: "Las dos tarjetas siguientes muestran cuánto se dio en descuentos y cortesías, y cuánto se recibió, separando dinero y crédito del jugador."
+    acoes:
+      - destacar: {css: ".stat-card", n: 2}
+        segundos: 3.2
+      - destacar: {css: ".stat-card", n: 3}
+        segundos: 3.2
+  - fala:
+      pt-BR: "Em Vendas por dia, você compara cada noite: vendas, custo, margem e comandas."
+      en-US: "Under Sales per day, you compare each night: sales, cost, margin and tabs."
+      es-ES: "En Ventas por día, comparas cada noche: ventas, costo, margen y comandas."
+    acoes:
+      - destacar: {css: ".cr-block", t: barReports.byDay}
+        segundos: 4.5
+  - fala:
+      pt-BR: "Por produto mostra o que mais vendeu, as cortesias e a margem de cada item."
+      en-US: "By product shows what sold most, the courtesies and the margin of each item."
+      es-ES: "Por producto muestra lo que más se vendió, las cortesías y el margen de cada ítem."
+    acoes:
+      - destacar: {css: ".cr-block", t: barReports.byProduct}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Por forma de pagamento mostra como o dinheiro entrou. E Por jogador mostra quem mais gastou."
+      en-US: "By payment method shows how the money came in. And By player shows who spent the most."
+      es-ES: "Por forma de pago muestra cómo entró el dinero. Y Por jugador muestra quién gastó más."
+    acoes:
+      - destacar: {css: ".cr-block", t: barReports.byMethod}
+        segundos: 2.6
+      - destacar: {css: ".cr-block", t: barReports.byPlayer}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Para exportar os números, use os botões XLSX, CSV e PDF, no topo da tela."
+      en-US: "To export the numbers, use the XLSX, CSV and PDF buttons at the top of the screen."
+      es-ES: "Para exportar los números, usa los botones XLSX, CSV y PDF, arriba en la pantalla."
+    acoes:
+      - destacar: {css: ".cr-export"}
+        segundos: 4.5

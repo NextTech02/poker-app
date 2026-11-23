@@ -1,0 +1,109 @@
+id: torneios-painel-mesas-acoes
+area: torneios
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /painel-mesas/{dia_1}
+preparar: relogio_painel:painel_acoes
+titulo:
+  pt-BR: "Painel de mesas: eliminar, sentar e trocar de mesa"
+  en-US: "Table panel: eliminate, seat and move players"
+  es-ES: "Panel de mesas: eliminar, sentar y cambiar de mesa"
+descricao:
+  pt-BR: "As ações do floor tocando no assento, com o bilhete do lugar novo."
+  en-US: "The floor's actions by tapping the seat, with the ticket for the new seat."
+  es-ES: "Las acciones del floor tocando el asiento, con el boleto del lugar nuevo."
+passos:
+  - fala:
+      pt-BR: "No Painel de mesas, toque no assento de um jogador para ver as ações."
+      en-US: "On the Table panel, tap a player's seat to see the actions."
+      es-ES: "En el Panel de mesas, toca el asiento de un jugador para ver las acciones."
+    acoes:
+      - esperar: {css: ".pm-mesa .pm-assento"}
+      - clicar: {css: ".pm-mesa .pm-assento", n: 1}
+  - fala:
+      pt-BR: "A janela mostra a mesa, o assento e os cartões. Para eliminar, toque em Eliminar e confirme."
+      en-US: "The window shows the table, the seat and the cards. To eliminate, tap Eliminate and confirm."
+      es-ES: "La ventana muestra la mesa, el asiento y las tarjetas. Para eliminar, toca Eliminar y confirma."
+    acoes:
+      - destacar: {css: ".pm-janela"}
+        segundos: 2.4
+      - clicar: {css: ".pm-janela .pm-acao--perigo"}
+      - pausa: 1.0
+      - clicar: {css: ".confirm-btn-danger"}
+  - fala:
+      pt-BR: "O assento fica livre, e o nome vai para Eliminados agora há pouco."
+      en-US: "The seat is freed, and the name goes to Recently eliminated."
+      es-ES: "El asiento queda libre, y el nombre pasa a Eliminados hace poco."
+    acoes:
+      - pausa: 0.6
+      - destacar: {css: ".pm-mesa .pm-assento", n: 1}
+        segundos: 1.6
+      - rolar: {css: ".pm-eliminados"}
+      - destacar: {css: ".pm-eliminados"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Foi engano? Toque em Desfazer. O jogador volta ao torneio, sem mesa."
+      en-US: "Was it a mistake? Tap Undo. The player goes back into the tournament, without a table."
+      es-ES: "¿Fue un error? Toca Deshacer. El jugador vuelve al torneo, sin mesa."
+    acoes:
+      - clicar: {papel: button, texto: {pt-BR: "Desfazer: {eliminado}", en-US: "Undo: {eliminado}", es-ES: "Deshacer: {eliminado}"}}
+      - pausa: 1.2
+      - rolar: {css: ".pm-resumo"}
+      - destacar: {css: ".pm-sem-mesa"}
+        segundos: 2.4
+  - fala:
+      pt-BR: "Para sentar quem está sem mesa, toque num assento livre e escolha o jogador."
+      en-US: "To seat someone without a table, tap an open seat and choose the player."
+      es-ES: "Para sentar a quien está sin mesa, toca un asiento libre y elige al jugador."
+    acoes:
+      - clicar: {css: ".pm-mesa .pm-assento", n: 1}
+      - pausa: 0.8
+      - clicar: {css: ".pm-janela .pm-acao", texto: "{eliminado}"}
+  - fala:
+      pt-BR: "Sai o bilhete com a mesa e o assento novos. É só imprimir e entregar ao jogador."
+      en-US: "The ticket comes out with the new table and seat. Just print it and hand it to the player."
+      es-ES: "Sale el boleto con la mesa y el asiento nuevos. Solo tienes que imprimirlo y entregárselo al jugador."
+    acoes:
+      - esperar: {css: ".pm-janela .seat-ticket"}
+      - destacar: {css: ".pm-janela .seat-ticket"}
+        segundos: 2.2
+      - destacar: {css: ".pm-janela .btn-print-ticket"}
+        segundos: 1.8
+      - clicar: {css: ".pm-janela .pm-acao--neutra"}
+  - fala:
+      pt-BR: "Para trocar alguém de mesa, toque no jogador e em Trocar de mesa."
+      en-US: "To move someone to another table, tap the player and then Change table."
+      es-ES: "Para cambiar a alguien de mesa, toca al jugador y luego Cambiar de mesa."
+    acoes:
+      - clicar: {css: ".pm-mesa .pm-assento", n: 0}
+      - pausa: 0.6
+      - clicar: {css: ".pm-janela .pm-acao", t: floorPanel.changeTable}
+  - fala:
+      pt-BR: "A mesa sugerida pelo equilíbrio vem marcada. Escolha a mesa e um assento livre."
+      en-US: "The table suggested by the balancing comes marked. Choose the table and an open seat."
+      es-ES: "La mesa sugerida por el equilibrio viene marcada. Elige la mesa y un asiento libre."
+    acoes:
+      - destacar: {css: ".pm-janela .pm-sugerida"}
+        segundos: 2.0
+      - clicar: {css: ".pm-janela .pm-acao--mesa:has(.pm-sugerida)"}
+      - pausa: 0.8
+      - clicar: {css: ".pm-janela-lista--assentos .pm-acao", n: 0}
+  - fala:
+      pt-BR: "Pronto: o jogador mudou de lugar, e o bilhete mostra a mesa nova."
+      en-US: "Done: the player has moved, and the ticket shows the new table."
+      es-ES: "Listo: el jugador cambió de lugar, y el boleto muestra la mesa nueva."
+    acoes:
+      - esperar: {css: ".pm-janela .seat-ticket"}
+      - destacar: {css: ".pm-janela .seat-ticket"}
+        segundos: 2.6
+      - destacar: {css: ".pm-janela .btn-print-ticket"}
+        segundos: 1.6
+      - clicar: {css: ".pm-janela .pm-acao--neutra"}
+  - fala:
+      pt-BR: "Montar mesas, bloquear assentos e distribuir em lote continuam na Gestão de mesas."
+      en-US: "Setting up tables, blocking seats and bulk seating stay in Table management."
+      es-ES: "Armar mesas, bloquear asientos y repartir en lote siguen en la Gestión de mesas."
+    acoes:
+      - destacar: {css: ".pm-links a", n: 0}
+        segundos: 2.6

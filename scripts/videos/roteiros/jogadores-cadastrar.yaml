@@ -1,0 +1,67 @@
+id: jogadores-cadastrar
+area: jogadores
+tipo: curto
+sessao: true
+modulo: tournament
+preparar: jogadores:cadastrar
+inicio: /jogadores
+titulo:
+  pt-BR: "Como cadastrar um jogador"
+  en-US: "How to register a player"
+  es-ES: "Cómo registrar un jugador"
+descricao:
+  pt-BR: "Só nome e documento são obrigatórios."
+  en-US: "Only the name and document are required."
+  es-ES: "Solo el nombre y el documento son obligatorios."
+passos:
+  - fala:
+      pt-BR: "Em Jogadores fica o cadastro do clube. Para incluir alguém, clique em Novo Jogador."
+      en-US: "Players holds the club's registrations. To add someone, click New Player."
+      es-ES: "En Jugadores está el registro del club. Para incluir a alguien, haz clic en Nuevo Jugador."
+    acoes:
+      - destacar: {css: ".pl-table-card"}
+        segundos: 2.6
+      - clicar: {css: ".pl-head-actions .pl-btn-new"}
+  - fala:
+      pt-BR: "Preencha o nome e o sobrenome."
+      en-US: "Fill in the first name and last name."
+      es-ES: "Completa el nombre y el apellido."
+    acoes:
+      - digitar: {css: "#first_name", valor: "{nome}"}
+      - digitar: {css: "#last_name", valor: "{sobrenome}"}
+  - fala:
+      pt-BR: "Só o nome e o documento são obrigatórios. E-mail, telefone e nacionalidade são opcionais."
+      en-US: "Only the name and document are required. Email, phone and nationality are optional."
+      es-ES: "Solo el nombre y el documento son obligatorios. Correo, teléfono y nacionalidad son opcionales."
+    acoes:
+      - destacar: {css: ".pl-field-row:has(#email)"}
+        segundos: 4.5
+  - fala:
+      pt-BR: "Se você preencher o e-mail, o jogador recebe nele um pedido de autorização para contatos do clube."
+      en-US: "If you fill in the email, the player gets a request there to allow contact from the club."
+      es-ES: "Si completas el correo, el jugador recibe allí una solicitud de autorización para contactos del club."
+    acoes:
+      - destacar: {css: ".pl-field:has(#email)"}
+        segundos: 4.5
+  - fala:
+      pt-BR: "Em Tipo de Documento, escolha o documento do jogador e digite o número."
+      en-US: "Under Document Type, choose the player's document and type the number."
+      es-ES: "En Tipo de Documento, elige el documento del jugador y escribe el número."
+    acoes:
+      - escolher: {css: "#document_type", opcao: passport}
+      - digitar: {css: "#document_number", valor: "{documento}"}
+  - fala:
+      pt-BR: "Clique em Cadastrar Jogador. Se o documento já estiver no clube, a tela avisa de quem é."
+      en-US: "Click Register Player. If the document is already in the club, the screen tells you whose it is."
+      es-ES: "Haz clic en Registrar Jugador. Si el documento ya está en el club, la pantalla avisa de quién es."
+    acoes:
+      - clicar: {css: ".pl-btn-submit"}
+  - fala:
+      pt-BR: "Pronto. Para conferir, busque pelo nome: o jogador já está na lista, com o documento."
+      en-US: "Done. To check, search by name: the player is already on the list, with the document."
+      es-ES: "Listo. Para revisar, busca por el nombre: el jugador ya está en la lista, con el documento."
+    acoes:
+      - digitar: {css: ".pl-search-input", valor: "{nome}"}
+      - pausa: 1.0
+      - destacar: {css: ".pl-row"}
+        segundos: 3.0

@@ -1,0 +1,100 @@
+id: bar-turnos
+area: bar
+tipo: curto
+sessao: true
+modulo: bar
+preparar: bar:turnos
+inicio: /bar/turnos
+titulo:
+  pt-BR: "Como abrir e encerrar o turno do bar"
+  en-US: "How to open and close the bar shift"
+  es-ES: "Cómo abrir y cerrar el turno del bar"
+descricao:
+  pt-BR: "Turno, caixa e demonstrativo da noite."
+  en-US: "Shift, cashbox and the night's statement."
+  es-ES: "Turno, caja y demostrativo de la noche."
+passos:
+  - fala:
+      pt-BR: "O bar trabalha por turno. Sem turno aberto, não há comanda. Em Turnos, você vê as noites anteriores e os totais de cada uma."
+      en-US: "The bar works in shifts. With no open shift, there are no tabs. Under Shifts, you see past nights and the totals for each one."
+      es-ES: "El bar trabaja por turnos. Sin turno abierto, no hay comandas. En Turnos, ves las noches anteriores y los totales de cada una."
+    acoes:
+      - destacar: {css: ".bar-card"}
+        segundos: 5.5
+  - fala:
+      pt-BR: "Clique em Abrir turno. A data é a do turno: a noite que vira meia-noite é um turno só. O rótulo é opcional."
+      en-US: "Click Open shift. The date is the shift's date: a night that goes past midnight is a single shift. The label is optional."
+      es-ES: "Haz clic en Abrir turno. La fecha es la del turno: la noche que pasa de medianoche es un solo turno. La etiqueta es opcional."
+    acoes:
+      - clicar: {papel: button, t: bar.openShift}
+      - digitar: {css: "#bo-label", valor: "{rotulo}"}
+      - pausa: 1.5
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "Agora vá para Comandas. Aqui fica o seu caixa do turno. Clique em Abrir Caixa, informe o saldo inicial e confirme."
+      en-US: "Now go to Tabs. Your shift cashbox is here. Click Open Cashbox, enter the initial balance and confirm."
+      es-ES: "Ahora ve a Comandas. Aquí está tu caja del turno. Haz clic en Abrir Caja, ingresa el saldo inicial y confirma."
+    acoes:
+      - pausa: 0.8
+      - clicar: {css: "a[href='/bar']"}
+      - esperar: {css: ".cashbox-banner"}
+      - clicar: {css: ".cashbox-banner button"}
+      - digitar: {css: "#cb-initial", valor: "{saldo_inicial}", limpar: true}
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "Com o caixa aberto, você atende e recebe normalmente durante a noite."
+      en-US: "With the cashbox open, you serve and receive payments normally through the night."
+      es-ES: "Con la caja abierta, atiendes y cobras normalmente durante la noche."
+    acoes:
+      - digitar: {css: ".player-select-input", valor: "{cliente}"}
+      - clicar: {css: "li.player-select-option"}
+      - clicar: {css: ".pos-open button[type=submit]"}
+      - clicar: {css: ".bpg-tile", texto: "{cerveja}"}
+  - fala:
+      pt-BR: "No fim, toda comanda precisa estar paga e fechada."
+      en-US: "At the end, every tab must be paid and closed."
+      es-ES: "Al final, toda comanda debe estar pagada y cerrada."
+    acoes:
+      - clicar: {css: ".btp-actions .btn-primary"}
+      - clicar: {css: ".bpm button[type=submit]"}
+      - clicar: {css: ".bpm-done .btn-primary"}
+  - fala:
+      pt-BR: "Depois, clique em Fechar Caixa, conte o dinheiro e informe o saldo contado."
+      en-US: "Then click Close Cashbox, count the money and enter the counted balance."
+      es-ES: "Después, haz clic en Cerrar Caja, cuenta el dinero e ingresa el saldo contado."
+    acoes:
+      - clicar: {css: ".cashbox-banner button"}
+      - destacar: {css: ".cashbox-banner__expected"}
+        segundos: 1.6
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "Por fim, volte para Turnos e clique em Encerrar. As vendas do turno ficam congeladas."
+      en-US: "Finally, go back to Shifts and click Close. The shift's sales are frozen."
+      es-ES: "Por último, vuelve a Turnos y haz clic en Cerrar. Las ventas del turno quedan congeladas."
+    acoes:
+      - pausa: 0.8
+      - clicar: {css: "a[href='/bar/turnos']"}
+      - clicar: {css: ".bar-actions button", t: bar.closeShift}
+      - destacar: {css: ".modal .bar-note"}
+        segundos: 1.8
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "Em Detalhes, você confere as vendas, o recebido e a margem da noite."
+      en-US: "Under Details, you check the night's sales, money received and margin."
+      es-ES: "En Detalles, revisas las ventas, lo recibido y el margen de la noche."
+    acoes:
+      - pausa: 0.8
+      - clicar: {css: ".bar-actions a", t: common.details}
+      - esperar: {css: ".stat-card--highlight"}
+      - pausa: 0.5
+      - destacar: {css: ".stats-grid"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "E, no demonstrativo, cada caixa mostra o saldo esperado, o contado e a diferença."
+      en-US: "And in the statement, each cashbox shows the expected balance, the counted balance and the difference."
+      es-ES: "Y en el demostrativo, cada caja muestra el saldo esperado, el contado y la diferencia."
+    acoes:
+      # Em moeda de valores longos a tabela passa da largura, e a diferença é a última coluna.
+      - rolar: {css: ".cb-demo__table th:last-child"}
+      - destacar: {css: ".table-container:has(.cb-demo__table)"}
+        segundos: 4.0

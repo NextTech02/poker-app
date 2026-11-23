@@ -1,0 +1,82 @@
+id: bar-produtos-estoque
+area: bar
+tipo: curto
+sessao: true
+modulo: bar
+preparar: bar:produtos
+inicio: /bar/produtos
+titulo:
+  pt-BR: "Como cadastrar produtos e dar entrada no estoque do bar"
+  en-US: "How to add products and record stock in the bar"
+  es-ES: "Cómo crear productos y dar entrada al stock del bar"
+descricao:
+  pt-BR: "Catálogo, categorias e entrada de estoque com custo médio."
+  en-US: "Catalog, categories and goods in with average cost."
+  es-ES: "Catálogo, categorías y entrada de stock con costo promedio."
+passos:
+  - fala:
+      pt-BR: "Em Produtos fica o catálogo do bar, com o preço, o custo médio e o estoque de cada item. O aviso no topo mostra o que chegou ao mínimo."
+      en-US: "Products holds the bar catalog, with the price, average cost and stock of each item. The warning at the top shows what has reached the minimum."
+      es-ES: "En Productos está el catálogo del bar, con el precio, el costo promedio y el stock de cada ítem. El aviso de arriba muestra lo que llegó al mínimo."
+    acoes:
+      - destacar: {css: ".bar-table"}
+        segundos: 4.5
+      - destacar: {css: ".bar-warning"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Na aba Categorias, você organiza os grupos que aparecem na tela de comandas."
+      en-US: "On the Categories tab, you organize the groups shown on the tabs screen."
+      es-ES: "En la pestaña Categorías, organizas los grupos que aparecen en la pantalla de comandas."
+    acoes:
+      - clicar: {css: ".seg__btn", t: bar.categories}
+      - destacar: {css: ".bar-table"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "Volte para Produtos e clique em Novo produto."
+      en-US: "Go back to Products and click New product."
+      es-ES: "Vuelve a Productos y haz clic en Nuevo producto."
+    acoes:
+      - clicar: {css: ".seg__btn", t: bar.products}
+      - clicar: {papel: button, t: bar.newProduct}
+  - fala:
+      pt-BR: "Preencha o nome, a categoria, o preço e o custo."
+      en-US: "Fill in the name, category, price and cost."
+      es-ES: "Completa el nombre, la categoría, el precio y el costo."
+    acoes:
+      - digitar: {css: "#bp-name", valor: "{novo_produto}"}
+      - escolher: {css: "#bp-category", rotulo_opcao: "{categoria}"}
+      - digitar: {css: "#bp-price", valor: "{preco}"}
+      - digitar: {css: "#bp-cost", valor: "{custo}", limpar: true}
+  - fala:
+      pt-BR: "Marque Controlar estoque para acompanhar a quantidade, defina o mínimo e clique em Salvar."
+      en-US: "Check Track stock to follow the quantity, set the minimum and click Save."
+      es-ES: "Marca Controlar stock para seguir la cantidad, define el mínimo y haz clic en Guardar."
+    acoes:
+      - clicar: {css: "#bp-track"}
+      - digitar: {css: "#bp-min", valor: "12", limpar: true}
+      - clicar: {css: ".modal button[type=submit]"}
+  - fala:
+      pt-BR: "O estoque não se edita no produto: ele muda por movimento. Para dar entrada, clique em Estoque na linha do produto."
+      en-US: "Stock isn't edited on the product: it changes through movements. To record goods in, click Stock on the product's row."
+      es-ES: "El stock no se edita en el producto: cambia por movimientos. Para dar entrada, haz clic en Stock en la fila del producto."
+    acoes:
+      - pausa: 2.5
+      - clicar: {css: 'tr:has-text("{cerveja}") .bar-actions button', t: bar.stockMovement}
+  - fala:
+      pt-BR: "Deixe o tipo em Entrada e informe a quantidade e o custo, por unidade ou pelo total da nota. A tela já mostra o novo custo médio."
+      en-US: "Keep the type on Goods in and enter the quantity and the cost, per unit or by invoice total. The screen already shows the new average cost."
+      es-ES: "Deja el tipo en Entrada e ingresa la cantidad y el costo, por unidad o por el total de la factura. La pantalla ya muestra el nuevo costo promedio."
+    acoes:
+      - digitar: {css: "#bs-qty", valor: "24"}
+      - digitar: {css: "#bs-cost", valor: "{custo_entrada}"}
+      - destacar: {css: ".bar-note"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Clique em Lançar, e o estoque é atualizado. Depois disso, a venda baixa o estoque sozinha, e o cancelamento devolve."
+      en-US: "Click Record, and the stock is updated. From then on, sales take from the stock on their own, and cancellations put it back."
+      es-ES: "Haz clic en Registrar, y el stock se actualiza. Después de eso, la venta descuenta el stock sola, y la cancelación lo devuelve."
+    acoes:
+      - clicar: {css: ".modal button[type=submit]"}
+      - pausa: 1.0
+      - destacar: {css: 'tr:has-text("{cerveja}")'}
+        segundos: 3.5

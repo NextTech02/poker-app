@@ -1,0 +1,76 @@
+id: cash-relatorios
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /cash/relatorios
+preparar: cash:relatorio
+titulo:
+  pt-BR: "Como ler o faturamento do cash game"
+  en-US: "How to read cash game revenue"
+  es-ES: "Cómo leer la facturación del cash game"
+descricao:
+  pt-BR: "Faturamento é o rake. Giro é movimentação."
+  en-US: "Revenue is the rake. Turnover is movement."
+  es-ES: "La facturación es el rake. El movimiento no es ingreso."
+passos:
+  - fala:
+      pt-BR: "Esta tela responde quanto o clube faturou. Comece escolhendo o período nas datas."
+      en-US: "This screen answers how much the club made. Start by choosing the period in the dates."
+      es-ES: "Esta pantalla responde cuánto facturó el club. Empieza eligiendo el período en las fechas."
+    acoes:
+      - preencher: {css: "#cr-from", valor: "{de}"}
+      - destacar: {css: ".cd-filters"}
+        segundos: 2.5
+      - esperar: {css: ".stat-card--highlight"}
+  - fala:
+      pt-BR: "Faturamento é o rake: é o que fica com o clube. A média mostra quanto rendeu cada dia operado."
+      en-US: "Revenue is the rake: it is what the club keeps. The average shows what each operated day brought in."
+      es-ES: "La facturación es el rake: es lo que queda para el club. La media muestra cuánto rindió cada día operado."
+    acoes:
+      - destacar: {css: ".stat-card--highlight"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Giro é a soma dos buy-ins. É movimentação, e não receita: quase tudo volta ao jogador no cash-out."
+      en-US: "Turnover is the sum of the buy-ins. It is movement, not revenue: almost all of it goes back to the player at cash-out."
+      es-ES: "El movimiento es la suma de los buy-ins. No es ingreso: casi todo vuelve al jugador en el cash-out."
+    acoes:
+      - destacar: {css: ".stats-grid .stat-card", n: 1}
+        segundos: 3.0
+  - fala:
+      pt-BR: "O jackpot aparece separado porque é dinheiro dos jogadores."
+      en-US: "The jackpot is shown apart because it is the players' money."
+      es-ES: "El jackpot aparece aparte porque es dinero de los jugadores."
+    acoes:
+      - destacar: {css: ".stats-grid .stat-card", n: 3}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Em Melhores dias, a ordem é pelo que o clube ficou, e não pelo que passou pela gaveta."
+      en-US: "Best days are ranked by what the club kept, not by what went through the drawer."
+      es-ES: "En Mejores días, el orden es por lo que el club se quedó, y no por lo que pasó por la caja."
+    acoes:
+      - destacar: {css: ".cr-block", n: 0}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Por dia da semana mostra a média por dia operado. É o que ajuda a decidir se vale abrir naquela noite."
+      en-US: "By weekday shows the average per day operated. It helps you decide whether a given night is worth opening."
+      es-ES: "Por día de la semana muestra la media por día operado. Ayuda a decidir si vale la pena abrir esa noche."
+    acoes:
+      - destacar: {css: ".cr-week"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Mais abaixo, você vê o faturamento por dia, por mesa e por jogador."
+      en-US: "Further down, you see revenue by day, by table and by player."
+      es-ES: "Más abajo, ves la facturación por día, por mesa y por jugador."
+    acoes:
+      - rolar: {css: ".cr-block", n: 3}
+      - pausa: 1.0
+      - rolar: {css: ".cr-block", n: 4}
+  - fala:
+      pt-BR: "Para levar os números, exporte em XLSX, CSV ou PDF."
+      en-US: "To take the numbers with you, export to XLSX, CSV or PDF."
+      es-ES: "Para llevarte los números, exporta en XLSX, CSV o PDF."
+    acoes:
+      - rolar: {css: ".cr-export"}
+      - destacar: {css: ".cr-export"}
+        segundos: 2.0

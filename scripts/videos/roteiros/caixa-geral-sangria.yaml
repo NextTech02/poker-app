@@ -1,0 +1,94 @@
+id: caixa-geral-sangria
+area: caixa
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa-geral
+preparar: caixa:sangria
+titulo:
+  pt-BR: "Como ler o Caixa Geral e fazer uma sangria"
+  en-US: "How to read General Cash and perform a sangria"
+  es-ES: "Cómo leer la Caja General y hacer una sangría"
+descricao:
+  pt-BR: "Saldo, rake e sangria da etapa."
+  en-US: "The stage's balance, rake and sangria."
+  es-ES: "Saldo, rake y sangría de la etapa."
+passos:
+  - fala:
+      pt-BR: "Em Caixa Geral, você acompanha o dinheiro da etapa selecionada."
+      en-US: "In General Cash, you track the money of the selected stage."
+      es-ES: "En Caja General, sigues el dinero de la etapa seleccionada."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 2.6
+  - fala:
+      pt-BR: "Caixa do Dia é o saldo da etapa: as entradas vendidas, menos o que já saiu em sangria."
+      en-US: "Daily Cash is the stage balance: the entries sold, minus what has already left in sangrias."
+      es-ES: "Caja del Día es el saldo de la etapa: las entradas vendidas, menos lo que ya salió en sangrías."
+    acoes:
+      - destacar: {css: ".stage-cash-card"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Este cartão mostra quanto a etapa já enviou ao caixa geral, e o total do clube."
+      en-US: "This card shows how much the stage has sent to the general cash, and the club's total."
+      es-ES: "Esta tarjeta muestra cuánto envió la etapa a la caja general, y el total del club."
+    acoes:
+      - destacar: {css: ".general-cash-card"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Aqui está o rake: o extraído nas sangrias, o gerado nas entradas e o acumulado do clube."
+      en-US: "Here is the rake: extracted in sangrias, generated on entries, and accumulated by the club."
+      es-ES: "Aquí está el rake: el extraído en las sangrías, el generado en las entradas y el acumulado del club."
+    acoes:
+      - destacar: {css: ".rake-card"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Antes de sangrar, confira as entradas por forma de pagamento: elas mostram quanto deve estar em dinheiro."
+      en-US: "Before a sangria, check the entries by payment method: they show how much should be in cash."
+      es-ES: "Antes de una sangría, revisa las entradas por forma de pago: muestran cuánto debe estar en efectivo."
+    acoes:
+      - destacar: {css: ".payment-breakdown"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Para tirar o dinheiro da etapa, clique em Realizar Sangria."
+      en-US: "To move money out of the stage, click Perform Sangria."
+      es-ES: "Para sacar el dinero de la etapa, haz clic en Realizar Sangría."
+    acoes:
+      - pausa: 1.4
+      - clicar: {css: ".sangria-button"}
+  - fala:
+      pt-BR: "Digite o valor. O rake é automático, calculado pelos meios de entrada vendidos nesta etapa."
+      en-US: "Type the amount. The rake is automatic, calculated from the entry methods sold in this stage."
+      es-ES: "Escribe el valor. El rake es automático, calculado con los medios de entrada vendidos en esta etapa."
+    acoes:
+      - digitar: {css: "#amount", valor: "{valor_sangria}"}
+      - destacar: {css: ".sangria-rake-auto"}
+        segundos: 2.5
+  - fala:
+      pt-BR: "O cálculo mostra o valor bruto, o rake e o que vai para o caixa geral."
+      en-US: "The calculation shows the gross amount, the rake and what goes to the general cash."
+      es-ES: "El cálculo muestra el valor bruto, el rake y lo que va a la caja general."
+    acoes:
+      - destacar: {css: ".sangria-calculation"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "Clique em Confirmar Sangria."
+      en-US: "Click Confirm Sangria."
+      es-ES: "Haz clic en Confirmar Sangría."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".toast"}
+  - fala:
+      pt-BR: "O saldo da etapa cai, e o valor líquido e o rake entram nos cartões ao lado."
+      en-US: "The stage balance drops, and the net amount and the rake show up on the cards alongside."
+      es-ES: "El saldo de la etapa baja, y el valor neto y el rake aparecen en las tarjetas de al lado."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 3.5
+  - fala:
+      pt-BR: "A sangria fica no histórico da etapa, com o valor bruto, o rake e o líquido."
+      en-US: "The sangria stays in the stage history, with the gross amount, the rake and the net amount."
+      es-ES: "La sangría queda en el historial de la etapa, con el valor bruto, el rake y el neto."
+    acoes:
+      - destacar: {css: ".sangria-table"}
+        segundos: 3.5

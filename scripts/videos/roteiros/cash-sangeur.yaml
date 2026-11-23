@@ -1,0 +1,75 @@
+id: cash-sangeur
+area: cash
+tipo: curto
+sessao: true
+modulo: cash
+inicio: /sangi
+preparar: cash:sangeur
+titulo:
+  pt-BR: "Como liberar fichas para a sangeur e fazer o abate"
+  en-US: "How to release chips to a sangeur and reconcile"
+  es-ES: "Cómo liberar fichas a la sangeur y liquidar"
+descricao:
+  pt-BR: "Fichas em consignação, do valor liberado ao abate."
+  en-US: "Chips on consignment, from release to reconciliation."
+  es-ES: "Fichas en consignación, de la liberación a la liquidación."
+passos:
+  - fala:
+      pt-BR: "A sangeur vende fichas pelas mesas, em consignação. O caixa libera um valor, ela vende, e no fim você faz o abate."
+      en-US: "The sangeur sells chips around the tables, on consignment. The cashier releases an amount, she sells, and at the end you reconcile."
+      es-ES: "La sangeur vende fichas por las mesas, en consignación. La caja libera un monto, ella vende, y al final tú liquidas."
+    acoes:
+      - destacar: {css: ".sangi-card"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Escolha a sangeur e informe o valor em fichas. Aqui aparecem os funcionários com a permissão de sangeur."
+      en-US: "Choose the sangeur and enter the chip amount. The list shows staff with the sangeur permission."
+      es-ES: "Elige la sangeur e ingresa el monto en fichas. Aquí aparecen los funcionarios con el permiso de sangeur."
+    acoes:
+      - escolher: {css: ".sangi-card select", opcao: "{sangeur_id}"}
+      - digitar: {css: ".sangi-card input[type=number]", valor: "{liberado}"}
+  - fala:
+      pt-BR: "Clique em Liberar. A consignação entra na lista, aberta, com o liberado e o restante. Cada sangeur tem uma consignação aberta por dia."
+      en-US: "Click Release. The consignment joins the list, open, with the released and remaining amounts. Each sangeur has one open consignment per day."
+      es-ES: "Haz clic en Liberar. La consignación entra en la lista, abierta, con lo liberado y lo restante. Cada sangeur tiene una consignación abierta por día."
+    acoes:
+      - clicar: {css: ".sangi-btn"}
+      - esperar: {css: ".sangi-badge.open"}
+      - destacar: {css: ".sangi-table tbody tr:has(.sangi-badge.open)"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "A sangeur entra com o login dela e registra cada venda, com valor, comprador e mesa. A venda vira uma recompra do jogador naquela mesa."
+      en-US: "The sangeur signs in with her own login and registers each sale, with the amount, buyer and table. The sale becomes a rebuy for that player at that table."
+      es-ES: "La sangeur entra con su propio usuario y registra cada venta, con monto, comprador y mesa. La venta se convierte en una recompra del jugador en esa mesa."
+    acoes:
+      - pausa: 6.0
+      - ir: /sangi
+      - esperar: {css: ".sangi-badge.open"}
+      - destacar: {css: ".sangi-table tbody tr:has(.sangi-badge.open)"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "Clique em Ver vendas para conferir quem comprou, quanto e quando."
+      en-US: "Click View sales to check who bought, how much and when."
+      es-ES: "Haz clic en Ver ventas para revisar quién compró, cuánto y cuándo."
+    acoes:
+      - clicar: {css: ".sangi-table tbody tr:has(.sangi-badge.open) .sangi-link", n: 0}
+      - esperar: {css: ".sangi-detail-row"}
+      - destacar: {css: ".sangi-detail-row"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "No fim da noite, clique em Abater. O sistema compara o vendido com o liberado e calcula a divergência."
+      en-US: "At the end of the night, click Reconcile. The system compares what was sold with what was released and calculates the divergence."
+      es-ES: "Al final de la noche, haz clic en Liquidar. El sistema compara lo vendido con lo liberado y calcula la divergencia."
+    acoes:
+      - clicar: {css: ".sangi-link.danger"}
+      - esperar: {css: ".confirm-dialog"}
+      - pausa: 1.5
+      - clicar: {css: ".confirm-dialog-actions button", n: 1}
+  - fala:
+      pt-BR: "Pronto. A consignação fica reconciliada, e a diferença aparece em Divergência."
+      en-US: "Done. The consignment is reconciled, and the difference shows under Divergence."
+      es-ES: "Listo. La consignación queda reconciliada, y la diferencia aparece en Divergencia."
+    acoes:
+      - esperar: {css: ".sangi-badge.reconciled"}
+      - destacar: {css: ".sangi-table tbody tr:has(.sangi-badge.reconciled)"}
+        segundos: 3.0

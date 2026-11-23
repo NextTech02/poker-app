@@ -1,0 +1,88 @@
+id: financeiro-dre
+area: financeiro
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /financeiro
+preparar: clube:dre
+titulo:
+  pt-BR: "Como ler o DRE e o Demonstrativo"
+  en-US: "How to read the P&L and the Statement"
+  es-ES: "Cómo leer los Resultados y el Demostrativo"
+descricao:
+  pt-BR: "O resultado de cada módulo e a conferência de cada sessão de caixa."
+  en-US: "The result of each module and the check of each cashbox session."
+  es-ES: "El resultado de cada módulo y la revisión de cada sesión de caja."
+passos:
+  - fala:
+      pt-BR: "Em Financeiro, a aba DRE mostra o resultado do clube. Cada módulo tem o seu: Torneios, Cash Game e Bar."
+      en-US: "Under Financial, the P&L tab shows the club's result. Each module has its own: Tournaments, Cash Game and Bar."
+      es-ES: "En Financiero, la pestaña Resultados muestra cómo le fue al club. Cada módulo tiene los suyos: Torneos, Cash Game y Bar."
+    acoes:
+      - destacar: {css: ".fn-mod-seg"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Em Torneios, escolha a etapa, o torneio e as datas, e clique em Gerar."
+      en-US: "In Tournaments, choose the stage, the tournament and the dates, then click Generate."
+      es-ES: "En Torneos, elige la etapa, el torneo y las fechas, y haz clic en Generar."
+    acoes:
+      - escolher: {css: ".fn-filters select", n: 0, rotulo_opcao: "{nome_etapa}"}
+      - clicar: {css: ".fn-filter-actions button"}
+      - pausa: 1.2
+  - fala:
+      pt-BR: "Os cartões resumem a receita bruta, a premiação paga, as despesas e o resultado líquido."
+      en-US: "The cards sum up gross revenue, prizes paid, expenses and the net result."
+      es-ES: "Las tarjetas resumen los ingresos brutos, la premiación pagada, los gastos y el resultado neto."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Abaixo, a conta linha a linha: receitas, deduções, despesas por categoria e rake."
+      en-US: "Below, the math line by line: revenues, deductions, expenses by category and rake."
+      es-ES: "Abajo, la cuenta línea por línea: ingresos, deducciones, gastos por categoría y rake."
+    acoes:
+      - rolar: {css: ".fn-dre-card .fn-dre-section", n: 2}
+      - pausa: 3.0
+  - fala:
+      pt-BR: "O resultado líquido é a receita menos a premiação e as despesas."
+      en-US: "The net result is revenue minus prizes and expenses."
+      es-ES: "El resultado neto son los ingresos menos la premiación y los gastos."
+    acoes:
+      - destacar: {css: ".fn-dre-row--highlight"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "No Cash Game, a receita é o rake. O buy-in é giro: troca de dinheiro por ficha, não é receita."
+      en-US: "In Cash Game, revenue is the rake. Buy-ins are turnover: money swapped for chips, not revenue."
+      es-ES: "En el Cash Game, el ingreso es el rake. El buy-in es giro: cambio de dinero por fichas, no es ingreso."
+    acoes:
+      - clicar: {css: ".fn-mod-seg__btn.mod-cash"}
+      - esperar: {css: ".fn-dre-card"}
+      - destacar: {css: ".stats-grid"}
+        segundos: 3.2
+  - fala:
+      pt-BR: "No Bar, as vendas líquidas menos o custo das mercadorias dão a margem bruta."
+      en-US: "In the Bar, net sales minus the cost of goods give you the gross margin."
+      es-ES: "En el Bar, las ventas netas menos el costo de las mercancías dan el margen bruto."
+    acoes:
+      - clicar: {css: ".fn-mod-seg__btn.mod-bar"}
+      - esperar: {css: ".fn-dre-card"}
+      - destacar: {css: ".fn-dre-card"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "A aba Demonstrativo mostra cada sessão de caixa da etapa, com o funcionário, a abertura e o fechamento."
+      en-US: "The Statement tab shows each cashbox session of the stage, with the employee, the opening and the closing."
+      es-ES: "La pestaña Demostrativo muestra cada sesión de caja de la etapa, con el empleado, la apertura y el cierre."
+    acoes:
+      - clicar: {css: ".fn-tab", t: cashbox.tabDemonstrativo}
+      - esperar: {css: ".cb-demo__table"}
+      - destacar: {css: ".cb-demo__table"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Compare o esperado com o contado: a diferença aparece aqui, por sessão e no total."
+      en-US: "Compare expected with counted: the difference shows here, per session and in total."
+      es-ES: "Compara lo esperado con lo contado: la diferencia aparece aquí, por sesión y en total."
+    acoes:
+      - destacar: {css: ".cb-demo__table td.cb-demo__bad"}
+        segundos: 2.0
+      - destacar: {css: ".stats-grid .stat-card", n: 3}
+        segundos: 2.0

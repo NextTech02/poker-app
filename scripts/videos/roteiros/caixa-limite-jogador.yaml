@@ -1,0 +1,100 @@
+id: caixa-limite-jogador
+area: caixa
+tipo: curto
+sessao: true
+modulo: tournament
+inicio: /caixa/jogadores
+preparar: caixa:limite
+titulo:
+  pt-BR: "Como conceder crédito a um jogador"
+  en-US: "How to grant credit to a player"
+  es-ES: "Cómo conceder crédito a un jugador"
+descricao:
+  pt-BR: "Do cadastro do patrocinador à venda no Caixa."
+  en-US: "From registering the sponsor to the sale at the register."
+  es-ES: "Del registro del patrocinador a la venta en la caja."
+passos:
+  - fala:
+      pt-BR: "Em Limite de Jogador, você concede crédito para um jogador comprar entradas. Quem banca esse crédito é um patrocinador."
+      en-US: "Under Player Limit, you grant credit so a player can buy entries. A sponsor backs that credit."
+      es-ES: "En Límite de Jugador, concedes crédito para que un jugador compre entradas. Quien respalda ese crédito es un patrocinador."
+    acoes:
+      - destacar: {css: ".cx-header"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Comece cadastrando o patrocinador. Clique em Patrocinador."
+      en-US: "Start by registering the sponsor. Click Sponsor."
+      es-ES: "Empieza registrando al patrocinador. Haz clic en Patrocinador."
+    acoes:
+      - pausa: 1.8
+      - clicar: {css: ".cj-header-actions button", t: playerCash.addSponsor}
+  - fala:
+      pt-BR: "Digite o nome e a pessoa de contato. E-mail e telefone são opcionais."
+      en-US: "Type the name and the contact person. Email and phone are optional."
+      es-ES: "Escribe el nombre y la persona de contacto. El correo y el teléfono son opcionales."
+    acoes:
+      - digitar: {css: ".modal form input[type=text]", valor: "{patrocinador}"}
+      - digitar: {css: ".modal form input[type=text]", n: 1, valor: "{contato}"}
+  - fala:
+      pt-BR: "Clique em Cadastrar."
+      en-US: "Click Register."
+      es-ES: "Haz clic en Registrar."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".toast"}
+  - fala:
+      pt-BR: "Agora selecione o jogador. A tela mostra os créditos e o extrato dele."
+      en-US: "Now select the player. The screen shows their credits and statement."
+      es-ES: "Ahora selecciona el jugador. La pantalla muestra sus créditos y su extracto."
+    acoes:
+      - digitar: {css: ".player-select-input", valor: "{beneficiado}"}
+      - clicar: {css: "li.player-select-option"}
+      - esperar: {css: ".stats-grid .stat-card"}
+  - fala:
+      pt-BR: "Clique em Conceder Crédito."
+      en-US: "Click Grant Credit."
+      es-ES: "Haz clic en Conceder Crédito."
+    acoes:
+      - clicar: {css: ".cj-header-actions button", t: playerCash.grantCredit}
+  - fala:
+      pt-BR: "Escolha o patrocinador, digite o valor do crédito e, se quiser, uma observação."
+      en-US: "Choose the sponsor, type the credit amount and, if you want, a note."
+      es-ES: "Elige el patrocinador, escribe el valor del crédito y, si quieres, una observación."
+    acoes:
+      - escolher: {css: ".cj-sponsor-select-row select", rotulo_opcao: "{patrocinador}"}
+      - digitar: {css: ".modal form input[type=number]", valor: "{valor_credito}"}
+      - digitar: {css: ".modal form textarea", valor: "{obs_credito}"}
+  - fala:
+      pt-BR: "Confirme em Conceder Crédito."
+      en-US: "Confirm with Grant Credit."
+      es-ES: "Confirma con Conceder Crédito."
+    acoes:
+      - clicar: {css: ".modal form button[type=submit]"}
+      - esperar: {css: ".cj-credits-card"}
+  - fala:
+      pt-BR: "Pronto. O crédito aparece na lista, e o valor fica disponível para o jogador."
+      en-US: "Done. The credit shows up in the list, and the amount is available to the player."
+      es-ES: "Listo. El crédito aparece en la lista, y el valor queda disponible para el jugador."
+    acoes:
+      - destacar: {css: ".cj-credits-card"}
+        segundos: 3.0
+  - fala:
+      pt-BR: "Conforme ele usa, os valores aparecem aqui, em Crédito Utilizado e em Patrocinador Deve."
+      en-US: "As the player uses it, the amounts show up here, in Credit Used and Sponsor Owes."
+      es-ES: "A medida que lo usa, los valores aparecen aquí, en Crédito Utilizado y en El Patrocinador Debe."
+    acoes:
+      - destacar: {css: ".stats-grid"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "E no Caixa, a venda desse jogador agora oferece o crédito como fonte de pagamento."
+      en-US: "And at the register, this player's sale now offers the credit as a payment source."
+      es-ES: "Y en la caja, la venta de este jugador ahora ofrece el crédito como fuente de pago."
+    acoes:
+      - ir: /caixa
+      - clicar: {papel: button, t: cashRegister.newTransaction}
+      - escolher: {css: "#tournament_id", rotulo_opcao: "{nome_torneio}"}
+      - digitar: {css: ".player-select-input", valor: "{beneficiado}"}
+      - clicar: {css: "li.player-select-option"}
+      - esperar: {css: ".cx-credit-option"}
+      - destacar: {css: ".cx-credit-option"}
+        segundos: 3.0

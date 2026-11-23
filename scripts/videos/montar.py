@@ -7,6 +7,7 @@ from pathlib import Path
 
 TAXA = 24000  # Hz, mono: a saída do sintetizador
 MAX_LEGENDA = 84  # duas linhas de 42 caracteres
+MAIOR_INTERVALO = 120  # segundos sem quadro: nenhuma fala dura isso
 
 
 def _rodar(*args: str) -> None:
@@ -17,6 +18,10 @@ def trilha_de_video(pasta: Path, quadros: list[tuple[str, float]], fim: float, s
     """Quadros têm horário próprio: a tela parada não gera quadro, então cada um
     fica na tela até o próximo. Devolve a duração total, em segundos."""
     inicio = quadros[0][1]
+    maior = max(b[1] - a[1] for a, b in zip(quadros, quadros[1:] + [("", fim)]))
+    if maior > MAIOR_INTERVALO:
+        # A máquina suspendeu no meio: sem isto sairia um vídeo de horas.
+        raise RuntimeError(f"gravação com {maior:.0f} s sem quadros: refaça")
     lista = pasta / "quadros.txt"
     linhas = []
     for (nome, quando), (_, seguinte) in zip(quadros, quadros[1:] + [("", fim)]):

@@ -157,6 +157,19 @@ def abrir_sessao(idioma: str) -> dict:
         time.sleep(2 + tentativa * 2)
 
 
+def encerrar_sessao(sessao: dict, escopo: str = "local") -> None:
+    """`local` fecha só esta sessão. `global` fecha todas as do usuário e invalida
+    qualquer refresh token que tenha sobrado. Falha aqui não pode derrubar uma
+    gravação que já terminou."""
+    try:
+        httpx.post(
+            f"{PROJETO}/auth/v1/logout", params={"scope": escopo}, timeout=30,
+            headers={**_admin(), "Authorization": f"Bearer {sessao['access_token']}"},
+        )
+    except httpx.HTTPError:
+        print("não consegui encerrar a sessão")
+
+
 class Api:
     def __init__(self, sessao: dict):
         self.cliente = httpx.Client(
@@ -266,9 +279,12 @@ def main() -> None:
     args = argparse.ArgumentParser()
     args.add_argument("--criar", action="store_true")
     args.add_argument("--semear", action="store_true")
+    args.add_argument("--encerrar-sessoes", action="store_true")
     args.add_argument("--idioma", choices=IDIOMAS, action="append")
     opcoes = args.parse_args()
     for idioma in opcoes.idioma or IDIOMAS:
+        if opcoes.encerrar_sessoes:
+            encerrar_sessao(abrir_sessao(idioma), "global")
         if opcoes.criar:
             criar(idioma)
         if opcoes.semear:

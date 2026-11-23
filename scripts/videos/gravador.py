@@ -22,7 +22,7 @@ LOGO = Path(__file__).resolve().parents[2] / "frontend" / "src" / "assets" / "ac
 # `pointer-events: none` em tudo: nada disto pode interceptar um clique real.
 CAMADA = r"""
 (() => {
-  if (window.__ace) return;
+  if (window.__ace || window.top !== window) return;
   const CSS = `
   #__ace_cursor{position:fixed;left:0;top:0;width:30px;height:30px;z-index:2147483646;pointer-events:none;
     transition:transform var(--ace-ms,600ms) cubic-bezier(.45,.05,.25,1);filter:drop-shadow(0 2px 4px rgba(0,0,0,.45))}

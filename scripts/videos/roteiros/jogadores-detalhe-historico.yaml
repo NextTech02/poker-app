@@ -1,0 +1,71 @@
+id: jogadores-detalhe-historico
+area: jogadores
+tipo: curto
+sessao: true
+modulo: tournament
+preparar: jogadores:detalhe
+inicio: /jogadores
+titulo:
+  pt-BR: "Como ver o histórico de um jogador"
+  en-US: "How to see a player's history"
+  es-ES: "Cómo ver el historial de un jugador"
+descricao:
+  pt-BR: "Resultados, tickets, comandas e fidelidade em uma tela."
+  en-US: "Results, tickets, tabs and loyalty on one screen."
+  es-ES: "Resultados, tickets, comandas y fidelidad en una pantalla."
+passos:
+  - fala:
+      pt-BR: "Para ver tudo sobre um jogador, busque o nome e clique em Histórico."
+      en-US: "To see everything about a player, search for the name and click History."
+      es-ES: "Para ver todo sobre un jugador, busca el nombre y haz clic en Historial."
+    acoes:
+      - digitar: {css: ".pl-search-input", valor: "{cliente}"}
+      - pausa: 1.0
+      - clicar: {css: ".pl-btn-history"}
+      - esperar: {css: ".pd-finance"}
+  - fala:
+      pt-BR: "No topo ficam o total investido, os prêmios e o lucro líquido do jogador."
+      en-US: "At the top are the player's total invested, prizes and net profit."
+      es-ES: "Arriba están el total invertido, los premios y el beneficio neto del jugador."
+    acoes:
+      - destacar: {css: ".pd-finance"}
+        segundos: 4.0
+  - fala:
+      pt-BR: "Em Tickets, você vê as vagas do jogador em todas as etapas, com o valor, a origem e quem bancou. O contador mostra quantas estão disponíveis."
+      en-US: "Under Tickets, you see the player's seats across all stages, with the value, origin and who funded them. The counter shows how many are available."
+      es-ES: "En Tickets, ves los cupos del jugador en todas las etapas, con el valor, el origen y quién los financió. El contador muestra cuántos están disponibles."
+    acoes:
+      - destacar: {css: ".pd-tickets-card"}
+        segundos: 7.0
+  - fala:
+      pt-BR: "Em Comandas do bar ficam as contas dele. Clique no número para abrir a comanda."
+      en-US: "Bar tabs lists the player's bills. Click the number to open a tab."
+      es-ES: "En Comandas del bar están sus cuentas. Haz clic en el número para abrir la comanda."
+    acoes:
+      - destacar: {css: ".pd-bar-card"}
+        segundos: 4.5
+  - fala:
+      pt-BR: "Em Fidelidade estão os pontos, o nível do jogador, as recompensas que ele pode resgatar e as últimas movimentações."
+      en-US: "Loyalty shows the points, the player's tier, the rewards they can redeem and recent activity."
+      es-ES: "En Fidelidad están los puntos, el nivel del jugador, las recompensas que puede canjear y los últimos movimientos."
+    acoes:
+      - destacar: {css: ".plc-head"}
+        segundos: 2.0
+      - destacar: {css: ".plc-rewards"}
+        segundos: 2.5
+      - destacar: {css: ".plc-ledger"}
+        segundos: 2.0
+  - fala:
+      pt-BR: "As métricas resumem a participação, como torneios, horas jogadas, mesas finais e ROI."
+      en-US: "The metrics sum up participation, such as tournaments, hours played, final tables and ROI."
+      es-ES: "Las métricas resumen la participación, como torneos, horas jugadas, mesas finales y ROI."
+    acoes:
+      - destacar: {css: ".pd-grid"}
+        segundos: 4.5
+  - fala:
+      pt-BR: "E, no fim da tela, o histórico mostra cada participação: torneio, data, rebuys, valor investido, posição e prêmio."
+      en-US: "And at the bottom, the history lists each entry: tournament, date, rebuys, amount invested, position and prize."
+      es-ES: "Y al final de la pantalla, el historial muestra cada participación: torneo, fecha, rebuys, valor invertido, posición y premio."
+    acoes:
+      - destacar: {css: ".pd-history-card", t: playerDetail.historyTitle}
+        segundos: 6.0
