@@ -395,21 +395,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
 .plan__fine{font-size:12.5px;line-height:1.4;color:var(--tinta-fraca);margin-top:12px;min-height:34px}
 .plan--hi .plan__fine{color:#A79ECB}
 
-/* alternador anual / mensal */
-.toggle{display:flex;align-items:center;gap:8px;margin-bottom:32px}
-.toggle__btn{
-  height:38px;padding:0 20px;border-radius:20px;font-size:14.5px;font-weight:500;
-  background:transparent;color:var(--tinta-fraca);border:1px solid rgba(26,16,48,.14);
-  transition:all .15s ease;
-}
-.toggle__btn.is-on{background:var(--feltro);color:#fff;border-color:var(--feltro)}
-.toggle__save{
-  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--violeta);padding-left:6px;
-}
-.toggle__save.is-hidden{visibility:hidden}
 .plan--hi{background:var(--feltro);border-color:var(--feltro);color:#fff;position:relative}
-.plan--hi .plan__price b,.plan--hi h3{color:#fff}
+.plan--hi h3{color:#fff}
 .plan--hi .list li{color:#D8D2EA}
 .plan--hi .plan__for{color:#A79ECB}
 .plan__flag{
@@ -418,12 +405,8 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   padding:5px 10px;border-radius:4px;
 }
 .plan h3{margin-bottom:6px}
-.plan__for{font-size:14.5px;color:var(--tinta-fraca);margin-bottom:22px;min-height:42px;line-height:1.4}
-.plan__price{display:flex;align-items:baseline;gap:6px;margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid rgba(26,16,48,.1)}
-.plan--hi .plan__price{border-color:rgba(183,156,255,.22)}
-.plan__price b{font-size:34px;font-weight:600;letter-spacing:-.03em}
-.plan__price span{font-size:14px;color:var(--tinta-fraca)}
-.plan--hi .plan__price span{color:#A79ECB}
+.plan__for{font-size:14.5px;color:var(--tinta-fraca);margin-bottom:22px;padding-bottom:22px;border-bottom:1px solid rgba(26,16,48,.1);min-height:104px;line-height:1.4}
+.plan--hi .plan__for{border-color:rgba(183,156,255,.22)}
 .plan .list{margin-bottom:26px}
 .plan .btn{margin-top:auto}
 .plans__note{text-align:center;margin-top:26px;font-size:14.5px;color:var(--tinta-fraca)}
@@ -541,7 +524,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
   .recursos{grid-template-columns:repeat(2,1fr)}
   .roles{grid-template-columns:repeat(2,1fr)}
   .plans{grid-template-columns:repeat(2,1fr)}
-  .plan__fine{min-height:0}
+  .plan__fine,.plan__for{min-height:0}
   .nav__links{display:none}
 }
 @media (max-width:720px){
@@ -857,18 +840,11 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
       <span class="eyebrow" data-i18n="planos.eyebrow">Planos</span>
       <h2 data-i18n="planos.titulo">O sistema é o mesmo em todos os planos.<span class="italic">O que muda é o tamanho da sua operação.</span></h2>
     </div>
-    <div class="toggle rv" role="group" data-i18n-aria="planos.ciclo">
-      <button class="toggle__btn is-on" id="tgAnual" aria-pressed="true" data-i18n="planos.anual">Anual</button>
-      <button class="toggle__btn" id="tgMensal" aria-pressed="false" data-i18n="planos.mensal">Mensal</button>
-      <span class="toggle__save" id="tgSave" data-i18n="planos.economize">economize até 29%</span>
-    </div>
-
     <div class="plans rv">
 
       <article class="plan">
         <h3>Free</h3>
         <p class="plan__for" data-i18n="free.para">Tudo o que o sistema faz, com limite de volume. Para testar rodando um evento de verdade.</p>
-        <div class="plan__price"><b>$0</b><span data-i18n="planos.porMes">/mês</span></div>
         <ul class="list">
           <li data-i18n="free.i1">2 usuários</li>
           <li data-i18n="free.i2">4 torneios por mês</li>
@@ -883,7 +859,6 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
       <article class="plan">
         <h3>Standard</h3>
         <p class="plan__for" data-i18n="std.para">Para o clube que roda eventos regulares numa casa só.</p>
-        <div class="plan__price"><b data-anual="$49" data-mensal="$69">$49</b><span data-i18n="planos.porMes">/mês</span></div>
         <ul class="list">
           <li data-i18n="std.i1">6 usuários</li>
           <li data-i18n="std.i2">20 torneios por mês</li>
@@ -891,7 +866,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
           <li data-i18n="std.i4">Até 1.000 jogadores na base</li>
           <li data-i18n="std.i5">Caixa por operador, sangria e relatórios</li>
         </ul>
-        <a class="btn btn--outline btn--block" href="#demo" data-i18n="planos.comecar">Começar grátis</a>
+        <a class="btn btn--outline btn--block" href="#demo" data-i18n="planos.proposta">Pedir proposta</a>
         <p class="plan__fine">&nbsp;</p>
       </article>
 
@@ -899,7 +874,6 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
         <span class="plan__flag" data-i18n="pro.selo">Sem limite</span>
         <h3>Pro</h3>
         <p class="plan__for" data-i18n="pro.para">Para quem roda circuito, multi-dia e satélite sem olhar o contador.</p>
-        <div class="plan__price"><b data-anual="$99" data-mensal="$129">$99</b><span data-i18n="planos.porMes">/mês</span></div>
         <ul class="list">
           <li data-i18n="pro.i1">Usuários ilimitados</li>
           <li data-i18n="pro.i2">Torneios ilimitados</li>
@@ -907,14 +881,13 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
           <li data-i18n="pro.i4">Base de jogadores ilimitada</li>
           <li data-i18n="pro.i5">Todos os módulos, sem trava de volume</li>
         </ul>
-        <a class="btn btn--primary btn--block" href="#demo" data-i18n="planos.comecar">Começar grátis</a>
+        <a class="btn btn--primary btn--block" href="#demo" data-i18n="planos.proposta">Pedir proposta</a>
         <p class="plan__fine">&nbsp;</p>
       </article>
 
       <article class="plan">
         <h3>Premium</h3>
         <p class="plan__for" data-i18n="prem.para">Para rede de clubes, federação ou operação com regra própria.</p>
-        <div class="plan__price"><b data-i18n="prem.preco">Sob consulta</b></div>
         <ul class="list">
           <li data-i18n="prem.i1">Tudo do Pro, sem limite</li>
           <li data-i18n="prem.i2">Sistema personalizado para a sua operação</li>
@@ -927,7 +900,7 @@ p{font-size:clamp(16px,1.15vw,18px);line-height:1.6;color:var(--tinta-fraca)}
       </article>
 
     </div>
-    <p class="plans__note" data-i18n="planos.nota">Todos os planos funcionam offline e sincronizam sozinhos. Migração de dados incluída.</p>
+    <p class="plans__note" data-i18n="planos.nota">Todos os planos funcionam offline e sincronizam sozinhos. Migração de dados incluída. Conte o tamanho da sua operação e a gente envia a proposta.</p>
   </div>
 </section>
 
@@ -1265,7 +1238,7 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
   ligarWhatsApp();
 })();
 </script>
-<!-- Só a home: animação da TV, perguntas e alternador de planos. -->
+<!-- Só a home: animação da TV e perguntas. -->
 <script id="js-home">
 (function(){
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1326,19 +1299,6 @@ window.ACEBLIND_WHATSAPP = '556233001244';   /* +55 62 3300-1244 */
     });
   });
 
-  /* alternador anual / mensal */
-  var tgA = document.getElementById('tgAnual'), tgM = document.getElementById('tgMensal'), tgS = document.getElementById('tgSave');
-  function setCiclo(ciclo){
-    var anual = ciclo === 'anual';
-    tgA.classList.toggle('is-on', anual); tgA.setAttribute('aria-pressed', anual);
-    tgM.classList.toggle('is-on', !anual); tgM.setAttribute('aria-pressed', !anual);
-    tgS.classList.toggle('is-hidden', !anual);
-    document.querySelectorAll('.plan__price b[data-anual]').forEach(function(el){
-      el.textContent = anual ? el.dataset.anual : el.dataset.mensal;
-    });
-  }
-  tgA.addEventListener('click', function(){ setCiclo('anual'); });
-  tgM.addEventListener('click', function(){ setCiclo('mensal'); });
 })();
 </script>
 </body>

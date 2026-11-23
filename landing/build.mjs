@@ -99,18 +99,6 @@ function escapar(s){
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/* "$49" → { valor: '49', moeda: 'USD' }. Quando o preço em reais entrar na
-   página, "R$ 249" já sai como BRL nos dados estruturados. */
-function lerPreco(bruto){
-  if(!bruto) return null;
-  const s = bruto.replace(/\s/g, '');
-  const moedas = [['R$', 'BRL'], ['COP$', 'COP'], ['S/', 'PEN'], ['US$', 'USD'], ['$', 'USD']];
-  const achada = moedas.find(([simbolo]) => s.startsWith(simbolo));
-  const numero = s.replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
-  if(!achada || numero === '') return null;
-  return { valor: String(Number(numero)), moeda: achada[1] };
-}
-
 /* ---- páginas internas ------------------------------------------------------- */
 
 /* Cada arquivo começa com um bloco `chave: valor` entre linhas `---`; o resto é
@@ -211,16 +199,6 @@ function noSite(){
 function dadosDaHome($, idioma, meta, whatsapp){
   const pagina = url(idioma.caminho);
 
-  const ofertas = [];
-  $('.plan').each((_, plano) => {
-    const nome = texto($, $(plano).find('h3').first());
-    const b = $(plano).find('.plan__price b').first();
-    const preco = lerPreco(b.attr('data-mensal') || b.text());
-    if(nome && preco){
-      ofertas.push({ '@type': 'Offer', name: nome, price: preco.valor, priceCurrency: preco.moeda, url: pagina + '#planos' });
-    }
-  });
-
   const perguntas = [];
   $('.faq__item').each((_, item) => {
     const q = texto($, $(item).find('.faq__q'));
@@ -242,7 +220,6 @@ function dadosDaHome($, idioma, meta, whatsapp){
       operatingSystem: 'Web',
       inLanguage: idioma.inLanguage,
       publisher: { '@id': ID_ORGANIZACAO },
-      ...(ofertas.length ? { offers: ofertas } : {}),
     },
   ];
   if(perguntas.length){

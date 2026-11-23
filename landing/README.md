@@ -44,9 +44,9 @@ O build também gera:
 
 - `sitemap.xml` com todas as URLs, ligadas por `hreflang` onde há tradução;
 - os **dados estruturados** (JSON-LD) de cada página — `Organization`,
-  `SoftwareApplication` com os planos e `FAQPage` com as perguntas —, lidos do
-  próprio texto já traduzido. Mudou uma pergunta ou um preço no HTML, o JSON-LD
-  acompanha;
+  `SoftwareApplication` e `FAQPage` com as perguntas —, lidos do próprio texto já
+  traduzido. Mudou uma pergunta no HTML, o JSON-LD acompanha. Os planos aparecem
+  sem preço, na página e no JSON-LD: o valor vai na proposta;
 - o link `wa.me` dos botões de WhatsApp já no HTML, com a mensagem no idioma da
   página.
 
