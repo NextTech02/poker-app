@@ -24,6 +24,20 @@ const fmtSize = (b) => {
 // Aba "Despesas" do Financeiro. Os lançamentos ancoram numa ETAPA (fecham o DRE
 // dela) e podem, opcionalmente, apontar um torneio específico.
 
+// Categorias que a semente cria em todo clube novo — até a migração
+// textos_padrao_no_idioma_do_clube, sempre em português. O nome padrão
+// conhecido aparece no idioma do app; o que o clube cadastrou ou renomeou,
+// como está.
+const CATEGORIAS_PADRAO = {
+  'Aluguel do espaço': 'rent',
+  'Equipe de apoio': 'supportStaff',
+  'Alimentação': 'food',
+  'Material': 'supplies',
+  'Estrutura': 'setup',
+  'Taxas e impostos': 'feesTaxes',
+  'Outros': 'other',
+};
+
 const EMPTY = {
   stage_id: '', category_id: '', tournament_id: '',
   description: '', supplier: '', amount: '',
@@ -31,14 +45,25 @@ const EMPTY = {
   paid_from_cash: true,
 };
 
+// O vencimento é uma DATA, sem hora ("2026-11-10"). `new Date` lê esse
+// formato como meia-noite UTC, e no fuso das Américas isso ainda é o dia
+// anterior: o vencimento aparecia um dia antes. A data vai como dia local.
 const fmtDate = (v, locale) => {
   if (!v) return '—';
-  try { return new Date(v).toLocaleDateString(locale); } catch { return '—'; }
+  const soData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
+  try {
+    const d = soData ? new Date(Number(soData[1]), Number(soData[2]) - 1, Number(soData[3])) : new Date(v);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(locale);
+  } catch { return '—'; }
 };
 
 export default function ExpensesManager() {
   const { t, i18n } = useTranslation();
   const { toast, confirm } = useToast();
+  const nomeDaCategoria = (nome) => (
+    CATEGORIAS_PADRAO[nome] ? t(`expenses.defaultCategories.${CATEGORIAS_PADRAO[nome]}`, nome) : nome
+  );
   const { formatCurrency } = useCurrency();
 
   const [stages, setStages] = useState([]);
@@ -366,7 +391,7 @@ export default function ExpensesManager() {
           <label>{t('expenses.filterCategory', 'Categoria')}</label>
           <select value={filters.category_id} onChange={(e) => setFilters(p => ({ ...p, category_id: e.target.value }))}>
             <option value="">{t('expenses.allCategories', 'Todas')}</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories.map(c => <option key={c.id} value={c.id}>{nomeDaCategoria(c.name)}</option>)}
           </select>
         </div>
         <div className="form-group">
@@ -422,7 +447,7 @@ export default function ExpensesManager() {
                       </div>
                     )}
                   </td>
-                  <td>{e.category_name || <span className="exp-muted">—</span>}</td>
+                  <td>{nomeDaCategoria(e.category_name) || <span className="exp-muted">—</span>}</td>
                   <td>{e.stage_name || '—'}</td>
                   <td>{fmtDate(e.due_date, i18n.language)}</td>
                   <td className="exp-num">{formatCurrency(e.amount)}</td>
@@ -520,7 +545,7 @@ export default function ExpensesManager() {
                   <label>{t('expenses.colCategory', 'Categoria')}</label>
                   <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
                     <option value="">{t('expenses.noCategory', 'Sem categoria')}</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {categories.map(c => <option key={c.id} value={c.id}>{nomeDaCategoria(c.name)}</option>)}
                   </select>
                 </div>
                 <div className="exp-field">

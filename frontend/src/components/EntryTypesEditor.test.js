@@ -199,6 +199,14 @@ describe('aviso e acessibilidade', () => {
     );
   });
 
+  it('a dica fica fora das linhas, na largura da lista', () => {
+    // Dentro da coluna Categoria da primeira linha, o texto longo virava uma
+    // tira estreita e deixava essa linha muito mais alta que as outras.
+    render(<Harness inicial={meiosPadrao(t)} idPrefix="tr-entry" />);
+    const dica = document.getElementById('tr-entry_category_hint');
+    expect(dica.closest('.entry-method-row')).toBeNull();
+  });
+
   it('desabilitado, nada se edita nem se remove', () => {
     render(<Harness inicial={meiosPadrao(t)} disabled />);
     expect(linha(0).nome).toBeDisabled();

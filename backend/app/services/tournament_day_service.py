@@ -1585,11 +1585,33 @@ class TournamentDayService:
         return None  # No break found
 
     @staticmethod
-    def _calculate_current_level(blinds: list, elapsed_seconds: int) -> dict:
+    def _calculate_current_level(blinds: list, elapsed_seconds: int, nivel_atual: Optional[int] = None) -> dict:
         """Calculate the correct level based on total elapsed time.
-        Returns dict with level, time_remaining, elapsed_in_current_level."""
+        Returns dict with level, time_remaining, elapsed_in_current_level.
+
+        `nivel_atual` (o current_level gravado no dia) é um PISO: o tempo pode
+        levar o relógio adiante, nunca de volta. "+30s"/"+1m" recua o decorrido;
+        aplicado nos primeiros segundos do nível 2, o decorrido caía dentro do
+        nível 1 e o telão voltava para o blind anterior em vez de dar mais tempo
+        ao atual. Com o piso, o tempo a mais fica no nível atual (restante maior
+        que a duração), que é o que o Controle mostra offline. Voltar de nível
+        é só pelo "nível anterior", que grava nível e decorrido juntos."""
         if not blinds:
             return {"level": 1, "time_remaining": 0, "elapsed_in_current": 0}
+
+        if nivel_atual is not None:
+            inicio_do_atual = 0
+            for blind in blinds:
+                if blind["level"] == nivel_atual:
+                    if elapsed_seconds < inicio_do_atual:
+                        fim_do_atual = inicio_do_atual + blind["duration"] * 60
+                        return {
+                            "level": nivel_atual,
+                            "time_remaining": fim_do_atual - elapsed_seconds,
+                            "elapsed_in_current": 0,
+                        }
+                    break
+                inicio_do_atual += blind["duration"] * 60
 
         accumulated = 0
         for blind in blinds:
@@ -1640,12 +1662,12 @@ class TournamentDayService:
             current_elapsed = (day.elapsed_time or 0) + round(time_since_start)
 
         # Calculate what level we SHOULD be at based on elapsed time
-        level_calc = TournamentDayService._calculate_current_level(blinds, current_elapsed)
+        db_level = day.current_level or 1
+        level_calc = TournamentDayService._calculate_current_level(blinds, current_elapsed, db_level)
         correct_level = level_calc["level"]
         time_remaining_current = level_calc["time_remaining"]
 
         # Auto-advance: if DB level is behind the calculated level, update it
-        db_level = day.current_level or 1
         if correct_level != db_level and not day.is_paused and blinds:
             supabase.table("tournament_days")\
                 .update({"current_level": correct_level})\

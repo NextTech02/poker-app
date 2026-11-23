@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { nomeDaRecompensa, nomeDoNivel } from '../utils/nomesPadraoDaFidelidade';
 import './PlayerLoyaltyCard.css';
 
 // Card de fidelidade no perfil do jogador (Fase 1): pontos, nível VIP,
@@ -38,7 +39,7 @@ const isBirthdayToday = (iso) => {
 };
 
 export default function PlayerLoyaltyCard({
-  data, t, locale, formatCurrency, onRedeem, onConvertCashback,
+  data, t, locale, formatCurrency, currency, onRedeem, onConvertCashback,
   onRedeemCoupon, onClaimGoal, onGiftCredit, birthDate, busy,
 }) {
   const [coupon, setCoupon] = useState('');
@@ -77,7 +78,7 @@ export default function PlayerLoyaltyCard({
           {tier && (
             <span className="plc-tier" style={{ '--tier-color': tierColor }}>
               <span className="plc-tier-dot" />
-              {tier.name}
+              {nomeDoNivel(t, tier.name)}
             </span>
           )}
         </div>
@@ -95,7 +96,7 @@ export default function PlayerLoyaltyCard({
               <>
                 <span>{t('loyalty.toNext', 'Faltam {{n}} pts para {{tier}}', {
                   n: fmtPts(Math.max(0, (target || 0) - lifetime)),
-                  tier: next_tier.name,
+                  tier: nomeDoNivel(t, next_tier.name),
                 })}</span>
                 <span className="plc-progress-pct">{Math.round(pct)}%</span>
               </>
@@ -160,7 +161,9 @@ export default function PlayerLoyaltyCard({
               return (
                 <li key={r.id} className="plc-reward">
                   <div className="plc-reward-info">
-                    <span className="plc-reward-name">{r.name}</span>
+                    <span className="plc-reward-name">
+                      {nomeDaRecompensa(t, r, { formatCurrency: fmtMoney, idioma: locale, moeda: currency })}
+                    </span>
                     <span className="plc-reward-cost">{fmtPts(r.cost_points)} {t('loyalty.points', 'pontos')}</span>
                   </div>
                   <button

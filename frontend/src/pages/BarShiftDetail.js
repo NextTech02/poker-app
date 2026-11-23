@@ -11,11 +11,13 @@ import CashboxDemonstrativo from '../components/CashboxDemonstrativo';
 import { SkeletonStatCard } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useBarShift } from '../contexts/BarShiftContext';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
+import { rotuloDoMeioDoBar } from '../utils/barRotulos';
 import './CashFloor.css';
 import './Bar.css';
 
@@ -29,6 +31,7 @@ const BarShiftDetail = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
+  const { methods: meios = [] } = usePaymentMethods() || {};
   const { reload: reloadShift } = useBarShift();
   const { hasPermission } = usePermissions();
 
@@ -185,7 +188,7 @@ const BarShiftDetail = () => {
                 <ul className="bar-kpi-list">
                   {summary.by_method.map((m) => (
                     <li key={m.payment_method}>
-                      <span className="bar-muted">{m.payment_method}</span>
+                      <span className="bar-muted">{rotuloDoMeioDoBar(t, m.payment_method, meios)}</span>
                       <strong>{formatCurrency(m.amount)}</strong>
                       <span className="bar-muted"> · {m.count}</span>
                     </li>

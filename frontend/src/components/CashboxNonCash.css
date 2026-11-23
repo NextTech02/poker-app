@@ -1,0 +1,29 @@
+.cashbox-non-cash {
+  margin: 0 0 14px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color, rgba(255, 255, 255, 0.15));
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cashbox-non-cash__title {
+  margin-bottom: 4px;
+}
+
+.cashbox-non-cash ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cashbox-non-cash li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cashbox-non-cash strong {
+  color: var(--text-primary);
+  white-space: nowrap;
+}

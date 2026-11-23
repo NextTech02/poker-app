@@ -7,6 +7,7 @@ import Button from './Button';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
 import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
+import CashboxNonCash from './CashboxNonCash';
 import './CashboxBanner.css';
 
 /**
@@ -116,10 +117,15 @@ const CashboxBanner = ({ onStateChange, cashDayId, barShiftId }) => {
     [load]
   );
 
+  // O esperado do fechamento é o dinheiro vivo: cartão, PIX e afins entram no
+  // razão da gaveta, mas não estão nela para contar. Servidor antigo não manda
+  // `cash_balance`, e aí vale o saldo de sempre.
+  const dinheiroNaGaveta = cashbox?.cash_balance ?? cashbox?.current_balance;
+
   const openModal = (kind) => {
     setNotes('');
     if (kind === 'open') setInitialBalance('0');
-    if (kind === 'close') setActualBalance(String(cashbox?.current_balance ?? 0));
+    if (kind === 'close') setActualBalance(String(dinheiroNaGaveta ?? 0));
     setModal(kind);
   };
 
@@ -207,7 +213,7 @@ const CashboxBanner = ({ onStateChange, cashDayId, barShiftId }) => {
               {cashbox.staff_name ? ` · ${cashbox.staff_name}` : ''}
             </span>
             <span className="cashbox-banner__balance">
-              {t('cashbox.balance')}: <strong>{formatCurrency(cashbox.current_balance)}</strong>
+              {t('cashbox.balance')}: <strong>{formatCurrency(dinheiroNaGaveta)}</strong>
             </span>
           </div>
         </div>
@@ -296,8 +302,9 @@ const CashboxBanner = ({ onStateChange, cashDayId, barShiftId }) => {
             </div>
             <form onSubmit={submitClose}>
               <div className="cashbox-banner__expected">
-                {t('cashbox.expectedBalance')}: <strong>{formatCurrency(cashbox.current_balance)}</strong>
+                {t('cashbox.expectedBalance')}: <strong>{formatCurrency(dinheiroNaGaveta)}</strong>
               </div>
+              <CashboxNonCash items={cashbox.non_cash} />
               <div className="form-group">
                 <label htmlFor="cb-actual">{t('cashbox.countedBalance')}</label>
                 <input

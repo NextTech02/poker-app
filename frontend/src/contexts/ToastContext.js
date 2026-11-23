@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import i18n from 'i18next';
 import '../components/Toast.css';
 import { registerToast } from '../utils/toastEmitter';
 import { textoDoDetalhe } from '../utils/textoDoErro';
@@ -129,13 +130,18 @@ export const ToastProvider = ({ children }) => {
     [addToast],
   );
 
+  // Os textos padrão seguem o idioma do app: a maioria das telas chama
+  // `confirm(pergunta)` sem título nem botões, e com o português fixo aqui
+  // todo diálogo do clube em inglês saía com "Confirmar"/"Cancelar".
   const confirm = useCallback((message, options = {}) => {
     return new Promise((resolve) => {
       setConfirmDialog({
-        title: options.title || 'Confirmar',
+        // O português é só reserva: antes de o i18n iniciar, `t` devolve
+        // undefined, e um botão de confirmação sem texto não pode existir.
+        title: options.title || i18n.t('common.confirm') || 'Confirmar',
         message,
-        confirmText: options.confirmText || 'Confirmar',
-        cancelText: options.cancelText || 'Cancelar',
+        confirmText: options.confirmText || i18n.t('common.confirm') || 'Confirmar',
+        cancelText: options.cancelText || i18n.t('common.cancel') || 'Cancelar',
         variant: options.variant || 'default', // 'default' | 'danger'
         onConfirm: () => {
           setConfirmDialog(null);

@@ -383,10 +383,11 @@ describe('meios de entrada no telão', () => {
     expect(buildTvModel({ isDayBased: false, tournament: {} }).buyTypes).toEqual([]);
   });
 
-  it('formatBuyAmount: inteiro sem decimais, milhar com ponto', () => {
+  it('formatBuyAmount: inteiro sem decimais, milhar com VÍRGULA como o resto do telão', () => {
+    // Era pt-BR ("1.500"): ficou de fora da regra "1.000 debe ser 1,000".
     expect(formatBuyAmount(50)).toBe('50');
-    expect(formatBuyAmount(1500)).toBe('1.500');
-    expect(formatBuyAmount(12.5)).toBe('12,5');
+    expect(formatBuyAmount(1500)).toBe('1,500');
+    expect(formatBuyAmount(12.5)).toBe('12.5');
     expect(formatBuyAmount(null)).toBe('0');
   });
 });

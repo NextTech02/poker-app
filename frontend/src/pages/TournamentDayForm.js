@@ -7,7 +7,6 @@ import Button from '../components/Button';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { currencySymbol } from '../utils/currencyUtils';
 import { colunasDoDia, linhasDaApi } from '../utils/entryTypes';
 import './TournamentDayForm.css';
 
@@ -15,7 +14,7 @@ const TournamentDayForm = () => {
   const { t } = useTranslation();
   const { tournamentId, dayId } = useParams(); // dayId comes from URL param when editing
   const navigate = useNavigate();
-  const { currency } = useCurrency();
+  const { currency, formatCurrency } = useCurrency();
 
   const [tournament, setTournament] = useState(null);
   const [days, setDays] = useState([]);
@@ -394,7 +393,8 @@ const TournamentDayForm = () => {
                         <tr key={meio.key}>
                           <td>{meio.name}</td>
                           <td>{rotuloDaCategoria(meio.category)}</td>
-                          <td>{currencySymbol(currency)} {Number(meio.amount || 0).toFixed(2)}</td>
+                          {/* Formato da moeda do clube: toFixed dava "R$ 500.00". */}
+                          <td>{formatCurrency(meio.amount || 0)}</td>
                           <td>{Number(meio.rake_percentage || 0)}%</td>
                           <td>{Number(meio.chips || 0).toLocaleString()}</td>
                         </tr>

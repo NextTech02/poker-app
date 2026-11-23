@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePermissions } from '../contexts/PermissionContext';
 import { useBrandingDoBilhete } from '../hooks/useBrandingDoBilhete';
-import { htmlDoBilhete } from '../utils/bilhete';
+import { horaDoAssento, htmlDoBilhete } from '../utils/bilhete';
 import './SeatTicket.css';
 
 const LANGS = {
@@ -51,15 +51,15 @@ const LANGS = {
     label_tournament: 'Torneo',
     label_day: 'Día',
     label_player: 'Jugador',
-    label_seat: 'Su Mesa y Asiento',
+    label_seat: 'Tu Mesa y Asiento',
     label_status: 'Estado',
     label_datetime: 'Fecha y Hora',
     label_id: 'ID',
     seat_display: (t, s) => `MESA ${t} - ASIENTO ${s}`,
     alternate_text: 'ALTERNATE',
     alternate_sub: 'Esperando asignación de mesa',
-    footer_entry: '¡Buena suerte!<br>Conserve este boleto para identificación',
-    footer_alternate: 'Usted está en la lista de alternates.<br>Espere a ser llamado por el staff.',
+    footer_entry: '¡Buena suerte!<br>Guarda este boleto para identificación',
+    footer_alternate: 'Estás en la lista de alternates.<br>Espera a que el staff te llame.',
     btn_print: 'Imprimir Boleto',
     preview_header_entry: 'Boleto de Entrada',
     preview_header_alternate: 'Ticket de Alternate',
@@ -252,7 +252,7 @@ const SeatTicket = ({ allocation, onPrint, formatarValor = valorPadrao }) => {
 
           <div className="ticket-preview-row">
             <span className="label">{t.preview_hour}</span>
-            <span className="value">{formatDate(allocation.created_at)}</span>
+            <span className="value">{formatDate(horaDoAssento(allocation))}</span>
           </div>
         </div>
       </div>

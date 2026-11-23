@@ -75,16 +75,19 @@
   margin-bottom: 8px;
 }
 
+/* Tint translúcido + texto do mesmo tom, como os .badge-*: o tema é escuro e
+   o --warning-light/--success-light (amarelo/verde quase brancos) com
+   --text-primary deixava "3/4 inscritos" claro sobre claro. */
 .eq-selo {
   font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--warning-light);
-  color: var(--text-primary);
+  background: var(--warning-bg);
+  color: var(--text-warning);
   white-space: nowrap;
 }
 
-.eq-selo.ok { background: var(--success-light); }
+.eq-selo.ok { background: var(--success-bg); color: var(--text-success); }
 
 .eq-integrantes {
   margin: 0 0 8px;

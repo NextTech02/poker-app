@@ -110,6 +110,16 @@ def get_player_balance(
     return {"player_id": player_id, "available_credit": available}
 
 
+@router.get("/player/{player_id}/prize-deduction")
+def get_prize_deduction(player_id: str, user=Depends(get_current_user)):
+    """Crédito usado que o próximo prêmio do jogador devolve. A tela do
+    pagamento mostra o desconto antes de o operador entregar o dinheiro."""
+    return {
+        "player_id": player_id,
+        "outstanding": PlayerCreditService.outstanding_for_prize(player_id),
+    }
+
+
 @router.get("/player/{player_id}/summary", response_model=PlayerBalanceSummary)
 def get_player_summary(player_id: str, user=Depends(get_current_user)):
     return PlayerCreditService.get_player_balance_summary(player_id)

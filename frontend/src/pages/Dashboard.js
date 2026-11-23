@@ -112,8 +112,15 @@ const Dashboard = () => {
     return <span className={`db-status ${s.cls}`}>{s.label}</span>;
   };
 
+  // O prêmio pago também aparece aqui, e saía cru ("prize") em todo idioma.
   const formatTxType = (type) => {
-    const map = { buy_in: 'Buy-in', rebuy: 'Rebuy', addon: 'Add-on', payout: 'Payout' };
+    const map = {
+      buy_in: t('financial.typeBuyIn', 'Buy-in'),
+      rebuy: t('financial.typeRebuy', 'Rebuy'),
+      addon: t('financial.typeAddon', 'Add-on'),
+      prize: t('financial.typePrize', 'Premiação'),
+      payout: t('financial.typePrize', 'Premiação'),
+    };
     return map[type] || type;
   };
 

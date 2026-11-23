@@ -7,6 +7,7 @@ import Card from './Card';
 import Button from './Button';
 import EmptyState from './EmptyState';
 import { SkeletonTableRow } from './SkeletonLoader';
+import CashboxNonCash from './CashboxNonCash';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
@@ -156,9 +157,14 @@ const CashboxAdminPanel = ({ anchor = null }) => {
     }
   };
 
+  // O esperado do fechamento é o dinheiro vivo: cartão, PIX e afins entram no
+  // razão da gaveta, mas não estão nela para contar. Servidor antigo não manda
+  // `cash_balance`, e aí vale o saldo de sempre.
+  const dinheiroDa = (cashbox) => cashbox?.cash_balance ?? cashbox?.current_balance;
+
   const openModal = (kind, cashbox) => {
     setNotes('');
-    if (kind === 'close') setAmount(String(cashbox.current_balance ?? 0));
+    if (kind === 'close') setAmount(String(dinheiroDa(cashbox) ?? 0));
     else if (kind === 'open') setAmount('0');
     else setAmount('');
     if (kind === 'stageSangria') {
@@ -388,7 +394,8 @@ const CashboxAdminPanel = ({ anchor = null }) => {
             <form onSubmit={submit}>
               {modal.kind === 'close' && (
                 <div className="cb-admin__expected">
-                  {t('cashbox.expectedBalance')}: <strong>{formatCurrency(modal.cashbox.current_balance)}</strong>
+                  {t('cashbox.expectedBalance')}: <strong>{formatCurrency(dinheiroDa(modal.cashbox))}</strong>
+                  <CashboxNonCash items={modal.cashbox.non_cash} />
                 </div>
               )}
               {(modal.kind === 'supply' || modal.kind === 'sangria') && (

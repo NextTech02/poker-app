@@ -43,7 +43,7 @@ const FILTROS = [
 ];
 
 const Etapas = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { selectedStage, selectStage } = useStage();
   const { toast, confirm } = useToast();
   const { isAdmin, hasPermission } = usePermissions();
@@ -377,7 +377,8 @@ const Etapas = () => {
   const formatDate = (dateString) => {
     const data = parseDataLocal(dateString);
     if (!data) return '-';
-    return data.toLocaleDateString('pt-BR');
+    // No idioma do app: fixo em pt-BR, o clube em inglês lia 05/11 como 11 de maio.
+    return data.toLocaleDateString(i18n.language || 'pt-BR');
   };
 
   const handleSelectStage = (stage) => {

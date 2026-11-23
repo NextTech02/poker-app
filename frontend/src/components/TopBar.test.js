@@ -17,9 +17,13 @@ jest.mock('../contexts/StageContext', () => ({ useStage: jest.fn() }));
 jest.mock('../contexts/CashDayContext', () => ({ useCashDay: jest.fn() }));
 jest.mock('../contexts/BarShiftContext', () => ({ useBarShift: jest.fn() }));
 jest.mock('../contexts/ConnectivityContext', () => ({ useConnectivity: jest.fn() }));
+// Por padrão o texto é a própria chave; `mockTraducoes` dá o texto real quando
+// o teste depende dele (migalhas com o mesmo nome em chaves diferentes).
+let mockTraducoes = {};
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key, fallbackOrOpts, opts) => {
+      if (mockTraducoes[key]) return mockTraducoes[key];
       const o = typeof fallbackOrOpts === 'object' ? fallbackOrOpts : opts;
       if (o && o.count !== undefined) return `${key}:${o.count}`;
       return key;
@@ -68,6 +72,32 @@ describe('migalhas', () => {
     expect(crumbs).toContain('modules.tournamentTitle');
     expect(crumbs).toContain('sidebar.cashRegister');
     expect(crumbs).toContain('sidebar.tournamentTickets');
+  });
+
+  describe('módulo e grupo com o mesmo nome', () => {
+    // No torneio, o módulo e o grupo do menu se chamam "Torneios": a barra
+    // dizia "Torneios › Torneios › Lista" na lista e em toda tela dentro dela.
+    beforeEach(() => {
+      mockTraducoes = {
+        'modules.tournamentTitle': 'Tournaments',
+        'sidebar.tournaments': 'Tournaments',
+        'sidebar.tournamentsList': 'List',
+      };
+    });
+    afterEach(() => {
+      mockTraducoes = {};
+    });
+
+    test.each([
+      '/torneios',
+      '/torneios/abc',
+      '/torneios/abc/dia/novo',
+      '/torneios/abc/dia/d1/broadcast',
+    ])('em %s o nome não se repete', (rota) => {
+      montar({ rota });
+      const crumbs = Array.from(document.querySelectorAll('.topbar-crumb')).map((el) => el.textContent);
+      expect(crumbs).toEqual(['Tournaments', 'List']);
+    });
   });
 });
 

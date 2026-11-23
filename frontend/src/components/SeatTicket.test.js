@@ -111,6 +111,16 @@ describe('prévia na tela', () => {
     render(<SeatTicket allocation={{ ...ALOCACAO, is_alternate: true }} />);
     expect(screen.getByText('Ticket de Alternate')).toBeInTheDocument();
   });
+
+  it('depois da troca de mesa, a hora é a do lugar novo', () => {
+    // A troca (Painel de Mesas, Gestão de Mesas) só grava updated_at; a
+    // prévia mostrava a hora do primeiro assento.
+    const trocado = { ...ALOCACAO, created_at: '2026-06-08T20:30:00', updated_at: '2026-06-08T23:05:00' };
+    render(<SeatTicket allocation={trocado} />);
+    const hora = screen.getByText('Hora:').nextSibling;
+    expect(hora).toHaveTextContent('23:05');
+    expect(hora).not.toHaveTextContent('20:30');
+  });
 });
 
 describe('idioma do bilhete', () => {

@@ -32,6 +32,12 @@
   margin-bottom: 0.9rem;
 }
 
+/* A dica da categoria vale para todas as linhas: fica abaixo da lista. */
+.entry-types-editor .entry-methods-category-hint {
+  display: block;
+  margin: -0.4rem 0 0.9rem;
+}
+
 /* Estreito (padrão): duas colunas, nome e ações ocupando a linha inteira. */
 .entry-types-editor .entry-method-row {
   display: grid;

@@ -319,7 +319,9 @@ const ManagerView = ({ toast, confirm }) => {
 };
 
 const SalesTable = ({ sales }) => {
-  const { t } = useTranslation();
+  // A hora da venda no formato do idioma do app: fixo em pt-BR, o clube em
+  // inglês lia 10/11/2026 como 11 de outubro.
+  const { t, i18n } = useTranslation();
   const { formatCurrency } = useCurrency();
   if (!sales || sales.length === 0) return <p className="sangi-muted">{t('sangi.noSalesYet')}</p>;
   return (
@@ -332,7 +334,7 @@ const SalesTable = ({ sales }) => {
           <tr key={s.id}>
             <td>{s.buyer_player_name || s.buyer_player_id}</td>
             <td>{formatCurrency(s.amount)}</td>
-            <td>{new Date(s.created_at).toLocaleString('pt-BR')}</td>
+            <td>{new Date(s.created_at).toLocaleString(i18n.language)}</td>
           </tr>
         ))}
       </tbody>

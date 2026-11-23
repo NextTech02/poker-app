@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import BarPaymentModal from './BarPaymentModal';
 import ReceberFiadoModal from './fiado/ReceberFiadoModal';
 import { saldoDaComanda } from '../utils/barTotais';
 import { avisarQueOCaixaMudou } from '../utils/eventosDoCaixa';
 import { buscarContaFiado } from '../utils/fiado';
+import { rotuloDoMeioDoBar } from '../utils/barRotulos';
 import './BarTabPanel.css';
 
 /**
@@ -31,6 +33,7 @@ const BarTabPanel = ({ detail, canAdmin = false, cashboxBlocked = false, onChang
   const { t } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
+  const { methods: meios = [] } = usePaymentMethods() || {};
   const [busy, setBusy] = useState(false);
   const [paying, setPaying] = useState(false);
   const [modal, setModal] = useState(null); // {kind:'discount'|'cancelItem'|'courtesy'|'cancelTab'|'refund', ...}
@@ -213,7 +216,9 @@ const BarTabPanel = ({ detail, canAdmin = false, cashboxBlocked = false, onChang
           {payments.map((p) => (
             <li key={p.id} className={p.status !== 'active' ? 'btp-payment--cancelled' : ''}>
               <span>
-                {p.payment_source === 'credit' ? t('bar.playerCredit', 'Crédito do jogador') : p.payment_method}
+                {p.payment_source === 'credit'
+                  ? t('bar.playerCredit', 'Crédito do jogador')
+                  : rotuloDoMeioDoBar(t, p.payment_method, meios)}
                 {p.status !== 'active' && <em> · {t('bar.refunded', 'estornado')}</em>}
               </span>
               <span>{formatCurrency(p.amount)}</span>

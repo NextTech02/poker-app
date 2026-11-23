@@ -391,5 +391,8 @@ export const buildTvModel = ({
   };
 };
 
-/** Valor de um meio de entrada como o telão mostra: "50", "1.500", "12,5". */
-export const formatBuyAmount = (n) => (Number(n) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+/** Quantidade de vendas de um meio de entrada como o telão mostra: "50",
+ * "1,500". Seguia o pt-BR ("1.500") porque nasceu um dia antes da regra da
+ * vírgula de milhar em todo idioma (ver formatChips) e ficou de fora dela. */
+export const formatBuyAmount = (n, locale = 'en-US') =>
+  (Number(n) || 0).toLocaleString(locale || 'en-US', { maximumFractionDigits: 2 });

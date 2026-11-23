@@ -43,6 +43,10 @@ const FiadoCard = ({ playerId, playerName }) => {
   const [modal, setModal] = useState(null); // 'limite' | 'receber' | 'baixa' | {estornar: entry}
   const [form, setForm] = useState({});
   const [enviando, setEnviando] = useState(false);
+  // "Limite sugerido ao liberar" da configuração do fiado: é o que o modal
+  // propõe para quem ainda não tem conta. Sem ele, a configuração era salva e
+  // o gerente tinha de digitar o limite do zero a cada jogador.
+  const [limitePadrao, setLimitePadrao] = useState(0);
 
   const ancora = cashDayId ? { cash_day_id: cashDayId } : barShiftId ? { bar_shift_id: barShiftId } : null;
 
@@ -51,9 +55,16 @@ const FiadoCard = ({ playerId, playerName }) => {
       buscarContaFiado(playerId),
       api.get(`/house-credit/players/${playerId}/entries`, { _silentError: true }).catch(() => ({ data: [] })),
     ]);
+    // Só quem vai LIBERAR precisa da sugestão: a ida extra fica restrita ao
+    // gerente olhando um jogador ainda sem conta. Lida ANTES de mostrar o
+    // cartão, para o botão "Liberar fiado" nunca abrir sem ela.
+    if (gerente && c && !c.exists) {
+      const cfg = await api.get('/house-credit/settings', { _silentError: true }).catch(() => null);
+      setLimitePadrao(Number(cfg?.data?.default_limit) || 0);
+    }
     setConta(c);
     setExtrato(e.data || []);
-  }, [playerId]);
+  }, [playerId, gerente]);
 
   useEffect(() => { carregar(); }, [carregar]);
   useEscapeKey(!!modal && modal !== 'receber', () => { if (!enviando) setModal(null); });
@@ -64,7 +75,7 @@ const FiadoCard = ({ playerId, playerName }) => {
   const abrir = (qual) => {
     setForm({
       enabled: conta.exists ? conta.enabled : true,
-      credit_limit: String(conta.exists ? conta.credit_limit : ''),
+      credit_limit: String(conta.exists ? conta.credit_limit : (limitePadrao > 0 ? limitePadrao : '')),
       notes: conta.notes || '',
       amount: String(conta.balance || ''),
       reason: '',

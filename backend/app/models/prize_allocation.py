@@ -102,6 +102,9 @@ class PrizeAllocationResponse(BaseModel):
     # Pagamento com fiado: o prêmio continua bruto em `prize_amount`.
     debt_offset: Optional[Decimal] = None
     net_paid: Optional[Decimal] = None
+    # Crédito de patrocinador descontado neste pagamento (só na resposta do
+    # pagar; não é coluna). Sem ele, o comprovante não explica o líquido.
+    credit_deduction: Optional[Decimal] = None
     created_at: datetime
     updated_at: datetime
 

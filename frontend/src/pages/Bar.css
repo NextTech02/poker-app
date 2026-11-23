@@ -249,6 +249,30 @@
   max-width: 560px;
 }
 
+/* ── Gavetas do turno (demonstrativo) ──────────────────────────────────────
+   É o demonstrativo do Financeiro, com até 11 colunas de dinheiro. Em COP elas
+   passam da largura da tela e a Diferença — a coluna que o gerente procura no
+   fechamento — só aparecia rolando. Aqui a tabela rola dentro do cartão, mais
+   compacta, e a Diferença fica presa à direita. Escopado no turno do bar: o
+   rolamento vinha do Caixa.css, que só existe na página depois de visitar o
+   Caixa, e o Financeiro não muda. */
+.bar-section .cb-demo .table-container {
+  overflow-x: auto;
+}
+.bar-section .cb-demo__table th,
+.bar-section .cb-demo__table td {
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+.bar-section .cb-demo__table th:last-child,
+.bar-section .cb-demo__table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--card-bg);
+  box-shadow: inset 1px 0 0 var(--border-primary);
+}
+
 @media (max-width: 640px) {
   .bar-filters .form-group {
     max-width: none;

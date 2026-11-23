@@ -269,7 +269,7 @@ const PlayerImportModal = ({ onClose, onImported }) => {
               <div className="pim-box">
                 <p>
                   {t('playerImport.pendingExplain',
-                     'Os incompletos não têm e-mail, telefone ou documento — campos que o sistema exige. Baixe a lista, complete no sistema antigo e importe de novo: quem já entrou não será duplicado.')}
+                     'Os incompletos estão sem nome ou documento, têm documento ou e-mail inválido, ou aparecem repetidos no arquivo. E-mail e telefone em branco não impedem a importação. Baixe a lista com o motivo de cada um, corrija no sistema antigo e importe de novo: quem já entrou não será duplicado.')}
                 </p>
                 <button type="button" className="pim-link"
                         onClick={() => baixarPendencias(previa.lista_rejeitados, t)}>

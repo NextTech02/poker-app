@@ -19,6 +19,7 @@ const LANGS = {
     label_paid_by: 'Atendente',
     label_signature: 'Assinatura do Ganhador',
     label_debt_offset: 'Fiado abatido',
+    label_credit: 'Crédito de patrocinador descontado',
     label_net: 'Pago em dinheiro',
     footer: 'Parabéns! Guarde este comprovante.',
     btn_print: 'Imprimir Comprovante',
@@ -38,8 +39,9 @@ const LANGS = {
     label_paid_by: 'Atendido por',
     label_signature: 'Firma del Ganador',
     label_debt_offset: 'Fiado descontado',
+    label_credit: 'Crédito de patrocinador descontado',
     label_net: 'Pagado en efectivo',
-    footer: '¡Felicitaciones! Conserve este comprobante.',
+    footer: '¡Felicitaciones! Guarda este comprobante.',
     btn_print: 'Imprimir Comprobante',
     position: (p) => `${p}° Lugar`,
   },
@@ -57,6 +59,7 @@ const LANGS = {
     label_paid_by: 'Processed by',
     label_signature: 'Winner Signature',
     label_debt_offset: 'House credit deducted',
+    label_credit: 'Sponsor credit deducted',
     label_net: 'Paid in cash',
     footer: 'Congratulations! Keep this receipt.',
     btn_print: 'Print Receipt',
@@ -121,13 +124,24 @@ const PrizeVoucher = ({ payout }) => {
   const prizeFormatted = formatCurrency(payout.prize_amount);
   // Ganhador que devia fiado: o prêmio continua o bruto; o comprovante mostra
   // quanto abateu a dívida e quanto saiu em dinheiro.
+  // O crédito de patrocinador usado também volta pelo prêmio (depois do fiado).
   const abatido = Number(payout.debt_offset || 0);
-  const liquido = payout.net_paid !== null && payout.net_paid !== undefined
+  const temLiquido = payout.net_paid !== null && payout.net_paid !== undefined;
+  // Na reimpressão o crédito não vem à parte (não é coluna): é o que falta
+  // entre o bruto, o fiado abatido e o líquido gravado.
+  const credito = payout.credit_deduction !== null && payout.credit_deduction !== undefined
+    ? Number(payout.credit_deduction)
+    : temLiquido
+      ? Math.max(Math.round((Number(payout.prize_amount || 0) - abatido - Number(payout.net_paid)) * 100) / 100, 0)
+      : 0;
+  const liquido = temLiquido
     ? Number(payout.net_paid)
-    : Number(payout.prize_amount || 0) - abatido;
-  const fiadoRows = abatido > 0
+    : Number(payout.prize_amount || 0) - abatido - credito;
+  const temDesconto = abatido > 0 || credito > 0;
+  const fiadoRows = temDesconto
     ? `<table>
-         <tr><td class="lbl">${t.label_debt_offset}</td><td class="val">− ${formatCurrency(abatido)}</td></tr>
+         ${abatido > 0 ? `<tr><td class="lbl">${t.label_debt_offset}</td><td class="val">− ${formatCurrency(abatido)}</td></tr>` : ''}
+         ${credito > 0 ? `<tr><td class="lbl">${t.label_credit}</td><td class="val">− ${formatCurrency(credito)}</td></tr>` : ''}
          <tr><td class="lbl">${t.label_net}</td><td class="val">${formatCurrency(liquido)}</td></tr>
        </table>`
     : '';
@@ -328,9 +342,14 @@ const PrizeVoucher = ({ payout }) => {
         <div className="pv-prize-box">
           <div className="pv-prize-amount">{prizeFormatted}</div>
         </div>
-        {abatido > 0 && (
+        {temDesconto && (
           <div className="pv-fiado">
-            <div><span>{t.label_debt_offset}</span><strong>− {formatCurrency(abatido)}</strong></div>
+            {abatido > 0 && (
+              <div><span>{t.label_debt_offset}</span><strong>− {formatCurrency(abatido)}</strong></div>
+            )}
+            {credito > 0 && (
+              <div><span>{t.label_credit}</span><strong>− {formatCurrency(credito)}</strong></div>
+            )}
             <div><span>{t.label_net}</span><strong>{formatCurrency(liquido)}</strong></div>
           </div>
         )}

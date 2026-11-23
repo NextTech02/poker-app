@@ -98,6 +98,14 @@
   pointer-events: none;
 }
 
+/* Rótulo de mais de 9 letras (Sidebar.js): a 9 px com espaçamento ele passa
+   dos 64 px do trilho e a primeira letra some na borda da tela. A 8 px sem
+   espaçamento, "TOURNAMENTS" mede ~59 px e cabe. */
+.rail-btn .rail-lbl-longo {
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
 .rail-modules .rail-btn {
   margin-bottom: 14px;
 }

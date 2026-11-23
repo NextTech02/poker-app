@@ -468,6 +468,15 @@ describe('torneio com classificatórios', () => {
     expect(confirmar.mock.calls[0][0]).toContain(Number(60000).toLocaleString());
   });
 
+  it('a confirmação é uma frase traduzida inteira, com o dia de destino', async () => {
+    // Colar o rótulo do botão ao nome do dia dava "Advance Qualifiers Final
+    // Day?" em inglês.
+    await montar({ torneio: COM_QUALI, dias: DIAS_QUALI });
+    await userEvent.click(acao('Classificatório 1', 'tournamentDays.advanceQualifiers'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalled());
+    expect(confirmar.mock.calls[0][0]).toMatch(/^tournamentDays\.confirmAdvanceQualifiers:Dia Final/);
+  });
+
   it('avança mesmo se a prévia de sobreviventes falhar', async () => {
     // A prévia é informação extra; bloquear o avanço por causa dela deixaria o
     // torneio parado por um detalhe cosmético.
@@ -550,11 +559,29 @@ describe('fichas dos classificados', () => {
 
 describe('informações de cada dia', () => {
   it('dia normal mostra buy-in, rebuy, add-on e lotação', async () => {
-    await montar({ dias: [DIAS[0]] });
+    // Sem meios de entrada, o rake do cartão é o do próprio dia.
+    await montar({ dias: [DIAS[0]], meios: [] });
     const cartao = cartaoDoDia('Dia 1A');
     expect(cartao).toHaveTextContent('R$ 500.00');
     expect(cartao).toHaveTextContent('40 / 100');
     expect(cartao).toHaveTextContent('20%');
+  });
+
+  it('com meios de entrada, o rake do cartão é o deles, não o 0% do dia', async () => {
+    // Todo dia novo nasce com rake 0: quem cobra é o meio escolhido na venda.
+    // O cartão mostrava "Rake 0%" com meios de 20% e 10%.
+    await montar({
+      dias: [{ ...DIAS[0], rake_percentage: 0 }],
+      meios: [
+        { id: 'a', name: 'Buy-in', category: 'buy_in', amount: 500, rake_percentage: 20, chips: 1, active: true, sort_order: 0 },
+        { id: 'b', name: 'Rebuy', category: 'rebuy', amount: 300, rake_percentage: 10, chips: 1, active: true, sort_order: 1 },
+        { id: 'c', name: 'Bono Dealer', category: 'fee', amount: 20, rake_percentage: 0, chips: 0, active: true, sort_order: 2 },
+      ],
+    });
+    const valor = Array.from(cartaoDoDia('Dia 1A').querySelectorAll('.day-info-item'))
+      .find((el) => el.textContent.includes('cashRegister.rake'))
+      .querySelector('.day-info-value');
+    expect(valor).toHaveTextContent('10% / 20%');
   });
 
   it('rebuy e add-on ausentes viram travessão, não zero', async () => {

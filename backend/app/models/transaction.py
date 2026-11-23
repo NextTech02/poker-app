@@ -90,6 +90,10 @@ class TransactionDetail(Transaction):
     # indisponível). O admin PRECISA ver isso na tela — falhar em silêncio aqui
     # é o que faz o fechamento da noite não bater sem ninguém saber por quê.
     cancel_warnings: List[str] = []
+    # Os mesmos avisos com CÓDIGO e os valores como número ({code, ...dados}):
+    # a frase acima é em português e com "R$"; a tela monta a sua no idioma e
+    # na moeda do clube e usa a frase só como reserva.
+    cancel_notices: List[dict] = []
 
 
 class TransactionCancel(BaseModel):

@@ -24,11 +24,12 @@
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import Players, { mensagemDoErro } from './Players';
+import Players, { mensagemDoErro, documentoPadraoDoClube } from './Players';
 import api from '../config/api';
 import { cachedGet, invalidateCache } from '../utils/apiCache';
 import { offlineWrite } from '../offline/apiOffline';
 import { useToast } from '../contexts/ToastContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -45,6 +46,7 @@ jest.mock('../components/PlayerImportModal', () => ({ onClose }) => (
   <div data-testid="importacao"><button onClick={onClose}>fechar</button></div>
 ));
 jest.mock('../contexts/ToastContext', () => ({ useToast: jest.fn() }));
+jest.mock('../contexts/CurrencyContext', () => ({ useCurrency: jest.fn() }));
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -124,6 +126,7 @@ beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
   confirmar = jest.fn().mockResolvedValue(true);
   useToast.mockReturnValue({ toast, confirm: confirmar });
+  useCurrency.mockReturnValue({ currency: 'BRL', language: 'pt-BR' });
   offlineWrite.mockResolvedValue({ offline: false, data: { id: 'novo' } });
   api.delete.mockResolvedValue({ data: {} });
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -388,6 +391,20 @@ describe('cadastrar jogador', () => {
     expect(tipos).not.toContain('national_id');
   });
 
+  it('o cadastro abre no documento do país do clube', async () => {
+    // Clube colombiano abria em "CPF (Brasil)" e o operador trocava a cada jogador.
+    useCurrency.mockReturnValue({ currency: 'COP', language: 'es-ES' });
+    await montar();
+    await abrirNovo();
+    expect(screen.getByLabelText(/players.documentType/)).toHaveValue('cedula');
+  });
+
+  it('clube brasileiro continua abrindo em CPF', async () => {
+    await montar();
+    await abrirNovo();
+    expect(screen.getByLabelText(/players.documentType/)).toHaveValue('cpf');
+  });
+
   it('DNI do Peru com 8 dígitos passa', async () => {
     await montar();
     await abrirNovo();
@@ -606,6 +623,26 @@ describe('histórico e importação', () => {
     await screen.findByTestId('importacao');
     await ue.click(screen.getByText('fechar'));
     await waitFor(() => expect(screen.queryByTestId('importacao')).toBeNull());
+  });
+});
+
+describe('documento padrão do clube', () => {
+  it('a moeda diz o país do balcão', () => {
+    expect(documentoPadraoDoClube('BRL', 'pt-BR')).toBe('cpf');
+    expect(documentoPadraoDoClube('PEN', 'es-ES')).toBe('dni');
+    expect(documentoPadraoDoClube('COP', 'es-ES')).toBe('cedula');
+  });
+
+  it('moeda de vários países abre em passaporte, fora do português', () => {
+    expect(documentoPadraoDoClube('USD', 'es-ES')).toBe('passport');
+    expect(documentoPadraoDoClube('USD', 'en-US')).toBe('passport');
+    // Clube em português com outra moeda não muda o que já usava.
+    expect(documentoPadraoDoClube('USD', 'pt-BR')).toBe('cpf');
+  });
+
+  it('sem moeda nem idioma ainda carregados, fica no CPF de sempre', () => {
+    expect(documentoPadraoDoClube(undefined, undefined)).toBe('cpf');
+    expect(documentoPadraoDoClube('USD', null)).toBe('cpf');
   });
 });
 

@@ -44,8 +44,11 @@ jest.mock('./OrgSwitcher', () => () => <div data-testid="org-switcher" />);
 jest.mock('./TopBar', () => () => <div data-testid="topbar" />);
 jest.mock('./LanguageSelector', () => () => <div data-testid="language-selector" />);
 jest.mock('../assets/aceblind-logo-white.png', () => 'logo.png');
+// `mockTraducoes` dá o texto de um idioma quando o teste depende dele (o
+// tamanho do rótulo do trilho em inglês).
+let mockTraducoes = {};
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (chave, padrao) => padrao || chave }),
+  useTranslation: () => ({ t: (chave, padrao) => mockTraducoes[chave] || padrao || chave }),
 }));
 
 let sair;
@@ -76,6 +79,7 @@ const itemAtivo = () =>
   );
 
 beforeEach(() => {
+  mockTraducoes = {};
   sair = jest.fn().mockResolvedValue({});
   useAuth.mockReturnValue({ signOut: sair });
   localStorage.clear();
@@ -409,6 +413,28 @@ describe('sair', () => {
     await userEvent.click(botao);
     expect(sair).toHaveBeenCalled();
   });
+});
+
+describe('rótulo do trilho', () => {
+  // O trilho tem 64 px. "TOURNAMENTS", centrado nele no tamanho normal, passava
+  // da borda esquerda da tela e aparecia como "OURNAMENTS".
+  const rotuloDoModulo = () => document.querySelector('.rail-modules .rail-lbl');
+
+  it('nome longo do módulo (inglês) encolhe para caber', () => {
+    mockTraducoes = { 'modules.tournamentTitle': 'Tournaments' };
+    montar({ modulo: 'tournament' });
+    expect(rotuloDoModulo()).toHaveTextContent('Tournaments');
+    expect(rotuloDoModulo()).toHaveClass('rail-lbl-longo');
+  });
+
+  it.each([['tournament', 'Torneios'], ['cash', 'Cash Game'], ['bar', 'Bar']])(
+    'nome que cabe (%s) fica no tamanho normal',
+    (modulo, nome) => {
+      montar({ modulo });
+      expect(rotuloDoModulo()).toHaveTextContent(nome);
+      expect(rotuloDoModulo()).not.toHaveClass('rail-lbl-longo');
+    },
+  );
 });
 
 describe('suporte no trilho', () => {

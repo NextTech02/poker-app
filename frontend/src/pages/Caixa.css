@@ -82,6 +82,22 @@
   border-color: var(--surface-hi-border);
 }
 
+/* Valores em COP e outras moedas de muitos dígitos ("COP$ 3.000.000,00") não
+   cabiam em 1.625rem num cartão de 220px e saíam cortados com "…". O número
+   encolhe com a largura do cartão e, no limite, quebra no espaço da moeda em
+   vez de sumir: o operador precisa ler o total inteiro. */
+.cx-stats .stat-card .card-body {
+  container-type: inline-size;
+}
+
+.cx-stats .stat-card .stat-info h3 {
+  font-size: clamp(1rem, 9.5cqi, 1.625rem);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
 /* ── Table ── */
 .table-container {
   overflow-x: auto;

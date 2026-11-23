@@ -49,6 +49,15 @@ const CASA_DO_MODULO = {
   [MODULO_BAR]: '/bar',
 };
 
+// O rótulo sob o ícone do trilho mede uns 6,4 px por letra e o trilho tem
+// 64 px. Centrado nele, "TOURNAMENTS" (11 letras, ~70 px) passava da borda
+// esquerda da tela e aparecia como "OURNAMENTS". Rótulo longo encolhe um
+// pouco (Sidebar.css) em vez de ser cortado.
+const LETRAS_QUE_CABEM_NO_TRILHO = 9;
+const classeDoRotuloDoTrilho = (rotulo) => (
+  String(rotulo || '').length > LETRAS_QUE_CABEM_NO_TRILHO ? 'rail-lbl rail-lbl-longo' : 'rail-lbl'
+);
+
 const iniciais = (user) => {
   const nome = user?.user_metadata?.full_name || user?.user_metadata?.name || '';
   const partes = nome.trim().split(/\s+/).filter(Boolean);
@@ -347,7 +356,7 @@ const Sidebar = () => {
                   title={rotulo}
                 >
                   <Icon name={ICONE_DO_MODULO[m] || 'grid'} />
-                  <span className="rail-lbl">{rotulo}</span>
+                  <span className={classeDoRotuloDoTrilho(rotulo)}>{rotulo}</span>
                 </button>
               );
             })}
@@ -367,7 +376,7 @@ const Sidebar = () => {
                 onClick={() => isMobile && setIsOpen(false)}
               >
                 <Icon name={item.icon} />
-                <span className="rail-lbl">{rotulo}</span>
+                <span className={classeDoRotuloDoTrilho(rotulo)}>{rotulo}</span>
               </Link>
             );
           })}

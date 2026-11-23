@@ -96,6 +96,14 @@ const enfeite = (espelhar = false, virar = false) => {
     + '<path d="M30 11 H60"/></g></svg>';
 };
 
+/**
+ * Hora em que o jogador sentou NESTE lugar. A troca de mesa (PATCH
+ * /allocations/{id}) move a mesma linha e só grava `updated_at`: com
+ * `created_at`, o bilhete do lugar novo saía com a hora do primeiro assento.
+ * Assento que nunca mudou não tem `updated_at` e fica com `created_at`.
+ */
+export const horaDoAssento = (allocation) => allocation?.updated_at || allocation?.created_at;
+
 const formatarData = (iso, idioma) => {
   const data = iso ? new Date(iso) : new Date();
   if (Number.isNaN(data.getTime())) return '';
@@ -170,7 +178,7 @@ export const htmlDoBilhete = ({
     : '');
   const dados = [
     dado(L.sede, escapar(branding.venue)),
-    dado(L.dataHora, escapar(formatarData(allocation.created_at, lang))),
+    dado(L.dataHora, escapar(formatarData(horaDoAssento(allocation), lang))),
     itens.length ? dado(L.valor, escapar(formatarValor(totalValor))) : '',
     dado(L.caixa, escapar(caixa)),
   ].join('');

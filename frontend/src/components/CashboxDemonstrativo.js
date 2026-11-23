@@ -80,7 +80,7 @@ const PERFIS = {
  * recorte É o turno/dia.
  */
 const CashboxDemonstrativo = ({ anchor = null }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { selectedStage } = useStage();
   const { formatCurrency } = useCurrency();
@@ -318,12 +318,12 @@ const CashboxDemonstrativo = ({ anchor = null }) => {
                 {sessions.map((s) => (
                   <tr key={s.session_id}>
                     <td>{s.staff_name || '—'}</td>
-                    <td>{new Date(s.opened_at).toLocaleString('pt-BR')}</td>
+                    <td>{new Date(s.opened_at).toLocaleString(i18n?.language)}</td>
                     <td>
                       {s.is_open ? (
                         <span className="cb-demo__pill-open">{t('cashbox.statusOpen')}</span>
                       ) : s.closed_at ? (
-                        new Date(s.closed_at).toLocaleString('pt-BR')
+                        new Date(s.closed_at).toLocaleString(i18n?.language)
                       ) : '—'}
                     </td>
                     <td className="amount">{formatCurrency(s.initial_balance)}</td>

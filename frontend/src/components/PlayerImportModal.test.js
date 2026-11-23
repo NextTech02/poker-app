@@ -242,10 +242,13 @@ describe('prévia', () => {
       ...PREVIA,
       rejeitados: 2,
       lista_rejeitados: [
-        { source_id: '9', name: 'Sem Email', reason: 'e-mail ausente' },
+        { source_id: '9', name: 'Sem Documento', reason: 'documento' },
       ],
     });
-    expect(screen.getByText(/não têm e-mail, telefone ou documento/)).toBeInTheDocument();
+    // O backend só exige nome e documento: dizer que e-mail e telefone são
+    // obrigatórios mandava o clube completar campos que não travam nada.
+    expect(screen.getByText(/sem nome ou documento/)).toBeInTheDocument();
+    expect(screen.queryByText(/e-mail, telefone ou documento/)).toBeNull();
     expect(screen.getByText(/Baixar lista de pendentes/)).toBeInTheDocument();
   });
 

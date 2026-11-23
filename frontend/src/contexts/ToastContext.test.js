@@ -20,8 +20,12 @@ import { registerToast } from '../utils/toastEmitter';
 
 jest.mock('../utils/toastEmitter', () => ({ registerToast: jest.fn() }));
 jest.mock('../components/Toast.css', () => ({}), { virtual: true });
-// Recusa com código sem tradução carregada: vale a frase do servidor.
-jest.mock('i18next', () => ({ t: (chave, padrao) => padrao || chave }));
+// Os botões padrão do diálogo vêm do idioma; `mockTraducoes` faz o papel do
+// locale carregado. Recusa com código sem tradução carregada: vale a frase do
+// servidor.
+const PORTUGUES = { 'common.confirm': 'Confirmar', 'common.cancel': 'Cancelar' };
+let mockTraducoes = PORTUGUES;
+jest.mock('i18next', () => ({ t: (chave, padrao) => mockTraducoes[chave] || padrao || chave }));
 
 let api;
 
@@ -34,6 +38,7 @@ const montar = () => render(<ToastProvider><Sonda /></ToastProvider>);
 
 beforeEach(() => {
   api = null;
+  mockTraducoes = PORTUGUES;
 });
 
 describe('exibição', () => {
@@ -204,6 +209,19 @@ describe('confirmação', () => {
     // encontrado pelo papel, nao pelo texto solto.
     expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+  });
+
+  it('os textos padrão seguem o idioma do app', () => {
+    // A maioria das telas chama `confirm(pergunta)` sem título nem botões: com
+    // o português fixo, o clube em inglês via "Confirmar"/"Cancelar".
+    mockTraducoes = { 'common.confirm': 'Confirm', 'common.cancel': 'Cancel' };
+    montar();
+    act(() => {
+      api.confirm('Delete the tournament?');
+    });
+    expect(screen.getByRole('alertdialog', { name: 'Confirm' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
 
   it('confirmar resolve verdadeiro e fecha', async () => {

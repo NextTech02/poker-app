@@ -27,18 +27,25 @@
 /* ── Melhores dias ──────────────────────────────────────────────────── */
 /* A barra é comparativa, não uma escala absoluta: a pergunta é "qual dia rende
    mais que os outros", e o número exato fica ao lado. */
+/* A coluna do valor cresce até o MAIOR valor da lista (as linhas dividem as
+   colunas da lista por subgrid): com 120px fixos, "COP$ 3.250.000,00" quebrava
+   em duas linhas. Navegador sem subgrid fica com a coluna própria de cada
+   linha — o valor continua numa linha só, só as barras deixam de alinhar. */
 .cr-rank {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(120px, max-content);
+  column-gap: 0.75rem;
+  row-gap: 0.5rem;
 }
 
 .cr-rank li {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr) 120px;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(120px, auto);
+  grid-template-columns: subgrid;
   align-items: center;
   gap: 0.75rem;
 }
@@ -65,6 +72,8 @@
   text-align: right;
   font-weight: 700;
   color: var(--success-color, #22c55e);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Dia da semana ──────────────────────────────────────────────────── */

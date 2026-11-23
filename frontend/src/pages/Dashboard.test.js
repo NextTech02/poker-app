@@ -178,6 +178,11 @@ describe('transações recentes', () => {
     expect(screen.getByText('Beto — Rebuy')).toBeInTheDocument();
   });
 
+  it('prêmio pago sai traduzido, não como "prize"', async () => {
+    await montar({ transacoes: [{ id: 'x1', player_name: 'Ana', type: 'prize', amount: 10 }] });
+    expect(await screen.findByText('Ana — Premiação')).toBeInTheDocument();
+  });
+
   it('tipo desconhecido sai como veio', async () => {
     // Um tipo novo no backend não pode virar "undefined" na tela.
     await montar({ transacoes: [{ id: 'x1', player_name: 'Ana', type: 'tipo_novo', amount: 10 }] });

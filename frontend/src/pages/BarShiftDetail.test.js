@@ -73,6 +73,12 @@ it('mostra os números ao vivo e a margem', async () => {
   expect(screen.getByText(/dinheiro R\$ 30\.00 · crédito R\$ 15\.00/)).toBeInTheDocument();
 });
 
+it('a forma de pagamento aparece pelo nome, não pelo código', async () => {
+  render(<BarShiftDetail />);
+  expect(await screen.findByText('financial.paymentPix')).toBeInTheDocument();
+  expect(screen.queryByText('pix')).toBeNull();
+});
+
 it('lista as comandas abertas com o saldo que segura o fechamento', async () => {
   render(<BarShiftDetail />);
   expect(await screen.findByText('Ana')).toBeInTheDocument();

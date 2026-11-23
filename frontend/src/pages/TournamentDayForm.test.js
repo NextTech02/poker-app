@@ -28,6 +28,7 @@ import TournamentDayForm from './TournamentDayForm';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { formatCurrency } from '../utils/currencyUtils';
 
 jest.mock('../config/api', () => ({
   __esModule: true,
@@ -133,7 +134,8 @@ const linhasDaTabela = () =>
 beforeEach(() => {
   toast = { success: jest.fn(), error: jest.fn(), warning: jest.fn() };
   useToast.mockReturnValue({ toast });
-  useCurrency.mockReturnValue({ currency: 'BRL' });
+  // O formatador de verdade: é ele que decide "R$ 500,00" x "US$ 500.00".
+  useCurrency.mockReturnValue({ currency: 'BRL', formatCurrency: (v) => formatCurrency(v, 'BRL') });
   api.post.mockResolvedValue({ data: { id: 'novo' } });
   api.patch.mockResolvedValue({ data: {} });
   api.put.mockResolvedValue({ data: [] });
@@ -389,7 +391,8 @@ describe('meios de entrada do torneio (somente leitura)', () => {
     await montar();
     expect(linhasDaTabela().map((l) => l[0])).toEqual(['Buy-in', 'Rebuy']);
     // O separador de milhar segue o locale do ambiente (30.000 ou 30,000).
-    expect(linhasDaTabela()[0].slice(0, 4)).toEqual(['Buy-in', 'Entrada', 'R$ 500.00', '10%']);
+    // Valor no formato da moeda do clube: toFixed dava "R$ 500.00".
+    expect(linhasDaTabela()[0].slice(0, 4)).toEqual(['Buy-in', 'Entrada', 'R$ 500,00', '10%']);
     expect(linhasDaTabela()[0][4]).toMatch(/^30[.,]000$/);
   });
 

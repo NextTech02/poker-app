@@ -16,7 +16,7 @@ const VIVOS = new Set(['registered', 'active']);
  * correções da direção, ranking das equipes, conferência dos capitães e a
  * oficialização. A eliminação em si continua sendo o ✕ da Gestão de Mesas.
  */
-const Fase1Tab = ({ tournamentId, torneio, resumo, inscritosVivos = 0, onMudou }) => {
+const Fase1Tab = ({ tournamentId, torneio, resumo, inscritos = 0, onMudou }) => {
   const { t } = useTranslation();
   // O nome na mesa abre o histórico do jogador.
   const { podeVerHistorico } = useHistoricoDoJogador();
@@ -42,7 +42,7 @@ const Fase1Tab = ({ tournamentId, torneio, resumo, inscritosVivos = 0, onMudou }
 
   const oficial = !!resumo?.official;
   const base = `/tournaments/${tournamentId}/teams`;
-  const tamanhos = previaDasMesas(inscritosVivos);
+  const tamanhos = previaDasMesas(inscritos);
 
   const sortear = (refazer = false) => executar(
     async () => {
@@ -125,7 +125,7 @@ const Fase1Tab = ({ tournamentId, torneio, resumo, inscritosVivos = 0, onMudou }
         <p className="eq-hint">
           {tamanhos.length
             ? t('teams.seatingPreview', '{{n}} jogadores → {{k}} mesas ({{tamanhos}}). Integrantes da mesma equipe sempre em mesas diferentes; no máximo 8 por mesa.', {
-              n: inscritosVivos, k: tamanhos.length, tamanhos: resumoDasMesas(tamanhos),
+              n: inscritos, k: tamanhos.length, tamanhos: resumoDasMesas(tamanhos),
             })
             : t('teams.seatingEmpty', 'Inscreva os jogadores (Caixa ou "Cobrar equipe") e crie as mesas do dia; depois sorteie.')}
         </p>

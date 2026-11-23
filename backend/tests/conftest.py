@@ -436,6 +436,18 @@ def fiado_isolado(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def credito_de_patrocinador_isolado(monkeypatch):
+    """O pagamento de prêmio pergunta ao serviço de crédito de patrocinador
+    "este ganhador usou crédito?", pelo `supabase` PRÓPRIO dele. Por padrão ele
+    vê um banco vazio — ninguém usou crédito. Os testes do crédito ligam o fake
+    do cenário."""
+    from app.services import player_credit_service as mod
+    fake = FakeSupabase({})
+    monkeypatch.setattr(mod, "supabase", fake)
+    return fake
+
+
+@pytest.fixture(autouse=True)
 def pagamento_dividido_isolado(monkeypatch):
     """O pagamento dividido confere a coluna `payment_split` com o PRÓPRIO
     `supabase` antes de gravar uma venda dividida. Por padrão ele vê um banco

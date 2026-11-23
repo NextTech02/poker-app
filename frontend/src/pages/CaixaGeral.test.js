@@ -497,6 +497,21 @@ describe('gravação da sangria', () => {
     );
   });
 
+  it('o aviso da sangria sai no idioma e na moeda do clube, não na frase do servidor', async () => {
+    // A frase do servidor vem em português e com os números crus.
+    offlineWrite.mockResolvedValue({ offline: false, data: {
+      message: 'Sangria realizada com sucesso! Valor líquido: 4000.00, Rake: 1000.00',
+      sangria_transaction: { net_amount: '4000.00', rake_amount: '1000.00' },
+    } });
+    await montar();
+    await abrirSangria();
+    await digitarValor('5000');
+    await enviar();
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('generalCash.sangriaDone:R$ 4000.00,R$ 1000.00')
+    );
+  });
+
   it('erro do servidor mostra o motivo', async () => {
     offlineWrite.mockRejectedValue(erroHttp(400, 'Caixa já fechado'));
     await montar();

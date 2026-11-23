@@ -16,7 +16,6 @@ import '../components/equipes/Equipes.css';
 import './TorneioEquipes.css';
 
 const ABAS = ['equipes', 'fase1', 'final'];
-const VIVOS = new Set(['registered', 'active']);
 
 /**
  * Torneio por equipes (bases do NSOP): cadastro das equipes, Fase 1 (mesas,
@@ -69,10 +68,13 @@ const TorneioEquipes = () => {
     ativo: !!id,
   });
 
-  const inscritosVivos = useMemo(() => {
-    // Prévia das mesas: integrantes inscritos e vivos (avulsos entram pelo resumo da Fase 1).
+  const inscritosNaFase1 = useMemo(() => {
+    // Prévia das mesas: TODOS os integrantes inscritos na Fase 1, vivos ou
+    // não. O tamanho do campo é que define as mesas; contar só os vivos fazia
+    // a prévia encolher a cada eliminação ("4 jogadores → 4 mesas (4×1)" com
+    // o torneio no meio). Inscrição cancelada já não vem com tp_id.
     const membros = (dados?.teams || []).flatMap((e) => e.members);
-    return membros.filter((m) => m.tp_id && VIVOS.has(m.status)).length;
+    return membros.filter((m) => m.tp_id && m.status !== 'cancelled').length;
   }, [dados]);
 
   const salvarEquipe = async (corpo) => {
@@ -216,7 +218,7 @@ const TorneioEquipes = () => {
             )}
           </div>
         ) : aba === 'fase1' ? (
-          <Fase1Tab tournamentId={id} torneio={torneio} resumo={fase1} inscritosVivos={inscritosVivos} onMudou={carregar} />
+          <Fase1Tab tournamentId={id} torneio={torneio} resumo={fase1} inscritos={inscritosNaFase1} onMudou={carregar} />
         ) : (
           relay ? <FinalTab tournamentId={id} dados={dados} relay={relay} onMudou={carregar} />
             : <div className="loading">{t('common.loading')}</div>

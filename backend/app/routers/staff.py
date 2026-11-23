@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from typing import List
 from app.models.staff import (
     PermissionGroupCreate,
@@ -10,10 +11,11 @@ from app.models.staff import (
     MyPermissions,
 )
 from app.services.staff_service import StaffService
+from app.services.staff_payment_service import StaffPaymentService
 from app.services.module_service import ModuleService
 from app.auth.jwt import get_current_user
 from app.auth.permissions import require_permission
-from app.dependencies import get_language
+from app.dependencies import get_language, get_stage_id_required
 from app.utils.erros import da_excecao, nao_encontrado
 
 router = APIRouter(prefix="/staff", tags=["staff"])
@@ -175,6 +177,33 @@ def resend_invite(staff_id: str, user=_manage_staff, idioma: str = Depends(get_l
         return StaffService.resend_invite(
             staff_id, user.get("organization_id"), idioma=idioma
         )
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+# ── Pagamentos da etapa (saem do caixa geral) ──
+
+class StaffPaymentPay(BaseModel):
+    amount: float = Field(..., gt=0)
+
+
+@router.post("/payments/{staff_id}/pay")
+def pay_staff(
+    staff_id: str,
+    data: StaffPaymentPay,
+    stage_id: str = Depends(get_stage_id_required),
+    user=_manage_staff,
+):
+    try:
+        return StaffPaymentService.pay(stage_id, staff_id, data.amount, user.get("sub"))
+    except ValueError as e:
+        raise da_excecao(e)
+
+
+@router.post("/payments/{payment_id}/reverse")
+def reverse_staff_payment(payment_id: str, user=_manage_staff):
+    try:
+        return StaffPaymentService.reverse(payment_id, user.get("sub"))
     except ValueError as e:
         raise da_excecao(e)
 

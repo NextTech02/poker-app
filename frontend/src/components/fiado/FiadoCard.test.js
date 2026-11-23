@@ -38,12 +38,15 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-const montar = ({ conta, extrato = [], gerente = true, cashDayId = 'dia-1' }) => {
+const montar = ({ conta, extrato = [], gerente = true, cashDayId = 'dia-1', config = null }) => {
   usePermissions.mockReturnValue({ hasPermission: (p) => (p === 'fiado.manage' ? gerente : true) });
   useCashDay.mockReturnValue({ cashDayId });
   useBarShift.mockReturnValue({ barShiftId: null });
   api.get.mockImplementation((url) => {
     if (url.endsWith('/entries')) return Promise.resolve({ data: extrato });
+    if (url === '/house-credit/settings') {
+      return Promise.resolve({ data: config || { due_days: 30, block_overdue: true, default_limit: 0 } });
+    }
     return Promise.resolve({ data: conta });
   });
   return render(<FiadoCard playerId="p1" playerName="Ana" />);
@@ -73,6 +76,28 @@ it('gerente libera o jogador com limite', async () => {
   await waitFor(() => expect(api.put).toHaveBeenCalledWith('/house-credit/players/p1', {
     enabled: true, credit_limit: 800, notes: null,
   }));
+});
+
+it('liberar propõe o limite sugerido da configuração', async () => {
+  montar({
+    conta: { player_id: 'p1', exists: false, balance: 0, credit_limit: 0, available: 0 },
+    config: { due_days: 30, block_overdue: true, default_limit: 500 },
+  });
+  await userEvent.click(await screen.findByRole('button', { name: 'Liberar fiado' }));
+  expect(screen.getByLabelText('Limite')).toHaveValue(500);
+  await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+  await waitFor(() => expect(api.put).toHaveBeenCalledWith('/house-credit/players/p1', {
+    enabled: true, credit_limit: 500, notes: null,
+  }));
+});
+
+it('quem já tem conta abre com o próprio limite, não o sugerido', async () => {
+  montar({
+    conta: { player_id: 'p1', exists: true, enabled: true, balance: 0, credit_limit: 200, available: 200 },
+    config: { due_days: 30, block_overdue: true, default_limit: 500 },
+  });
+  await userEvent.click(await screen.findByRole('button', { name: 'Liberar / limite' }));
+  expect(screen.getByLabelText('Limite')).toHaveValue(200);
 });
 
 it('receber exige a gaveta do módulo', async () => {

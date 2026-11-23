@@ -12,9 +12,13 @@
   margin: 4px 0 10px;
 }
 
+/* O tema é escuro: os --*-light (quase brancos) como fundo deixavam o texto
+   claro sobre claro. Tint translúcido + texto calibrado para tint, como os
+   badges (styles/index.css). */
 .eq-erro {
-  background: var(--danger-light);
-  color: var(--text-danger, var(--danger-color));
+  background: var(--danger-bg);
+  color: var(--badge-text-danger, var(--text-danger));
+  border-left: 3px solid var(--danger-color);
   border-radius: var(--radius-md, 8px);
   padding: 8px 12px;
   margin: 8px 0;
@@ -22,7 +26,8 @@
 }
 
 .eq-avisos {
-  background: var(--warning-light);
+  background: var(--warning-bg);
+  border-left: 3px solid var(--text-warning);
   border-radius: var(--radius-md, 8px);
   padding: 8px 12px 8px 28px;
   margin: 0 0 16px;

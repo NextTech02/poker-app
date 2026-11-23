@@ -42,3 +42,24 @@ it('as chaves interpoladas usam os mesmos nomes nos três idiomas', () => {
   ));
   expect(divergentes).toEqual([]);
 });
+
+it('toda chave de `common` usada no código existe', () => {
+  // A paridade acima não vê chave que falta nos TRÊS arquivos: `t('common.all',
+  // 'Todas')` caía no texto reserva em português e o filtro do clube em Lima
+  // dizia "Todas". `common` é o vocabulário de todas as telas, por isso a
+  // varredura cobre o código inteiro.
+  /* eslint-disable global-require */
+  const fs = require('fs');
+  const path = require('path');
+  /* eslint-enable global-require */
+  const arquivosJs = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const caminho = path.join(dir, e.name);
+    if (e.isDirectory()) return arquivosJs(caminho);
+    return /\.js$/.test(e.name) && !/\.test\.js$/.test(e.name) ? [caminho] : [];
+  });
+  const existentes = new Set(chaves(ptBR));
+  const usadas = new Set(arquivosJs(path.join(__dirname, '..')).flatMap((arquivo) => (
+    [...fs.readFileSync(arquivo, 'utf8').matchAll(/\bt\(\s*['"](common\.[\w.]+)['"]/g)].map((m) => m[1])
+  )));
+  expect([...usadas].filter((k) => !existentes.has(k))).toEqual([]);
+});
