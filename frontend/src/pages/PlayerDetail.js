@@ -12,6 +12,7 @@ import ContactConsentStatus from '../components/ContactConsentStatus';
 import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { nomeDoPais } from '../utils/paises';
 import './PlayerDetail.css';
 import './Bar.css';
 
@@ -245,7 +246,7 @@ const PlayerDetail = () => {
                 <h1 className="pd-name">{player.name}</h1>
                 <div className="pd-meta">
                   {player.nickname && <span className="pd-nick">@{player.nickname}</span>}
-                  {player.nationality && <span className="pd-meta-item">{player.nationality}</span>}
+                  {player.nationality && <span className="pd-meta-item">{nomeDoPais(player.nationality, i18n?.language)}</span>}
                   <span className="pd-meta-item">
                     {t('playerDetail.since', 'Desde')} {fmtDate(s.first_played, i18n.language)}
                   </span>

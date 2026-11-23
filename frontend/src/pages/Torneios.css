@@ -470,18 +470,21 @@
 .tr-required { color: var(--danger-light); margin-left: 2px; }
 
 .tr-field input {
-  background: #071018;
-  border: 1px solid var(--surface);
-  border-radius: 8px;
+  /* Os mesmos do select ao lado: fundo, borda e fonte diferentes faziam a linha
+     parecer dois formulários. */
+  background: var(--card-bg-hover);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
   padding: 0.7rem 0.9rem;
-  color: var(--text);
+  color: var(--text-primary);
+  font-family: var(--font-body);
   font-size: 0.9rem;
   transition: border-color 0.2s, box-shadow 0.2s;
   width: 100%;
   box-sizing: border-box;
 }
 
-.tr-field input::placeholder { color: var(--border-light); }
+.tr-field input::placeholder { color: var(--text-tertiary); }
 
 /* Pintura, chevron e foco vêm do padrão global (styles/index.css). O antigo
    `option { color:#111; background:#fff }` saiu junto: aquilo era o remendo
@@ -504,7 +507,8 @@
 
 .tr-field small {
   font-size: 0.75rem;
-  color: var(--border-light);
+  line-height: 1.4;
+  color: var(--text-secondary);
 }
 
 /* Section label (meios de entrada, valores dos classificatórios) + 2-col grid.
@@ -588,13 +592,13 @@
 
 .tr-elim-hint {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .tr-elim-rule {
   display: block;
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* Toggle Card */
@@ -645,7 +649,7 @@
 
 .tr-toggle-hint {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* Toggle Switch */
@@ -765,8 +769,6 @@
 .qualifying-toggle-card,
 .toggle-switch,
 .toggle-knob,
-.form-group,
-.form-row,
 .modal-overlay,
 .modal,
 .modal-header,

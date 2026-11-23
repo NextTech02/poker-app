@@ -168,24 +168,6 @@
   color: var(--text-tertiary);
 }
 
-/* Form row for side-by-side inputs */
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-/* Modal Actions */
-.modal-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border-color);
-}
-
 .modal-actions-left {
   display: flex;
   gap: 0.5rem;
@@ -226,15 +208,10 @@
   }
 
   /* Form responsive */
-  .form-row {
-    grid-template-columns: 1fr;
-  }
+  
 
   /* Modal responsive */
-  .modal-actions {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
+  
 
   .modal-actions-left,
   .modal-actions-right {

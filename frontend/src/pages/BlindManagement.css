@@ -67,23 +67,6 @@
   justify-content: center;
 }
 
-/* Modal Overlay */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  padding: 1rem;
-  animation: fadeIn 0.2s ease;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -91,18 +74,6 @@
   to {
     opacity: 1;
   }
-}
-
-/* Modal */
-.modal {
-  background: #1a202c;
-  border-radius: 16px;
-  max-width: 600px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease;
 }
 
 @keyframes slideUp {
@@ -114,109 +85,6 @@
     transform: translateY(0);
     opacity: 1;
   }
-}
-
-/* Modal Header */
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
-  background: linear-gradient(135deg, var(--brand-gold) 0%, #764ba2 100%);
-  border-radius: 16px 16px 0 0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: white;
-}
-
-.close-btn {
-  /* pastilha clara sobre o header roxo deixava o X branco em 2,72:1;
-     com a pastilha escurecendo o fundo o par vai a 5,94:1 */
-  background: rgba(0, 0, 0, 0.25);
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: white;
-  padding: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.close-btn:hover {
-  background: rgba(0, 0, 0, 0.4);
-  transform: rotate(90deg);
-}
-
-/* Modal Form */
-.modal form {
-  padding: 2rem;
-  background: #1a202c;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: #ffffff;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  border: 2px solid var(--border-lighter);
-  border-radius: 8px;
-  font-size: 1rem;
-  color: #ffffff;
-  background: var(--border-light);
-  transition: all 0.2s ease;
-  box-sizing: border-box;
-}
-
-.form-group input::placeholder {
-  color: #a0aec0;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: var(--brand-gold);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
-  background: var(--border-light);
-}
-
-.form-group input:hover {
-  border-color: var(--brand-gold);
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-/* Modal Actions */
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 2px solid var(--border-lighter);
 }
 
 /* Empty State */
@@ -257,23 +125,13 @@
     padding: 0.875rem 0.5rem;
   }
 
-  .form-row {
-    grid-template-columns: 1fr;
-  }
+  
 
-  .modal {
-    margin: 1rem;
-    max-width: calc(100% - 2rem);
-    border-radius: 12px;
-  }
+  
 
-  .modal-header {
-    padding: 1.25rem 1.5rem;
-  }
+  
 
-  .modal form {
-    padding: 1.5rem;
-  }
+  
 
   .action-buttons {
     gap: 0.25rem;
@@ -302,13 +160,6 @@
 /* Additional Visual Enhancements */
 .blinds-table tbody tr:last-child {
   border-bottom: none;
-}
-
-.form-group small {
-  display: block;
-  margin-top: 0.25rem;
-  color: #cbd5e0;
-  font-size: 0.875rem;
 }
 
 /* Focus visible for accessibility */
@@ -538,31 +389,6 @@
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
-}
-
-/* Save Template Modal */
-.form-group textarea {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  border: 2px solid var(--border-lighter);
-  border-radius: 8px;
-  font-size: 1rem;
-  color: #ffffff;
-  background: var(--border-light);
-  transition: all 0.2s ease;
-  box-sizing: border-box;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--brand-gold);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
-}
-
-.form-group textarea::placeholder {
-  color: #a0aec0;
 }
 
 .save-template-info {

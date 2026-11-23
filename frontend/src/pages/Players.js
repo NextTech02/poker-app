@@ -11,11 +11,12 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { offlineWrite } from '../offline/apiOffline';
 import { applyPlayerCreate } from '../offline/domainRules';
 import { uuid, getEntity, putEntity } from '../offline/db';
-import countries from '../data/countries';
+import { nomeDoPais, paisesNoIdioma } from '../utils/paises';
 import { opcoesDocumento, validarDocumento, ehTipoLegado } from '../utils/documentos';
 import ContactConsentStatus from '../components/ContactConsentStatus';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import './Players.css';
+import { DATA_MAXIMA } from '../utils/datasLocais';
 
 // A tabela desenha uma página por vez; o resto vem no "Mostrar mais".
 export const JOGADORES_POR_PAGINA = 100;
@@ -112,7 +113,7 @@ export const mensagemDoErro = (error, t) => {
 
 const Players = () => {
   const { toast, confirm } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { currency: moedaDoClube, language: idiomaDoClube } = useCurrency() || {};
   const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
@@ -259,6 +260,8 @@ const Players = () => {
     setFormError('');
     setShowModal(true);
   };
+
+  const paises = useMemo(() => paisesNoIdioma(i18n?.language), [i18n?.language]);
 
   // B5: useMemo evita re-computar a lista inteira em cada render
   const sortedPlayers = useMemo(
@@ -446,7 +449,7 @@ const Players = () => {
                           </div>
                         </td>
                         <td data-label={t('players.columnNationality')}>
-                          <span className="pl-nationality">{player.nationality || '—'}</span>
+                          <span className="pl-nationality">{nomeDoPais(player.nationality, i18n?.language) || '—'}</span>
                         </td>
                         <td data-label={t('players.columnDocument')}>
                           {player.document_number ? (
@@ -576,7 +579,7 @@ const Players = () => {
                 <div className="pl-field pl-field-full">
                   <label htmlFor="birth_date">{t('players.birthDate', 'Data de nascimento')}</label>
                   <input
-                    id="birth_date" name="birth_date" type="date"
+                    id="birth_date" name="birth_date" type="date" max={DATA_MAXIMA}
                     value={formData.birth_date} onChange={handleChange}
                   />
                 </div>
@@ -617,8 +620,8 @@ const Players = () => {
                     value={formData.nationality} onChange={handleChange}
                   >
                     <option value="">{t('players.selectCountry')}</option>
-                    {countries.map((country) => (
-                      <option key={country} value={country}>{country}</option>
+                    {paises.map(({ valor, rotulo }) => (
+                      <option key={valor} value={valor}>{rotulo}</option>
                     ))}
                   </select>
                 </div>

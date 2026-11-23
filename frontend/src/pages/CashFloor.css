@@ -160,43 +160,6 @@
   color: var(--success-color, #22c55e);
 }
 
-.form-hint {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 0.76rem;
-  line-height: 1.4;
-  color: var(--text-secondary, #8aa0b0);
-}
-/* Aviso que impede o envio (ex.: cash-out acima do saldo da gaveta). */
-.form-hint--danger {
-  color: var(--text-danger);
-  font-weight: 600;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  margin-top: 1.25rem;
-}
-
-.modal h2 {
-  margin: 0 0 1rem;
-  font-size: 1.15rem;
-}
-
-/* O modal global não tem padding próprio — as telas antigas põem o seu. */
-.modal > h2,
-.modal > form {
-  padding-inline: var(--spacing-xl, 1.5rem);
-}
-.modal > h2 {
-  padding-top: var(--spacing-lg, 1.25rem);
-}
-.modal > form {
-  padding-bottom: var(--spacing-lg, 1.25rem);
-}
-
 @media (max-width: 640px) {
   .cf-tables {
     grid-template-columns: 1fr;

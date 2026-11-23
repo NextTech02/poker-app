@@ -190,10 +190,10 @@ const CashConfig = () => {
                       </span>
                     </td>
                     <td className="cc-actions">
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrirEdicao(g)}>
+                      <button type="button" className="btn btn-secondary btn-small" onClick={() => abrirEdicao(g)}>
                         {t('common.edit', 'Editar')}
                       </button>
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => remover(g)}>
+                      <button type="button" className="btn btn-danger btn-small" onClick={() => remover(g)}>
                         {t('common.delete', 'Excluir')}
                       </button>
                     </td>

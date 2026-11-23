@@ -12,6 +12,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { useTranslation } from 'react-i18next';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import './CaixaJogadores.css';
+import { DATA_MAXIMA } from '../utils/datasLocais';
 
 
 // Set de MÓDULO, não array literal dentro da função: o literal era reconstruído
@@ -379,11 +380,11 @@ const CaixaJogadores = () => {
                 </div>
                 <div className="form-group">
                   <label>{t('playerCash.filterFrom')}</label>
-                  <input type="date" name="date_from" value={filters.date_from} onChange={handleFilterChange} />
+                  <input type="date" max={DATA_MAXIMA} name="date_from" value={filters.date_from} onChange={handleFilterChange} />
                 </div>
                 <div className="form-group">
                   <label>{t('playerCash.filterTo')}</label>
-                  <input type="date" name="date_to" value={filters.date_to} onChange={handleFilterChange} />
+                  <input type="date" max={DATA_MAXIMA} name="date_to" value={filters.date_to} onChange={handleFilterChange} />
                 </div>
                 <div className="cj-filter-actions">
                   <Button variant="secondary" onClick={clearFilters}>{t('common.clear')}</Button>

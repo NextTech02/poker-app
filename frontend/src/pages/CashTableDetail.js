@@ -439,7 +439,7 @@ const CashTableDetail = () => {
                       <span className="ctd-seat-empty">{t('cash.seatFree', 'Livre')}</span>
                       <button
                         type="button"
-                        className="btn btn-primary btn-sm"
+                        className="btn btn-primary btn-small"
                         onClick={() => abrir('sit', s)}
                         disabled={bloqueado || fechada}
                       >
@@ -475,7 +475,7 @@ const CashTableDetail = () => {
                       <div className="ctd-seat-actions">
                         <button
                           type="button"
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary btn-small"
                           onClick={() => abrir('rebuy', s)}
                           disabled={bloqueado || fechada}
                         >
@@ -483,7 +483,7 @@ const CashTableDetail = () => {
                         </button>
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-primary btn-small"
                           onClick={() => abrir('stand', s)}
                           disabled={bloqueado || fechada}
                         >
@@ -493,7 +493,7 @@ const CashTableDetail = () => {
                       {outrasMesas.length > 0 && !fechada && (
                         <button
                           type="button"
-                          className="btn btn-secondary btn-sm ctd-move"
+                          className="btn btn-secondary btn-small ctd-move"
                           onClick={() => abrir('move', s)}
                           disabled={bloqueado}
                         >
@@ -511,7 +511,7 @@ const CashTableDetail = () => {
             <div className="ctd-rake-head">
               <h2>{t('cash.rake', 'Rake')}</h2>
               {!fechada && (
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => abrir('rake')}>
+                <button type="button" className="btn btn-secondary btn-small" onClick={() => abrir('rake')}>
                   {t('cash.countRake', 'Apurar')}
                 </button>
               )}

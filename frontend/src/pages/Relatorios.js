@@ -10,7 +10,7 @@ import api from '../config/api';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import './Relatorios.css';
-import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA } from '../utils/datasLocais';
 import { agruparMeiosDoPeriodo, colunasDosJogadores, entradasDoJogador } from '../utils/meiosDoPeriodo';
 
 const Relatorios = () => {
@@ -107,7 +107,7 @@ const Relatorios = () => {
               <input
                 id="start"
                 name="start"
-                type="date"
+                type="date" max={DATA_MAXIMA}
                 value={dateRange.start}
                 onChange={handleDateChange}
               />
@@ -117,7 +117,7 @@ const Relatorios = () => {
               <input
                 id="end"
                 name="end"
-                type="date"
+                type="date" max={DATA_MAXIMA}
                 value={dateRange.end}
                 onChange={handleDateChange}
               />

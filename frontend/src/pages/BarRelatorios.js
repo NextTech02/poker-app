@@ -10,7 +10,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { usePaymentMethods } from '../contexts/PaymentMethodsContext';
 import { exportSections } from '../utils/reportExport';
 import { nomeDaCategoria, rotuloDoMeioDoBar } from '../utils/barRotulos';
-import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA, dataPorExtenso } from '../utils/datasLocais';
 import './CashFloor.css';
 import './CashRelatorios.css';
 import './Bar.css';
@@ -25,7 +25,7 @@ import './Bar.css';
  *             do patrocinador, não passou pela gaveta).
  */
 const BarRelatorios = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   const { methods: meios = [] } = usePaymentMethods() || {};
@@ -167,12 +167,12 @@ const BarRelatorios = () => {
         <div className="bar-filters">
           <div className="form-group">
             <label htmlFor="br-from">{t('common.from', 'De')}</label>
-            <input id="br-from" type="date" value={range.from}
+            <input id="br-from" type="date" max={DATA_MAXIMA} value={range.from}
                    onChange={(e) => setRange({ ...range, from: e.target.value })} />
           </div>
           <div className="form-group">
             <label htmlFor="br-to">{t('common.to', 'Até')}</label>
-            <input id="br-to" type="date" value={range.to}
+            <input id="br-to" type="date" max={DATA_MAXIMA} value={range.to}
                    onChange={(e) => setRange({ ...range, to: e.target.value })} />
           </div>
         </div>
@@ -228,7 +228,7 @@ const BarRelatorios = () => {
               <ol className="cr-rank">
                 {melhores.map((l) => (
                   <li key={l.business_date}>
-                    <span className="cr-rank-date">{l.business_date}</span>
+                    <span className="cr-rank-date">{dataPorExtenso(l.business_date, i18n?.language)}</span>
                     <span className="cr-rank-bar" aria-hidden="true">
                       <span style={{ width: `${maiorNet ? Math.round((l.net / maiorNet) * 100) : 0}%` }} />
                     </span>
@@ -256,7 +256,7 @@ const BarRelatorios = () => {
                   <tbody>
                     {daily.map((l) => (
                       <tr key={l.business_date}>
-                        <td className="bar-nw">{l.business_date}</td>
+                        <td className="bar-nw">{dataPorExtenso(l.business_date, i18n?.language)}</td>
                         <td className="bar-num bar-revenue">{formatCurrency(l.net)}</td>
                         <td className="bar-num">{formatCurrency((l.discounts || 0) + (l.courtesy || 0))}</td>
                         <td className="bar-num">{formatCurrency(l.cogs)}</td>

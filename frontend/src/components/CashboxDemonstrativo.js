@@ -11,7 +11,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
 import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import './CashboxDemonstrativo.css';
-import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA } from '../utils/datasLocais';
 
 const firstOfMonth = () => primeiroDiaDoMes();
 const today = () => hojeLocal();
@@ -203,7 +203,7 @@ const CashboxDemonstrativo = ({ anchor = null }) => {
             <div className="form-group">
               <label>{t('cashbox.periodStart')}</label>
               <input
-                type="date"
+                type="date" max={DATA_MAXIMA}
                 value={filters.start}
                 onChange={(e) => setFilters((p) => ({ ...p, start: e.target.value }))}
               />
@@ -211,7 +211,7 @@ const CashboxDemonstrativo = ({ anchor = null }) => {
             <div className="form-group">
               <label>{t('cashbox.periodEnd')}</label>
               <input
-                type="date"
+                type="date" max={DATA_MAXIMA}
                 value={filters.end}
                 onChange={(e) => setFilters((p) => ({ ...p, end: e.target.value }))}
               />

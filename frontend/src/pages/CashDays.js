@@ -8,7 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useCashDay } from '../contexts/CashDayContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA, dataPorExtenso } from '../utils/datasLocais';
 import './CashFloor.css';
 import './CashDays.css';
 
@@ -24,7 +24,7 @@ import './CashDays.css';
  * errado sem nunca mais ser recalculado.
  */
 const CashDays = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   const { reload: reloadDay } = useCashDay();
@@ -95,12 +95,12 @@ const CashDays = () => {
         <div className="cd-filters">
           <div className="form-group">
             <label htmlFor="cd-from">{t('common.from', 'De')}</label>
-            <input id="cd-from" type="date" value={range.from}
+            <input id="cd-from" type="date" max={DATA_MAXIMA} value={range.from}
                    onChange={(e) => setRange({ ...range, from: e.target.value })} />
           </div>
           <div className="form-group">
             <label htmlFor="cd-to">{t('common.to', 'Até')}</label>
-            <input id="cd-to" type="date" value={range.to}
+            <input id="cd-to" type="date" max={DATA_MAXIMA} value={range.to}
                    onChange={(e) => setRange({ ...range, to: e.target.value })} />
           </div>
         </div>
@@ -139,7 +139,7 @@ const CashDays = () => {
                 {days.map((d) => (
                   <tr key={d.id} className={d.status === 'open' ? 'cd-open' : ''}>
                     <td>
-                      <strong>{d.business_date}</strong>
+                      <strong>{dataPorExtenso(d.business_date, i18n?.language)}</strong>
                       {d.label && <div className="cd-label">{d.label}</div>}
                     </td>
                     <td>
@@ -160,7 +160,7 @@ const CashDays = () => {
                     </td>
                     <td>
                       {d.status === 'open' && (
-                        <button type="button" className="btn btn-secondary btn-sm"
+                        <button type="button" className="btn btn-secondary btn-small"
                                 onClick={() => { setNotes(''); setClosing(d); }}>
                           {t('cash.closeDay', 'Encerrar')}
                         </button>
@@ -183,7 +183,7 @@ const CashDays = () => {
           <div className="modal-overlay"
                onClick={(e) => { if (e.target === e.currentTarget && !submitting) setClosing(null); }}>
             <div className="modal" role="dialog" aria-modal="true">
-              <h2>{t('cash.closeDayTitle', 'Encerrar o dia {{date}}', { date: closing.business_date })}</h2>
+              <h2>{t('cash.closeDayTitle', 'Encerrar o dia {{date}}', { date: dataPorExtenso(closing.business_date, i18n?.language) })}</h2>
               <form onSubmit={fechar}>
                 <p className="ctd-close-hint">
                   {t('cash.closeDayHint', 'O faturamento do dia será CONGELADO. Todas as mesas precisam estar fechadas — é a última apuração de cada uma que fecha a conta.')}

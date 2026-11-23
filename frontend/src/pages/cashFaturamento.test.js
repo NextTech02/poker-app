@@ -140,8 +140,8 @@ describe('faturamento', () => {
     await screen.findByText('Melhores dias');
     const itens = screen.getAllByRole('listitem');
     // A sexta (400) vem antes da quinta (130), mesmo com giros muito diferentes.
-    expect(itens[0]).toHaveTextContent('2026-09-11');
-    expect(itens[1]).toHaveTextContent('2026-09-10');
+    expect(itens[0]).toHaveTextContent('11/09/2026');
+    expect(itens[1]).toHaveTextContent('10/09/2026');
     expect(screen.getByText(/Ordenado pelo que o clube ficou/)).toBeInTheDocument();
   });
 

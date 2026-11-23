@@ -7,7 +7,7 @@ import { SkeletonBlock } from '../components/SkeletonLoader';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { exportSections } from '../utils/reportExport';
-import { primeiroDiaDoMes, hojeLocal } from '../utils/datasLocais';
+import { primeiroDiaDoMes, hojeLocal, DATA_MAXIMA, dataPorExtenso } from '../utils/datasLocais';
 import './CashFloor.css';
 import './CashRelatorios.css';
 
@@ -27,7 +27,7 @@ import './CashRelatorios.css';
 const DIAS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 const CashRelatorios = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
 
@@ -157,7 +157,7 @@ const CashRelatorios = () => {
           </div>
           <div className="cr-export">
             {['xlsx', 'csv', 'pdf'].map((f) => (
-              <button key={f} type="button" className="btn btn-secondary btn-sm"
+              <button key={f} type="button" className="btn btn-secondary btn-small"
                       onClick={() => exportar(f)} disabled={exporting || semDados}>
                 {f.toUpperCase()}
               </button>
@@ -168,12 +168,12 @@ const CashRelatorios = () => {
         <div className="cd-filters">
           <div className="form-group">
             <label htmlFor="cr-from">{t('common.from', 'De')}</label>
-            <input id="cr-from" type="date" value={range.from}
+            <input id="cr-from" type="date" max={DATA_MAXIMA} value={range.from}
                    onChange={(e) => setRange({ ...range, from: e.target.value })} />
           </div>
           <div className="form-group">
             <label htmlFor="cr-to">{t('common.to', 'Até')}</label>
-            <input id="cr-to" type="date" value={range.to}
+            <input id="cr-to" type="date" max={DATA_MAXIMA} value={range.to}
                    onChange={(e) => setRange({ ...range, to: e.target.value })} />
           </div>
         </div>
@@ -226,7 +226,7 @@ const CashRelatorios = () => {
               <ol className="cr-rank">
                 {melhores.map((l) => (
                   <li key={l.cash_day_id}>
-                    <span className="cr-rank-date">{l.business_date}</span>
+                    <span className="cr-rank-date">{dataPorExtenso(l.business_date, i18n?.language)}</span>
                     <span className="cr-rank-bar" aria-hidden="true">
                       <span style={{
                         width: melhores[0].revenue
@@ -280,7 +280,7 @@ const CashRelatorios = () => {
                   <tbody>
                     {daily.map((l) => (
                       <tr key={l.cash_day_id}>
-                        <td>{l.business_date}</td>
+                        <td>{dataPorExtenso(l.business_date, i18n?.language)}</td>
                         <td className="cd-revenue">{formatCurrency(l.revenue)}</td>
                         <td>{formatCurrency(l.jackpot)}</td>
                         <td>{formatCurrency(l.buy_ins)}</td>

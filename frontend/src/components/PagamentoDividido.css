@@ -86,3 +86,13 @@
     grid-template-columns: minmax(0, 1fr) minmax(90px, 120px) auto;
   }
 }
+
+/* No celular o nome do meio ("Transferência") não cabia ao lado do valor. */
+@media (max-width: 420px) {
+  .pd-parte {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .pd-parte__meio {
+    grid-column: 1 / -1;
+  }
+}

@@ -147,15 +147,6 @@
   white-space: nowrap;
 }
 
-/* O visual do select (fundo, borda, chevron próprio, foco, options no escuro)
-   vem do padrão global em styles/index.css. Este bloco era uma cópia dele —
-   e, pior, `.form-group select` sem escopo de página vazava para os modais do
-   site inteiro, brigando com a cópia idêntica da Premiação. Aqui fica só a
-   largura, que é layout do formulário do caixa. */
-.form-group select {
-  width: 100%;
-}
-
 .player-nickname {
   color: var(--text-secondary);
   font-size: 0.9em;
@@ -293,10 +284,11 @@
 }
 
 .cx-filtro select {
-  padding: 8px 10px;
+  padding: 8px 2.4rem 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--border-primary);
-  background: var(--secondary-bg);
+  /* `background` (shorthand) apagaria a seta, que é background-image. */
+  background-color: var(--secondary-bg);
   color: var(--text-primary);
 }
 

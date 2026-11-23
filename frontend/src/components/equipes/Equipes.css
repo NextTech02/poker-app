@@ -107,9 +107,11 @@
   padding: 8px 10px;
   border-radius: var(--radius-md, 8px);
   border: 1px solid var(--border-primary);
-  background: var(--secondary-bg);
+  background-color: var(--secondary-bg); /* o shorthand apagaria a seta do select */
   color: var(--text-primary);
+  font-family: var(--font-body);
 }
+.eq-field select { padding-right: 2.4rem; }
 
 .eq-field-linha { flex-direction: row; align-items: center; justify-content: space-between; }
 .eq-field-linha input { width: 90px; }

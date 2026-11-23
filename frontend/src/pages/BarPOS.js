@@ -16,7 +16,7 @@ import { usePermissions } from '../contexts/PermissionContext';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
-import { hojeLocal } from '../utils/datasLocais';
+import { hojeLocal, DATA_MAXIMA, dataPorExtenso } from '../utils/datasLocais';
 import { novoId, saldoDaComanda } from '../utils/barTotais';
 import './CashFloor.css';
 import './Bar.css';
@@ -36,7 +36,7 @@ import Icon from '../components/Icon';
  * cartão até abrir a gaveta (crédito do jogador continua valendo).
  */
 const BarPOS = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
   const { shift, barShiftId, isOpen, loading: shiftLoading, reload: reloadShift } = useBarShift();
@@ -186,7 +186,7 @@ const BarPOS = () => {
             <p>
               {isOpen
                 ? t('bar.posSubtitle', 'Turno de {{date}}{{label}} · {{count}} comanda(s) aberta(s) · {{due}} a receber', {
-                  date: shift?.business_date, label: shift?.label ? ` · ${shift.label}` : '',
+                  date: dataPorExtenso(shift?.business_date, i18n?.language), label: shift?.label ? ` · ${shift.label}` : '',
                   count: tabs.length, due: formatCurrency(totalEmAberto),
                 })
                 : t('bar.posClosedSubtitle', 'Nenhum turno aberto.')}
@@ -289,7 +289,7 @@ const BarPOS = () => {
               <form onSubmit={abrirTurno}>
                 <div className="form-group">
                   <label htmlFor="pos-date">{t('bar.businessDate', 'Data')}</label>
-                  <input id="pos-date" type="date" required value={openForm.business_date}
+                  <input id="pos-date" type="date" max={DATA_MAXIMA} required value={openForm.business_date}
                          onChange={(e) => setOpenForm({ ...openForm, business_date: e.target.value })} />
                 </div>
                 <div className="form-group">

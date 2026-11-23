@@ -103,7 +103,8 @@
 }
 
 /* Torneio por equipes: "por equipe" abaixo da categoria */
-.entry-method-team {
+.entry-method-team,
+.form-group label.entry-method-team {
   display: flex;
   align-items: center;
   gap: 6px;

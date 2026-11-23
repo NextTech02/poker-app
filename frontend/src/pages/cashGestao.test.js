@@ -81,14 +81,14 @@ describe('dias de operação', () => {
 
   it('mostra o faturamento do dia fechado', async () => {
     montar();
-    expect(await screen.findByText('2026-09-10')).toBeInTheDocument();
+    expect(await screen.findByText('10/09/2026')).toBeInTheDocument();
     expect(screen.getByText('R$ 130.00')).toBeInTheDocument();
   });
 
   it('separa faturamento de giro', async () => {
     // São perguntas diferentes: 600 giraram na gaveta, 130 ficaram no clube.
     montar();
-    await screen.findByText('2026-09-10');
+    await screen.findByText('10/09/2026');
     expect(screen.getByText('Faturamento (rake)')).toBeInTheDocument();
     expect(screen.getByText('Giro (buy-ins)')).toBeInTheDocument();
     expect(screen.getByText('R$ 600.00')).toBeInTheDocument();
@@ -101,14 +101,14 @@ describe('dias de operação', () => {
 
   it('o dia aberto aparece sem totais e explica por quê', async () => {
     montar();
-    await screen.findByText('2026-09-11');
+    await screen.findByText('11/09/2026');
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.getByText(/Os totais aparecem quando o dia é encerrado/)).toBeInTheDocument();
   });
 
   it('só o dia aberto oferece encerrar', async () => {
     montar();
-    await screen.findByText('2026-09-11');
+    await screen.findByText('11/09/2026');
     expect(screen.getAllByRole('button', { name: 'Encerrar' })).toHaveLength(1);
   });
 

@@ -15,7 +15,7 @@ import { useCashDay } from '../contexts/CashDayContext';
 import useRealtimeRefresh from '../hooks/useRealtimeRefresh';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { aoMudarOCaixa } from '../utils/eventosDoCaixa';
-import { hojeLocal } from '../utils/datasLocais';
+import { hojeLocal, DATA_MAXIMA, dataPorExtenso } from '../utils/datasLocais';
 import './CashFloor.css';
 
 /**
@@ -32,7 +32,7 @@ import './CashFloor.css';
  * são o giro da noite —, mas rotulados como o que são.
  */
 const CashFloor = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
@@ -171,7 +171,7 @@ const CashFloor = () => {
             <h1><Icon name="chips" className="page-header-icon" /> {t('cash.floor', 'Salão')}</h1>
             <p className="subtitle">
               {isOpen
-                ? t('cash.floorSubtitleOpen', 'Operação do dia {{date}}', { date: day?.business_date })
+                ? t('cash.floorSubtitleOpen', 'Operação do dia {{date}}', { date: dataPorExtenso(day?.business_date, i18n?.language) })
                 : t('cash.floorSubtitle', 'Mesas de cash game, fila e caixa do dia')}
             </p>
           </div>
@@ -353,7 +353,7 @@ const CashFloor = () => {
                   <label htmlFor="cf-date">{t('cash.businessDate', 'Data da operação')}</label>
                   <input
                     id="cf-date"
-                    type="date"
+                    type="date" max={DATA_MAXIMA}
                     value={dayForm.business_date}
                     onChange={(e) => setDayForm({ ...dayForm, business_date: e.target.value })}
                     required

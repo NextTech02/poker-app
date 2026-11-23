@@ -13,6 +13,7 @@
 }
 
 .fn-filters .form-group {
+  margin: 0;
   flex: 1;
   min-width: 140px;
 }
@@ -156,6 +157,7 @@
 }
 
 .fn-tx-filters .form-group {
+  margin: 0;
   min-width: 140px;
   flex: 0 1 200px;
 }

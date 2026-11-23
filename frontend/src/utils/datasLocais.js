@@ -41,3 +41,20 @@ export function diasAtras(n, d = new Date()) {
   const copia = new Date(d.getFullYear(), d.getMonth(), d.getDate() - n);
   return dataLocalISO(copia);
 }
+
+/**
+ * Limite dos campos de data. Sem `max` o navegador aceita ano de até 6 dígitos:
+ * "12026-01-01" saía da digitação e derrubava a consulta no banco.
+ */
+export const DATA_MAXIMA = '9999-12-31';
+
+/**
+ * "AAAA-MM-DD" (como o banco guarda um dia do clube) escrito no idioma da tela.
+ * Montado com os componentes LOCAIS: `new Date('2026-11-23')` é meia-noite UTC
+ * e cairia no dia anterior na América Latina.
+ */
+export function dataPorExtenso(iso, idioma = 'pt-BR') {
+  const [ano, mes, dia] = String(iso || '').slice(0, 10).split('-').map(Number);
+  if (!ano || !mes || !dia) return iso || '';
+  return new Date(ano, mes - 1, dia).toLocaleDateString(idioma, { day: '2-digit', month: '2-digit', year: 'numeric' });
+}

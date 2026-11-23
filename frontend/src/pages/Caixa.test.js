@@ -515,7 +515,7 @@ describe('valor cobrado', () => {
     await montar();
     await abrirModal();
     await preencher();
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(1000);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 1000.00');
   });
 
   it.each([
@@ -526,7 +526,7 @@ describe('valor cobrado', () => {
     await montar();
     await abrirModal();
     await preencher({ tipo });
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(valor);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(`R$ ${Number(valor).toFixed(2)}`);
   });
 
   it('meio de entrada legado, sem valor próprio, cai na configuração do dia', async () => {
@@ -539,7 +539,7 @@ describe('valor cobrado', () => {
     await montar();
     await abrirModal();
     await preencher({ tipo: 'bL' });
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 600.00');
   });
 
   it('add-on SEM valor configurado mostra zero, não o preço do buy-in', async () => {
@@ -558,7 +558,7 @@ describe('valor cobrado', () => {
     await montar({ dias: [{ ...DIA, addon_amount: null }] });
     await abrirModal();
     await porCategoria('addon');
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 0.00');
   });
 
   it('rebuy sem valor configurado também mostra zero', async () => {
@@ -566,7 +566,7 @@ describe('valor cobrado', () => {
     await montar({ dias: [{ ...DIA, rebuy_amount: null }] });
     await abrirModal();
     await porCategoria('rebuy');
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 0.00');
   });
 
   it('add-on de graça (zero configurado) continua zero', async () => {
@@ -576,7 +576,7 @@ describe('valor cobrado', () => {
     await montar({ dias: [{ ...DIA, addon_amount: 0 }] });
     await abrirModal();
     await porCategoria('addon');
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 0.00');
   });
 
   it('com valor configurado, é ele que aparece', async () => {
@@ -584,7 +584,7 @@ describe('valor cobrado', () => {
     await montar();
     await abrirModal();
     await porCategoria('addon');
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(400);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 400.00');
   });
 
   it('sem dia nenhum, o valor vem do torneio', async () => {
@@ -594,9 +594,9 @@ describe('valor cobrado', () => {
     await montar({ dias: [] });
     await abrirModal();
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.tournament'), 't1');
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(0);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 0.00');
     await userEvent.selectOptions(screen.getByLabelText('Categoria'), 'buy_in');
-    await waitFor(() => expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(500));
+    await waitFor(() => expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 500.00'));
   });
 });
 
@@ -1076,7 +1076,7 @@ describe('meios de entrada', () => {
     await montar();
     await abrirModal();
     await preencher({ tipo: 'b2' });
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 600.00');
   });
 
   it('"Rebuy duplo" cobra o preço dele, e não o dobro do rebuy simples', async () => {
@@ -1085,7 +1085,7 @@ describe('meios de entrada', () => {
     await montar();
     await abrirModal();
     await preencher({ tipo: 'b4' });
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(1500);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 1500.00');
   });
 
   it('não existe mais campo de quantidade de rebuys', async () => {
@@ -1124,7 +1124,7 @@ describe('meios de entrada', () => {
     await preencher({ tipo: 'b2' });
     await userEvent.selectOptions(screen.getByLabelText('cashRegister.day'), 'd1b');
     expect(caixaDoMeio('b2')).toBeChecked();
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 600.00');
   });
 
   it('trocar de TORNEIO limpa o meio de entrada escolhido', async () => {
@@ -1255,7 +1255,7 @@ describe('sem meios de entrada à mão o caixa não pode parar', () => {
     await montar();
     await abrirModal();
     await preencherPorCategoria('rebuy');
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(600);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 600.00');
   });
 
   it('enviar sem escolher a categoria é recusado', async () => {
@@ -2053,7 +2053,7 @@ describe('venda com vários meios de entrada', () => {
     await montar();
     await abrirModal();
     await preencher({ tipo: ['b6', 'b5'] });
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(220);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 220.00');
     expect(screen.getByLabelText('Fichas a entregar')).toHaveValue('30.000');
   });
 
@@ -2067,7 +2067,7 @@ describe('venda com vários meios de entrada', () => {
     expect(caixaDoMeio('b1')).not.toBeChecked();
     expect(caixaDoMeio('b2')).toBeChecked();
     expect(caixaDoMeio('b3')).toBeChecked();
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(1000);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 1000.00');
   });
 
   it('desmarcar tira o item da soma', async () => {
@@ -2076,7 +2076,7 @@ describe('venda com vários meios de entrada', () => {
     await abrirModal();
     await preencher({ tipo: ['b6', 'b5'] });
     await marcarMeio('b5');
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(200);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 200.00');
   });
 
   it('entrada + bono: inscreve primeiro e soma o bono na pilha do MESMO jogador', async () => {
@@ -2389,7 +2389,7 @@ describe('entrada paga com ticket de satélite', () => {
     await abrirComTickets();
     await preencher({ tipo: ['b6', 'b5'] });
     await usarTicket();
-    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue(170);
+    expect(screen.getByLabelText('cashRegister.amount')).toHaveValue('R$ 170.00');
     expect(document.querySelector('.cx-ticket-option')).toHaveTextContent('R$ 20.00');
     expect(screen.getByLabelText('cashRegister.paymentMethod')).toBeInTheDocument();
   });
